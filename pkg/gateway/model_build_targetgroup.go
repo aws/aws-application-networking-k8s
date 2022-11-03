@@ -163,7 +163,7 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 	return nil
 }
 
-//TODO have a same BuildTargetGroup for both targetGroupModelBuildTask, latticeServiceModelBuildTask
+// TODO have a same BuildTargetGroup for both targetGroupModelBuildTask, latticeServiceModelBuildTask
 // Build target group for K8S serviceexport object
 func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error {
 

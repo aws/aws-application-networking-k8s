@@ -1,11 +1,12 @@
 package config
 
 import (
-	"github.com/golang/glog"
 	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/karpenter-core/pkg/utils/env"
+	"github.com/golang/glog"
 )
 
 const (
@@ -36,8 +37,8 @@ func ConfigInit() {
 	glog.V(2).Infoln("CLUSTER_VPC_ID: ", os.Getenv("CLUSTER_VPC_ID"))
 
 	// discover Account
-	AccountID = os.Getenv("ACCOUNT_ID")
-	glog.V(2).Infoln("ACCOUNT_ID:", os.Getenv("ACCOUNT_ID"))
+	AccountID = env.WithDefaultString("AWS_ACCOUNT_ID", env.WithDefaultString("AWS_ACCOUNT", "")) // Fallback to AWS_ACCOUNT for compatibility
+	glog.V(2).Infoln("AWS_ACCOUNT_ID:", AccountID)
 
 	// discover Region
 	Region = os.Getenv("REGION")
