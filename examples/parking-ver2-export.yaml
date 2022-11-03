@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parking-ver2-export
+  labels:
+    app: parking-ver2-export
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: parking-ver2-export
+  template:
+    metadata:
+      labels:
+        app: parking-ver2-export
+    spec:
+      containers:
+      - name: parking-ver2-export
+        image: public.ecr.aws/x2j8p8w7/http-server:latest
+        env:
+        - name: PodName
+          value: "Inventory-ver2 handler pod" 
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: parking-ver2-export
+spec:
+  selector:
+    app: parking-ver2-export
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8090
+
+
+---
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: parking-ver2-export
+  annotations:
+          multicluster.x-k8s.io/federation: "amazon-vpc-lattice"

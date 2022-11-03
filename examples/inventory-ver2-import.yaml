@@ -1,0 +1,12 @@
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceImport
+metadata:
+  name: inventory-ver2
+  annotations:
+          multicluster.x-k8s.io/aws-vpc: "your-vpc-id"    
+          multicluster.x-k8s.io/aws-eks-cluster-name: "mercury-eks-test-2"
+spec:
+  type: ClusterSetIP
+  ports:
+  - port: 80
+    protocol: TCP
