@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/mercury"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/service/mercury"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

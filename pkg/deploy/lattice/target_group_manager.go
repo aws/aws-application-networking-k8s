@@ -32,17 +32,21 @@ func NewTargetGroupManager(cloud mercury_aws.Cloud) *defaultTargetGroupManager {
 
 // Create will try to create a target group
 // return error when:
-//		ListTargetGroupsAsList() returns error
-//		CreateTargetGroupWithContext returns error
-// return errors.New(LATTICE_RETRY) when:
-// 		CreateTargetGroupWithContext returns
-//			TG is TargetGroupStatusUpdateInProgress
-//			TG is MeshVpcAssociationStatusFailed
-//			TG is TargetGroupStatusCreateInProgress
-//			TG is TargetGroupStatusFailed
-// return nil when:
-// 		TG is TargetGroupStatusActive
 //
+//	ListTargetGroupsAsList() returns error
+//	CreateTargetGroupWithContext returns error
+//
+// return errors.New(LATTICE_RETRY) when:
+//
+//	CreateTargetGroupWithContext returns
+//		TG is TargetGroupStatusUpdateInProgress
+//		TG is MeshVpcAssociationStatusFailed
+//		TG is TargetGroupStatusCreateInProgress
+//		TG is TargetGroupStatusFailed
+//
+// return nil when:
+//
+//	TG is TargetGroupStatusActive
 func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error) {
 
 	glog.V(6).Infof("Create Target Group API call for name %s \n", targetGroup.Spec.Name)

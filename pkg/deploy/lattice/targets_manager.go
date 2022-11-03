@@ -31,6 +31,7 @@ func NewTargetsManager(cloud mercury_aws.Cloud, datastore *latticestore.LatticeD
 
 // Create will try to register targets to the target group
 // return Retry when:
+//
 //		Target group does not exist
 //		nonempty unsuccessfully registered targets list
 //	otherwise:
