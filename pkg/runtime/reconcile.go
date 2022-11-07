@@ -2,7 +2,11 @@ package runtime
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
+	//"github.com/pkg/errors"
+	"errors"
+	"time"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -10,6 +14,12 @@ import (
 func HandleReconcileError(err error) (ctrl.Result, error) {
 	if err == nil {
 		return ctrl.Result{}, nil
+	}
+
+	var retryErr = errors.New(lattice.LATTICE_RETRY)
+	if errors.As(err, &retryErr) {
+		fmt.Printf(">>>>>> Retrying Reconcile after 20 seconds ...\n")
+		return ctrl.Result{RequeueAfter: time.Second * 20}, nil
 	}
 
 	var requeueNeededAfter *RequeueNeededAfter
@@ -25,4 +35,5 @@ func HandleReconcileError(err error) (ctrl.Result, error) {
 	}
 
 	return ctrl.Result{}, err
+
 }

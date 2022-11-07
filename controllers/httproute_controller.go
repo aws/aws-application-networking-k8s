@@ -39,6 +39,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -100,21 +101,7 @@ func NewHttpRouteReconciler(cloud aws.Cloud, client client.Client, scheme *runti
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *HTTPRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var retry = 0
-	var rc error
-
-	for retry < 20 {
-		rc = r.reconcile(ctx, req)
-
-		if rc != nil {
-			retry++
-			time.Sleep(30 * time.Second)
-			glog.V(2).Infof("Reconcile HTTPRoute , retry = %d", retry)
-			continue
-		}
-		break
-	}
-	return lattice_runtime.HandleReconcileError(rc)
+	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
 }
 
 func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
@@ -234,8 +221,17 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, httproute
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		glog.V(6).Infof("HTTPRouteREconciler: Failed deploy %s due to err %v \n", httproute.Name, err)
-		r.eventRecorder.Event(httproute, corev1.EventTypeWarning,
-			k8s.HTTPRouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy mode due to %v", err))
+
+		var retryErr = errors.New(lattice.LATTICE_RETRY)
+
+		if errors.As(err, &retryErr) {
+			r.eventRecorder.Event(httproute, corev1.EventTypeNormal,
+				k8s.HTTPRouteEventReasonRetryReconcile, "retry reconcile...")
+
+		} else {
+			r.eventRecorder.Event(httproute, corev1.EventTypeWarning,
+				k8s.HTTPRouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
+		}
 		return nil, nil, err
 	}
 

@@ -12,6 +12,7 @@ const (
 	HTTPRouteventReasonFailedAddFinalizer = "FailedAddFinalizer"
 	HTTPRouteEventReasonFailedBuildModel  = "FailedBuildModel"
 	HTTPRouteEventReasonFailedDeployModel = "FailedDeployModel"
+	HTTPRouteEventReasonRetryReconcile    = "Retry-Reconcile"
 
 	// Service events
 	ServiceEventReasonFailedAddFinalizer = "FailedAddFinalizer"
