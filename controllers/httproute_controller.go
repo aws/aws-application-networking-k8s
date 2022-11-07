@@ -100,7 +100,21 @@ func NewHttpRouteReconciler(cloud aws.Cloud, client client.Client, scheme *runti
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *HTTPRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
+	var retry = 0
+	var rc error
+
+	for retry < 20 {
+		rc = r.reconcile(ctx, req)
+
+		if rc != nil {
+			retry++
+			time.Sleep(30 * time.Second)
+			glog.V(2).Infof("Reconcile HTTPRoute , retry = %d", retry)
+			continue
+		}
+		break
+	}
+	return lattice_runtime.HandleReconcileError(rc)
 }
 
 func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
