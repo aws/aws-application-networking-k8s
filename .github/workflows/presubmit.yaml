@@ -18,7 +18,7 @@ jobs:
     - run: sed -En 's/^go[[:space:]]+([[:digit:].]+)$/GO_VERSION=\1/p' go.mod >> $GITHUB_ENV
     - uses: actions/setup-go@v3
       with:
-        go-version: 1.19 # Reenable this once we move the module to 1.19 ${{ env.GO_VERSION }}
+        go-version: ${{ env.GO_VERSION }}
         check-latest: true
     - uses: actions/cache@v3
       with:
