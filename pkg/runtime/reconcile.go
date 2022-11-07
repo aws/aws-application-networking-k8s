@@ -1,9 +1,8 @@
 package runtime
 
 import (
-	"fmt"
-	//"github.com/pkg/errors"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
@@ -35,5 +34,4 @@ func HandleReconcileError(err error) (ctrl.Result, error) {
 	}
 
 	return ctrl.Result{}, err
-
 }
