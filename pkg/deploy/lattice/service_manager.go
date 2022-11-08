@@ -33,16 +33,21 @@ func NewServiceManager(cloud lattice_aws.Cloud, latticeDataStore *latticestore.L
 
 // Create will try to create a service and associate the serviceNetwork and service
 // return error when:
-//		ListServicesAsList() returns error
-//		CreateServiceWithContext returns error
+//
+//	ListServicesAsList() returns error
+//	CreateServiceWithContext returns error
+//
 // return nil when:
-// 		Service get created and associated with serviceNetwork
+//
+//	Service get created and associated with serviceNetwork
+//
 // return errors.New(LATTICE_RETRY) when:
-// 		CreateMeshServiceAssociationWithContext returns
-//			MeshServiceAssociationStatusCreateInProgress
-//			MeshServiceAssociationStatusDeleteFailed
-//			MeshServiceAssociationStatusCreateFailed
-//			MeshServiceAssociationStatusDeleteInProgress
+//
+//	CreateMeshServiceAssociationWithContext returns
+//		MeshServiceAssociationStatusCreateInProgress
+//		MeshServiceAssociationStatusDeleteFailed
+//		MeshServiceAssociationStatusCreateFailed
+//		MeshServiceAssociationStatusDeleteInProgress
 func (s *defaultServiceManager) Create(ctx context.Context, service *latticemodel.Service) (latticemodel.ServiceStatus, error) {
 
 	// get serviceNetwork info

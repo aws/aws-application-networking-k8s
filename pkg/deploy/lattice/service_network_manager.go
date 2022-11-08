@@ -33,13 +33,18 @@ type defaultServiceNetworkManager struct {
 
 // Create will try to create a service_network and associate the service_network with vpc
 // return error when:
-//		ListServiceNetworkesWithContext returns error
-//		CreateServiceNetworkWithContext returns error
-// 		CreateServiceNetworkVpcAssociationInput returns error
+//
+//	ListServiceNetworkesWithContext returns error
+//	CreateServiceNetworkWithContext returns error
+//	CreateServiceNetworkVpcAssociationInput returns error
+//
 // return nil when:
-// 		ServiceNetwork get created and associated with vpc
+//
+//	ServiceNetwork get created and associated with vpc
+//
 // return errors.New(LATTICE_RETRY) when:
-// 		CreateServiceNetworkVpcAssociationInput returns ServiceNetworkVpcAssociationStatusFailed/ServiceNetworkVpcAssociationStatusCreateInProgress/MeshVpcAssociationStatusDeleteInProgress
+//
+//	CreateServiceNetworkVpcAssociationInput returns ServiceNetworkVpcAssociationStatusFailed/ServiceNetworkVpcAssociationStatusCreateInProgress/MeshVpcAssociationStatusDeleteInProgress
 func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_network *latticemodel.ServiceNetwork) (latticemodel.ServiceNetworkStatus, error) {
 	// check if exists
 	service_networkSummary, err := m.findServiceNetworkByName(ctx, service_network.Spec.Name)

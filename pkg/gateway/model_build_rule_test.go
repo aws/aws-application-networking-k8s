@@ -24,7 +24,6 @@ import (
 )
 
 func Test_RuleModelBuild(t *testing.T) {
-
 	var httpSectionName v1alpha2.SectionName = "http"
 	var serviceKind v1alpha2.Kind = "Service"
 	var serviceimportKind v1alpha2.Kind = "ServiceImport"

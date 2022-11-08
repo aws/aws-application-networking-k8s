@@ -1,9 +1,18 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 )
+
+type RetryError error
+
+func NewRetryError() RetryError {
+	return RetryError(errors.New(lattice.LATTICE_RETRY))
+}
 
 // NewRequeueNeeded constructs new RequeueError to
 // instruct controller-runtime to requeue the processing item without been logged as error.

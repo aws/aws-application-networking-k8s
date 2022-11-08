@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -15,7 +14,7 @@ func HandleReconcileError(err error) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	var retryErr = errors.New(lattice.LATTICE_RETRY)
+	retryErr := NewRetryError()
 	if errors.As(err, &retryErr) {
 		fmt.Printf(">>>>>> Retrying Reconcile after 20 seconds ...\n")
 		return ctrl.Result{RequeueAfter: time.Second * 20}, nil
