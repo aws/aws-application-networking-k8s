@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -41,17 +41,17 @@ func Test_RegisterTargets_RegisterSuccessfully(t *testing.T) {
 	id := "123456789"
 	ip := "123.456.78"
 	port := int64(8080)
-	targetInput := &mercury.Target{
+	targetInput := &vpclattice.Target{
 		Id:   &ip,
 		Port: &port,
 	}
-	registerTargetsInput := &mercury.RegisterTargetsInput{
+	registerTargetsInput := &vpclattice.RegisterTargetsInput{
 		TargetGroupIdentifier: &id,
-		Targets:               []*mercury.Target{targetInput},
+		Targets:               []*vpclattice.Target{targetInput},
 	}
 
-	tgCreateOutput := &mercury.RegisterTargetsOutput{}
-	listTargetOutput := []*mercury.TargetSummary{}
+	tgCreateOutput := &vpclattice.RegisterTargetsOutput{}
+	listTargetOutput := []*vpclattice.TargetSummary{}
 
 	latticeDataStore := latticestore.NewLatticeDataStore()
 	tgName := latticestore.TargetGroupName("test", "")
@@ -60,11 +60,11 @@ func Test_RegisterTargets_RegisterSuccessfully(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 
-	mockMercurySess.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(tgCreateOutput, nil)
-	mockMercurySess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(tgCreateOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &createInput)
@@ -100,20 +100,20 @@ func Test_RegisterTargets_TGNotExist(t *testing.T) {
 func Test_RegisterTargets_Registerfailed(t *testing.T) {
 	sId := "123.456.7.890"
 	sPort := int64(80)
-	targetsList := &mercury.TargetSummary{
+	targetsList := &vpclattice.TargetSummary{
 		Id:   &sId,
 		Port: &sPort,
 	}
-	targetsSuccessful := &mercury.Target{
+	targetsSuccessful := &vpclattice.Target{
 		Id:   &sId,
 		Port: &sPort,
 	}
-	successful := []*mercury.Target{targetsSuccessful}
-	deRegisterTargetsOutput := &mercury.DeregisterTargetsOutput{
+	successful := []*vpclattice.Target{targetsSuccessful}
+	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{
 		Successful: successful,
 	}
 
-	listTargetOutput := []*mercury.TargetSummary{targetsList}
+	listTargetOutput := []*vpclattice.TargetSummary{targetsList}
 
 	targetsSpec := latticemodel.TargetsSpec{
 		Name:          "test",
@@ -125,7 +125,7 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         targetsSpec,
 	}
-	registerTargetsOutput := &mercury.RegisterTargetsOutput{}
+	registerTargetsOutput := &vpclattice.RegisterTargetsOutput{}
 
 	latticeDataStore := latticestore.NewLatticeDataStore()
 	tgName := latticestore.TargetGroupName("test", "")
@@ -134,12 +134,12 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 
-	mockMercurySess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
-	mockMercurySess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockMercurySess.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, errors.New("Register_Targets_Failed"))
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
+	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, errors.New("Register_Targets_Failed"))
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &planToRegister)
@@ -152,24 +152,24 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 	sId := "123.456.7.890"
 	sPort := int64(80)
-	targetsList := &mercury.TargetSummary{
+	targetsList := &vpclattice.TargetSummary{
 		Id:   &sId,
 		Port: &sPort,
 	}
-	targetsSuccessful := &mercury.Target{
+	targetsSuccessful := &vpclattice.Target{
 		Id:   &sId,
 		Port: &sPort,
 	}
-	successful := []*mercury.Target{targetsSuccessful}
-	deRegisterTargetsOutput := &mercury.DeregisterTargetsOutput{
+	successful := []*vpclattice.Target{targetsSuccessful}
+	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{
 		Successful: successful,
 	}
-	listTargetOutput := []*mercury.TargetSummary{targetsList}
+	listTargetOutput := []*vpclattice.TargetSummary{targetsList}
 
 	tgId := "123456789"
-	deRegisterTargetsInput := &mercury.DeregisterTargetsInput{
+	deRegisterTargetsInput := &vpclattice.DeregisterTargetsInput{
 		TargetGroupIdentifier: &tgId,
-		Targets:               []*mercury.Target{targetsSuccessful},
+		Targets:               []*vpclattice.Target{targetsSuccessful},
 	}
 
 	targetToRegister := latticemodel.Target{
@@ -189,24 +189,24 @@ func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 
 	ip := "123.456.78"
 	port := int64(8080)
-	targetToRegisterInput := &mercury.Target{
+	targetToRegisterInput := &vpclattice.Target{
 		Id:   &ip,
 		Port: &port,
 	}
-	registerTargetsInput := mercury.RegisterTargetsInput{
+	registerTargetsInput := vpclattice.RegisterTargetsInput{
 		TargetGroupIdentifier: &tgId,
-		Targets:               []*mercury.Target{targetToRegisterInput},
+		Targets:               []*vpclattice.Target{targetToRegisterInput},
 	}
 
 	unsuccessfulId := "123.456.78"
 	unsuccessfulPort := int64(8080)
-	targetsUnsuccessful := &mercury.TargetFailure{
+	targetsUnsuccessful := &vpclattice.TargetFailure{
 		Id:   &unsuccessfulId,
 		Port: &unsuccessfulPort,
 	}
-	unsuccessful := []*mercury.TargetFailure{targetsUnsuccessful}
+	unsuccessful := []*vpclattice.TargetFailure{targetsUnsuccessful}
 
-	registerTargetsOutput := &mercury.RegisterTargetsOutput{
+	registerTargetsOutput := &vpclattice.RegisterTargetsOutput{
 		Unsuccessful: unsuccessful,
 	}
 
@@ -217,12 +217,12 @@ func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 
-	mockMercurySess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
-	mockMercurySess.EXPECT().DeregisterTargetsWithContext(ctx, deRegisterTargetsInput).Return(deRegisterTargetsOutput, nil)
-	mockMercurySess.EXPECT().RegisterTargetsWithContext(ctx, &registerTargetsInput).Return(registerTargetsOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
+	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, deRegisterTargetsInput).Return(deRegisterTargetsOutput, nil)
+	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, &registerTargetsInput).Return(registerTargetsOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &planToRegister)

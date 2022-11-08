@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	mercury "github.com/aws/aws-sdk-go/service/mercury"
+	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -81,10 +81,10 @@ func (mr *MockTargetGroupManagerMockRecorder) Get(tx, targetGroup interface{}) *
 }
 
 // List mocks base method.
-func (m *MockTargetGroupManager) List(ctx context.Context) ([]mercury.GetTargetGroupOutput, error) {
+func (m *MockTargetGroupManager) List(ctx context.Context) ([]vpclattice.GetTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", ctx)
-	ret0, _ := ret[0].([]mercury.GetTargetGroupOutput)
+	ret0, _ := ret[0].([]vpclattice.GetTargetGroupOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

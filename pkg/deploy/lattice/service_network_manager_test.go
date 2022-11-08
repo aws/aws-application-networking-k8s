@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"testing"
 
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -26,33 +26,33 @@ func Test_CreateServiceNetwork_MeshNotExist(t *testing.T) {
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
-	meshCreateOutput := &mercury.CreateMeshOutput{
+	meshCreateOutput := &vpclattice.CreateServiceNetworkOutput{
 		Arn:  &arn,
 		Id:   &id,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{}
-	status := mercury.MeshVpcAssociationStatusActive
-	createServiceNetworkVPCAssociationOutput := &mercury.CreateMeshVpcAssociationOutput{
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
+	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 		Status: &status,
 	}
-	createServiceNetworkInput := &mercury.CreateMeshInput{
+	createServiceNetworkInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
 	}
-	createServiceNetworkVpcAssociationInput := &mercury.CreateMeshVpcAssociationInput{
-		MeshIdentifier: &id,
-		VpcIdentifier:  &config.VpcID,
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &id,
+		VpcIdentifier:            &config.VpcID,
 	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess := mocks.NewMockMercury(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshWithContext(ctx, createServiceNetworkInput).Return(meshCreateOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(meshCreateOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
@@ -74,20 +74,20 @@ func Test_CreateServiceNetwork_ListFailed(t *testing.T) {
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
-	item := mercury.MeshSummary{
+	item := vpclattice.ServiceNetworkSummary{
 		Arn:  &arn,
 		Id:   &id,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&item}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, errors.New("ERROR"))
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, errors.New("ERROR"))
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess)
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
@@ -98,9 +98,9 @@ func Test_CreateServiceNetwork_ListFailed(t *testing.T) {
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
 
-// ServiceNetwork already exists, association is in MeshVpcAssociationStatusCreateInProgress.
+// ServiceNetwork already exists, association is in ServiceNetworkVpcAssociationStatusCreateInProgress.
 
-func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusCreateInProgress(t *testing.T) {
+func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -112,31 +112,31 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusCreateIn
 	meshArn := "12345678912345678912"
 	name := "test"
 	vpcId := config.VpcID
-	item := mercury.MeshSummary{
+	item := vpclattice.ServiceNetworkSummary{
 		Arn:  &meshArn,
 		Id:   &meshId,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&item}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
 
-	status := mercury.MeshVpcAssociationStatusCreateInProgress
-	items := mercury.MeshVpcAssociationSummary{
-		MeshArn:  &meshArn,
-		MeshId:   &meshId,
-		MeshName: &meshId,
-		Status:   &status,
-		VpcId:    &vpcId,
+	status := vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &vpcId,
 	}
-	statusServiceNetworkVPCOutput := []*mercury.MeshVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().ListMeshVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
@@ -147,9 +147,9 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusCreateIn
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
 
-// ServiceNetwork already exists, association is in MeshVpcAssociationStatusDeleteInProgress.
+// ServiceNetwork already exists, association is in ServiceNetworkVpcAssociationStatusDeleteInProgress.
 
-func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusDeleteInProgress(t *testing.T) {
+func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -161,31 +161,31 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusDeleteIn
 	meshArn := "12345678912345678912"
 	name := "test"
 	vpcId := config.VpcID
-	item := mercury.MeshSummary{
+	item := vpclattice.ServiceNetworkSummary{
 		Arn:  &meshArn,
 		Id:   &meshId,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&item}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
 
-	status := mercury.MeshVpcAssociationStatusDeleteInProgress
-	items := mercury.MeshVpcAssociationSummary{
-		MeshArn:  &meshArn,
-		MeshId:   &meshId,
-		MeshName: &meshId,
-		Status:   &status,
-		VpcId:    &vpcId,
+	status := vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &vpcId,
 	}
-	statusServiceNetworkVPCOutput := []*mercury.MeshVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().ListMeshVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
@@ -196,8 +196,8 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusDeleteIn
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
 
-// ServiceNetwork already exists, association is MeshVpcAssociationStatusActive.
-func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusActive(t *testing.T) {
+// ServiceNetwork already exists, association is ServiceNetworkVpcAssociationStatusActive.
+func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusActive(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -208,31 +208,31 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusActive(t
 	meshId := "12345678912345678912"
 	meshArn := "12345678912345678912"
 	name := "test"
-	item := mercury.MeshSummary{
+	item := vpclattice.ServiceNetworkSummary{
 		Arn:  &meshArn,
 		Id:   &meshId,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&item}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
 
-	status := mercury.MeshVpcAssociationStatusActive
-	items := mercury.MeshVpcAssociationSummary{
-		MeshArn:  &meshArn,
-		MeshId:   &meshId,
-		MeshName: &meshId,
-		Status:   &status,
-		VpcId:    &config.VpcID,
+	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &config.VpcID,
 	}
-	statusServiceNetworkVPCOutput := []*mercury.MeshVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().ListMeshVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
@@ -242,8 +242,8 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusActive(t
 	assert.Equal(t, resp.ServiceNetworkID, meshId)
 }
 
-// ServiceNetwork already exists, association is MeshVpcAssociationStatusCreateFailed.
-func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusCreateFailed(t *testing.T) {
+// ServiceNetwork already exists, association is ServiceNetworkVpcAssociationStatusCreateFailed.
+func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusCreateFailed(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -254,41 +254,41 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshVpcAssociationStatusCreateFa
 	meshId := "12345678912345678912"
 	meshArn := "12345678912345678912"
 	name := "test"
-	item := mercury.MeshSummary{
+	item := vpclattice.ServiceNetworkSummary{
 		Arn:  &meshArn,
 		Id:   &meshId,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&item}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
 
-	status := mercury.MeshVpcAssociationStatusCreateFailed
-	items := mercury.MeshVpcAssociationSummary{
-		MeshArn:  &meshArn,
-		MeshId:   &meshId,
-		MeshName: &meshId,
-		Status:   &status,
-		VpcId:    &config.VpcID,
+	status := vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &config.VpcID,
 	}
-	statusServiceNetworkVPCOutput := []*mercury.MeshVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
-	associationStatus := mercury.MeshVpcAssociationStatusActive
-	createServiceNetworkVPCAssociationOutput := &mercury.CreateMeshVpcAssociationOutput{
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 		Status: &associationStatus,
 	}
-	createServiceNetworkVpcAssociationInput := &mercury.CreateMeshVpcAssociationInput{
-		MeshIdentifier: &meshId,
-		VpcIdentifier:  &config.VpcID,
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &meshId,
+		VpcIdentifier:            &config.VpcID,
 	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().ListMeshVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
@@ -311,41 +311,41 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *te
 	meshArn := "12345678912345678912"
 	name := "test"
 	vpcId := "123445677"
-	item := mercury.MeshSummary{
+	item := vpclattice.ServiceNetworkSummary{
 		Arn:  &meshArn,
 		Id:   &meshId,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&item}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
 
-	status := mercury.MeshVpcAssociationStatusCreateFailed
-	items := mercury.MeshVpcAssociationSummary{
-		MeshArn:  &meshArn,
-		MeshId:   &meshId,
-		MeshName: &meshId,
-		Status:   &status,
-		VpcId:    &vpcId,
+	status := vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &vpcId,
 	}
-	statusServiceNetworkVPCOutput := []*mercury.MeshVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
-	associationStatus := mercury.MeshVpcAssociationStatusActive
-	createServiceNetworkVPCAssociationOutput := &mercury.CreateMeshVpcAssociationOutput{
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 		Status: &associationStatus,
 	}
-	createServiceNetworkVpcAssociationInput := &mercury.CreateMeshVpcAssociationInput{
-		MeshIdentifier: &meshId,
-		VpcIdentifier:  &config.VpcID,
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &meshId,
+		VpcIdentifier:            &config.VpcID,
 	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().ListMeshVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
@@ -355,8 +355,8 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *te
 	assert.Equal(t, resp.ServiceNetworkID, meshId)
 }
 
-// ServiceNetwork does not exists, association is MeshVpcAssociationStatusFailed.
-func Test_CreateServiceNetwork_MeshNotExist_MeshVpcAssociationStatusFailed(t *testing.T) {
+// ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusFailed.
+func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFailed(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -368,33 +368,33 @@ func Test_CreateServiceNetwork_MeshNotExist_MeshVpcAssociationStatusFailed(t *te
 	meshArn := "12345678912345678912"
 	name := "test"
 
-	listServiceNetworkOutput := []*mercury.MeshSummary{}
-	associationStatus := mercury.MeshVpcAssociationStatusCreateFailed
-	createServiceNetworkVPCAssociationOutput := &mercury.CreateMeshVpcAssociationOutput{
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed
+	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 		Status: &associationStatus,
 	}
-	meshCreateOutput := &mercury.CreateMeshOutput{
+	meshCreateOutput := &vpclattice.CreateServiceNetworkOutput{
 		Arn:  &meshArn,
 		Id:   &meshId,
 		Name: &name,
 	}
-	meshCreateInput := &mercury.CreateMeshInput{
+	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
 	}
-	createServiceNetworkVpcAssociationInput := &mercury.CreateMeshVpcAssociationInput{
-		MeshIdentifier: &meshId,
-		VpcIdentifier:  &config.VpcID,
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &meshId,
+		VpcIdentifier:            &config.VpcID,
 	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshWithContext(ctx, meshCreateInput).Return(meshCreateOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, meshCreateInput).Return(meshCreateOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
@@ -405,8 +405,8 @@ func Test_CreateServiceNetwork_MeshNotExist_MeshVpcAssociationStatusFailed(t *te
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
 
-// ServiceNetwork does not exists, association is MeshVpcAssociationStatusCreateInProgress.
-func Test_CreateServiceNetwork_MeshNOTExist_MeshVpcAssociationStatusCreateInProgress(t *testing.T) {
+// ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusCreateInProgress.
+func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -417,33 +417,33 @@ func Test_CreateServiceNetwork_MeshNOTExist_MeshVpcAssociationStatusCreateInProg
 	meshId := "12345678912345678912"
 	meshArn := "12345678912345678912"
 	name := "test"
-	listServiceNetworkOutput := []*mercury.MeshSummary{}
-	associationStatus := mercury.MeshVpcAssociationStatusCreateInProgress
-	createServiceNetworkVPCAssociationOutput := &mercury.CreateMeshVpcAssociationOutput{
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress
+	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 		Status: &associationStatus,
 	}
-	meshCreateOutput := &mercury.CreateMeshOutput{
+	meshCreateOutput := &vpclattice.CreateServiceNetworkOutput{
 		Arn:  &meshArn,
 		Id:   &meshId,
 		Name: &name,
 	}
-	meshCreateInput := &mercury.CreateMeshInput{
+	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
 	}
-	createServiceNetworkVpcAssociationInput := &mercury.CreateMeshVpcAssociationInput{
-		MeshIdentifier: &meshId,
-		VpcIdentifier:  &config.VpcID,
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &meshId,
+		VpcIdentifier:            &config.VpcID,
 	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshWithContext(ctx, meshCreateInput).Return(meshCreateOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, meshCreateInput).Return(meshCreateOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
@@ -454,8 +454,8 @@ func Test_CreateServiceNetwork_MeshNOTExist_MeshVpcAssociationStatusCreateInProg
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
 
-// ServiceNetwork does not exists, association is MeshVpcAssociationStatusDeleteInProgress.
-func Test_CreateServiceNetwork_MeshNotExist_MeshVpcAssociationStatusDeleteInProgress(t *testing.T) {
+// ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusDeleteInProgress.
+func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -466,33 +466,33 @@ func Test_CreateServiceNetwork_MeshNotExist_MeshVpcAssociationStatusDeleteInProg
 	meshId := "12345678912345678912"
 	meshArn := "12345678912345678912"
 	name := "test"
-	listServiceNetworkOutput := []*mercury.MeshSummary{}
-	associationStatus := mercury.MeshVpcAssociationStatusDeleteInProgress
-	createServiceNetworkVPCAssociationOutput := &mercury.CreateMeshVpcAssociationOutput{
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress
+	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 		Status: &associationStatus,
 	}
-	meshCreateOutput := &mercury.CreateMeshOutput{
+	meshCreateOutput := &vpclattice.CreateServiceNetworkOutput{
 		Arn:  &meshArn,
 		Id:   &meshId,
 		Name: &name,
 	}
-	meshCreateInput := &mercury.CreateMeshInput{
+	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
 	}
-	createServiceNetworkVpcAssociationInput := &mercury.CreateMeshVpcAssociationInput{
-		MeshIdentifier: &meshId,
-		VpcIdentifier:  &config.VpcID,
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &meshId,
+		VpcIdentifier:            &config.VpcID,
 	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshWithContext(ctx, meshCreateInput).Return(meshCreateOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, meshCreateInput).Return(meshCreateOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
@@ -504,7 +504,7 @@ func Test_CreateServiceNetwork_MeshNotExist_MeshVpcAssociationStatusDeleteInProg
 }
 
 // ServiceNetwork does not exists, association returns Error.
-func Test_CreateServiceNetwork_MeshNotExist_MeshVpcAssociationReturnsError(t *testing.T) {
+func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationReturnsError(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -515,30 +515,30 @@ func Test_CreateServiceNetwork_MeshNotExist_MeshVpcAssociationReturnsError(t *te
 	meshId := "12345678912345678912"
 	meshArn := "12345678912345678912"
 	name := "test"
-	listServiceNetworkOutput := []*mercury.MeshSummary{}
-	createServiceNetworkVPCAssociationOutput := &mercury.CreateMeshVpcAssociationOutput{}
-	meshCreateOutput := &mercury.CreateMeshOutput{
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
+	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{}
+	meshCreateOutput := &vpclattice.CreateServiceNetworkOutput{
 		Arn:  &meshArn,
 		Id:   &meshId,
 		Name: &name,
 	}
-	meshCreateInput := &mercury.CreateMeshInput{
+	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
 	}
-	createServiceNetworkVpcAssociationInput := &mercury.CreateMeshVpcAssociationInput{
-		MeshIdentifier: &meshId,
-		VpcIdentifier:  &config.VpcID,
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &meshId,
+		VpcIdentifier:            &config.VpcID,
 	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshWithContext(ctx, meshCreateInput).Return(meshCreateOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, errors.New("ERROR"))
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, meshCreateInput).Return(meshCreateOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, errors.New("ERROR"))
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
@@ -561,24 +561,24 @@ func Test_CreateMesh_MeshNotExist_MeshCreateFailed(t *testing.T) {
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
-	meshCreateOutput := &mercury.CreateMeshOutput{
+	meshCreateOutput := &vpclattice.CreateServiceNetworkOutput{
 		Arn:  &arn,
 		Id:   &id,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{}
-	meshCreateInput := &mercury.CreateMeshInput{
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
+	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
 	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().CreateMeshWithContext(ctx, meshCreateInput).Return(meshCreateOutput, errors.New("ERROR"))
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, meshCreateInput).Return(meshCreateOutput, errors.New("ERROR"))
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
@@ -590,15 +590,15 @@ func Test_CreateMesh_MeshNotExist_MeshCreateFailed(t *testing.T) {
 }
 
 func Test_DeleteMesh_MeshNotExist(t *testing.T) {
-	listServiceNetworkOutput := []*mercury.MeshSummary{}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess)
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	err := meshManager.Delete(ctx, "test")
@@ -610,27 +610,27 @@ func Test_DeleteMesh_MeshExistsNoAssociation(t *testing.T) {
 	arn := "123456789"
 	id := "123456789"
 	name := "test"
-	item := mercury.MeshSummary{
+	item := vpclattice.ServiceNetworkSummary{
 		Arn:  &arn,
 		Id:   &id,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&item}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
 
-	statusServiceNetworkVPCOutput := []*mercury.MeshVpcAssociationSummary{}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{}
 
-	deleteMeshOutput := &mercury.DeleteMeshOutput{}
-	deleteMeshInout := &mercury.DeleteMeshInput{MeshIdentifier: &id}
+	deleteMeshOutput := &vpclattice.DeleteServiceNetworkOutput{}
+	deleteMeshInout := &vpclattice.DeleteServiceNetworkInput{ServiceNetworkIdentifier: &id}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().ListMeshVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockMercurySess.EXPECT().DeleteMeshWithContext(ctx, deleteMeshInout).Return(deleteMeshOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkWithContext(ctx, deleteMeshInout).Return(deleteMeshOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	err := meshManager.Delete(ctx, "test")
@@ -643,26 +643,26 @@ func Test_DeleteMesh_MeshExists_AssociationsWithOtherVPCExists(t *testing.T) {
 	id := "123456789"
 	name := "test"
 	vpcId := "123456789"
-	item := mercury.MeshSummary{
+	item := vpclattice.ServiceNetworkSummary{
 		Arn:  &arn,
 		Id:   &id,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&item}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
 
-	meshVpcAssociationSummaryItem := mercury.MeshVpcAssociationSummary{
+	ServiceNetworkVpcAssociationSummaryItem := vpclattice.ServiceNetworkVpcAssociationSummary{
 		VpcId: &vpcId,
 	}
-	statusServiceNetworkVPCOutput := []*mercury.MeshVpcAssociationSummary{&meshVpcAssociationSummaryItem}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&ServiceNetworkVpcAssociationSummaryItem}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().ListMeshVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	err := meshManager.Delete(ctx, "test")
@@ -674,44 +674,44 @@ func Test_DeleteMesh_MeshExistsAssociatedWithVPC_Deleting(t *testing.T) {
 	arn := "123456789"
 	id := "123456789"
 	name := "test"
-	itemMesh := mercury.MeshSummary{
+	itemMesh := vpclattice.ServiceNetworkSummary{
 		Arn:  &arn,
 		Id:   &id,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&itemMesh}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&itemMesh}
 
 	associationArn := "123456789"
 	associationID := "123456789"
-	associationStatus := mercury.MeshVpcAssociationStatusActive
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
 	associationVPCId := config.VpcID
-	itemAssociation := mercury.MeshVpcAssociationSummary{
-		Arn:      &associationArn,
-		Id:       &associationID,
-		MeshArn:  &arn,
-		MeshId:   &id,
-		MeshName: &name,
-		Status:   &associationStatus,
-		VpcId:    &associationVPCId,
+	itemAssociation := vpclattice.ServiceNetworkVpcAssociationSummary{
+		Arn:                &associationArn,
+		Id:                 &associationID,
+		ServiceNetworkArn:  &arn,
+		ServiceNetworkId:   &id,
+		ServiceNetworkName: &name,
+		Status:             &associationStatus,
+		VpcId:              &associationVPCId,
 	}
-	statusServiceNetworkVPCOutput := []*mercury.MeshVpcAssociationSummary{&itemAssociation}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&itemAssociation}
 
-	deleteInProgressStatus := mercury.MeshVpcAssociationStatusDeleteInProgress
-	deleteMeshVpcAssociationOutput := &mercury.DeleteMeshVpcAssociationOutput{Status: &deleteInProgressStatus}
-	deleteMeshOutput := &mercury.DeleteMeshOutput{}
-	deleteMeshVpcAssociationInput := &mercury.DeleteMeshVpcAssociationInput{MeshVpcAssociationIdentifier: &associationID}
-	deleteMeshInput := &mercury.DeleteMeshInput{MeshIdentifier: &id}
+	deleteInProgressStatus := vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress
+	deleteServiceNetworkVpcAssociationOutput := &vpclattice.DeleteServiceNetworkVpcAssociationOutput{Status: &deleteInProgressStatus}
+	deleteMeshOutput := &vpclattice.DeleteServiceNetworkOutput{}
+	deleteServiceNetworkVpcAssociationInput := &vpclattice.DeleteServiceNetworkVpcAssociationInput{ServiceNetworkVpcAssociationIdentifier: &associationID}
+	deleteMeshInput := &vpclattice.DeleteServiceNetworkInput{ServiceNetworkIdentifier: &id}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().ListMeshVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockMercurySess.EXPECT().DeleteMeshVpcAssociationWithContext(ctx, deleteMeshVpcAssociationInput).Return(deleteMeshVpcAssociationOutput, nil)
-	mockMercurySess.EXPECT().DeleteMeshWithContext(ctx, deleteMeshInput).Return(deleteMeshOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkVpcAssociationWithContext(ctx, deleteServiceNetworkVpcAssociationInput).Return(deleteServiceNetworkVpcAssociationOutput, nil)
+	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkWithContext(ctx, deleteMeshInput).Return(deleteMeshOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	err := meshManager.Delete(ctx, "test")
@@ -724,36 +724,36 @@ func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC(t *testing.T) {
 	arn := "123456789"
 	id := "123456789"
 	name := "test"
-	itemMesh := mercury.MeshSummary{
+	itemMesh := vpclattice.ServiceNetworkSummary{
 		Arn:  &arn,
 		Id:   &id,
 		Name: &name,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&itemMesh}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&itemMesh}
 
 	associationArn := "123456789"
 	associationID := "123456789"
-	associationStatus := mercury.MeshVpcAssociationStatusActive
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
 	associationVPCId := "123456789"
-	itemAssociation := mercury.MeshVpcAssociationSummary{
-		Arn:      &associationArn,
-		Id:       &associationID,
-		MeshArn:  &arn,
-		MeshId:   &id,
-		MeshName: &name,
-		Status:   &associationStatus,
-		VpcId:    &associationVPCId,
+	itemAssociation := vpclattice.ServiceNetworkVpcAssociationSummary{
+		Arn:                &associationArn,
+		Id:                 &associationID,
+		ServiceNetworkArn:  &arn,
+		ServiceNetworkId:   &id,
+		ServiceNetworkName: &name,
+		Status:             &associationStatus,
+		VpcId:              &associationVPCId,
 	}
-	statusServiceNetworkVPCOutput := []*mercury.MeshVpcAssociationSummary{&itemAssociation}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&itemAssociation}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockMercurySess.EXPECT().ListMeshVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	err := meshManager.Delete(ctx, "test")
@@ -765,26 +765,26 @@ func Test_ListMesh_MeshExists(t *testing.T) {
 	arn := "123456789"
 	id := "123456789"
 	name1 := "test1"
-	itemMesh1 := mercury.MeshSummary{
+	itemMesh1 := vpclattice.ServiceNetworkSummary{
 		Arn:  &arn,
 		Id:   &id,
 		Name: &name1,
 	}
 	name2 := "test2"
-	itemMesh2 := mercury.MeshSummary{
+	itemMesh2 := vpclattice.ServiceNetworkSummary{
 		Arn:  &arn,
 		Id:   &id,
 		Name: &name2,
 	}
-	listServiceNetworkOutput := []*mercury.MeshSummary{&itemMesh1, &itemMesh2}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&itemMesh1, &itemMesh2}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess)
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	meshList, err := meshManager.List(ctx)
@@ -794,15 +794,15 @@ func Test_ListMesh_MeshExists(t *testing.T) {
 }
 
 func Test_ListMesh_NoMesh(t *testing.T) {
-	listServiceNetworkOutput := []*mercury.MeshSummary{}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockMercurySess.EXPECT().ListMeshesAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess)
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	meshList, err := meshManager.List(ctx)

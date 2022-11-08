@@ -9,7 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -368,7 +368,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 		mockRuleManager.EXPECT().List(ctx, serviceID, listener.listenerID).Return(listener.rulelist, nil)
 
 		for _, rule := range listener.rulelist {
-			sdkRuleDetail := mercury.GetRuleOutput{}
+			sdkRuleDetail := vpclattice.GetRuleOutput{}
 
 			mockRuleManager.EXPECT().Get(ctx, serviceID, listener.listenerID, rule.RuleID).Return(&sdkRuleDetail, nil)
 			mockRuleManager.EXPECT().Delete(ctx, rule.RuleID, listener.listenerID, serviceID)
