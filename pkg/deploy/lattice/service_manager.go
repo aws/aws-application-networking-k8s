@@ -6,7 +6,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -67,7 +67,7 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 	// create service
 	if serviceSummary == nil {
 		glog.V(6).Infof("lattice service create API here service [%v]\n", service)
-		serviceInput := mercury.CreateServiceInput{
+		serviceInput := vpclattice.CreateServiceInput{
 			Name: &svcName,
 			Tags: nil,
 		}
@@ -95,11 +95,11 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 
 	// associate service with serviceNetwork
 	if isServiceAssociatedWithServiceNetwork == false {
-		createServiceNetworkAssociationInput := mercury.CreateMeshServiceAssociationInput{
-			MeshIdentifier:    &serviceNetwork.ID,
-			ServiceIdentifier: &serviceID,
+		createServiceNetworkAssociationInput := vpclattice.CreateServiceNetworkServiceAssociationInput{
+			ServiceNetworkIdentifier: &serviceNetwork.ID,
+			ServiceIdentifier:        &serviceID,
 		}
-		resp, err := latticeSess.CreateMeshServiceAssociationWithContext(ctx, &createServiceNetworkAssociationInput)
+		resp, err := latticeSess.CreateServiceNetworkServiceAssociationWithContext(ctx, &createServiceNetworkAssociationInput)
 		glog.V(6).Infof("create-associate  for service %v, in serviceNetwork %v, with resp %v err %v \n",
 			service, serviceNetwork, resp, err)
 		if err != nil {
@@ -113,15 +113,15 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 
 			}
 			switch associationStatus {
-			case mercury.MeshServiceAssociationStatusCreateInProgress:
+			case vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress:
 				return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, errors.New(LATTICE_RETRY)
-			case mercury.MeshServiceAssociationStatusActive:
+			case vpclattice.ServiceNetworkServiceAssociationStatusActive:
 				return latticemodel.ServiceStatus{ServiceARN: serviceArn, ServiceID: serviceID, ServiceDNS: respDNS}, nil
-			case mercury.MeshServiceAssociationStatusDeleteFailed:
+			case vpclattice.ServiceNetworkServiceAssociationStatusDeleteFailed:
 				return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, errors.New(LATTICE_RETRY)
-			case mercury.MeshServiceAssociationStatusCreateFailed:
+			case vpclattice.ServiceNetworkServiceAssociationStatusCreateFailed:
 				return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, errors.New(LATTICE_RETRY)
-			case mercury.MeshServiceAssociationStatusDeleteInProgress:
+			case vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress:
 				return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, errors.New(LATTICE_RETRY)
 			}
 		}
@@ -132,15 +132,15 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 // TODO: Further refactor for all manager under lattice/
 func (s *defaultServiceManager) isServiceNetworkServiceAssociationStatusAssociated(associationStatus string) bool {
 	switch associationStatus {
-	case mercury.MeshServiceAssociationStatusActive:
+	case vpclattice.ServiceNetworkServiceAssociationStatusActive:
 		return true
-	case mercury.MeshServiceAssociationStatusCreateInProgress:
+	case vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress:
 		return false
-	case mercury.MeshServiceAssociationStatusDeleteFailed:
+	case vpclattice.ServiceNetworkServiceAssociationStatusDeleteFailed:
 		return false
-	case mercury.MeshServiceAssociationStatusCreateFailed:
+	case vpclattice.ServiceNetworkServiceAssociationStatusCreateFailed:
 		return false
-	case mercury.MeshServiceAssociationStatusDeleteInProgress:
+	case vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress:
 		return false
 	default:
 		return false
@@ -148,9 +148,9 @@ func (s *defaultServiceManager) isServiceNetworkServiceAssociationStatusAssociat
 }
 
 // find service by name return serviceNetwork,err if mesh exists, otherwise return nil,nil
-func (s *defaultServiceManager) findServiceByName(ctx context.Context, serviceName string) (*mercury.ServiceSummary, error) {
+func (s *defaultServiceManager) findServiceByName(ctx context.Context, serviceName string) (*vpclattice.ServiceSummary, error) {
 	latticeSess := s.cloud.Mercury()
-	servicesListInput := mercury.ListServicesInput{}
+	servicesListInput := vpclattice.ListServicesInput{}
 	resp, err := latticeSess.ListServicesAsList(ctx, &servicesListInput)
 	glog.V(6).Infof("findServiceByName, resp %v, err: %v\n", resp, err)
 
@@ -169,12 +169,12 @@ func (s *defaultServiceManager) findServiceByName(ctx context.Context, serviceNa
 
 func (s *defaultServiceManager) isServiceAssociatedWithServiceNetwork(ctx context.Context, serviceID string, serviceNetworkID string) (bool, string, error) {
 	latticeSess := s.cloud.Mercury()
-	listServiceNetworkServiceAssociationsInput := mercury.ListMeshServiceAssociationsInput{
-		MeshIdentifier:    &serviceNetworkID,
-		ServiceIdentifier: &serviceID,
+	listServiceNetworkServiceAssociationsInput := vpclattice.ListServiceNetworkServiceAssociationsInput{
+		ServiceNetworkIdentifier: &serviceNetworkID,
+		ServiceIdentifier:        &serviceID,
 	}
-	resp, err := latticeSess.ListMeshServiceAssociationsAsList(ctx, &listServiceNetworkServiceAssociationsInput)
-	glog.V(6).Infof("ListMeshServiceAssociationsAsList, resp %v, err %v\n", resp, err)
+	resp, err := latticeSess.ListServiceNetworkServiceAssociationsAsList(ctx, &listServiceNetworkServiceAssociationsInput)
+	glog.V(6).Infof("ListServiceNetworkServiceAssociationsAsList, resp %v, err %v\n", resp, err)
 	dnsName := ""
 	if err != nil || (len(resp) == 0) {
 		// return nil, let caller retry to associate VPC
@@ -182,18 +182,18 @@ func (s *defaultServiceManager) isServiceAssociatedWithServiceNetwork(ctx contex
 	} else {
 		associationStatus := aws.StringValue(resp[0].Status)
 		switch associationStatus {
-		case mercury.MeshServiceAssociationStatusActive:
+		case vpclattice.ServiceNetworkServiceAssociationStatusActive:
 			if resp[0].DnsEntry != nil {
 				dnsName = *resp[0].DnsEntry.DomainName
 			}
 			return true, dnsName, nil
-		case mercury.MeshServiceAssociationStatusCreateFailed:
+		case vpclattice.ServiceNetworkServiceAssociationStatusCreateFailed:
 			return false, "", nil
-		case mercury.MeshServiceAssociationStatusDeleteFailed:
+		case vpclattice.ServiceNetworkServiceAssociationStatusDeleteFailed:
 			return false, "", nil
-		case mercury.MeshServiceAssociationStatusDeleteInProgress:
+		case vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress:
 			return false, "", errors.New(LATTICE_RETRY)
-		case mercury.MeshServiceAssociationStatusCreateInProgress:
+		case vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress:
 			return false, "", errors.New(LATTICE_RETRY)
 		}
 	}
@@ -218,27 +218,27 @@ func (s *defaultServiceManager) Delete(ctx context.Context, service *latticemode
 		return err
 	}
 
-	listServiceNetworkInput := mercury.ListMeshServiceAssociationsInput{
-		MeshIdentifier:    &serviceNetwork.ID,
-		ServiceIdentifier: serviceSummary.Id,
+	listServiceNetworkInput := vpclattice.ListServiceNetworkServiceAssociationsInput{
+		ServiceNetworkIdentifier: &serviceNetwork.ID,
+		ServiceIdentifier:        serviceSummary.Id,
 	}
 
-	listServiceNetworkOutput, err := latticeSess.ListMeshServiceAssociationsAsList(ctx, &listServiceNetworkInput)
+	listServiceNetworkOutput, err := latticeSess.ListServiceNetworkServiceAssociationsAsList(ctx, &listServiceNetworkInput)
 
 	glog.V(6).Infof("defaultServiceManager - ListServiceNetworkServiceAssociations input %v output %v err %v \n", listServiceNetworkInput, listServiceNetworkOutput, err)
 
 	if err == nil && (len(listServiceNetworkOutput) != 0) {
-		svcServiceNetworkInput := mercury.DeleteMeshServiceAssociationInput{
-			MeshServiceAssociationIdentifier: listServiceNetworkOutput[0].Id,
+		svcServiceNetworkInput := vpclattice.DeleteServiceNetworkServiceAssociationInput{
+			ServiceNetworkServiceAssociationIdentifier: listServiceNetworkOutput[0].Id,
 		}
 
-		svcServiceNetworkOutput, err := latticeSess.DeleteMeshServiceAssociationWithContext(ctx, &svcServiceNetworkInput)
+		svcServiceNetworkOutput, err := latticeSess.DeleteServiceNetworkServiceAssociationWithContext(ctx, &svcServiceNetworkInput)
 
 		glog.V(6).Infof("defaultServiceManager-DeleteServiceNetworkServiceAssociation: input %v output %v err %v \n", svcServiceNetworkInput, svcServiceNetworkOutput, err)
 	}
 
 	// delete service
-	delInput := mercury.DeleteServiceInput{
+	delInput := vpclattice.DeleteServiceInput{
 		ServiceIdentifier: serviceSummary.Id,
 	}
 	delResp, err := latticeSess.DeleteServiceWithContext(ctx, &delInput)

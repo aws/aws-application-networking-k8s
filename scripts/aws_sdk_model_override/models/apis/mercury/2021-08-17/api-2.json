@@ -5,11 +5,11 @@
     "endpointPrefix":"mercury",
     "jsonVersion":"1.1",
     "protocol":"rest-json",
-    "serviceFullName":"VPC Service Network",
-    "serviceId":"Mercury",
+    "serviceFullName":"VPC Lattice",
+    "serviceId":"VpcLattice",
     "signatureVersion":"v4",
-    "signingName":"vpc-service-network",
-    "uid":"mercury-2021-08-17"
+    "signingName":"vpc-lattice",
+    "uid":"vpclattice-2021-08-17"
   },
   "operations":{
     "BatchUpdateRule":{
@@ -70,65 +70,6 @@
       ],
       "idempotent":true
     },
-    "CreateMesh":{
-      "name":"CreateMesh",
-      "http":{
-        "method":"POST",
-        "requestUri":"/meshes",
-        "responseCode":201
-      },
-      "input":{"shape":"CreateMeshRequest"},
-      "output":{"shape":"CreateMeshResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"ConflictException"},
-        {"shape":"ServiceQuotaExceededException"},
-        {"shape":"InternalServerException"}
-      ],
-      "idempotent":true
-    },
-    "CreateMeshServiceAssociation":{
-      "name":"CreateMeshServiceAssociation",
-      "http":{
-        "method":"POST",
-        "requestUri":"/meshserviceassociations",
-        "responseCode":200
-      },
-      "input":{"shape":"CreateMeshServiceAssociationRequest"},
-      "output":{"shape":"CreateMeshServiceAssociationResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"ConflictException"},
-        {"shape":"ServiceQuotaExceededException"},
-        {"shape":"InternalServerException"}
-      ],
-      "idempotent":true
-    },
-    "CreateMeshVpcAssociation":{
-      "name":"CreateMeshVpcAssociation",
-      "http":{
-        "method":"POST",
-        "requestUri":"/meshvpcassociations",
-        "responseCode":200
-      },
-      "input":{"shape":"CreateMeshVpcAssociationRequest"},
-      "output":{"shape":"CreateMeshVpcAssociationResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"ConflictException"},
-        {"shape":"ServiceQuotaExceededException"},
-        {"shape":"InternalServerException"}
-      ],
-      "idempotent":true
-    },
     "CreateRule":{
       "name":"CreateRule",
       "http":{
@@ -169,6 +110,65 @@
       ],
       "idempotent":true
     },
+    "CreateServiceNetwork":{
+      "name":"CreateServiceNetwork",
+      "http":{
+        "method":"POST",
+        "requestUri":"/servicenetworks",
+        "responseCode":201
+      },
+      "input":{"shape":"CreateServiceNetworkRequest"},
+      "output":{"shape":"CreateServiceNetworkResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"ConflictException"},
+        {"shape":"ServiceQuotaExceededException"},
+        {"shape":"InternalServerException"}
+      ],
+      "idempotent":true
+    },
+    "CreateServiceNetworkServiceAssociation":{
+      "name":"CreateServiceNetworkServiceAssociation",
+      "http":{
+        "method":"POST",
+        "requestUri":"/servicenetworkserviceassociations",
+        "responseCode":200
+      },
+      "input":{"shape":"CreateServiceNetworkServiceAssociationRequest"},
+      "output":{"shape":"CreateServiceNetworkServiceAssociationResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"ConflictException"},
+        {"shape":"ServiceQuotaExceededException"},
+        {"shape":"InternalServerException"}
+      ],
+      "idempotent":true
+    },
+    "CreateServiceNetworkVpcAssociation":{
+      "name":"CreateServiceNetworkVpcAssociation",
+      "http":{
+        "method":"POST",
+        "requestUri":"/servicenetworkvpcassociations",
+        "responseCode":200
+      },
+      "input":{"shape":"CreateServiceNetworkVpcAssociationRequest"},
+      "output":{"shape":"CreateServiceNetworkVpcAssociationResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"ConflictException"},
+        {"shape":"ServiceQuotaExceededException"},
+        {"shape":"InternalServerException"}
+      ],
+      "idempotent":true
+    },
     "CreateTargetGroup":{
       "name":"CreateTargetGroup",
       "http":{
@@ -194,7 +194,7 @@
       "http":{
         "method":"DELETE",
         "requestUri":"/accesslogsubscriptions/{accessLogSubscriptionIdentifier}",
-        "responseCode":200
+        "responseCode":204
       },
       "input":{"shape":"DeleteAccessLogSubscriptionRequest"},
       "output":{"shape":"DeleteAccessLogSubscriptionResponse"},
@@ -234,63 +234,6 @@
       },
       "input":{"shape":"DeleteListenerRequest"},
       "output":{"shape":"DeleteListenerResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"ConflictException"},
-        {"shape":"InternalServerException"}
-      ],
-      "idempotent":true
-    },
-    "DeleteMesh":{
-      "name":"DeleteMesh",
-      "http":{
-        "method":"DELETE",
-        "requestUri":"/meshes/{meshIdentifier}",
-        "responseCode":204
-      },
-      "input":{"shape":"DeleteMeshRequest"},
-      "output":{"shape":"DeleteMeshResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"ConflictException"},
-        {"shape":"InternalServerException"}
-      ],
-      "idempotent":true
-    },
-    "DeleteMeshServiceAssociation":{
-      "name":"DeleteMeshServiceAssociation",
-      "http":{
-        "method":"DELETE",
-        "requestUri":"/meshserviceassociations/{meshServiceAssociationIdentifier}",
-        "responseCode":200
-      },
-      "input":{"shape":"DeleteMeshServiceAssociationRequest"},
-      "output":{"shape":"DeleteMeshServiceAssociationResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"ConflictException"},
-        {"shape":"InternalServerException"}
-      ],
-      "idempotent":true
-    },
-    "DeleteMeshVpcAssociation":{
-      "name":"DeleteMeshVpcAssociation",
-      "http":{
-        "method":"DELETE",
-        "requestUri":"/meshvpcassociations/{meshVpcAssociationIdentifier}",
-        "responseCode":200
-      },
-      "input":{"shape":"DeleteMeshVpcAssociationRequest"},
-      "output":{"shape":"DeleteMeshVpcAssociationResponse"},
       "errors":[
         {"shape":"ValidationException"},
         {"shape":"AccessDeniedException"},
@@ -347,6 +290,63 @@
       },
       "input":{"shape":"DeleteServiceRequest"},
       "output":{"shape":"DeleteServiceResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"ConflictException"},
+        {"shape":"InternalServerException"}
+      ],
+      "idempotent":true
+    },
+    "DeleteServiceNetwork":{
+      "name":"DeleteServiceNetwork",
+      "http":{
+        "method":"DELETE",
+        "requestUri":"/servicenetworks/{serviceNetworkIdentifier}",
+        "responseCode":204
+      },
+      "input":{"shape":"DeleteServiceNetworkRequest"},
+      "output":{"shape":"DeleteServiceNetworkResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"ConflictException"},
+        {"shape":"InternalServerException"}
+      ],
+      "idempotent":true
+    },
+    "DeleteServiceNetworkServiceAssociation":{
+      "name":"DeleteServiceNetworkServiceAssociation",
+      "http":{
+        "method":"DELETE",
+        "requestUri":"/servicenetworkserviceassociations/{serviceNetworkServiceAssociationIdentifier}",
+        "responseCode":200
+      },
+      "input":{"shape":"DeleteServiceNetworkServiceAssociationRequest"},
+      "output":{"shape":"DeleteServiceNetworkServiceAssociationResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"ConflictException"},
+        {"shape":"InternalServerException"}
+      ],
+      "idempotent":true
+    },
+    "DeleteServiceNetworkVpcAssociation":{
+      "name":"DeleteServiceNetworkVpcAssociation",
+      "http":{
+        "method":"DELETE",
+        "requestUri":"/servicenetworkvpcassociations/{serviceNetworkVpcAssociationIdentifier}",
+        "responseCode":200
+      },
+      "input":{"shape":"DeleteServiceNetworkVpcAssociationRequest"},
+      "output":{"shape":"DeleteServiceNetworkVpcAssociationResponse"},
       "errors":[
         {"shape":"ValidationException"},
         {"shape":"AccessDeniedException"},
@@ -444,57 +444,6 @@
         {"shape":"InternalServerException"}
       ]
     },
-    "GetMesh":{
-      "name":"GetMesh",
-      "http":{
-        "method":"GET",
-        "requestUri":"/meshes/{meshIdentifier}",
-        "responseCode":200
-      },
-      "input":{"shape":"GetMeshRequest"},
-      "output":{"shape":"GetMeshResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"InternalServerException"}
-      ]
-    },
-    "GetMeshServiceAssociation":{
-      "name":"GetMeshServiceAssociation",
-      "http":{
-        "method":"GET",
-        "requestUri":"/meshserviceassociations/{meshServiceAssociationIdentifier}",
-        "responseCode":200
-      },
-      "input":{"shape":"GetMeshServiceAssociationRequest"},
-      "output":{"shape":"GetMeshServiceAssociationResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"InternalServerException"}
-      ]
-    },
-    "GetMeshVpcAssociation":{
-      "name":"GetMeshVpcAssociation",
-      "http":{
-        "method":"GET",
-        "requestUri":"/meshvpcassociations/{meshVpcAssociationIdentifier}",
-        "responseCode":200
-      },
-      "input":{"shape":"GetMeshVpcAssociationRequest"},
-      "output":{"shape":"GetMeshVpcAssociationResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"InternalServerException"}
-      ]
-    },
     "GetResourcePolicy":{
       "name":"GetResourcePolicy",
       "http":{
@@ -538,6 +487,57 @@
       },
       "input":{"shape":"GetServiceRequest"},
       "output":{"shape":"GetServiceResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"InternalServerException"}
+      ]
+    },
+    "GetServiceNetwork":{
+      "name":"GetServiceNetwork",
+      "http":{
+        "method":"GET",
+        "requestUri":"/servicenetworks/{serviceNetworkIdentifier}",
+        "responseCode":200
+      },
+      "input":{"shape":"GetServiceNetworkRequest"},
+      "output":{"shape":"GetServiceNetworkResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"InternalServerException"}
+      ]
+    },
+    "GetServiceNetworkServiceAssociation":{
+      "name":"GetServiceNetworkServiceAssociation",
+      "http":{
+        "method":"GET",
+        "requestUri":"/servicenetworkserviceassociations/{serviceNetworkServiceAssociationIdentifier}",
+        "responseCode":200
+      },
+      "input":{"shape":"GetServiceNetworkServiceAssociationRequest"},
+      "output":{"shape":"GetServiceNetworkServiceAssociationResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"InternalServerException"}
+      ]
+    },
+    "GetServiceNetworkVpcAssociation":{
+      "name":"GetServiceNetworkVpcAssociation",
+      "http":{
+        "method":"GET",
+        "requestUri":"/servicenetworkvpcassociations/{serviceNetworkVpcAssociationIdentifier}",
+        "responseCode":200
+      },
+      "input":{"shape":"GetServiceNetworkVpcAssociationRequest"},
+      "output":{"shape":"GetServiceNetworkVpcAssociationResponse"},
       "errors":[
         {"shape":"ValidationException"},
         {"shape":"AccessDeniedException"},
@@ -594,54 +594,6 @@
         {"shape":"InternalServerException"}
       ]
     },
-    "ListMeshServiceAssociations":{
-      "name":"ListMeshServiceAssociations",
-      "http":{
-        "method":"GET",
-        "requestUri":"/meshserviceassociations",
-        "responseCode":200
-      },
-      "input":{"shape":"ListMeshServiceAssociationsRequest"},
-      "output":{"shape":"ListMeshServiceAssociationsResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"InternalServerException"}
-      ]
-    },
-    "ListMeshVpcAssociations":{
-      "name":"ListMeshVpcAssociations",
-      "http":{
-        "method":"GET",
-        "requestUri":"/meshvpcassociations",
-        "responseCode":200
-      },
-      "input":{"shape":"ListMeshVpcAssociationsRequest"},
-      "output":{"shape":"ListMeshVpcAssociationsResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"InternalServerException"}
-      ]
-    },
-    "ListMeshes":{
-      "name":"ListMeshes",
-      "http":{
-        "method":"GET",
-        "requestUri":"/meshes",
-        "responseCode":200
-      },
-      "input":{"shape":"ListMeshesRequest"},
-      "output":{"shape":"ListMeshesResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"InternalServerException"}
-      ]
-    },
     "ListRules":{
       "name":"ListRules",
       "http":{
@@ -656,6 +608,54 @@
         {"shape":"AccessDeniedException"},
         {"shape":"ThrottlingException"},
         {"shape":"ResourceNotFoundException"},
+        {"shape":"InternalServerException"}
+      ]
+    },
+    "ListServiceNetworkServiceAssociations":{
+      "name":"ListServiceNetworkServiceAssociations",
+      "http":{
+        "method":"GET",
+        "requestUri":"/servicenetworkserviceassociations",
+        "responseCode":200
+      },
+      "input":{"shape":"ListServiceNetworkServiceAssociationsRequest"},
+      "output":{"shape":"ListServiceNetworkServiceAssociationsResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"InternalServerException"}
+      ]
+    },
+    "ListServiceNetworkVpcAssociations":{
+      "name":"ListServiceNetworkVpcAssociations",
+      "http":{
+        "method":"GET",
+        "requestUri":"/servicenetworkvpcassociations",
+        "responseCode":200
+      },
+      "input":{"shape":"ListServiceNetworkVpcAssociationsRequest"},
+      "output":{"shape":"ListServiceNetworkVpcAssociationsResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"InternalServerException"}
+      ]
+    },
+    "ListServiceNetworks":{
+      "name":"ListServiceNetworks",
+      "http":{
+        "method":"GET",
+        "requestUri":"/servicenetworks",
+        "responseCode":200
+      },
+      "input":{"shape":"ListServiceNetworksRequest"},
+      "output":{"shape":"ListServiceNetworksResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
         {"shape":"InternalServerException"}
       ]
     },
@@ -848,44 +848,6 @@
       ],
       "idempotent":true
     },
-    "UpdateMesh":{
-      "name":"UpdateMesh",
-      "http":{
-        "method":"PATCH",
-        "requestUri":"/meshes/{meshIdentifier}",
-        "responseCode":200
-      },
-      "input":{"shape":"UpdateMeshRequest"},
-      "output":{"shape":"UpdateMeshResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"ConflictException"},
-        {"shape":"InternalServerException"}
-      ],
-      "idempotent":true
-    },
-    "UpdateMeshVpcAssociation":{
-      "name":"UpdateMeshVpcAssociation",
-      "http":{
-        "method":"PATCH",
-        "requestUri":"/meshvpcassociations/{meshVpcAssociationIdentifier}",
-        "responseCode":200
-      },
-      "input":{"shape":"UpdateMeshVpcAssociationRequest"},
-      "output":{"shape":"UpdateMeshVpcAssociationResponse"},
-      "errors":[
-        {"shape":"ValidationException"},
-        {"shape":"AccessDeniedException"},
-        {"shape":"ThrottlingException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"ConflictException"},
-        {"shape":"InternalServerException"}
-      ],
-      "idempotent":true
-    },
     "UpdateRule":{
       "name":"UpdateRule",
       "http":{
@@ -922,6 +884,44 @@
         {"shape":"ConflictException"},
         {"shape":"InternalServerException"}
       ]
+    },
+    "UpdateServiceNetwork":{
+      "name":"UpdateServiceNetwork",
+      "http":{
+        "method":"PATCH",
+        "requestUri":"/servicenetworks/{serviceNetworkIdentifier}",
+        "responseCode":200
+      },
+      "input":{"shape":"UpdateServiceNetworkRequest"},
+      "output":{"shape":"UpdateServiceNetworkResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"ConflictException"},
+        {"shape":"InternalServerException"}
+      ],
+      "idempotent":true
+    },
+    "UpdateServiceNetworkVpcAssociation":{
+      "name":"UpdateServiceNetworkVpcAssociation",
+      "http":{
+        "method":"PATCH",
+        "requestUri":"/servicenetworkvpcassociations/{serviceNetworkVpcAssociationIdentifier}",
+        "responseCode":200
+      },
+      "input":{"shape":"UpdateServiceNetworkVpcAssociationRequest"},
+      "output":{"shape":"UpdateServiceNetworkVpcAssociationResponse"},
+      "errors":[
+        {"shape":"ValidationException"},
+        {"shape":"AccessDeniedException"},
+        {"shape":"ThrottlingException"},
+        {"shape":"ResourceNotFoundException"},
+        {"shape":"ConflictException"},
+        {"shape":"InternalServerException"}
+      ],
+      "idempotent":true
     },
     "UpdateTargetGroup":{
       "name":"UpdateTargetGroup",
@@ -987,18 +987,28 @@
       "type":"structure",
       "required":[
         "arn",
+        "createdAt",
         "destinationArn",
         "id",
+        "lastUpdatedAt",
         "resourceArn",
         "resourceId"
       ],
       "members":{
         "arn":{"shape":"AccessLogSubscriptionArn"},
+        "createdAt":{"shape":"Timestamp"},
         "destinationArn":{"shape":"AccessLogDestinationArn"},
         "id":{"shape":"AccessLogSubscriptionId"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
         "resourceArn":{"shape":"ResourceArn"},
         "resourceId":{"shape":"ResourceId"}
       }
+    },
+    "AccountId":{
+      "type":"string",
+      "max":12,
+      "min":1,
+      "pattern":"^[0-9]{12}$"
     },
     "Arn":{
       "type":"string",
@@ -1127,10 +1137,7 @@
         },
         "defaultAction":{"shape":"RuleAction"},
         "name":{"shape":"ListenerName"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        },
+        "port":{"shape":"Port"},
         "protocol":{"shape":"ListenerProtocol"},
         "serviceIdentifier":{
           "shape":"ServiceIdentifier",
@@ -1147,86 +1154,10 @@
         "defaultAction":{"shape":"RuleAction"},
         "id":{"shape":"ListenerId"},
         "name":{"shape":"ListenerName"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        },
+        "port":{"shape":"Port"},
         "protocol":{"shape":"ListenerProtocol"},
         "serviceArn":{"shape":"ServiceArn"},
         "serviceId":{"shape":"ServiceId"}
-      }
-    },
-    "CreateMeshRequest":{
-      "type":"structure",
-      "required":["name"],
-      "members":{
-        "authType":{"shape":"AuthType"},
-        "clientToken":{
-          "shape":"ClientToken",
-          "idempotencyToken":true
-        },
-        "name":{"shape":"MeshName"},
-        "tags":{"shape":"TagMap"}
-      }
-    },
-    "CreateMeshResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshArn"},
-        "authType":{"shape":"AuthType"},
-        "id":{"shape":"MeshId"},
-        "name":{"shape":"MeshName"}
-      }
-    },
-    "CreateMeshServiceAssociationRequest":{
-      "type":"structure",
-      "required":[
-        "meshIdentifier",
-        "serviceIdentifier"
-      ],
-      "members":{
-        "clientToken":{
-          "shape":"ClientToken",
-          "idempotencyToken":true
-        },
-        "meshIdentifier":{"shape":"MeshIdentifier"},
-        "serviceIdentifier":{"shape":"ServiceIdentifier"},
-        "tags":{"shape":"TagMap"}
-      }
-    },
-    "CreateMeshServiceAssociationResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshServiceAssociationArn"},
-        "dnsEntry":{"shape":"DnsEntry"},
-        "id":{"shape":"MeshServiceAssociationIdentifier"},
-        "status":{"shape":"MeshServiceAssociationStatus"}
-      }
-    },
-    "CreateMeshVpcAssociationRequest":{
-      "type":"structure",
-      "required":[
-        "meshIdentifier",
-        "vpcIdentifier"
-      ],
-      "members":{
-        "clientToken":{
-          "shape":"ClientToken",
-          "idempotencyToken":true
-        },
-        "meshIdentifier":{"shape":"MeshIdentifier"},
-        "securityGroupIds":{"shape":"SecurityGroupList"},
-        "tags":{"shape":"TagMap"},
-        "vpcIdentifier":{"shape":"VpcId"}
-      }
-    },
-    "CreateMeshVpcAssociationResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshVpcAssociationArn"},
-        "id":{"shape":"MeshVpcAssociationId"},
-        "securityGroupIds":{"shape":"SecurityGroupList"},
-        "status":{"shape":"MeshVpcAssociationStatus"}
       }
     },
     "CreateRuleRequest":{
@@ -1252,10 +1183,7 @@
         },
         "match":{"shape":"RuleMatch"},
         "name":{"shape":"RuleName"},
-        "priority":{
-          "shape":"RulePriority",
-          "box":true
-        },
+        "priority":{"shape":"RulePriority"},
         "serviceIdentifier":{
           "shape":"ServiceIdentifier",
           "location":"uri",
@@ -1272,10 +1200,88 @@
         "id":{"shape":"RuleId"},
         "match":{"shape":"RuleMatch"},
         "name":{"shape":"RuleName"},
-        "priority":{
-          "shape":"RulePriority",
-          "box":true
-        }
+        "priority":{"shape":"RulePriority"}
+      }
+    },
+    "CreateServiceNetworkRequest":{
+      "type":"structure",
+      "required":["name"],
+      "members":{
+        "authType":{"shape":"AuthType"},
+        "clientToken":{
+          "shape":"ClientToken",
+          "idempotencyToken":true
+        },
+        "name":{"shape":"ServiceNetworkName"},
+        "tags":{"shape":"TagMap"}
+      }
+    },
+    "CreateServiceNetworkResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkArn"},
+        "authType":{"shape":"AuthType"},
+        "id":{"shape":"ServiceNetworkId"},
+        "name":{"shape":"ServiceNetworkName"}
+      }
+    },
+    "CreateServiceNetworkServiceAssociationRequest":{
+      "type":"structure",
+      "required":[
+        "serviceIdentifier",
+        "serviceNetworkIdentifier"
+      ],
+      "members":{
+        "clientToken":{
+          "shape":"ClientToken",
+          "idempotencyToken":true
+        },
+        "serviceIdentifier":{"shape":"ServiceIdentifier"},
+        "serviceNetworkIdentifier":{"shape":"ServiceNetworkIdentifier"},
+        "tags":{"shape":"TagMap"}
+      }
+    },
+    "CreateServiceNetworkServiceAssociationResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkServiceAssociationArn"},
+        "createdBy":{"shape":"AccountId"},
+        "dnsEntry":{"shape":"DnsEntry"},
+        "id":{"shape":"ServiceNetworkServiceAssociationIdentifier"},
+        "status":{"shape":"ServiceNetworkServiceAssociationStatus"}
+      }
+    },
+    "CreateServiceNetworkVpcAssociationRequest":{
+      "type":"structure",
+      "required":[
+        "serviceNetworkIdentifier",
+        "vpcIdentifier"
+      ],
+      "members":{
+        "clientToken":{
+          "shape":"ClientToken",
+          "idempotencyToken":true
+        },
+        "securityGroupIds":{"shape":"CreateServiceNetworkVpcAssociationRequestSecurityGroupIdsList"},
+        "serviceNetworkIdentifier":{"shape":"ServiceNetworkIdentifier"},
+        "tags":{"shape":"TagMap"},
+        "vpcIdentifier":{"shape":"VpcId"}
+      }
+    },
+    "CreateServiceNetworkVpcAssociationRequestSecurityGroupIdsList":{
+      "type":"list",
+      "member":{"shape":"SecurityGroupId"},
+      "max":5,
+      "min":0
+    },
+    "CreateServiceNetworkVpcAssociationResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkVpcAssociationArn"},
+        "createdBy":{"shape":"AccountId"},
+        "id":{"shape":"ServiceNetworkVpcAssociationId"},
+        "securityGroupIds":{"shape":"SecurityGroupList"},
+        "status":{"shape":"ServiceNetworkVpcAssociationStatus"}
       }
     },
     "CreateServiceRequest":{
@@ -1386,60 +1392,6 @@
       "members":{
       }
     },
-    "DeleteMeshRequest":{
-      "type":"structure",
-      "required":["meshIdentifier"],
-      "members":{
-        "meshIdentifier":{
-          "shape":"MeshIdentifier",
-          "location":"uri",
-          "locationName":"meshIdentifier"
-        }
-      }
-    },
-    "DeleteMeshResponse":{
-      "type":"structure",
-      "members":{
-      }
-    },
-    "DeleteMeshServiceAssociationRequest":{
-      "type":"structure",
-      "required":["meshServiceAssociationIdentifier"],
-      "members":{
-        "meshServiceAssociationIdentifier":{
-          "shape":"MeshServiceAssociationIdentifier",
-          "location":"uri",
-          "locationName":"meshServiceAssociationIdentifier"
-        }
-      }
-    },
-    "DeleteMeshServiceAssociationResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshServiceAssociationArn"},
-        "id":{"shape":"MeshServiceAssociationIdentifier"},
-        "status":{"shape":"MeshServiceAssociationStatus"}
-      }
-    },
-    "DeleteMeshVpcAssociationRequest":{
-      "type":"structure",
-      "required":["meshVpcAssociationIdentifier"],
-      "members":{
-        "meshVpcAssociationIdentifier":{
-          "shape":"MeshVpcAssociationIdentifier",
-          "location":"uri",
-          "locationName":"meshVpcAssociationIdentifier"
-        }
-      }
-    },
-    "DeleteMeshVpcAssociationResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshVpcAssociationArn"},
-        "id":{"shape":"MeshVpcAssociationId"},
-        "status":{"shape":"MeshVpcAssociationStatus"}
-      }
-    },
     "DeleteResourcePolicyRequest":{
       "type":"structure",
       "required":["resourceArn"],
@@ -1484,6 +1436,60 @@
     "DeleteRuleResponse":{
       "type":"structure",
       "members":{
+      }
+    },
+    "DeleteServiceNetworkRequest":{
+      "type":"structure",
+      "required":["serviceNetworkIdentifier"],
+      "members":{
+        "serviceNetworkIdentifier":{
+          "shape":"ServiceNetworkIdentifier",
+          "location":"uri",
+          "locationName":"serviceNetworkIdentifier"
+        }
+      }
+    },
+    "DeleteServiceNetworkResponse":{
+      "type":"structure",
+      "members":{
+      }
+    },
+    "DeleteServiceNetworkServiceAssociationRequest":{
+      "type":"structure",
+      "required":["serviceNetworkServiceAssociationIdentifier"],
+      "members":{
+        "serviceNetworkServiceAssociationIdentifier":{
+          "shape":"ServiceNetworkServiceAssociationIdentifier",
+          "location":"uri",
+          "locationName":"serviceNetworkServiceAssociationIdentifier"
+        }
+      }
+    },
+    "DeleteServiceNetworkServiceAssociationResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkServiceAssociationArn"},
+        "id":{"shape":"ServiceNetworkServiceAssociationIdentifier"},
+        "status":{"shape":"ServiceNetworkServiceAssociationStatus"}
+      }
+    },
+    "DeleteServiceNetworkVpcAssociationRequest":{
+      "type":"structure",
+      "required":["serviceNetworkVpcAssociationIdentifier"],
+      "members":{
+        "serviceNetworkVpcAssociationIdentifier":{
+          "shape":"ServiceNetworkVpcAssociationIdentifier",
+          "location":"uri",
+          "locationName":"serviceNetworkVpcAssociationIdentifier"
+        }
+      }
+    },
+    "DeleteServiceNetworkVpcAssociationResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkVpcAssociationArn"},
+        "id":{"shape":"ServiceNetworkVpcAssociationId"},
+        "status":{"shape":"ServiceNetworkVpcAssociationStatus"}
       }
     },
     "DeleteServiceRequest":{
@@ -1584,15 +1590,19 @@
       "type":"structure",
       "required":[
         "arn",
+        "createdAt",
         "destinationArn",
         "id",
+        "lastUpdatedAt",
         "resourceArn",
         "resourceId"
       ],
       "members":{
         "arn":{"shape":"AccessLogSubscriptionArn"},
+        "createdAt":{"shape":"Timestamp"},
         "destinationArn":{"shape":"AccessLogDestinationArn"},
         "id":{"shape":"AccessLogSubscriptionId"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
         "resourceArn":{"shape":"ResourceArn"},
         "resourceId":{"shape":"ResourceId"}
       }
@@ -1611,6 +1621,8 @@
     "GetAuthPolicyResponse":{
       "type":"structure",
       "members":{
+        "createdAt":{"shape":"Timestamp"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
         "policy":{"shape":"AuthPolicyString"},
         "state":{"shape":"AuthPolicyState"}
       }
@@ -1638,102 +1650,15 @@
       "type":"structure",
       "members":{
         "arn":{"shape":"ListenerArn"},
+        "createdAt":{"shape":"Timestamp"},
         "defaultAction":{"shape":"RuleAction"},
         "id":{"shape":"ListenerId"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
         "name":{"shape":"ListenerName"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        },
+        "port":{"shape":"Port"},
         "protocol":{"shape":"ListenerProtocol"},
         "serviceArn":{"shape":"ServiceArn"},
         "serviceId":{"shape":"ServiceId"}
-      }
-    },
-    "GetMeshRequest":{
-      "type":"structure",
-      "required":["meshIdentifier"],
-      "members":{
-        "meshIdentifier":{
-          "shape":"MeshIdentifier",
-          "location":"uri",
-          "locationName":"meshIdentifier"
-        }
-      }
-    },
-    "GetMeshResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshArn"},
-        "authType":{"shape":"AuthType"},
-        "createdAt":{"shape":"Timestamp"},
-        "id":{"shape":"MeshId"},
-        "lastUpdatedAt":{"shape":"Timestamp"},
-        "name":{"shape":"MeshName"},
-        "numberOfAssociatedServices":{
-          "shape":"Long",
-          "box":true
-        },
-        "numberOfAssociatedVPCs":{
-          "shape":"Long",
-          "box":true
-        }
-      }
-    },
-    "GetMeshServiceAssociationRequest":{
-      "type":"structure",
-      "required":["meshServiceAssociationIdentifier"],
-      "members":{
-        "meshServiceAssociationIdentifier":{
-          "shape":"MeshServiceAssociationIdentifier",
-          "location":"uri",
-          "locationName":"meshServiceAssociationIdentifier"
-        }
-      }
-    },
-    "GetMeshServiceAssociationResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshServiceAssociationArn"},
-        "createdAt":{"shape":"Timestamp"},
-        "dnsEntry":{"shape":"DnsEntry"},
-        "failureCode":{"shape":"String"},
-        "failureMessage":{"shape":"String"},
-        "id":{"shape":"MeshServiceAssociationIdentifier"},
-        "meshArn":{"shape":"MeshArn"},
-        "meshId":{"shape":"MeshId"},
-        "meshName":{"shape":"MeshName"},
-        "serviceArn":{"shape":"ServiceArn"},
-        "serviceId":{"shape":"ServiceId"},
-        "serviceName":{"shape":"ServiceName"},
-        "status":{"shape":"MeshServiceAssociationStatus"}
-      }
-    },
-    "GetMeshVpcAssociationRequest":{
-      "type":"structure",
-      "required":["meshVpcAssociationIdentifier"],
-      "members":{
-        "meshVpcAssociationIdentifier":{
-          "shape":"MeshVpcAssociationIdentifier",
-          "location":"uri",
-          "locationName":"meshVpcAssociationIdentifier"
-        }
-      }
-    },
-    "GetMeshVpcAssociationResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshVpcAssociationArn"},
-        "createdAt":{"shape":"Timestamp"},
-        "failureCode":{"shape":"String"},
-        "failureMessage":{"shape":"String"},
-        "id":{"shape":"MeshVpcAssociationId"},
-        "meshArn":{"shape":"MeshArn"},
-        "meshId":{"shape":"MeshId"},
-        "meshName":{"shape":"MeshName"},
-        "securityGroupIds":{"shape":"SecurityGroupList"},
-        "status":{"shape":"MeshVpcAssociationStatus"},
-        "vpcId":{"shape":"VpcId"}
       }
     },
     "GetResourcePolicyRequest":{
@@ -1783,17 +1708,96 @@
       "members":{
         "action":{"shape":"RuleAction"},
         "arn":{"shape":"RuleArn"},
+        "createdAt":{"shape":"Timestamp"},
         "id":{"shape":"RuleId"},
-        "isDefault":{
-          "shape":"Boolean",
-          "default":false
-        },
+        "isDefault":{"shape":"Boolean"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
         "match":{"shape":"RuleMatch"},
         "name":{"shape":"RuleName"},
-        "priority":{
-          "shape":"RulePriority",
-          "box":true
+        "priority":{"shape":"RulePriority"}
+      }
+    },
+    "GetServiceNetworkRequest":{
+      "type":"structure",
+      "required":["serviceNetworkIdentifier"],
+      "members":{
+        "serviceNetworkIdentifier":{
+          "shape":"ServiceNetworkIdentifier",
+          "location":"uri",
+          "locationName":"serviceNetworkIdentifier"
         }
+      }
+    },
+    "GetServiceNetworkResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkArn"},
+        "authType":{"shape":"AuthType"},
+        "createdAt":{"shape":"Timestamp"},
+        "id":{"shape":"ServiceNetworkId"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
+        "name":{"shape":"ServiceNetworkName"},
+        "numberOfAssociatedServices":{"shape":"Long"},
+        "numberOfAssociatedVPCs":{"shape":"Long"}
+      }
+    },
+    "GetServiceNetworkServiceAssociationRequest":{
+      "type":"structure",
+      "required":["serviceNetworkServiceAssociationIdentifier"],
+      "members":{
+        "serviceNetworkServiceAssociationIdentifier":{
+          "shape":"ServiceNetworkServiceAssociationIdentifier",
+          "location":"uri",
+          "locationName":"serviceNetworkServiceAssociationIdentifier"
+        }
+      }
+    },
+    "GetServiceNetworkServiceAssociationResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkServiceAssociationArn"},
+        "createdAt":{"shape":"Timestamp"},
+        "createdBy":{"shape":"AccountId"},
+        "dnsEntry":{"shape":"DnsEntry"},
+        "failureCode":{"shape":"String"},
+        "failureMessage":{"shape":"String"},
+        "id":{"shape":"ServiceNetworkServiceAssociationIdentifier"},
+        "serviceArn":{"shape":"ServiceArn"},
+        "serviceId":{"shape":"ServiceId"},
+        "serviceName":{"shape":"ServiceName"},
+        "serviceNetworkArn":{"shape":"ServiceNetworkArn"},
+        "serviceNetworkId":{"shape":"ServiceNetworkId"},
+        "serviceNetworkName":{"shape":"ServiceNetworkName"},
+        "status":{"shape":"ServiceNetworkServiceAssociationStatus"}
+      }
+    },
+    "GetServiceNetworkVpcAssociationRequest":{
+      "type":"structure",
+      "required":["serviceNetworkVpcAssociationIdentifier"],
+      "members":{
+        "serviceNetworkVpcAssociationIdentifier":{
+          "shape":"ServiceNetworkVpcAssociationIdentifier",
+          "location":"uri",
+          "locationName":"serviceNetworkVpcAssociationIdentifier"
+        }
+      }
+    },
+    "GetServiceNetworkVpcAssociationResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkVpcAssociationArn"},
+        "createdAt":{"shape":"Timestamp"},
+        "createdBy":{"shape":"AccountId"},
+        "failureCode":{"shape":"String"},
+        "failureMessage":{"shape":"String"},
+        "id":{"shape":"ServiceNetworkVpcAssociationId"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
+        "securityGroupIds":{"shape":"SecurityGroupList"},
+        "serviceNetworkArn":{"shape":"ServiceNetworkArn"},
+        "serviceNetworkId":{"shape":"ServiceNetworkId"},
+        "serviceNetworkName":{"shape":"ServiceNetworkName"},
+        "status":{"shape":"ServiceNetworkVpcAssociationStatus"},
+        "vpcId":{"shape":"VpcId"}
       }
     },
     "GetServiceRequest":{
@@ -1814,6 +1818,8 @@
         "authType":{"shape":"AuthType"},
         "createdAt":{"shape":"Timestamp"},
         "dnsEntry":{"shape":"DnsEntry"},
+        "failureCode":{"shape":"FailureCode"},
+        "failureMessage":{"shape":"FailureMessage"},
         "id":{"shape":"ServiceId"},
         "lastUpdatedAt":{"shape":"Timestamp"},
         "name":{"shape":"ServiceName"},
@@ -1854,36 +1860,35 @@
         "name"
       ],
       "members":{
-        "caseSensitive":{
-          "shape":"Boolean",
-          "default":false
-        },
+        "caseSensitive":{"shape":"Boolean"},
         "match":{"shape":"HeaderMatchType"},
         "name":{"shape":"HeaderMatchName"}
       }
     },
     "HeaderMatchContains":{
       "type":"string",
-      "max":128,
+      "max":200,
       "min":1
     },
     "HeaderMatchExact":{
       "type":"string",
-      "max":128,
+      "max":200,
       "min":1
     },
     "HeaderMatchList":{
       "type":"list",
-      "member":{"shape":"HeaderMatch"}
+      "member":{"shape":"HeaderMatch"},
+      "max":100,
+      "min":1
     },
     "HeaderMatchName":{
       "type":"string",
-      "max":40,
+      "max":100,
       "min":1
     },
     "HeaderMatchPrefix":{
       "type":"string",
-      "max":128,
+      "max":200,
       "min":1
     },
     "HeaderMatchType":{
@@ -1898,37 +1903,20 @@
     "HealthCheckConfig":{
       "type":"structure",
       "members":{
-        "enabled":{
-          "shape":"Boolean",
-          "default":false
-        },
-        "healthCheckIntervalSeconds":{
-          "shape":"HealthCheckIntervalSeconds",
-          "box":true
-        },
-        "healthCheckTimeoutSeconds":{
-          "shape":"HealthCheckTimeoutSeconds",
-          "box":true
-        },
-        "healthyThresholdCount":{
-          "shape":"HealthyThresholdCount",
-          "box":true
-        },
+        "enabled":{"shape":"Boolean"},
+        "healthCheckIntervalSeconds":{"shape":"HealthCheckIntervalSeconds"},
+        "healthCheckTimeoutSeconds":{"shape":"HealthCheckTimeoutSeconds"},
+        "healthyThresholdCount":{"shape":"HealthyThresholdCount"},
         "matcher":{"shape":"Matcher"},
         "path":{"shape":"HealthCheckPath"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        },
+        "port":{"shape":"Port"},
         "protocol":{"shape":"TargetGroupProtocol"},
-        "unhealthyThresholdCount":{
-          "shape":"UnhealthyThresholdCount",
-          "box":true
-        }
+        "unhealthyThresholdCount":{"shape":"UnhealthyThresholdCount"}
       }
     },
     "HealthCheckIntervalSeconds":{
       "type":"integer",
+      "box":true,
       "max":300,
       "min":5
     },
@@ -1939,11 +1927,13 @@
     },
     "HealthCheckTimeoutSeconds":{
       "type":"integer",
+      "box":true,
       "max":120,
       "min":1
     },
     "HealthyThresholdCount":{
       "type":"integer",
+      "box":true,
       "max":10,
       "min":2
     },
@@ -1963,18 +1953,13 @@
     },
     "HttpMethod":{
       "type":"string",
-      "enum":[
-        "CONNECT",
-        "DELETE",
-        "GET",
-        "HEAD",
-        "OPTIONS",
-        "POST",
-        "PUT",
-        "TRACE"
-      ]
+      "max":16,
+      "min":0
     },
-    "Integer":{"type":"integer"},
+    "Integer":{
+      "type":"integer",
+      "box":true
+    },
     "InternalServerException":{
       "type":"structure",
       "required":["message"],
@@ -1982,7 +1967,6 @@
         "message":{"shape":"String"},
         "retryAfterSeconds":{
           "shape":"Integer",
-          "box":true,
           "location":"header",
           "locationName":"Retry-After"
         }
@@ -1998,7 +1982,6 @@
       "members":{
         "maxResults":{
           "shape":"MaxResults",
-          "box":true,
           "location":"querystring",
           "locationName":"maxResults"
         },
@@ -2028,7 +2011,6 @@
       "members":{
         "maxResults":{
           "shape":"MaxResults",
-          "box":true,
           "location":"querystring",
           "locationName":"maxResults"
         },
@@ -2052,98 +2034,6 @@
         "nextToken":{"shape":"NextToken"}
       }
     },
-    "ListMeshServiceAssociationsRequest":{
-      "type":"structure",
-      "members":{
-        "maxResults":{
-          "shape":"MaxResults",
-          "box":true,
-          "location":"querystring",
-          "locationName":"maxResults"
-        },
-        "meshIdentifier":{
-          "shape":"MeshIdentifier",
-          "location":"querystring",
-          "locationName":"meshIdentifier"
-        },
-        "nextToken":{
-          "shape":"NextToken",
-          "location":"querystring",
-          "locationName":"nextToken"
-        },
-        "serviceIdentifier":{
-          "shape":"ServiceIdentifier",
-          "location":"querystring",
-          "locationName":"serviceIdentifier"
-        }
-      }
-    },
-    "ListMeshServiceAssociationsResponse":{
-      "type":"structure",
-      "required":["items"],
-      "members":{
-        "items":{"shape":"MeshServiceAssociationList"},
-        "nextToken":{"shape":"NextToken"}
-      }
-    },
-    "ListMeshVpcAssociationsRequest":{
-      "type":"structure",
-      "members":{
-        "maxResults":{
-          "shape":"MaxResults",
-          "box":true,
-          "location":"querystring",
-          "locationName":"maxResults"
-        },
-        "meshIdentifier":{
-          "shape":"MeshIdentifier",
-          "location":"querystring",
-          "locationName":"meshIdentifier"
-        },
-        "nextToken":{
-          "shape":"NextToken",
-          "location":"querystring",
-          "locationName":"nextToken"
-        },
-        "vpcIdentifier":{
-          "shape":"VpcId",
-          "location":"querystring",
-          "locationName":"vpcIdentifier"
-        }
-      }
-    },
-    "ListMeshVpcAssociationsResponse":{
-      "type":"structure",
-      "required":["items"],
-      "members":{
-        "items":{"shape":"MeshVpcAssociationList"},
-        "nextToken":{"shape":"NextToken"}
-      }
-    },
-    "ListMeshesRequest":{
-      "type":"structure",
-      "members":{
-        "maxResults":{
-          "shape":"MaxResults",
-          "box":true,
-          "location":"querystring",
-          "locationName":"maxResults"
-        },
-        "nextToken":{
-          "shape":"NextToken",
-          "location":"querystring",
-          "locationName":"nextToken"
-        }
-      }
-    },
-    "ListMeshesResponse":{
-      "type":"structure",
-      "required":["items"],
-      "members":{
-        "items":{"shape":"MeshList"},
-        "nextToken":{"shape":"NextToken"}
-      }
-    },
     "ListRulesRequest":{
       "type":"structure",
       "required":[
@@ -2158,7 +2048,6 @@
         },
         "maxResults":{
           "shape":"MaxResults",
-          "box":true,
           "location":"querystring",
           "locationName":"maxResults"
         },
@@ -2182,12 +2071,100 @@
         "nextToken":{"shape":"NextToken"}
       }
     },
+    "ListServiceNetworkServiceAssociationsRequest":{
+      "type":"structure",
+      "members":{
+        "maxResults":{
+          "shape":"MaxResults",
+          "location":"querystring",
+          "locationName":"maxResults"
+        },
+        "nextToken":{
+          "shape":"NextToken",
+          "location":"querystring",
+          "locationName":"nextToken"
+        },
+        "serviceIdentifier":{
+          "shape":"ServiceIdentifier",
+          "location":"querystring",
+          "locationName":"serviceIdentifier"
+        },
+        "serviceNetworkIdentifier":{
+          "shape":"ServiceNetworkIdentifier",
+          "location":"querystring",
+          "locationName":"serviceNetworkIdentifier"
+        }
+      }
+    },
+    "ListServiceNetworkServiceAssociationsResponse":{
+      "type":"structure",
+      "required":["items"],
+      "members":{
+        "items":{"shape":"ServiceNetworkServiceAssociationList"},
+        "nextToken":{"shape":"NextToken"}
+      }
+    },
+    "ListServiceNetworkVpcAssociationsRequest":{
+      "type":"structure",
+      "members":{
+        "maxResults":{
+          "shape":"MaxResults",
+          "location":"querystring",
+          "locationName":"maxResults"
+        },
+        "nextToken":{
+          "shape":"NextToken",
+          "location":"querystring",
+          "locationName":"nextToken"
+        },
+        "serviceNetworkIdentifier":{
+          "shape":"ServiceNetworkIdentifier",
+          "location":"querystring",
+          "locationName":"serviceNetworkIdentifier"
+        },
+        "vpcIdentifier":{
+          "shape":"VpcId",
+          "location":"querystring",
+          "locationName":"vpcIdentifier"
+        }
+      }
+    },
+    "ListServiceNetworkVpcAssociationsResponse":{
+      "type":"structure",
+      "required":["items"],
+      "members":{
+        "items":{"shape":"ServiceNetworkVpcAssociationList"},
+        "nextToken":{"shape":"NextToken"}
+      }
+    },
+    "ListServiceNetworksRequest":{
+      "type":"structure",
+      "members":{
+        "maxResults":{
+          "shape":"MaxResults",
+          "location":"querystring",
+          "locationName":"maxResults"
+        },
+        "nextToken":{
+          "shape":"NextToken",
+          "location":"querystring",
+          "locationName":"nextToken"
+        }
+      }
+    },
+    "ListServiceNetworksResponse":{
+      "type":"structure",
+      "required":["items"],
+      "members":{
+        "items":{"shape":"ServiceNetworkList"},
+        "nextToken":{"shape":"NextToken"}
+      }
+    },
     "ListServicesRequest":{
       "type":"structure",
       "members":{
         "maxResults":{
           "shape":"MaxResults",
-          "box":true,
           "location":"querystring",
           "locationName":"maxResults"
         },
@@ -2227,7 +2204,6 @@
       "members":{
         "maxResults":{
           "shape":"MaxResults",
-          "box":true,
           "location":"querystring",
           "locationName":"maxResults"
         },
@@ -2261,7 +2237,6 @@
       "members":{
         "maxResults":{
           "shape":"MaxResults",
-          "box":true,
           "location":"querystring",
           "locationName":"maxResults"
         },
@@ -2314,7 +2289,7 @@
       "type":"string",
       "max":63,
       "min":3,
-      "pattern":"^(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
+      "pattern":"^(?!listener-)(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
     },
     "ListenerProtocol":{
       "type":"string",
@@ -2327,12 +2302,11 @@
       "type":"structure",
       "members":{
         "arn":{"shape":"ListenerArn"},
+        "createdAt":{"shape":"Timestamp"},
         "id":{"shape":"ListenerId"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
         "name":{"shape":"ListenerName"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        },
+        "port":{"shape":"Port"},
         "protocol":{"shape":"ListenerProtocol"}
       }
     },
@@ -2340,7 +2314,10 @@
       "type":"list",
       "member":{"shape":"ListenerSummary"}
     },
-    "Long":{"type":"long"},
+    "Long":{
+      "type":"long",
+      "box":true
+    },
     "Matcher":{
       "type":"structure",
       "members":{
@@ -2350,143 +2327,9 @@
     },
     "MaxResults":{
       "type":"integer",
+      "box":true,
       "max":100,
       "min":1
-    },
-    "MeshArn":{
-      "type":"string",
-      "max":2048,
-      "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:mesh/mesh-[0-9a-z]{17}$"
-    },
-    "MeshId":{
-      "type":"string",
-      "max":17,
-      "min":17,
-      "pattern":"^mesh-[0-9a-z]{17}$"
-    },
-    "MeshIdentifier":{
-      "type":"string",
-      "max":2048,
-      "min":17,
-      "pattern":"^((mesh-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:mesh/mesh-[0-9a-z]{17}))$"
-    },
-    "MeshList":{
-      "type":"list",
-      "member":{"shape":"MeshSummary"}
-    },
-    "MeshName":{
-      "type":"string",
-      "max":63,
-      "min":3,
-      "pattern":"^(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
-    },
-    "MeshServiceAssociationArn":{
-      "type":"string",
-      "max":2048,
-      "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:meshserviceassociation/msa-[0-9a-z]{17}$"
-    },
-    "MeshServiceAssociationIdentifier":{
-      "type":"string",
-      "max":2048,
-      "min":17,
-      "pattern":"^((msa-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:meshserviceassociation/msa-[0-9a-z]{17}))$"
-    },
-    "MeshServiceAssociationList":{
-      "type":"list",
-      "member":{"shape":"MeshServiceAssociationSummary"}
-    },
-    "MeshServiceAssociationStatus":{
-      "type":"string",
-      "enum":[
-        "CREATE_IN_PROGRESS",
-        "ACTIVE",
-        "DELETE_IN_PROGRESS",
-        "CREATE_FAILED",
-        "DELETE_FAILED"
-      ]
-    },
-    "MeshServiceAssociationSummary":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshServiceAssociationArn"},
-        "createdAt":{"shape":"Timestamp"},
-        "dnsEntry":{"shape":"DnsEntry"},
-        "id":{"shape":"MeshServiceAssociationIdentifier"},
-        "meshArn":{"shape":"MeshArn"},
-        "meshId":{"shape":"MeshId"},
-        "meshName":{"shape":"MeshName"},
-        "serviceArn":{"shape":"ServiceArn"},
-        "serviceId":{"shape":"ServiceId"},
-        "serviceName":{"shape":"ServiceName"},
-        "status":{"shape":"MeshServiceAssociationStatus"}
-      }
-    },
-    "MeshSummary":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshArn"},
-        "createdAt":{"shape":"Timestamp"},
-        "id":{"shape":"MeshId"},
-        "lastUpdatedAt":{"shape":"Timestamp"},
-        "name":{"shape":"MeshName"},
-        "numberOfAssociatedServices":{
-          "shape":"Long",
-          "box":true
-        },
-        "numberOfAssociatedVPCs":{
-          "shape":"Long",
-          "box":true
-        }
-      }
-    },
-    "MeshVpcAssociationArn":{
-      "type":"string",
-      "max":2048,
-      "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:meshvpcassociation/mva-[0-9a-z]{17}$"
-    },
-    "MeshVpcAssociationId":{
-      "type":"string",
-      "max":17,
-      "min":17,
-      "pattern":"^mva-[0-9a-z]{17}$"
-    },
-    "MeshVpcAssociationIdentifier":{
-      "type":"string",
-      "max":2048,
-      "min":17,
-      "pattern":"^((mva-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:meshvpcassociation/mva-[0-9a-z]{17}))$"
-    },
-    "MeshVpcAssociationList":{
-      "type":"list",
-      "member":{"shape":"MeshVpcAssociationSummary"}
-    },
-    "MeshVpcAssociationStatus":{
-      "type":"string",
-      "enum":[
-        "CREATE_IN_PROGRESS",
-        "ACTIVE",
-        "UPDATE_IN_PROGRESS",
-        "DELETE_IN_PROGRESS",
-        "CREATE_FAILED",
-        "DELETE_FAILED",
-        "UPDATE_FAILED"
-      ]
-    },
-    "MeshVpcAssociationSummary":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshVpcAssociationArn"},
-        "createdAt":{"shape":"Timestamp"},
-        "id":{"shape":"MeshVpcAssociationId"},
-        "meshArn":{"shape":"MeshArn"},
-        "meshId":{"shape":"MeshId"},
-        "meshName":{"shape":"MeshName"},
-        "status":{"shape":"MeshVpcAssociationStatus"},
-        "vpcId":{"shape":"VpcId"}
-      }
     },
     "NextToken":{
       "type":"string",
@@ -2495,22 +2338,20 @@
     },
     "PathMatch":{
       "type":"structure",
+      "required":["match"],
       "members":{
-        "caseSensitive":{
-          "shape":"Boolean",
-          "default":false
-        },
+        "caseSensitive":{"shape":"Boolean"},
         "match":{"shape":"PathMatchType"}
       }
     },
     "PathMatchExact":{
       "type":"string",
-      "max":128,
+      "max":200,
       "min":1
     },
     "PathMatchPrefix":{
       "type":"string",
-      "max":128,
+      "max":200,
       "min":1
     },
     "PathMatchType":{
@@ -2529,6 +2370,7 @@
     },
     "Port":{
       "type":"integer",
+      "box":true,
       "max":65535,
       "min":1
     },
@@ -2606,19 +2448,19 @@
       "type":"string",
       "max":200,
       "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:((mesh/mesh)|(service/svc))-[0-9a-z]{17}$"
+      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:((servicenetwork/sn)|(service/svc))-[0-9a-z]{17}$"
     },
     "ResourceId":{
       "type":"string",
       "max":50,
       "min":20,
-      "pattern":"^((mesh)|(svc))-[0-9a-z]{17}$"
+      "pattern":"^((sn)|(svc))-[0-9a-z]{17}$"
     },
     "ResourceIdentifier":{
       "type":"string",
       "max":200,
       "min":17,
-      "pattern":"^((((mesh)|(svc))-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:((mesh/mesh)|(service/svc))-[0-9a-z]{17}))$"
+      "pattern":"^((((sn)|(svc))-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:((servicenetwork/sn)|(service/svc))-[0-9a-z]{17}))$"
     },
     "ResourceNotFoundException":{
       "type":"structure",
@@ -2674,10 +2516,11 @@
       "type":"string",
       "max":63,
       "min":3,
-      "pattern":"^(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
+      "pattern":"^(?!rule-)(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
     },
     "RulePriority":{
       "type":"integer",
+      "box":true,
       "max":100,
       "min":1
     },
@@ -2685,11 +2528,10 @@
       "type":"structure",
       "members":{
         "arn":{"shape":"RuleArn"},
+        "createdAt":{"shape":"Timestamp"},
         "id":{"shape":"RuleId"},
-        "isDefault":{
-          "shape":"Boolean",
-          "default":false
-        },
+        "isDefault":{"shape":"Boolean"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
         "name":{"shape":"RuleName"}
       }
     },
@@ -2703,10 +2545,7 @@
       "members":{
         "action":{"shape":"RuleAction"},
         "match":{"shape":"RuleMatch"},
-        "priority":{
-          "shape":"RulePriority",
-          "box":true
-        },
+        "priority":{"shape":"RulePriority"},
         "ruleIdentifier":{"shape":"RuleIdentifier"}
       }
     },
@@ -2725,7 +2564,7 @@
     "RuleUpdateList":{
       "type":"list",
       "member":{"shape":"RuleUpdate"},
-      "max":4,
+      "max":5,
       "min":1
     },
     "RuleUpdateSuccess":{
@@ -2734,16 +2573,10 @@
         "action":{"shape":"RuleAction"},
         "arn":{"shape":"RuleArn"},
         "id":{"shape":"RuleId"},
-        "isDefault":{
-          "shape":"Boolean",
-          "default":false
-        },
+        "isDefault":{"shape":"Boolean"},
         "match":{"shape":"RuleMatch"},
         "name":{"shape":"RuleName"},
-        "priority":{
-          "shape":"RulePriority",
-          "box":true
-        }
+        "priority":{"shape":"RulePriority"}
       }
     },
     "RuleUpdateSuccessList":{
@@ -2790,7 +2623,139 @@
       "type":"string",
       "max":40,
       "min":3,
-      "pattern":"^(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
+      "pattern":"^(?!svc-)(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
+    },
+    "ServiceNetworkArn":{
+      "type":"string",
+      "max":2048,
+      "min":32,
+      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetwork/sn-[0-9a-z]{17}$"
+    },
+    "ServiceNetworkId":{
+      "type":"string",
+      "max":32,
+      "min":32,
+      "pattern":"^servicenetwork-[0-9a-z]{17}$"
+    },
+    "ServiceNetworkIdentifier":{
+      "type":"string",
+      "max":2048,
+      "min":3,
+      "pattern":"^((sn-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetwork/sn-[0-9a-z]{17}))$"
+    },
+    "ServiceNetworkList":{
+      "type":"list",
+      "member":{"shape":"ServiceNetworkSummary"}
+    },
+    "ServiceNetworkName":{
+      "type":"string",
+      "max":63,
+      "min":3,
+      "pattern":"^(?!servicenetwork-)(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
+    },
+    "ServiceNetworkServiceAssociationArn":{
+      "type":"string",
+      "max":2048,
+      "min":20,
+      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetworkserviceassociation/snsa-[0-9a-z]{17}$"
+    },
+    "ServiceNetworkServiceAssociationIdentifier":{
+      "type":"string",
+      "max":2048,
+      "min":17,
+      "pattern":"^((snsa-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetworkserviceassociation/snsa-[0-9a-z]{17}))$"
+    },
+    "ServiceNetworkServiceAssociationList":{
+      "type":"list",
+      "member":{"shape":"ServiceNetworkServiceAssociationSummary"}
+    },
+    "ServiceNetworkServiceAssociationStatus":{
+      "type":"string",
+      "enum":[
+        "CREATE_IN_PROGRESS",
+        "ACTIVE",
+        "DELETE_IN_PROGRESS",
+        "CREATE_FAILED",
+        "DELETE_FAILED"
+      ]
+    },
+    "ServiceNetworkServiceAssociationSummary":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkServiceAssociationArn"},
+        "createdAt":{"shape":"Timestamp"},
+        "createdBy":{"shape":"AccountId"},
+        "dnsEntry":{"shape":"DnsEntry"},
+        "id":{"shape":"ServiceNetworkServiceAssociationIdentifier"},
+        "serviceArn":{"shape":"ServiceArn"},
+        "serviceId":{"shape":"ServiceId"},
+        "serviceName":{"shape":"ServiceName"},
+        "serviceNetworkArn":{"shape":"ServiceNetworkArn"},
+        "serviceNetworkId":{"shape":"ServiceNetworkId"},
+        "serviceNetworkName":{"shape":"ServiceNetworkName"},
+        "status":{"shape":"ServiceNetworkServiceAssociationStatus"}
+      }
+    },
+    "ServiceNetworkSummary":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkArn"},
+        "createdAt":{"shape":"Timestamp"},
+        "id":{"shape":"ServiceNetworkId"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
+        "name":{"shape":"ServiceNetworkName"},
+        "numberOfAssociatedServices":{"shape":"Long"},
+        "numberOfAssociatedVPCs":{"shape":"Long"}
+      }
+    },
+    "ServiceNetworkVpcAssociationArn":{
+      "type":"string",
+      "max":2048,
+      "min":20,
+      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetworkvpcassociation/snva-[0-9a-z]{17}$"
+    },
+    "ServiceNetworkVpcAssociationId":{
+      "type":"string",
+      "max":17,
+      "min":17,
+      "pattern":"^snva-[0-9a-z]{17}$"
+    },
+    "ServiceNetworkVpcAssociationIdentifier":{
+      "type":"string",
+      "max":2048,
+      "min":17,
+      "pattern":"^((snva-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetworkvpcassociation/snva-[0-9a-z]{17}))$"
+    },
+    "ServiceNetworkVpcAssociationList":{
+      "type":"list",
+      "member":{"shape":"ServiceNetworkVpcAssociationSummary"}
+    },
+    "ServiceNetworkVpcAssociationStatus":{
+      "type":"string",
+      "enum":[
+        "CREATE_IN_PROGRESS",
+        "ACTIVE",
+        "UPDATE_IN_PROGRESS",
+        "DELETE_IN_PROGRESS",
+        "CREATE_FAILED",
+        "DELETE_FAILED",
+        "UPDATE_FAILED"
+      ]
+    },
+    "ServiceNetworkVpcAssociationSummary":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkVpcAssociationArn"},
+        "createdAt":{"shape":"Timestamp"},
+        "createdBy":{"shape":"AccountId"},
+        "id":{"shape":"ServiceNetworkVpcAssociationId"},
+        "lastUpdatedAt":{"shape":"Timestamp"},
+        "serviceNetworkArn":{"shape":"ServiceNetworkArn"},
+        "serviceNetworkId":{"shape":"ServiceNetworkId"},
+        "serviceNetworkName":{"shape":"ServiceNetworkName"},
+        "status":{"shape":"ServiceNetworkVpcAssociationStatus"},
+        "vpcId":{"shape":"VpcId"}
+      }
     },
     "ServiceQuotaExceededException":{
       "type":"structure",
@@ -2843,13 +2808,15 @@
     },
     "TagKeys":{
       "type":"list",
-      "member":{"shape":"TagKey"}
+      "member":{"shape":"TagKey"},
+      "max":200,
+      "min":0
     },
     "TagMap":{
       "type":"map",
       "key":{"shape":"TagKey"},
       "value":{"shape":"TagValue"},
-      "max":50,
+      "max":200,
       "min":0
     },
     "TagResourceRequest":{
@@ -2881,24 +2848,17 @@
       "type":"structure",
       "required":["id"],
       "members":{
-        "id":{"shape":"String"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        }
+        "id":{"shape":"TargetIdString"},
+        "port":{"shape":"Port"}
       }
     },
     "TargetFailure":{
       "type":"structure",
-      "required":["id"],
       "members":{
         "failureCode":{"shape":"String"},
         "failureMessage":{"shape":"String"},
         "id":{"shape":"String"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        }
+        "port":{"shape":"Port"}
       }
     },
     "TargetFailureList":{
@@ -2916,15 +2876,11 @@
       "required":[
         "port",
         "protocol",
-        "protocolVersion",
         "vpcIdentifier"
       ],
       "members":{
         "healthCheck":{"shape":"HealthCheckConfig"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        },
+        "port":{"shape":"Port"},
         "protocol":{"shape":"TargetGroupProtocol"},
         "protocolVersion":{"shape":"TargetGroupProtocolVersion"},
         "vpcIdentifier":{"shape":"VpcId"}
@@ -2950,7 +2906,7 @@
       "type":"string",
       "max":63,
       "min":3,
-      "pattern":"^(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
+      "pattern":"^(?!tg-)(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
     },
     "TargetGroupProtocol":{
       "type":"string",
@@ -2995,13 +2951,18 @@
       "enum":[
         "IP",
         "LAMBDA",
-        "INSTANCE",
-        "ALB"
+        "INSTANCE"
       ]
     },
     "TargetGroupWeight":{
       "type":"integer",
-      "max":100,
+      "box":true,
+      "max":999,
+      "min":0
+    },
+    "TargetIdString":{
+      "type":"string",
+      "max":200,
       "min":1
     },
     "TargetList":{
@@ -3011,23 +2972,19 @@
     "TargetStatus":{
       "type":"string",
       "enum":[
-        "draining",
-        "unavailable",
-        "healthy",
-        "unhealthy",
-        "initial",
-        "unused"
+        "DRAINING",
+        "UNAVAILABLE",
+        "HEALTHY",
+        "UNHEALTHY",
+        "INITIAL",
+        "UNUSED"
       ]
     },
     "TargetSummary":{
       "type":"structure",
-      "required":["id"],
       "members":{
         "id":{"shape":"String"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        },
+        "port":{"shape":"Port"},
         "reasonCode":{"shape":"String"},
         "status":{"shape":"TargetStatus"}
       }
@@ -3044,7 +3001,6 @@
         "quotaCode":{"shape":"String"},
         "retryAfterSeconds":{
           "shape":"Integer",
-          "box":true,
           "location":"header",
           "locationName":"Retry-After"
         },
@@ -3063,6 +3019,7 @@
     },
     "UnhealthyThresholdCount":{
       "type":"integer",
+      "box":true,
       "max":10,
       "min":2
     },
@@ -3150,67 +3107,10 @@
         "defaultAction":{"shape":"RuleAction"},
         "id":{"shape":"ListenerId"},
         "name":{"shape":"ListenerName"},
-        "port":{
-          "shape":"Port",
-          "box":true
-        },
+        "port":{"shape":"Port"},
         "protocol":{"shape":"ListenerProtocol"},
         "serviceArn":{"shape":"ServiceArn"},
         "serviceId":{"shape":"ServiceId"}
-      }
-    },
-    "UpdateMeshRequest":{
-      "type":"structure",
-      "required":[
-        "authType",
-        "meshIdentifier"
-      ],
-      "members":{
-        "authType":{"shape":"AuthType"},
-        "meshIdentifier":{
-          "shape":"MeshIdentifier",
-          "location":"uri",
-          "locationName":"meshIdentifier"
-        }
-      }
-    },
-    "UpdateMeshResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshArn"},
-        "authType":{"shape":"AuthType"},
-        "id":{"shape":"MeshId"},
-        "name":{"shape":"MeshName"}
-      }
-    },
-    "UpdateMeshVpcAssociationRequest":{
-      "type":"structure",
-      "required":[
-        "meshVpcAssociationIdentifier",
-        "securityGroupIds"
-      ],
-      "members":{
-        "meshVpcAssociationIdentifier":{
-          "shape":"MeshVpcAssociationIdentifier",
-          "location":"uri",
-          "locationName":"meshVpcAssociationIdentifier"
-        },
-        "securityGroupIds":{"shape":"UpdateMeshVpcAssociationRequestSecurityGroupIdsList"}
-      }
-    },
-    "UpdateMeshVpcAssociationRequestSecurityGroupIdsList":{
-      "type":"list",
-      "member":{"shape":"SecurityGroupId"},
-      "max":5,
-      "min":1
-    },
-    "UpdateMeshVpcAssociationResponse":{
-      "type":"structure",
-      "members":{
-        "arn":{"shape":"MeshVpcAssociationArn"},
-        "id":{"shape":"MeshVpcAssociationId"},
-        "securityGroupIds":{"shape":"SecurityGroupList"},
-        "status":{"shape":"MeshVpcAssociationStatus"}
       }
     },
     "UpdateRuleRequest":{
@@ -3228,10 +3128,7 @@
           "locationName":"listenerIdentifier"
         },
         "match":{"shape":"RuleMatch"},
-        "priority":{
-          "shape":"RulePriority",
-          "box":true
-        },
+        "priority":{"shape":"RulePriority"},
         "ruleIdentifier":{
           "shape":"RuleIdentifier",
           "location":"uri",
@@ -3250,16 +3147,65 @@
         "action":{"shape":"RuleAction"},
         "arn":{"shape":"RuleArn"},
         "id":{"shape":"RuleId"},
-        "isDefault":{
-          "shape":"Boolean",
-          "default":false
-        },
+        "isDefault":{"shape":"Boolean"},
         "match":{"shape":"RuleMatch"},
         "name":{"shape":"RuleName"},
-        "priority":{
-          "shape":"RulePriority",
-          "box":true
+        "priority":{"shape":"RulePriority"}
+      }
+    },
+    "UpdateServiceNetworkRequest":{
+      "type":"structure",
+      "required":[
+        "authType",
+        "serviceNetworkIdentifier"
+      ],
+      "members":{
+        "authType":{"shape":"AuthType"},
+        "serviceNetworkIdentifier":{
+          "shape":"ServiceNetworkIdentifier",
+          "location":"uri",
+          "locationName":"serviceNetworkIdentifier"
         }
+      }
+    },
+    "UpdateServiceNetworkResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkArn"},
+        "authType":{"shape":"AuthType"},
+        "id":{"shape":"ServiceNetworkId"},
+        "name":{"shape":"ServiceNetworkName"}
+      }
+    },
+    "UpdateServiceNetworkVpcAssociationRequest":{
+      "type":"structure",
+      "required":[
+        "securityGroupIds",
+        "serviceNetworkVpcAssociationIdentifier"
+      ],
+      "members":{
+        "securityGroupIds":{"shape":"UpdateServiceNetworkVpcAssociationRequestSecurityGroupIdsList"},
+        "serviceNetworkVpcAssociationIdentifier":{
+          "shape":"ServiceNetworkVpcAssociationIdentifier",
+          "location":"uri",
+          "locationName":"serviceNetworkVpcAssociationIdentifier"
+        }
+      }
+    },
+    "UpdateServiceNetworkVpcAssociationRequestSecurityGroupIdsList":{
+      "type":"list",
+      "member":{"shape":"SecurityGroupId"},
+      "max":5,
+      "min":1
+    },
+    "UpdateServiceNetworkVpcAssociationResponse":{
+      "type":"structure",
+      "members":{
+        "arn":{"shape":"ServiceNetworkVpcAssociationArn"},
+        "createdBy":{"shape":"AccountId"},
+        "id":{"shape":"ServiceNetworkVpcAssociationId"},
+        "securityGroupIds":{"shape":"SecurityGroupList"},
+        "status":{"shape":"ServiceNetworkVpcAssociationStatus"}
       }
     },
     "UpdateServiceRequest":{
@@ -3358,16 +3304,10 @@
     },
     "WeightedTargetGroup":{
       "type":"structure",
-      "required":[
-        "targetGroupIdentifier",
-        "weight"
-      ],
+      "required":["targetGroupIdentifier"],
       "members":{
         "targetGroupIdentifier":{"shape":"TargetGroupIdentifier"},
-        "weight":{
-          "shape":"TargetGroupWeight",
-          "box":true
-        }
+        "weight":{"shape":"TargetGroupWeight"}
       }
     },
     "WeightedTargetGroupList":{

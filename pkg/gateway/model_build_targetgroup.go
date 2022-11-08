@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
 const (
@@ -186,7 +186,7 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 			//Port:            backendServicePort,
 			IsServiceImport: false,
 			Protocol:        "HTTP",
-			ProtocolVersion: mercury.TargetGroupProtocolVersionHttp1,
+			ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 		},
 	}
 
@@ -345,7 +345,7 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 			EKSClusterName:  ekscluster,
 			IsServiceImport: isServiceImport,
 			Protocol:        "HTTP",
-			ProtocolVersion: mercury.TargetGroupProtocolVersionHttp1,
+			ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 			Port:            backendServicePort,
 		},
 		IsDeleted: isDeleted,

@@ -3,7 +3,7 @@
 ## mockgen version v1.5.0
 ~/go/bin/mockgen -package=mock_client -destination=./mocks/controller-runtime/client/client_mocks.go sigs.k8s.io/controller-runtime/pkg/client Client
 ~/go/bin/mockgen -package=services -destination=./pkg/aws/services/eks_mocks.go -source=./pkg/aws/services/eks.go
-~/go/bin/mockgen -package=services -destination=./pkg/aws/services/mercury_mocks.go -source=./pkg/aws/services/mercury.go
+~/go/bin/mockgen -package=services -destination=./pkg/aws/services/vpclattice_mocks.go -source=./pkg/aws/services/vpclattice.go
 ~/go/bin/mockgen -package=aws -destination=./pkg/aws/cloud_mocks.go -source=./pkg/aws/cloud.go
 ~/go/bin/mockgen -package=lattice -destination=./pkg/deploy/lattice/service_network_manager_mock.go -source=./pkg/deploy/lattice/service_network_manager.go
 ~/go/bin/mockgen -package=lattice -destination=./pkg/deploy/lattice/target_group_manager_mock.go -source=./pkg/deploy/lattice/target_group_manager.go
@@ -13,4 +13,4 @@
 ~/go/bin/mockgen -package=lattice -destination=./pkg/deploy/lattice/rule_manager_mock.go -source=./pkg/deploy/lattice/rule_manager.go
 # need some manual update to remote core for stack_mock.go
 ~/go/bin/mockgen -package=core -destination=./pkg/model/core/stack_mock.go -source=./pkg/model/core/stack.go
-~/go/bin/mockgen -package=services -destination=./pkg/aws/services/mercury_service_api_mock.go -source=./scripts/aws_sdk_model_override/aws-sdk-go/service/mercury/mercuryiface/interface.go
+~/go/bin/mockgen -package=services -destination=./pkg/aws/services/vpclattice_service_api_mock.go -source=./scripts/aws_sdk_model_override/aws-sdk-go/service/vpclattice/vpclatticeiface/interface.go

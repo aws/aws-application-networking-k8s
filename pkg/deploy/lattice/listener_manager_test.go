@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -49,7 +49,7 @@ var listenersummarys = []struct {
 		Protocol: "HTTPS",
 	},
 }
-var summarys = []mercury.ListenerSummary{
+var summarys = []vpclattice.ListenerSummary{
 	{
 		Arn:      &listenersummarys[0].Arn,
 		Id:       &listenersummarys[0].Id,
@@ -65,8 +65,8 @@ var summarys = []mercury.ListenerSummary{
 		Protocol: &listenersummarys[1].Protocol,
 	},
 }
-var listenerList = mercury.ListListenersOutput{
-	Items: []*mercury.ListenerSummary{
+var listenerList = vpclattice.ListListenersOutput{
+	Items: []*vpclattice.ListenerSummary{
 		&summarys[0],
 		&summarys[1],
 	},
@@ -114,11 +114,11 @@ func Test_AddListener(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockMercurySess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockMercury(c)
 
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 		mercuryDataStore := latticestore.NewLatticeDataStore()
 		listenerManager := NewListenerManager(mockCloud, mercuryDataStore)
@@ -154,16 +154,16 @@ func Test_AddListener(t *testing.T) {
 		listener := latticemodel.NewListener(stack, listenerResourceName, int64(listenersummarys[0].Port), "HTTP",
 			namespaceName.Name, namespaceName.Namespace, action)
 
-		listenerOutput := mercury.CreateListenerOutput{}
-		listenerInput := mercury.CreateListenerInput{}
-		forwardAction := mercury.ForwardAction{
-			TargetGroups: []*mercury.WeightedTargetGroup{
-				&mercury.WeightedTargetGroup{
+		listenerOutput := vpclattice.CreateListenerOutput{}
+		listenerInput := vpclattice.CreateListenerInput{}
+		forwardAction := vpclattice.ForwardAction{
+			TargetGroups: []*vpclattice.WeightedTargetGroup{
+				&vpclattice.WeightedTargetGroup{
 					TargetGroupIdentifier: aws.String(tgID),
 					Weight:                aws.Int64(1)},
 			},
 		}
-		defaultAction := mercury.RuleAction{
+		defaultAction := vpclattice.RuleAction{
 			Forward: &forwardAction,
 		}
 		//listenerARN := "listener-ARN"
@@ -172,28 +172,28 @@ func Test_AddListener(t *testing.T) {
 
 			listername := k8sLatticeListenerName(namespaceName.Name, namespaceName.Namespace,
 				int(listenersummarys[0].Port), listenersummarys[0].Protocol)
-			listenerInput = mercury.CreateListenerInput{
+			listenerInput = vpclattice.CreateListenerInput{
 				DefaultAction:     &defaultAction,
 				Name:              &listername,
 				ServiceIdentifier: &serviceID,
 				Protocol:          aws.String("HTTP"),
 				Port:              aws.Int64(listenersummarys[0].Port),
 			}
-			listenerOutput = mercury.CreateListenerOutput{
+			listenerOutput = vpclattice.CreateListenerOutput{
 				Arn:           &listenersummarys[0].Arn,
 				DefaultAction: &defaultAction,
 				Id:            &listenersummarys[0].Id,
 			}
-			mockMercurySess.EXPECT().CreateListener(&listenerInput).Return(&listenerOutput, nil)
+			mockVpcLatticeSess.EXPECT().CreateListener(&listenerInput).Return(&listenerOutput, nil)
 		}
 
 		if !tt.noServiceID {
 
-			listenerListInput := mercury.ListListenersInput{
+			listenerListInput := vpclattice.ListListenersInput{
 				ServiceIdentifier: aws.String(serviceID),
 			}
 
-			listenerOutput := mercury.ListListenersOutput{}
+			listenerOutput := vpclattice.ListListenersOutput{}
 
 			if tt.isUpdate {
 
@@ -201,7 +201,7 @@ func Test_AddListener(t *testing.T) {
 
 			}
 
-			mockMercurySess.EXPECT().ListListeners(&listenerListInput).Return(&listenerOutput, nil)
+			mockVpcLatticeSess.EXPECT().ListListeners(&listenerListInput).Return(&listenerOutput, nil)
 		}
 		resp, err := listenerManager.Create(ctx, listener)
 
@@ -247,20 +247,20 @@ func Test_ListListener(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockMercurySess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockMercury(c)
 
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 		mercuryDataStore := latticestore.NewLatticeDataStore()
 		listenerManager := NewListenerManager(mockCloud, mercuryDataStore)
 
 		serviceID := "service1-ID"
-		listenerListInput := mercury.ListListenersInput{
+		listenerListInput := vpclattice.ListListenersInput{
 			ServiceIdentifier: aws.String(serviceID),
 		}
-		mockMercurySess.EXPECT().ListListeners(&listenerListInput).Return(&listenerList, tt.mgrErr)
+		mockVpcLatticeSess.EXPECT().ListListeners(&listenerListInput).Return(&listenerList, tt.mgrErr)
 
 		resp, err := listenerManager.List(ctx, serviceID)
 
@@ -288,23 +288,23 @@ func Test_DeleteListerner(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 
 	serviceID := "service1-ID"
 	listenerID := "listener-ID"
 
-	listenerDeleteInput := mercury.DeleteListenerInput{
+	listenerDeleteInput := vpclattice.DeleteListenerInput{
 		ServiceIdentifier:  aws.String(serviceID),
 		ListenerIdentifier: aws.String(listenerID),
 	}
 
 	mercuryDataStore := latticestore.NewLatticeDataStore()
 
-	listenerDeleteOuput := mercury.DeleteListenerOutput{}
-	mockMercurySess.EXPECT().DeleteListener(&listenerDeleteInput).Return(&listenerDeleteOuput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	listenerDeleteOuput := vpclattice.DeleteListenerOutput{}
+	mockVpcLatticeSess.EXPECT().DeleteListener(&listenerDeleteInput).Return(&listenerDeleteOuput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	listenerManager := NewListenerManager(mockCloud, mercuryDataStore)
 

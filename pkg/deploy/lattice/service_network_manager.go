@@ -6,7 +6,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -51,13 +51,13 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 	var service_networkID string
 	var service_networkArn string
 	var isServiceNetworkAssociatedWithVPC bool
-	mercurySess := m.cloud.Mercury()
+	vpcLatticeSess := m.cloud.Mercury()
 	if service_networkSummary == nil {
 		glog.V(2).Infof("ServiceNetwork Create API here, service_network[%v] vpciID[%s]\n", service_network, config.VpcID)
-		service_networkInput := mercury.CreateMeshInput{
+		service_networkInput := vpclattice.CreateServiceNetworkInput{
 			Name: &service_network.Spec.Name,
 		}
-		resp, err := mercurySess.CreateMeshWithContext(ctx, &service_networkInput)
+		resp, err := vpcLatticeSess.CreateServiceNetworkWithContext(ctx, &service_networkInput)
 		if err != nil {
 			glog.V(6).Infoln("Failed to create service_network, err: ", err)
 			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
@@ -77,12 +77,12 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 	}
 
 	if isServiceNetworkAssociatedWithVPC == false {
-		createServiceNetworkVpcAssociationInput := mercury.CreateMeshVpcAssociationInput{
-			MeshIdentifier: &service_networkID,
-			VpcIdentifier:  &config.VpcID,
+		createServiceNetworkVpcAssociationInput := vpclattice.CreateServiceNetworkVpcAssociationInput{
+			ServiceNetworkIdentifier: &service_networkID,
+			VpcIdentifier:            &config.VpcID,
 		}
 		glog.V(2).Infof("Create service_network/vpc association >>>> req[%v]\n", createServiceNetworkVpcAssociationInput)
-		resp, err := mercurySess.CreateMeshVpcAssociationWithContext(ctx, &createServiceNetworkVpcAssociationInput)
+		resp, err := vpcLatticeSess.CreateServiceNetworkVpcAssociationWithContext(ctx, &createServiceNetworkVpcAssociationInput)
 		glog.V(2).Infof("Create service_network and vpc association here >>>> resp[%v] err [%v]\n", resp, err)
 		// Associate service_network with vpc
 		if err != nil {
@@ -91,15 +91,15 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 		} else {
 			service_networkVPCAssociationStatus := aws.StringValue(resp.Status)
 			switch service_networkVPCAssociationStatus {
-			case mercury.MeshVpcAssociationStatusCreateInProgress:
+			case vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress:
 				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
-			case mercury.MeshVpcAssociationStatusActive:
+			case vpclattice.ServiceNetworkVpcAssociationStatusActive:
 				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: service_networkArn, ServiceNetworkID: service_networkID}, nil
-			case mercury.MeshVpcAssociationStatusCreateFailed:
+			case vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed:
 				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
-			case mercury.MeshVpcAssociationStatusDeleteFailed:
+			case vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed:
 				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
-			case mercury.MeshVpcAssociationStatusDeleteInProgress:
+			case vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress:
 				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
 			}
 		}
@@ -109,9 +109,9 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 
 // return all service_networkes associated with VPC
 func (m *defaultServiceNetworkManager) List(ctx context.Context) ([]string, error) {
-	mercurySess := m.cloud.Mercury()
-	service_networkListInput := mercury.ListMeshesInput{MaxResults: nil}
-	resp, err := mercurySess.ListMeshesAsList(ctx, &service_networkListInput)
+	vpcLatticeSess := m.cloud.Mercury()
+	service_networkListInput := vpclattice.ListServiceNetworksInput{MaxResults: nil}
+	resp, err := vpcLatticeSess.ListServiceNetworksAsList(ctx, &service_networkListInput)
 
 	var service_networkList = make([]string, 0)
 	if err == nil {
@@ -142,7 +142,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		return nil
 	}
 
-	mercurySess := m.cloud.Mercury()
+	vpcLatticeSess := m.cloud.Mercury()
 	service_networkID := aws.StringValue(service_networkSummary.Id)
 	deleteNeedRetry := false
 
@@ -161,11 +161,11 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		} else {
 			// Happy case, this is the last association
 			deleteNeedRetry = true
-			deleteServiceNetworkVpcAssociationInput := mercury.DeleteMeshVpcAssociationInput{
-				MeshVpcAssociationIdentifier: service_networkAssociatedWithCurrentVPCId,
+			deleteServiceNetworkVpcAssociationInput := vpclattice.DeleteServiceNetworkVpcAssociationInput{
+				ServiceNetworkVpcAssociationIdentifier: service_networkAssociatedWithCurrentVPCId,
 			}
 			glog.V(2).Infof("DeleteServiceNetworkVpcAssociationInput >>>> %v\n", deleteServiceNetworkVpcAssociationInput)
-			resp, err := mercurySess.DeleteMeshVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
+			resp, err := vpcLatticeSess.DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
 			if err != nil {
 				glog.V(6).Infof("Failed to delete association %v \n", err)
 			}
@@ -177,10 +177,10 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		return nil
 	}
 
-	deleteInput := mercury.DeleteMeshInput{
-		MeshIdentifier: &service_networkID,
+	deleteInput := vpclattice.DeleteServiceNetworkInput{
+		ServiceNetworkIdentifier: &service_networkID,
 	}
-	_, err = mercurySess.DeleteMeshWithContext(ctx, &deleteInput)
+	_, err = vpcLatticeSess.DeleteServiceNetworkWithContext(ctx, &deleteInput)
 	if err != nil {
 		return err
 	}
@@ -194,10 +194,10 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 }
 
 // Find service_network by name return service_network,err if service_network exists, otherwise return nil, nil.
-func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Context, targetServiceNetwork string) (*mercury.MeshSummary, error) {
-	mercurySess := m.cloud.Mercury()
-	service_networkListInput := mercury.ListMeshesInput{}
-	resp, err := mercurySess.ListMeshesAsList(ctx, &service_networkListInput)
+func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Context, targetServiceNetwork string) (*vpclattice.ServiceNetworkSummary, error) {
+	vpcLatticeSess := m.cloud.Mercury()
+	service_networkListInput := vpclattice.ListServiceNetworksInput{}
+	resp, err := vpcLatticeSess.ListServiceNetworksAsList(ctx, &service_networkListInput)
 	if err == nil {
 		for _, r := range resp {
 			if aws.StringValue(r.Name) == targetServiceNetwork {
@@ -212,14 +212,14 @@ func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Cont
 }
 
 // If service_network exists, check if service_network has already associated with VPC
-func (m *defaultServiceNetworkManager) isServiceNetworkAssociatedWithVPC(ctx context.Context, service_networkID string) (bool, *string, []*mercury.MeshVpcAssociationSummary, error) {
-	mercurySess := m.cloud.Mercury()
+func (m *defaultServiceNetworkManager) isServiceNetworkAssociatedWithVPC(ctx context.Context, service_networkID string) (bool, *string, []*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
+	vpcLatticeSess := m.cloud.Mercury()
 	// TODO: can pass vpc id to ListServiceNetworkVpcAssociationsInput, could return err if no associations
-	associationStatusInput := mercury.ListMeshVpcAssociationsInput{
-		MeshIdentifier: &service_networkID,
+	associationStatusInput := vpclattice.ListServiceNetworkVpcAssociationsInput{
+		ServiceNetworkIdentifier: &service_networkID,
 	}
 
-	resp, err := mercurySess.ListMeshVpcAssociationsAsList(ctx, &associationStatusInput)
+	resp, err := vpcLatticeSess.ListServiceNetworkVpcAssociationsAsList(ctx, &associationStatusInput)
 	if err != nil {
 		return false, nil, nil, err
 	}
@@ -233,19 +233,19 @@ func (m *defaultServiceNetworkManager) isServiceNetworkAssociatedWithVPC(ctx con
 			associationStatus := aws.StringValue(r.Status)
 			if err == nil {
 				switch associationStatus {
-				case mercury.MeshVpcAssociationStatusActive:
+				case vpclattice.ServiceNetworkVpcAssociationStatusActive:
 					glog.V(6).Infoln("Mesh and Vpc association is active.")
 					return true, r.Id, resp, nil
-				case mercury.MeshVpcAssociationStatusCreateFailed:
+				case vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed:
 					glog.V(6).Infoln("Mesh and Vpc association does not exists, start creating service_network and vpc association")
 					return false, r.Id, resp, nil
-				case mercury.MeshVpcAssociationStatusDeleteFailed:
+				case vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed:
 					glog.V(6).Infoln("Mesh and Vpc association failed to delete")
 					return true, r.Id, resp, nil
-				case mercury.MeshVpcAssociationStatusDeleteInProgress:
+				case vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress:
 					glog.V(6).Infoln("ServiceNetwork and Vpc association is being deleted, please retry later")
 					return true, r.Id, resp, errors.New(LATTICE_RETRY)
-				case mercury.MeshVpcAssociationStatusCreateInProgress:
+				case vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress:
 					glog.V(6).Infoln("ServiceNetwork and Vpc association is being created, please retry later")
 					return true, r.Id, resp, errors.New(LATTICE_RETRY)
 				}
