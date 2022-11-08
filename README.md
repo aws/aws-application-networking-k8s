@@ -7,6 +7,8 @@ AWS Application Networking is an implementation of the Kubernetes [Gateway API](
 make help
 
 # This only needs to be run once after checking out the repo, and will install tools/codegen required for development
+# If you see this err "Go workspace's "bin" directory is not in PATH. Run 'export PATH="$PATH:${GOPATH:-$HOME/go}/bin"'."
+# fix it and rerun following. 
 make toolchain
 
 # Run this before submitting code
