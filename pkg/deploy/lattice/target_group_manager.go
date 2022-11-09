@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -21,10 +21,10 @@ type TargetGroupManager interface {
 }
 
 type defaultTargetGroupManager struct {
-	cloud mercury_aws.Cloud
+	cloud lattice_aws.Cloud
 }
 
-func NewTargetGroupManager(cloud mercury_aws.Cloud) *defaultTargetGroupManager {
+func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 	return &defaultTargetGroupManager{
 		cloud: cloud,
 	}

@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -22,11 +22,11 @@ type ListenerManager interface {
 }
 
 type defaultListenerManager struct {
-	cloud            mercury_aws.Cloud
+	cloud            lattice_aws.Cloud
 	latticeDataStore *latticestore.LatticeDataStore
 }
 
-func NewListenerManager(cloud mercury_aws.Cloud, latticeDataStore *latticestore.LatticeDataStore) *defaultListenerManager {
+func NewListenerManager(cloud lattice_aws.Cloud, latticeDataStore *latticestore.LatticeDataStore) *defaultListenerManager {
 	return &defaultListenerManager{
 		cloud:            cloud,
 		latticeDataStore: latticeDataStore,

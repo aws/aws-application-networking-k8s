@@ -9,14 +9,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
-func NewTargetGroupSynthesizer(cloud mercury_aws.Cloud, client client.Client, tgManager TargetGroupManager, stack core.Stack, latticeDataStore *latticestore.LatticeDataStore) *targetGroupSynthesizer {
+func NewTargetGroupSynthesizer(cloud lattice_aws.Cloud, client client.Client, tgManager TargetGroupManager, stack core.Stack, latticeDataStore *latticestore.LatticeDataStore) *targetGroupSynthesizer {
 	return &targetGroupSynthesizer{
 		cloud:              cloud,
 		client:             client,
@@ -27,7 +27,7 @@ func NewTargetGroupSynthesizer(cloud mercury_aws.Cloud, client client.Client, tg
 }
 
 type targetGroupSynthesizer struct {
-	cloud              mercury_aws.Cloud
+	cloud              lattice_aws.Cloud
 	client             client.Client
 	targetGroupManager TargetGroupManager
 	stack              core.Stack
@@ -92,7 +92,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 			resTargetGroup.Spec.Config.VpcID = resTargetGroup.Spec.Config.VpcID
 			*/
 
-			// TODO in future, we might want to use annotation to specify mercury TG arn or ID
+			// TODO in future, we might want to use annotation to specify lattice TG arn or ID
 			if resTargetGroup.Spec.IsDeleted {
 				//Ingnore TG delete since this is an import from elsewhere
 				continue

@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -18,11 +18,11 @@ type TargetsManager interface {
 }
 
 type defaultTargetsManager struct {
-	cloud     mercury_aws.Cloud
+	cloud     lattice_aws.Cloud
 	datastore *latticestore.LatticeDataStore
 }
 
-func NewTargetsManager(cloud mercury_aws.Cloud, datastore *latticestore.LatticeDataStore) *defaultTargetsManager {
+func NewTargetsManager(cloud lattice_aws.Cloud, datastore *latticestore.LatticeDataStore) *defaultTargetsManager {
 	return &defaultTargetsManager{
 		cloud:     cloud,
 		datastore: datastore,

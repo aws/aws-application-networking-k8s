@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -31,10 +31,10 @@ type latticeTargetsModelBuilder struct {
 
 	datastore *latticestore.LatticeDataStore
 
-	cloud mercury_aws.Cloud
+	cloud lattice_aws.Cloud
 }
 
-func NewTargetsBuilder(client client.Client, cloud mercury_aws.Cloud, datastore *latticestore.LatticeDataStore) *latticeTargetsModelBuilder {
+func NewTargetsBuilder(client client.Client, cloud lattice_aws.Cloud, datastore *latticestore.LatticeDataStore) *latticeTargetsModelBuilder {
 	return &latticeTargetsModelBuilder{
 		Client:    client,
 		cloud:     cloud,

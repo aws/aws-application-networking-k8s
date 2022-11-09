@@ -120,8 +120,8 @@ func Test_AddListener(t *testing.T) {
 
 		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
-		mercuryDataStore := latticestore.NewLatticeDataStore()
-		listenerManager := NewListenerManager(mockCloud, mercuryDataStore)
+		latticeDataStore := latticestore.NewLatticeDataStore()
+		listenerManager := NewListenerManager(mockCloud, latticeDataStore)
 
 		var serviceID = "serviceID"
 		var serviceARN = "serviceARN"
@@ -129,7 +129,7 @@ func Test_AddListener(t *testing.T) {
 
 		if !tt.noServiceID {
 			// Add service to ds
-			mercuryDataStore.AddLatticeService(namespaceName.Name, namespaceName.Namespace, serviceARN, serviceID, serviceDNS)
+			latticeDataStore.AddLatticeService(namespaceName.Name, namespaceName.Namespace, serviceARN, serviceID, serviceDNS)
 
 		}
 
@@ -144,7 +144,7 @@ func Test_AddListener(t *testing.T) {
 		tgID := "tg-id"
 		if !tt.noTargetGroupID {
 			tgName := latticestore.TargetGroupName(action.BackendServiceName, action.BackendServiceNamespace)
-			mercuryDataStore.AddTargetGroup(tgName, "vpc", "tg-arn", tgID, false)
+			latticeDataStore.AddTargetGroup(tgName, "vpc", "tg-arn", tgID, false)
 
 		}
 
@@ -253,8 +253,8 @@ func Test_ListListener(t *testing.T) {
 
 		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
-		mercuryDataStore := latticestore.NewLatticeDataStore()
-		listenerManager := NewListenerManager(mockCloud, mercuryDataStore)
+		latticeDataStore := latticestore.NewLatticeDataStore()
+		listenerManager := NewListenerManager(mockCloud, latticeDataStore)
 
 		serviceID := "service1-ID"
 		listenerListInput := vpclattice.ListListenersInput{
@@ -300,13 +300,13 @@ func Test_DeleteListerner(t *testing.T) {
 		ListenerIdentifier: aws.String(listenerID),
 	}
 
-	mercuryDataStore := latticestore.NewLatticeDataStore()
+	latticeDataStore := latticestore.NewLatticeDataStore()
 
 	listenerDeleteOuput := vpclattice.DeleteListenerOutput{}
 	mockVpcLatticeSess.EXPECT().DeleteListener(&listenerDeleteInput).Return(&listenerDeleteOuput, nil)
 	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
-	listenerManager := NewListenerManager(mockCloud, mercuryDataStore)
+	listenerManager := NewListenerManager(mockCloud, latticeDataStore)
 
 	listenerManager.Delete(ctx, listenerID, serviceID)
 

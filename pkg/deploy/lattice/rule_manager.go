@@ -9,7 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -25,11 +25,11 @@ type RuleManager interface {
 }
 
 type defaultRuleManager struct {
-	cloud            mercury_aws.Cloud
+	cloud            lattice_aws.Cloud
 	latticeDataStore *latticestore.LatticeDataStore
 }
 
-func NewRuleManager(cloud mercury_aws.Cloud, store *latticestore.LatticeDataStore) *defaultRuleManager {
+func NewRuleManager(cloud lattice_aws.Cloud, store *latticestore.LatticeDataStore) *defaultRuleManager {
 	return &defaultRuleManager{
 		cloud:            cloud,
 		latticeDataStore: store,
@@ -48,7 +48,7 @@ func (r *defaultRuleManager) Get(ctx context.Context, serviceID string, listernI
 	return resp, err
 }
 
-// find out all rules in SDK mercury under a single service
+// find out all rules in SDK lattice under a single service
 func (r *defaultRuleManager) List(ctx context.Context, service string, listener string) ([]*latticemodel.RuleStatus, error) {
 	var sdkRules []*latticemodel.RuleStatus = nil
 

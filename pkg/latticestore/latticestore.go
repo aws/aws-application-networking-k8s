@@ -21,7 +21,7 @@ const (
 	DATASTORE_SERVICE_NETWORK_CREATED            = "service network is created and associated"
 )
 
-// this package is used to cache mercury info that relates to K8S object.
+// this package is used to cache lattice info that relates to K8S object.
 // e.g. the AWSARN for the matching K8S object
 
 type ServiceNetworkKey struct {

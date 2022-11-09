@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -19,7 +19,7 @@ type ServiceNetworkManager interface {
 	Delete(ctx context.Context, service_network string) error
 }
 
-func NewDefaultServiceNetworkManager(cloud mercury_aws.Cloud) *defaultServiceNetworkManager {
+func NewDefaultServiceNetworkManager(cloud lattice_aws.Cloud) *defaultServiceNetworkManager {
 	return &defaultServiceNetworkManager{
 		cloud: cloud,
 	}
@@ -28,7 +28,7 @@ func NewDefaultServiceNetworkManager(cloud mercury_aws.Cloud) *defaultServiceNet
 var _service_networkManager = &defaultServiceNetworkManager{}
 
 type defaultServiceNetworkManager struct {
-	cloud mercury_aws.Cloud
+	cloud lattice_aws.Cloud
 }
 
 // Create will try to create a service_network and associate the service_network with vpc
