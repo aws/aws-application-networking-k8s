@@ -60,11 +60,11 @@ func Test_RegisterTargets_RegisterSuccessfully(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(tgCreateOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &createInput)
@@ -134,12 +134,12 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, errors.New("Register_Targets_Failed"))
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &planToRegister)
@@ -217,12 +217,12 @@ func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, deRegisterTargetsInput).Return(deRegisterTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, &registerTargetsInput).Return(registerTargetsOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &planToRegister)

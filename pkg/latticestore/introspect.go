@@ -33,7 +33,7 @@ func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (c *LatticeDataStore) ServeIntrospection() {
 
-	glog.V(6).Infof("Starting MercuryDataStore serve Introspection\n")
+	glog.V(6).Infof("Starting LatticeDataStore serve Introspection\n")
 
 	server := c.setupIntrospectionServer()
 	for {

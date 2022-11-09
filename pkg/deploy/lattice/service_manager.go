@@ -67,7 +67,7 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 	var serviceArn string
 	var serviceDNS string
 	var isServiceAssociatedWithServiceNetwork bool
-	latticeSess := s.cloud.Mercury()
+	latticeSess := s.cloud.Lattice()
 
 	// create service
 	if serviceSummary == nil {
@@ -76,7 +76,7 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 			Name: &svcName,
 			Tags: nil,
 		}
-		latticeSess := s.cloud.Mercury()
+		latticeSess := s.cloud.Lattice()
 		resp, err := latticeSess.CreateServiceWithContext(ctx, &serviceInput)
 		glog.V(2).Infof("CreateServiceWithContext >>>> req %v resp %v err %v\n", serviceInput, resp, err)
 		if err != nil {
@@ -154,7 +154,7 @@ func (s *defaultServiceManager) isServiceNetworkServiceAssociationStatusAssociat
 
 // find service by name return serviceNetwork,err if mesh exists, otherwise return nil,nil
 func (s *defaultServiceManager) findServiceByName(ctx context.Context, serviceName string) (*vpclattice.ServiceSummary, error) {
-	latticeSess := s.cloud.Mercury()
+	latticeSess := s.cloud.Lattice()
 	servicesListInput := vpclattice.ListServicesInput{}
 	resp, err := latticeSess.ListServicesAsList(ctx, &servicesListInput)
 	glog.V(6).Infof("findServiceByName, resp %v, err: %v\n", resp, err)
@@ -173,7 +173,7 @@ func (s *defaultServiceManager) findServiceByName(ctx context.Context, serviceNa
 }
 
 func (s *defaultServiceManager) isServiceAssociatedWithServiceNetwork(ctx context.Context, serviceID string, serviceNetworkID string) (bool, string, error) {
-	latticeSess := s.cloud.Mercury()
+	latticeSess := s.cloud.Lattice()
 	listServiceNetworkServiceAssociationsInput := vpclattice.ListServiceNetworkServiceAssociationsInput{
 		ServiceNetworkIdentifier: &serviceNetworkID,
 		ServiceIdentifier:        &serviceID,
@@ -207,7 +207,7 @@ func (s *defaultServiceManager) isServiceAssociatedWithServiceNetwork(ctx contex
 
 func (s *defaultServiceManager) Delete(ctx context.Context, service *latticemodel.Service) error {
 
-	latticeSess := s.cloud.Mercury()
+	latticeSess := s.cloud.Lattice()
 
 	svcName := latticestore.AWSServiceName(service.Spec.Name, service.Spec.Namespace)
 	serviceSummary, err := s.findServiceByName(ctx, svcName)

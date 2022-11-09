@@ -35,7 +35,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -67,7 +67,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, &createTargetGroupInput).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -90,7 +90,7 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 		Spec:         tgSpec,
 		Status:       nil,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -114,7 +114,7 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -136,7 +136,7 @@ func Test_CreateTargetGroup_TGActive_ACTIVE(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -152,7 +152,7 @@ func Test_CreateTargetGroup_TGActive_ACTIVE(t *testing.T) {
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -174,7 +174,7 @@ func Test_CreateTargetGroup_TGCreateInProgress_Retry(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -190,7 +190,7 @@ func Test_CreateTargetGroup_TGCreateInProgress_Retry(t *testing.T) {
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New(LATTICE_RETRY))
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -213,7 +213,7 @@ func Test_CreateTargetGroup_TGDeleteInProgress_Retry(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -229,7 +229,7 @@ func Test_CreateTargetGroup_TGDeleteInProgress_Retry(t *testing.T) {
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New(LATTICE_RETRY))
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -253,7 +253,7 @@ func Test_CreateTargetGroup_TGNotExist_UpdateInProgress(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -270,7 +270,7 @@ func Test_CreateTargetGroup_TGNotExist_UpdateInProgress(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -294,7 +294,7 @@ func Test_CreateTargetGroup_TGNotExist_CreateInProgress(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -311,7 +311,7 @@ func Test_CreateTargetGroup_TGNotExist_CreateInProgress(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -334,7 +334,7 @@ func Test_CreateTargetGroup_TGNotExist_DeleteInProgress(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -351,7 +351,7 @@ func Test_CreateTargetGroup_TGNotExist_DeleteInProgress(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -374,7 +374,7 @@ func Test_CreateTargetGroup_TGNotExist_Failed(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -391,7 +391,7 @@ func Test_CreateTargetGroup_TGNotExist_Failed(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -414,12 +414,12 @@ func Test_CreateTargetGroup_ListTGError(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New("test"))
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess)
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -442,7 +442,7 @@ func Test_CreateTargetGroup_CreateTGFailed(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -459,7 +459,7 @@ func Test_CreateTargetGroup_CreateTGFailed(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, errors.New("test"))
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -511,11 +511,11 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -550,11 +550,11 @@ func Test_DeleteTG_NoRegisteredTargets_DeleteTargetGroup(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -588,10 +588,10 @@ func Test_DeleteTG_DeRegisteredTargetsFailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, errors.New("Deregister_failed"))
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -626,9 +626,9 @@ func Test_DeleteTG_ListTargetsFailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, errors.New("Listregister_failed"))
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess)
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 	tgManager := NewTargetGroupManager(mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -672,10 +672,10 @@ func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -719,11 +719,11 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroupFailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, errors.New("DeleteTG_failed"))
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -767,12 +767,12 @@ func Test_ListTG_TGsExist(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
 	mockVpcLatticeSess.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG1, nil)
 	mockVpcLatticeSess.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG2, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess)
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 
 	tgManager := NewTargetGroupManager(mockCloud)
 	tgList, err := tgManager.List(ctx)
@@ -788,10 +788,10 @@ func Test_ListTG_NoTG(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess)
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 
 	tgManager := NewTargetGroupManager(mockCloud)
 	tgList, err := tgManager.List(ctx)
@@ -912,7 +912,7 @@ func Test_Get(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
 		listTGinput := &vpclattice.ListTargetGroupsInput{}
@@ -934,7 +934,7 @@ func Test_Get(t *testing.T) {
 
 		mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, listTGinput).Return(listTGOutput, nil)
 
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 		targetGroupManager := NewTargetGroupManager(mockCloud)
 
 		resp, err := targetGroupManager.Get(ctx, tt.input)

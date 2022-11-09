@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice/vpclatticeiface"
 )
 
-type Mercury interface {
+type Lattice interface {
 	vpclatticeiface.VpcLatticeAPI
 	ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error)
 	ListServicesAsList(ctx context.Context, input *vpclattice.ListServicesInput) ([]*vpclattice.ServiceSummary, error)
@@ -19,7 +19,7 @@ type Mercury interface {
 	ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error)
 }
 
-type defaultMercury struct {
+type defaultLattice struct {
 	vpclatticeiface.VpcLatticeAPI
 }
 
@@ -28,17 +28,17 @@ const (
 	BetaProdEndpoint = "https://vpc-service-network.us-west-2.amazonaws.com"
 )
 
-func NewDefaultMercury(sess *session.Session, region string) *defaultMercury {
+func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 	var latticeSess vpclatticeiface.VpcLatticeAPI
 	if region == "us-east-1" {
 		latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion("us-east-1").WithEndpoint("https://mercury-beta.us-east-1.amazonaws.com/"))
 	} else {
 		latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion("us-west-2").WithEndpoint(BetaProdEndpoint))
 	}
-	return &defaultMercury{VpcLatticeAPI: latticeSess}
+	return &defaultLattice{VpcLatticeAPI: latticeSess}
 }
 
-func (d *defaultMercury) ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error) {
+func (d *defaultLattice) ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error) {
 	result := []*vpclattice.ServiceNetworkSummary{}
 	resp, err := d.ListServiceNetworksWithContext(ctx, input)
 
@@ -59,7 +59,7 @@ func (d *defaultMercury) ListServiceNetworksAsList(ctx context.Context, input *v
 	return result, nil
 }
 
-func (d *defaultMercury) ListServicesAsList(ctx context.Context, input *vpclattice.ListServicesInput) ([]*vpclattice.ServiceSummary, error) {
+func (d *defaultLattice) ListServicesAsList(ctx context.Context, input *vpclattice.ListServicesInput) ([]*vpclattice.ServiceSummary, error) {
 	result := []*vpclattice.ServiceSummary{}
 	resp, err := d.ListServicesWithContext(ctx, input)
 
@@ -80,7 +80,7 @@ func (d *defaultMercury) ListServicesAsList(ctx context.Context, input *vpclatti
 	return result, nil
 }
 
-func (d *defaultMercury) ListTargetGroupsAsList(ctx context.Context, input *vpclattice.ListTargetGroupsInput) ([]*vpclattice.TargetGroupSummary, error) {
+func (d *defaultLattice) ListTargetGroupsAsList(ctx context.Context, input *vpclattice.ListTargetGroupsInput) ([]*vpclattice.TargetGroupSummary, error) {
 	result := []*vpclattice.TargetGroupSummary{}
 	resp, err := d.ListTargetGroupsWithContext(ctx, input)
 
@@ -101,7 +101,7 @@ func (d *defaultMercury) ListTargetGroupsAsList(ctx context.Context, input *vpcl
 	return result, nil
 }
 
-func (d *defaultMercury) ListTargetsAsList(ctx context.Context, input *vpclattice.ListTargetsInput) ([]*vpclattice.TargetSummary, error) {
+func (d *defaultLattice) ListTargetsAsList(ctx context.Context, input *vpclattice.ListTargetsInput) ([]*vpclattice.TargetSummary, error) {
 	result := []*vpclattice.TargetSummary{}
 	resp, err := d.ListTargetsWithContext(ctx, input)
 
@@ -122,7 +122,7 @@ func (d *defaultMercury) ListTargetsAsList(ctx context.Context, input *vpclattic
 	return result, nil
 }
 
-func (d *defaultMercury) ListServiceNetworkVpcAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput) ([]*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
+func (d *defaultLattice) ListServiceNetworkVpcAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput) ([]*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
 	result := []*vpclattice.ServiceNetworkVpcAssociationSummary{}
 	resp, err := d.ListServiceNetworkVpcAssociationsWithContext(ctx, input)
 
@@ -143,7 +143,7 @@ func (d *defaultMercury) ListServiceNetworkVpcAssociationsAsList(ctx context.Con
 	return result, nil
 }
 
-func (d *defaultMercury) ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error) {
+func (d *defaultLattice) ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error) {
 	result := []*vpclattice.ServiceNetworkServiceAssociationSummary{}
 	resp, err := d.ListServiceNetworkServiceAssociationsWithContext(ctx, input)
 

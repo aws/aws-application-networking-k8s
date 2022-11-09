@@ -16,7 +16,7 @@ import (
 )
 
 type Cloud interface {
-	Mercury() services.Mercury
+	Lattice() services.Lattice
 	EKS() services.EKS
 }
 
@@ -42,7 +42,7 @@ func NewCloud() (Cloud, error) {
 
 	return &defaultCloud{
 		// TODO: service
-		vpcLatticeSess: services.NewDefaultMercury(sess, config.Region),
+		vpcLatticeSess: services.NewDefaultLattice(sess, config.Region),
 		eksSess:        services.NewDefaultEKS(sess, config.Region),
 	}, nil
 }
@@ -50,11 +50,11 @@ func NewCloud() (Cloud, error) {
 var _ Cloud = &defaultCloud{}
 
 type defaultCloud struct {
-	vpcLatticeSess services.Mercury
+	vpcLatticeSess services.Lattice
 	eksSess        services.EKS
 }
 
-func (d *defaultCloud) Mercury() services.Mercury {
+func (d *defaultCloud) Lattice() services.Lattice {
 	return d.vpcLatticeSess
 }
 

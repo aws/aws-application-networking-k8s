@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func Test_defaultMercury_ListServiceNetworksAsList(t *testing.T) {
+func Test_defaultLattice_ListServiceNetworksAsList(t *testing.T) {
 	tests := []struct {
 		ctx        context.Context
 		nextToken  string
@@ -31,10 +31,10 @@ func Test_defaultMercury_ListServiceNetworksAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockMercuryService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockVpcLatticeAPI(c)
 
-		d := &defaultMercury{
-			VpcLatticeAPI: mockMercuryService,
+		d := &defaultLattice{
+			VpcLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListServiceNetworksInput{
@@ -58,16 +58,16 @@ func Test_defaultMercury_ListServiceNetworksAsList(t *testing.T) {
 			Items:     []*vpclattice.ServiceNetworkSummary{sampleMesh},
 			NextToken: nil,
 		}
-		mockMercuryService.EXPECT().ListServiceNetworksWithContext(tt.ctx, input).Return(listMeshOutput1, nil)
-		mockMercuryService.EXPECT().ListServiceNetworksWithContext(tt.ctx, input).Return(listMeshOutput2, nil)
-		mockMercuryService.EXPECT().ListServiceNetworksWithContext(tt.ctx, input).Return(listMeshOutput3, nil)
+		mockLatticeService.EXPECT().ListServiceNetworksWithContext(tt.ctx, input).Return(listMeshOutput1, nil)
+		mockLatticeService.EXPECT().ListServiceNetworksWithContext(tt.ctx, input).Return(listMeshOutput2, nil)
+		mockLatticeService.EXPECT().ListServiceNetworksWithContext(tt.ctx, input).Return(listMeshOutput3, nil)
 		got, err := d.ListServiceNetworksAsList(tt.ctx, input)
 		assert.Nil(t, err)
 		assert.Equal(t, got, []*vpclattice.ServiceNetworkSummary{sampleMesh, sampleMesh, sampleMesh, sampleMesh, sampleMesh})
 	}
 }
 
-func Test_defaultMercury_ListServicesAsList(t *testing.T) {
+func Test_defaultLattice_ListServicesAsList(t *testing.T) {
 	tests := []struct {
 		ctx        context.Context
 		nextToken  string
@@ -84,10 +84,10 @@ func Test_defaultMercury_ListServicesAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockMercuryService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockVpcLatticeAPI(c)
 
-		d := &defaultMercury{
-			VpcLatticeAPI: mockMercuryService,
+		d := &defaultLattice{
+			VpcLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListServicesInput{
@@ -105,15 +105,15 @@ func Test_defaultMercury_ListServicesAsList(t *testing.T) {
 			Items:     []*vpclattice.ServiceSummary{sampleService},
 			NextToken: nil,
 		}
-		mockMercuryService.EXPECT().ListServicesWithContext(tt.ctx, input).Return(listOutput1, nil)
-		mockMercuryService.EXPECT().ListServicesWithContext(tt.ctx, input).Return(listOutput2, nil)
+		mockLatticeService.EXPECT().ListServicesWithContext(tt.ctx, input).Return(listOutput1, nil)
+		mockLatticeService.EXPECT().ListServicesWithContext(tt.ctx, input).Return(listOutput2, nil)
 		got, err := d.ListServicesAsList(tt.ctx, input)
 		assert.Nil(t, err)
 		assert.Equal(t, got, []*vpclattice.ServiceSummary{sampleService, sampleService})
 	}
 }
 
-func Test_defaultMercury_ListTGsAsList(t *testing.T) {
+func Test_defaultLattice_ListTGsAsList(t *testing.T) {
 	tests := []struct {
 		ctx        context.Context
 		nextToken  string
@@ -130,10 +130,10 @@ func Test_defaultMercury_ListTGsAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockMercuryService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockVpcLatticeAPI(c)
 
-		d := &defaultMercury{
-			VpcLatticeAPI: mockMercuryService,
+		d := &defaultLattice{
+			VpcLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListTargetGroupsInput{
@@ -147,7 +147,7 @@ func Test_defaultMercury_ListTGsAsList(t *testing.T) {
 			Items:     []*vpclattice.TargetGroupSummary{sample},
 			NextToken: nil,
 		}
-		mockMercuryService.EXPECT().ListTargetGroupsWithContext(tt.ctx, input).Return(listOutput1, nil)
+		mockLatticeService.EXPECT().ListTargetGroupsWithContext(tt.ctx, input).Return(listOutput1, nil)
 
 		got, err := d.ListTargetGroupsAsList(tt.ctx, input)
 		assert.Nil(t, err)
@@ -155,7 +155,7 @@ func Test_defaultMercury_ListTGsAsList(t *testing.T) {
 	}
 }
 
-func Test_defaultMercury_ListTargetsAsList(t *testing.T) {
+func Test_defaultLattice_ListTargetsAsList(t *testing.T) {
 	tests := []struct {
 		ctx        context.Context
 		nextToken  string
@@ -172,10 +172,10 @@ func Test_defaultMercury_ListTargetsAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockMercuryService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockVpcLatticeAPI(c)
 
-		d := &defaultMercury{
-			VpcLatticeAPI: mockMercuryService,
+		d := &defaultLattice{
+			VpcLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListTargetsInput{
@@ -189,7 +189,7 @@ func Test_defaultMercury_ListTargetsAsList(t *testing.T) {
 			Items:     []*vpclattice.TargetSummary{sample, sample},
 			NextToken: nil,
 		}
-		mockMercuryService.EXPECT().ListTargetsWithContext(tt.ctx, input).Return(listOutput1, nil)
+		mockLatticeService.EXPECT().ListTargetsWithContext(tt.ctx, input).Return(listOutput1, nil)
 
 		got, err := d.ListTargetsAsList(tt.ctx, input)
 		assert.Nil(t, err)
@@ -197,7 +197,7 @@ func Test_defaultMercury_ListTargetsAsList(t *testing.T) {
 	}
 }
 
-func Test_defaultMercury_ListServiceNetworkVpcAssociationsAsList(t *testing.T) {
+func Test_defaultLattice_ListServiceNetworkVpcAssociationsAsList(t *testing.T) {
 	tests := []struct {
 		ctx        context.Context
 		nextToken  string
@@ -214,10 +214,10 @@ func Test_defaultMercury_ListServiceNetworkVpcAssociationsAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockMercuryService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockVpcLatticeAPI(c)
 
-		d := &defaultMercury{
-			VpcLatticeAPI: mockMercuryService,
+		d := &defaultLattice{
+			VpcLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListServiceNetworkVpcAssociationsInput{
@@ -231,7 +231,7 @@ func Test_defaultMercury_ListServiceNetworkVpcAssociationsAsList(t *testing.T) {
 			Items:     []*vpclattice.ServiceNetworkVpcAssociationSummary{sample},
 			NextToken: nil,
 		}
-		mockMercuryService.EXPECT().ListServiceNetworkVpcAssociationsWithContext(tt.ctx, input).Return(listOutput1, nil)
+		mockLatticeService.EXPECT().ListServiceNetworkVpcAssociationsWithContext(tt.ctx, input).Return(listOutput1, nil)
 
 		got, err := d.ListServiceNetworkVpcAssociationsAsList(tt.ctx, input)
 		assert.Nil(t, err)
@@ -239,7 +239,7 @@ func Test_defaultMercury_ListServiceNetworkVpcAssociationsAsList(t *testing.T) {
 	}
 }
 
-func Test_defaultMercury_ListServiceNetworkServiceAssociationsAsList(t *testing.T) {
+func Test_defaultLattice_ListServiceNetworkServiceAssociationsAsList(t *testing.T) {
 	tests := []struct {
 		ctx        context.Context
 		nextToken  string
@@ -256,10 +256,10 @@ func Test_defaultMercury_ListServiceNetworkServiceAssociationsAsList(t *testing.
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockMercuryService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockVpcLatticeAPI(c)
 
-		d := &defaultMercury{
-			VpcLatticeAPI: mockMercuryService,
+		d := &defaultLattice{
+			VpcLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListServiceNetworkServiceAssociationsInput{
@@ -271,7 +271,7 @@ func Test_defaultMercury_ListServiceNetworkServiceAssociationsAsList(t *testing.
 			Items:     []*vpclattice.ServiceNetworkServiceAssociationSummary{},
 			NextToken: nil,
 		}
-		mockMercuryService.EXPECT().ListServiceNetworkServiceAssociationsWithContext(tt.ctx, input).Return(listOutput1, nil)
+		mockLatticeService.EXPECT().ListServiceNetworkServiceAssociationsWithContext(tt.ctx, input).Return(listOutput1, nil)
 
 		got, err := d.ListServiceNetworkServiceAssociationsAsList(tt.ctx, input)
 		assert.Nil(t, err)

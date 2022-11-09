@@ -369,11 +369,11 @@ func Test_CreateRule(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 
@@ -593,11 +593,11 @@ func Test_UpdateRule(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 
@@ -656,7 +656,7 @@ func Test_List(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 
@@ -685,7 +685,7 @@ func Test_List(t *testing.T) {
 	latticeDataStore := latticestore.NewLatticeDataStore()
 
 	mockVpcLatticeSess.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	ruleManager := NewRuleManager(mockCloud, latticeDataStore)
 
@@ -707,7 +707,7 @@ func Test_GetRule(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 
@@ -732,7 +732,7 @@ func Test_GetRule(t *testing.T) {
 	}
 
 	mockVpcLatticeSess.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	ruleManager := NewRuleManager(mockCloud, latticeDataStore)
 
@@ -750,7 +750,7 @@ func Test_DeleteRule(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 
@@ -768,7 +768,7 @@ func Test_DeleteRule(t *testing.T) {
 
 	ruleDeleteOuput := vpclattice.DeleteRuleOutput{}
 	mockVpcLatticeSess.EXPECT().DeleteRule(&ruleDeleteInput).Return(&ruleDeleteOuput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	ruleManager := NewRuleManager(mockCloud, latticeDataStore)
 

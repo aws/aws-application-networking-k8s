@@ -246,7 +246,7 @@ func (ds *LatticeDataStore) DelLatticeService(name string, namespace string) err
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("DelMercuryService API, name[%s] namespace[%s] \n", name, namespace)
+	glog.V(6).Infof("DelLatticeService API, name[%s] namespace[%s] \n", name, namespace)
 
 	serviceKey := LatticeServiceKey{
 		Name:      name,
@@ -268,7 +268,7 @@ func (ds *LatticeDataStore) GetLatticeService(name string, namespace string) (La
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("GetMercuryService API, name[%s] namespace[%s] ds [%v]\n", name, namespace, ds)
+	glog.V(6).Infof("GetLatticeService API, name[%s] namespace[%s] ds [%v]\n", name, namespace, ds)
 	var svc = LatticeService{}
 
 	serviceKey := LatticeServiceKey{
@@ -296,7 +296,7 @@ func TargetGroupName(name string, namespace string) string {
 }
 
 // TODO , find out a good name
-// AWSserviceName,  or VSNServiceName or MercuryServiceName
+// AWSserviceName,  or VSNServiceName or LatticeServiceName
 // the max name length is 40
 func AWSServiceName(name string, namespace string) string {
 	return fmt.Sprintf("%0.20s-%0.18s", name, namespace)

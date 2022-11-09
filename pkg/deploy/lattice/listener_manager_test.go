@@ -114,11 +114,11 @@ func Test_AddListener(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		listenerManager := NewListenerManager(mockCloud, latticeDataStore)
@@ -247,11 +247,11 @@ func Test_ListListener(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		listenerManager := NewListenerManager(mockCloud, latticeDataStore)
@@ -288,7 +288,7 @@ func Test_DeleteListerner(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
-	mockVpcLatticeSess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 
@@ -304,7 +304,7 @@ func Test_DeleteListerner(t *testing.T) {
 
 	listenerDeleteOuput := vpclattice.DeleteListenerOutput{}
 	mockVpcLatticeSess.EXPECT().DeleteListener(&listenerDeleteInput).Return(&listenerDeleteOuput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	listenerManager := NewListenerManager(mockCloud, latticeDataStore)
 

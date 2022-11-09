@@ -93,7 +93,7 @@ func (s *defaultListenerManager) Create(ctx context.Context, listener *latticemo
 		Tags:              nil,
 	}
 
-	latticeSess := s.cloud.Mercury()
+	latticeSess := s.cloud.Lattice()
 
 	resp, err := latticeSess.CreateListener(&listenerInput)
 
@@ -134,7 +134,7 @@ func (s *defaultListenerManager) List(ctx context.Context, serviceID string) ([]
 	var sdkListeners []*vpclattice.ListenerSummary
 
 	glog.V(6).Infof("List - defaultListenerManager  serviceID %v \n", serviceID)
-	latticeSess := s.cloud.Mercury()
+	latticeSess := s.cloud.Lattice()
 	listenerListInput := vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(serviceID),
 	}
@@ -168,7 +168,7 @@ func (s *defaultListenerManager) List(ctx context.Context, serviceID string) ([]
 
 func (s *defaultListenerManager) findListenerByNamePort(ctx context.Context, serviceID string, port int64) (*vpclattice.ListenerSummary, error) {
 	glog.V(6).Infof("calling findListenerByNamePort serviceID %v port %d \n", serviceID, port)
-	latticeSess := s.cloud.Mercury()
+	latticeSess := s.cloud.Lattice()
 	listenerListInput := vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(serviceID),
 	}
@@ -201,7 +201,7 @@ func (s *defaultListenerManager) Delete(ctx context.Context, listenerID string, 
 		ListenerIdentifier: aws.String(listenerID),
 	}
 
-	resp, err := s.cloud.Mercury().DeleteListener(&listenerDeleteInput)
+	resp, err := s.cloud.Lattice().DeleteListener(&listenerDeleteInput)
 
 	glog.V(2).Infoln("############ req delete listner ###########")
 	glog.V(2).Infoln(listenerDeleteInput)

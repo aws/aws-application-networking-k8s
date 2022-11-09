@@ -43,7 +43,7 @@ func (r *defaultRuleManager) Get(ctx context.Context, serviceID string, listernI
 		RuleIdentifier:     aws.String(ruleID),
 	}
 
-	resp, err := r.cloud.Mercury().GetRule(&getruleInput)
+	resp, err := r.cloud.Lattice().GetRule(&getruleInput)
 
 	return resp, err
 }
@@ -58,7 +58,7 @@ func (r *defaultRuleManager) List(ctx context.Context, service string, listener 
 	}
 
 	var resp *vpclattice.ListRulesOutput
-	resp, err := r.cloud.Mercury().ListRules(&ruleListInput)
+	resp, err := r.cloud.Lattice().ListRules(&ruleListInput)
 
 	glog.V(6).Infoln("############list rules req############")
 	glog.V(6).Infof("rule: %v , serviceID: %v, listenerID %v \n", resp, service, listener)
@@ -126,7 +126,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 		Rules:              ruleUpdateList,
 	}
 
-	resp, err := r.cloud.Mercury().BatchUpdateRule(&batchRuleInput)
+	resp, err := r.cloud.Lattice().BatchUpdateRule(&batchRuleInput)
 
 	glog.V(2).Infoln("############req updating rule ###########")
 	glog.V(2).Infoln(batchRuleInput)
@@ -226,7 +226,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 			RuleIdentifier:    aws.String(ruleStatus.RuleID),
 		}
 
-		resp, err := r.cloud.Mercury().UpdateRule(&updateRuleInput)
+		resp, err := r.cloud.Lattice().UpdateRule(&updateRuleInput)
 
 		glog.V(2).Infoln("############req updating rule TGs###########")
 		glog.V(2).Infoln(updateRuleInput)
@@ -265,7 +265,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 			ServiceIdentifier: aws.String(latticeService.ID),
 		}
 
-		resp, err := r.cloud.Mercury().CreateRule(&ruleInput)
+		resp, err := r.cloud.Lattice().CreateRule(&ruleInput)
 
 		glog.V(2).Infoln("############req creating rule ###########")
 		glog.V(2).Infoln(ruleInput)
@@ -302,7 +302,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 	}
 
 	var resp *vpclattice.ListRulesOutput
-	resp, err := r.cloud.Mercury().ListRules(&ruleListInput)
+	resp, err := r.cloud.Lattice().ListRules(&ruleListInput)
 
 	glog.V(6).Infoln("############list rules req############")
 	glog.V(6).Infof("rule: %v , serviceID: %v, listenerID %v \n", rule, serviceID, listenerID)
@@ -333,7 +333,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 
 		var ruleResp *vpclattice.GetRuleOutput
 
-		ruleResp, err := r.cloud.Mercury().GetRule(&ruleInput)
+		ruleResp, err := r.cloud.Lattice().GetRule(&ruleInput)
 
 		if err != nil {
 			glog.V(6).Infof("findMatchingRule, rule %v not found err:%v\n", ruleInput, err)
@@ -456,7 +456,7 @@ func (r *defaultRuleManager) Delete(ctx context.Context, ruleID string, listener
 		ServiceIdentifier:  aws.String(serviceID),
 	}
 
-	resp, err := r.cloud.Mercury().DeleteRule(&deleteInput)
+	resp, err := r.cloud.Lattice().DeleteRule(&deleteInput)
 
 	glog.V(2).Infof("Delete Rule >>>> input %v, output %v, err %v\n", deleteInput, resp, err)
 
