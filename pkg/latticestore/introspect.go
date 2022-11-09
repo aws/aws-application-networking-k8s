@@ -59,7 +59,7 @@ func (c *LatticeDataStore) ServeIntrospection() {
 
 func (c *LatticeDataStore) setupIntrospectionServer() *http.Server {
 	serverFunctions := map[string]func(w http.ResponseWriter, r *http.Request){
-		"/v1/mercurycache": mercurycacheHandler(c),
+		"/v1/latticecache": latticecacheHandler(c),
 	}
 	paths := make([]string, 0, len(serverFunctions))
 	for path := range serverFunctions {
@@ -99,7 +99,7 @@ func (c *LatticeDataStore) setupIntrospectionServer() *http.Server {
 	return server
 }
 
-func mercurycacheHandler(c *LatticeDataStore) func(http.ResponseWriter, *http.Request) {
+func latticecacheHandler(c *LatticeDataStore) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		store := dumpCurrentLatticeDataStore(c)

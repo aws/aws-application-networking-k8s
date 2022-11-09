@@ -21,9 +21,9 @@ type ServiceSpec struct {
 }
 
 type ServiceStatus struct {
-	ServiceARN string `json:"mercuryServiceARN"`
-	ServiceID  string `json:"mercuryServiceID"`
-	ServiceDNS string `json:"mercuryServiceDNS"`
+	ServiceARN string `json:"latticeServiceARN"`
+	ServiceID  string `json:"latticeServiceID"`
+	ServiceDNS string `json:"latticeServiceDNS"`
 }
 
 func NewLatticeService(stack core.Stack, id string, spec ServiceSpec) *Service {
