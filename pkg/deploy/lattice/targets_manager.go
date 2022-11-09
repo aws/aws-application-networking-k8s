@@ -6,7 +6,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -47,14 +47,14 @@ func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemode
 		glog.V(6).Infof("Failed to Create targets, service ( name %v namespace %v) not found, retry later\n", targets.Spec.Name, targets.Spec.Namespace)
 		return errors.New(LATTICE_RETRY)
 	}
-	mercurySess := s.cloud.Mercury()
+	vpcLatticeSess := s.cloud.Mercury()
 	// find out sdk target list
-	listTargetsInput := mercury.ListTargetsInput{
+	listTargetsInput := vpclattice.ListTargetsInput{
 		TargetGroupIdentifier: &tg.ID,
 	}
 
-	var delTargetsList []*mercury.Target
-	listTargetsOutput, err := mercurySess.ListTargetsAsList(ctx, &listTargetsInput)
+	var delTargetsList []*vpclattice.Target
+	listTargetsOutput, err := vpcLatticeSess.ListTargetsAsList(ctx, &listTargetsInput)
 	glog.V(6).Infof("TargetsManager-Create, listTargetsOutput %v, err %v \n", listTargetsOutput, err)
 	if err != nil {
 		glog.V(6).Infof("Failed to create target, tgName %v tg %v\n", tgName, tg)
@@ -72,37 +72,37 @@ func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemode
 		}
 
 		if isStale {
-			delTargetsList = append(delTargetsList, &mercury.Target{Id: sdkT.Id, Port: sdkT.Port})
+			delTargetsList = append(delTargetsList, &vpclattice.Target{Id: sdkT.Id, Port: sdkT.Port})
 		}
 	}
 
 	if len(delTargetsList) > 0 {
-		deRegisterTargetsInput := mercury.DeregisterTargetsInput{
+		deRegisterTargetsInput := vpclattice.DeregisterTargetsInput{
 			TargetGroupIdentifier: &tg.ID,
 			Targets:               delTargetsList,
 		}
-		deRegisterTargetsOutput, err := mercurySess.DeregisterTargetsWithContext(ctx, &deRegisterTargetsInput)
+		deRegisterTargetsOutput, err := vpcLatticeSess.DeregisterTargetsWithContext(ctx, &deRegisterTargetsInput)
 		glog.V(6).Infof("TargetManager-Create, deregister deleted targets input %v, output %v, err %v\n", deRegisterTargetsInput, deRegisterTargetsOutput, err)
 	}
 	// TODO following should be done at model level
-	var targetList []*mercury.Target
+	var targetList []*vpclattice.Target
 	for _, target := range targets.Spec.TargetIPList {
 		port := target.Port
 		targetIP := target.TargetIP
-		t := mercury.Target{
+		t := vpclattice.Target{
 			Id:   &targetIP,
 			Port: &port,
 		}
 		targetList = append(targetList, &t)
 	}
 
-	registerRouteInput := mercury.RegisterTargetsInput{
+	registerRouteInput := vpclattice.RegisterTargetsInput{
 		TargetGroupIdentifier: &tg.ID,
 		Targets:               targetList,
 	}
 	glog.V(6).Infof("Calling Mercury API register targets input %v \n", registerRouteInput)
 
-	resp, err := mercurySess.RegisterTargetsWithContext(ctx, &registerRouteInput)
+	resp, err := vpcLatticeSess.RegisterTargetsWithContext(ctx, &registerRouteInput)
 	glog.V(6).Infof("register pod to target group resp[%v]\n", resp)
 	glog.V(6).Infof("register pod to target group err[%v]\n", err)
 	if err != nil {

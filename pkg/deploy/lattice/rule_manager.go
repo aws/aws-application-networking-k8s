@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 
 	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -21,7 +21,7 @@ type RuleManager interface {
 	Delete(ctx context.Context, ruleID string, listenerID string, serviceID string) error
 	Update(ctx context.Context, rules []*latticemodel.Rule) error
 	List(ctx context.Context, serviceID string, listenerID string) ([]*latticemodel.RuleStatus, error)
-	Get(ctx context.Context, serviceID string, listernID string, ruleID string) (*mercury.GetRuleOutput, error)
+	Get(ctx context.Context, serviceID string, listernID string, ruleID string) (*vpclattice.GetRuleOutput, error)
 }
 
 type defaultRuleManager struct {
@@ -36,8 +36,8 @@ func NewRuleManager(cloud mercury_aws.Cloud, store *latticestore.LatticeDataStor
 	}
 }
 
-func (r *defaultRuleManager) Get(ctx context.Context, serviceID string, listernID string, ruleID string) (*mercury.GetRuleOutput, error) {
-	getruleInput := mercury.GetRuleInput{
+func (r *defaultRuleManager) Get(ctx context.Context, serviceID string, listernID string, ruleID string) (*vpclattice.GetRuleOutput, error) {
+	getruleInput := vpclattice.GetRuleInput{
 		ListenerIdentifier: aws.String(listernID),
 		ServiceIdentifier:  aws.String(serviceID),
 		RuleIdentifier:     aws.String(ruleID),
@@ -52,12 +52,12 @@ func (r *defaultRuleManager) Get(ctx context.Context, serviceID string, listernI
 func (r *defaultRuleManager) List(ctx context.Context, service string, listener string) ([]*latticemodel.RuleStatus, error) {
 	var sdkRules []*latticemodel.RuleStatus = nil
 
-	ruleListInput := mercury.ListRulesInput{
+	ruleListInput := vpclattice.ListRulesInput{
 		ListenerIdentifier: aws.String(listener),
 		ServiceIdentifier:  aws.String(service),
 	}
 
-	var resp *mercury.ListRulesOutput
+	var resp *vpclattice.ListRulesOutput
 	resp, err := r.cloud.Mercury().ListRules(&ruleListInput)
 
 	glog.V(6).Infoln("############list rules req############")
@@ -88,7 +88,7 @@ func (r *defaultRuleManager) List(ctx context.Context, service string, listener 
 // today, it only batch update the priority
 func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.Rule) error {
 
-	var ruleUpdateList []*mercury.RuleUpdate
+	var ruleUpdateList []*vpclattice.RuleUpdate
 
 	glog.V(6).Infof("Rule --- update >>>>>>>>.%v\n", rules)
 
@@ -111,7 +111,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 
 	for _, rule := range rules {
 		priority, _ := ruleID2Priority(rule.Spec.RuleID)
-		ruleupdate := mercury.RuleUpdate{
+		ruleupdate := vpclattice.RuleUpdate{
 			RuleIdentifier: aws.String(rule.Status.RuleID),
 			Priority:       aws.Int64(priority),
 		}
@@ -120,7 +120,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 
 	}
 	// batchupdate rules using right priority
-	batchRuleInput := mercury.BatchUpdateRuleInput{
+	batchRuleInput := vpclattice.BatchUpdateRuleInput{
 		ListenerIdentifier: aws.String(listener.ID),
 		ServiceIdentifier:  aws.String(latticeService.ID),
 		Rules:              ruleUpdateList,
@@ -178,7 +178,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 	// if not found, ruleStatus contains the next available priority
 
-	latticeTGs := []*mercury.WeightedTargetGroup{}
+	latticeTGs := []*vpclattice.WeightedTargetGroup{}
 
 	for _, tgRule := range rule.Spec.Action.TargetGroups {
 
@@ -190,7 +190,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 			return latticemodel.RuleStatus{}, err
 		}
 
-		latticeTG := mercury.WeightedTargetGroup{
+		latticeTG := vpclattice.WeightedTargetGroup{
 			TargetGroupIdentifier: aws.String(tg.ID),
 			// TODO weighted target
 			Weight: aws.Int64(tgRule.Weight),
@@ -203,18 +203,18 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 	ruleName := fmt.Sprintf("k8s-%d-%s", rule.Spec.CreateTime.Unix(), rule.Spec.RuleID)
 
 	if ruleStatus.UpdateTGsNeeded {
-		updateRuleInput := mercury.UpdateRuleInput{
-			Action: &mercury.RuleAction{
-				Forward: &mercury.ForwardAction{
+		updateRuleInput := vpclattice.UpdateRuleInput{
+			Action: &vpclattice.RuleAction{
+				Forward: &vpclattice.ForwardAction{
 					TargetGroups: latticeTGs,
 				},
 			},
 			ListenerIdentifier: aws.String(listener.ID),
-			Match: &mercury.RuleMatch{
-				HttpMatch: &mercury.HttpMatch{
-					PathMatch: &mercury.PathMatch{
+			Match: &vpclattice.RuleMatch{
+				HttpMatch: &vpclattice.HttpMatch{
+					PathMatch: &vpclattice.PathMatch{
 						CaseSensitive: nil,
-						Match: &mercury.PathMatchType{
+						Match: &vpclattice.PathMatchType{
 							Exact:  nil,
 							Prefix: aws.String(rule.Spec.RuleValue),
 						},
@@ -241,19 +241,19 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 	} else {
 
-		ruleInput := mercury.CreateRuleInput{
-			Action: &mercury.RuleAction{
-				Forward: &mercury.ForwardAction{
+		ruleInput := vpclattice.CreateRuleInput{
+			Action: &vpclattice.RuleAction{
+				Forward: &vpclattice.ForwardAction{
 					TargetGroups: latticeTGs,
 				},
 			},
 			ClientToken:        nil,
 			ListenerIdentifier: aws.String(listener.ID),
-			Match: &mercury.RuleMatch{
-				HttpMatch: &mercury.HttpMatch{
-					PathMatch: &mercury.PathMatch{
+			Match: &vpclattice.RuleMatch{
+				HttpMatch: &vpclattice.HttpMatch{
+					PathMatch: &vpclattice.PathMatch{
 						CaseSensitive: nil,
-						Match: &mercury.PathMatchType{
+						Match: &vpclattice.PathMatchType{
 							Exact:  nil,
 							Prefix: aws.String(rule.Spec.RuleValue),
 						},
@@ -296,12 +296,12 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 
 	}
 
-	ruleListInput := mercury.ListRulesInput{
+	ruleListInput := vpclattice.ListRulesInput{
 		ListenerIdentifier: aws.String(listenerID),
 		ServiceIdentifier:  aws.String(serviceID),
 	}
 
-	var resp *mercury.ListRulesOutput
+	var resp *vpclattice.ListRulesOutput
 	resp, err := r.cloud.Mercury().ListRules(&ruleListInput)
 
 	glog.V(6).Infoln("############list rules req############")
@@ -314,7 +314,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 		return latticemodel.RuleStatus{}, err
 	}
 
-	var matchRule *mercury.GetRuleOutput = nil
+	var matchRule *vpclattice.GetRuleOutput = nil
 	var updateTGsNeeded bool = false
 	for _, ruleSum := range resp.Items {
 
@@ -325,13 +325,13 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 		}
 
 		// retrieve action
-		ruleInput := mercury.GetRuleInput{
+		ruleInput := vpclattice.GetRuleInput{
 			ListenerIdentifier: &listenerID,
 			ServiceIdentifier:  &serviceID,
 			RuleIdentifier:     ruleSum.Id,
 		}
 
-		var ruleResp *mercury.GetRuleOutput
+		var ruleResp *vpclattice.GetRuleOutput
 
 		ruleResp, err := r.cloud.Mercury().GetRule(&ruleInput)
 
@@ -450,7 +450,7 @@ func ruleID2Priority(ruleID string) (int64, error) {
 func (r *defaultRuleManager) Delete(ctx context.Context, ruleID string, listenerID string, serviceID string) error {
 	glog.V(6).Infof("Rule --- Delete >>>>> rule %v, listener %v service %v \n", ruleID, listenerID, serviceID)
 
-	deleteInput := mercury.DeleteRuleInput{
+	deleteInput := vpclattice.DeleteRuleInput{
 		RuleIdentifier:     aws.String(ruleID),
 		ListenerIdentifier: aws.String(listenerID),
 		ServiceIdentifier:  aws.String(serviceID),

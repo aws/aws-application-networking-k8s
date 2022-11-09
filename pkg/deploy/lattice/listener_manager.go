@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -18,7 +18,7 @@ import (
 type ListenerManager interface {
 	Create(ctx context.Context, service *latticemodel.Listener) (latticemodel.ListenerStatus, error)
 	Delete(ctx context.Context, listenerID string, serviceID string) error
-	List(ctx context.Context, serviceID string) ([]*mercury.ListenerSummary, error)
+	List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error)
 }
 
 type defaultListenerManager struct {
@@ -73,12 +73,12 @@ func (s *defaultListenerManager) Create(ctx context.Context, listener *latticemo
 		return latticemodel.ListenerStatus{}, errors.New(errmsg)
 	}
 
-	listenerInput := mercury.CreateListenerInput{
+	listenerInput := vpclattice.CreateListenerInput{
 		ClientToken: nil,
-		DefaultAction: &mercury.RuleAction{
-			Forward: &mercury.ForwardAction{
-				TargetGroups: []*mercury.WeightedTargetGroup{
-					&mercury.WeightedTargetGroup{
+		DefaultAction: &vpclattice.RuleAction{
+			Forward: &vpclattice.ForwardAction{
+				TargetGroups: []*vpclattice.WeightedTargetGroup{
+					&vpclattice.WeightedTargetGroup{
 						TargetGroupIdentifier: aws.String(tg.ID),
 						Weight:                aws.Int64(1)},
 				},
@@ -130,12 +130,12 @@ func latticeName2k8s(name string) (string, string) {
 
 }
 
-func (s *defaultListenerManager) List(ctx context.Context, serviceID string) ([]*mercury.ListenerSummary, error) {
-	var sdkListeners []*mercury.ListenerSummary
+func (s *defaultListenerManager) List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error) {
+	var sdkListeners []*vpclattice.ListenerSummary
 
 	glog.V(6).Infof("List - defaultListenerManager  serviceID %v \n", serviceID)
 	latticeSess := s.cloud.Mercury()
-	listenerListInput := mercury.ListListenersInput{
+	listenerListInput := vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(serviceID),
 	}
 
@@ -151,7 +151,7 @@ func (s *defaultListenerManager) List(ctx context.Context, serviceID string) ([]
 
 	for _, r := range resp.Items {
 
-		listener := mercury.ListenerSummary{
+		listener := vpclattice.ListenerSummary{
 			Arn:      r.Arn,
 			Id:       r.Id,
 			Port:     r.Port,
@@ -166,10 +166,10 @@ func (s *defaultListenerManager) List(ctx context.Context, serviceID string) ([]
 
 }
 
-func (s *defaultListenerManager) findListenerByNamePort(ctx context.Context, serviceID string, port int64) (*mercury.ListenerSummary, error) {
+func (s *defaultListenerManager) findListenerByNamePort(ctx context.Context, serviceID string, port int64) (*vpclattice.ListenerSummary, error) {
 	glog.V(6).Infof("calling findListenerByNamePort serviceID %v port %d \n", serviceID, port)
 	latticeSess := s.cloud.Mercury()
-	listenerListInput := mercury.ListListenersInput{
+	listenerListInput := vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(serviceID),
 	}
 
@@ -196,7 +196,7 @@ func (s *defaultListenerManager) Delete(ctx context.Context, listenerID string, 
 
 	// TODO
 	glog.V(6).Infof("listern--Delete >>> listener %v in service %v\n", listenerID, serviceID)
-	listenerDeleteInput := mercury.DeleteListenerInput{
+	listenerDeleteInput := vpclattice.DeleteListenerInput{
 		ServiceIdentifier:  aws.String(serviceID),
 		ListenerIdentifier: aws.String(listenerID),
 	}

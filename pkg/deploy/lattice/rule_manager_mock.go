@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	mercury "github.com/aws/aws-sdk-go/service/mercury"
+	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -66,10 +66,10 @@ func (mr *MockRuleManagerMockRecorder) Delete(ctx, ruleID, listenerID, serviceID
 }
 
 // Get mocks base method.
-func (m *MockRuleManager) Get(ctx context.Context, serviceID, listernID, ruleID string) (*mercury.GetRuleOutput, error) {
+func (m *MockRuleManager) Get(ctx context.Context, serviceID, listernID, ruleID string) (*vpclattice.GetRuleOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", ctx, serviceID, listernID, ruleID)
-	ret0, _ := ret[0].(*mercury.GetRuleOutput)
+	ret0, _ := ret[0].(*vpclattice.GetRuleOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"testing"
-
-	"github.com/aws/aws-sdk-go/service/mercury"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -352,7 +351,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 		mockTGManager := NewMockTargetGroupManager(c)
 
-		sdkTGReturned := []mercury.GetTargetGroupOutput{}
+		sdkTGReturned := []vpclattice.GetTargetGroupOutput{}
 
 		k8sSchema := runtime.NewScheme()
 		clientgoscheme.AddToScheme(k8sSchema)
@@ -370,10 +369,10 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 					vpc = config.VpcID + "other VPC"
 				}
 				sdkTGReturned = append(sdkTGReturned,
-					mercury.GetTargetGroupOutput{
+					vpclattice.GetTargetGroupOutput{
 						Name: &name,
 						Id:   &id,
-						Config: &mercury.TargetGroupConfig{
+						Config: &vpclattice.TargetGroupConfig{
 							VpcIdentifier: &vpc,
 						},
 					})

@@ -9,7 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -130,7 +130,7 @@ func Test_SynthesizeListener(t *testing.T) {
 		port := int64(tt.gwListenerPort)
 
 		mockListenerManager.EXPECT().List(ctx, tt.serviceID).Return(
-			[]*mercury.ListenerSummary{
+			[]*vpclattice.ListenerSummary{
 				{
 					Arn:      &tt.listenerARN,
 					Id:       &tt.listenerID,

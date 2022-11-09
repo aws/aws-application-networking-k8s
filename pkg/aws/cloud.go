@@ -42,20 +42,20 @@ func NewCloud() (Cloud, error) {
 
 	return &defaultCloud{
 		// TODO: service
-		mercurySess: services.NewDefaultMercury(sess, config.Region),
-		eksSess:     services.NewDefaultEKS(sess, config.Region),
+		vpcLatticeSess: services.NewDefaultMercury(sess, config.Region),
+		eksSess:        services.NewDefaultEKS(sess, config.Region),
 	}, nil
 }
 
 var _ Cloud = &defaultCloud{}
 
 type defaultCloud struct {
-	mercurySess services.Mercury
-	eksSess     services.EKS
+	vpcLatticeSess services.Mercury
+	eksSess        services.EKS
 }
 
 func (d *defaultCloud) Mercury() services.Mercury {
-	return d.mercurySess
+	return d.vpcLatticeSess
 }
 
 func (d *defaultCloud) EKS() services.EKS {

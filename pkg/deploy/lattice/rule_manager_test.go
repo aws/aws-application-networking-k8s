@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-sdk-go/service/mercury"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -369,11 +369,11 @@ func Test_CreateRule(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockMercurySess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockMercury(c)
 
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 
@@ -399,58 +399,58 @@ func Test_CreateRule(t *testing.T) {
 		}
 
 		if !tt.noListenerID && !tt.noServiceID {
-			ruleInput := mercury.ListRulesInput{
+			ruleInput := vpclattice.ListRulesInput{
 				ListenerIdentifier: aws.String(tt.newRule.Status.ListenerID),
 				ServiceIdentifier:  aws.String(tt.newRule.Status.ServiceID),
 			}
 
-			ruleOutput := mercury.ListRulesOutput{}
+			ruleOutput := vpclattice.ListRulesOutput{}
 
 			if tt.oldRule != nil {
-				items := []*mercury.RuleSummary{}
+				items := []*vpclattice.RuleSummary{}
 
-				items = append(items, &mercury.RuleSummary{
+				items = append(items, &vpclattice.RuleSummary{
 					Id: aws.String(tt.oldRule.Spec.RuleID),
 				})
-				ruleOutput = mercury.ListRulesOutput{
+				ruleOutput = vpclattice.ListRulesOutput{
 					Items: items,
 				}
 			}
-			mockMercurySess.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
+			mockVpcLatticeSess.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
 
 			if tt.oldRule != nil {
-				ruleGetInput := mercury.GetRuleInput{
+				ruleGetInput := vpclattice.GetRuleInput{
 					ListenerIdentifier: aws.String(ListenerID),
 					ServiceIdentifier:  aws.String(ServiceID),
 					RuleIdentifier:     aws.String(tt.oldRule.Spec.RuleID),
 				}
 
 				//				listenerID := tt.oldRule.Status.ListenerID
-				latticeTGs := []*mercury.WeightedTargetGroup{}
+				latticeTGs := []*vpclattice.WeightedTargetGroup{}
 				//	ruleName := fmt.Sprintf("rule-%d-%s", tt.oldRule.Spec.CreateTime.Unix(), tt.oldRule.Spec.RuleID)
 				priority, _ := ruleID2Priority(tt.oldRule.Spec.RuleID)
 
 				for _, tg := range tt.oldRule.Spec.Action.TargetGroups {
-					latticeTG := mercury.WeightedTargetGroup{
+					latticeTG := vpclattice.WeightedTargetGroup{
 						TargetGroupIdentifier: aws.String("tg-id"),
 						Weight:                aws.Int64(tg.Weight),
 					}
 					latticeTGs = append(latticeTGs, &latticeTG)
 				}
 
-				ruleGetOutput := mercury.GetRuleOutput{
+				ruleGetOutput := vpclattice.GetRuleOutput{
 					Id:       aws.String(tt.oldRule.Spec.RuleID),
 					Priority: aws.Int64(priority),
-					Action: &mercury.RuleAction{
-						Forward: &mercury.ForwardAction{
+					Action: &vpclattice.RuleAction{
+						Forward: &vpclattice.ForwardAction{
 							TargetGroups: latticeTGs,
 						},
 					},
-					Match: &mercury.RuleMatch{
-						HttpMatch: &mercury.HttpMatch{
-							Method: aws.String(mercury.HttpMethodGet),
-							PathMatch: &mercury.PathMatch{
-								Match: &mercury.PathMatchType{
+					Match: &vpclattice.RuleMatch{
+						HttpMatch: &vpclattice.HttpMatch{
+							Method: aws.String("Get"),
+							PathMatch: &vpclattice.PathMatch{
+								Match: &vpclattice.PathMatchType{
 									Exact:  nil,
 									Prefix: aws.String(tt.oldRule.Spec.RuleValue),
 								},
@@ -459,14 +459,14 @@ func Test_CreateRule(t *testing.T) {
 					},
 				}
 
-				mockMercurySess.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
+				mockVpcLatticeSess.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
 
 			}
 		}
 
 		if tt.createRule || tt.updateRule {
 			listenerID := tt.newRule.Status.ListenerID
-			latticeTGs := []*mercury.WeightedTargetGroup{}
+			latticeTGs := []*vpclattice.WeightedTargetGroup{}
 			ruleName := fmt.Sprintf("k8s-%d-%s", tt.newRule.Spec.CreateTime.Unix(), tt.newRule.Spec.RuleID)
 			priority, _ := ruleID2Priority(tt.newRule.Spec.RuleID)
 
@@ -476,7 +476,7 @@ func Test_CreateRule(t *testing.T) {
 			}
 
 			for _, tg := range tt.newRule.Spec.Action.TargetGroups {
-				latticeTG := mercury.WeightedTargetGroup{
+				latticeTG := vpclattice.WeightedTargetGroup{
 					TargetGroupIdentifier: aws.String("tg-id"),
 					Weight:                aws.Int64(tg.Weight),
 				}
@@ -484,9 +484,9 @@ func Test_CreateRule(t *testing.T) {
 			}
 
 			if tt.createRule {
-				ruleInput := mercury.CreateRuleInput{
-					Action: &mercury.RuleAction{
-						Forward: &mercury.ForwardAction{
+				ruleInput := vpclattice.CreateRuleInput{
+					Action: &vpclattice.RuleAction{
+						Forward: &vpclattice.ForwardAction{
 							TargetGroups: latticeTGs,
 						},
 					},
@@ -495,13 +495,13 @@ func Test_CreateRule(t *testing.T) {
 					Name:               aws.String(ruleName),
 					Priority:           aws.Int64(priority),
 					ServiceIdentifier:  aws.String(ServiceID),
-					Match: &mercury.RuleMatch{
-						HttpMatch: &mercury.HttpMatch{
+					Match: &vpclattice.RuleMatch{
+						HttpMatch: &vpclattice.HttpMatch{
 							// TODO, what if not specfied this
-							//Method: aws.String(mercury.HttpMethodGet),
-							PathMatch: &mercury.PathMatch{
+							//Method: aws.String(vpclattice.HttpMethodGet),
+							PathMatch: &vpclattice.PathMatch{
 								CaseSensitive: nil,
-								Match: &mercury.PathMatchType{
+								Match: &vpclattice.PathMatchType{
 									Exact:  nil,
 									Prefix: aws.String(tt.newRule.Spec.RuleValue),
 								},
@@ -509,16 +509,16 @@ func Test_CreateRule(t *testing.T) {
 						},
 					},
 				}
-				ruleOutput := mercury.CreateRuleOutput{
+				ruleOutput := vpclattice.CreateRuleOutput{
 					Id: aws.String(ruleID),
 				}
-				mockMercurySess.EXPECT().CreateRule(&ruleInput).Return(&ruleOutput, nil)
+				mockVpcLatticeSess.EXPECT().CreateRule(&ruleInput).Return(&ruleOutput, nil)
 			}
 
 			if tt.updateRule {
-				ruleInput := mercury.UpdateRuleInput{
-					Action: &mercury.RuleAction{
-						Forward: &mercury.ForwardAction{
+				ruleInput := vpclattice.UpdateRuleInput{
+					Action: &vpclattice.RuleAction{
+						Forward: &vpclattice.ForwardAction{
 							TargetGroups: latticeTGs,
 						},
 					},
@@ -528,13 +528,13 @@ func Test_CreateRule(t *testing.T) {
 					RuleIdentifier:    aws.String(tt.newRule.Spec.RuleID),
 					Priority:          aws.Int64(priority),
 					ServiceIdentifier: aws.String(ServiceID),
-					Match: &mercury.RuleMatch{
-						HttpMatch: &mercury.HttpMatch{
+					Match: &vpclattice.RuleMatch{
+						HttpMatch: &vpclattice.HttpMatch{
 							// TODO, what if not specfied this
-							//Method: aws.String(mercury.HttpMethodGet),
-							PathMatch: &mercury.PathMatch{
+							//Method: aws.String(vpclattice.HttpMethodGet),
+							PathMatch: &vpclattice.PathMatch{
 								CaseSensitive: nil,
-								Match: &mercury.PathMatchType{
+								Match: &vpclattice.PathMatchType{
 									Exact:  nil,
 									Prefix: aws.String(tt.newRule.Spec.RuleValue),
 								},
@@ -542,10 +542,10 @@ func Test_CreateRule(t *testing.T) {
 						},
 					},
 				}
-				ruleOutput := mercury.UpdateRuleOutput{
+				ruleOutput := vpclattice.UpdateRuleOutput{
 					Id: aws.String(ruleID),
 				}
-				mockMercurySess.EXPECT().UpdateRule(&ruleInput).Return(&ruleOutput, nil)
+				mockVpcLatticeSess.EXPECT().UpdateRule(&ruleInput).Return(&ruleOutput, nil)
 			}
 		}
 
@@ -593,11 +593,11 @@ func Test_UpdateRule(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockMercurySess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockMercury(c)
 
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 
@@ -616,11 +616,11 @@ func Test_UpdateRule(t *testing.T) {
 				"listenerARN", rules[i].Status.ListenerID)
 		}
 
-		var ruleUpdateList []*mercury.RuleUpdate
+		var ruleUpdateList []*vpclattice.RuleUpdate
 
 		for _, rule := range rules {
 			priority, _ := ruleID2Priority(rule.Spec.RuleID)
-			ruleupdate := mercury.RuleUpdate{
+			ruleupdate := vpclattice.RuleUpdate{
 				RuleIdentifier: aws.String(rule.Status.RuleID),
 				Priority:       aws.Int64(priority),
 			}
@@ -629,15 +629,15 @@ func Test_UpdateRule(t *testing.T) {
 
 		}
 
-		batchRuleInput := mercury.BatchUpdateRuleInput{
+		batchRuleInput := vpclattice.BatchUpdateRuleInput{
 			ListenerIdentifier: aws.String(rules[0].Status.ListenerID),
 			ServiceIdentifier:  aws.String(rules[0].Status.ServiceID),
 			Rules:              ruleUpdateList,
 		}
 
 		if !tt.noListenerID && !tt.noServiceID {
-			var batchRuleOutput mercury.BatchUpdateRuleOutput
-			mockMercurySess.EXPECT().BatchUpdateRule(&batchRuleInput).Return(&batchRuleOutput, nil)
+			var batchRuleOutput vpclattice.BatchUpdateRuleOutput
+			mockVpcLatticeSess.EXPECT().BatchUpdateRule(&batchRuleInput).Return(&batchRuleOutput, nil)
 		}
 
 		err := ruleManager.Update(ctx, rules)
@@ -656,25 +656,25 @@ func Test_List(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 
 	serviceID := "service1-ID"
 	listenerID := "listener-ID"
 
-	ruleInput := mercury.ListRulesInput{
+	ruleInput := vpclattice.ListRulesInput{
 		ListenerIdentifier: aws.String(listenerID),
 		ServiceIdentifier:  aws.String(serviceID),
 	}
-	ruleOutput := mercury.ListRulesOutput{
-		Items: []*mercury.RuleSummary{
-			&mercury.RuleSummary{
+	ruleOutput := vpclattice.ListRulesOutput{
+		Items: []*vpclattice.RuleSummary{
+			&vpclattice.RuleSummary{
 				Arn:       &rulelist[0].Arn,
 				Id:        &rulelist[0].Id,
 				IsDefault: &rulelist[0].IsDefault,
 			},
-			&mercury.RuleSummary{
+			&vpclattice.RuleSummary{
 				Arn:       &rulelist[1].Arn,
 				Id:        &rulelist[1].Id,
 				IsDefault: &rulelist[1].IsDefault,
@@ -684,8 +684,8 @@ func Test_List(t *testing.T) {
 
 	latticeDataStore := latticestore.NewLatticeDataStore()
 
-	mockMercurySess.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	ruleManager := NewRuleManager(mockCloud, latticeDataStore)
 
@@ -707,7 +707,7 @@ func Test_GetRule(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 
@@ -717,7 +717,7 @@ func Test_GetRule(t *testing.T) {
 	ruleARN := "rule-ARN"
 	rulePriority := int64(10)
 
-	ruleGetInput := mercury.GetRuleInput{
+	ruleGetInput := vpclattice.GetRuleInput{
 		ListenerIdentifier: aws.String(listenerID),
 		ServiceIdentifier:  aws.String(serviceID),
 		RuleIdentifier:     aws.String(ruleID),
@@ -725,14 +725,14 @@ func Test_GetRule(t *testing.T) {
 
 	latticeDataStore := latticestore.NewLatticeDataStore()
 
-	ruleGetOutput := mercury.GetRuleOutput{
+	ruleGetOutput := vpclattice.GetRuleOutput{
 		Arn:      aws.String(ruleARN),
 		Id:       aws.String(ruleID),
 		Priority: aws.Int64(int64(rulePriority)),
 	}
 
-	mockMercurySess.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	mockVpcLatticeSess.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	ruleManager := NewRuleManager(mockCloud, latticeDataStore)
 
@@ -750,7 +750,7 @@ func Test_DeleteRule(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
-	mockMercurySess := mocks.NewMockMercury(c)
+	mockVpcLatticeSess := mocks.NewMockMercury(c)
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 
@@ -758,7 +758,7 @@ func Test_DeleteRule(t *testing.T) {
 	listenerID := "listener-ID"
 	ruleID := "rule-ID"
 
-	ruleDeleteInput := mercury.DeleteRuleInput{
+	ruleDeleteInput := vpclattice.DeleteRuleInput{
 		ServiceIdentifier:  aws.String(serviceID),
 		ListenerIdentifier: aws.String(listenerID),
 		RuleIdentifier:     aws.String(ruleID),
@@ -766,9 +766,9 @@ func Test_DeleteRule(t *testing.T) {
 
 	latticeDataStore := latticestore.NewLatticeDataStore()
 
-	ruleDeleteOuput := mercury.DeleteRuleOutput{}
-	mockMercurySess.EXPECT().DeleteRule(&ruleDeleteInput).Return(&ruleDeleteOuput, nil)
-	mockCloud.EXPECT().Mercury().Return(mockMercurySess).AnyTimes()
+	ruleDeleteOuput := vpclattice.DeleteRuleOutput{}
+	mockVpcLatticeSess.EXPECT().DeleteRule(&ruleDeleteInput).Return(&ruleDeleteOuput, nil)
+	mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
 
 	ruleManager := NewRuleManager(mockCloud, latticeDataStore)
 
