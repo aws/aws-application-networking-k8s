@@ -6,26 +6,26 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
-func NewTargetsSynthesizer(cloud mercury_aws.Cloud, tgManager TargetsManager, stack core.Stack, mercuryDataStore *latticestore.LatticeDataStore) *targetsSynthesizer {
+func NewTargetsSynthesizer(cloud lattice_aws.Cloud, tgManager TargetsManager, stack core.Stack, latticeDataStore *latticestore.LatticeDataStore) *targetsSynthesizer {
 	return &targetsSynthesizer{
 		cloud:            cloud,
 		targetsManager:   tgManager,
 		stack:            stack,
-		mercuryDataStore: mercuryDataStore,
+		latticeDataStore: latticeDataStore,
 	}
 }
 
 type targetsSynthesizer struct {
-	cloud            mercury_aws.Cloud
+	cloud            lattice_aws.Cloud
 	targetsManager   TargetsManager
 	stack            core.Stack
-	mercuryDataStore *latticestore.LatticeDataStore
+	latticeDataStore *latticestore.LatticeDataStore
 }
 
 func (t *targetsSynthesizer) Synthesize(ctx context.Context) error {
@@ -60,7 +60,7 @@ func (t *targetsSynthesizer) SynthesizeTargets(ctx context.Context, resTargets [
 			})
 		}
 
-		t.mercuryDataStore.UpdateTargetsForTargetGroup(tgName, targetList)
+		t.latticeDataStore.UpdateTargetsForTargetGroup(tgName, targetList)
 
 	}
 	return nil

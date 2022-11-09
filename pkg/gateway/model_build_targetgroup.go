@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -33,13 +33,13 @@ type targetGroupBuilder struct {
 
 	serviceExport *mcs_api.ServiceExport
 	Datastore     *latticestore.LatticeDataStore
-	cloud         mercury_aws.Cloud
+	cloud         lattice_aws.Cloud
 
 	defaultTags map[string]string
 }
 
 // triggered from serviceexport
-func NewTargetGroupBuilder(client client.Client, datastore *latticestore.LatticeDataStore, cloud mercury_aws.Cloud) *targetGroupBuilder {
+func NewTargetGroupBuilder(client client.Client, datastore *latticestore.LatticeDataStore, cloud lattice_aws.Cloud) *targetGroupBuilder {
 	return &targetGroupBuilder{
 		Client:    client,
 		Datastore: datastore,
@@ -55,7 +55,7 @@ type targetGroupModelBuildTask struct {
 	stack         core.Stack
 
 	Datastore *latticestore.LatticeDataStore
-	cloud     mercury_aws.Cloud
+	cloud     lattice_aws.Cloud
 }
 
 // for serviceexport

@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -21,10 +21,10 @@ type TargetGroupManager interface {
 }
 
 type defaultTargetGroupManager struct {
-	cloud mercury_aws.Cloud
+	cloud lattice_aws.Cloud
 }
 
-func NewTargetGroupManager(cloud mercury_aws.Cloud) *defaultTargetGroupManager {
+func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 	return &defaultTargetGroupManager{
 		cloud: cloud,
 	}
@@ -74,7 +74,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 		Name:   &targetGroup.Spec.Name,
 		Type:   &targetGroupType,
 	}
-	vpcLatticeSess := s.cloud.Mercury()
+	vpcLatticeSess := s.cloud.Lattice()
 	resp, err := vpcLatticeSess.CreateTargetGroupWithContext(ctx, &createTargetGroupInput)
 	glog.V(2).Infof("create target group >>>> req [%v], resp[%v] err[%v]\n", createTargetGroupInput, resp, err)
 
@@ -102,7 +102,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 }
 
 func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error) {
-	glog.V(6).Infof("Create Mercury Target Group API call for name %s \n", targetGroup.Spec.Name)
+	glog.V(6).Infof("Create Lattice Target Group API call for name %s \n", targetGroup.Spec.Name)
 	// check if exists
 	tgSummary, err := s.findTGByName(ctx, targetGroup.Spec.Name)
 	if err != nil {
@@ -119,11 +119,11 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 	glog.V(6).Infof("Manager: Deleting target group %v \n", targetGroup)
 
 	if targetGroup.Spec.LatticeID == "" {
-		glog.V(6).Info("TargetGroupManager: Delete API ignored for empty MercuryID\n")
+		glog.V(6).Info("TargetGroupManager: Delete API ignored for empty LatticeID\n")
 		return nil
 	}
 
-	vpcLatticeSess := s.cloud.Mercury()
+	vpcLatticeSess := s.cloud.Lattice()
 	// de-register all targets first
 	listTargetsInput := vpclattice.ListTargetsInput{
 		TargetGroupIdentifier: &targetGroup.Spec.LatticeID,
@@ -177,7 +177,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 }
 
 func (s *defaultTargetGroupManager) List(ctx context.Context) ([]vpclattice.GetTargetGroupOutput, error) {
-	vpcLatticeSess := s.cloud.Mercury()
+	vpcLatticeSess := s.cloud.Lattice()
 	var tgList []vpclattice.GetTargetGroupOutput
 	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
 	resp, err := vpcLatticeSess.ListTargetGroupsAsList(ctx, &targetGroupListInput)
@@ -207,7 +207,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]vpclattice.GetT
 }
 
 func (s *defaultTargetGroupManager) findTGByName(ctx context.Context, targetGroup string) (*vpclattice.TargetGroupSummary, error) {
-	vpcLatticeSess := s.cloud.Mercury()
+	vpcLatticeSess := s.cloud.Lattice()
 	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
 	resp, err := vpcLatticeSess.ListTargetGroupsAsList(ctx, &targetGroupListInput)
 

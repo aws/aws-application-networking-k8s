@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -19,7 +19,7 @@ type ServiceNetworkManager interface {
 	Delete(ctx context.Context, service_network string) error
 }
 
-func NewDefaultServiceNetworkManager(cloud mercury_aws.Cloud) *defaultServiceNetworkManager {
+func NewDefaultServiceNetworkManager(cloud lattice_aws.Cloud) *defaultServiceNetworkManager {
 	return &defaultServiceNetworkManager{
 		cloud: cloud,
 	}
@@ -28,7 +28,7 @@ func NewDefaultServiceNetworkManager(cloud mercury_aws.Cloud) *defaultServiceNet
 var _service_networkManager = &defaultServiceNetworkManager{}
 
 type defaultServiceNetworkManager struct {
-	cloud mercury_aws.Cloud
+	cloud lattice_aws.Cloud
 }
 
 // Create will try to create a service_network and associate the service_network with vpc
@@ -56,7 +56,7 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 	var service_networkID string
 	var service_networkArn string
 	var isServiceNetworkAssociatedWithVPC bool
-	vpcLatticeSess := m.cloud.Mercury()
+	vpcLatticeSess := m.cloud.Lattice()
 	if service_networkSummary == nil {
 		glog.V(2).Infof("ServiceNetwork Create API here, service_network[%v] vpciID[%s]\n", service_network, config.VpcID)
 		service_networkInput := vpclattice.CreateServiceNetworkInput{
@@ -114,7 +114,7 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 
 // return all service_networkes associated with VPC
 func (m *defaultServiceNetworkManager) List(ctx context.Context) ([]string, error) {
-	vpcLatticeSess := m.cloud.Mercury()
+	vpcLatticeSess := m.cloud.Lattice()
 	service_networkListInput := vpclattice.ListServiceNetworksInput{MaxResults: nil}
 	resp, err := vpcLatticeSess.ListServiceNetworksAsList(ctx, &service_networkListInput)
 
@@ -147,7 +147,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		return nil
 	}
 
-	vpcLatticeSess := m.cloud.Mercury()
+	vpcLatticeSess := m.cloud.Lattice()
 	service_networkID := aws.StringValue(service_networkSummary.Id)
 	deleteNeedRetry := false
 
@@ -200,7 +200,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 
 // Find service_network by name return service_network,err if service_network exists, otherwise return nil, nil.
 func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Context, targetServiceNetwork string) (*vpclattice.ServiceNetworkSummary, error) {
-	vpcLatticeSess := m.cloud.Mercury()
+	vpcLatticeSess := m.cloud.Lattice()
 	service_networkListInput := vpclattice.ListServiceNetworksInput{}
 	resp, err := vpcLatticeSess.ListServiceNetworksAsList(ctx, &service_networkListInput)
 	if err == nil {
@@ -218,7 +218,7 @@ func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Cont
 
 // If service_network exists, check if service_network has already associated with VPC
 func (m *defaultServiceNetworkManager) isServiceNetworkAssociatedWithVPC(ctx context.Context, service_networkID string) (bool, *string, []*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
-	vpcLatticeSess := m.cloud.Mercury()
+	vpcLatticeSess := m.cloud.Lattice()
 	// TODO: can pass vpc id to ListServiceNetworkVpcAssociationsInput, could return err if no associations
 	associationStatusInput := vpclattice.ListServiceNetworkVpcAssociationsInput{
 		ServiceNetworkIdentifier: &service_networkID,

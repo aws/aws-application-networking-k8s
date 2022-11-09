@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	mercury_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -18,11 +18,11 @@ type TargetsManager interface {
 }
 
 type defaultTargetsManager struct {
-	cloud     mercury_aws.Cloud
+	cloud     lattice_aws.Cloud
 	datastore *latticestore.LatticeDataStore
 }
 
-func NewTargetsManager(cloud mercury_aws.Cloud, datastore *latticestore.LatticeDataStore) *defaultTargetsManager {
+func NewTargetsManager(cloud lattice_aws.Cloud, datastore *latticestore.LatticeDataStore) *defaultTargetsManager {
 	return &defaultTargetsManager{
 		cloud:     cloud,
 		datastore: datastore,
@@ -37,7 +37,7 @@ func NewTargetsManager(cloud mercury_aws.Cloud, datastore *latticestore.LatticeD
 //	otherwise:
 //	nil
 func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemodel.Targets) error {
-	glog.V(6).Infof("Update Mercury targets API call for %v \n", targets)
+	glog.V(6).Infof("Update Lattice targets API call for %v \n", targets)
 
 	// Need to find TargetGroup ID from datastore
 	tgName := latticestore.TargetGroupName(targets.Spec.Name, targets.Spec.Namespace)
@@ -47,7 +47,7 @@ func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemode
 		glog.V(6).Infof("Failed to Create targets, service ( name %v namespace %v) not found, retry later\n", targets.Spec.Name, targets.Spec.Namespace)
 		return errors.New(LATTICE_RETRY)
 	}
-	vpcLatticeSess := s.cloud.Mercury()
+	vpcLatticeSess := s.cloud.Lattice()
 	// find out sdk target list
 	listTargetsInput := vpclattice.ListTargetsInput{
 		TargetGroupIdentifier: &tg.ID,
@@ -100,7 +100,7 @@ func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemode
 		TargetGroupIdentifier: &tg.ID,
 		Targets:               targetList,
 	}
-	glog.V(6).Infof("Calling Mercury API register targets input %v \n", registerRouteInput)
+	glog.V(6).Infof("Calling Lattice API register targets input %v \n", registerRouteInput)
 
 	resp, err := vpcLatticeSess.RegisterTargetsWithContext(ctx, &registerRouteInput)
 	glog.V(6).Infof("register pod to target group resp[%v]\n", resp)

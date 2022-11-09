@@ -48,16 +48,16 @@ func (mr *MockCloudMockRecorder) EKS() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EKS", reflect.TypeOf((*MockCloud)(nil).EKS))
 }
 
-// Mercury mocks base method.
-func (m *MockCloud) Mercury() services.Mercury {
+// Lattice mocks base method.
+func (m *MockCloud) Lattice() services.Lattice {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Mercury")
-	ret0, _ := ret[0].(services.Mercury)
+	ret := m.ctrl.Call(m, "Lattice")
+	ret0, _ := ret[0].(services.Lattice)
 	return ret0
 }
 
-// Mercury indicates an expected call of Mercury.
-func (mr *MockCloudMockRecorder) Mercury() *gomock.Call {
+// Lattice indicates an expected call of Lattice.
+func (mr *MockCloudMockRecorder) Lattice() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Mercury", reflect.TypeOf((*MockCloud)(nil).Mercury))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lattice", reflect.TypeOf((*MockCloud)(nil).Lattice))
 }

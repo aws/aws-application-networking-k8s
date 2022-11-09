@@ -50,7 +50,7 @@ func Test_Create_ValidateService(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
@@ -92,7 +92,7 @@ func Test_Create_ValidateService(t *testing.T) {
 		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, tt.listServiceInput).Return(tt.wantListServiceOutput, nil)
 		mockVpcLatticeSess.EXPECT().CreateServiceWithContext(ctx, createServiceInput).Return(createServiceOutput, nil)
 		mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, associateMeshService).Return(createServiceNetworkServiceAssociationOutput, tt.wantErr)
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
 		resp, err := serviceManager.Create(ctx, input)
@@ -189,7 +189,7 @@ func Test_Create_CreateService_MeshServiceAssociation(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
@@ -218,7 +218,7 @@ func Test_Create_CreateService_MeshServiceAssociation(t *testing.T) {
 		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, gomock.Any()).Return(tt.wantListServiceOutput, nil)
 		mockVpcLatticeSess.EXPECT().CreateServiceWithContext(ctx, gomock.Any()).Return(createServiceOutput, nil)
 		mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Return(createServiceNetworkServiceAssociationOutput, tt.wantErr)
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
 		resp, err := serviceManager.Create(ctx, input)
@@ -313,7 +313,7 @@ func Test_Create_MeshServiceAssociation(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
@@ -348,7 +348,7 @@ func Test_Create_MeshServiceAssociation(t *testing.T) {
 		if tt.existingAssociationErr == nil {
 			mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Return(createServiceNetworkServiceAssociationOutput, tt.wantErr)
 		}
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
 		resp, err := serviceManager.Create(ctx, input)
@@ -401,7 +401,7 @@ func Test_Create_Check(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
@@ -427,7 +427,7 @@ func Test_Create_Check(t *testing.T) {
 
 		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, gomock.Any()).Return(tt.wantListServiceOutput, nil)
 		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, tt.existingAssociationErr)
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
 		resp, err := serviceManager.Create(ctx, input)
@@ -474,7 +474,7 @@ func Test_Delete_ValidateInput(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
@@ -512,7 +512,7 @@ func Test_Delete_ValidateInput(t *testing.T) {
 		mockVpcLatticeSess.EXPECT().DeleteServiceNetworkServiceAssociationWithContext(ctx, deleteMeshServiceAssociationInput).Return(tt.deleteServiceNetworkServiceAssociationOutput, tt.wantErr)
 
 		mockVpcLatticeSess.EXPECT().DeleteServiceWithContext(ctx, gomock.Any()).Return(tt.deleteServiceOutput, tt.wantErr)
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
 		err := serviceManager.Delete(ctx, input)
@@ -585,7 +585,7 @@ func Test_Delete_Disassociation_DeleteService(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
@@ -613,7 +613,7 @@ func Test_Delete_Disassociation_DeleteService(t *testing.T) {
 			mockVpcLatticeSess.EXPECT().DeleteServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Return(tt.deleteServiceNetworkServiceAssociationOutput, tt.wantErr)
 		}
 		mockVpcLatticeSess.EXPECT().DeleteServiceWithContext(ctx, gomock.Any()).Return(tt.deleteServiceOutput, tt.wantErr)
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
 		err := serviceManager.Delete(ctx, input)
@@ -680,7 +680,7 @@ func Test_Delete_ReturnErrorFail(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockMercury(c)
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_MESH_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
@@ -704,7 +704,7 @@ func Test_Delete_ReturnErrorFail(t *testing.T) {
 		if tt.wantListServiceErr == nil {
 			mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, tt.wantListMeshServiceAssociationsErr)
 		}
-		mockCloud.EXPECT().Mercury().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
 		err := serviceManager.Delete(ctx, input)

@@ -22,7 +22,7 @@ import (
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
-func Test_MercuryServiceModelBuild(t *testing.T) {
+func Test_LatticeServiceModelBuild(t *testing.T) {
 	now := metav1.Now()
 	var httpSectionName v1alpha2.SectionName = "http"
 	var serviceKind v1alpha2.Kind = "Service"
@@ -57,7 +57,7 @@ func Test_MercuryServiceModelBuild(t *testing.T) {
 		wantIsDeleted bool
 	}{
 		{
-			name: "Add MercuryService",
+			name: "Add LatticeService",
 			httpRoute: &v1alpha2.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
@@ -79,7 +79,7 @@ func Test_MercuryServiceModelBuild(t *testing.T) {
 			wantErrIsNil:  true,
 		},
 		{
-			name: "Delete MercuryService",
+			name: "Delete LatticeService",
 			httpRoute: &v1alpha2.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
@@ -128,7 +128,7 @@ func Test_MercuryServiceModelBuild(t *testing.T) {
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			ds := latticestore.NewLatticeDataStore()
 
-			//builder := NewMercuryServiceBuilder(k8sClient, ds, nil)
+			//builder := NewLatticeServiceBuilder(k8sClient, ds, nil)
 
 			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
 

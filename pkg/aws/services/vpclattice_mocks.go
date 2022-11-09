@@ -14,31 +14,31 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockMercury is a mock of Mercury interface.
-type MockMercury struct {
+// MockLattice is a mock of Lattice interface.
+type MockLattice struct {
 	ctrl     *gomock.Controller
-	recorder *MockMercuryMockRecorder
+	recorder *MockLatticeMockRecorder
 }
 
-// MockMercuryMockRecorder is the mock recorder for MockMercury.
-type MockMercuryMockRecorder struct {
-	mock *MockMercury
+// MockLatticeMockRecorder is the mock recorder for MockLattice.
+type MockLatticeMockRecorder struct {
+	mock *MockLattice
 }
 
-// NewMockMercury creates a new mock instance.
-func NewMockMercury(ctrl *gomock.Controller) *MockMercury {
-	mock := &MockMercury{ctrl: ctrl}
-	mock.recorder = &MockMercuryMockRecorder{mock}
+// NewMockLattice creates a new mock instance.
+func NewMockLattice(ctrl *gomock.Controller) *MockLattice {
+	mock := &MockLattice{ctrl: ctrl}
+	mock.recorder = &MockLatticeMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockMercury) EXPECT() *MockMercuryMockRecorder {
+func (m *MockLattice) EXPECT() *MockLatticeMockRecorder {
 	return m.recorder
 }
 
 // BatchUpdateRule mocks base method.
-func (m *MockMercury) BatchUpdateRule(arg0 *vpclattice.BatchUpdateRuleInput) (*vpclattice.BatchUpdateRuleOutput, error) {
+func (m *MockLattice) BatchUpdateRule(arg0 *vpclattice.BatchUpdateRuleInput) (*vpclattice.BatchUpdateRuleOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BatchUpdateRule", arg0)
 	ret0, _ := ret[0].(*vpclattice.BatchUpdateRuleOutput)
@@ -47,13 +47,13 @@ func (m *MockMercury) BatchUpdateRule(arg0 *vpclattice.BatchUpdateRuleInput) (*v
 }
 
 // BatchUpdateRule indicates an expected call of BatchUpdateRule.
-func (mr *MockMercuryMockRecorder) BatchUpdateRule(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) BatchUpdateRule(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchUpdateRule", reflect.TypeOf((*MockMercury)(nil).BatchUpdateRule), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchUpdateRule", reflect.TypeOf((*MockLattice)(nil).BatchUpdateRule), arg0)
 }
 
 // BatchUpdateRuleRequest mocks base method.
-func (m *MockMercury) BatchUpdateRuleRequest(arg0 *vpclattice.BatchUpdateRuleInput) (*request.Request, *vpclattice.BatchUpdateRuleOutput) {
+func (m *MockLattice) BatchUpdateRuleRequest(arg0 *vpclattice.BatchUpdateRuleInput) (*request.Request, *vpclattice.BatchUpdateRuleOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BatchUpdateRuleRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -62,13 +62,13 @@ func (m *MockMercury) BatchUpdateRuleRequest(arg0 *vpclattice.BatchUpdateRuleInp
 }
 
 // BatchUpdateRuleRequest indicates an expected call of BatchUpdateRuleRequest.
-func (mr *MockMercuryMockRecorder) BatchUpdateRuleRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) BatchUpdateRuleRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchUpdateRuleRequest", reflect.TypeOf((*MockMercury)(nil).BatchUpdateRuleRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchUpdateRuleRequest", reflect.TypeOf((*MockLattice)(nil).BatchUpdateRuleRequest), arg0)
 }
 
 // BatchUpdateRuleWithContext mocks base method.
-func (m *MockMercury) BatchUpdateRuleWithContext(arg0 aws.Context, arg1 *vpclattice.BatchUpdateRuleInput, arg2 ...request.Option) (*vpclattice.BatchUpdateRuleOutput, error) {
+func (m *MockLattice) BatchUpdateRuleWithContext(arg0 aws.Context, arg1 *vpclattice.BatchUpdateRuleInput, arg2 ...request.Option) (*vpclattice.BatchUpdateRuleOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -81,14 +81,14 @@ func (m *MockMercury) BatchUpdateRuleWithContext(arg0 aws.Context, arg1 *vpclatt
 }
 
 // BatchUpdateRuleWithContext indicates an expected call of BatchUpdateRuleWithContext.
-func (mr *MockMercuryMockRecorder) BatchUpdateRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) BatchUpdateRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchUpdateRuleWithContext", reflect.TypeOf((*MockMercury)(nil).BatchUpdateRuleWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BatchUpdateRuleWithContext", reflect.TypeOf((*MockLattice)(nil).BatchUpdateRuleWithContext), varargs...)
 }
 
 // CreateAccessLogSubscription mocks base method.
-func (m *MockMercury) CreateAccessLogSubscription(arg0 *vpclattice.CreateAccessLogSubscriptionInput) (*vpclattice.CreateAccessLogSubscriptionOutput, error) {
+func (m *MockLattice) CreateAccessLogSubscription(arg0 *vpclattice.CreateAccessLogSubscriptionInput) (*vpclattice.CreateAccessLogSubscriptionOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateAccessLogSubscription", arg0)
 	ret0, _ := ret[0].(*vpclattice.CreateAccessLogSubscriptionOutput)
@@ -97,13 +97,13 @@ func (m *MockMercury) CreateAccessLogSubscription(arg0 *vpclattice.CreateAccessL
 }
 
 // CreateAccessLogSubscription indicates an expected call of CreateAccessLogSubscription.
-func (mr *MockMercuryMockRecorder) CreateAccessLogSubscription(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateAccessLogSubscription(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAccessLogSubscription", reflect.TypeOf((*MockMercury)(nil).CreateAccessLogSubscription), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAccessLogSubscription", reflect.TypeOf((*MockLattice)(nil).CreateAccessLogSubscription), arg0)
 }
 
 // CreateAccessLogSubscriptionRequest mocks base method.
-func (m *MockMercury) CreateAccessLogSubscriptionRequest(arg0 *vpclattice.CreateAccessLogSubscriptionInput) (*request.Request, *vpclattice.CreateAccessLogSubscriptionOutput) {
+func (m *MockLattice) CreateAccessLogSubscriptionRequest(arg0 *vpclattice.CreateAccessLogSubscriptionInput) (*request.Request, *vpclattice.CreateAccessLogSubscriptionOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateAccessLogSubscriptionRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -112,13 +112,13 @@ func (m *MockMercury) CreateAccessLogSubscriptionRequest(arg0 *vpclattice.Create
 }
 
 // CreateAccessLogSubscriptionRequest indicates an expected call of CreateAccessLogSubscriptionRequest.
-func (mr *MockMercuryMockRecorder) CreateAccessLogSubscriptionRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateAccessLogSubscriptionRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAccessLogSubscriptionRequest", reflect.TypeOf((*MockMercury)(nil).CreateAccessLogSubscriptionRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAccessLogSubscriptionRequest", reflect.TypeOf((*MockLattice)(nil).CreateAccessLogSubscriptionRequest), arg0)
 }
 
 // CreateAccessLogSubscriptionWithContext mocks base method.
-func (m *MockMercury) CreateAccessLogSubscriptionWithContext(arg0 aws.Context, arg1 *vpclattice.CreateAccessLogSubscriptionInput, arg2 ...request.Option) (*vpclattice.CreateAccessLogSubscriptionOutput, error) {
+func (m *MockLattice) CreateAccessLogSubscriptionWithContext(arg0 aws.Context, arg1 *vpclattice.CreateAccessLogSubscriptionInput, arg2 ...request.Option) (*vpclattice.CreateAccessLogSubscriptionOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -131,14 +131,14 @@ func (m *MockMercury) CreateAccessLogSubscriptionWithContext(arg0 aws.Context, a
 }
 
 // CreateAccessLogSubscriptionWithContext indicates an expected call of CreateAccessLogSubscriptionWithContext.
-func (mr *MockMercuryMockRecorder) CreateAccessLogSubscriptionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateAccessLogSubscriptionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAccessLogSubscriptionWithContext", reflect.TypeOf((*MockMercury)(nil).CreateAccessLogSubscriptionWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAccessLogSubscriptionWithContext", reflect.TypeOf((*MockLattice)(nil).CreateAccessLogSubscriptionWithContext), varargs...)
 }
 
 // CreateListener mocks base method.
-func (m *MockMercury) CreateListener(arg0 *vpclattice.CreateListenerInput) (*vpclattice.CreateListenerOutput, error) {
+func (m *MockLattice) CreateListener(arg0 *vpclattice.CreateListenerInput) (*vpclattice.CreateListenerOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateListener", arg0)
 	ret0, _ := ret[0].(*vpclattice.CreateListenerOutput)
@@ -147,13 +147,13 @@ func (m *MockMercury) CreateListener(arg0 *vpclattice.CreateListenerInput) (*vpc
 }
 
 // CreateListener indicates an expected call of CreateListener.
-func (mr *MockMercuryMockRecorder) CreateListener(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateListener(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateListener", reflect.TypeOf((*MockMercury)(nil).CreateListener), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateListener", reflect.TypeOf((*MockLattice)(nil).CreateListener), arg0)
 }
 
 // CreateListenerRequest mocks base method.
-func (m *MockMercury) CreateListenerRequest(arg0 *vpclattice.CreateListenerInput) (*request.Request, *vpclattice.CreateListenerOutput) {
+func (m *MockLattice) CreateListenerRequest(arg0 *vpclattice.CreateListenerInput) (*request.Request, *vpclattice.CreateListenerOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateListenerRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -162,13 +162,13 @@ func (m *MockMercury) CreateListenerRequest(arg0 *vpclattice.CreateListenerInput
 }
 
 // CreateListenerRequest indicates an expected call of CreateListenerRequest.
-func (mr *MockMercuryMockRecorder) CreateListenerRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateListenerRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateListenerRequest", reflect.TypeOf((*MockMercury)(nil).CreateListenerRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateListenerRequest", reflect.TypeOf((*MockLattice)(nil).CreateListenerRequest), arg0)
 }
 
 // CreateListenerWithContext mocks base method.
-func (m *MockMercury) CreateListenerWithContext(arg0 aws.Context, arg1 *vpclattice.CreateListenerInput, arg2 ...request.Option) (*vpclattice.CreateListenerOutput, error) {
+func (m *MockLattice) CreateListenerWithContext(arg0 aws.Context, arg1 *vpclattice.CreateListenerInput, arg2 ...request.Option) (*vpclattice.CreateListenerOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -181,14 +181,14 @@ func (m *MockMercury) CreateListenerWithContext(arg0 aws.Context, arg1 *vpclatti
 }
 
 // CreateListenerWithContext indicates an expected call of CreateListenerWithContext.
-func (mr *MockMercuryMockRecorder) CreateListenerWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateListenerWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateListenerWithContext", reflect.TypeOf((*MockMercury)(nil).CreateListenerWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateListenerWithContext", reflect.TypeOf((*MockLattice)(nil).CreateListenerWithContext), varargs...)
 }
 
 // CreateRule mocks base method.
-func (m *MockMercury) CreateRule(arg0 *vpclattice.CreateRuleInput) (*vpclattice.CreateRuleOutput, error) {
+func (m *MockLattice) CreateRule(arg0 *vpclattice.CreateRuleInput) (*vpclattice.CreateRuleOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRule", arg0)
 	ret0, _ := ret[0].(*vpclattice.CreateRuleOutput)
@@ -197,13 +197,13 @@ func (m *MockMercury) CreateRule(arg0 *vpclattice.CreateRuleInput) (*vpclattice.
 }
 
 // CreateRule indicates an expected call of CreateRule.
-func (mr *MockMercuryMockRecorder) CreateRule(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateRule(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRule", reflect.TypeOf((*MockMercury)(nil).CreateRule), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRule", reflect.TypeOf((*MockLattice)(nil).CreateRule), arg0)
 }
 
 // CreateRuleRequest mocks base method.
-func (m *MockMercury) CreateRuleRequest(arg0 *vpclattice.CreateRuleInput) (*request.Request, *vpclattice.CreateRuleOutput) {
+func (m *MockLattice) CreateRuleRequest(arg0 *vpclattice.CreateRuleInput) (*request.Request, *vpclattice.CreateRuleOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRuleRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -212,13 +212,13 @@ func (m *MockMercury) CreateRuleRequest(arg0 *vpclattice.CreateRuleInput) (*requ
 }
 
 // CreateRuleRequest indicates an expected call of CreateRuleRequest.
-func (mr *MockMercuryMockRecorder) CreateRuleRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateRuleRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRuleRequest", reflect.TypeOf((*MockMercury)(nil).CreateRuleRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRuleRequest", reflect.TypeOf((*MockLattice)(nil).CreateRuleRequest), arg0)
 }
 
 // CreateRuleWithContext mocks base method.
-func (m *MockMercury) CreateRuleWithContext(arg0 aws.Context, arg1 *vpclattice.CreateRuleInput, arg2 ...request.Option) (*vpclattice.CreateRuleOutput, error) {
+func (m *MockLattice) CreateRuleWithContext(arg0 aws.Context, arg1 *vpclattice.CreateRuleInput, arg2 ...request.Option) (*vpclattice.CreateRuleOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -231,14 +231,14 @@ func (m *MockMercury) CreateRuleWithContext(arg0 aws.Context, arg1 *vpclattice.C
 }
 
 // CreateRuleWithContext indicates an expected call of CreateRuleWithContext.
-func (mr *MockMercuryMockRecorder) CreateRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRuleWithContext", reflect.TypeOf((*MockMercury)(nil).CreateRuleWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRuleWithContext", reflect.TypeOf((*MockLattice)(nil).CreateRuleWithContext), varargs...)
 }
 
 // CreateService mocks base method.
-func (m *MockMercury) CreateService(arg0 *vpclattice.CreateServiceInput) (*vpclattice.CreateServiceOutput, error) {
+func (m *MockLattice) CreateService(arg0 *vpclattice.CreateServiceInput) (*vpclattice.CreateServiceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateService", arg0)
 	ret0, _ := ret[0].(*vpclattice.CreateServiceOutput)
@@ -247,13 +247,13 @@ func (m *MockMercury) CreateService(arg0 *vpclattice.CreateServiceInput) (*vpcla
 }
 
 // CreateService indicates an expected call of CreateService.
-func (mr *MockMercuryMockRecorder) CreateService(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateService(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateService", reflect.TypeOf((*MockMercury)(nil).CreateService), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateService", reflect.TypeOf((*MockLattice)(nil).CreateService), arg0)
 }
 
 // CreateServiceNetwork mocks base method.
-func (m *MockMercury) CreateServiceNetwork(arg0 *vpclattice.CreateServiceNetworkInput) (*vpclattice.CreateServiceNetworkOutput, error) {
+func (m *MockLattice) CreateServiceNetwork(arg0 *vpclattice.CreateServiceNetworkInput) (*vpclattice.CreateServiceNetworkOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateServiceNetwork", arg0)
 	ret0, _ := ret[0].(*vpclattice.CreateServiceNetworkOutput)
@@ -262,13 +262,13 @@ func (m *MockMercury) CreateServiceNetwork(arg0 *vpclattice.CreateServiceNetwork
 }
 
 // CreateServiceNetwork indicates an expected call of CreateServiceNetwork.
-func (mr *MockMercuryMockRecorder) CreateServiceNetwork(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceNetwork(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetwork", reflect.TypeOf((*MockMercury)(nil).CreateServiceNetwork), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetwork", reflect.TypeOf((*MockLattice)(nil).CreateServiceNetwork), arg0)
 }
 
 // CreateServiceNetworkRequest mocks base method.
-func (m *MockMercury) CreateServiceNetworkRequest(arg0 *vpclattice.CreateServiceNetworkInput) (*request.Request, *vpclattice.CreateServiceNetworkOutput) {
+func (m *MockLattice) CreateServiceNetworkRequest(arg0 *vpclattice.CreateServiceNetworkInput) (*request.Request, *vpclattice.CreateServiceNetworkOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateServiceNetworkRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -277,13 +277,13 @@ func (m *MockMercury) CreateServiceNetworkRequest(arg0 *vpclattice.CreateService
 }
 
 // CreateServiceNetworkRequest indicates an expected call of CreateServiceNetworkRequest.
-func (mr *MockMercuryMockRecorder) CreateServiceNetworkRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceNetworkRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkRequest", reflect.TypeOf((*MockMercury)(nil).CreateServiceNetworkRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkRequest", reflect.TypeOf((*MockLattice)(nil).CreateServiceNetworkRequest), arg0)
 }
 
 // CreateServiceNetworkServiceAssociation mocks base method.
-func (m *MockMercury) CreateServiceNetworkServiceAssociation(arg0 *vpclattice.CreateServiceNetworkServiceAssociationInput) (*vpclattice.CreateServiceNetworkServiceAssociationOutput, error) {
+func (m *MockLattice) CreateServiceNetworkServiceAssociation(arg0 *vpclattice.CreateServiceNetworkServiceAssociationInput) (*vpclattice.CreateServiceNetworkServiceAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateServiceNetworkServiceAssociation", arg0)
 	ret0, _ := ret[0].(*vpclattice.CreateServiceNetworkServiceAssociationOutput)
@@ -292,13 +292,13 @@ func (m *MockMercury) CreateServiceNetworkServiceAssociation(arg0 *vpclattice.Cr
 }
 
 // CreateServiceNetworkServiceAssociation indicates an expected call of CreateServiceNetworkServiceAssociation.
-func (mr *MockMercuryMockRecorder) CreateServiceNetworkServiceAssociation(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceNetworkServiceAssociation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkServiceAssociation", reflect.TypeOf((*MockMercury)(nil).CreateServiceNetworkServiceAssociation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkServiceAssociation", reflect.TypeOf((*MockLattice)(nil).CreateServiceNetworkServiceAssociation), arg0)
 }
 
 // CreateServiceNetworkServiceAssociationRequest mocks base method.
-func (m *MockMercury) CreateServiceNetworkServiceAssociationRequest(arg0 *vpclattice.CreateServiceNetworkServiceAssociationInput) (*request.Request, *vpclattice.CreateServiceNetworkServiceAssociationOutput) {
+func (m *MockLattice) CreateServiceNetworkServiceAssociationRequest(arg0 *vpclattice.CreateServiceNetworkServiceAssociationInput) (*request.Request, *vpclattice.CreateServiceNetworkServiceAssociationOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateServiceNetworkServiceAssociationRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -307,13 +307,13 @@ func (m *MockMercury) CreateServiceNetworkServiceAssociationRequest(arg0 *vpclat
 }
 
 // CreateServiceNetworkServiceAssociationRequest indicates an expected call of CreateServiceNetworkServiceAssociationRequest.
-func (mr *MockMercuryMockRecorder) CreateServiceNetworkServiceAssociationRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceNetworkServiceAssociationRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkServiceAssociationRequest", reflect.TypeOf((*MockMercury)(nil).CreateServiceNetworkServiceAssociationRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkServiceAssociationRequest", reflect.TypeOf((*MockLattice)(nil).CreateServiceNetworkServiceAssociationRequest), arg0)
 }
 
 // CreateServiceNetworkServiceAssociationWithContext mocks base method.
-func (m *MockMercury) CreateServiceNetworkServiceAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.CreateServiceNetworkServiceAssociationInput, arg2 ...request.Option) (*vpclattice.CreateServiceNetworkServiceAssociationOutput, error) {
+func (m *MockLattice) CreateServiceNetworkServiceAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.CreateServiceNetworkServiceAssociationInput, arg2 ...request.Option) (*vpclattice.CreateServiceNetworkServiceAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -326,14 +326,14 @@ func (m *MockMercury) CreateServiceNetworkServiceAssociationWithContext(arg0 aws
 }
 
 // CreateServiceNetworkServiceAssociationWithContext indicates an expected call of CreateServiceNetworkServiceAssociationWithContext.
-func (mr *MockMercuryMockRecorder) CreateServiceNetworkServiceAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceNetworkServiceAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkServiceAssociationWithContext", reflect.TypeOf((*MockMercury)(nil).CreateServiceNetworkServiceAssociationWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkServiceAssociationWithContext", reflect.TypeOf((*MockLattice)(nil).CreateServiceNetworkServiceAssociationWithContext), varargs...)
 }
 
 // CreateServiceNetworkVpcAssociation mocks base method.
-func (m *MockMercury) CreateServiceNetworkVpcAssociation(arg0 *vpclattice.CreateServiceNetworkVpcAssociationInput) (*vpclattice.CreateServiceNetworkVpcAssociationOutput, error) {
+func (m *MockLattice) CreateServiceNetworkVpcAssociation(arg0 *vpclattice.CreateServiceNetworkVpcAssociationInput) (*vpclattice.CreateServiceNetworkVpcAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateServiceNetworkVpcAssociation", arg0)
 	ret0, _ := ret[0].(*vpclattice.CreateServiceNetworkVpcAssociationOutput)
@@ -342,13 +342,13 @@ func (m *MockMercury) CreateServiceNetworkVpcAssociation(arg0 *vpclattice.Create
 }
 
 // CreateServiceNetworkVpcAssociation indicates an expected call of CreateServiceNetworkVpcAssociation.
-func (mr *MockMercuryMockRecorder) CreateServiceNetworkVpcAssociation(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceNetworkVpcAssociation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkVpcAssociation", reflect.TypeOf((*MockMercury)(nil).CreateServiceNetworkVpcAssociation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkVpcAssociation", reflect.TypeOf((*MockLattice)(nil).CreateServiceNetworkVpcAssociation), arg0)
 }
 
 // CreateServiceNetworkVpcAssociationRequest mocks base method.
-func (m *MockMercury) CreateServiceNetworkVpcAssociationRequest(arg0 *vpclattice.CreateServiceNetworkVpcAssociationInput) (*request.Request, *vpclattice.CreateServiceNetworkVpcAssociationOutput) {
+func (m *MockLattice) CreateServiceNetworkVpcAssociationRequest(arg0 *vpclattice.CreateServiceNetworkVpcAssociationInput) (*request.Request, *vpclattice.CreateServiceNetworkVpcAssociationOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateServiceNetworkVpcAssociationRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -357,13 +357,13 @@ func (m *MockMercury) CreateServiceNetworkVpcAssociationRequest(arg0 *vpclattice
 }
 
 // CreateServiceNetworkVpcAssociationRequest indicates an expected call of CreateServiceNetworkVpcAssociationRequest.
-func (mr *MockMercuryMockRecorder) CreateServiceNetworkVpcAssociationRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceNetworkVpcAssociationRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkVpcAssociationRequest", reflect.TypeOf((*MockMercury)(nil).CreateServiceNetworkVpcAssociationRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkVpcAssociationRequest", reflect.TypeOf((*MockLattice)(nil).CreateServiceNetworkVpcAssociationRequest), arg0)
 }
 
 // CreateServiceNetworkVpcAssociationWithContext mocks base method.
-func (m *MockMercury) CreateServiceNetworkVpcAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.CreateServiceNetworkVpcAssociationInput, arg2 ...request.Option) (*vpclattice.CreateServiceNetworkVpcAssociationOutput, error) {
+func (m *MockLattice) CreateServiceNetworkVpcAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.CreateServiceNetworkVpcAssociationInput, arg2 ...request.Option) (*vpclattice.CreateServiceNetworkVpcAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -376,14 +376,14 @@ func (m *MockMercury) CreateServiceNetworkVpcAssociationWithContext(arg0 aws.Con
 }
 
 // CreateServiceNetworkVpcAssociationWithContext indicates an expected call of CreateServiceNetworkVpcAssociationWithContext.
-func (mr *MockMercuryMockRecorder) CreateServiceNetworkVpcAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceNetworkVpcAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkVpcAssociationWithContext", reflect.TypeOf((*MockMercury)(nil).CreateServiceNetworkVpcAssociationWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkVpcAssociationWithContext", reflect.TypeOf((*MockLattice)(nil).CreateServiceNetworkVpcAssociationWithContext), varargs...)
 }
 
 // CreateServiceNetworkWithContext mocks base method.
-func (m *MockMercury) CreateServiceNetworkWithContext(arg0 aws.Context, arg1 *vpclattice.CreateServiceNetworkInput, arg2 ...request.Option) (*vpclattice.CreateServiceNetworkOutput, error) {
+func (m *MockLattice) CreateServiceNetworkWithContext(arg0 aws.Context, arg1 *vpclattice.CreateServiceNetworkInput, arg2 ...request.Option) (*vpclattice.CreateServiceNetworkOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -396,14 +396,14 @@ func (m *MockMercury) CreateServiceNetworkWithContext(arg0 aws.Context, arg1 *vp
 }
 
 // CreateServiceNetworkWithContext indicates an expected call of CreateServiceNetworkWithContext.
-func (mr *MockMercuryMockRecorder) CreateServiceNetworkWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceNetworkWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkWithContext", reflect.TypeOf((*MockMercury)(nil).CreateServiceNetworkWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceNetworkWithContext", reflect.TypeOf((*MockLattice)(nil).CreateServiceNetworkWithContext), varargs...)
 }
 
 // CreateServiceRequest mocks base method.
-func (m *MockMercury) CreateServiceRequest(arg0 *vpclattice.CreateServiceInput) (*request.Request, *vpclattice.CreateServiceOutput) {
+func (m *MockLattice) CreateServiceRequest(arg0 *vpclattice.CreateServiceInput) (*request.Request, *vpclattice.CreateServiceOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateServiceRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -412,13 +412,13 @@ func (m *MockMercury) CreateServiceRequest(arg0 *vpclattice.CreateServiceInput) 
 }
 
 // CreateServiceRequest indicates an expected call of CreateServiceRequest.
-func (mr *MockMercuryMockRecorder) CreateServiceRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceRequest", reflect.TypeOf((*MockMercury)(nil).CreateServiceRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceRequest", reflect.TypeOf((*MockLattice)(nil).CreateServiceRequest), arg0)
 }
 
 // CreateServiceWithContext mocks base method.
-func (m *MockMercury) CreateServiceWithContext(arg0 aws.Context, arg1 *vpclattice.CreateServiceInput, arg2 ...request.Option) (*vpclattice.CreateServiceOutput, error) {
+func (m *MockLattice) CreateServiceWithContext(arg0 aws.Context, arg1 *vpclattice.CreateServiceInput, arg2 ...request.Option) (*vpclattice.CreateServiceOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -431,14 +431,14 @@ func (m *MockMercury) CreateServiceWithContext(arg0 aws.Context, arg1 *vpclattic
 }
 
 // CreateServiceWithContext indicates an expected call of CreateServiceWithContext.
-func (mr *MockMercuryMockRecorder) CreateServiceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateServiceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceWithContext", reflect.TypeOf((*MockMercury)(nil).CreateServiceWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateServiceWithContext", reflect.TypeOf((*MockLattice)(nil).CreateServiceWithContext), varargs...)
 }
 
 // CreateTargetGroup mocks base method.
-func (m *MockMercury) CreateTargetGroup(arg0 *vpclattice.CreateTargetGroupInput) (*vpclattice.CreateTargetGroupOutput, error) {
+func (m *MockLattice) CreateTargetGroup(arg0 *vpclattice.CreateTargetGroupInput) (*vpclattice.CreateTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateTargetGroup", arg0)
 	ret0, _ := ret[0].(*vpclattice.CreateTargetGroupOutput)
@@ -447,13 +447,13 @@ func (m *MockMercury) CreateTargetGroup(arg0 *vpclattice.CreateTargetGroupInput)
 }
 
 // CreateTargetGroup indicates an expected call of CreateTargetGroup.
-func (mr *MockMercuryMockRecorder) CreateTargetGroup(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateTargetGroup(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTargetGroup", reflect.TypeOf((*MockMercury)(nil).CreateTargetGroup), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTargetGroup", reflect.TypeOf((*MockLattice)(nil).CreateTargetGroup), arg0)
 }
 
 // CreateTargetGroupRequest mocks base method.
-func (m *MockMercury) CreateTargetGroupRequest(arg0 *vpclattice.CreateTargetGroupInput) (*request.Request, *vpclattice.CreateTargetGroupOutput) {
+func (m *MockLattice) CreateTargetGroupRequest(arg0 *vpclattice.CreateTargetGroupInput) (*request.Request, *vpclattice.CreateTargetGroupOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateTargetGroupRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -462,13 +462,13 @@ func (m *MockMercury) CreateTargetGroupRequest(arg0 *vpclattice.CreateTargetGrou
 }
 
 // CreateTargetGroupRequest indicates an expected call of CreateTargetGroupRequest.
-func (mr *MockMercuryMockRecorder) CreateTargetGroupRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateTargetGroupRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTargetGroupRequest", reflect.TypeOf((*MockMercury)(nil).CreateTargetGroupRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTargetGroupRequest", reflect.TypeOf((*MockLattice)(nil).CreateTargetGroupRequest), arg0)
 }
 
 // CreateTargetGroupWithContext mocks base method.
-func (m *MockMercury) CreateTargetGroupWithContext(arg0 aws.Context, arg1 *vpclattice.CreateTargetGroupInput, arg2 ...request.Option) (*vpclattice.CreateTargetGroupOutput, error) {
+func (m *MockLattice) CreateTargetGroupWithContext(arg0 aws.Context, arg1 *vpclattice.CreateTargetGroupInput, arg2 ...request.Option) (*vpclattice.CreateTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -481,14 +481,14 @@ func (m *MockMercury) CreateTargetGroupWithContext(arg0 aws.Context, arg1 *vpcla
 }
 
 // CreateTargetGroupWithContext indicates an expected call of CreateTargetGroupWithContext.
-func (mr *MockMercuryMockRecorder) CreateTargetGroupWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) CreateTargetGroupWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTargetGroupWithContext", reflect.TypeOf((*MockMercury)(nil).CreateTargetGroupWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTargetGroupWithContext", reflect.TypeOf((*MockLattice)(nil).CreateTargetGroupWithContext), varargs...)
 }
 
 // DeleteAccessLogSubscription mocks base method.
-func (m *MockMercury) DeleteAccessLogSubscription(arg0 *vpclattice.DeleteAccessLogSubscriptionInput) (*vpclattice.DeleteAccessLogSubscriptionOutput, error) {
+func (m *MockLattice) DeleteAccessLogSubscription(arg0 *vpclattice.DeleteAccessLogSubscriptionInput) (*vpclattice.DeleteAccessLogSubscriptionOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteAccessLogSubscription", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteAccessLogSubscriptionOutput)
@@ -497,13 +497,13 @@ func (m *MockMercury) DeleteAccessLogSubscription(arg0 *vpclattice.DeleteAccessL
 }
 
 // DeleteAccessLogSubscription indicates an expected call of DeleteAccessLogSubscription.
-func (mr *MockMercuryMockRecorder) DeleteAccessLogSubscription(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteAccessLogSubscription(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAccessLogSubscription", reflect.TypeOf((*MockMercury)(nil).DeleteAccessLogSubscription), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAccessLogSubscription", reflect.TypeOf((*MockLattice)(nil).DeleteAccessLogSubscription), arg0)
 }
 
 // DeleteAccessLogSubscriptionRequest mocks base method.
-func (m *MockMercury) DeleteAccessLogSubscriptionRequest(arg0 *vpclattice.DeleteAccessLogSubscriptionInput) (*request.Request, *vpclattice.DeleteAccessLogSubscriptionOutput) {
+func (m *MockLattice) DeleteAccessLogSubscriptionRequest(arg0 *vpclattice.DeleteAccessLogSubscriptionInput) (*request.Request, *vpclattice.DeleteAccessLogSubscriptionOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteAccessLogSubscriptionRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -512,13 +512,13 @@ func (m *MockMercury) DeleteAccessLogSubscriptionRequest(arg0 *vpclattice.Delete
 }
 
 // DeleteAccessLogSubscriptionRequest indicates an expected call of DeleteAccessLogSubscriptionRequest.
-func (mr *MockMercuryMockRecorder) DeleteAccessLogSubscriptionRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteAccessLogSubscriptionRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAccessLogSubscriptionRequest", reflect.TypeOf((*MockMercury)(nil).DeleteAccessLogSubscriptionRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAccessLogSubscriptionRequest", reflect.TypeOf((*MockLattice)(nil).DeleteAccessLogSubscriptionRequest), arg0)
 }
 
 // DeleteAccessLogSubscriptionWithContext mocks base method.
-func (m *MockMercury) DeleteAccessLogSubscriptionWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteAccessLogSubscriptionInput, arg2 ...request.Option) (*vpclattice.DeleteAccessLogSubscriptionOutput, error) {
+func (m *MockLattice) DeleteAccessLogSubscriptionWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteAccessLogSubscriptionInput, arg2 ...request.Option) (*vpclattice.DeleteAccessLogSubscriptionOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -531,14 +531,14 @@ func (m *MockMercury) DeleteAccessLogSubscriptionWithContext(arg0 aws.Context, a
 }
 
 // DeleteAccessLogSubscriptionWithContext indicates an expected call of DeleteAccessLogSubscriptionWithContext.
-func (mr *MockMercuryMockRecorder) DeleteAccessLogSubscriptionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteAccessLogSubscriptionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAccessLogSubscriptionWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteAccessLogSubscriptionWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAccessLogSubscriptionWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteAccessLogSubscriptionWithContext), varargs...)
 }
 
 // DeleteAuthPolicy mocks base method.
-func (m *MockMercury) DeleteAuthPolicy(arg0 *vpclattice.DeleteAuthPolicyInput) (*vpclattice.DeleteAuthPolicyOutput, error) {
+func (m *MockLattice) DeleteAuthPolicy(arg0 *vpclattice.DeleteAuthPolicyInput) (*vpclattice.DeleteAuthPolicyOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteAuthPolicy", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteAuthPolicyOutput)
@@ -547,13 +547,13 @@ func (m *MockMercury) DeleteAuthPolicy(arg0 *vpclattice.DeleteAuthPolicyInput) (
 }
 
 // DeleteAuthPolicy indicates an expected call of DeleteAuthPolicy.
-func (mr *MockMercuryMockRecorder) DeleteAuthPolicy(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteAuthPolicy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAuthPolicy", reflect.TypeOf((*MockMercury)(nil).DeleteAuthPolicy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAuthPolicy", reflect.TypeOf((*MockLattice)(nil).DeleteAuthPolicy), arg0)
 }
 
 // DeleteAuthPolicyRequest mocks base method.
-func (m *MockMercury) DeleteAuthPolicyRequest(arg0 *vpclattice.DeleteAuthPolicyInput) (*request.Request, *vpclattice.DeleteAuthPolicyOutput) {
+func (m *MockLattice) DeleteAuthPolicyRequest(arg0 *vpclattice.DeleteAuthPolicyInput) (*request.Request, *vpclattice.DeleteAuthPolicyOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteAuthPolicyRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -562,13 +562,13 @@ func (m *MockMercury) DeleteAuthPolicyRequest(arg0 *vpclattice.DeleteAuthPolicyI
 }
 
 // DeleteAuthPolicyRequest indicates an expected call of DeleteAuthPolicyRequest.
-func (mr *MockMercuryMockRecorder) DeleteAuthPolicyRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteAuthPolicyRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAuthPolicyRequest", reflect.TypeOf((*MockMercury)(nil).DeleteAuthPolicyRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAuthPolicyRequest", reflect.TypeOf((*MockLattice)(nil).DeleteAuthPolicyRequest), arg0)
 }
 
 // DeleteAuthPolicyWithContext mocks base method.
-func (m *MockMercury) DeleteAuthPolicyWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteAuthPolicyInput, arg2 ...request.Option) (*vpclattice.DeleteAuthPolicyOutput, error) {
+func (m *MockLattice) DeleteAuthPolicyWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteAuthPolicyInput, arg2 ...request.Option) (*vpclattice.DeleteAuthPolicyOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -581,14 +581,14 @@ func (m *MockMercury) DeleteAuthPolicyWithContext(arg0 aws.Context, arg1 *vpclat
 }
 
 // DeleteAuthPolicyWithContext indicates an expected call of DeleteAuthPolicyWithContext.
-func (mr *MockMercuryMockRecorder) DeleteAuthPolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteAuthPolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAuthPolicyWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteAuthPolicyWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAuthPolicyWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteAuthPolicyWithContext), varargs...)
 }
 
 // DeleteListener mocks base method.
-func (m *MockMercury) DeleteListener(arg0 *vpclattice.DeleteListenerInput) (*vpclattice.DeleteListenerOutput, error) {
+func (m *MockLattice) DeleteListener(arg0 *vpclattice.DeleteListenerInput) (*vpclattice.DeleteListenerOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteListener", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteListenerOutput)
@@ -597,13 +597,13 @@ func (m *MockMercury) DeleteListener(arg0 *vpclattice.DeleteListenerInput) (*vpc
 }
 
 // DeleteListener indicates an expected call of DeleteListener.
-func (mr *MockMercuryMockRecorder) DeleteListener(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteListener(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteListener", reflect.TypeOf((*MockMercury)(nil).DeleteListener), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteListener", reflect.TypeOf((*MockLattice)(nil).DeleteListener), arg0)
 }
 
 // DeleteListenerRequest mocks base method.
-func (m *MockMercury) DeleteListenerRequest(arg0 *vpclattice.DeleteListenerInput) (*request.Request, *vpclattice.DeleteListenerOutput) {
+func (m *MockLattice) DeleteListenerRequest(arg0 *vpclattice.DeleteListenerInput) (*request.Request, *vpclattice.DeleteListenerOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteListenerRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -612,13 +612,13 @@ func (m *MockMercury) DeleteListenerRequest(arg0 *vpclattice.DeleteListenerInput
 }
 
 // DeleteListenerRequest indicates an expected call of DeleteListenerRequest.
-func (mr *MockMercuryMockRecorder) DeleteListenerRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteListenerRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteListenerRequest", reflect.TypeOf((*MockMercury)(nil).DeleteListenerRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteListenerRequest", reflect.TypeOf((*MockLattice)(nil).DeleteListenerRequest), arg0)
 }
 
 // DeleteListenerWithContext mocks base method.
-func (m *MockMercury) DeleteListenerWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteListenerInput, arg2 ...request.Option) (*vpclattice.DeleteListenerOutput, error) {
+func (m *MockLattice) DeleteListenerWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteListenerInput, arg2 ...request.Option) (*vpclattice.DeleteListenerOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -631,14 +631,14 @@ func (m *MockMercury) DeleteListenerWithContext(arg0 aws.Context, arg1 *vpclatti
 }
 
 // DeleteListenerWithContext indicates an expected call of DeleteListenerWithContext.
-func (mr *MockMercuryMockRecorder) DeleteListenerWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteListenerWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteListenerWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteListenerWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteListenerWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteListenerWithContext), varargs...)
 }
 
 // DeleteResourcePolicy mocks base method.
-func (m *MockMercury) DeleteResourcePolicy(arg0 *vpclattice.DeleteResourcePolicyInput) (*vpclattice.DeleteResourcePolicyOutput, error) {
+func (m *MockLattice) DeleteResourcePolicy(arg0 *vpclattice.DeleteResourcePolicyInput) (*vpclattice.DeleteResourcePolicyOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteResourcePolicy", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteResourcePolicyOutput)
@@ -647,13 +647,13 @@ func (m *MockMercury) DeleteResourcePolicy(arg0 *vpclattice.DeleteResourcePolicy
 }
 
 // DeleteResourcePolicy indicates an expected call of DeleteResourcePolicy.
-func (mr *MockMercuryMockRecorder) DeleteResourcePolicy(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteResourcePolicy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResourcePolicy", reflect.TypeOf((*MockMercury)(nil).DeleteResourcePolicy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResourcePolicy", reflect.TypeOf((*MockLattice)(nil).DeleteResourcePolicy), arg0)
 }
 
 // DeleteResourcePolicyRequest mocks base method.
-func (m *MockMercury) DeleteResourcePolicyRequest(arg0 *vpclattice.DeleteResourcePolicyInput) (*request.Request, *vpclattice.DeleteResourcePolicyOutput) {
+func (m *MockLattice) DeleteResourcePolicyRequest(arg0 *vpclattice.DeleteResourcePolicyInput) (*request.Request, *vpclattice.DeleteResourcePolicyOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteResourcePolicyRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -662,13 +662,13 @@ func (m *MockMercury) DeleteResourcePolicyRequest(arg0 *vpclattice.DeleteResourc
 }
 
 // DeleteResourcePolicyRequest indicates an expected call of DeleteResourcePolicyRequest.
-func (mr *MockMercuryMockRecorder) DeleteResourcePolicyRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteResourcePolicyRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResourcePolicyRequest", reflect.TypeOf((*MockMercury)(nil).DeleteResourcePolicyRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResourcePolicyRequest", reflect.TypeOf((*MockLattice)(nil).DeleteResourcePolicyRequest), arg0)
 }
 
 // DeleteResourcePolicyWithContext mocks base method.
-func (m *MockMercury) DeleteResourcePolicyWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteResourcePolicyInput, arg2 ...request.Option) (*vpclattice.DeleteResourcePolicyOutput, error) {
+func (m *MockLattice) DeleteResourcePolicyWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteResourcePolicyInput, arg2 ...request.Option) (*vpclattice.DeleteResourcePolicyOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -681,14 +681,14 @@ func (m *MockMercury) DeleteResourcePolicyWithContext(arg0 aws.Context, arg1 *vp
 }
 
 // DeleteResourcePolicyWithContext indicates an expected call of DeleteResourcePolicyWithContext.
-func (mr *MockMercuryMockRecorder) DeleteResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResourcePolicyWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteResourcePolicyWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResourcePolicyWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteResourcePolicyWithContext), varargs...)
 }
 
 // DeleteRule mocks base method.
-func (m *MockMercury) DeleteRule(arg0 *vpclattice.DeleteRuleInput) (*vpclattice.DeleteRuleOutput, error) {
+func (m *MockLattice) DeleteRule(arg0 *vpclattice.DeleteRuleInput) (*vpclattice.DeleteRuleOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRule", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteRuleOutput)
@@ -697,13 +697,13 @@ func (m *MockMercury) DeleteRule(arg0 *vpclattice.DeleteRuleInput) (*vpclattice.
 }
 
 // DeleteRule indicates an expected call of DeleteRule.
-func (mr *MockMercuryMockRecorder) DeleteRule(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteRule(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRule", reflect.TypeOf((*MockMercury)(nil).DeleteRule), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRule", reflect.TypeOf((*MockLattice)(nil).DeleteRule), arg0)
 }
 
 // DeleteRuleRequest mocks base method.
-func (m *MockMercury) DeleteRuleRequest(arg0 *vpclattice.DeleteRuleInput) (*request.Request, *vpclattice.DeleteRuleOutput) {
+func (m *MockLattice) DeleteRuleRequest(arg0 *vpclattice.DeleteRuleInput) (*request.Request, *vpclattice.DeleteRuleOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRuleRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -712,13 +712,13 @@ func (m *MockMercury) DeleteRuleRequest(arg0 *vpclattice.DeleteRuleInput) (*requ
 }
 
 // DeleteRuleRequest indicates an expected call of DeleteRuleRequest.
-func (mr *MockMercuryMockRecorder) DeleteRuleRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteRuleRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRuleRequest", reflect.TypeOf((*MockMercury)(nil).DeleteRuleRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRuleRequest", reflect.TypeOf((*MockLattice)(nil).DeleteRuleRequest), arg0)
 }
 
 // DeleteRuleWithContext mocks base method.
-func (m *MockMercury) DeleteRuleWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteRuleInput, arg2 ...request.Option) (*vpclattice.DeleteRuleOutput, error) {
+func (m *MockLattice) DeleteRuleWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteRuleInput, arg2 ...request.Option) (*vpclattice.DeleteRuleOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -731,14 +731,14 @@ func (m *MockMercury) DeleteRuleWithContext(arg0 aws.Context, arg1 *vpclattice.D
 }
 
 // DeleteRuleWithContext indicates an expected call of DeleteRuleWithContext.
-func (mr *MockMercuryMockRecorder) DeleteRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRuleWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteRuleWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRuleWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteRuleWithContext), varargs...)
 }
 
 // DeleteService mocks base method.
-func (m *MockMercury) DeleteService(arg0 *vpclattice.DeleteServiceInput) (*vpclattice.DeleteServiceOutput, error) {
+func (m *MockLattice) DeleteService(arg0 *vpclattice.DeleteServiceInput) (*vpclattice.DeleteServiceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteService", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteServiceOutput)
@@ -747,13 +747,13 @@ func (m *MockMercury) DeleteService(arg0 *vpclattice.DeleteServiceInput) (*vpcla
 }
 
 // DeleteService indicates an expected call of DeleteService.
-func (mr *MockMercuryMockRecorder) DeleteService(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteService(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteService", reflect.TypeOf((*MockMercury)(nil).DeleteService), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteService", reflect.TypeOf((*MockLattice)(nil).DeleteService), arg0)
 }
 
 // DeleteServiceNetwork mocks base method.
-func (m *MockMercury) DeleteServiceNetwork(arg0 *vpclattice.DeleteServiceNetworkInput) (*vpclattice.DeleteServiceNetworkOutput, error) {
+func (m *MockLattice) DeleteServiceNetwork(arg0 *vpclattice.DeleteServiceNetworkInput) (*vpclattice.DeleteServiceNetworkOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteServiceNetwork", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteServiceNetworkOutput)
@@ -762,13 +762,13 @@ func (m *MockMercury) DeleteServiceNetwork(arg0 *vpclattice.DeleteServiceNetwork
 }
 
 // DeleteServiceNetwork indicates an expected call of DeleteServiceNetwork.
-func (mr *MockMercuryMockRecorder) DeleteServiceNetwork(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceNetwork(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetwork", reflect.TypeOf((*MockMercury)(nil).DeleteServiceNetwork), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetwork", reflect.TypeOf((*MockLattice)(nil).DeleteServiceNetwork), arg0)
 }
 
 // DeleteServiceNetworkRequest mocks base method.
-func (m *MockMercury) DeleteServiceNetworkRequest(arg0 *vpclattice.DeleteServiceNetworkInput) (*request.Request, *vpclattice.DeleteServiceNetworkOutput) {
+func (m *MockLattice) DeleteServiceNetworkRequest(arg0 *vpclattice.DeleteServiceNetworkInput) (*request.Request, *vpclattice.DeleteServiceNetworkOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteServiceNetworkRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -777,13 +777,13 @@ func (m *MockMercury) DeleteServiceNetworkRequest(arg0 *vpclattice.DeleteService
 }
 
 // DeleteServiceNetworkRequest indicates an expected call of DeleteServiceNetworkRequest.
-func (mr *MockMercuryMockRecorder) DeleteServiceNetworkRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceNetworkRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkRequest", reflect.TypeOf((*MockMercury)(nil).DeleteServiceNetworkRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkRequest", reflect.TypeOf((*MockLattice)(nil).DeleteServiceNetworkRequest), arg0)
 }
 
 // DeleteServiceNetworkServiceAssociation mocks base method.
-func (m *MockMercury) DeleteServiceNetworkServiceAssociation(arg0 *vpclattice.DeleteServiceNetworkServiceAssociationInput) (*vpclattice.DeleteServiceNetworkServiceAssociationOutput, error) {
+func (m *MockLattice) DeleteServiceNetworkServiceAssociation(arg0 *vpclattice.DeleteServiceNetworkServiceAssociationInput) (*vpclattice.DeleteServiceNetworkServiceAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteServiceNetworkServiceAssociation", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteServiceNetworkServiceAssociationOutput)
@@ -792,13 +792,13 @@ func (m *MockMercury) DeleteServiceNetworkServiceAssociation(arg0 *vpclattice.De
 }
 
 // DeleteServiceNetworkServiceAssociation indicates an expected call of DeleteServiceNetworkServiceAssociation.
-func (mr *MockMercuryMockRecorder) DeleteServiceNetworkServiceAssociation(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceNetworkServiceAssociation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkServiceAssociation", reflect.TypeOf((*MockMercury)(nil).DeleteServiceNetworkServiceAssociation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkServiceAssociation", reflect.TypeOf((*MockLattice)(nil).DeleteServiceNetworkServiceAssociation), arg0)
 }
 
 // DeleteServiceNetworkServiceAssociationRequest mocks base method.
-func (m *MockMercury) DeleteServiceNetworkServiceAssociationRequest(arg0 *vpclattice.DeleteServiceNetworkServiceAssociationInput) (*request.Request, *vpclattice.DeleteServiceNetworkServiceAssociationOutput) {
+func (m *MockLattice) DeleteServiceNetworkServiceAssociationRequest(arg0 *vpclattice.DeleteServiceNetworkServiceAssociationInput) (*request.Request, *vpclattice.DeleteServiceNetworkServiceAssociationOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteServiceNetworkServiceAssociationRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -807,13 +807,13 @@ func (m *MockMercury) DeleteServiceNetworkServiceAssociationRequest(arg0 *vpclat
 }
 
 // DeleteServiceNetworkServiceAssociationRequest indicates an expected call of DeleteServiceNetworkServiceAssociationRequest.
-func (mr *MockMercuryMockRecorder) DeleteServiceNetworkServiceAssociationRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceNetworkServiceAssociationRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkServiceAssociationRequest", reflect.TypeOf((*MockMercury)(nil).DeleteServiceNetworkServiceAssociationRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkServiceAssociationRequest", reflect.TypeOf((*MockLattice)(nil).DeleteServiceNetworkServiceAssociationRequest), arg0)
 }
 
 // DeleteServiceNetworkServiceAssociationWithContext mocks base method.
-func (m *MockMercury) DeleteServiceNetworkServiceAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteServiceNetworkServiceAssociationInput, arg2 ...request.Option) (*vpclattice.DeleteServiceNetworkServiceAssociationOutput, error) {
+func (m *MockLattice) DeleteServiceNetworkServiceAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteServiceNetworkServiceAssociationInput, arg2 ...request.Option) (*vpclattice.DeleteServiceNetworkServiceAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -826,14 +826,14 @@ func (m *MockMercury) DeleteServiceNetworkServiceAssociationWithContext(arg0 aws
 }
 
 // DeleteServiceNetworkServiceAssociationWithContext indicates an expected call of DeleteServiceNetworkServiceAssociationWithContext.
-func (mr *MockMercuryMockRecorder) DeleteServiceNetworkServiceAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceNetworkServiceAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkServiceAssociationWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteServiceNetworkServiceAssociationWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkServiceAssociationWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteServiceNetworkServiceAssociationWithContext), varargs...)
 }
 
 // DeleteServiceNetworkVpcAssociation mocks base method.
-func (m *MockMercury) DeleteServiceNetworkVpcAssociation(arg0 *vpclattice.DeleteServiceNetworkVpcAssociationInput) (*vpclattice.DeleteServiceNetworkVpcAssociationOutput, error) {
+func (m *MockLattice) DeleteServiceNetworkVpcAssociation(arg0 *vpclattice.DeleteServiceNetworkVpcAssociationInput) (*vpclattice.DeleteServiceNetworkVpcAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteServiceNetworkVpcAssociation", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteServiceNetworkVpcAssociationOutput)
@@ -842,13 +842,13 @@ func (m *MockMercury) DeleteServiceNetworkVpcAssociation(arg0 *vpclattice.Delete
 }
 
 // DeleteServiceNetworkVpcAssociation indicates an expected call of DeleteServiceNetworkVpcAssociation.
-func (mr *MockMercuryMockRecorder) DeleteServiceNetworkVpcAssociation(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceNetworkVpcAssociation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkVpcAssociation", reflect.TypeOf((*MockMercury)(nil).DeleteServiceNetworkVpcAssociation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkVpcAssociation", reflect.TypeOf((*MockLattice)(nil).DeleteServiceNetworkVpcAssociation), arg0)
 }
 
 // DeleteServiceNetworkVpcAssociationRequest mocks base method.
-func (m *MockMercury) DeleteServiceNetworkVpcAssociationRequest(arg0 *vpclattice.DeleteServiceNetworkVpcAssociationInput) (*request.Request, *vpclattice.DeleteServiceNetworkVpcAssociationOutput) {
+func (m *MockLattice) DeleteServiceNetworkVpcAssociationRequest(arg0 *vpclattice.DeleteServiceNetworkVpcAssociationInput) (*request.Request, *vpclattice.DeleteServiceNetworkVpcAssociationOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteServiceNetworkVpcAssociationRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -857,13 +857,13 @@ func (m *MockMercury) DeleteServiceNetworkVpcAssociationRequest(arg0 *vpclattice
 }
 
 // DeleteServiceNetworkVpcAssociationRequest indicates an expected call of DeleteServiceNetworkVpcAssociationRequest.
-func (mr *MockMercuryMockRecorder) DeleteServiceNetworkVpcAssociationRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceNetworkVpcAssociationRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkVpcAssociationRequest", reflect.TypeOf((*MockMercury)(nil).DeleteServiceNetworkVpcAssociationRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkVpcAssociationRequest", reflect.TypeOf((*MockLattice)(nil).DeleteServiceNetworkVpcAssociationRequest), arg0)
 }
 
 // DeleteServiceNetworkVpcAssociationWithContext mocks base method.
-func (m *MockMercury) DeleteServiceNetworkVpcAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteServiceNetworkVpcAssociationInput, arg2 ...request.Option) (*vpclattice.DeleteServiceNetworkVpcAssociationOutput, error) {
+func (m *MockLattice) DeleteServiceNetworkVpcAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteServiceNetworkVpcAssociationInput, arg2 ...request.Option) (*vpclattice.DeleteServiceNetworkVpcAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -876,14 +876,14 @@ func (m *MockMercury) DeleteServiceNetworkVpcAssociationWithContext(arg0 aws.Con
 }
 
 // DeleteServiceNetworkVpcAssociationWithContext indicates an expected call of DeleteServiceNetworkVpcAssociationWithContext.
-func (mr *MockMercuryMockRecorder) DeleteServiceNetworkVpcAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceNetworkVpcAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkVpcAssociationWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteServiceNetworkVpcAssociationWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkVpcAssociationWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteServiceNetworkVpcAssociationWithContext), varargs...)
 }
 
 // DeleteServiceNetworkWithContext mocks base method.
-func (m *MockMercury) DeleteServiceNetworkWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteServiceNetworkInput, arg2 ...request.Option) (*vpclattice.DeleteServiceNetworkOutput, error) {
+func (m *MockLattice) DeleteServiceNetworkWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteServiceNetworkInput, arg2 ...request.Option) (*vpclattice.DeleteServiceNetworkOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -896,14 +896,14 @@ func (m *MockMercury) DeleteServiceNetworkWithContext(arg0 aws.Context, arg1 *vp
 }
 
 // DeleteServiceNetworkWithContext indicates an expected call of DeleteServiceNetworkWithContext.
-func (mr *MockMercuryMockRecorder) DeleteServiceNetworkWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceNetworkWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteServiceNetworkWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceNetworkWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteServiceNetworkWithContext), varargs...)
 }
 
 // DeleteServiceRequest mocks base method.
-func (m *MockMercury) DeleteServiceRequest(arg0 *vpclattice.DeleteServiceInput) (*request.Request, *vpclattice.DeleteServiceOutput) {
+func (m *MockLattice) DeleteServiceRequest(arg0 *vpclattice.DeleteServiceInput) (*request.Request, *vpclattice.DeleteServiceOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteServiceRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -912,13 +912,13 @@ func (m *MockMercury) DeleteServiceRequest(arg0 *vpclattice.DeleteServiceInput) 
 }
 
 // DeleteServiceRequest indicates an expected call of DeleteServiceRequest.
-func (mr *MockMercuryMockRecorder) DeleteServiceRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceRequest", reflect.TypeOf((*MockMercury)(nil).DeleteServiceRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceRequest", reflect.TypeOf((*MockLattice)(nil).DeleteServiceRequest), arg0)
 }
 
 // DeleteServiceWithContext mocks base method.
-func (m *MockMercury) DeleteServiceWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteServiceInput, arg2 ...request.Option) (*vpclattice.DeleteServiceOutput, error) {
+func (m *MockLattice) DeleteServiceWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteServiceInput, arg2 ...request.Option) (*vpclattice.DeleteServiceOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -931,14 +931,14 @@ func (m *MockMercury) DeleteServiceWithContext(arg0 aws.Context, arg1 *vpclattic
 }
 
 // DeleteServiceWithContext indicates an expected call of DeleteServiceWithContext.
-func (mr *MockMercuryMockRecorder) DeleteServiceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteServiceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteServiceWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteServiceWithContext), varargs...)
 }
 
 // DeleteTargetGroup mocks base method.
-func (m *MockMercury) DeleteTargetGroup(arg0 *vpclattice.DeleteTargetGroupInput) (*vpclattice.DeleteTargetGroupOutput, error) {
+func (m *MockLattice) DeleteTargetGroup(arg0 *vpclattice.DeleteTargetGroupInput) (*vpclattice.DeleteTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteTargetGroup", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeleteTargetGroupOutput)
@@ -947,13 +947,13 @@ func (m *MockMercury) DeleteTargetGroup(arg0 *vpclattice.DeleteTargetGroupInput)
 }
 
 // DeleteTargetGroup indicates an expected call of DeleteTargetGroup.
-func (mr *MockMercuryMockRecorder) DeleteTargetGroup(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteTargetGroup(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTargetGroup", reflect.TypeOf((*MockMercury)(nil).DeleteTargetGroup), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTargetGroup", reflect.TypeOf((*MockLattice)(nil).DeleteTargetGroup), arg0)
 }
 
 // DeleteTargetGroupRequest mocks base method.
-func (m *MockMercury) DeleteTargetGroupRequest(arg0 *vpclattice.DeleteTargetGroupInput) (*request.Request, *vpclattice.DeleteTargetGroupOutput) {
+func (m *MockLattice) DeleteTargetGroupRequest(arg0 *vpclattice.DeleteTargetGroupInput) (*request.Request, *vpclattice.DeleteTargetGroupOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteTargetGroupRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -962,13 +962,13 @@ func (m *MockMercury) DeleteTargetGroupRequest(arg0 *vpclattice.DeleteTargetGrou
 }
 
 // DeleteTargetGroupRequest indicates an expected call of DeleteTargetGroupRequest.
-func (mr *MockMercuryMockRecorder) DeleteTargetGroupRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteTargetGroupRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTargetGroupRequest", reflect.TypeOf((*MockMercury)(nil).DeleteTargetGroupRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTargetGroupRequest", reflect.TypeOf((*MockLattice)(nil).DeleteTargetGroupRequest), arg0)
 }
 
 // DeleteTargetGroupWithContext mocks base method.
-func (m *MockMercury) DeleteTargetGroupWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteTargetGroupInput, arg2 ...request.Option) (*vpclattice.DeleteTargetGroupOutput, error) {
+func (m *MockLattice) DeleteTargetGroupWithContext(arg0 aws.Context, arg1 *vpclattice.DeleteTargetGroupInput, arg2 ...request.Option) (*vpclattice.DeleteTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -981,14 +981,14 @@ func (m *MockMercury) DeleteTargetGroupWithContext(arg0 aws.Context, arg1 *vpcla
 }
 
 // DeleteTargetGroupWithContext indicates an expected call of DeleteTargetGroupWithContext.
-func (mr *MockMercuryMockRecorder) DeleteTargetGroupWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeleteTargetGroupWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTargetGroupWithContext", reflect.TypeOf((*MockMercury)(nil).DeleteTargetGroupWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTargetGroupWithContext", reflect.TypeOf((*MockLattice)(nil).DeleteTargetGroupWithContext), varargs...)
 }
 
 // DeregisterTargets mocks base method.
-func (m *MockMercury) DeregisterTargets(arg0 *vpclattice.DeregisterTargetsInput) (*vpclattice.DeregisterTargetsOutput, error) {
+func (m *MockLattice) DeregisterTargets(arg0 *vpclattice.DeregisterTargetsInput) (*vpclattice.DeregisterTargetsOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeregisterTargets", arg0)
 	ret0, _ := ret[0].(*vpclattice.DeregisterTargetsOutput)
@@ -997,13 +997,13 @@ func (m *MockMercury) DeregisterTargets(arg0 *vpclattice.DeregisterTargetsInput)
 }
 
 // DeregisterTargets indicates an expected call of DeregisterTargets.
-func (mr *MockMercuryMockRecorder) DeregisterTargets(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeregisterTargets(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargets", reflect.TypeOf((*MockMercury)(nil).DeregisterTargets), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargets", reflect.TypeOf((*MockLattice)(nil).DeregisterTargets), arg0)
 }
 
 // DeregisterTargetsRequest mocks base method.
-func (m *MockMercury) DeregisterTargetsRequest(arg0 *vpclattice.DeregisterTargetsInput) (*request.Request, *vpclattice.DeregisterTargetsOutput) {
+func (m *MockLattice) DeregisterTargetsRequest(arg0 *vpclattice.DeregisterTargetsInput) (*request.Request, *vpclattice.DeregisterTargetsOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeregisterTargetsRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1012,13 +1012,13 @@ func (m *MockMercury) DeregisterTargetsRequest(arg0 *vpclattice.DeregisterTarget
 }
 
 // DeregisterTargetsRequest indicates an expected call of DeregisterTargetsRequest.
-func (mr *MockMercuryMockRecorder) DeregisterTargetsRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeregisterTargetsRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargetsRequest", reflect.TypeOf((*MockMercury)(nil).DeregisterTargetsRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargetsRequest", reflect.TypeOf((*MockLattice)(nil).DeregisterTargetsRequest), arg0)
 }
 
 // DeregisterTargetsWithContext mocks base method.
-func (m *MockMercury) DeregisterTargetsWithContext(arg0 aws.Context, arg1 *vpclattice.DeregisterTargetsInput, arg2 ...request.Option) (*vpclattice.DeregisterTargetsOutput, error) {
+func (m *MockLattice) DeregisterTargetsWithContext(arg0 aws.Context, arg1 *vpclattice.DeregisterTargetsInput, arg2 ...request.Option) (*vpclattice.DeregisterTargetsOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1031,14 +1031,14 @@ func (m *MockMercury) DeregisterTargetsWithContext(arg0 aws.Context, arg1 *vpcla
 }
 
 // DeregisterTargetsWithContext indicates an expected call of DeregisterTargetsWithContext.
-func (mr *MockMercuryMockRecorder) DeregisterTargetsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) DeregisterTargetsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargetsWithContext", reflect.TypeOf((*MockMercury)(nil).DeregisterTargetsWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargetsWithContext", reflect.TypeOf((*MockLattice)(nil).DeregisterTargetsWithContext), varargs...)
 }
 
 // GetAccessLogSubscription mocks base method.
-func (m *MockMercury) GetAccessLogSubscription(arg0 *vpclattice.GetAccessLogSubscriptionInput) (*vpclattice.GetAccessLogSubscriptionOutput, error) {
+func (m *MockLattice) GetAccessLogSubscription(arg0 *vpclattice.GetAccessLogSubscriptionInput) (*vpclattice.GetAccessLogSubscriptionOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAccessLogSubscription", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetAccessLogSubscriptionOutput)
@@ -1047,13 +1047,13 @@ func (m *MockMercury) GetAccessLogSubscription(arg0 *vpclattice.GetAccessLogSubs
 }
 
 // GetAccessLogSubscription indicates an expected call of GetAccessLogSubscription.
-func (mr *MockMercuryMockRecorder) GetAccessLogSubscription(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetAccessLogSubscription(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccessLogSubscription", reflect.TypeOf((*MockMercury)(nil).GetAccessLogSubscription), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccessLogSubscription", reflect.TypeOf((*MockLattice)(nil).GetAccessLogSubscription), arg0)
 }
 
 // GetAccessLogSubscriptionRequest mocks base method.
-func (m *MockMercury) GetAccessLogSubscriptionRequest(arg0 *vpclattice.GetAccessLogSubscriptionInput) (*request.Request, *vpclattice.GetAccessLogSubscriptionOutput) {
+func (m *MockLattice) GetAccessLogSubscriptionRequest(arg0 *vpclattice.GetAccessLogSubscriptionInput) (*request.Request, *vpclattice.GetAccessLogSubscriptionOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAccessLogSubscriptionRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1062,13 +1062,13 @@ func (m *MockMercury) GetAccessLogSubscriptionRequest(arg0 *vpclattice.GetAccess
 }
 
 // GetAccessLogSubscriptionRequest indicates an expected call of GetAccessLogSubscriptionRequest.
-func (mr *MockMercuryMockRecorder) GetAccessLogSubscriptionRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetAccessLogSubscriptionRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccessLogSubscriptionRequest", reflect.TypeOf((*MockMercury)(nil).GetAccessLogSubscriptionRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccessLogSubscriptionRequest", reflect.TypeOf((*MockLattice)(nil).GetAccessLogSubscriptionRequest), arg0)
 }
 
 // GetAccessLogSubscriptionWithContext mocks base method.
-func (m *MockMercury) GetAccessLogSubscriptionWithContext(arg0 aws.Context, arg1 *vpclattice.GetAccessLogSubscriptionInput, arg2 ...request.Option) (*vpclattice.GetAccessLogSubscriptionOutput, error) {
+func (m *MockLattice) GetAccessLogSubscriptionWithContext(arg0 aws.Context, arg1 *vpclattice.GetAccessLogSubscriptionInput, arg2 ...request.Option) (*vpclattice.GetAccessLogSubscriptionOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1081,14 +1081,14 @@ func (m *MockMercury) GetAccessLogSubscriptionWithContext(arg0 aws.Context, arg1
 }
 
 // GetAccessLogSubscriptionWithContext indicates an expected call of GetAccessLogSubscriptionWithContext.
-func (mr *MockMercuryMockRecorder) GetAccessLogSubscriptionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetAccessLogSubscriptionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccessLogSubscriptionWithContext", reflect.TypeOf((*MockMercury)(nil).GetAccessLogSubscriptionWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccessLogSubscriptionWithContext", reflect.TypeOf((*MockLattice)(nil).GetAccessLogSubscriptionWithContext), varargs...)
 }
 
 // GetAuthPolicy mocks base method.
-func (m *MockMercury) GetAuthPolicy(arg0 *vpclattice.GetAuthPolicyInput) (*vpclattice.GetAuthPolicyOutput, error) {
+func (m *MockLattice) GetAuthPolicy(arg0 *vpclattice.GetAuthPolicyInput) (*vpclattice.GetAuthPolicyOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAuthPolicy", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetAuthPolicyOutput)
@@ -1097,13 +1097,13 @@ func (m *MockMercury) GetAuthPolicy(arg0 *vpclattice.GetAuthPolicyInput) (*vpcla
 }
 
 // GetAuthPolicy indicates an expected call of GetAuthPolicy.
-func (mr *MockMercuryMockRecorder) GetAuthPolicy(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetAuthPolicy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAuthPolicy", reflect.TypeOf((*MockMercury)(nil).GetAuthPolicy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAuthPolicy", reflect.TypeOf((*MockLattice)(nil).GetAuthPolicy), arg0)
 }
 
 // GetAuthPolicyRequest mocks base method.
-func (m *MockMercury) GetAuthPolicyRequest(arg0 *vpclattice.GetAuthPolicyInput) (*request.Request, *vpclattice.GetAuthPolicyOutput) {
+func (m *MockLattice) GetAuthPolicyRequest(arg0 *vpclattice.GetAuthPolicyInput) (*request.Request, *vpclattice.GetAuthPolicyOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAuthPolicyRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1112,13 +1112,13 @@ func (m *MockMercury) GetAuthPolicyRequest(arg0 *vpclattice.GetAuthPolicyInput) 
 }
 
 // GetAuthPolicyRequest indicates an expected call of GetAuthPolicyRequest.
-func (mr *MockMercuryMockRecorder) GetAuthPolicyRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetAuthPolicyRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAuthPolicyRequest", reflect.TypeOf((*MockMercury)(nil).GetAuthPolicyRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAuthPolicyRequest", reflect.TypeOf((*MockLattice)(nil).GetAuthPolicyRequest), arg0)
 }
 
 // GetAuthPolicyWithContext mocks base method.
-func (m *MockMercury) GetAuthPolicyWithContext(arg0 aws.Context, arg1 *vpclattice.GetAuthPolicyInput, arg2 ...request.Option) (*vpclattice.GetAuthPolicyOutput, error) {
+func (m *MockLattice) GetAuthPolicyWithContext(arg0 aws.Context, arg1 *vpclattice.GetAuthPolicyInput, arg2 ...request.Option) (*vpclattice.GetAuthPolicyOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1131,14 +1131,14 @@ func (m *MockMercury) GetAuthPolicyWithContext(arg0 aws.Context, arg1 *vpclattic
 }
 
 // GetAuthPolicyWithContext indicates an expected call of GetAuthPolicyWithContext.
-func (mr *MockMercuryMockRecorder) GetAuthPolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetAuthPolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAuthPolicyWithContext", reflect.TypeOf((*MockMercury)(nil).GetAuthPolicyWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAuthPolicyWithContext", reflect.TypeOf((*MockLattice)(nil).GetAuthPolicyWithContext), varargs...)
 }
 
 // GetListener mocks base method.
-func (m *MockMercury) GetListener(arg0 *vpclattice.GetListenerInput) (*vpclattice.GetListenerOutput, error) {
+func (m *MockLattice) GetListener(arg0 *vpclattice.GetListenerInput) (*vpclattice.GetListenerOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetListener", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetListenerOutput)
@@ -1147,13 +1147,13 @@ func (m *MockMercury) GetListener(arg0 *vpclattice.GetListenerInput) (*vpclattic
 }
 
 // GetListener indicates an expected call of GetListener.
-func (mr *MockMercuryMockRecorder) GetListener(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetListener(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetListener", reflect.TypeOf((*MockMercury)(nil).GetListener), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetListener", reflect.TypeOf((*MockLattice)(nil).GetListener), arg0)
 }
 
 // GetListenerRequest mocks base method.
-func (m *MockMercury) GetListenerRequest(arg0 *vpclattice.GetListenerInput) (*request.Request, *vpclattice.GetListenerOutput) {
+func (m *MockLattice) GetListenerRequest(arg0 *vpclattice.GetListenerInput) (*request.Request, *vpclattice.GetListenerOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetListenerRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1162,13 +1162,13 @@ func (m *MockMercury) GetListenerRequest(arg0 *vpclattice.GetListenerInput) (*re
 }
 
 // GetListenerRequest indicates an expected call of GetListenerRequest.
-func (mr *MockMercuryMockRecorder) GetListenerRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetListenerRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetListenerRequest", reflect.TypeOf((*MockMercury)(nil).GetListenerRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetListenerRequest", reflect.TypeOf((*MockLattice)(nil).GetListenerRequest), arg0)
 }
 
 // GetListenerWithContext mocks base method.
-func (m *MockMercury) GetListenerWithContext(arg0 aws.Context, arg1 *vpclattice.GetListenerInput, arg2 ...request.Option) (*vpclattice.GetListenerOutput, error) {
+func (m *MockLattice) GetListenerWithContext(arg0 aws.Context, arg1 *vpclattice.GetListenerInput, arg2 ...request.Option) (*vpclattice.GetListenerOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1181,14 +1181,14 @@ func (m *MockMercury) GetListenerWithContext(arg0 aws.Context, arg1 *vpclattice.
 }
 
 // GetListenerWithContext indicates an expected call of GetListenerWithContext.
-func (mr *MockMercuryMockRecorder) GetListenerWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetListenerWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetListenerWithContext", reflect.TypeOf((*MockMercury)(nil).GetListenerWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetListenerWithContext", reflect.TypeOf((*MockLattice)(nil).GetListenerWithContext), varargs...)
 }
 
 // GetResourcePolicy mocks base method.
-func (m *MockMercury) GetResourcePolicy(arg0 *vpclattice.GetResourcePolicyInput) (*vpclattice.GetResourcePolicyOutput, error) {
+func (m *MockLattice) GetResourcePolicy(arg0 *vpclattice.GetResourcePolicyInput) (*vpclattice.GetResourcePolicyOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourcePolicy", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetResourcePolicyOutput)
@@ -1197,13 +1197,13 @@ func (m *MockMercury) GetResourcePolicy(arg0 *vpclattice.GetResourcePolicyInput)
 }
 
 // GetResourcePolicy indicates an expected call of GetResourcePolicy.
-func (mr *MockMercuryMockRecorder) GetResourcePolicy(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetResourcePolicy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourcePolicy", reflect.TypeOf((*MockMercury)(nil).GetResourcePolicy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourcePolicy", reflect.TypeOf((*MockLattice)(nil).GetResourcePolicy), arg0)
 }
 
 // GetResourcePolicyRequest mocks base method.
-func (m *MockMercury) GetResourcePolicyRequest(arg0 *vpclattice.GetResourcePolicyInput) (*request.Request, *vpclattice.GetResourcePolicyOutput) {
+func (m *MockLattice) GetResourcePolicyRequest(arg0 *vpclattice.GetResourcePolicyInput) (*request.Request, *vpclattice.GetResourcePolicyOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetResourcePolicyRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1212,13 +1212,13 @@ func (m *MockMercury) GetResourcePolicyRequest(arg0 *vpclattice.GetResourcePolic
 }
 
 // GetResourcePolicyRequest indicates an expected call of GetResourcePolicyRequest.
-func (mr *MockMercuryMockRecorder) GetResourcePolicyRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetResourcePolicyRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourcePolicyRequest", reflect.TypeOf((*MockMercury)(nil).GetResourcePolicyRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourcePolicyRequest", reflect.TypeOf((*MockLattice)(nil).GetResourcePolicyRequest), arg0)
 }
 
 // GetResourcePolicyWithContext mocks base method.
-func (m *MockMercury) GetResourcePolicyWithContext(arg0 aws.Context, arg1 *vpclattice.GetResourcePolicyInput, arg2 ...request.Option) (*vpclattice.GetResourcePolicyOutput, error) {
+func (m *MockLattice) GetResourcePolicyWithContext(arg0 aws.Context, arg1 *vpclattice.GetResourcePolicyInput, arg2 ...request.Option) (*vpclattice.GetResourcePolicyOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1231,14 +1231,14 @@ func (m *MockMercury) GetResourcePolicyWithContext(arg0 aws.Context, arg1 *vpcla
 }
 
 // GetResourcePolicyWithContext indicates an expected call of GetResourcePolicyWithContext.
-func (mr *MockMercuryMockRecorder) GetResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourcePolicyWithContext", reflect.TypeOf((*MockMercury)(nil).GetResourcePolicyWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourcePolicyWithContext", reflect.TypeOf((*MockLattice)(nil).GetResourcePolicyWithContext), varargs...)
 }
 
 // GetRule mocks base method.
-func (m *MockMercury) GetRule(arg0 *vpclattice.GetRuleInput) (*vpclattice.GetRuleOutput, error) {
+func (m *MockLattice) GetRule(arg0 *vpclattice.GetRuleInput) (*vpclattice.GetRuleOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRule", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetRuleOutput)
@@ -1247,13 +1247,13 @@ func (m *MockMercury) GetRule(arg0 *vpclattice.GetRuleInput) (*vpclattice.GetRul
 }
 
 // GetRule indicates an expected call of GetRule.
-func (mr *MockMercuryMockRecorder) GetRule(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetRule(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRule", reflect.TypeOf((*MockMercury)(nil).GetRule), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRule", reflect.TypeOf((*MockLattice)(nil).GetRule), arg0)
 }
 
 // GetRuleRequest mocks base method.
-func (m *MockMercury) GetRuleRequest(arg0 *vpclattice.GetRuleInput) (*request.Request, *vpclattice.GetRuleOutput) {
+func (m *MockLattice) GetRuleRequest(arg0 *vpclattice.GetRuleInput) (*request.Request, *vpclattice.GetRuleOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRuleRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1262,13 +1262,13 @@ func (m *MockMercury) GetRuleRequest(arg0 *vpclattice.GetRuleInput) (*request.Re
 }
 
 // GetRuleRequest indicates an expected call of GetRuleRequest.
-func (mr *MockMercuryMockRecorder) GetRuleRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetRuleRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRuleRequest", reflect.TypeOf((*MockMercury)(nil).GetRuleRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRuleRequest", reflect.TypeOf((*MockLattice)(nil).GetRuleRequest), arg0)
 }
 
 // GetRuleWithContext mocks base method.
-func (m *MockMercury) GetRuleWithContext(arg0 aws.Context, arg1 *vpclattice.GetRuleInput, arg2 ...request.Option) (*vpclattice.GetRuleOutput, error) {
+func (m *MockLattice) GetRuleWithContext(arg0 aws.Context, arg1 *vpclattice.GetRuleInput, arg2 ...request.Option) (*vpclattice.GetRuleOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1281,14 +1281,14 @@ func (m *MockMercury) GetRuleWithContext(arg0 aws.Context, arg1 *vpclattice.GetR
 }
 
 // GetRuleWithContext indicates an expected call of GetRuleWithContext.
-func (mr *MockMercuryMockRecorder) GetRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRuleWithContext", reflect.TypeOf((*MockMercury)(nil).GetRuleWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRuleWithContext", reflect.TypeOf((*MockLattice)(nil).GetRuleWithContext), varargs...)
 }
 
 // GetService mocks base method.
-func (m *MockMercury) GetService(arg0 *vpclattice.GetServiceInput) (*vpclattice.GetServiceOutput, error) {
+func (m *MockLattice) GetService(arg0 *vpclattice.GetServiceInput) (*vpclattice.GetServiceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetService", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetServiceOutput)
@@ -1297,13 +1297,13 @@ func (m *MockMercury) GetService(arg0 *vpclattice.GetServiceInput) (*vpclattice.
 }
 
 // GetService indicates an expected call of GetService.
-func (mr *MockMercuryMockRecorder) GetService(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetService(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetService", reflect.TypeOf((*MockMercury)(nil).GetService), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetService", reflect.TypeOf((*MockLattice)(nil).GetService), arg0)
 }
 
 // GetServiceNetwork mocks base method.
-func (m *MockMercury) GetServiceNetwork(arg0 *vpclattice.GetServiceNetworkInput) (*vpclattice.GetServiceNetworkOutput, error) {
+func (m *MockLattice) GetServiceNetwork(arg0 *vpclattice.GetServiceNetworkInput) (*vpclattice.GetServiceNetworkOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetServiceNetwork", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetServiceNetworkOutput)
@@ -1312,13 +1312,13 @@ func (m *MockMercury) GetServiceNetwork(arg0 *vpclattice.GetServiceNetworkInput)
 }
 
 // GetServiceNetwork indicates an expected call of GetServiceNetwork.
-func (mr *MockMercuryMockRecorder) GetServiceNetwork(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceNetwork(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetwork", reflect.TypeOf((*MockMercury)(nil).GetServiceNetwork), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetwork", reflect.TypeOf((*MockLattice)(nil).GetServiceNetwork), arg0)
 }
 
 // GetServiceNetworkRequest mocks base method.
-func (m *MockMercury) GetServiceNetworkRequest(arg0 *vpclattice.GetServiceNetworkInput) (*request.Request, *vpclattice.GetServiceNetworkOutput) {
+func (m *MockLattice) GetServiceNetworkRequest(arg0 *vpclattice.GetServiceNetworkInput) (*request.Request, *vpclattice.GetServiceNetworkOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetServiceNetworkRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1327,13 +1327,13 @@ func (m *MockMercury) GetServiceNetworkRequest(arg0 *vpclattice.GetServiceNetwor
 }
 
 // GetServiceNetworkRequest indicates an expected call of GetServiceNetworkRequest.
-func (mr *MockMercuryMockRecorder) GetServiceNetworkRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceNetworkRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkRequest", reflect.TypeOf((*MockMercury)(nil).GetServiceNetworkRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkRequest", reflect.TypeOf((*MockLattice)(nil).GetServiceNetworkRequest), arg0)
 }
 
 // GetServiceNetworkServiceAssociation mocks base method.
-func (m *MockMercury) GetServiceNetworkServiceAssociation(arg0 *vpclattice.GetServiceNetworkServiceAssociationInput) (*vpclattice.GetServiceNetworkServiceAssociationOutput, error) {
+func (m *MockLattice) GetServiceNetworkServiceAssociation(arg0 *vpclattice.GetServiceNetworkServiceAssociationInput) (*vpclattice.GetServiceNetworkServiceAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetServiceNetworkServiceAssociation", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetServiceNetworkServiceAssociationOutput)
@@ -1342,13 +1342,13 @@ func (m *MockMercury) GetServiceNetworkServiceAssociation(arg0 *vpclattice.GetSe
 }
 
 // GetServiceNetworkServiceAssociation indicates an expected call of GetServiceNetworkServiceAssociation.
-func (mr *MockMercuryMockRecorder) GetServiceNetworkServiceAssociation(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceNetworkServiceAssociation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkServiceAssociation", reflect.TypeOf((*MockMercury)(nil).GetServiceNetworkServiceAssociation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkServiceAssociation", reflect.TypeOf((*MockLattice)(nil).GetServiceNetworkServiceAssociation), arg0)
 }
 
 // GetServiceNetworkServiceAssociationRequest mocks base method.
-func (m *MockMercury) GetServiceNetworkServiceAssociationRequest(arg0 *vpclattice.GetServiceNetworkServiceAssociationInput) (*request.Request, *vpclattice.GetServiceNetworkServiceAssociationOutput) {
+func (m *MockLattice) GetServiceNetworkServiceAssociationRequest(arg0 *vpclattice.GetServiceNetworkServiceAssociationInput) (*request.Request, *vpclattice.GetServiceNetworkServiceAssociationOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetServiceNetworkServiceAssociationRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1357,13 +1357,13 @@ func (m *MockMercury) GetServiceNetworkServiceAssociationRequest(arg0 *vpclattic
 }
 
 // GetServiceNetworkServiceAssociationRequest indicates an expected call of GetServiceNetworkServiceAssociationRequest.
-func (mr *MockMercuryMockRecorder) GetServiceNetworkServiceAssociationRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceNetworkServiceAssociationRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkServiceAssociationRequest", reflect.TypeOf((*MockMercury)(nil).GetServiceNetworkServiceAssociationRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkServiceAssociationRequest", reflect.TypeOf((*MockLattice)(nil).GetServiceNetworkServiceAssociationRequest), arg0)
 }
 
 // GetServiceNetworkServiceAssociationWithContext mocks base method.
-func (m *MockMercury) GetServiceNetworkServiceAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.GetServiceNetworkServiceAssociationInput, arg2 ...request.Option) (*vpclattice.GetServiceNetworkServiceAssociationOutput, error) {
+func (m *MockLattice) GetServiceNetworkServiceAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.GetServiceNetworkServiceAssociationInput, arg2 ...request.Option) (*vpclattice.GetServiceNetworkServiceAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1376,14 +1376,14 @@ func (m *MockMercury) GetServiceNetworkServiceAssociationWithContext(arg0 aws.Co
 }
 
 // GetServiceNetworkServiceAssociationWithContext indicates an expected call of GetServiceNetworkServiceAssociationWithContext.
-func (mr *MockMercuryMockRecorder) GetServiceNetworkServiceAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceNetworkServiceAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkServiceAssociationWithContext", reflect.TypeOf((*MockMercury)(nil).GetServiceNetworkServiceAssociationWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkServiceAssociationWithContext", reflect.TypeOf((*MockLattice)(nil).GetServiceNetworkServiceAssociationWithContext), varargs...)
 }
 
 // GetServiceNetworkVpcAssociation mocks base method.
-func (m *MockMercury) GetServiceNetworkVpcAssociation(arg0 *vpclattice.GetServiceNetworkVpcAssociationInput) (*vpclattice.GetServiceNetworkVpcAssociationOutput, error) {
+func (m *MockLattice) GetServiceNetworkVpcAssociation(arg0 *vpclattice.GetServiceNetworkVpcAssociationInput) (*vpclattice.GetServiceNetworkVpcAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetServiceNetworkVpcAssociation", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetServiceNetworkVpcAssociationOutput)
@@ -1392,13 +1392,13 @@ func (m *MockMercury) GetServiceNetworkVpcAssociation(arg0 *vpclattice.GetServic
 }
 
 // GetServiceNetworkVpcAssociation indicates an expected call of GetServiceNetworkVpcAssociation.
-func (mr *MockMercuryMockRecorder) GetServiceNetworkVpcAssociation(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceNetworkVpcAssociation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkVpcAssociation", reflect.TypeOf((*MockMercury)(nil).GetServiceNetworkVpcAssociation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkVpcAssociation", reflect.TypeOf((*MockLattice)(nil).GetServiceNetworkVpcAssociation), arg0)
 }
 
 // GetServiceNetworkVpcAssociationRequest mocks base method.
-func (m *MockMercury) GetServiceNetworkVpcAssociationRequest(arg0 *vpclattice.GetServiceNetworkVpcAssociationInput) (*request.Request, *vpclattice.GetServiceNetworkVpcAssociationOutput) {
+func (m *MockLattice) GetServiceNetworkVpcAssociationRequest(arg0 *vpclattice.GetServiceNetworkVpcAssociationInput) (*request.Request, *vpclattice.GetServiceNetworkVpcAssociationOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetServiceNetworkVpcAssociationRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1407,13 +1407,13 @@ func (m *MockMercury) GetServiceNetworkVpcAssociationRequest(arg0 *vpclattice.Ge
 }
 
 // GetServiceNetworkVpcAssociationRequest indicates an expected call of GetServiceNetworkVpcAssociationRequest.
-func (mr *MockMercuryMockRecorder) GetServiceNetworkVpcAssociationRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceNetworkVpcAssociationRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkVpcAssociationRequest", reflect.TypeOf((*MockMercury)(nil).GetServiceNetworkVpcAssociationRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkVpcAssociationRequest", reflect.TypeOf((*MockLattice)(nil).GetServiceNetworkVpcAssociationRequest), arg0)
 }
 
 // GetServiceNetworkVpcAssociationWithContext mocks base method.
-func (m *MockMercury) GetServiceNetworkVpcAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.GetServiceNetworkVpcAssociationInput, arg2 ...request.Option) (*vpclattice.GetServiceNetworkVpcAssociationOutput, error) {
+func (m *MockLattice) GetServiceNetworkVpcAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.GetServiceNetworkVpcAssociationInput, arg2 ...request.Option) (*vpclattice.GetServiceNetworkVpcAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1426,14 +1426,14 @@ func (m *MockMercury) GetServiceNetworkVpcAssociationWithContext(arg0 aws.Contex
 }
 
 // GetServiceNetworkVpcAssociationWithContext indicates an expected call of GetServiceNetworkVpcAssociationWithContext.
-func (mr *MockMercuryMockRecorder) GetServiceNetworkVpcAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceNetworkVpcAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkVpcAssociationWithContext", reflect.TypeOf((*MockMercury)(nil).GetServiceNetworkVpcAssociationWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkVpcAssociationWithContext", reflect.TypeOf((*MockLattice)(nil).GetServiceNetworkVpcAssociationWithContext), varargs...)
 }
 
 // GetServiceNetworkWithContext mocks base method.
-func (m *MockMercury) GetServiceNetworkWithContext(arg0 aws.Context, arg1 *vpclattice.GetServiceNetworkInput, arg2 ...request.Option) (*vpclattice.GetServiceNetworkOutput, error) {
+func (m *MockLattice) GetServiceNetworkWithContext(arg0 aws.Context, arg1 *vpclattice.GetServiceNetworkInput, arg2 ...request.Option) (*vpclattice.GetServiceNetworkOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1446,14 +1446,14 @@ func (m *MockMercury) GetServiceNetworkWithContext(arg0 aws.Context, arg1 *vpcla
 }
 
 // GetServiceNetworkWithContext indicates an expected call of GetServiceNetworkWithContext.
-func (mr *MockMercuryMockRecorder) GetServiceNetworkWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceNetworkWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkWithContext", reflect.TypeOf((*MockMercury)(nil).GetServiceNetworkWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkWithContext", reflect.TypeOf((*MockLattice)(nil).GetServiceNetworkWithContext), varargs...)
 }
 
 // GetServiceRequest mocks base method.
-func (m *MockMercury) GetServiceRequest(arg0 *vpclattice.GetServiceInput) (*request.Request, *vpclattice.GetServiceOutput) {
+func (m *MockLattice) GetServiceRequest(arg0 *vpclattice.GetServiceInput) (*request.Request, *vpclattice.GetServiceOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetServiceRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1462,13 +1462,13 @@ func (m *MockMercury) GetServiceRequest(arg0 *vpclattice.GetServiceInput) (*requ
 }
 
 // GetServiceRequest indicates an expected call of GetServiceRequest.
-func (mr *MockMercuryMockRecorder) GetServiceRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceRequest", reflect.TypeOf((*MockMercury)(nil).GetServiceRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceRequest", reflect.TypeOf((*MockLattice)(nil).GetServiceRequest), arg0)
 }
 
 // GetServiceWithContext mocks base method.
-func (m *MockMercury) GetServiceWithContext(arg0 aws.Context, arg1 *vpclattice.GetServiceInput, arg2 ...request.Option) (*vpclattice.GetServiceOutput, error) {
+func (m *MockLattice) GetServiceWithContext(arg0 aws.Context, arg1 *vpclattice.GetServiceInput, arg2 ...request.Option) (*vpclattice.GetServiceOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1481,14 +1481,14 @@ func (m *MockMercury) GetServiceWithContext(arg0 aws.Context, arg1 *vpclattice.G
 }
 
 // GetServiceWithContext indicates an expected call of GetServiceWithContext.
-func (mr *MockMercuryMockRecorder) GetServiceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetServiceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceWithContext", reflect.TypeOf((*MockMercury)(nil).GetServiceWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceWithContext", reflect.TypeOf((*MockLattice)(nil).GetServiceWithContext), varargs...)
 }
 
 // GetTargetGroup mocks base method.
-func (m *MockMercury) GetTargetGroup(arg0 *vpclattice.GetTargetGroupInput) (*vpclattice.GetTargetGroupOutput, error) {
+func (m *MockLattice) GetTargetGroup(arg0 *vpclattice.GetTargetGroupInput) (*vpclattice.GetTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTargetGroup", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetTargetGroupOutput)
@@ -1497,13 +1497,13 @@ func (m *MockMercury) GetTargetGroup(arg0 *vpclattice.GetTargetGroupInput) (*vpc
 }
 
 // GetTargetGroup indicates an expected call of GetTargetGroup.
-func (mr *MockMercuryMockRecorder) GetTargetGroup(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetTargetGroup(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTargetGroup", reflect.TypeOf((*MockMercury)(nil).GetTargetGroup), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTargetGroup", reflect.TypeOf((*MockLattice)(nil).GetTargetGroup), arg0)
 }
 
 // GetTargetGroupRequest mocks base method.
-func (m *MockMercury) GetTargetGroupRequest(arg0 *vpclattice.GetTargetGroupInput) (*request.Request, *vpclattice.GetTargetGroupOutput) {
+func (m *MockLattice) GetTargetGroupRequest(arg0 *vpclattice.GetTargetGroupInput) (*request.Request, *vpclattice.GetTargetGroupOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTargetGroupRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1512,13 +1512,13 @@ func (m *MockMercury) GetTargetGroupRequest(arg0 *vpclattice.GetTargetGroupInput
 }
 
 // GetTargetGroupRequest indicates an expected call of GetTargetGroupRequest.
-func (mr *MockMercuryMockRecorder) GetTargetGroupRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetTargetGroupRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTargetGroupRequest", reflect.TypeOf((*MockMercury)(nil).GetTargetGroupRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTargetGroupRequest", reflect.TypeOf((*MockLattice)(nil).GetTargetGroupRequest), arg0)
 }
 
 // GetTargetGroupWithContext mocks base method.
-func (m *MockMercury) GetTargetGroupWithContext(arg0 aws.Context, arg1 *vpclattice.GetTargetGroupInput, arg2 ...request.Option) (*vpclattice.GetTargetGroupOutput, error) {
+func (m *MockLattice) GetTargetGroupWithContext(arg0 aws.Context, arg1 *vpclattice.GetTargetGroupInput, arg2 ...request.Option) (*vpclattice.GetTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1531,14 +1531,14 @@ func (m *MockMercury) GetTargetGroupWithContext(arg0 aws.Context, arg1 *vpclatti
 }
 
 // GetTargetGroupWithContext indicates an expected call of GetTargetGroupWithContext.
-func (mr *MockMercuryMockRecorder) GetTargetGroupWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) GetTargetGroupWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTargetGroupWithContext", reflect.TypeOf((*MockMercury)(nil).GetTargetGroupWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTargetGroupWithContext", reflect.TypeOf((*MockLattice)(nil).GetTargetGroupWithContext), varargs...)
 }
 
 // ListAccessLogSubscriptions mocks base method.
-func (m *MockMercury) ListAccessLogSubscriptions(arg0 *vpclattice.ListAccessLogSubscriptionsInput) (*vpclattice.ListAccessLogSubscriptionsOutput, error) {
+func (m *MockLattice) ListAccessLogSubscriptions(arg0 *vpclattice.ListAccessLogSubscriptionsInput) (*vpclattice.ListAccessLogSubscriptionsOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListAccessLogSubscriptions", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListAccessLogSubscriptionsOutput)
@@ -1547,13 +1547,13 @@ func (m *MockMercury) ListAccessLogSubscriptions(arg0 *vpclattice.ListAccessLogS
 }
 
 // ListAccessLogSubscriptions indicates an expected call of ListAccessLogSubscriptions.
-func (mr *MockMercuryMockRecorder) ListAccessLogSubscriptions(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListAccessLogSubscriptions(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAccessLogSubscriptions", reflect.TypeOf((*MockMercury)(nil).ListAccessLogSubscriptions), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAccessLogSubscriptions", reflect.TypeOf((*MockLattice)(nil).ListAccessLogSubscriptions), arg0)
 }
 
 // ListAccessLogSubscriptionsRequest mocks base method.
-func (m *MockMercury) ListAccessLogSubscriptionsRequest(arg0 *vpclattice.ListAccessLogSubscriptionsInput) (*request.Request, *vpclattice.ListAccessLogSubscriptionsOutput) {
+func (m *MockLattice) ListAccessLogSubscriptionsRequest(arg0 *vpclattice.ListAccessLogSubscriptionsInput) (*request.Request, *vpclattice.ListAccessLogSubscriptionsOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListAccessLogSubscriptionsRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1562,13 +1562,13 @@ func (m *MockMercury) ListAccessLogSubscriptionsRequest(arg0 *vpclattice.ListAcc
 }
 
 // ListAccessLogSubscriptionsRequest indicates an expected call of ListAccessLogSubscriptionsRequest.
-func (mr *MockMercuryMockRecorder) ListAccessLogSubscriptionsRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListAccessLogSubscriptionsRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAccessLogSubscriptionsRequest", reflect.TypeOf((*MockMercury)(nil).ListAccessLogSubscriptionsRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAccessLogSubscriptionsRequest", reflect.TypeOf((*MockLattice)(nil).ListAccessLogSubscriptionsRequest), arg0)
 }
 
 // ListAccessLogSubscriptionsWithContext mocks base method.
-func (m *MockMercury) ListAccessLogSubscriptionsWithContext(arg0 aws.Context, arg1 *vpclattice.ListAccessLogSubscriptionsInput, arg2 ...request.Option) (*vpclattice.ListAccessLogSubscriptionsOutput, error) {
+func (m *MockLattice) ListAccessLogSubscriptionsWithContext(arg0 aws.Context, arg1 *vpclattice.ListAccessLogSubscriptionsInput, arg2 ...request.Option) (*vpclattice.ListAccessLogSubscriptionsOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1581,14 +1581,14 @@ func (m *MockMercury) ListAccessLogSubscriptionsWithContext(arg0 aws.Context, ar
 }
 
 // ListAccessLogSubscriptionsWithContext indicates an expected call of ListAccessLogSubscriptionsWithContext.
-func (mr *MockMercuryMockRecorder) ListAccessLogSubscriptionsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListAccessLogSubscriptionsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAccessLogSubscriptionsWithContext", reflect.TypeOf((*MockMercury)(nil).ListAccessLogSubscriptionsWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAccessLogSubscriptionsWithContext", reflect.TypeOf((*MockLattice)(nil).ListAccessLogSubscriptionsWithContext), varargs...)
 }
 
 // ListListeners mocks base method.
-func (m *MockMercury) ListListeners(arg0 *vpclattice.ListListenersInput) (*vpclattice.ListListenersOutput, error) {
+func (m *MockLattice) ListListeners(arg0 *vpclattice.ListListenersInput) (*vpclattice.ListListenersOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListListeners", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListListenersOutput)
@@ -1597,13 +1597,13 @@ func (m *MockMercury) ListListeners(arg0 *vpclattice.ListListenersInput) (*vpcla
 }
 
 // ListListeners indicates an expected call of ListListeners.
-func (mr *MockMercuryMockRecorder) ListListeners(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListListeners(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListeners", reflect.TypeOf((*MockMercury)(nil).ListListeners), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListeners", reflect.TypeOf((*MockLattice)(nil).ListListeners), arg0)
 }
 
 // ListListenersRequest mocks base method.
-func (m *MockMercury) ListListenersRequest(arg0 *vpclattice.ListListenersInput) (*request.Request, *vpclattice.ListListenersOutput) {
+func (m *MockLattice) ListListenersRequest(arg0 *vpclattice.ListListenersInput) (*request.Request, *vpclattice.ListListenersOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListListenersRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1612,13 +1612,13 @@ func (m *MockMercury) ListListenersRequest(arg0 *vpclattice.ListListenersInput) 
 }
 
 // ListListenersRequest indicates an expected call of ListListenersRequest.
-func (mr *MockMercuryMockRecorder) ListListenersRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListListenersRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListenersRequest", reflect.TypeOf((*MockMercury)(nil).ListListenersRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListenersRequest", reflect.TypeOf((*MockLattice)(nil).ListListenersRequest), arg0)
 }
 
 // ListListenersWithContext mocks base method.
-func (m *MockMercury) ListListenersWithContext(arg0 aws.Context, arg1 *vpclattice.ListListenersInput, arg2 ...request.Option) (*vpclattice.ListListenersOutput, error) {
+func (m *MockLattice) ListListenersWithContext(arg0 aws.Context, arg1 *vpclattice.ListListenersInput, arg2 ...request.Option) (*vpclattice.ListListenersOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1631,14 +1631,14 @@ func (m *MockMercury) ListListenersWithContext(arg0 aws.Context, arg1 *vpclattic
 }
 
 // ListListenersWithContext indicates an expected call of ListListenersWithContext.
-func (mr *MockMercuryMockRecorder) ListListenersWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListListenersWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListenersWithContext", reflect.TypeOf((*MockMercury)(nil).ListListenersWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListenersWithContext", reflect.TypeOf((*MockLattice)(nil).ListListenersWithContext), varargs...)
 }
 
 // ListRules mocks base method.
-func (m *MockMercury) ListRules(arg0 *vpclattice.ListRulesInput) (*vpclattice.ListRulesOutput, error) {
+func (m *MockLattice) ListRules(arg0 *vpclattice.ListRulesInput) (*vpclattice.ListRulesOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRules", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListRulesOutput)
@@ -1647,13 +1647,13 @@ func (m *MockMercury) ListRules(arg0 *vpclattice.ListRulesInput) (*vpclattice.Li
 }
 
 // ListRules indicates an expected call of ListRules.
-func (mr *MockMercuryMockRecorder) ListRules(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListRules(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRules", reflect.TypeOf((*MockMercury)(nil).ListRules), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRules", reflect.TypeOf((*MockLattice)(nil).ListRules), arg0)
 }
 
 // ListRulesRequest mocks base method.
-func (m *MockMercury) ListRulesRequest(arg0 *vpclattice.ListRulesInput) (*request.Request, *vpclattice.ListRulesOutput) {
+func (m *MockLattice) ListRulesRequest(arg0 *vpclattice.ListRulesInput) (*request.Request, *vpclattice.ListRulesOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRulesRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1662,13 +1662,13 @@ func (m *MockMercury) ListRulesRequest(arg0 *vpclattice.ListRulesInput) (*reques
 }
 
 // ListRulesRequest indicates an expected call of ListRulesRequest.
-func (mr *MockMercuryMockRecorder) ListRulesRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListRulesRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRulesRequest", reflect.TypeOf((*MockMercury)(nil).ListRulesRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRulesRequest", reflect.TypeOf((*MockLattice)(nil).ListRulesRequest), arg0)
 }
 
 // ListRulesWithContext mocks base method.
-func (m *MockMercury) ListRulesWithContext(arg0 aws.Context, arg1 *vpclattice.ListRulesInput, arg2 ...request.Option) (*vpclattice.ListRulesOutput, error) {
+func (m *MockLattice) ListRulesWithContext(arg0 aws.Context, arg1 *vpclattice.ListRulesInput, arg2 ...request.Option) (*vpclattice.ListRulesOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1681,14 +1681,14 @@ func (m *MockMercury) ListRulesWithContext(arg0 aws.Context, arg1 *vpclattice.Li
 }
 
 // ListRulesWithContext indicates an expected call of ListRulesWithContext.
-func (mr *MockMercuryMockRecorder) ListRulesWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListRulesWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRulesWithContext", reflect.TypeOf((*MockMercury)(nil).ListRulesWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRulesWithContext", reflect.TypeOf((*MockLattice)(nil).ListRulesWithContext), varargs...)
 }
 
 // ListServiceNetworkServiceAssociations mocks base method.
-func (m *MockMercury) ListServiceNetworkServiceAssociations(arg0 *vpclattice.ListServiceNetworkServiceAssociationsInput) (*vpclattice.ListServiceNetworkServiceAssociationsOutput, error) {
+func (m *MockLattice) ListServiceNetworkServiceAssociations(arg0 *vpclattice.ListServiceNetworkServiceAssociationsInput) (*vpclattice.ListServiceNetworkServiceAssociationsOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServiceNetworkServiceAssociations", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListServiceNetworkServiceAssociationsOutput)
@@ -1697,13 +1697,13 @@ func (m *MockMercury) ListServiceNetworkServiceAssociations(arg0 *vpclattice.Lis
 }
 
 // ListServiceNetworkServiceAssociations indicates an expected call of ListServiceNetworkServiceAssociations.
-func (mr *MockMercuryMockRecorder) ListServiceNetworkServiceAssociations(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworkServiceAssociations(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociations", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworkServiceAssociations), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociations", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworkServiceAssociations), arg0)
 }
 
 // ListServiceNetworkServiceAssociationsAsList mocks base method.
-func (m *MockMercury) ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error) {
+func (m *MockLattice) ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServiceNetworkServiceAssociationsAsList", ctx, input)
 	ret0, _ := ret[0].([]*vpclattice.ServiceNetworkServiceAssociationSummary)
@@ -1712,13 +1712,13 @@ func (m *MockMercury) ListServiceNetworkServiceAssociationsAsList(ctx context.Co
 }
 
 // ListServiceNetworkServiceAssociationsAsList indicates an expected call of ListServiceNetworkServiceAssociationsAsList.
-func (mr *MockMercuryMockRecorder) ListServiceNetworkServiceAssociationsAsList(ctx, input interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworkServiceAssociationsAsList(ctx, input interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociationsAsList", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworkServiceAssociationsAsList), ctx, input)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociationsAsList", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworkServiceAssociationsAsList), ctx, input)
 }
 
 // ListServiceNetworkServiceAssociationsRequest mocks base method.
-func (m *MockMercury) ListServiceNetworkServiceAssociationsRequest(arg0 *vpclattice.ListServiceNetworkServiceAssociationsInput) (*request.Request, *vpclattice.ListServiceNetworkServiceAssociationsOutput) {
+func (m *MockLattice) ListServiceNetworkServiceAssociationsRequest(arg0 *vpclattice.ListServiceNetworkServiceAssociationsInput) (*request.Request, *vpclattice.ListServiceNetworkServiceAssociationsOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServiceNetworkServiceAssociationsRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1727,13 +1727,13 @@ func (m *MockMercury) ListServiceNetworkServiceAssociationsRequest(arg0 *vpclatt
 }
 
 // ListServiceNetworkServiceAssociationsRequest indicates an expected call of ListServiceNetworkServiceAssociationsRequest.
-func (mr *MockMercuryMockRecorder) ListServiceNetworkServiceAssociationsRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworkServiceAssociationsRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociationsRequest", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworkServiceAssociationsRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociationsRequest", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworkServiceAssociationsRequest), arg0)
 }
 
 // ListServiceNetworkServiceAssociationsWithContext mocks base method.
-func (m *MockMercury) ListServiceNetworkServiceAssociationsWithContext(arg0 aws.Context, arg1 *vpclattice.ListServiceNetworkServiceAssociationsInput, arg2 ...request.Option) (*vpclattice.ListServiceNetworkServiceAssociationsOutput, error) {
+func (m *MockLattice) ListServiceNetworkServiceAssociationsWithContext(arg0 aws.Context, arg1 *vpclattice.ListServiceNetworkServiceAssociationsInput, arg2 ...request.Option) (*vpclattice.ListServiceNetworkServiceAssociationsOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1746,14 +1746,14 @@ func (m *MockMercury) ListServiceNetworkServiceAssociationsWithContext(arg0 aws.
 }
 
 // ListServiceNetworkServiceAssociationsWithContext indicates an expected call of ListServiceNetworkServiceAssociationsWithContext.
-func (mr *MockMercuryMockRecorder) ListServiceNetworkServiceAssociationsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworkServiceAssociationsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociationsWithContext", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworkServiceAssociationsWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociationsWithContext", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworkServiceAssociationsWithContext), varargs...)
 }
 
 // ListServiceNetworkVpcAssociations mocks base method.
-func (m *MockMercury) ListServiceNetworkVpcAssociations(arg0 *vpclattice.ListServiceNetworkVpcAssociationsInput) (*vpclattice.ListServiceNetworkVpcAssociationsOutput, error) {
+func (m *MockLattice) ListServiceNetworkVpcAssociations(arg0 *vpclattice.ListServiceNetworkVpcAssociationsInput) (*vpclattice.ListServiceNetworkVpcAssociationsOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServiceNetworkVpcAssociations", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListServiceNetworkVpcAssociationsOutput)
@@ -1762,13 +1762,13 @@ func (m *MockMercury) ListServiceNetworkVpcAssociations(arg0 *vpclattice.ListSer
 }
 
 // ListServiceNetworkVpcAssociations indicates an expected call of ListServiceNetworkVpcAssociations.
-func (mr *MockMercuryMockRecorder) ListServiceNetworkVpcAssociations(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworkVpcAssociations(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociations", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworkVpcAssociations), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociations", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworkVpcAssociations), arg0)
 }
 
 // ListServiceNetworkVpcAssociationsAsList mocks base method.
-func (m *MockMercury) ListServiceNetworkVpcAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput) ([]*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
+func (m *MockLattice) ListServiceNetworkVpcAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput) ([]*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServiceNetworkVpcAssociationsAsList", ctx, input)
 	ret0, _ := ret[0].([]*vpclattice.ServiceNetworkVpcAssociationSummary)
@@ -1777,13 +1777,13 @@ func (m *MockMercury) ListServiceNetworkVpcAssociationsAsList(ctx context.Contex
 }
 
 // ListServiceNetworkVpcAssociationsAsList indicates an expected call of ListServiceNetworkVpcAssociationsAsList.
-func (mr *MockMercuryMockRecorder) ListServiceNetworkVpcAssociationsAsList(ctx, input interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworkVpcAssociationsAsList(ctx, input interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociationsAsList", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworkVpcAssociationsAsList), ctx, input)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociationsAsList", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworkVpcAssociationsAsList), ctx, input)
 }
 
 // ListServiceNetworkVpcAssociationsRequest mocks base method.
-func (m *MockMercury) ListServiceNetworkVpcAssociationsRequest(arg0 *vpclattice.ListServiceNetworkVpcAssociationsInput) (*request.Request, *vpclattice.ListServiceNetworkVpcAssociationsOutput) {
+func (m *MockLattice) ListServiceNetworkVpcAssociationsRequest(arg0 *vpclattice.ListServiceNetworkVpcAssociationsInput) (*request.Request, *vpclattice.ListServiceNetworkVpcAssociationsOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServiceNetworkVpcAssociationsRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1792,13 +1792,13 @@ func (m *MockMercury) ListServiceNetworkVpcAssociationsRequest(arg0 *vpclattice.
 }
 
 // ListServiceNetworkVpcAssociationsRequest indicates an expected call of ListServiceNetworkVpcAssociationsRequest.
-func (mr *MockMercuryMockRecorder) ListServiceNetworkVpcAssociationsRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworkVpcAssociationsRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociationsRequest", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworkVpcAssociationsRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociationsRequest", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworkVpcAssociationsRequest), arg0)
 }
 
 // ListServiceNetworkVpcAssociationsWithContext mocks base method.
-func (m *MockMercury) ListServiceNetworkVpcAssociationsWithContext(arg0 aws.Context, arg1 *vpclattice.ListServiceNetworkVpcAssociationsInput, arg2 ...request.Option) (*vpclattice.ListServiceNetworkVpcAssociationsOutput, error) {
+func (m *MockLattice) ListServiceNetworkVpcAssociationsWithContext(arg0 aws.Context, arg1 *vpclattice.ListServiceNetworkVpcAssociationsInput, arg2 ...request.Option) (*vpclattice.ListServiceNetworkVpcAssociationsOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1811,14 +1811,14 @@ func (m *MockMercury) ListServiceNetworkVpcAssociationsWithContext(arg0 aws.Cont
 }
 
 // ListServiceNetworkVpcAssociationsWithContext indicates an expected call of ListServiceNetworkVpcAssociationsWithContext.
-func (mr *MockMercuryMockRecorder) ListServiceNetworkVpcAssociationsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworkVpcAssociationsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociationsWithContext", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworkVpcAssociationsWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociationsWithContext", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworkVpcAssociationsWithContext), varargs...)
 }
 
 // ListServiceNetworks mocks base method.
-func (m *MockMercury) ListServiceNetworks(arg0 *vpclattice.ListServiceNetworksInput) (*vpclattice.ListServiceNetworksOutput, error) {
+func (m *MockLattice) ListServiceNetworks(arg0 *vpclattice.ListServiceNetworksInput) (*vpclattice.ListServiceNetworksOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServiceNetworks", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListServiceNetworksOutput)
@@ -1827,13 +1827,13 @@ func (m *MockMercury) ListServiceNetworks(arg0 *vpclattice.ListServiceNetworksIn
 }
 
 // ListServiceNetworks indicates an expected call of ListServiceNetworks.
-func (mr *MockMercuryMockRecorder) ListServiceNetworks(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworks(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworks", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworks), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworks", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworks), arg0)
 }
 
 // ListServiceNetworksAsList mocks base method.
-func (m *MockMercury) ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error) {
+func (m *MockLattice) ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServiceNetworksAsList", ctx, input)
 	ret0, _ := ret[0].([]*vpclattice.ServiceNetworkSummary)
@@ -1842,13 +1842,13 @@ func (m *MockMercury) ListServiceNetworksAsList(ctx context.Context, input *vpcl
 }
 
 // ListServiceNetworksAsList indicates an expected call of ListServiceNetworksAsList.
-func (mr *MockMercuryMockRecorder) ListServiceNetworksAsList(ctx, input interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworksAsList(ctx, input interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworksAsList", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworksAsList), ctx, input)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworksAsList", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworksAsList), ctx, input)
 }
 
 // ListServiceNetworksRequest mocks base method.
-func (m *MockMercury) ListServiceNetworksRequest(arg0 *vpclattice.ListServiceNetworksInput) (*request.Request, *vpclattice.ListServiceNetworksOutput) {
+func (m *MockLattice) ListServiceNetworksRequest(arg0 *vpclattice.ListServiceNetworksInput) (*request.Request, *vpclattice.ListServiceNetworksOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServiceNetworksRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1857,13 +1857,13 @@ func (m *MockMercury) ListServiceNetworksRequest(arg0 *vpclattice.ListServiceNet
 }
 
 // ListServiceNetworksRequest indicates an expected call of ListServiceNetworksRequest.
-func (mr *MockMercuryMockRecorder) ListServiceNetworksRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworksRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworksRequest", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworksRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworksRequest", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworksRequest), arg0)
 }
 
 // ListServiceNetworksWithContext mocks base method.
-func (m *MockMercury) ListServiceNetworksWithContext(arg0 aws.Context, arg1 *vpclattice.ListServiceNetworksInput, arg2 ...request.Option) (*vpclattice.ListServiceNetworksOutput, error) {
+func (m *MockLattice) ListServiceNetworksWithContext(arg0 aws.Context, arg1 *vpclattice.ListServiceNetworksInput, arg2 ...request.Option) (*vpclattice.ListServiceNetworksOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1876,14 +1876,14 @@ func (m *MockMercury) ListServiceNetworksWithContext(arg0 aws.Context, arg1 *vpc
 }
 
 // ListServiceNetworksWithContext indicates an expected call of ListServiceNetworksWithContext.
-func (mr *MockMercuryMockRecorder) ListServiceNetworksWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServiceNetworksWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworksWithContext", reflect.TypeOf((*MockMercury)(nil).ListServiceNetworksWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworksWithContext", reflect.TypeOf((*MockLattice)(nil).ListServiceNetworksWithContext), varargs...)
 }
 
 // ListServices mocks base method.
-func (m *MockMercury) ListServices(arg0 *vpclattice.ListServicesInput) (*vpclattice.ListServicesOutput, error) {
+func (m *MockLattice) ListServices(arg0 *vpclattice.ListServicesInput) (*vpclattice.ListServicesOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServices", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListServicesOutput)
@@ -1892,13 +1892,13 @@ func (m *MockMercury) ListServices(arg0 *vpclattice.ListServicesInput) (*vpclatt
 }
 
 // ListServices indicates an expected call of ListServices.
-func (mr *MockMercuryMockRecorder) ListServices(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServices(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServices", reflect.TypeOf((*MockMercury)(nil).ListServices), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServices", reflect.TypeOf((*MockLattice)(nil).ListServices), arg0)
 }
 
 // ListServicesAsList mocks base method.
-func (m *MockMercury) ListServicesAsList(ctx context.Context, input *vpclattice.ListServicesInput) ([]*vpclattice.ServiceSummary, error) {
+func (m *MockLattice) ListServicesAsList(ctx context.Context, input *vpclattice.ListServicesInput) ([]*vpclattice.ServiceSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServicesAsList", ctx, input)
 	ret0, _ := ret[0].([]*vpclattice.ServiceSummary)
@@ -1907,13 +1907,13 @@ func (m *MockMercury) ListServicesAsList(ctx context.Context, input *vpclattice.
 }
 
 // ListServicesAsList indicates an expected call of ListServicesAsList.
-func (mr *MockMercuryMockRecorder) ListServicesAsList(ctx, input interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServicesAsList(ctx, input interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServicesAsList", reflect.TypeOf((*MockMercury)(nil).ListServicesAsList), ctx, input)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServicesAsList", reflect.TypeOf((*MockLattice)(nil).ListServicesAsList), ctx, input)
 }
 
 // ListServicesRequest mocks base method.
-func (m *MockMercury) ListServicesRequest(arg0 *vpclattice.ListServicesInput) (*request.Request, *vpclattice.ListServicesOutput) {
+func (m *MockLattice) ListServicesRequest(arg0 *vpclattice.ListServicesInput) (*request.Request, *vpclattice.ListServicesOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListServicesRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1922,13 +1922,13 @@ func (m *MockMercury) ListServicesRequest(arg0 *vpclattice.ListServicesInput) (*
 }
 
 // ListServicesRequest indicates an expected call of ListServicesRequest.
-func (mr *MockMercuryMockRecorder) ListServicesRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServicesRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServicesRequest", reflect.TypeOf((*MockMercury)(nil).ListServicesRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServicesRequest", reflect.TypeOf((*MockLattice)(nil).ListServicesRequest), arg0)
 }
 
 // ListServicesWithContext mocks base method.
-func (m *MockMercury) ListServicesWithContext(arg0 aws.Context, arg1 *vpclattice.ListServicesInput, arg2 ...request.Option) (*vpclattice.ListServicesOutput, error) {
+func (m *MockLattice) ListServicesWithContext(arg0 aws.Context, arg1 *vpclattice.ListServicesInput, arg2 ...request.Option) (*vpclattice.ListServicesOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1941,14 +1941,14 @@ func (m *MockMercury) ListServicesWithContext(arg0 aws.Context, arg1 *vpclattice
 }
 
 // ListServicesWithContext indicates an expected call of ListServicesWithContext.
-func (mr *MockMercuryMockRecorder) ListServicesWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListServicesWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServicesWithContext", reflect.TypeOf((*MockMercury)(nil).ListServicesWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServicesWithContext", reflect.TypeOf((*MockLattice)(nil).ListServicesWithContext), varargs...)
 }
 
 // ListTagsForResource mocks base method.
-func (m *MockMercury) ListTagsForResource(arg0 *vpclattice.ListTagsForResourceInput) (*vpclattice.ListTagsForResourceOutput, error) {
+func (m *MockLattice) ListTagsForResource(arg0 *vpclattice.ListTagsForResourceInput) (*vpclattice.ListTagsForResourceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTagsForResource", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListTagsForResourceOutput)
@@ -1957,13 +1957,13 @@ func (m *MockMercury) ListTagsForResource(arg0 *vpclattice.ListTagsForResourceIn
 }
 
 // ListTagsForResource indicates an expected call of ListTagsForResource.
-func (mr *MockMercuryMockRecorder) ListTagsForResource(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTagsForResource(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResource", reflect.TypeOf((*MockMercury)(nil).ListTagsForResource), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResource", reflect.TypeOf((*MockLattice)(nil).ListTagsForResource), arg0)
 }
 
 // ListTagsForResourceRequest mocks base method.
-func (m *MockMercury) ListTagsForResourceRequest(arg0 *vpclattice.ListTagsForResourceInput) (*request.Request, *vpclattice.ListTagsForResourceOutput) {
+func (m *MockLattice) ListTagsForResourceRequest(arg0 *vpclattice.ListTagsForResourceInput) (*request.Request, *vpclattice.ListTagsForResourceOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTagsForResourceRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -1972,13 +1972,13 @@ func (m *MockMercury) ListTagsForResourceRequest(arg0 *vpclattice.ListTagsForRes
 }
 
 // ListTagsForResourceRequest indicates an expected call of ListTagsForResourceRequest.
-func (mr *MockMercuryMockRecorder) ListTagsForResourceRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTagsForResourceRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResourceRequest", reflect.TypeOf((*MockMercury)(nil).ListTagsForResourceRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResourceRequest", reflect.TypeOf((*MockLattice)(nil).ListTagsForResourceRequest), arg0)
 }
 
 // ListTagsForResourceWithContext mocks base method.
-func (m *MockMercury) ListTagsForResourceWithContext(arg0 aws.Context, arg1 *vpclattice.ListTagsForResourceInput, arg2 ...request.Option) (*vpclattice.ListTagsForResourceOutput, error) {
+func (m *MockLattice) ListTagsForResourceWithContext(arg0 aws.Context, arg1 *vpclattice.ListTagsForResourceInput, arg2 ...request.Option) (*vpclattice.ListTagsForResourceOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -1991,14 +1991,14 @@ func (m *MockMercury) ListTagsForResourceWithContext(arg0 aws.Context, arg1 *vpc
 }
 
 // ListTagsForResourceWithContext indicates an expected call of ListTagsForResourceWithContext.
-func (mr *MockMercuryMockRecorder) ListTagsForResourceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTagsForResourceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResourceWithContext", reflect.TypeOf((*MockMercury)(nil).ListTagsForResourceWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResourceWithContext", reflect.TypeOf((*MockLattice)(nil).ListTagsForResourceWithContext), varargs...)
 }
 
 // ListTargetGroups mocks base method.
-func (m *MockMercury) ListTargetGroups(arg0 *vpclattice.ListTargetGroupsInput) (*vpclattice.ListTargetGroupsOutput, error) {
+func (m *MockLattice) ListTargetGroups(arg0 *vpclattice.ListTargetGroupsInput) (*vpclattice.ListTargetGroupsOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTargetGroups", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListTargetGroupsOutput)
@@ -2007,13 +2007,13 @@ func (m *MockMercury) ListTargetGroups(arg0 *vpclattice.ListTargetGroupsInput) (
 }
 
 // ListTargetGroups indicates an expected call of ListTargetGroups.
-func (mr *MockMercuryMockRecorder) ListTargetGroups(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTargetGroups(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroups", reflect.TypeOf((*MockMercury)(nil).ListTargetGroups), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroups", reflect.TypeOf((*MockLattice)(nil).ListTargetGroups), arg0)
 }
 
 // ListTargetGroupsAsList mocks base method.
-func (m *MockMercury) ListTargetGroupsAsList(ctx context.Context, input *vpclattice.ListTargetGroupsInput) ([]*vpclattice.TargetGroupSummary, error) {
+func (m *MockLattice) ListTargetGroupsAsList(ctx context.Context, input *vpclattice.ListTargetGroupsInput) ([]*vpclattice.TargetGroupSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTargetGroupsAsList", ctx, input)
 	ret0, _ := ret[0].([]*vpclattice.TargetGroupSummary)
@@ -2022,13 +2022,13 @@ func (m *MockMercury) ListTargetGroupsAsList(ctx context.Context, input *vpclatt
 }
 
 // ListTargetGroupsAsList indicates an expected call of ListTargetGroupsAsList.
-func (mr *MockMercuryMockRecorder) ListTargetGroupsAsList(ctx, input interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTargetGroupsAsList(ctx, input interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroupsAsList", reflect.TypeOf((*MockMercury)(nil).ListTargetGroupsAsList), ctx, input)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroupsAsList", reflect.TypeOf((*MockLattice)(nil).ListTargetGroupsAsList), ctx, input)
 }
 
 // ListTargetGroupsRequest mocks base method.
-func (m *MockMercury) ListTargetGroupsRequest(arg0 *vpclattice.ListTargetGroupsInput) (*request.Request, *vpclattice.ListTargetGroupsOutput) {
+func (m *MockLattice) ListTargetGroupsRequest(arg0 *vpclattice.ListTargetGroupsInput) (*request.Request, *vpclattice.ListTargetGroupsOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTargetGroupsRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2037,13 +2037,13 @@ func (m *MockMercury) ListTargetGroupsRequest(arg0 *vpclattice.ListTargetGroupsI
 }
 
 // ListTargetGroupsRequest indicates an expected call of ListTargetGroupsRequest.
-func (mr *MockMercuryMockRecorder) ListTargetGroupsRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTargetGroupsRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroupsRequest", reflect.TypeOf((*MockMercury)(nil).ListTargetGroupsRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroupsRequest", reflect.TypeOf((*MockLattice)(nil).ListTargetGroupsRequest), arg0)
 }
 
 // ListTargetGroupsWithContext mocks base method.
-func (m *MockMercury) ListTargetGroupsWithContext(arg0 aws.Context, arg1 *vpclattice.ListTargetGroupsInput, arg2 ...request.Option) (*vpclattice.ListTargetGroupsOutput, error) {
+func (m *MockLattice) ListTargetGroupsWithContext(arg0 aws.Context, arg1 *vpclattice.ListTargetGroupsInput, arg2 ...request.Option) (*vpclattice.ListTargetGroupsOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2056,14 +2056,14 @@ func (m *MockMercury) ListTargetGroupsWithContext(arg0 aws.Context, arg1 *vpclat
 }
 
 // ListTargetGroupsWithContext indicates an expected call of ListTargetGroupsWithContext.
-func (mr *MockMercuryMockRecorder) ListTargetGroupsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTargetGroupsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroupsWithContext", reflect.TypeOf((*MockMercury)(nil).ListTargetGroupsWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroupsWithContext", reflect.TypeOf((*MockLattice)(nil).ListTargetGroupsWithContext), varargs...)
 }
 
 // ListTargets mocks base method.
-func (m *MockMercury) ListTargets(arg0 *vpclattice.ListTargetsInput) (*vpclattice.ListTargetsOutput, error) {
+func (m *MockLattice) ListTargets(arg0 *vpclattice.ListTargetsInput) (*vpclattice.ListTargetsOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTargets", arg0)
 	ret0, _ := ret[0].(*vpclattice.ListTargetsOutput)
@@ -2072,13 +2072,13 @@ func (m *MockMercury) ListTargets(arg0 *vpclattice.ListTargetsInput) (*vpclattic
 }
 
 // ListTargets indicates an expected call of ListTargets.
-func (mr *MockMercuryMockRecorder) ListTargets(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTargets(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargets", reflect.TypeOf((*MockMercury)(nil).ListTargets), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargets", reflect.TypeOf((*MockLattice)(nil).ListTargets), arg0)
 }
 
 // ListTargetsAsList mocks base method.
-func (m *MockMercury) ListTargetsAsList(ctx context.Context, input *vpclattice.ListTargetsInput) ([]*vpclattice.TargetSummary, error) {
+func (m *MockLattice) ListTargetsAsList(ctx context.Context, input *vpclattice.ListTargetsInput) ([]*vpclattice.TargetSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTargetsAsList", ctx, input)
 	ret0, _ := ret[0].([]*vpclattice.TargetSummary)
@@ -2087,13 +2087,13 @@ func (m *MockMercury) ListTargetsAsList(ctx context.Context, input *vpclattice.L
 }
 
 // ListTargetsAsList indicates an expected call of ListTargetsAsList.
-func (mr *MockMercuryMockRecorder) ListTargetsAsList(ctx, input interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTargetsAsList(ctx, input interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetsAsList", reflect.TypeOf((*MockMercury)(nil).ListTargetsAsList), ctx, input)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetsAsList", reflect.TypeOf((*MockLattice)(nil).ListTargetsAsList), ctx, input)
 }
 
 // ListTargetsRequest mocks base method.
-func (m *MockMercury) ListTargetsRequest(arg0 *vpclattice.ListTargetsInput) (*request.Request, *vpclattice.ListTargetsOutput) {
+func (m *MockLattice) ListTargetsRequest(arg0 *vpclattice.ListTargetsInput) (*request.Request, *vpclattice.ListTargetsOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListTargetsRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2102,13 +2102,13 @@ func (m *MockMercury) ListTargetsRequest(arg0 *vpclattice.ListTargetsInput) (*re
 }
 
 // ListTargetsRequest indicates an expected call of ListTargetsRequest.
-func (mr *MockMercuryMockRecorder) ListTargetsRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTargetsRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetsRequest", reflect.TypeOf((*MockMercury)(nil).ListTargetsRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetsRequest", reflect.TypeOf((*MockLattice)(nil).ListTargetsRequest), arg0)
 }
 
 // ListTargetsWithContext mocks base method.
-func (m *MockMercury) ListTargetsWithContext(arg0 aws.Context, arg1 *vpclattice.ListTargetsInput, arg2 ...request.Option) (*vpclattice.ListTargetsOutput, error) {
+func (m *MockLattice) ListTargetsWithContext(arg0 aws.Context, arg1 *vpclattice.ListTargetsInput, arg2 ...request.Option) (*vpclattice.ListTargetsOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2121,14 +2121,14 @@ func (m *MockMercury) ListTargetsWithContext(arg0 aws.Context, arg1 *vpclattice.
 }
 
 // ListTargetsWithContext indicates an expected call of ListTargetsWithContext.
-func (mr *MockMercuryMockRecorder) ListTargetsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) ListTargetsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetsWithContext", reflect.TypeOf((*MockMercury)(nil).ListTargetsWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetsWithContext", reflect.TypeOf((*MockLattice)(nil).ListTargetsWithContext), varargs...)
 }
 
 // PutAuthPolicy mocks base method.
-func (m *MockMercury) PutAuthPolicy(arg0 *vpclattice.PutAuthPolicyInput) (*vpclattice.PutAuthPolicyOutput, error) {
+func (m *MockLattice) PutAuthPolicy(arg0 *vpclattice.PutAuthPolicyInput) (*vpclattice.PutAuthPolicyOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PutAuthPolicy", arg0)
 	ret0, _ := ret[0].(*vpclattice.PutAuthPolicyOutput)
@@ -2137,13 +2137,13 @@ func (m *MockMercury) PutAuthPolicy(arg0 *vpclattice.PutAuthPolicyInput) (*vpcla
 }
 
 // PutAuthPolicy indicates an expected call of PutAuthPolicy.
-func (mr *MockMercuryMockRecorder) PutAuthPolicy(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) PutAuthPolicy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutAuthPolicy", reflect.TypeOf((*MockMercury)(nil).PutAuthPolicy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutAuthPolicy", reflect.TypeOf((*MockLattice)(nil).PutAuthPolicy), arg0)
 }
 
 // PutAuthPolicyRequest mocks base method.
-func (m *MockMercury) PutAuthPolicyRequest(arg0 *vpclattice.PutAuthPolicyInput) (*request.Request, *vpclattice.PutAuthPolicyOutput) {
+func (m *MockLattice) PutAuthPolicyRequest(arg0 *vpclattice.PutAuthPolicyInput) (*request.Request, *vpclattice.PutAuthPolicyOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PutAuthPolicyRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2152,13 +2152,13 @@ func (m *MockMercury) PutAuthPolicyRequest(arg0 *vpclattice.PutAuthPolicyInput) 
 }
 
 // PutAuthPolicyRequest indicates an expected call of PutAuthPolicyRequest.
-func (mr *MockMercuryMockRecorder) PutAuthPolicyRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) PutAuthPolicyRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutAuthPolicyRequest", reflect.TypeOf((*MockMercury)(nil).PutAuthPolicyRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutAuthPolicyRequest", reflect.TypeOf((*MockLattice)(nil).PutAuthPolicyRequest), arg0)
 }
 
 // PutAuthPolicyWithContext mocks base method.
-func (m *MockMercury) PutAuthPolicyWithContext(arg0 aws.Context, arg1 *vpclattice.PutAuthPolicyInput, arg2 ...request.Option) (*vpclattice.PutAuthPolicyOutput, error) {
+func (m *MockLattice) PutAuthPolicyWithContext(arg0 aws.Context, arg1 *vpclattice.PutAuthPolicyInput, arg2 ...request.Option) (*vpclattice.PutAuthPolicyOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2171,14 +2171,14 @@ func (m *MockMercury) PutAuthPolicyWithContext(arg0 aws.Context, arg1 *vpclattic
 }
 
 // PutAuthPolicyWithContext indicates an expected call of PutAuthPolicyWithContext.
-func (mr *MockMercuryMockRecorder) PutAuthPolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) PutAuthPolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutAuthPolicyWithContext", reflect.TypeOf((*MockMercury)(nil).PutAuthPolicyWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutAuthPolicyWithContext", reflect.TypeOf((*MockLattice)(nil).PutAuthPolicyWithContext), varargs...)
 }
 
 // PutResourcePolicy mocks base method.
-func (m *MockMercury) PutResourcePolicy(arg0 *vpclattice.PutResourcePolicyInput) (*vpclattice.PutResourcePolicyOutput, error) {
+func (m *MockLattice) PutResourcePolicy(arg0 *vpclattice.PutResourcePolicyInput) (*vpclattice.PutResourcePolicyOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PutResourcePolicy", arg0)
 	ret0, _ := ret[0].(*vpclattice.PutResourcePolicyOutput)
@@ -2187,13 +2187,13 @@ func (m *MockMercury) PutResourcePolicy(arg0 *vpclattice.PutResourcePolicyInput)
 }
 
 // PutResourcePolicy indicates an expected call of PutResourcePolicy.
-func (mr *MockMercuryMockRecorder) PutResourcePolicy(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) PutResourcePolicy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutResourcePolicy", reflect.TypeOf((*MockMercury)(nil).PutResourcePolicy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutResourcePolicy", reflect.TypeOf((*MockLattice)(nil).PutResourcePolicy), arg0)
 }
 
 // PutResourcePolicyRequest mocks base method.
-func (m *MockMercury) PutResourcePolicyRequest(arg0 *vpclattice.PutResourcePolicyInput) (*request.Request, *vpclattice.PutResourcePolicyOutput) {
+func (m *MockLattice) PutResourcePolicyRequest(arg0 *vpclattice.PutResourcePolicyInput) (*request.Request, *vpclattice.PutResourcePolicyOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PutResourcePolicyRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2202,13 +2202,13 @@ func (m *MockMercury) PutResourcePolicyRequest(arg0 *vpclattice.PutResourcePolic
 }
 
 // PutResourcePolicyRequest indicates an expected call of PutResourcePolicyRequest.
-func (mr *MockMercuryMockRecorder) PutResourcePolicyRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) PutResourcePolicyRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutResourcePolicyRequest", reflect.TypeOf((*MockMercury)(nil).PutResourcePolicyRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutResourcePolicyRequest", reflect.TypeOf((*MockLattice)(nil).PutResourcePolicyRequest), arg0)
 }
 
 // PutResourcePolicyWithContext mocks base method.
-func (m *MockMercury) PutResourcePolicyWithContext(arg0 aws.Context, arg1 *vpclattice.PutResourcePolicyInput, arg2 ...request.Option) (*vpclattice.PutResourcePolicyOutput, error) {
+func (m *MockLattice) PutResourcePolicyWithContext(arg0 aws.Context, arg1 *vpclattice.PutResourcePolicyInput, arg2 ...request.Option) (*vpclattice.PutResourcePolicyOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2221,14 +2221,14 @@ func (m *MockMercury) PutResourcePolicyWithContext(arg0 aws.Context, arg1 *vpcla
 }
 
 // PutResourcePolicyWithContext indicates an expected call of PutResourcePolicyWithContext.
-func (mr *MockMercuryMockRecorder) PutResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) PutResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutResourcePolicyWithContext", reflect.TypeOf((*MockMercury)(nil).PutResourcePolicyWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutResourcePolicyWithContext", reflect.TypeOf((*MockLattice)(nil).PutResourcePolicyWithContext), varargs...)
 }
 
 // RegisterTargets mocks base method.
-func (m *MockMercury) RegisterTargets(arg0 *vpclattice.RegisterTargetsInput) (*vpclattice.RegisterTargetsOutput, error) {
+func (m *MockLattice) RegisterTargets(arg0 *vpclattice.RegisterTargetsInput) (*vpclattice.RegisterTargetsOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterTargets", arg0)
 	ret0, _ := ret[0].(*vpclattice.RegisterTargetsOutput)
@@ -2237,13 +2237,13 @@ func (m *MockMercury) RegisterTargets(arg0 *vpclattice.RegisterTargetsInput) (*v
 }
 
 // RegisterTargets indicates an expected call of RegisterTargets.
-func (mr *MockMercuryMockRecorder) RegisterTargets(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) RegisterTargets(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTargets", reflect.TypeOf((*MockMercury)(nil).RegisterTargets), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTargets", reflect.TypeOf((*MockLattice)(nil).RegisterTargets), arg0)
 }
 
 // RegisterTargetsRequest mocks base method.
-func (m *MockMercury) RegisterTargetsRequest(arg0 *vpclattice.RegisterTargetsInput) (*request.Request, *vpclattice.RegisterTargetsOutput) {
+func (m *MockLattice) RegisterTargetsRequest(arg0 *vpclattice.RegisterTargetsInput) (*request.Request, *vpclattice.RegisterTargetsOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterTargetsRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2252,13 +2252,13 @@ func (m *MockMercury) RegisterTargetsRequest(arg0 *vpclattice.RegisterTargetsInp
 }
 
 // RegisterTargetsRequest indicates an expected call of RegisterTargetsRequest.
-func (mr *MockMercuryMockRecorder) RegisterTargetsRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) RegisterTargetsRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTargetsRequest", reflect.TypeOf((*MockMercury)(nil).RegisterTargetsRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTargetsRequest", reflect.TypeOf((*MockLattice)(nil).RegisterTargetsRequest), arg0)
 }
 
 // RegisterTargetsWithContext mocks base method.
-func (m *MockMercury) RegisterTargetsWithContext(arg0 aws.Context, arg1 *vpclattice.RegisterTargetsInput, arg2 ...request.Option) (*vpclattice.RegisterTargetsOutput, error) {
+func (m *MockLattice) RegisterTargetsWithContext(arg0 aws.Context, arg1 *vpclattice.RegisterTargetsInput, arg2 ...request.Option) (*vpclattice.RegisterTargetsOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2271,14 +2271,14 @@ func (m *MockMercury) RegisterTargetsWithContext(arg0 aws.Context, arg1 *vpclatt
 }
 
 // RegisterTargetsWithContext indicates an expected call of RegisterTargetsWithContext.
-func (mr *MockMercuryMockRecorder) RegisterTargetsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) RegisterTargetsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTargetsWithContext", reflect.TypeOf((*MockMercury)(nil).RegisterTargetsWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTargetsWithContext", reflect.TypeOf((*MockLattice)(nil).RegisterTargetsWithContext), varargs...)
 }
 
 // TagResource mocks base method.
-func (m *MockMercury) TagResource(arg0 *vpclattice.TagResourceInput) (*vpclattice.TagResourceOutput, error) {
+func (m *MockLattice) TagResource(arg0 *vpclattice.TagResourceInput) (*vpclattice.TagResourceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TagResource", arg0)
 	ret0, _ := ret[0].(*vpclattice.TagResourceOutput)
@@ -2287,13 +2287,13 @@ func (m *MockMercury) TagResource(arg0 *vpclattice.TagResourceInput) (*vpclattic
 }
 
 // TagResource indicates an expected call of TagResource.
-func (mr *MockMercuryMockRecorder) TagResource(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) TagResource(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagResource", reflect.TypeOf((*MockMercury)(nil).TagResource), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagResource", reflect.TypeOf((*MockLattice)(nil).TagResource), arg0)
 }
 
 // TagResourceRequest mocks base method.
-func (m *MockMercury) TagResourceRequest(arg0 *vpclattice.TagResourceInput) (*request.Request, *vpclattice.TagResourceOutput) {
+func (m *MockLattice) TagResourceRequest(arg0 *vpclattice.TagResourceInput) (*request.Request, *vpclattice.TagResourceOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TagResourceRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2302,13 +2302,13 @@ func (m *MockMercury) TagResourceRequest(arg0 *vpclattice.TagResourceInput) (*re
 }
 
 // TagResourceRequest indicates an expected call of TagResourceRequest.
-func (mr *MockMercuryMockRecorder) TagResourceRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) TagResourceRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagResourceRequest", reflect.TypeOf((*MockMercury)(nil).TagResourceRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagResourceRequest", reflect.TypeOf((*MockLattice)(nil).TagResourceRequest), arg0)
 }
 
 // TagResourceWithContext mocks base method.
-func (m *MockMercury) TagResourceWithContext(arg0 aws.Context, arg1 *vpclattice.TagResourceInput, arg2 ...request.Option) (*vpclattice.TagResourceOutput, error) {
+func (m *MockLattice) TagResourceWithContext(arg0 aws.Context, arg1 *vpclattice.TagResourceInput, arg2 ...request.Option) (*vpclattice.TagResourceOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2321,14 +2321,14 @@ func (m *MockMercury) TagResourceWithContext(arg0 aws.Context, arg1 *vpclattice.
 }
 
 // TagResourceWithContext indicates an expected call of TagResourceWithContext.
-func (mr *MockMercuryMockRecorder) TagResourceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) TagResourceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagResourceWithContext", reflect.TypeOf((*MockMercury)(nil).TagResourceWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TagResourceWithContext", reflect.TypeOf((*MockLattice)(nil).TagResourceWithContext), varargs...)
 }
 
 // UntagResource mocks base method.
-func (m *MockMercury) UntagResource(arg0 *vpclattice.UntagResourceInput) (*vpclattice.UntagResourceOutput, error) {
+func (m *MockLattice) UntagResource(arg0 *vpclattice.UntagResourceInput) (*vpclattice.UntagResourceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UntagResource", arg0)
 	ret0, _ := ret[0].(*vpclattice.UntagResourceOutput)
@@ -2337,13 +2337,13 @@ func (m *MockMercury) UntagResource(arg0 *vpclattice.UntagResourceInput) (*vpcla
 }
 
 // UntagResource indicates an expected call of UntagResource.
-func (mr *MockMercuryMockRecorder) UntagResource(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UntagResource(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UntagResource", reflect.TypeOf((*MockMercury)(nil).UntagResource), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UntagResource", reflect.TypeOf((*MockLattice)(nil).UntagResource), arg0)
 }
 
 // UntagResourceRequest mocks base method.
-func (m *MockMercury) UntagResourceRequest(arg0 *vpclattice.UntagResourceInput) (*request.Request, *vpclattice.UntagResourceOutput) {
+func (m *MockLattice) UntagResourceRequest(arg0 *vpclattice.UntagResourceInput) (*request.Request, *vpclattice.UntagResourceOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UntagResourceRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2352,13 +2352,13 @@ func (m *MockMercury) UntagResourceRequest(arg0 *vpclattice.UntagResourceInput) 
 }
 
 // UntagResourceRequest indicates an expected call of UntagResourceRequest.
-func (mr *MockMercuryMockRecorder) UntagResourceRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UntagResourceRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UntagResourceRequest", reflect.TypeOf((*MockMercury)(nil).UntagResourceRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UntagResourceRequest", reflect.TypeOf((*MockLattice)(nil).UntagResourceRequest), arg0)
 }
 
 // UntagResourceWithContext mocks base method.
-func (m *MockMercury) UntagResourceWithContext(arg0 aws.Context, arg1 *vpclattice.UntagResourceInput, arg2 ...request.Option) (*vpclattice.UntagResourceOutput, error) {
+func (m *MockLattice) UntagResourceWithContext(arg0 aws.Context, arg1 *vpclattice.UntagResourceInput, arg2 ...request.Option) (*vpclattice.UntagResourceOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2371,14 +2371,14 @@ func (m *MockMercury) UntagResourceWithContext(arg0 aws.Context, arg1 *vpclattic
 }
 
 // UntagResourceWithContext indicates an expected call of UntagResourceWithContext.
-func (mr *MockMercuryMockRecorder) UntagResourceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UntagResourceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UntagResourceWithContext", reflect.TypeOf((*MockMercury)(nil).UntagResourceWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UntagResourceWithContext", reflect.TypeOf((*MockLattice)(nil).UntagResourceWithContext), varargs...)
 }
 
 // UpdateAccessLogSubscription mocks base method.
-func (m *MockMercury) UpdateAccessLogSubscription(arg0 *vpclattice.UpdateAccessLogSubscriptionInput) (*vpclattice.UpdateAccessLogSubscriptionOutput, error) {
+func (m *MockLattice) UpdateAccessLogSubscription(arg0 *vpclattice.UpdateAccessLogSubscriptionInput) (*vpclattice.UpdateAccessLogSubscriptionOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateAccessLogSubscription", arg0)
 	ret0, _ := ret[0].(*vpclattice.UpdateAccessLogSubscriptionOutput)
@@ -2387,13 +2387,13 @@ func (m *MockMercury) UpdateAccessLogSubscription(arg0 *vpclattice.UpdateAccessL
 }
 
 // UpdateAccessLogSubscription indicates an expected call of UpdateAccessLogSubscription.
-func (mr *MockMercuryMockRecorder) UpdateAccessLogSubscription(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateAccessLogSubscription(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAccessLogSubscription", reflect.TypeOf((*MockMercury)(nil).UpdateAccessLogSubscription), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAccessLogSubscription", reflect.TypeOf((*MockLattice)(nil).UpdateAccessLogSubscription), arg0)
 }
 
 // UpdateAccessLogSubscriptionRequest mocks base method.
-func (m *MockMercury) UpdateAccessLogSubscriptionRequest(arg0 *vpclattice.UpdateAccessLogSubscriptionInput) (*request.Request, *vpclattice.UpdateAccessLogSubscriptionOutput) {
+func (m *MockLattice) UpdateAccessLogSubscriptionRequest(arg0 *vpclattice.UpdateAccessLogSubscriptionInput) (*request.Request, *vpclattice.UpdateAccessLogSubscriptionOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateAccessLogSubscriptionRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2402,13 +2402,13 @@ func (m *MockMercury) UpdateAccessLogSubscriptionRequest(arg0 *vpclattice.Update
 }
 
 // UpdateAccessLogSubscriptionRequest indicates an expected call of UpdateAccessLogSubscriptionRequest.
-func (mr *MockMercuryMockRecorder) UpdateAccessLogSubscriptionRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateAccessLogSubscriptionRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAccessLogSubscriptionRequest", reflect.TypeOf((*MockMercury)(nil).UpdateAccessLogSubscriptionRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAccessLogSubscriptionRequest", reflect.TypeOf((*MockLattice)(nil).UpdateAccessLogSubscriptionRequest), arg0)
 }
 
 // UpdateAccessLogSubscriptionWithContext mocks base method.
-func (m *MockMercury) UpdateAccessLogSubscriptionWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateAccessLogSubscriptionInput, arg2 ...request.Option) (*vpclattice.UpdateAccessLogSubscriptionOutput, error) {
+func (m *MockLattice) UpdateAccessLogSubscriptionWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateAccessLogSubscriptionInput, arg2 ...request.Option) (*vpclattice.UpdateAccessLogSubscriptionOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2421,14 +2421,14 @@ func (m *MockMercury) UpdateAccessLogSubscriptionWithContext(arg0 aws.Context, a
 }
 
 // UpdateAccessLogSubscriptionWithContext indicates an expected call of UpdateAccessLogSubscriptionWithContext.
-func (mr *MockMercuryMockRecorder) UpdateAccessLogSubscriptionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateAccessLogSubscriptionWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAccessLogSubscriptionWithContext", reflect.TypeOf((*MockMercury)(nil).UpdateAccessLogSubscriptionWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAccessLogSubscriptionWithContext", reflect.TypeOf((*MockLattice)(nil).UpdateAccessLogSubscriptionWithContext), varargs...)
 }
 
 // UpdateListener mocks base method.
-func (m *MockMercury) UpdateListener(arg0 *vpclattice.UpdateListenerInput) (*vpclattice.UpdateListenerOutput, error) {
+func (m *MockLattice) UpdateListener(arg0 *vpclattice.UpdateListenerInput) (*vpclattice.UpdateListenerOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateListener", arg0)
 	ret0, _ := ret[0].(*vpclattice.UpdateListenerOutput)
@@ -2437,13 +2437,13 @@ func (m *MockMercury) UpdateListener(arg0 *vpclattice.UpdateListenerInput) (*vpc
 }
 
 // UpdateListener indicates an expected call of UpdateListener.
-func (mr *MockMercuryMockRecorder) UpdateListener(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateListener(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateListener", reflect.TypeOf((*MockMercury)(nil).UpdateListener), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateListener", reflect.TypeOf((*MockLattice)(nil).UpdateListener), arg0)
 }
 
 // UpdateListenerRequest mocks base method.
-func (m *MockMercury) UpdateListenerRequest(arg0 *vpclattice.UpdateListenerInput) (*request.Request, *vpclattice.UpdateListenerOutput) {
+func (m *MockLattice) UpdateListenerRequest(arg0 *vpclattice.UpdateListenerInput) (*request.Request, *vpclattice.UpdateListenerOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateListenerRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2452,13 +2452,13 @@ func (m *MockMercury) UpdateListenerRequest(arg0 *vpclattice.UpdateListenerInput
 }
 
 // UpdateListenerRequest indicates an expected call of UpdateListenerRequest.
-func (mr *MockMercuryMockRecorder) UpdateListenerRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateListenerRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateListenerRequest", reflect.TypeOf((*MockMercury)(nil).UpdateListenerRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateListenerRequest", reflect.TypeOf((*MockLattice)(nil).UpdateListenerRequest), arg0)
 }
 
 // UpdateListenerWithContext mocks base method.
-func (m *MockMercury) UpdateListenerWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateListenerInput, arg2 ...request.Option) (*vpclattice.UpdateListenerOutput, error) {
+func (m *MockLattice) UpdateListenerWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateListenerInput, arg2 ...request.Option) (*vpclattice.UpdateListenerOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2471,14 +2471,14 @@ func (m *MockMercury) UpdateListenerWithContext(arg0 aws.Context, arg1 *vpclatti
 }
 
 // UpdateListenerWithContext indicates an expected call of UpdateListenerWithContext.
-func (mr *MockMercuryMockRecorder) UpdateListenerWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateListenerWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateListenerWithContext", reflect.TypeOf((*MockMercury)(nil).UpdateListenerWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateListenerWithContext", reflect.TypeOf((*MockLattice)(nil).UpdateListenerWithContext), varargs...)
 }
 
 // UpdateRule mocks base method.
-func (m *MockMercury) UpdateRule(arg0 *vpclattice.UpdateRuleInput) (*vpclattice.UpdateRuleOutput, error) {
+func (m *MockLattice) UpdateRule(arg0 *vpclattice.UpdateRuleInput) (*vpclattice.UpdateRuleOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateRule", arg0)
 	ret0, _ := ret[0].(*vpclattice.UpdateRuleOutput)
@@ -2487,13 +2487,13 @@ func (m *MockMercury) UpdateRule(arg0 *vpclattice.UpdateRuleInput) (*vpclattice.
 }
 
 // UpdateRule indicates an expected call of UpdateRule.
-func (mr *MockMercuryMockRecorder) UpdateRule(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateRule(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRule", reflect.TypeOf((*MockMercury)(nil).UpdateRule), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRule", reflect.TypeOf((*MockLattice)(nil).UpdateRule), arg0)
 }
 
 // UpdateRuleRequest mocks base method.
-func (m *MockMercury) UpdateRuleRequest(arg0 *vpclattice.UpdateRuleInput) (*request.Request, *vpclattice.UpdateRuleOutput) {
+func (m *MockLattice) UpdateRuleRequest(arg0 *vpclattice.UpdateRuleInput) (*request.Request, *vpclattice.UpdateRuleOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateRuleRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2502,13 +2502,13 @@ func (m *MockMercury) UpdateRuleRequest(arg0 *vpclattice.UpdateRuleInput) (*requ
 }
 
 // UpdateRuleRequest indicates an expected call of UpdateRuleRequest.
-func (mr *MockMercuryMockRecorder) UpdateRuleRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateRuleRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRuleRequest", reflect.TypeOf((*MockMercury)(nil).UpdateRuleRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRuleRequest", reflect.TypeOf((*MockLattice)(nil).UpdateRuleRequest), arg0)
 }
 
 // UpdateRuleWithContext mocks base method.
-func (m *MockMercury) UpdateRuleWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateRuleInput, arg2 ...request.Option) (*vpclattice.UpdateRuleOutput, error) {
+func (m *MockLattice) UpdateRuleWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateRuleInput, arg2 ...request.Option) (*vpclattice.UpdateRuleOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2521,14 +2521,14 @@ func (m *MockMercury) UpdateRuleWithContext(arg0 aws.Context, arg1 *vpclattice.U
 }
 
 // UpdateRuleWithContext indicates an expected call of UpdateRuleWithContext.
-func (mr *MockMercuryMockRecorder) UpdateRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateRuleWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRuleWithContext", reflect.TypeOf((*MockMercury)(nil).UpdateRuleWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRuleWithContext", reflect.TypeOf((*MockLattice)(nil).UpdateRuleWithContext), varargs...)
 }
 
 // UpdateService mocks base method.
-func (m *MockMercury) UpdateService(arg0 *vpclattice.UpdateServiceInput) (*vpclattice.UpdateServiceOutput, error) {
+func (m *MockLattice) UpdateService(arg0 *vpclattice.UpdateServiceInput) (*vpclattice.UpdateServiceOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateService", arg0)
 	ret0, _ := ret[0].(*vpclattice.UpdateServiceOutput)
@@ -2537,13 +2537,13 @@ func (m *MockMercury) UpdateService(arg0 *vpclattice.UpdateServiceInput) (*vpcla
 }
 
 // UpdateService indicates an expected call of UpdateService.
-func (mr *MockMercuryMockRecorder) UpdateService(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateService(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateService", reflect.TypeOf((*MockMercury)(nil).UpdateService), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateService", reflect.TypeOf((*MockLattice)(nil).UpdateService), arg0)
 }
 
 // UpdateServiceNetwork mocks base method.
-func (m *MockMercury) UpdateServiceNetwork(arg0 *vpclattice.UpdateServiceNetworkInput) (*vpclattice.UpdateServiceNetworkOutput, error) {
+func (m *MockLattice) UpdateServiceNetwork(arg0 *vpclattice.UpdateServiceNetworkInput) (*vpclattice.UpdateServiceNetworkOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateServiceNetwork", arg0)
 	ret0, _ := ret[0].(*vpclattice.UpdateServiceNetworkOutput)
@@ -2552,13 +2552,13 @@ func (m *MockMercury) UpdateServiceNetwork(arg0 *vpclattice.UpdateServiceNetwork
 }
 
 // UpdateServiceNetwork indicates an expected call of UpdateServiceNetwork.
-func (mr *MockMercuryMockRecorder) UpdateServiceNetwork(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateServiceNetwork(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetwork", reflect.TypeOf((*MockMercury)(nil).UpdateServiceNetwork), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetwork", reflect.TypeOf((*MockLattice)(nil).UpdateServiceNetwork), arg0)
 }
 
 // UpdateServiceNetworkRequest mocks base method.
-func (m *MockMercury) UpdateServiceNetworkRequest(arg0 *vpclattice.UpdateServiceNetworkInput) (*request.Request, *vpclattice.UpdateServiceNetworkOutput) {
+func (m *MockLattice) UpdateServiceNetworkRequest(arg0 *vpclattice.UpdateServiceNetworkInput) (*request.Request, *vpclattice.UpdateServiceNetworkOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateServiceNetworkRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2567,13 +2567,13 @@ func (m *MockMercury) UpdateServiceNetworkRequest(arg0 *vpclattice.UpdateService
 }
 
 // UpdateServiceNetworkRequest indicates an expected call of UpdateServiceNetworkRequest.
-func (mr *MockMercuryMockRecorder) UpdateServiceNetworkRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateServiceNetworkRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkRequest", reflect.TypeOf((*MockMercury)(nil).UpdateServiceNetworkRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkRequest", reflect.TypeOf((*MockLattice)(nil).UpdateServiceNetworkRequest), arg0)
 }
 
 // UpdateServiceNetworkVpcAssociation mocks base method.
-func (m *MockMercury) UpdateServiceNetworkVpcAssociation(arg0 *vpclattice.UpdateServiceNetworkVpcAssociationInput) (*vpclattice.UpdateServiceNetworkVpcAssociationOutput, error) {
+func (m *MockLattice) UpdateServiceNetworkVpcAssociation(arg0 *vpclattice.UpdateServiceNetworkVpcAssociationInput) (*vpclattice.UpdateServiceNetworkVpcAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateServiceNetworkVpcAssociation", arg0)
 	ret0, _ := ret[0].(*vpclattice.UpdateServiceNetworkVpcAssociationOutput)
@@ -2582,13 +2582,13 @@ func (m *MockMercury) UpdateServiceNetworkVpcAssociation(arg0 *vpclattice.Update
 }
 
 // UpdateServiceNetworkVpcAssociation indicates an expected call of UpdateServiceNetworkVpcAssociation.
-func (mr *MockMercuryMockRecorder) UpdateServiceNetworkVpcAssociation(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateServiceNetworkVpcAssociation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkVpcAssociation", reflect.TypeOf((*MockMercury)(nil).UpdateServiceNetworkVpcAssociation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkVpcAssociation", reflect.TypeOf((*MockLattice)(nil).UpdateServiceNetworkVpcAssociation), arg0)
 }
 
 // UpdateServiceNetworkVpcAssociationRequest mocks base method.
-func (m *MockMercury) UpdateServiceNetworkVpcAssociationRequest(arg0 *vpclattice.UpdateServiceNetworkVpcAssociationInput) (*request.Request, *vpclattice.UpdateServiceNetworkVpcAssociationOutput) {
+func (m *MockLattice) UpdateServiceNetworkVpcAssociationRequest(arg0 *vpclattice.UpdateServiceNetworkVpcAssociationInput) (*request.Request, *vpclattice.UpdateServiceNetworkVpcAssociationOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateServiceNetworkVpcAssociationRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2597,13 +2597,13 @@ func (m *MockMercury) UpdateServiceNetworkVpcAssociationRequest(arg0 *vpclattice
 }
 
 // UpdateServiceNetworkVpcAssociationRequest indicates an expected call of UpdateServiceNetworkVpcAssociationRequest.
-func (mr *MockMercuryMockRecorder) UpdateServiceNetworkVpcAssociationRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateServiceNetworkVpcAssociationRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkVpcAssociationRequest", reflect.TypeOf((*MockMercury)(nil).UpdateServiceNetworkVpcAssociationRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkVpcAssociationRequest", reflect.TypeOf((*MockLattice)(nil).UpdateServiceNetworkVpcAssociationRequest), arg0)
 }
 
 // UpdateServiceNetworkVpcAssociationWithContext mocks base method.
-func (m *MockMercury) UpdateServiceNetworkVpcAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateServiceNetworkVpcAssociationInput, arg2 ...request.Option) (*vpclattice.UpdateServiceNetworkVpcAssociationOutput, error) {
+func (m *MockLattice) UpdateServiceNetworkVpcAssociationWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateServiceNetworkVpcAssociationInput, arg2 ...request.Option) (*vpclattice.UpdateServiceNetworkVpcAssociationOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2616,14 +2616,14 @@ func (m *MockMercury) UpdateServiceNetworkVpcAssociationWithContext(arg0 aws.Con
 }
 
 // UpdateServiceNetworkVpcAssociationWithContext indicates an expected call of UpdateServiceNetworkVpcAssociationWithContext.
-func (mr *MockMercuryMockRecorder) UpdateServiceNetworkVpcAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateServiceNetworkVpcAssociationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkVpcAssociationWithContext", reflect.TypeOf((*MockMercury)(nil).UpdateServiceNetworkVpcAssociationWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkVpcAssociationWithContext", reflect.TypeOf((*MockLattice)(nil).UpdateServiceNetworkVpcAssociationWithContext), varargs...)
 }
 
 // UpdateServiceNetworkWithContext mocks base method.
-func (m *MockMercury) UpdateServiceNetworkWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateServiceNetworkInput, arg2 ...request.Option) (*vpclattice.UpdateServiceNetworkOutput, error) {
+func (m *MockLattice) UpdateServiceNetworkWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateServiceNetworkInput, arg2 ...request.Option) (*vpclattice.UpdateServiceNetworkOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2636,14 +2636,14 @@ func (m *MockMercury) UpdateServiceNetworkWithContext(arg0 aws.Context, arg1 *vp
 }
 
 // UpdateServiceNetworkWithContext indicates an expected call of UpdateServiceNetworkWithContext.
-func (mr *MockMercuryMockRecorder) UpdateServiceNetworkWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateServiceNetworkWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkWithContext", reflect.TypeOf((*MockMercury)(nil).UpdateServiceNetworkWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceNetworkWithContext", reflect.TypeOf((*MockLattice)(nil).UpdateServiceNetworkWithContext), varargs...)
 }
 
 // UpdateServiceRequest mocks base method.
-func (m *MockMercury) UpdateServiceRequest(arg0 *vpclattice.UpdateServiceInput) (*request.Request, *vpclattice.UpdateServiceOutput) {
+func (m *MockLattice) UpdateServiceRequest(arg0 *vpclattice.UpdateServiceInput) (*request.Request, *vpclattice.UpdateServiceOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateServiceRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2652,13 +2652,13 @@ func (m *MockMercury) UpdateServiceRequest(arg0 *vpclattice.UpdateServiceInput) 
 }
 
 // UpdateServiceRequest indicates an expected call of UpdateServiceRequest.
-func (mr *MockMercuryMockRecorder) UpdateServiceRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateServiceRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceRequest", reflect.TypeOf((*MockMercury)(nil).UpdateServiceRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceRequest", reflect.TypeOf((*MockLattice)(nil).UpdateServiceRequest), arg0)
 }
 
 // UpdateServiceWithContext mocks base method.
-func (m *MockMercury) UpdateServiceWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateServiceInput, arg2 ...request.Option) (*vpclattice.UpdateServiceOutput, error) {
+func (m *MockLattice) UpdateServiceWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateServiceInput, arg2 ...request.Option) (*vpclattice.UpdateServiceOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2671,14 +2671,14 @@ func (m *MockMercury) UpdateServiceWithContext(arg0 aws.Context, arg1 *vpclattic
 }
 
 // UpdateServiceWithContext indicates an expected call of UpdateServiceWithContext.
-func (mr *MockMercuryMockRecorder) UpdateServiceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateServiceWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceWithContext", reflect.TypeOf((*MockMercury)(nil).UpdateServiceWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateServiceWithContext", reflect.TypeOf((*MockLattice)(nil).UpdateServiceWithContext), varargs...)
 }
 
 // UpdateTargetGroup mocks base method.
-func (m *MockMercury) UpdateTargetGroup(arg0 *vpclattice.UpdateTargetGroupInput) (*vpclattice.UpdateTargetGroupOutput, error) {
+func (m *MockLattice) UpdateTargetGroup(arg0 *vpclattice.UpdateTargetGroupInput) (*vpclattice.UpdateTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateTargetGroup", arg0)
 	ret0, _ := ret[0].(*vpclattice.UpdateTargetGroupOutput)
@@ -2687,13 +2687,13 @@ func (m *MockMercury) UpdateTargetGroup(arg0 *vpclattice.UpdateTargetGroupInput)
 }
 
 // UpdateTargetGroup indicates an expected call of UpdateTargetGroup.
-func (mr *MockMercuryMockRecorder) UpdateTargetGroup(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateTargetGroup(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTargetGroup", reflect.TypeOf((*MockMercury)(nil).UpdateTargetGroup), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTargetGroup", reflect.TypeOf((*MockLattice)(nil).UpdateTargetGroup), arg0)
 }
 
 // UpdateTargetGroupRequest mocks base method.
-func (m *MockMercury) UpdateTargetGroupRequest(arg0 *vpclattice.UpdateTargetGroupInput) (*request.Request, *vpclattice.UpdateTargetGroupOutput) {
+func (m *MockLattice) UpdateTargetGroupRequest(arg0 *vpclattice.UpdateTargetGroupInput) (*request.Request, *vpclattice.UpdateTargetGroupOutput) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateTargetGroupRequest", arg0)
 	ret0, _ := ret[0].(*request.Request)
@@ -2702,13 +2702,13 @@ func (m *MockMercury) UpdateTargetGroupRequest(arg0 *vpclattice.UpdateTargetGrou
 }
 
 // UpdateTargetGroupRequest indicates an expected call of UpdateTargetGroupRequest.
-func (mr *MockMercuryMockRecorder) UpdateTargetGroupRequest(arg0 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateTargetGroupRequest(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTargetGroupRequest", reflect.TypeOf((*MockMercury)(nil).UpdateTargetGroupRequest), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTargetGroupRequest", reflect.TypeOf((*MockLattice)(nil).UpdateTargetGroupRequest), arg0)
 }
 
 // UpdateTargetGroupWithContext mocks base method.
-func (m *MockMercury) UpdateTargetGroupWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateTargetGroupInput, arg2 ...request.Option) (*vpclattice.UpdateTargetGroupOutput, error) {
+func (m *MockLattice) UpdateTargetGroupWithContext(arg0 aws.Context, arg1 *vpclattice.UpdateTargetGroupInput, arg2 ...request.Option) (*vpclattice.UpdateTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -2721,8 +2721,8 @@ func (m *MockMercury) UpdateTargetGroupWithContext(arg0 aws.Context, arg1 *vpcla
 }
 
 // UpdateTargetGroupWithContext indicates an expected call of UpdateTargetGroupWithContext.
-func (mr *MockMercuryMockRecorder) UpdateTargetGroupWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) UpdateTargetGroupWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTargetGroupWithContext", reflect.TypeOf((*MockMercury)(nil).UpdateTargetGroupWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateTargetGroupWithContext", reflect.TypeOf((*MockLattice)(nil).UpdateTargetGroupWithContext), varargs...)
 }
