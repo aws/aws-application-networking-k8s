@@ -14,6 +14,11 @@ make toolchain
 # Run this before submitting code
 make presubmit
 
+# Install CRDs (which only need once) 
+kubectl apply -f CRDs/k8s-gateway-v1alpha2.yaml
+kubectl apply -f CRDs/multicluster.x-k8s.io_serviceexports.yaml
+kubectl apply -f CRDs/multicluster.x-k8s.io_serviceimports.yaml
+
 # Run the controller against the Kubernetes cluster pointed to by `kubectl config current-context`
 make run
 ```
