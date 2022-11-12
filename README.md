@@ -30,7 +30,8 @@ make run
 aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/mercury/2021-08-17/api-2.json --service-name ec2-mercury
 
 # List Services
-aws ec2-mercury list-services --endpoint-url=https://vpc-service-network.us-west-2.amazonaws.com
+aws ec2-mercury list-services --endpoint-url=https://vpc-lattice.us-west-2.amazonaws.com
+
 ```
 
 Check [Detail Notes](https://code.amazon.com/packages/MercuryK8SController/blobs/mainline/--/developer.md) on how to run end-to-end test
