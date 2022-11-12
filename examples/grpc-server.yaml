@@ -1,35 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: parking-ver2
+  name: grpc-server
   labels:
-    app: parking-ver2
+    app: grpc-server
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: parking-ver2
+      app: grpc-server
   template:
     metadata:
       labels:
-        app: parking-ver2
+        app: grpc-server
     spec:
       containers:
-      - name: parking-ver2
-        image: public.ecr.aws/x2j8p8w7/http-server:latest
-        env:
-        - name: PodName
-          value: "parking-ver2 handler pod" 
+      - name: grpc-server
+        image: 694065802095.dkr.ecr.us-west-2.amazonaws.com/route-guide:latest
 
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: parking-ver2
+  name: grpc-server
 spec:
   selector:
-    app: parking-ver2
+    app: grpc-server
   ports:
     - protocol: TCP
       port: 80

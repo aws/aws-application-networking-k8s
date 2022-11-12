@@ -4,7 +4,7 @@ metadata:
   name: parking
 spec:
   parentRefs:
-  - name: my-hotel1
+  - name: my-hotel
     sectionName: http 
   rules:
   - backendRefs:  
@@ -15,7 +15,7 @@ spec:
         type: PathPrefix
         value: /ver1
   - backendRefs:  
-    - name: parking1-ver2
+    - name: parking-ver2
       kind: ServiceImport
     matches:
     - path:

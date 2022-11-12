@@ -25,7 +25,7 @@ type defaultLattice struct {
 
 const (
 	GammaEndpoint    = "https://mercury-gamma.us-west-2.amazonaws.com/"
-	BetaProdEndpoint = "https://vpc-service-network.us-west-2.amazonaws.com"
+	BetaProdEndpoint = "https://vpc-lattice.us-west-2.amazonaws.com"
 )
 
 func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
