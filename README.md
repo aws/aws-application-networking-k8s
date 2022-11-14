@@ -34,6 +34,77 @@ aws ec2-mercury list-services --endpoint-url=https://vpc-lattice.us-west-2.amazo
 
 ```
 
+### Make Docker Image
+
+```
+make docker-build
+```
+
+### Deploy Controller inside a Kubernetes Cluster
+
+#### Generate deploy.yaml
+
+```
+make build-deploy
+```
+
+####  Configure IAM role for k8s pod ONLY if runs MercuryK8SController inside cluster
+##### Configure role for k8s pod to invoke mercury api
+
+Step 1: Create an IAM OIDC provider for your cluster:
+https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html
+```
+eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
+```
+
+Step 2: Create a policy in IAM that can invoke mercury API and copy the policy arn for later use
+(iam-policy.json is under /code) :
+
+```
+cd code
+aws iam create-policy \
+    --policy-name AWSMercuryControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+```
+
+```
+# a sample iam-policy.json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "vpc-service-network:*",
+                "iam:CreateServiceLinkedRole",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeSubnets"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+Step 3: Create iamserviceaccount for pod level permission
+```
+eksctl create iamserviceaccount \
+--cluster=<my-cluster-name> \
+--namespace=system \
+--name=gateway-api-controller \
+--attach-policy-arn=<AWSMercuryControllerIAMPolicy ARN CREATED IN STEP 2> \
+--override-existing-serviceaccounts \
+--region us-west-2 \
+--approve
+```
+
+Step 4: deploy into cluster
+
+```
+kubectl apply -f deploy.yaml
+```
+
+
 Check [Detail Notes](https://code.amazon.com/packages/MercuryK8SController/blobs/mainline/--/developer.md) on how to run end-to-end test
 
 ## Security
