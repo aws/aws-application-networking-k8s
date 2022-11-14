@@ -1,3 +1,4 @@
 # Keep this until the APIs upstreamed
 scripts/aws_sdk_model_override/aws-sdk-go
 coverage.out
+deploy.yaml

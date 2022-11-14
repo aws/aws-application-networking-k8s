@@ -1,0 +1,3 @@
+[{"op": "replace", "path": "/kind", "value": "RoleBinding"},
+{"op": "add", "path": "/metadata/namespace", "value":  "system"},
+{"op": "replace", "path": "/roleRef/kind", "value": "Role"}]
