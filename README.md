@@ -75,7 +75,7 @@ aws iam create-policy \
         {
             "Effect": "Allow",
             "Action": [
-                "vpc-service-network:*",
+                "vpc-lattice:*",
                 "iam:CreateServiceLinkedRole",
                 "ec2:DescribeVpcs",
                 "ec2:DescribeSubnets"
