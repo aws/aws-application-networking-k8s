@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - bases/k8s-gateway-v1alpha2.yaml
+  - bases/multicluster.x-k8s.io_serviceexports.yaml
+  - bases/multicluster.x-k8s.io_serviceimports.yaml

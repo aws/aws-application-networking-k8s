@@ -76,7 +76,7 @@ docker-build: test ## Build docker image with the manager.
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
 
-.PHONY: deploy
-deployment: ## Create a deployment file that can be applied with `kubectl apply -f deploy.yaml`
+.PHONY: build-deploy
+build-deploy: ## Create a deployment file that can be applied with `kubectl apply -f deploy.yaml`
 	cd config/manager && kustomize edit set image controller=${ECRIMAGES}
 	kustomize build config/default > deploy.yaml

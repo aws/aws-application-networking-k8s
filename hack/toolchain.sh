@@ -11,6 +11,7 @@ main() {
 
 tools() {
     go install github.com/golang/mock/mockgen@v1.6.0
+    go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.7
     go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220421205612-c162794a9b12
 
     if ! echo "$PATH" | grep -q "${GOPATH:-undefined}/bin\|$HOME/go/bin"; then
