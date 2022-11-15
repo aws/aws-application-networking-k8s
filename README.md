@@ -1,6 +1,6 @@
 AWS Application Networking is an implementation of the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/). This project is designed to run in a Kubernetes cluster and orchestrates AWS VPC Lattice resources using Kubernetes Custom Resource Definitions like Gateway and HTTPRoute.
 
-### Developer Guide
+## Developer Guide
 
 ```bash
 # Learn available `make` commands
@@ -23,18 +23,73 @@ kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceimports.yaml
 make run
 ```
 
-### End-to-End Testing
+## End-to-End Testing
+
+### Install VPC lattice CLIs
 
 ```
 # Add models to AWS CLI
-aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/mercury/2021-08-17/api-2.json --service-name ec2-mercury
+aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/mercury/2021-08-17/api-2.json --service-name ec2-lattice
 
 # List Services
-aws ec2-mercury list-services --endpoint-url=https://vpc-lattice.us-west-2.amazonaws.com
+aws ec2-lattice list-services --endpoint-url=https://vpc-lattice.us-west-2.amazonaws.com
 
 ```
 
-Check [Detail Notes](https://code.amazon.com/packages/MercuryK8SController/blobs/mainline/--/developer.md) on how to run end-to-end test
+### Make Docker Image
+
+```
+make docker-build
+```
+
+### Deploy Controller inside a Kubernetes Cluster
+
+#### Generate deploy.yaml
+
+```
+make build-deploy
+```
+
+####  Configure IAM role for k8s pod ONLY if runs MercuryK8SController inside cluster
+
+##### Configure role for k8s pod to invoke lattice api
+
+Step 1: Create an IAM OIDC provider for your cluster:
+https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html
+```
+eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
+```
+
+Step 2: Create a policy in IAM that can invoke mercury API and copy the policy arn for later use
+(iam-policy.json is under /code) :
+
+```
+aws iam create-policy \
+    --policy-name AWSMercuryControllerIAMPolicy \
+    --policy-document file://config/iam/recommended-inline-policy.json
+```
+
+
+Step 3: Create iamserviceaccount for pod level permission
+```
+eksctl create iamserviceaccount \
+--cluster=<my-cluster-name> \
+--namespace=system \
+--name=gateway-api-controller \
+--attach-policy-arn=<AWSMercuryControllerIAMPolicy ARN CREATED IN STEP 2> \
+--override-existing-serviceaccounts \
+--region us-west-2 \
+--approve
+```
+
+Step 4: deploy into cluster
+
+```
+kubectl apply -f deploy.yaml
+```
+
+
+You can find more details are in  [Detail Notes](https://code.amazon.com/packages/MercuryK8SController/blobs/mainline/--/developer.md) and [end-to-end Smoke Test](https://quip-amazon.com/FaquAsssAitb/Testing-Manual-end-to-end-Smoke-Testing-for-Kubernetes-Controllers).
 
 ## Security
 
