@@ -64,30 +64,11 @@ Step 2: Create a policy in IAM that can invoke mercury API and copy the policy a
 (iam-policy.json is under /code) :
 
 ```
-cd code
 aws iam create-policy \
     --policy-name AWSMercuryControllerIAMPolicy \
-    --policy-document file://iam-policy.json
+    --policy-document file://config/iam/recommended-inline-policy.json
 ```
 
-```
-# a sample iam-policy.json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "vpc-lattice:*",
-                "iam:CreateServiceLinkedRole",
-                "ec2:DescribeVpcs",
-                "ec2:DescribeSubnets"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
-```
 
 Step 3: Create iamserviceaccount for pod level permission
 ```
