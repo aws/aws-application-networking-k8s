@@ -23,14 +23,16 @@ kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceimports.yaml
 make run
 ```
 
-### End-to-End Testing
+## End-to-End Testing
+
+### Install VPC lattice CLIs
 
 ```
 # Add models to AWS CLI
-aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/mercury/2021-08-17/api-2.json --service-name ec2-mercury
+aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/mercury/2021-08-17/api-2.json --service-name ec2-lattice
 
 # List Services
-aws ec2-mercury list-services --endpoint-url=https://vpc-lattice.us-west-2.amazonaws.com
+aws ec2-lattice list-services --endpoint-url=https://vpc-lattice.us-west-2.amazonaws.com
 
 ```
 
@@ -49,7 +51,8 @@ make build-deploy
 ```
 
 ####  Configure IAM role for k8s pod ONLY if runs MercuryK8SController inside cluster
-##### Configure role for k8s pod to invoke mercury api
+
+##### Configure role for k8s pod to invoke lattice api
 
 Step 1: Create an IAM OIDC provider for your cluster:
 https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html
@@ -105,7 +108,7 @@ kubectl apply -f deploy.yaml
 ```
 
 
-Check [Detail Notes](https://code.amazon.com/packages/MercuryK8SController/blobs/mainline/--/developer.md) on how to run end-to-end test
+You can find more details are in  [Detail Notes](https://code.amazon.com/packages/MercuryK8SController/blobs/mainline/--/developer.md) and [end-to-end Smoke Test](https://quip-amazon.com/FaquAsssAitb/Testing-Manual-end-to-end-Smoke-Testing-for-Kubernetes-Controllers).
 
 ## Security
 
