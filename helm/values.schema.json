@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "properties": {
+    "image": {
+      "description": "Container Image",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["IfNotPresent", "Always", "Never"]
+        },
+        "pullSecrets": {
+          "type": "array"
+        }
+      },
+      "required": [
+          "repository",
+          "tag",
+          "pullPolicy"
+      ],
+      "type": "object"
+    },
+    "nameOverride": {
+      "type": "string"
+    },
+    "fullNameOverride": {
+      "type": "string"
+    },
+    "deployment": {
+      "description": "Deployment settings",
+      "properties": {
+        "annotations": {
+          "type": "object"
+        },
+        "labels": {
+          "type": "object"
+        },
+        "containerPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "nodeSelector": {
+          "type": "object"
+        },
+        "tolerations": {
+          "type": "array"
+        },
+        "affinity": {
+          "type": "object"
+        },
+        "priorityClassName": {
+          "type": "string"
+        }
+      },
+      "required": [
+          "containerPort"
+      ],
+      "type": "object"
+    },
+    "role": {
+      "description": "Role settings",
+      "properties": {
+        "labels": {
+	  "type": "object"
+	}
+      }
+    },
+    "metrics": {
+      "description": "Metrics settings",
+      "properties": {
+        "service": {
+          "description": "Kubernetes service settings",
+          "properties": {
+            "create": {
+              "type": "boolean"
+            },
+            "type": {
+              "type": "string",
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"]
+            }
+          },
+          "required": [
+              "create",
+              "type"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+          "service"
+      ],
+      "type": "object"
+    },
+    "resources": {
+      "description": "Kubernetes resources settings",
+      "properties": {
+        "requests": {
+          "description": "Kubernetes resource requests",
+          "properties": {
+            "memory": {
+              "oneOf": [
+                { "type": "number" },
+                { "type": "string" }
+              ]
+            },
+            "cpu": {
+              "oneOf": [
+                { "type": "number" },
+                { "type": "string" }
+              ]
+            }
+          },
+          "required": [
+              "memory",
+              "cpu"
+          ],
+          "type": "object"
+        },
+        "limits": {
+          "description": "Kubernetes resource limits",
+          "properties": {
+            "memory": {
+              "oneOf": [
+                { "type": "number" },
+                { "type": "string" }
+              ]
+            },
+            "cpu": {
+              "oneOf": [
+                { "type": "number" },
+                { "type": "string" }
+              ]
+            }
+          },
+          "required": [
+              "memory",
+              "cpu"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+          "requests",
+          "limits"
+      ],
+      "type": "object"
+    },
+    "log": {
+      "description": "Logging settings",
+      "properties": {
+        "level": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "installScope": {
+      "type": "string",
+      "enum": ["cluster", "namespace"]
+    },
+    "serviceAccount": {
+      "description": "ServiceAccount settings",
+      "properties": {
+        "create": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "annotations": {
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "image",
+    "deployment",
+    "metrics",
+    "resources",
+    "log",
+    "installScope",
+    "serviceAccount"
+  ],
+  "title": "Values",
+  "type": "object"
+}
