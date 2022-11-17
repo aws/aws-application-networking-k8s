@@ -1,0 +1,7 @@
+{{ .Chart.Name }} has been installed.
+This chart deploys "{{ .Values.image.repository }}:{{ .Values.image.tags }}".
+
+Check its status by running:
+  kubectl --namespace {{ .Release.Namespace }} get pods -l "app.kubernetes.io/instance={{ .Release.Name }}"
+
+The controller is running in "{{ .Values.installScope }}" mode.
