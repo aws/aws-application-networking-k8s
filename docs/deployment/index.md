@@ -49,8 +49,6 @@ With the Gateway API Controller deployed, create one or two clusters, depending 
 
 1. Verify that the Kubernetes multi-cluster API objects are installed correctly:
    ```bash
-
-   TODO: Jay says the next two steps can be removed since the Gateway API Controller will handle these.
    kubectl get crd
    ```
    ```
@@ -116,14 +114,17 @@ To try the second example in this document, you need to create a second EKS clus
    ```bash
    eksctl create cluster —name vpc-lattice-eks-test-2 —region us-west-2
    ```
-1. Make  sure your security groups are configured to allow 169.254.0.0/16 to all pods in second cluster.
+1. Make sure your security groups are configured to allow 169.254.0.0/16 to all pods in second cluster.
+
+   TODO: Jay says the next two steps can be removed since the Gateway API Controller will handle these.
+
 1. Install the Kubernetes Gateway APIs objects in the second cluster:
    ```bash
    kubectl apply -f k8s-crd/k8s-gateway-v1alpha2.yaml
    kubectl apply -f k8s-crd/multicluster.x-k8s.io_serviceexports.yaml
    kubectl apply -f k8s-crd/multicluster.x-k8s.io_serviceimports.yaml
    ```
-1. Create an IAM OIDC provider (see Creating an IAM OIDC provider for your cluster (http://%20https//docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html)):
+1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
    eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
    ```
