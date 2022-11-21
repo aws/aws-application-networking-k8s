@@ -91,6 +91,61 @@ kubectl apply -f deploy.yaml
 
 You can find more details are in  [Detail Notes](https://code.amazon.com/packages/MercuryK8SController/blobs/mainline/--/developer.md) and [end-to-end Smoke Test](https://quip-amazon.com/FaquAsssAitb/Testing-Manual-end-to-end-Smoke-Testing-for-Kubernetes-Controllers).
 
+## Release
+
+To cut a new release, you will want to follow these steps:
+
+1. Create a new Git branch for the new release.
+
+```bash
+export RELEASE_VERSION=v0.0.1  # Change this to the next release version you want
+git checkout main
+git fetch --all --tags && git rebase upstream/main
+git checkout -b release-$RELEASE_VERSION
+```
+
+2. Update the Helm Chart's version and appVersion to the new release version.
+
+Open `helm/Chart.yaml` and change the `version` and `appVersion` to match the `$RELEASE_VERSION`.
+
+3. Create a Git commit for the new release artifacts.
+
+```bash
+git commit -a -m "release artifacts for release $RELEASE_VERSION"
+git push origin release-$RELEASE_VERSION
+```
+
+4. Create a pull request from the release branch and have someone review and
+   merge that for you.
+
+5. Create a Git tag on the repository's main branch that points to the commit
+   that you just got merged.
+
+```bash
+git checkout main
+git fetch --all --tags && git rebase upstream/main
+git tag -a $RELEASE_VERSION
+git push origin $RELEASE_VERSION
+```
+
+6. Package and publish the controller container image and Helm chart.
+
+```
+PULL_BASE_REF=$RELEASE_VERSION ./scripts/release-controller.sh
+```
+
+NOTE: You will need to have exported an environment variable called
+`ECR_PUBLISH_ROLE_ARN` that contains an IAM Role that your AWS user has a trust
+relationship with and permission to publish to the ECR Public repositories. I
+personally have a file in `~/.aws/gateway-publisher` that contains the
+following:
+
+```bash
+export ECR_PUBLISH_ROLE_ARN="arn:aws:iam::606627242267:role/ECRPublisher"
+```
+
+which I `source` before running the `scripts/release-controller.sh` script.
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
