@@ -193,36 +193,15 @@ This example creates a single cluster in a single VPC, then configures two route
    reason: Reconciled
    status: "True"
    ```
-1. Create the Kubernetes HTTPRoute rates 
-   ```
-   # create k8s service parking
-   ```
+1. Create the Kubernetes HTTPRoute rates for the parking service, review service, and HTTPRoute rate:
    ```bash
    kubectl apply -f parking.yaml
-   ```
-   ```
-   # create k8s service review
-   ```
-   ```bash
    kubectl apply -f review.yaml
-   ```
-   ```
-   # create K8S HTTPRoute rate
-   ```
-   ```bash
    kubectl apply -f rate-route-path.yaml
    ```
-1. Create the Kubernetes HTTPRoute inventory
-   ```
-   # create K8S service inventory-ver1
-   ```
+1. Create the Kubernetes HTTPRoute inventory:
    ```bash
    kubectl apply -f inventory-ver1.yaml
-   ```
-   ```
-   # create K8S HTTPRoute inventory
-   ```
-   ```bash
    kubectl apply -f inventory-route.yaml
    ```
 1. Find out HTTPRoute's DNS name from HTTPRoute status:
@@ -412,7 +391,6 @@ The following figure illustrates this:
    ```
    Requsting to Pod(inventory-ver2-7bb6989d9d-2p2hk): inventory-ver2 handler pod <----> in 2nd cluster
    ```
-
 ## Understanding the Gateway API Controller
 
 For medium and large-scale customers, applications can often spread across multiple areas of a cloud.
