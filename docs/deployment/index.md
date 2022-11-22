@@ -29,66 +29,14 @@ That includes something like the following:
 
 Next, start by creating one or two clusters, depending on which of the examples you want to try.
 
-### Prepare the first cluster
+### Prepare clusters
+
+Follow these instructions to prepare a cluster for use with the AWS Gateway API Controller.
+Repeat to add a second cluster for Example 2.
 
 1. Create an EKS cluster
    ```bash
    eksctl create cluster —name vpc-lattice-eks-test-1 —region us-west-2
-   ```
-1. TODO: I don't know how to do this step (link?): TODO: Also, Liwen said to say "Lattice-managed prefix" instead of 169.254.0.0/16. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicit configure a security group to allow traffic from the 169.254.0.0/16 address range.
-
-1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
-   ```bash
-   eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
-   ```
-1. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the gateway API and copy the policy arn for later use:
-   ```bash
-   {
-       "Version": "2012-10-17",
-       "Statement": [
-           {
-               "Effect": "Allow",
-               "Action": [
-                   "vpc-lattice:",
-                   "iam:CreateServiceLinkedRole",
-                   "ec2:DescribeVpcs",
-                   "ec2:DescribeSubnets"
-               ],
-               "Resource": ""
-           }
-       ]
-   }
-   
-   }
-   ```
-   ```bash
-   aws iam create-policy \
-      --policy-name AWSMercuryControllerIAMPolicy \
-      --policy-document file://recommended-inline-policy.json
-   ```
-1. Create an iamserviceaccount for pod level permission:
-   ```bash
-   eksctl create iamserviceaccount \
-      --cluster=<my-cluster-name> \
-      --namespace=system \
-      --name=gateway-api-controller \
-      --attach-policy-arn=<AWSMercuryControllerIAMPolicy ARN CREATED IN CREATE_POLICY STEP> \
-      --override-existing-serviceaccounts \
-      --region us-west-2 \
-      --approve
-   ```
-1. Run the following Helm chart to deploy the controller:
-
-   ```bash
-   helm install --install lattice --set whatever
-   ```
-
-### Prepare the second cluster
-To try the second example in this document, you need to create a second EKS cluster as described here:
-
-1. Create a second EKS cluster:
-   ```bash
-   eksctl create cluster —name vpc-lattice-eks-test-2 —region us-west-2
    ```
 1. TODO: I don't know how to do this step (link?): TODO: Also, Liwen said to say "Lattice-managed prefix" instead of 169.254.0.0/16. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicit configure a security group to allow traffic from the 169.254.0.0/16 address range.
 
@@ -247,11 +195,11 @@ This example creates a single cluster in a single VPC, then configures two route
     }       
    ```
    ```
-   # find out the DNS name using service ID
+   1. Find the DNS names using the service IDs:
    ```
    ```bash
    aws ec2-lattice get-service --service-identifier svc-0cd1a223d518754f3 \
-      --endpoint-url=https://vpc-service-network.us-west-2.amazonaws.com (https://vpc-service-network.us-west-2.amazonaws.com/)
+      --endpoint-url=https://vpc-service-network.us-west-2.amazonaws.com # (https://vpc-service-network.us-west-2.amazonaws.com/)
    ```
    ```
    {
@@ -284,7 +232,8 @@ This example creates a single cluster in a single VPC, then configures two route
        "arn": "arn:aws:vpc-service-network:us-west-2:694065802095:service/svc-00422586e3362607e"
    }
    ```
-1. Traffic: Service-Inventory Pod access Service-Rates/parking or Service-Rates/review: Make sure security group is configured to allow 169.254.0.0/16 to receive traffic from lattice fleet.
+1. Check Service-Inventory Pod access for Service-Rates/parking or Service-Rates/review by execing into the pod, then curling each service.
+(Make sure security group is configured to allow 169.254.0.0/16 to receive traffic from lattice fleet.)
    ```bash
    kubectl get pod
    ```
@@ -300,22 +249,25 @@ This example creates a single cluster in a single VPC, then configures two route
    ```bash
    kubectl exec -ti inventory-ver1-7bb6989d9d-2p2hk sh
    ```
-   ```
-   sh-4.2#
-   ```
+1. From inside of the inventory pod, use `curl` to connect to the parking service:
    ```bash
    curl sept6-rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/parking 
    ```
    ```
    Requesting to Pod(parking-6cdcd5b4b4-g8dkb): parking handler pod
    ```
+1. From inside of the pod, use `curl` to connect to the review service:
    ```bash
    curl sept6-rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/review 
    ```
    ```
    Requesting to Pod(review-5888566ff6-89fqk): review handler pod
    ```
-1. Traffic: Service-Rates/parking pod access Service-Inventory
+1. Exit the pod:
+   ```bash
+   exit
+   ```
+1. Check the Service-Rates/parking pod access to Service-Inventory by execing into the parking pod:
    ```bash
    kubectl exec -ti parking-6cdcd5b4b4-bbzvt sh
    ```
@@ -327,7 +279,7 @@ This example creates a single cluster in a single VPC, then configures two route
 This example migrates a Kubernetes service (HTTPRoute inventory) from one Kubernetes cluster to a different Kubernetes cluster.
 For example, it will:
 
-* Migrate the Kubernetes inventory service from a Kubernetes v1.19 cluster to a different Kubernetes v1.21 cluster.
+* Migrate the Kubernetes inventory service from a Kubernetes v1.19 cluster to a Kubernetes v1.21 cluster in a different VPC.
 * Scale up the Kubernetes inventory service to run it in another cluster (and another VPC) in addition to the current cluster.
 
 The following figure illustrates this:
@@ -344,25 +296,21 @@ The following figure illustrates this:
    ```bash
    kubectl apply -f inventory-ver2-export.yaml
    ```
-1. Import the Kubernetes inventory-ver2 into first cluster (Note: if you only have a single clouddesktop):
-   ```
-   # switch to cluster1  
-   ```
+1. Import the Kubernetes inventory-ver2 into first cluster (Note: only if you have a single cloud desktop):
    ```bash
-   kubectl config use-context yourcluster2info
+   # switch to cluster1  
+   kubectl config use-context <yourcluster2info>
    kubectl apply -f inventory-ver2-import.yaml
    ```
 1. Update the HTTPRoute inventory to route 90% traffic to the first cluster and 10% traffic to the second cluster:
    ```bash
    kubectl apply -f inventory-route-bluegreen.yaml
    ```
-1. Traffic: Service-Rates/parking pod access Service-Inventory
+1. Check the Service-Rates/parking pod access to Service-Inventory by execing into the parking pod:
    ```bash
    kubectl exec -ti parking-6cdcd5b4b4-bbzvt sh
    ```
-   ```
-   sh-4.2# 
-   ```
+1. From inside of the pod, use `curl` to connect to the inventory service:
    ```bash
    curl sept6-inventory-0cd1a223d518754f3.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com
    ```
