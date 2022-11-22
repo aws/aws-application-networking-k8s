@@ -18,16 +18,16 @@ For more information on this technology, see [Kubernetes Gateway API](https://ga
 
 ## Deploying the Gateway API Controller
 
+Before you begin creating EKS clusters and deploying the controller, you need to set up the permissions required to use AWS VPC Lattice.
+That includes something like the following:
 
-1. TODO: Is any setup needed similar to adding someone to the Mercury beta allow list? See [README](https://code.amazon.com/packages/VpcServiceNetworkPreviewConstructs/blobs/mainline/--/README.md). Something like this?:
+* TODO: Set up permissions per [README](https://code.amazon.com/packages/VpcServiceNetworkPreviewConstructs/blobs/mainline/--/README.md). Something like this?:
 
    ```bash
    ./vpc-service-network-role.sh -a yourAccountId -p isengard -r Admin
    ```
-1. TODO: Steps for deploying the controller need to include the new [helm chart](https://github.com/aws/aws-application-networking-k8s/pull/35).
-   TODO: See [IRSA instructions](https://aws-controllers-k8s.github.io/community/docs/user-docs/irsa/).
 
-With the Gateway API Controller deployed, create one or two clusters, depending on which examples you want to try.
+Next, start by creating one or two clusters, depending on which of the examples you want to try.
 
 ### Prepare the first cluster
 
@@ -37,47 +37,34 @@ With the Gateway API Controller deployed, create one or two clusters, depending 
    ```
 1. TODO: I don't know how to do this step (link?): TODO: Also, Liwen said to say "Lattice-managed prefix" instead of 169.254.0.0/16. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicit configure a security group to allow traffic from the 169.254.0.0/16 address range.
 
-   TODO: Jay says the next two steps can be removed since the Gateway API Controller will handle these.
-
-1. Install Kubernetes Gateway API objects in this EKS cluster:
-   TODO: What is location of these yaml files (tarball or ECR registry)?
-   ```bash
-   kubectl apply -f k8s-crd/k8s-gateway-v1alpha2.yaml
-   kubectl apply -f k8s-crd/multicluster.x-k8s.io_serviceexports.yaml
-   kubectl apply -f k8s-crd/multicluster.x-k8s.io_serviceimports.yaml
-   ```
-
-1. Verify that the Kubernetes multi-cluster API objects are installed correctly:
-   ```bash
-   kubectl get crd
-   ```
-   ```
-   NAME                                        CREATED AT
-   eniconfigs.crd.k8s.amazonaws.com            2021-11-09T03:14:21Z
-   gatewayclasses.gateway.networking.k8s.io    2021-11-09T03:26:32Z <------> gatewayclass
-   gateways.gateway.networking.k8s.io          2021-11-09T03:26:32Z <------> gateway
-   httproutes.gateway.networking.k8s.io        2021-11-09T03:26:32Z <------> httproute
-   referencepolicies.gateway.networking.k8s.io 2021-11-09T03:26:33Z
-   securitygrouppolicies.vpcresources.k8s.aws  2021-11-09T03:14:24Z
-   serviceexports.multicluster.x-k8s.io        2021-11-09T03:57:44Z <------> serviceexport
-   serviceimports.multicluster.x-k8s.io        2021-11-09T03:57:52Z <------> serviceimport
-   tcproutes.gateway.networking.k8s.io         2021-11-09T03:26:33Z
-   tlsroutes.gateway.networking.k8s.io         2021-11-09T03:26:33Z
-   udproutes.gateway.networking.k8s.io         2021-11-09T03:26:33Z
-   ```
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
    eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
    ```
-1. Create a policy in IAM that can invoke the gateway API and copy the policy arn for later use:
+1. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the gateway API and copy the policy arn for later use:
+   ```bash
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "vpc-lattice:",
+                   "iam:CreateServiceLinkedRole",
+                   "ec2:DescribeVpcs",
+                   "ec2:DescribeSubnets"
+               ],
+               "Resource": ""
+           }
+       ]
+   }
+   
+   }
+   ```
    ```bash
    aws iam create-policy \
       --policy-name AWSMercuryControllerIAMPolicy \
-      --policy-document file://iam-policy.json
-   ```
-1. Create a namespace called system:
-   ```bash
-    kubectl apply -f deploy_namespace.yaml
+      --policy-document file://recommended-inline-policy.json
    ```
 1. Create an iamserviceaccount for pod level permission:
    ```bash
@@ -90,21 +77,10 @@ With the Gateway API Controller deployed, create one or two clusters, depending 
       --region us-west-2 \
       --approve
    ```
-1. If your cluster does NOT allow Pods to access instance IMDS, you need to modify ACCOUNT_ID and CLUSTER_VPC_ID in the last DEPLOYMENT Section of the `deploy.yaml` file. Then deploy the pod running the controller to your Kubernetes cluster:
+1. Run the following Helm chart to deploy the controller:
+
    ```bash
-    kubectl apply -f deploy.yaml
-   ```
-1. Create Kubernetes Gateway Class for VPC Lattice. All of your services, routes, and targets associated with the controller are organized under this gateway class: 
-   ```bash
-    kubectl apply -f gatewayclass.yaml
-   ```
-1. Verify that a new gatewayclass is created:
-   ```bash
-    kubectl get gatewayclass
-   ```
-   ```
-    NAME          CONTROLLER                               AGE
-    aws-lattice   lattice.k8s.aws/lattice-k8s-controller   7d12h
+   helm install --install lattice --set whatever
    ```
 
 ### Prepare the second cluster
@@ -114,46 +90,54 @@ To try the second example in this document, you need to create a second EKS clus
    ```bash
    eksctl create cluster —name vpc-lattice-eks-test-2 —region us-west-2
    ```
-1. Make sure your security groups are configured to allow 169.254.0.0/16 to all pods in second cluster.
+1. TODO: I don't know how to do this step (link?): TODO: Also, Liwen said to say "Lattice-managed prefix" instead of 169.254.0.0/16. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicit configure a security group to allow traffic from the 169.254.0.0/16 address range.
 
-   TODO: Jay says the next two steps can be removed since the Gateway API Controller will handle these.
-
-1. Install the Kubernetes Gateway APIs objects in the second cluster:
-   ```bash
-   kubectl apply -f k8s-crd/k8s-gateway-v1alpha2.yaml
-   kubectl apply -f k8s-crd/multicluster.x-k8s.io_serviceexports.yaml
-   kubectl apply -f k8s-crd/multicluster.x-k8s.io_serviceimports.yaml
-   ```
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
    eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
    ```
-1. Create a policy in IAM that can invoke the VPC Lattice API and copy the policy arn for later use:
+1. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the gateway API and copy the policy arn for later use:
+   ```bash
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "vpc-lattice:",
+                   "iam:CreateServiceLinkedRole",
+                   "ec2:DescribeVpcs",
+                   "ec2:DescribeSubnets"
+               ],
+               "Resource": ""
+           }
+       ]
+   }
+   
+   }
+   ```
    ```bash
    aws iam create-policy \
-       --policy-name AWSMercuryControllerIAMPolicy \
-       --policy-document file://iam-policy.json
+      --policy-name AWSMercuryControllerIAMPolicy \
+      --policy-document file://recommended-inline-policy.json
    ```
-1. Create a namespace called system
-   ```bash
-   kubectl apply -f deploy_namespace.yaml
-   ```
-1. Create iamserviceaccount for pod level permission
+1. Create an iamserviceaccount for pod level permission:
    ```bash
    eksctl create iamserviceaccount \
-     --cluster=<my-cluster-name> \
-     --namespace=system \
-     --name=controller-manager \
-     --attach-policy-arn=<AWSMercuryControllerIAMPolicy ARN CREATED IN STEP 2> \
-     --override-existing-serviceaccounts \
-     --region us-west-2 \
-     --approve
+      --cluster=<my-cluster-name> \
+      --namespace=system \
+      --name=gateway-api-controller \
+      --attach-policy-arn=<AWSMercuryControllerIAMPolicy ARN CREATED IN CREATE_POLICY STEP> \
+      --override-existing-serviceaccounts \
+      --region us-west-2 \
+      --approve
    ```
-1. If your cluster does NOT allow Pod to access instance IMDS, then you need to modify ACCOUNT_ID and CLUSTER_VPC_ID in the last DEPLOYMENT Section of the deploy.yaml file.
-1. Deploy MercuryK8SController into your Kubernetes cluster:
+1. Run the following Helm chart to deploy the controller:
+
    ```bash
-   kubectl apply -f deploy.yaml
+   helm install --install lattice --set whatever
    ```
+
 ## Using the Gateway API Controller
 
 The test cases in this section cover two examples of service-to-service communications.
