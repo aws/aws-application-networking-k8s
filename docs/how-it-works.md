@@ -15,7 +15,7 @@ This lets you work with Kubernetes service-related resources using Kubernetes AP
 
 For more information on this technology, see [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/). 
 
-**NOTE**: If you are new to the Kubernetes Gateway API, keep in mind that names you use for objects must be unique across your entire account and not just across each cluster used by that account.
+**NOTE**: If you are new to the VPC Lattice service, keep in mind that names you use for objects must be unique across your entire account and not just across each cluster used by that account.
 
 ## Deploying the Gateway API Controller
 
@@ -58,9 +58,9 @@ Run through them again for a second cluster to use with the extended example sho
       --policy-document file://recommended-inline-policy.json
    ```
 1. Create the `system` namespace:
-```bash
-kubectl apply -f examples/deploy_namespace.yaml
-```
+   ```bash
+   kubectl apply -f examples/deploy_namespace.yaml
+   ```
 
 1. Create an iamserviceaccount for pod level permission:
    ```bash
@@ -74,10 +74,9 @@ kubectl apply -f examples/deploy_namespace.yaml
       --approve
    ```
 
-1. Run the following Helm chart to deploy the controller:
-
+1. Run the following to deploy the controller:
    ```bash
-   helm install --install lattice --set whatever  # Placeholder. Need actual example with reasonable options here.
+   kubectl apply -f examples/deploy.yaml
    ```
 
 ## Using the Gateway API Controller
@@ -97,7 +96,7 @@ This example creates a single cluster in a single VPC, then configures two route
 
 1. Create the Kubernetes Gateway `my-hotel`:
    ```bash
-   kubectl apply -f my-hotel-gateway.yaml
+   kubectl apply -f examples/my-hotel-gateway.yaml
    ```
 1. Verify that `my-hotel` gateway is created:
    ```bash
@@ -123,14 +122,14 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
 1. Create the Kubernetes HTTPRoute rates for the parking service, review service, and HTTPRoute rate:
    ```bash
-   kubectl apply -f parking.yaml
-   kubectl apply -f review.yaml
-   kubectl apply -f rate-route-path.yaml
+   kubectl apply -f examples/parking.yaml
+   kubectl apply -f examples/review.yaml
+   kubectl apply -f examples/rate-route-path.yaml
    ```
 1. Create the Kubernetes HTTPRoute inventory:
    ```bash
-   kubectl apply -f inventory-ver1.yaml
-   kubectl apply -f inventory-route.yaml
+   kubectl apply -f examples/inventory-ver1.yaml
+   kubectl apply -f examples/inventory-route.yaml
    ```
 1. Find out HTTPRoute's DNS name from HTTPRoute status:
    ```bash
@@ -244,7 +243,6 @@ For example, it will:
 
 * Migrate the Kubernetes inventory service from a Kubernetes v1.19 cluster to a Kubernetes v1.21 cluster in a different VPC.
 * Scale up the Kubernetes inventory service to run it in another cluster (and another VPC) in addition to the current cluster.
-* Set 
 
 The following figure illustrates this:
 
@@ -260,11 +258,11 @@ The following figure illustrates this:
 
 1. Create a Kubernetes inventory in the second cluster:
    ```bash
-   kubectl apply -f inventory-ver2.yaml
+   kubectl apply -f examples/inventory-ver2.yaml
    ```
 1. Export this Kubernetes inventory-ver2 from the second cluster, so that it can be referenced by HTTPRoute in the other cluster:
    ```bash
-   kubectl apply -f inventory-ver2-export.yaml
+   kubectl apply -f examples/inventory-ver2-export.yaml
    ```
    **Switch back to the first cluster**
 
@@ -275,11 +273,11 @@ The following figure illustrates this:
 
 1. Import the Kubernetes inventory-ver2 into first cluster (Note: only if you have a single cloud desktop):
    ```bash
-   kubectl apply -f inventory-ver2-import.yaml
+   kubectl apply -f examples/inventory-ver2-import.yaml
    ```
 1. Update the HTTPRoute inventory to route 90% traffic to the first cluster and 10% traffic to the second cluster:
    ```bash
-   kubectl apply -f inventory-route-bluegreen.yaml
+   kubectl apply -f examples/inventory-route-bluegreen.yaml
    ```
 1. Check the Service-Rates/parking pod access to Service-Inventory by execing into the parking pod:
    ```bash
@@ -327,6 +325,7 @@ However, using different rules, a request for the service could be sent to diffe
 * Service Network: Because applications might span multiple VPCs and accounts, there is a need to create networks that span those items.
   These networks let you register services to run across accounts and VPCs.
   You can create common authorization rules to simplify connectivity.
+
 * Service Policies: You can build service policies to configure observability, access, and traffic management across any service network or gateway.
   You configure rules for handling traffic and for authorizing access.
   For now, you can assign IAM roles to allow certain requests.
@@ -355,7 +354,7 @@ With VPC Lattice you can also avoid some of these common problems:
 ### Relationship between VPC Lattice and Kubernetes
 
 As a Kubernetes user, you can have a very Kubernetes-native experience using the VPC Lattice APIs.
-The following figure illustrates how VPC Lattice object connect to [Kubernetes Gateway API]((https://gateway-api.sigs.k8s.io/) objects:
+The following figure illustrates how VPC Lattice object connect to [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) objects:
 
 TODO: Replace with new figure from end of this slide deck: https://amazon.awsapps.com/workdocs/index.html#/document/6398b63682b6fae1ac462edde9af07acc45014557df1dd92b32ccc2c6a744de5
 [Image: VPCLatticeToKubernetesGatewayAPI.png]
