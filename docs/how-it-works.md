@@ -54,7 +54,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```
    ```bash
    aws iam create-policy \
-      --policy-name AWSMercuryControllerIAMPolicy \
+      --policy-name VPCLatticeControllerIAMPolicy \
       --policy-document file://recommended-inline-policy.json
    ```
 1. Create the `system` namespace:
@@ -68,7 +68,7 @@ Run through them again for a second cluster to use with the extended example sho
       --cluster=<my-cluster-name> \
       --namespace=system \
       --name=gateway-api-controller \
-      --attach-policy-arn=<AWSMercuryControllerIAMPolicy ARN CREATED IN CREATE_POLICY STEP> \
+      --attach-policy-arn=<VPCLatticeControllerIAMPolicy ARN CREATED IN create-policy STEP> \
       --override-existing-serviceaccounts \
       --region us-west-2 \
       --approve
@@ -116,7 +116,7 @@ This example creates a single cluster in a single VPC, then configures two route
    ...
    status:
    conditions:
-   message: 'aws-gateway-arn: arn:aws:vpc-service-network:us-west-2:694065802095:mesh/mesh-0d01b22a156d2cc2f' 
+   message: 'aws-gateway-arn: arn:aws:vpc-lattice:us-west-2:694065802095:servicenetwork/sn-0ab6bb70055929edd'
    reason: Reconciled
    status: "True"
    ```
@@ -172,7 +172,7 @@ This example creates a single cluster in a single VPC, then configures two route
 
 1. During preview, you are required to install the VPC Lattice CLI:
    ```bash
-   aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/mercury/2021-08-17/api-2.json —service-name ec2-lattice
+   aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/vpc-lattice/2022-11-30/api-2.json --service-name vpc-lattice
    ```
 1. Use the VPC Lattice CLI to find the DNS name. You can use the `curl` command to get information about each service by adding the service name to the end of the HTTPRoute DNS name. Those names are gathered from AWS Route53 instead of Kubernetes CoreDNS.
    ```bash
