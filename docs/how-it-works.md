@@ -176,7 +176,7 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
 1. Use the VPC Lattice CLI to find the DNS name. You can use the `curl` command to get information about each service by adding the service name to the end of the HTTPRoute DNS name. Those names are gathered from AWS Route53 instead of Kubernetes CoreDNS.
    ```bash
-   aws ec2-lattice list-services \
+   aws vpc-lattice list-services \
      --endpoint-url=https://vpc-service-network.us-west-2.amazonaws.com (https://vpc-service-network.us-west-2.amazonaws.com/)
    ```
    ```
@@ -230,7 +230,7 @@ This example creates a single cluster in a single VPC, then configures two route
    curl rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/review 
    ```
    ```
-   Requesting to Pod(review-5888566ff6-89fqk): review handler pod
+   Requesting to Pod(inventory-5888566ff6-89fqk): inventory handler pod
    ```
 1. Exit the pod:
    ```bash
