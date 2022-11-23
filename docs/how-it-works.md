@@ -26,7 +26,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    eksctl create cluster —name <my-cluster> —region us-west-2
    ```
-1. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicitly configure a security group to allow traffic from the 169.254.0.0/16 address range.
+1. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicitly configure a security group to allow traffic from the 169.254.171.0/24 address range.
 
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
