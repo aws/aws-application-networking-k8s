@@ -75,9 +75,8 @@ Run through them again for a second cluster to use with the extended example sho
    ```
 
 1. Run the following to deploy the controller:
-
    ```bash
-  kubectl apply -f examples/deploy.yaml
+   kubectl apply -f examples/deploy.yaml
    ```
 
 ## Using the Gateway API Controller
