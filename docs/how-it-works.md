@@ -26,7 +26,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    eksctl create cluster —name <my-cluster> —region us-west-2
    ```
-1. TODO: I don't know how to do this step (link?): TODO: Also, Liwen said to say "Lattice-managed prefix" instead of 169.254.0.0/16. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicit configure a security group to allow traffic from the 169.254.0.0/16 address range.
+1. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicitly configure a security group to allow traffic from the 169.254.0.0/16 address range.
 
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
@@ -356,7 +356,6 @@ With VPC Lattice you can also avoid some of these common problems:
 As a Kubernetes user, you can have a very Kubernetes-native experience using the VPC Lattice APIs.
 The following figure illustrates how VPC Lattice object connect to [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) objects:
 
-TODO: Replace with new figure from end of this slide deck: https://amazon.awsapps.com/workdocs/index.html#/document/6398b63682b6fae1ac462edde9af07acc45014557df1dd92b32ccc2c6a744de5
 [Image: VPCLatticeToKubernetesGatewayAPI.png]
 
 As shown in the figure, there are different personas associated with different levels of control in VPC Lattice.
@@ -369,6 +368,4 @@ Notice that the Kubernetes Gateway API syntax is used to create the gateway, HTT
   Keep in mind that Target Groups v1 and v2 can be on different clusters in different VPCs.
 
 ## Further information
-
-TODO: Add links to other docs, blogs, or software (will any be ready in time for re:Invent?)
 
