@@ -225,9 +225,9 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
    Requesting to Pod(parking-6cdcd5b4b4-g8dkb): parking handler pod
    ```
-1. From inside of the pod, use `curl` to connect to the review service:
+1. From inside of the pod, use `curl` to connect to the inventory service:
    ```bash
-   curl rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/review 
+   curl rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/inventory 
    ```
    ```
    Requesting to Pod(inventory-5888566ff6-89fqk): inventory handler pod
