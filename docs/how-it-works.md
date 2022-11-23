@@ -26,7 +26,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    eksctl create cluster —name <my-cluster> —region us-west-2
    ```
-1. TODO: I don't know how to do this step (link?): TODO: Also, Liwen said to say "Lattice-managed prefix" instead of 169.254.0.0/16. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicit configure a security group to allow traffic from the 169.254.0.0/16 address range.
+1. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicit configure a security group to allow traffic from the 169.254.0.0/16 address range. (TODO: Liwen said to say "Lattice-managed prefix" instead of 169.254.0.0/16.)
 
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
@@ -54,7 +54,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```
    ```bash
    aws iam create-policy \
-      --policy-name AWSMercuryControllerIAMPolicy \
+      --policy-name AWSVPCLatticeControllerIAMPolicy \
       --policy-document file://recommended-inline-policy.json
    ```
 1. Create the `system` namespace:
@@ -68,7 +68,7 @@ Run through them again for a second cluster to use with the extended example sho
       --cluster=<my-cluster-name> \
       --namespace=system \
       --name=gateway-api-controller \
-      --attach-policy-arn=<AWSMercuryControllerIAMPolicy ARN CREATED IN CREATE_POLICY STEP> \
+      --attach-policy-arn=<AWSVPCLatticeControllerIAMPolicy ARN CREATED IN create_policy STEP> \
       --override-existing-serviceaccounts \
       --region us-west-2 \
       --approve
@@ -172,7 +172,7 @@ This example creates a single cluster in a single VPC, then configures two route
 
 1. During preview, you are required to install the VPC Lattice CLI:
    ```bash
-   aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/mercury/2021-08-17/api-2.json —service-name ec2-lattice
+   aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/vpc-lattice/2022-11-30/api-2.json --service-name vpc-lattice
    ```
 1. Use the VPC Lattice CLI to find the DNS name. You can use the `curl` command to get information about each service by adding the service name to the end of the HTTPRoute DNS name. Those names are gathered from AWS Route53 instead of Kubernetes CoreDNS.
    ```bash
