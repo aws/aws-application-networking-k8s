@@ -29,10 +29,10 @@ make run
 
 ```
 # Add models to AWS CLI
-aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/mercury/2021-08-17/api-2.json --service-name ec2-lattice
+aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/vpc-lattice/2022-11-30/api-2.json --service-name vpc-lattice
 
 # List Services
-aws ec2-lattice list-services --endpoint-url=https://vpc-lattice.us-west-2.amazonaws.com
+aws vpc-lattice list-services --endpoint-url=https://vpc-lattice.us-west-2.amazonaws.com
 
 ```
 
@@ -50,7 +50,7 @@ make docker-build
 make build-deploy
 ```
 
-####  Configure IAM role for k8s pod ONLY if runs MercuryK8SController inside cluster
+####  Configure IAM role for k8s pod ONLY if runs gateway-api-controller inside cluster
 
 ##### Configure role for k8s pod to invoke lattice api
 
@@ -60,12 +60,12 @@ https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-ac
 eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
 ```
 
-Step 2: Create a policy in IAM that can invoke mercury API and copy the policy arn for later use
+Step 2: Create a policy in IAM that can invoke vpc-lattice API and copy the policy arn for later use
 (iam-policy.json is under /code) :
 
 ```
 aws iam create-policy \
-    --policy-name AWSMercuryControllerIAMPolicy \
+    --policy-name AWSVPCLatticeControllerIAMPolicy \
     --policy-document file://config/iam/recommended-inline-policy.json
 ```
 
@@ -76,7 +76,7 @@ eksctl create iamserviceaccount \
 --cluster=<my-cluster-name> \
 --namespace=system \
 --name=gateway-api-controller \
---attach-policy-arn=<AWSMercuryControllerIAMPolicy ARN CREATED IN STEP 2> \
+--attach-policy-arn=<AWSVPCLatticeControllerIAMPolicy ARN CREATED IN STEP 2> \
 --override-existing-serviceaccounts \
 --region us-west-2 \
 --approve
