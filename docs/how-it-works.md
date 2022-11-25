@@ -88,7 +88,7 @@ The second section extends that example by creating another inventory service on
 
 This example creates a single cluster in a single VPC, then configures two routes (rates and inventory) and three services (parking, review, and inventory-1). The following figure illustrates this setup:
 
-[Image: example1.png]
+![Single cluster/VPC ervice-to-service communications](images/example1.png)
 
 **Steps**
 
@@ -247,6 +247,7 @@ For example, it will:
 The following figure illustrates this:
 
 [Image: example2.png]
+![Multiple clusters/VPCs ervice-to-service communications](images/example2.png)
 
 **Steps**
 
