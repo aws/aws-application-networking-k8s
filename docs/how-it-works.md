@@ -76,7 +76,7 @@ Run through them again for a second cluster to use with the extended example sho
 
 1. Run the following to deploy the controller:
    ```bash
-   kubectl apply -f examples/deploy.yaml
+   kubectl apply -f examples/deploy-v0.0.1.yaml
    ```
 
 ## Using the Gateway API Controller
@@ -246,7 +246,6 @@ For example, it will:
 
 The following figure illustrates this:
 
-[Image: example2.png]
 ![Multiple clusters/VPCs ervice-to-service communications](images/example2.png)
 
 **Steps**
