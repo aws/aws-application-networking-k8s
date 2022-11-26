@@ -2,7 +2,7 @@
 
 The AWS Gateway API Controller lets you connect services across multiple Kubernetes clusters through the Kubernetes Gateway API interface.
 It is also designed to connect services running on EC2 instances, containers, and as serverless functions.
-It does this by leveraging AWS VPC Lattice, which works with Kubernetes Gateway API calls to manage Kubernetes objects. 
+It does this by leveraging Amazon VPC Lattice, which works with Kubernetes Gateway API calls to manage Kubernetes objects. 
 
 This document describes how to set up the AWS Gateway API Controller and provides example use cases.
 With the controller deployed and running, you will be able to manage services for multiple Kubernetes clusters and other targets on AWS through the following:
