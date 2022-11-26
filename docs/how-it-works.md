@@ -1,12 +1,13 @@
 # AWS Gateway API Controller User Guide
 
-The AWS Gateway API Controller lets you connect services across multiple Kubernetes clusters, EC2 instances, containers, and serverless functions through a Gateway API interface.
-It does this by leveraging AWS VPC Lattice, which handles the connections to the AWS infrastructure, and Kubernetes Gateway API calls to manage Kubernetes objects. 
+The AWS Gateway API Controller lets you connect services across multiple Kubernetes clusters through a Gateway API interface.
+It is also designed to connect services running on EC2 instances, containers, and as serverless functions.
+It does this by leveraging AWS VPC Lattice, which works with Kubernetes Gateway API calls to manage Kubernetes objects. 
 
 This document describes how to set up the AWS Gateway API Controller and provides example use cases.
 With the controller deployed and running, you will be able to manage services for multiple Kubernetes clusters and other targets on AWS through the following:
 
-* **CLI**: Use `aws` and `eksctl` to create clusters and set up AWS policies. Use `helm` to deploy the controller. Then use `kubectl` and YAML files to set up Kubernetes objects.
+* **CLI**: Use `aws` and `eksctl` to create clusters and set up AWS policies. Then use `kubectl` and YAML files to set up Kubernetes objects.
 * **AWS Console**: View VPC Lattice assets through the VPC area of the AWS console.
 
 While separating the application developer from the details of the underling infrastructure, the controller also provides a Kubernetes-native experience, rather than creating a lot of new AWS ways of managing services.
@@ -15,7 +16,9 @@ This lets you work with Kubernetes service-related resources using Kubernetes AP
 
 For more information on this technology, see [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/). 
 
-**NOTE**: If you are new to the VPC Lattice service, keep in mind that names you use for objects must be unique across your entire account and not just across each cluster used by that account.
+A few things to keep in mind:
+* If you are new to the VPC Lattice service, keep in mind that names you use for objects must be unique across your entire account and not just across each cluster used by that account.
+* Your AWS CNI must be v1.8.0 or later to work with VPC Lattice.
 
 ## Deploying the Gateway API Controller
 
@@ -26,7 +29,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    eksctl create cluster —name <my-cluster> —region us-west-2
    ```
-1. Configure security group: To receive traffic from the VPC Lattice fleet, all Pods MUST explicitly configure a security group to allow traffic from the 169.254.171.0/24 address range.
+1. Configure security group: To receive traffic from the VPC Lattice fleet, you must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic on all ports from the 169.254.171.0/24 address range. See [Control traffic to resources using security groups](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html) for details.
 
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
@@ -41,7 +44,7 @@ Run through them again for a second cluster to use with the extended example sho
                "Effect": "Allow",
                "Action": [
                    "vpc-lattice:",
-                   "iam:CreateServiceLinkedRole",
+                   "ia:CreateServiceLinkedRole",
                    "ec2:DescribeVpcs",
                    "ec2:DescribeSubnets"
                ],
@@ -98,7 +101,7 @@ This example creates a single cluster in a single VPC, then configures two route
    ```bash
    kubectl apply -f examples/my-hotel-gateway.yaml
    ```
-1. Verify that `my-hotel` gateway is created:
+1. Verify that `my-hotel` gateway is created (this could take about five minutes):
    ```bash
    kubectl get gateway  
    ```
@@ -106,7 +109,7 @@ This example creates a single cluster in a single VPC, then configures two route
    NAME       CLASS         ADDRESS   READY   AGE
    my-hotel   aws-lattice                     7d12h
    ```
-1. Find the VPC Lattice service network:
+1. Once the gateway is created, find the VPC Lattice service network:
    ```bash
    kubectl get gateway my-hotel -o yaml
    ```
@@ -126,7 +129,7 @@ This example creates a single cluster in a single VPC, then configures two route
    kubectl apply -f examples/review.yaml
    kubectl apply -f examples/rate-route-path.yaml
    ```
-1. Create the Kubernetes HTTPRoute inventory:
+1. Create the Kubernetes HTTPRoute inventory (this could take about five minutes):
    ```bash
    kubectl apply -f examples/inventory-ver1.yaml
    kubectl apply -f examples/inventory-route.yaml
@@ -168,41 +171,9 @@ This example creates a single cluster in a single VPC, then configures two route
    ...
    </pre>
 
-**Check Access to Services**
+**Check service connectivity**
 
-1. During preview, you are required to install the VPC Lattice CLI:
-   ```bash
-   aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/vpc-lattice/2022-11-30/api-2.json --service-name vpc-lattice
-   ```
-1. Use the VPC Lattice CLI to find the DNS name. You can use the `curl` command to get information about each service by adding the service name to the end of the HTTPRoute DNS name. Those names are gathered from AWS Route53 instead of Kubernetes CoreDNS.
-   ```bash
-   aws vpc-lattice list-services \
-     --endpoint-url=https://vpc-service-network.us-west-2.amazonaws.com (https://vpc-service-network.us-west-2.amazonaws.com/)
-   ```
-   ```
-   {
-       "items": [
-           {
-               "status": "ACTIVE", 
-               "name": "rates", 
-               "lastUpdatedAt": "2022-09-07T03:58:50.646Z", 
-               "arn": "arn:aws:vpc-service-network:us-west-2:694065802095:service/svc-00422586e3362607e", 
-               "id": "svc-00422586e3362607e", 
-               "createdAt": "2022-09-07T03:58:23.528Z"
-           }, 
-           {
-               "status": "ACTIVE", 
-               "name": "inventory", 
-               "lastUpdatedAt": "2022-09-07T04:12:33.518Z", 
-               "arn": "arn:aws:vpc-service-network:us-west-2:694065802095:service/svc-0cd1a223d518754f3", 
-               "id": "svc-0cd1a223d518754f3", 
-               "createdAt": "2022-09-07T04:12:06.857Z"
-           }, 
-           ...
-    }       
-   ```
 1. Check Service-Inventory Pod access for Service-Rates/parking or Service-Rates/review by execing into the pod, then curling each service.
-(Make sure security group is configured to allow 169.254.0.0/16 to receive traffic from lattice fleet.)
    ```bash
    kubectl get pod
    ```
@@ -215,6 +186,7 @@ This example creates a single cluster in a single VPC, then configures two route
    review-5888566ff6-2plsj                 1/1     Running   0          101m
    review-5888566ff6-89fqk                 1/1     Running   0          101m
    ```
+1. Exec into an inventory pod to check connectivity to parking and review services:
    ```bash
    kubectl exec -ti inventory-ver1-7bb6989d9d-2p2hk sh
    ```
@@ -225,23 +197,34 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
    Requesting to Pod(parking-6cdcd5b4b4-g8dkb): parking handler pod
    ```
-1. From inside of the pod, use `curl` to connect to the inventory service:
+1. From inside of the pod, use `curl` to connect to the review service:
    ```bash
-   curl rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/inventory 
+   curl rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/review 
    ```
    ```
-   Requesting to Pod(inventory-5888566ff6-89fqk): inventory handler pod
+   Requesting to Pod(review-5888566ff6-89fqk): review handler pod
    ```
 1. Exit the pod:
    ```bash
    exit
+   ```
+1. Exec into a parking pod to check connectivity to the inventory-ver1 service:
+   ```bash
+   kubectl exec -ti parking-6cdcd5b4b4-bbzvt sh
+   ```
+1. From inside of the parking pod, use `curl` to connect to the inventory-ver1 service:
+   ```bash
+   curl inventory-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/invertory-ver1
+   ```
+   ```
+   Requesting to Pod(inventory-ver1-7bb6989d9d-2p2hk): inventory-ver1 handler pod 
    ```
 ### Set up multi-cluster/multi-VPC service-to-service communications
 
 This sections builds on the previous section by migrating a Kubernetes service (HTTPRoute inventory) from one Kubernetes cluster to a different Kubernetes cluster.
 For example, it will:
 
-* Migrate the Kubernetes inventory service from a Kubernetes v1.19 cluster to a Kubernetes v1.21 cluster in a different VPC.
+* Migrate the Kubernetes inventory service from a Kubernetes v1.21 cluster to a Kubernetes v1.23 cluster in a different VPC.
 * Scale up the Kubernetes inventory service to run it in another cluster (and another VPC) in addition to the current cluster.
 
 The following figure illustrates this:
@@ -270,12 +253,11 @@ The following figure illustrates this:
    ```bash
    kubectl config use-context <yourcluster2info>
    ```
-
 1. Import the Kubernetes inventory-ver2 into first cluster (Note: only if you have a single cloud desktop):
    ```bash
    kubectl apply -f examples/inventory-ver2-import.yaml
    ```
-1. Update the HTTPRoute inventory to route 90% traffic to the first cluster and 10% traffic to the second cluster:
+1. Update the HTTPRoute inventory to route 10% traffic to the first cluster and 90% traffic to the second cluster:
    ```bash
    kubectl apply -f examples/inventory-route-bluegreen.yaml
    ```
@@ -288,13 +270,13 @@ The following figure illustrates this:
    curl inventory-0cd1a223d518754f3.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com
    ```
    ```
-   Requsting to Pod(inventory-ver1-7bb6989d9d-2p2hk): inventory-ver1 handler pod <----> in 1st cluster
+   Requesting to Pod(inventory-ver1-7bb6989d9d-2p2hk): inventory-ver1 handler pod <----> in 1st cluster
    ```
    ```bash
    curl inventory-0cd1a223d518754f3.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com
    ```
    ```
-   Requsting to Pod(inventory-ver2-7bb6989d9d-2p2hk): inventory-ver2 handler pod <----> in 2nd cluster
+   Requesting to Pod(inventory-ver2-7bb6989d9d-2p2hk): inventory-ver2 handler pod <----> in 2nd cluster
    ```
 ## Understanding the Gateway API Controller
 
@@ -308,7 +290,7 @@ Someone wanting to run an application that is spread out in this way might find 
 * Network connectivity and traffic routing
 
 This is not a new problem.
-A common approach to interconnecting services that span multiple VPCs is to use service meshes, such as Istio or AWS App Mesh. But these require sidecars, which can introduce scaling problems and present their own management challenges.  
+A common approach to interconnecting services that span multiple VPCs is to use service meshes. But these require sidecars, which can introduce scaling problems and present their own management challenges.  
 
 If you just want to run an application, you should be shielded from details needed to find assets across what are essentially multiple virtual data centers (represented by multiple VPCs). You should also have consistent ways of working with assets across your VPCs, even if those assets include different combinations of instances, clusters, containers, and serverless. And while making it simpler to run multi-VPC applications easier for users, administrators still need the tools to control and audit their resources to suit their company’s compliance needs.
 
@@ -366,6 +348,3 @@ Notice that the Kubernetes Gateway API syntax is used to create the gateway, HTT
 * Application developer: Creates HTTPRoute objects that point to Kubernetes services, which in turn are directed to particular pods, in this case.
   This is all done by checking the related VPC Lattice Services (and related policies), Target Groups, and Targets
   Keep in mind that Target Groups v1 and v2 can be on different clusters in different VPCs.
-
-## Further information
-
