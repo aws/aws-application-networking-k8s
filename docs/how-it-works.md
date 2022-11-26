@@ -44,7 +44,7 @@ Run through them again for a second cluster to use with the extended example sho
                "Effect": "Allow",
                "Action": [
                    "vpc-lattice:",
-                   "ia:CreateServiceLinkedRole",
+                   "iam:CreateServiceLinkedRole",
                    "ec2:DescribeVpcs",
                    "ec2:DescribeSubnets"
                ],
@@ -214,7 +214,7 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
 1. From inside of the parking pod, use `curl` to connect to the inventory-ver1 service:
    ```bash
-   curl inventory-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/invertory-ver1
+   curl inventory-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com
    ```
    ```
    Requesting to Pod(inventory-ver1-7bb6989d9d-2p2hk): inventory-ver1 handler pod 
@@ -253,7 +253,7 @@ The following figure illustrates this:
    ```bash
    kubectl config use-context <yourcluster2info>
    ```
-1. Import the Kubernetes inventory-ver2 into first cluster (Note: only if you have a single cloud desktop):
+1. Import the Kubernetes inventory-ver2 into first cluster:
    ```bash
    kubectl apply -f examples/inventory-ver2-import.yaml
    ```
