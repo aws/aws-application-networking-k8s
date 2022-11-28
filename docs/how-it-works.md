@@ -12,7 +12,7 @@ With the controller deployed and running, you will be able to manage services fo
 
 While separating the application developer from the details of the underling infrastructure, the controller also provides a Kubernetes-native experience, rather than creating a lot of new AWS ways of managing services.
 It does this by integrating with the Kubernetes Gateway API.
-This lets you work with Kubernetes service-related resources using Kubernetes APIs and custom resource definitions (CRDs).
+This lets you work with Kubernetes service-related resources using Kubernetes APIs and custom resource definitions (CRDs) defined by the Kubernetes [networking.k8s.io specification](https://gateway-api.sigs.k8s.io/references/spec/).
 
 For more information on this technology, see [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/). 
 
