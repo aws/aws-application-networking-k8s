@@ -20,7 +20,7 @@ A few things to keep in mind:
 * If you are new to the VPC Lattice service, keep in mind that names you use for objects must be unique across your entire account and not just across each cluster used by that account.
 * Your AWS CNI must be v1.8.0 or later to work with VPC Lattice.
 
-## Deploying the Gateway API Controller
+## Deploying the AWS Gateway API Controller
 
 Follow these instructions to create a cluster and deploy the AWS Gateway API Controller.
 Run through them again for a second cluster to use with the extended example shown later.
@@ -43,12 +43,12 @@ Run through them again for a second cluster to use with the extended example sho
            {
                "Effect": "Allow",
                "Action": [
-                   "vpc-lattice:",
+                   "vpc-lattice:*",
                    "iam:CreateServiceLinkedRole",
                    "ec2:DescribeVpcs",
                    "ec2:DescribeSubnets"
                ],
-               "Resource": ""
+               "Resource": "*"
            }
        ]
    }
@@ -82,10 +82,11 @@ Run through them again for a second cluster to use with the extended example sho
    kubectl apply -f examples/deploy-v0.0.1.yaml
    ```
 
-## Using the Gateway API Controller
+## Using the AWS Gateway API Controller
 
 The first part of this section provides an example of setting up of service-to-service communications on a single cluster.
 The second section extends that example by creating another inventory service on a second cluster on a different VPC, and spreading traffic to that service across the two clusters and VPCs.
+Both clusters are created using `eksctl`, with both clusters created from the same account by the same cluster admin.
 
 ### Set up single-cluster/VPC service-to-service communications
 
@@ -239,7 +240,7 @@ The following figure illustrates this:
 
 1. Switch you credentials to use the second cluster
 
-1. Create a Kubernetes inventory in the second cluster:
+1. Create a Kubernetes inventory-ver2 service in the second cluster:
    ```bash
    kubectl apply -f examples/inventory-ver2.yaml
    ```
