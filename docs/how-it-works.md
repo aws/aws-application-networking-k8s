@@ -27,7 +27,7 @@ Run through them again for a second cluster to use with the extended example sho
 
 1. You can use an existing EKS cluster or create a new one as shown here:
    ```bash
-   eksctl create cluster —name <my-cluster> —region us-west-2
+   eksctl create cluster --name <my-cluster> --region us-west-2
    ```
 1. Configure security group: To receive traffic from the VPC Lattice fleet, you must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic on all ports from the 169.254.171.0/24 address range. See [Control traffic to resources using security groups](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html) for details.
 
@@ -62,7 +62,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```
 1. Create the `system` namespace:
    ```bash
-   kubectl apply -f examples/deploy_namespace.yaml
+   kubectl apply -f examples/deploy-namesystem.yaml
    ```
 
 1. Create an iamserviceaccount for pod level permission:
@@ -80,6 +80,11 @@ Run through them again for a second cluster to use with the extended example sho
 1. Run the following to deploy the controller:
    ```bash
    kubectl apply -f examples/deploy-v0.0.1.yaml
+   ```
+
+1. Create the amazon-vpc-lattice GatewayClass:
+   ```bash
+   kubectl apply -f examples/gatewayclass.yaml
    ```
 
 ## Using the AWS Gateway API Controller
@@ -140,13 +145,13 @@ This example creates a single cluster in a single VPC, then configures two route
    kubectl get httproute
    ```
    ```
-   NAME      HOSTNAMES   AGE
-   httpbin               5h9m
-   parking               17h
+   NAME        HOSTNAMES   AGE
+   inventory               51s
+   rates                   6m11s
    ```
 1. List the route’s yaml file to see the DNS address (highlighted here on the `message` line):
    ```bash
-   kubectl get httproute parking -o yaml
+   kubectl get httproute inventory -o yaml
    ```
    <pre>
    apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -154,13 +159,13 @@ This example creates a single cluster in a single VPC, then configures two route
    metadata:
      annotations:
        kubectl.kubernetes.io/last-applied-configuration: |
-         {"apiVersion":"gateway.networking.k8s.io/v1alpha2","kind":"HTTPRoute","metadata":{"annotations":{},"name":"parking","namespace":"default"}... }}]}]}}
+         {"apiVersion":"gateway.networking.k8s.io/v1alpha2","kind":"HTTPRoute","metadata":{"annotations":{},"name":"inventory","namespace":"default"}... }}]}]}}
    ...
    status:
      parents:
      - conditions:
        - lastTransitionTime: "2022-11-22T02:29:22Z"
-         message: 'DNS Name: <b><i>parking-default-0f326944c3d681c0d.7d67968.vpc-lattice-svcs.us-west-2.on.aws</i></b>'
+         message: 'DNS Name: <b><i>inventory-default-0f326944c3d681c0d.7d67968.vpc-lattice-svcs.us-west-2.on.aws</i></b>'
          reason: Reconciled
          status: "True"
          type: httproute
@@ -171,6 +176,10 @@ This example creates a single cluster in a single VPC, then configures two route
          name: my-hotel
    ...
    </pre>
+   
+   ```bash
+   kubectl get rates inventory -o yaml
+   ```
 
 **Check service connectivity**
 
@@ -274,10 +283,20 @@ The following figure illustrates this:
    Requesting to Pod(inventory-ver1-7bb6989d9d-2p2hk): inventory-ver1 handler pod <----> in 1st cluster
    ```
    ```bash
-   curl inventory-0cd1a223d518754f3.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com
+   for ((i=1;i<=30;i++)); do   curl   "inventory-default-0f89d8ff5e98400d0.7d67968.vpc-lattice-svcs.us-west-2.on.aws"; done
    ```
    ```
-   Requesting to Pod(inventory-ver2-7bb6989d9d-2p2hk): inventory-ver2 handler pod <----> in 2nd cluster
+   Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod
+Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
+Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod <----> in 1st cluster
+Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
+
    ```
 ## Understanding the Gateway API Controller
 
