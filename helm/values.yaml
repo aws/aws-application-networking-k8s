@@ -4,7 +4,7 @@
 
 image:
   repository: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller
-  tag: v0.0.1
+  tag: v0.0.2
   pullPolicy: IfNotPresent
   pullSecrets: []
 
@@ -63,7 +63,7 @@ installScope: cluster
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: true
+  create: false
   # The name of the service account to use.
   name: gateway-api-controller
   annotations: {}
