@@ -108,6 +108,8 @@ git checkout -b release-$RELEASE_VERSION
 
 Open `helm/Chart.yaml` and change the `version` and `appVersion` to match the `$RELEASE_VERSION`.
 
+Open `helm/values.yaml` and change the `image.tag` value to match the `$RELEASE_VERSION`.
+
 3. Create a Git commit for the new release artifacts.
 
 ```bash
