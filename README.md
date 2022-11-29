@@ -91,6 +91,11 @@ kubectl apply -f deploy.yaml
 Step 4: Deploy using helm Chart
 
 ```
+# login ECR
+aws ecr-public get-login-password --region us-east-1 | helm registry login --username AWS --password-stdin public.ecr.aws
+```
+
+```
 helm install(or upgrade) gateway-api-controller \
 oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
  --version=v0.0.2 \
