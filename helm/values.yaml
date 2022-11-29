@@ -63,7 +63,7 @@ installScope: cluster
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: false
+  create: true
   # The name of the service account to use.
   name: gateway-api-controller
   annotations: {}
