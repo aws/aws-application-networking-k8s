@@ -82,10 +82,19 @@ eksctl create iamserviceaccount \
 --approve
 ```
 
-Step 4: deploy into cluster
+Step 4: Deploy into cluster using generated deploy.yaml
 
 ```
 kubectl apply -f deploy.yaml
+```
+
+Step 4: Deploy using helm Chart
+
+```
+helm install(or upgrade) gateway-api-controller \
+oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
+ --version=v0.0.2 \
+ --set=aws.region=us-west-2 --set=serviceAccount.create=false --namespace system
 ```
 
 
