@@ -52,26 +52,27 @@ Run through them again for a second cluster to use with the extended example sho
            }
        ]
    }
-   
-   }
    ```
    ```bash
    aws iam create-policy \
       --policy-name VPCLatticeControllerIAMPolicy \
-      --policy-document file://recommended-inline-policy.json
+      --policy-document file://examples/recommended-inline-policy.json
    ```
 1. Create the `system` namespace:
    ```bash
    kubectl apply -f examples/deploy-namesystem.yaml
    ```
-
+1. Retrieve the policy ARN:
+   ```bash
+   export VPCLatticeControllerIAMPolicyArn=$(aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text)
+   ```
 1. Create an iamserviceaccount for pod level permission:
    ```bash
    eksctl create iamserviceaccount \
-      --cluster=<my-cluster-name> \
+      --cluster=<my-cluster> \
       --namespace=system \
       --name=gateway-api-controller \
-      --attach-policy-arn=<VPCLatticeControllerIAMPolicy ARN CREATED IN create-policy STEP> \
+      --attach-policy-arn=$VPCLatticeControllerIAMPolicyArn \
       --override-existing-serviceaccounts \
       --region us-west-2 \
       --approve
@@ -239,7 +240,7 @@ For example, it will:
 
 The following figure illustrates this:
 
-![Multiple clusters/VPCs ervice-to-service communications](images/example2.png)
+![Multiple clusters/VPCs service-to-service communications](images/example2.png)
 
 **Steps**
 
@@ -247,8 +248,14 @@ The following figure illustrates this:
 
 1. Create a second cluster (using the same instructions used to create the first).
 
-1. Switch you credentials to use the second cluster
-
+1. Ensure you're using the second cluster profile. 
+   ```bash
+   kubectl config get-contexts 
+   ```
+   If your profile is set to the first cluster, switch your credentials to use the second cluster:
+   ```bash
+   kubectl config use-context <yourcluster2info>
+   ```
 1. Create a Kubernetes inventory-ver2 service in the second cluster:
    ```bash
    kubectl apply -f examples/inventory-ver2.yaml
@@ -261,7 +268,7 @@ The following figure illustrates this:
 
 1. Switch credentials back to the first cluster
    ```bash
-   kubectl config use-context <yourcluster2info>
+   kubectl config use-context <yourcluster1info>
    ```
 1. Import the Kubernetes inventory-ver2 into first cluster:
    ```bash
@@ -276,28 +283,23 @@ The following figure illustrates this:
    kubectl exec -ti parking-6cdcd5b4b4-bbzvt sh
    ```
 1. From inside of the pod, use `curl` to connect to the inventory service:
-   ```bash
-   curl inventory-0cd1a223d518754f3.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com
-   ```
-   ```
-   Requesting to Pod(inventory-ver1-7bb6989d9d-2p2hk): inventory-ver1 handler pod <----> in 1st cluster
-   ```
+ 
    ```bash
    for ((i=1;i<=30;i++)); do   curl   "inventory-default-0f89d8ff5e98400d0.7d67968.vpc-lattice-svcs.us-west-2.on.aws"; done
    ```
    ```
-   Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod
-Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
-Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod <----> in 1st cluster
-Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
-
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod <----> in 1st cluster
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
    ```
+   You can see that the traffic is distributed between *inventory-ver1* and *inventory-ver2* as expected.
+
 ## Understanding the Gateway API Controller
 
 For medium and large-scale customers, applications can often spread across multiple areas of a cloud.
