@@ -56,7 +56,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    aws iam create-policy \
       --policy-name VPCLatticeControllerIAMPolicy \
-      --policy-document file://config/iam/recommended-inline-policy.json
+      --policy-document file://examples/recommended-inline-policy.json
    ```
 1. Create the `system` namespace:
    ```bash
