@@ -94,11 +94,11 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		createTargetGroupInput.Tags[latticemodel.K8SServiceNamespaceKey] = &tgSpec.Config.K8SServiceNamespace
 
 		if tg_type == "by-serviceexport" {
-			value := latticemodel.K8SIsServiceExport
-			createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
+			value := latticemodel.K8SServiceExportType
+			createTargetGroupInput.Tags[latticemodel.K8SParentRefTypeKey] = &value
 		} else if tg_type == "by-backendref" {
-			value := latticemodel.K8SIsNotServiceExport
-			createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
+			value := latticemodel.K8SHTTPRouteType
+			createTargetGroupInput.Tags[latticemodel.K8SParentRefTypeKey] = &value
 			createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNameKey] = &tgSpec.Config.K8SHTTPRouteName
 			createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNamespaceKey] = &tgSpec.Config.K8SHTTPRouteNamespace
 		}

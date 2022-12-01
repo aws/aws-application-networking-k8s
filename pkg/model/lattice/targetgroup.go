@@ -7,11 +7,11 @@ import (
 const (
 	K8SServiceNameKey        = "K8SServiceName"
 	K8SServiceNamespaceKey   = "K8SServiceNamespace"
-	K8SIsServiceExportKey    = "K8SIsServiceExport"
+	K8SParentRefTypeKey      = "K8SParentRefTypeKey"
 	K8SHTTPRouteNameKey      = "K8SHTTPRouteName"
 	K8SHTTPRouteNamespaceKey = "K8SHTTPRouteNamespace"
-	K8SIsServiceExport       = "true"
-	K8SIsNotServiceExport    = "false"
+	K8SServiceExportType     = "K8SServiceExportType"
+	K8SHTTPRouteType         = "K8SHTTPRouteType"
 )
 
 type TargetGroup struct {

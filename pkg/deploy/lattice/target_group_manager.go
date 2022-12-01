@@ -78,11 +78,11 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 	createTargetGroupInput.Tags[latticemodel.K8SServiceNameKey] = &targetGroup.Spec.Config.K8SServiceName
 	createTargetGroupInput.Tags[latticemodel.K8SServiceNamespaceKey] = &targetGroup.Spec.Config.K8SServiceNamespace
 	if targetGroup.Spec.Config.IsServiceExport {
-		value := latticemodel.K8SIsServiceExport
-		createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
+		value := latticemodel.K8SServiceExportType
+		createTargetGroupInput.Tags[latticemodel.K8SParentRefTypeKey] = &value
 	} else {
-		value := latticemodel.K8SIsNotServiceExport
-		createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
+		value := latticemodel.K8SHTTPRouteType
+		createTargetGroupInput.Tags[latticemodel.K8SParentRefTypeKey] = &value
 		createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNameKey] = &targetGroup.Spec.Config.K8SHTTPRouteName
 		createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNamespaceKey] = &targetGroup.Spec.Config.K8SHTTPRouteNamespace
 	}
