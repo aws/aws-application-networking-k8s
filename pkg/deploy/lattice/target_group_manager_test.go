@@ -21,69 +21,99 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
-	// testing targetgroup for serviceexport
-	tgSpec := latticemodel.TargetGroupSpec{
-		Name: "test",
-		Config: latticemodel.TargetGroupConfig{
-			Port:                int32(8080),
-			Protocol:            "HTTP",
-			VpcID:               config.VpcID,
-			EKSClusterName:      "",
-			IsServiceImport:     false,
-			IsServiceExport:     true,
-			K8SServiceName:      "exportsvc1",
-			K8SServiceNamespace: "default",
-		},
-	}
-	tgCreateInput := latticemodel.TargetGroup{
-		ResourceMeta: core.ResourceMeta{},
-		Spec:         tgSpec,
-	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	arn := "12345678912345678912"
-	id := "12345678912345678912"
-	name := "test"
-	tgStatus := vpclattice.TargetGroupStatusActive
-	tgCreateOutput := &vpclattice.CreateTargetGroupOutput{
-		Arn:    &arn,
-		Id:     &id,
-		Name:   &name,
-		Status: &tgStatus,
-	}
-	p := int64(8080)
-	prot := "HTTP"
-	emptystring := ""
-	config := &vpclattice.TargetGroupConfig{
-		Port:            &p,
-		Protocol:        &prot,
-		VpcIdentifier:   &config.VpcID,
-		ProtocolVersion: &emptystring,
-	}
+	tg_types := [2]string{"by-backendref", "by-serviceexport"}
 
-	createTargetGroupInput := vpclattice.CreateTargetGroupInput{
-		Config: config,
-		Name:   &name,
-		Type:   &emptystring,
-		Tags:   make(map[string]*string),
+	for _, tg_type := range tg_types {
+		var tgSpec latticemodel.TargetGroupSpec
+
+		if tg_type == "by-serviceexport" {
+			// testing targetgroup for serviceexport
+			tgSpec = latticemodel.TargetGroupSpec{
+				Name: "test",
+				Config: latticemodel.TargetGroupConfig{
+					Port:                int32(8080),
+					Protocol:            "HTTP",
+					VpcID:               config.VpcID,
+					EKSClusterName:      "",
+					IsServiceImport:     false,
+					IsServiceExport:     true,
+					K8SServiceName:      "exportsvc1",
+					K8SServiceNamespace: "default",
+				},
+			}
+		} else if tg_type == "by-backendref" {
+			// testing targetgroup for serviceexport
+			tgSpec = latticemodel.TargetGroupSpec{
+				Name: "test",
+				Config: latticemodel.TargetGroupConfig{
+					Port:                  int32(8080),
+					Protocol:              "HTTP",
+					VpcID:                 config.VpcID,
+					EKSClusterName:        "",
+					IsServiceImport:       false,
+					IsServiceExport:       false,
+					K8SServiceName:        "backend-svc1",
+					K8SServiceNamespace:   "default",
+					K8SHTTPRouteName:      "httproute1",
+					K8SHTTPRouteNamespace: "default",
+				},
+			}
+		}
+		tgCreateInput := latticemodel.TargetGroup{
+			ResourceMeta: core.ResourceMeta{},
+			Spec:         tgSpec,
+		}
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
+		arn := "12345678912345678912"
+		id := "12345678912345678912"
+		name := "test"
+		tgStatus := vpclattice.TargetGroupStatusActive
+		tgCreateOutput := &vpclattice.CreateTargetGroupOutput{
+			Arn:    &arn,
+			Id:     &id,
+			Name:   &name,
+			Status: &tgStatus,
+		}
+		p := int64(8080)
+		prot := "HTTP"
+		emptystring := ""
+		config := &vpclattice.TargetGroupConfig{
+			Port:            &p,
+			Protocol:        &prot,
+			VpcIdentifier:   &config.VpcID,
+			ProtocolVersion: &emptystring,
+		}
+
+		createTargetGroupInput := vpclattice.CreateTargetGroupInput{
+			Config: config,
+			Name:   &name,
+			Type:   &emptystring,
+			Tags:   make(map[string]*string),
+		}
+		createTargetGroupInput.Tags[latticemodel.K8SServiceNameKey] = &tgSpec.Config.K8SServiceName
+		createTargetGroupInput.Tags[latticemodel.K8SServiceNamespaceKey] = &tgSpec.Config.K8SServiceNamespace
+
+		if tg_type == "by-serviceexport" {
+			value := latticemodel.K8SIsServiceExport
+			createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
+		} else if tg_type == "by-backendref" {
+			value := "false"
+			createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
+		}
+
+		listTgOutput := []*vpclattice.TargetGroupSummary{}
+
+		mockCloud := mocks_aws.NewMockCloud(c)
+		mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+		mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, &createTargetGroupInput).Return(tgCreateOutput, nil)
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+		tgManager := NewTargetGroupManager(mockCloud)
+		resp, err := tgManager.Create(ctx, &tgCreateInput)
+
+		assert.Nil(t, err)
+		assert.Equal(t, resp.TargetGroupARN, arn)
+		assert.Equal(t, resp.TargetGroupID, id)
 	}
-	createTargetGroupInput.Tags[latticemodel.K8SServiceNameKey] = &tgSpec.Config.K8SServiceName
-	createTargetGroupInput.Tags[latticemodel.K8SServiceNamespaceKey] = &tgSpec.Config.K8SServiceNamespace
-
-	value := latticemodel.K8SIsServiceExport
-	createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
-
-	listTgOutput := []*vpclattice.TargetGroupSummary{}
-
-	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, &createTargetGroupInput).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
-	tgManager := NewTargetGroupManager(mockCloud)
-	resp, err := tgManager.Create(ctx, &tgCreateInput)
-
-	assert.Nil(t, err)
-	assert.Equal(t, resp.TargetGroupARN, arn)
-	assert.Equal(t, resp.TargetGroupID, id)
 }
 
 // target group status is failed, and is active after creation
