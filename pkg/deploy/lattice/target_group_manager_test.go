@@ -21,14 +21,18 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 
+	// testing targetgroup for serviceexport
 	tgSpec := latticemodel.TargetGroupSpec{
 		Name: "test",
 		Config: latticemodel.TargetGroupConfig{
-			Port:            int32(8080),
-			Protocol:        "HTTP",
-			VpcID:           config.VpcID,
-			EKSClusterName:  "",
-			IsServiceImport: false,
+			Port:                int32(8080),
+			Protocol:            "HTTP",
+			VpcID:               config.VpcID,
+			EKSClusterName:      "",
+			IsServiceImport:     false,
+			IsServiceExport:     true,
+			K8SServiceName:      "exportsvc1",
+			K8SServiceNamespace: "default",
 		},
 	}
 	tgCreateInput := latticemodel.TargetGroup{
@@ -60,7 +64,13 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		Config: config,
 		Name:   &name,
 		Type:   &emptystring,
+		Tags:   make(map[string]*string),
 	}
+	createTargetGroupInput.Tags[latticemodel.K8SServiceNameKey] = &tgSpec.Config.K8SServiceName
+	createTargetGroupInput.Tags[latticemodel.K8SServiceNamespaceKey] = &tgSpec.Config.K8SServiceNamespace
+
+	value := latticemodel.K8SIsServiceExport
+	createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
 
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
