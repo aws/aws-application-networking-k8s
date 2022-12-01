@@ -184,9 +184,12 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		Config: latticemodel.TargetGroupConfig{
 			VpcID: config.VpcID,
 			//Port:            backendServicePort,
-			IsServiceImport: false,
-			Protocol:        "HTTP",
-			ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+			IsServiceImport:     false,
+			IsServiceExport:     true,
+			K8SServiceName:      t.serviceExport.Name,
+			K8SServiceNamespace: t.serviceExport.Namespace,
+			Protocol:            "HTTP",
+			ProtocolVersion:     vpclattice.TargetGroupProtocolVersionHttp1,
 		},
 	}
 

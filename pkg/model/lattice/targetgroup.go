@@ -4,6 +4,16 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
+const (
+	K8SServiceNameKey        = "K8SServiceName"
+	K8SServiceNamespaceKey   = "K8SServiceNamespace"
+	K8SIsServiceExportKey    = "K8SIsServiceExport"
+	K8SHTTPRouteNameKey      = "K8SHTTPRouteName"
+	K8SHTTPRouteNamespaceKey = "K8SHTTPRouteNamespace"
+	K8SIsServiceExport       = "true"
+	K8SIsNotServiceExport    = "false"
+)
+
 type TargetGroup struct {
 	core.ResourceMeta `json:"-"`
 	Spec              TargetGroupSpec    `json:"spec"`
@@ -25,6 +35,12 @@ type TargetGroupConfig struct {
 	VpcID           string `json:"vpcid"`
 	EKSClusterName  string `json:"eksclustername"`
 	IsServiceImport bool   `json:"serviceimport"`
+	// the following fields are used for AWS resource tagging
+	IsServiceExport       bool   `json:"serviceexport"`
+	K8SServiceName        string `json:"k8sservice"`
+	K8SServiceNamespace   string `json:"k8sservicenamespace"`
+	K8SHTTPRouteName      string `json:"k8shttproutename"`
+	K8SHTTPRouteNamespace string `json:"k8shttproutenamespace"`
 }
 
 type TargetGroupStatus struct {

@@ -73,7 +73,20 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 		Config: config,
 		Name:   &targetGroup.Spec.Name,
 		Type:   &targetGroupType,
+		Tags:   make(map[string]*string),
 	}
+	createTargetGroupInput.Tags[latticemodel.K8SServiceNameKey] = &targetGroup.Spec.Config.K8SServiceName
+	createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNamespaceKey] = &targetGroup.Spec.Config.K8SServiceNamespace
+	if targetGroup.Spec.Config.IsServiceExport {
+		value := latticemodel.K8SIsServiceExport
+		createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
+	} else {
+		value := latticemodel.K8SIsNotServiceExport
+		createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
+		createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNameKey] = &targetGroup.Spec.Config.K8SHTTPRouteName
+		createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNamespaceKey] = &targetGroup.Spec.Config.K8SHTTPRouteNamespace
+	}
+
 	vpcLatticeSess := s.cloud.Lattice()
 	resp, err := vpcLatticeSess.CreateTargetGroupWithContext(ctx, &createTargetGroupInput)
 	glog.V(2).Infof("create target group >>>> req [%v], resp[%v] err[%v]\n", createTargetGroupInput, resp, err)
