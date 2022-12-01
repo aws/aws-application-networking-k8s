@@ -97,8 +97,10 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			value := latticemodel.K8SIsServiceExport
 			createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
 		} else if tg_type == "by-backendref" {
-			value := "false"
+			value := latticemodel.K8SIsNotServiceExport
 			createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
+			createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNameKey] = &tgSpec.Config.K8SHTTPRouteName
+			createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNamespaceKey] = &tgSpec.Config.K8SHTTPRouteNamespace
 		}
 
 		listTgOutput := []*vpclattice.TargetGroupSummary{}
