@@ -76,7 +76,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 		Tags:   make(map[string]*string),
 	}
 	createTargetGroupInput.Tags[latticemodel.K8SServiceNameKey] = &targetGroup.Spec.Config.K8SServiceName
-	createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNamespaceKey] = &targetGroup.Spec.Config.K8SServiceNamespace
+	createTargetGroupInput.Tags[latticemodel.K8SServiceNamespaceKey] = &targetGroup.Spec.Config.K8SServiceNamespace
 	if targetGroup.Spec.Config.IsServiceExport {
 		value := latticemodel.K8SIsServiceExport
 		createTargetGroupInput.Tags[latticemodel.K8SIsServiceExportKey] = &value
