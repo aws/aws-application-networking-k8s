@@ -813,12 +813,21 @@ func Test_ListTG_TGsExist(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
 	mockVpcLatticeSess.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG1, nil)
+	// assume no tags
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, errors.New("no tags"))
 	mockVpcLatticeSess.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG2, nil)
+
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 
 	tgManager := NewTargetGroupManager(mockCloud)
 	tgList, err := tgManager.List(ctx)
-	expect := []vpclattice.GetTargetGroupOutput{*getTG1}
+	expect := []targetGroupOutput{
+		{
+			getTargetGroupOutput: *getTG1,
+			targetGroupTags:      nil,
+		},
+	}
+	//expect := []vpclattice.GetTargetGroupOutput{*getTG1}
 
 	assert.Nil(t, err)
 	assert.Equal(t, tgList, expect)
@@ -837,9 +846,10 @@ func Test_ListTG_NoTG(t *testing.T) {
 
 	tgManager := NewTargetGroupManager(mockCloud)
 	tgList, err := tgManager.List(ctx)
+	expectTgList := []targetGroupOutput(nil)
 
 	assert.Nil(t, err)
-	assert.Equal(t, tgList, []vpclattice.GetTargetGroupOutput(nil))
+	assert.Equal(t, tgList, expectTgList)
 }
 
 func Test_Get(t *testing.T) {
