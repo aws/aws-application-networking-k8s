@@ -169,8 +169,8 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 	for _, sdkTG := range sdkTGs {
 
 		if *sdkTG.getTargetGroupOutput.Config.VpcIdentifier != config.VpcID {
-			glog.V(2).Infof("Ignore target group ARN %v Name %v for other VPCs", 
-			*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+			glog.V(2).Infof("Ignore target group ARN %v Name %v for other VPCs",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
 
@@ -178,15 +178,15 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		tgTags := sdkTG.targetGroupTags
 
 		if tgTags == nil || tgTags.Tags == nil {
-			glog.V(2).Infof("Ignore target group not tagged for K8S, %v, %v \n", 
-			*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+			glog.V(2).Infof("Ignore target group not tagged for K8S, %v, %v \n",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
 
 		parentRef, ok := tgTags.Tags[latticemodel.K8SParentRefTypeKey]
 		if !ok || parentRef == nil {
 			glog.V(2).Infof("Ignore target group that have no K8S parentRef tag :%v, %v \n",
-			 *sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
 
@@ -209,8 +209,8 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		// if its parentref is service export,  check the parent service export exist
 		// Ignore if service export does NOT exist
 		if *parentRef == latticemodel.K8SServiceExportType {
-			glog.V(2).Infof("TargetGroup %v, %v is referenced by ServiceExport", 
-			*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+			glog.V(2).Infof("TargetGroup %v, %v is referenced by ServiceExport",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
 			glog.V(2).Infof("Determine serviceexport name=%v, namespace=%v exists for targetGroup %v",
 				*srvName, *srvNamespace, *sdkTG.getTargetGroupOutput.Arn)
@@ -231,15 +231,14 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		// if its parentref is HTTP/route, check the parent HTTPRoute exist
 		// Ignore if httpRoute does NOT exist
 		if *parentRef == latticemodel.K8SHTTPRouteType {
-			glog.V(2).Infof("TargetGroup %v, %v is referenced by HTTPRoute", 
-			*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
-		
+			glog.V(2).Infof("TargetGroup %v, %v is referenced by HTTPRoute",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
 			httpName, ok := tgTags.Tags[latticemodel.K8SHTTPRouteNameKey]
 
 			if !ok || httpName == nil {
 				glog.V(2).Infof("Ignore TargetGroup(triggered by httpRoute) %v, %v have no httproute name tag",
-					*sdkTG.getTargetGroupOutput.Arn,*sdkTG.getTargetGroupOutput.Name )
+					*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 				continue
 			}
 
@@ -312,41 +311,6 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		return nil
 	}
 
-}
-
-// TODO put following routine to common library
-func (t *targetGroupSynthesizer) isTargetGroupUsedByHTTPRoute(ctx context.Context, tgName string) bool {
-
-	httpRouteList := &v1alpha2.HTTPRouteList{}
-
-	t.client.List(ctx, httpRouteList)
-
-	//glog.V(6).Infof("isTargetGroupUsedByHTTPRoute: tgName %v-- %v\n", tgName, httpRouteList)
-
-	for _, httpRoute := range httpRouteList.Items {
-		for _, httpRule := range httpRoute.Spec.Rules {
-			for _, httpBackendRef := range httpRule.BackendRefs {
-				//glog.V(6).Infof("isTargetGroupUsedByHTTPRoute: httpBackendRef: %v \n", httpBackendRef)
-				if string(*httpBackendRef.BackendObjectReference.Kind) != "Service" {
-					continue
-				}
-				namespace := "default"
-
-				if httpBackendRef.BackendObjectReference.Namespace != nil {
-					namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
-				}
-				refTGName := latticestore.TargetGroupName(string(httpBackendRef.BackendObjectReference.Name), namespace)
-				//glog.V(6).Infof("refTGName: %s\n", refTGName)
-
-				if tgName == refTGName {
-					return true
-				}
-
-			}
-		}
-	}
-
-	return false
 }
 
 func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Context, tgName string, httpRoute *v1alpha2.HTTPRoute) bool {
