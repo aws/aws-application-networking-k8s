@@ -307,8 +307,8 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 }
 
 type sdkTGDef struct {
-	name    string
-	id      string
+	name string
+	id   string
 
 	isSameVPC                bool
 	hasTags                  bool
@@ -356,7 +356,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		{
 			name: "Delete SDK TargetGroup Successfully(due to not in backend ref of a HTTPRoutes) ",
 			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id",  serviceNetworkManagerErr: nil,
+				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
 					isSameVPC: true,
 					hasTags:   true, hasServiceExportTypeTag: false,
 					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: false,
@@ -369,7 +369,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		{
 			name: "No need to delete SDK TargetGroup since it is referenced by a HTTPRoutes) ",
 			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id",  serviceNetworkManagerErr: nil,
+				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
 					isSameVPC: true,
 					hasTags:   true, hasServiceExportTypeTag: false,
 					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: true,
@@ -382,7 +382,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		{
 			name: "No need to delete SDK TargetGroup , no K8S tags ",
 			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id",  serviceNetworkManagerErr: nil,
+				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
 					isSameVPC: true,
 					hasTags:   false, hasServiceExportTypeTag: false,
 					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
@@ -395,7 +395,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		{
 			name: "No need to delete SDK TargetGroup , different VPC",
 			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id",  serviceNetworkManagerErr: nil,
+				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
 					isSameVPC: false,
 					hasTags:   false, hasServiceExportTypeTag: false,
 					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
@@ -557,7 +557,6 @@ type svcDef struct {
 	tgID   string
 	mgrErr bool
 }
-
 
 func Test_SynthesizeTriggeredService(t *testing.T) {
 	tests := []struct {

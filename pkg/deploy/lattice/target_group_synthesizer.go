@@ -3,7 +3,6 @@ package lattice
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/golang/glog"
 	"strings"
 
@@ -165,12 +164,12 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		return nil
 	}
 
-	glog.V(2).Infof("SynthesizeSDKTargetGroups: here is sdkTGs %v len %v \n", sdkTGs, len(sdkTGs))
+	glog.V(6).Infof("SynthesizeSDKTargetGroups: here is sdkTGs %v len %v \n", sdkTGs, len(sdkTGs))
 
 	for _, sdkTG := range sdkTGs {
 
 		if *sdkTG.getTargetGroupOutput.Config.VpcIdentifier != config.VpcID {
-			glog.V(2).Infof("Ignore target group ARN %v Name %v for other VPCs",
+			glog.V(6).Infof("Ignore target group ARN %v Name %v for other VPCs",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
@@ -179,14 +178,14 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		tgTags := sdkTG.targetGroupTags
 
 		if tgTags == nil || tgTags.Tags == nil {
-			glog.V(2).Infof("Ignore target group not tagged for K8S, %v, %v \n",
+			glog.V(6).Infof("Ignore target group not tagged for K8S, %v, %v \n",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
 
 		parentRef, ok := tgTags.Tags[latticemodel.K8SParentRefTypeKey]
 		if !ok || parentRef == nil {
-			glog.V(2).Infof("Ignore target group that have no K8S parentRef tag :%v, %v \n",
+			glog.V(6).Infof("Ignore target group that have no K8S parentRef tag :%v, %v \n",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
@@ -194,7 +193,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		srvName, ok := tgTags.Tags[latticemodel.K8SServiceNameKey]
 
 		if !ok || srvName == nil {
-			glog.V(2).Infof("Ignore TargetGroup have no servicename tag: %v, %v",
+			glog.V(6).Infof("Ignore TargetGroup have no servicename tag: %v, %v",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
@@ -202,7 +201,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		srvNamespace, ok := tgTags.Tags[latticemodel.K8SServiceNamespaceKey]
 
 		if !ok || srvNamespace == nil {
-			glog.V(2).Infof("Ignore TargetGroup have no servicenamespace tag: %v, %v",
+			glog.V(6).Infof("Ignore TargetGroup have no servicenamespace tag: %v, %v",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
@@ -210,10 +209,10 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		// if its parentref is service export,  check the parent service export exist
 		// Ignore if service export does NOT exist
 		if *parentRef == latticemodel.K8SServiceExportType {
-			glog.V(2).Infof("TargetGroup %v, %v is referenced by ServiceExport",
+			glog.V(6).Infof("TargetGroup %v, %v is referenced by ServiceExport",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
-			glog.V(2).Infof("Determine serviceexport name=%v, namespace=%v exists for targetGroup %v",
+			glog.V(6).Infof("Determine serviceexport name=%v, namespace=%v exists for targetGroup %v",
 				*srvName, *srvNamespace, *sdkTG.getTargetGroupOutput.Arn)
 
 			srvExportName := types.NamespacedName{
@@ -223,7 +222,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 			srvExport := &mcs_api.ServiceExport{}
 			if err := t.client.Get(ctx, srvExportName, srvExport); err == nil {
 
-				glog.V(2).Infof("Ignore TargetGroup(triggered by serviceexport) %v, %v since serviceexport object is found",
+				glog.V(6).Infof("Ignore TargetGroup(triggered by serviceexport) %v, %v since serviceexport object is found",
 					*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 				continue
 			}
@@ -232,13 +231,13 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		// if its parentref is HTTP/route, check the parent HTTPRoute exist
 		// Ignore if httpRoute does NOT exist
 		if *parentRef == latticemodel.K8SHTTPRouteType {
-			glog.V(2).Infof("TargetGroup %v, %v is referenced by HTTPRoute",
+			glog.V(6).Infof("TargetGroup %v, %v is referenced by HTTPRoute",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
 			httpName, ok := tgTags.Tags[latticemodel.K8SHTTPRouteNameKey]
 
 			if !ok || httpName == nil {
-				glog.V(2).Infof("Ignore TargetGroup(triggered by httpRoute) %v, %v have no httproute name tag",
+				glog.V(6).Infof("Ignore TargetGroup(triggered by httpRoute) %v, %v have no httproute name tag",
 					*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 				continue
 			}
@@ -246,7 +245,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 			httpNamespace, ok := tgTags.Tags[latticemodel.K8SHTTPRouteNamespaceKey]
 
 			if !ok || httpNamespace == nil {
-				glog.V(2).Infof("Ignore TargetGroup(triggered by httpRoute) %v, %v have no httproute namespace tag",
+				glog.V(6).Infof("Ignore TargetGroup(triggered by httpRoute) %v, %v have no httproute namespace tag",
 					*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 				continue
 			}
@@ -264,15 +263,15 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 				if isUsed {
 
-					glog.V(2).Infof("Ignore TargetGroup(triggered by HTTProute) %v, %v since httproute object is found",
+					glog.V(6).Infof("Ignore TargetGroup(triggered by HTTProute) %v, %v since httproute object is found",
 						*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
 					continue
 				} else {
-					fmt.Printf("tgname %v is not used by httproute %v\n", tgName, httpRoute)
+					glog.V(6).Infof("tgname %v is not used by httproute %v\n", tgName, httpRoute)
 				}
 			} else {
-				fmt.Printf("httpRoute NOT found\n")
+				glog.V(6).Infof("parent httpRoute %v not found for TG name %v namespace %v", httprouteName, srvName, srvNamespace)
 			}
 		}
 
