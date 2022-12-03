@@ -309,8 +309,6 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 type sdkTGDef struct {
 	name    string
 	id      string
-	inStore bool
-	isRefed bool
 
 	isSameVPC                bool
 	hasTags                  bool
@@ -345,7 +343,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		{
 			name: "Delete SDK TargetGroup Successfully(due to not refed by any HTTPRoutes) ",
 			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", inStore: false, isRefed: false, serviceNetworkManagerErr: nil,
+				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
 					isSameVPC: true,
 					hasTags:   true, hasServiceExportTypeTag: false,
 					hasHTTPRouteTypeTag: true, HTTPRouteExist: false,
@@ -358,11 +356,50 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		{
 			name: "Delete SDK TargetGroup Successfully(due to not in backend ref of a HTTPRoutes) ",
 			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", inStore: false, isRefed: false, serviceNetworkManagerErr: nil,
+				{name: "sdkTG1", id: "sdkTG1-id",  serviceNetworkManagerErr: nil,
 					isSameVPC: true,
 					hasTags:   true, hasServiceExportTypeTag: false,
 					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: false,
 					expectDelete: true},
+			},
+			wantSynthesizerError: nil,
+			wantDataStoreError:   nil,
+			wantDataStoreStatus:  "",
+		},
+		{
+			name: "No need to delete SDK TargetGroup since it is referenced by a HTTPRoutes) ",
+			sdkTargetGroups: []sdkTGDef{
+				{name: "sdkTG1", id: "sdkTG1-id",  serviceNetworkManagerErr: nil,
+					isSameVPC: true,
+					hasTags:   true, hasServiceExportTypeTag: false,
+					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: true,
+					expectDelete: false},
+			},
+			wantSynthesizerError: nil,
+			wantDataStoreError:   nil,
+			wantDataStoreStatus:  "",
+		},
+		{
+			name: "No need to delete SDK TargetGroup , no K8S tags ",
+			sdkTargetGroups: []sdkTGDef{
+				{name: "sdkTG1", id: "sdkTG1-id",  serviceNetworkManagerErr: nil,
+					isSameVPC: true,
+					hasTags:   false, hasServiceExportTypeTag: false,
+					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
+					expectDelete: false},
+			},
+			wantSynthesizerError: nil,
+			wantDataStoreError:   nil,
+			wantDataStoreStatus:  "",
+		},
+		{
+			name: "No need to delete SDK TargetGroup , different VPC",
+			sdkTargetGroups: []sdkTGDef{
+				{name: "sdkTG1", id: "sdkTG1-id",  serviceNetworkManagerErr: nil,
+					isSameVPC: false,
+					hasTags:   false, hasServiceExportTypeTag: false,
+					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
+					expectDelete: false},
 			},
 			wantSynthesizerError: nil,
 			wantDataStoreError:   nil,
@@ -373,8 +410,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		//ctx := context.TODO()
-		ctx :=context.Background()
+		ctx := context.Background()
 
 		ds := latticestore.NewLatticeDataStore()
 
@@ -383,11 +419,6 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		sdkTGReturned := []targetGroupOutput{}
 
 		k8sClient := mock_client.NewMockClient(c)
-		/*
-		k8sSchema := runtime.NewScheme()
-		clientgoscheme.AddToScheme(k8sSchema)
-		k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
-		*/
 
 		if len(tt.sdkTargetGroups) > 0 {
 			for _, sdkTG := range tt.sdkTargetGroups {
@@ -456,7 +487,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 					if sdkTG.refedByHTTPRoute {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context,name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
 								httpRoute.Name = routename
 								httpRoute.Namespace = routenamespace
 
@@ -491,13 +522,15 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 					}
 				} else {
-					k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-						func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
-							
-							return errors.New("no httproute")
+					if sdkTG.hasHTTPRouteTypeTag {
+						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
 
-						},
-					)
+								return errors.New("no httproute")
+
+							},
+						)
+					}
 				}
 
 				if sdkTG.expectDelete {
@@ -525,7 +558,7 @@ type svcDef struct {
 	mgrErr bool
 }
 
-/*
+
 func Test_SynthesizeTriggeredService(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -661,108 +694,3 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 
 	}
 }
-
-
-//TODO
-func Test_IsTargetGroupUsedByHTTPRoute(t *testing.T) {
-	kindPtr := func(k string) *v1alpha2.Kind {
-		p := v1alpha2.Kind(k)
-		return &p
-	}
-	tests := []struct {
-		name     string
-		RuleList []v1alpha2.HTTPRouteRule
-		tgName   string
-		isRefed  bool
-	}{
-		{
-			name:   "TG used by one HTTPRoute ",
-			tgName: latticestore.TargetGroupName("service1", "default"),
-			RuleList: []v1alpha2.HTTPRouteRule{
-				{
-					BackendRefs: []v1alpha2.HTTPBackendRef{
-						{
-							BackendRef: v1alpha2.BackendRef{
-								BackendObjectReference: v1alpha2.BackendObjectReference{
-									Kind: kindPtr("Service"),
-									Name: "backend",
-								},
-							},
-						},
-						{
-							BackendRef: v1alpha2.BackendRef{
-								BackendObjectReference: v1alpha2.BackendObjectReference{
-									Kind: kindPtr("Service"),
-									Name: "service1",
-								},
-							},
-						},
-					},
-				},
-			},
-			isRefed: true,
-		},
-		{
-			name:   "TG not by one HTTPRoute ",
-			tgName: latticestore.TargetGroupName("service2", "default"),
-			RuleList: []v1alpha2.HTTPRouteRule{
-				{
-					BackendRefs: []v1alpha2.HTTPBackendRef{
-						{
-							BackendRef: v1alpha2.BackendRef{
-								BackendObjectReference: v1alpha2.BackendObjectReference{
-									Kind: kindPtr("Service"),
-									Name: "backend",
-								},
-							},
-						},
-						{
-							BackendRef: v1alpha2.BackendRef{
-								BackendObjectReference: v1alpha2.BackendObjectReference{
-									Kind: kindPtr("Service"),
-									Name: "service1",
-								},
-							},
-						},
-					},
-				},
-			},
-			isRefed: false,
-		},
-	}
-
-	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.Background()
-
-		k8sClient := mock_client.NewMockClient(c)
-
-		k8sClient.EXPECT().List(ctx, gomock.Any()).DoAndReturn(
-			func(ctx context.Context, httpRouteList *v1alpha2.HTTPRouteList) error {
-				httpRoute := v1alpha2.HTTPRoute{}
-				for _, rt := range tt.RuleList {
-					httpRoute.Spec.Rules = append(httpRoute.Spec.Rules, rt)
-				}
-				httpRouteList.Items = append(httpRouteList.Items, httpRoute)
-				return nil
-			},
-		)
-
-		synthesizer := NewTargetGroupSynthesizer(nil, k8sClient, nil, nil, nil)
-
-		ret := synthesizer.isTargetGroupUsedByHTTPRoute(ctx, tt.tgName)
-
-		if tt.isRefed {
-			assert.True(t, ret)
-		} else {
-			assert.False(t, ret)
-		}
-
-		fmt.Printf("ret: %v\n", ret)
-
-	}
-
-}
-
-*/
