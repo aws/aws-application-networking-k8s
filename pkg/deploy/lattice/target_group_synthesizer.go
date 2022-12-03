@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/golang/glog"
 	"strings"
 
@@ -267,7 +268,11 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 						*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
 					continue
+				} else {
+					fmt.Printf("tgname %v is not used by httproute %v\n", tgName, httpRoute)
 				}
+			} else {
+				fmt.Printf("httpRoute NOT found\n")
 			}
 		}
 

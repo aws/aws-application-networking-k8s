@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	//"github.com/aws/aws-sdk-go/service/vpclattice"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -13,15 +15,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	//"sigs.k8s.io/gateway-api/apis/v1alpha2"
+
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	//mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	//"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -304,17 +307,34 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 }
 
 type sdkTGDef struct {
-	name                     string
-	id                       string
-	inStore                  bool
-	isRefed                  bool
+	name    string
+	id      string
+	inStore bool
+	isRefed bool
+
 	isSameVPC                bool
+	hasTags                  bool
+	hasServiceExportTypeTag  bool
+	hasHTTPRouteTypeTag      bool
+	serviceExportExist       bool
+	HTTPRouteExist           bool
+	refedByHTTPRoute         bool
 	serviceNetworkManagerErr error
+
+	expectDelete bool
 }
 
-/*
 func Test_SynthesizeSDKTargetGroups(t *testing.T) {
+	kindPtr := func(k string) *v1alpha2.Kind {
+		p := v1alpha2.Kind(k)
+		return &p
+	}
+
 	config.VpcID = "current-vpc"
+	srvname := "test-svc1"
+	srvnamespace := "default"
+	routename := "test-route1"
+	routenamespace := "default"
 	tests := []struct {
 		name                 string
 		sdkTargetGroups      []sdkTGDef
@@ -323,19 +343,26 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		wantDataStoreStatus  string
 	}{
 		{
-			name:                 "Delete SDK TargetGroup Successfully",
-			sdkTargetGroups:      []sdkTGDef{{name: "sdkTG1", id: "sdkTG1-id", inStore: false, isRefed: false, serviceNetworkManagerErr: nil, isSameVPC: true}},
+			name: "Delete SDK TargetGroup Successfully(due to not refed by any HTTPRoutes) ",
+			sdkTargetGroups: []sdkTGDef{
+				{name: "sdkTG1", id: "sdkTG1-id", inStore: false, isRefed: false, serviceNetworkManagerErr: nil,
+					isSameVPC: true,
+					hasTags:   true, hasServiceExportTypeTag: false,
+					hasHTTPRouteTypeTag: true, HTTPRouteExist: false,
+					expectDelete: true},
+			},
 			wantSynthesizerError: nil,
 			wantDataStoreError:   nil,
 			wantDataStoreStatus:  "",
 		},
 		{
-			name: "Delete one stale SDK TargetGroup Successfully",
+			name: "Delete SDK TargetGroup Successfully(due to not in backend ref of a HTTPRoutes) ",
 			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG21", id: "sdkTG21-id", inStore: true, isRefed: true, serviceNetworkManagerErr: nil, isSameVPC: true},
-				{name: "sdkTG22", id: "sdkTG22-id", inStore: false, isRefed: false, serviceNetworkManagerErr: nil, isSameVPC: true},
-				{name: "sdkTG23", id: "sdkTG23-id", inStore: true, isRefed: false, serviceNetworkManagerErr: nil, isSameVPC: true},
-				{name: "sdkTG24", id: "sdkTG24-id", inStore: false, isRefed: false, serviceNetworkManagerErr: nil, isSameVPC: false},
+				{name: "sdkTG1", id: "sdkTG1-id", inStore: false, isRefed: false, serviceNetworkManagerErr: nil,
+					isSameVPC: true,
+					hasTags:   true, hasServiceExportTypeTag: false,
+					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: false,
+					expectDelete: true},
 			},
 			wantSynthesizerError: nil,
 			wantDataStoreError:   nil,
@@ -346,17 +373,21 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		ctx := context.TODO()
+		//ctx := context.TODO()
+		ctx :=context.Background()
 
 		ds := latticestore.NewLatticeDataStore()
 
 		mockTGManager := NewMockTargetGroupManager(c)
 
-		sdkTGReturned := []vpclattice.GetTargetGroupOutput{}
+		sdkTGReturned := []targetGroupOutput{}
 
+		k8sClient := mock_client.NewMockClient(c)
+		/*
 		k8sSchema := runtime.NewScheme()
 		clientgoscheme.AddToScheme(k8sSchema)
 		k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+		*/
 
 		if len(tt.sdkTargetGroups) > 0 {
 			for _, sdkTG := range tt.sdkTargetGroups {
@@ -369,35 +400,110 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 				} else {
 					vpc = config.VpcID + "other VPC"
 				}
+
+				var tagsOutput *vpclattice.ListTagsForResourceOutput
+				var tags = make(map[string]*string)
+
+				tags["non-k8e"] = aws.String("not-k8s-related")
+
+				if sdkTG.hasTags == false {
+
+					tagsOutput = nil
+				} else {
+
+					tagsOutput = &vpclattice.ListTagsForResourceOutput{
+						Tags: tags,
+					}
+
+				}
+
+				if sdkTG.hasServiceExportTypeTag {
+					tags[latticemodel.K8SParentRefTypeKey] = aws.String(latticemodel.K8SServiceExportType)
+				}
+
+				if sdkTG.hasHTTPRouteTypeTag {
+					tags[latticemodel.K8SParentRefTypeKey] = aws.String(latticemodel.K8SHTTPRouteType)
+				}
+
+				tags[latticemodel.K8SServiceNameKey] = aws.String(srvname)
+				tags[latticemodel.K8SServiceNamespaceKey] = aws.String(srvnamespace)
+				tags[latticemodel.K8SHTTPRouteNameKey] = aws.String(routename)
+				tags[latticemodel.K8SHTTPRouteNamespaceKey] = aws.String(routenamespace)
+
 				sdkTGReturned = append(sdkTGReturned,
-					vpclattice.GetTargetGroupOutput{
-						Name: &name,
-						Id:   &id,
-						Config: &vpclattice.TargetGroupConfig{
-							VpcIdentifier: &vpc,
-						},
-					})
+					targetGroupOutput{
+						getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
+							Name: &name,
+							Id:   &id,
+							Arn:  aws.String("tg-ARN"),
+							Config: &vpclattice.TargetGroupConfig{
+								VpcIdentifier: &vpc,
+							}},
+						targetGroupTags: tagsOutput,
+					},
+				)
+
+				fmt.Printf("sdkTGReturned :%v \n", sdkTGReturned[0].targetGroupTags)
+
 				tgSpec := latticemodel.TargetGroup{
 					Spec: latticemodel.TargetGroupSpec{
 						Name:      sdkTG.name,
 						LatticeID: sdkTG.id,
 					},
 				}
-				if sdkTG.inStore {
-					ds.AddTargetGroup(sdkTG.name, "", "", "", false) // not service import
 
-					if !sdkTG.isRefed {
-						ds.SetTargetGroupByServiceExport(sdkTG.name, false, false)
-						ds.SetTargetGroupByBackendRef(sdkTG.name, false, false)
-						mockTGManager.EXPECT().Delete(ctx, &tgSpec).Return(sdkTG.serviceNetworkManagerErr)
+				if sdkTG.HTTPRouteExist {
+
+					if sdkTG.refedByHTTPRoute {
+						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context,name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+								httpRoute.Name = routename
+								httpRoute.Namespace = routenamespace
+
+								httpRoute.Spec.Rules = []v1alpha2.HTTPRouteRule{
+									{
+										BackendRefs: []v1alpha2.HTTPBackendRef{
+											{
+												BackendRef: v1alpha2.BackendRef{
+													BackendObjectReference: v1alpha2.BackendObjectReference{
+														Kind: kindPtr("Service"),
+														Name: v1alpha2.ObjectName(srvname),
+													},
+												},
+											},
+										},
+									},
+								}
+
+								return nil
+							},
+						)
+
 					} else {
-						ds.SetTargetGroupByServiceExport(sdkTG.name, false, true)
+						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+								httpRoute.Name = routename
+								httpRoute.Namespace = routenamespace
+								return nil
+
+							},
+						)
+
 					}
 				} else {
-					if sdkTG.isSameVPC {
-						mockTGManager.EXPECT().Delete(ctx, &tgSpec).Return(sdkTG.serviceNetworkManagerErr)
-					}
+					k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+						func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+							
+							return errors.New("no httproute")
+
+						},
+					)
 				}
+
+				if sdkTG.expectDelete {
+					mockTGManager.EXPECT().Delete(ctx, &tgSpec).Return(sdkTG.serviceNetworkManagerErr)
+				}
+
 			}
 		}
 		fmt.Printf("sdkTGReturnd %v len %v\n", sdkTGReturned, len(sdkTGReturned))
@@ -411,7 +517,6 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		assert.Equal(t, tt.wantSynthesizerError, err)
 	}
 }
-*/
 
 type svcDef struct {
 	name   string
@@ -557,7 +662,8 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 	}
 }
 
-/* TODO
+
+//TODO
 func Test_IsTargetGroupUsedByHTTPRoute(t *testing.T) {
 	kindPtr := func(k string) *v1alpha2.Kind {
 		p := v1alpha2.Kind(k)
@@ -657,4 +763,6 @@ func Test_IsTargetGroupUsedByHTTPRoute(t *testing.T) {
 
 	}
 
-}*/
+}
+
+*/
