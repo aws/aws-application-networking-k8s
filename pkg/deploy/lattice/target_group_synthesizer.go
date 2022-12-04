@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/golang/glog"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -301,7 +302,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		glog.V(6).Infof("SynthesizeSDKTargetGroups, deleting stale target group %v \n", err)
 
 		
-		if err != nil  {
+		if err != nil && !strings.Contains(err.Error(), "TargetGroup is referenced in routing configuration, listeners or rules of service.") {
 			ret_err = true
 		}
 		// continue on even when there is an err
