@@ -32,5 +32,5 @@ func HandleReconcileError(err error) (ctrl.Result, error) {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	return ctrl.Result{}, err
+	return ctrl.Result{RequeueAfter: time.Minute * 10}, err
 }
