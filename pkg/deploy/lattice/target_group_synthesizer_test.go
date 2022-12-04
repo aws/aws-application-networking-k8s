@@ -405,6 +405,32 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 			wantDataStoreError:   nil,
 			wantDataStoreStatus:  "",
 		},
+		{
+			name: "delete SDK TargetGroup due not referenced by any serviceexport",
+			sdkTargetGroups: []sdkTGDef{
+				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
+					isSameVPC: true,
+					hasTags:   true, hasServiceExportTypeTag: true, serviceExportExist: false,
+					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
+					expectDelete: true},
+			},
+			wantSynthesizerError: nil,
+			wantDataStoreError:   nil,
+			wantDataStoreStatus:  "",
+		},
+		{
+			name: "no need to delete SDK TargetGroup since it is referenced by any serviceexport",
+			sdkTargetGroups: []sdkTGDef{
+				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
+					isSameVPC: true,
+					hasTags:   true, hasServiceExportTypeTag: true, serviceExportExist: true,
+					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
+					expectDelete: false},
+			},
+			wantSynthesizerError: nil,
+			wantDataStoreError:   nil,
+			wantDataStoreStatus:  "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -530,6 +556,28 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 							},
 						)
+					}
+				}
+
+				if sdkTG.hasServiceExportTypeTag {
+					if sdkTG.serviceExportExist {
+						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport) error {
+
+								return nil
+
+							},
+						)
+
+					} else {
+						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport) error {
+
+								return errors.New("no serviceexport")
+
+							},
+						)
+
 					}
 				}
 
