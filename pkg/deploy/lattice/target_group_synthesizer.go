@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/golang/glog"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -301,8 +300,8 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		err := t.targetGroupManager.Delete(ctx, &sdkTG)
 		glog.V(6).Infof("SynthesizeSDKTargetGroups, deleting stale target group %v \n", err)
 
-		// TODO find out the error code
-		if err != nil && !strings.Contains(err.Error(), "ConflictException") {
+		
+		if err != nil  {
 			ret_err = true
 		}
 		// continue on even when there is an err
