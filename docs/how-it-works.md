@@ -33,12 +33,12 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    aws ec2 get-managed-prefix-list-entries --region us-west-2 --prefix-list-id pl-0721453c7ac4ec009
    ```
+   ```
+   ENTRIES 169.254.171.0/24
+   ```
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
    eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
-   ```
-   ```
-   ENTRIES 169.254.171.0/24
    ```
 1. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the gateway API and copy the policy arn for later use:
    ```bash
