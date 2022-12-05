@@ -340,6 +340,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		wantDataStoreError   error
 		wantDataStoreStatus  string
 	}{
+
 		{
 			name: "Delete SDK TargetGroup Successfully(due to not refed by any HTTPRoutes) ",
 			sdkTargetGroups: []sdkTGDef{
@@ -353,6 +354,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 			wantDataStoreError:   nil,
 			wantDataStoreStatus:  "",
 		},
+
 		{
 			name: "Delete SDK TargetGroup Successfully(due to not in backend ref of a HTTPRoutes) ",
 			sdkTargetGroups: []sdkTGDef{
@@ -405,6 +407,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 			wantDataStoreError:   nil,
 			wantDataStoreStatus:  "",
 		},
+
 		{
 			name: "delete SDK TargetGroup due not referenced by any serviceexport",
 			sdkTargetGroups: []sdkTGDef{
@@ -418,8 +421,9 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 			wantDataStoreError:   nil,
 			wantDataStoreStatus:  "",
 		},
+
 		{
-			name: "no need to delete SDK TargetGroup since it is referenced by any serviceexport",
+			name: "no need to delete SDK TargetGroup since it is referenced by an serviceexport",
 			sdkTargetGroups: []sdkTGDef{
 				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
 					isSameVPC: true,
@@ -434,6 +438,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		fmt.Printf(" testcase >>>> %s \n", tt.name)
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.Background()

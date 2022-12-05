@@ -227,6 +227,11 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 			tagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, &tagsInput)
 
 			glog.V(6).Infof("tagsOutput %v,  err: %v", tagsOutput, err)
+
+			if err != nil {
+				// setting it to nil, so the caller knows there is tag resource associated to this target group
+				tagsOutput = nil
+			}
 			tgOutput := targetGroupOutput{
 				getTargetGroupOutput: *tgOutput,
 				targetGroupTags:      tagsOutput,

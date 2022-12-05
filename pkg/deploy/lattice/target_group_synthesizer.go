@@ -207,7 +207,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		}
 
 		// if its parentref is service export,  check the parent service export exist
-		// Ignore if service export does NOT exist
+		// Ignore if service export exists
 		if *parentRef == latticemodel.K8SServiceExportType {
 			glog.V(6).Infof("TargetGroup %v, %v is referenced by ServiceExport",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
@@ -257,8 +257,13 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 			httpRoute := &v1alpha2.HTTPRoute{}
 
-			if err := t.client.Get(ctx, httprouteName, httpRoute); err == nil {
-				tgName := latticestore.TargetGroupName(*srvName, *srvNamespace)
+			tgName := latticestore.TargetGroupName(*srvName, *srvNamespace)
+
+			if err := t.client.Get(ctx, httprouteName, httpRoute); err != nil {
+				glog.V(6).Infof("tgname %v is not used by httproute %v\n", tgName, httpRoute)
+
+			} else {
+
 				isUsed := t.isTargetGroupUsedByaHTTPRoute(ctx, tgName, httpRoute)
 
 				if isUsed {
@@ -270,9 +275,8 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 				} else {
 					glog.V(6).Infof("tgname %v is not used by httproute %v\n", tgName, httpRoute)
 				}
-			} else {
-				glog.V(6).Infof("parent httpRoute %v not found for TG name %v namespace %v", httprouteName, srvName, srvNamespace)
 			}
+
 		}
 
 		if tg, err := t.latticeDataStore.GetTargetGroup(*sdkTG.getTargetGroupOutput.Name, true); err == nil {
@@ -301,7 +305,6 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		err := t.targetGroupManager.Delete(ctx, &sdkTG)
 		glog.V(6).Infof("SynthesizeSDKTargetGroups, deleting stale target group %v \n", err)
 
-		
 		if err != nil && !strings.Contains(err.Error(), "TargetGroup is referenced in routing configuration, listeners or rules of service.") {
 			ret_err = true
 		}
@@ -321,7 +324,6 @@ func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Conte
 
 	for _, httpRule := range httpRoute.Spec.Rules {
 		for _, httpBackendRef := range httpRule.BackendRefs {
-			//glog.V(6).Infof("isTargetGroupUsedByHTTPRoute: httpBackendRef: %v \n", httpBackendRef)
 			if string(*httpBackendRef.BackendObjectReference.Kind) != "Service" {
 				continue
 			}
@@ -331,7 +333,6 @@ func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Conte
 				namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
 			}
 			refTGName := latticestore.TargetGroupName(string(httpBackendRef.BackendObjectReference.Name), namespace)
-			//glog.V(6).Infof("refTGName: %s\n", refTGName)
 
 			if tgName == refTGName {
 				return true

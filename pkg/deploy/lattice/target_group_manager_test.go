@@ -827,7 +827,6 @@ func Test_ListTG_TGsExist(t *testing.T) {
 			targetGroupTags:      nil,
 		},
 	}
-	//expect := []vpclattice.GetTargetGroupOutput{*getTG1}
 
 	assert.Nil(t, err)
 	assert.Equal(t, tgList, expect)
