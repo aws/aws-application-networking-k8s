@@ -179,7 +179,7 @@ This example creates a single cluster in a single VPC, then configures two route
    </pre>
    
    ```bash
-   kubectl get rates inventory -o yaml
+   kubectl get httproute rates inventory -o yaml
    ```
 
 **Check service connectivity**
@@ -201,7 +201,7 @@ This example creates a single cluster in a single VPC, then configures two route
    ```bash
    kubectl exec -ti inventory-ver1-7bb6989d9d-2p2hk sh
    ```
-1. From inside of the inventory pod, use `curl` to connect to the parking service:
+1. From inside of the inventory pod, use `curl` to connect to the parking service (using the DNS Name from the previous `kubectl get httproute` command):
    ```bash
    curl rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/parking 
    ```
