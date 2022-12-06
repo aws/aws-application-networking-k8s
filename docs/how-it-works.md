@@ -320,7 +320,7 @@ The following figure illustrates this:
 ## Understanding the Gateway API Controller
 
 For medium and large-scale customers, applications can often spread across multiple areas of a cloud.
-For example, information pertaining to a company’s authentication, billing, and inventory may each be stored by services running on different VPCs in AWS.
+For example, information pertaining to a company’s authentication, billing, and inventory may each be served by services running on different VPCs in AWS.
 Someone wanting to run an application that is spread out in this way might find themselves having to work with multiple ways to configure:
 
 * Authentication and authorization
@@ -329,13 +329,14 @@ Someone wanting to run an application that is spread out in this way might find 
 * Network connectivity and traffic routing
 
 This is not a new problem.
-A common approach to interconnecting services that span multiple VPCs is to use service meshes. But these require sidecars, which can introduce scaling problems and present their own management challenges.  
+A common approach to interconnecting services that span multiple VPCs is to use service meshes. But these require sidecars, which can introduce scaling problems and present their own management challenges, such as dealing with control plane and data plane at scale.
 
-If you just want to run an application, you should be shielded from details needed to find assets across what are essentially multiple virtual data centers (represented by multiple VPCs). You should also have consistent ways of working with assets across your VPCs, even if those assets include different combinations of instances, clusters, containers, and serverless. And while making it simpler to run multi-VPC applications easier for users, administrators still need the tools to control and audit their resources to suit their company’s compliance needs.
+If you just want to run an application, you should be shielded from details needed to find assets across multiple VPCs and multiple clusters. You should also have consistent ways of working with assets across your VPCs, even if those assets include different combinations of instances, clusters, containers, and serverless. And while making it simpler to run multi-VPC applications easier for users, administrators still need the tools to control and audit their resources to suit their company’s compliance needs.
 
 ### Service Directory, Networks, Policies and Gateways
 
 The goal of VPC Lattice is to provide a way to have a single, over-arching services view of all services across multiple VPCs.
+You should also have consistent ways of working with assets across your VPCs, even if those assets include different combinations of instances, clusters, containers, and serverless.
 The components making up that view include:
 
 * Service Directory: This is an account-level directory for gathering your services in once place.
@@ -360,7 +361,7 @@ However, using different rules, a request for the service could be sent to diffe
 If all goes well, you should be able to achieve some of the following goals:
 
 * Kubernetes multi-cluster connectivity: Say that you have multiple clusters across multiple VPCs.
-  After configuring your services with the AWS Gateway API, you can facilitate communications between services on those clusters without dealing with the underlying infrastructure.
+  After configuring your services with the Kubernetes Gateway API, you can facilitate communications between services on those clusters without dealing with the underlying infrastructure.
   VPC Lattice handles a lot of the details for you without needing things like sidecars.
 * Serverless access: VPC Lattice allows access to serverless features, as well as Kubernetes cluster features.
   This gives you a way to have a consistent interface to multiple types of platforms.
