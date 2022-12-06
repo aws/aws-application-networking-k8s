@@ -6,8 +6,10 @@ import (
 	"github.com/golang/glog"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -45,10 +47,10 @@ func (t *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
 
 	/* TODO,  resolve bug that this might delete other HTTPRoute's TG before they have chance
 	 * to be reconcile during controller restart
+	 */
 	if err := t.SynthesizeSDKTargetGroups(ctx); err != nil {
 		ret = LATTICE_RETRY
 	}
-	*/
 
 	if ret != "" {
 		return errors.New(ret)
@@ -158,7 +160,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 	sdkTGs, err := t.targetGroupManager.List(ctx)
 
 	if err != nil {
-		glog.V(6).Infof("SynthesizeSDKTargetGroups: failed to retrieve sdk TGs %v\n", err)
+		glog.V(2).Infof("SynthesizeSDKTargetGroups: failed to retrieve sdk TGs %v\n", err)
 		return nil
 	}
 
@@ -166,39 +168,131 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 	for _, sdkTG := range sdkTGs {
 
-		if *sdkTG.Config.VpcIdentifier != config.VpcID {
-			glog.V(6).Infof("Ignore target group for other VPCs, other :%v, current vpc %v\n", *sdkTG.Config.VpcIdentifier, config.VpcID)
+		if *sdkTG.getTargetGroupOutput.Config.VpcIdentifier != config.VpcID {
+			glog.V(6).Infof("Ignore target group ARN %v Name %v for other VPCs",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
-		if tg, err := t.latticeDataStore.GetTargetGroup(*sdkTG.Name, true); err == nil {
+
+		// does target group have K8S tags,  ignore if it is not tagged
+		tgTags := sdkTG.targetGroupTags
+
+		if tgTags == nil || tgTags.Tags == nil {
+			glog.V(6).Infof("Ignore target group not tagged for K8S, %v, %v \n",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+			continue
+		}
+
+		parentRef, ok := tgTags.Tags[latticemodel.K8SParentRefTypeKey]
+		if !ok || parentRef == nil {
+			glog.V(6).Infof("Ignore target group that have no K8S parentRef tag :%v, %v \n",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+			continue
+		}
+
+		srvName, ok := tgTags.Tags[latticemodel.K8SServiceNameKey]
+
+		if !ok || srvName == nil {
+			glog.V(6).Infof("Ignore TargetGroup have no servicename tag: %v, %v",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+			continue
+		}
+
+		srvNamespace, ok := tgTags.Tags[latticemodel.K8SServiceNamespaceKey]
+
+		if !ok || srvNamespace == nil {
+			glog.V(6).Infof("Ignore TargetGroup have no servicenamespace tag: %v, %v",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+			continue
+		}
+
+		// if its parentref is service export,  check the parent service export exist
+		// Ignore if service export exists
+		if *parentRef == latticemodel.K8SServiceExportType {
+			glog.V(6).Infof("TargetGroup %v, %v is referenced by ServiceExport",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+
+			glog.V(6).Infof("Determine serviceexport name=%v, namespace=%v exists for targetGroup %v",
+				*srvName, *srvNamespace, *sdkTG.getTargetGroupOutput.Arn)
+
+			srvExportName := types.NamespacedName{
+				Namespace: *srvNamespace,
+				Name:      *srvName,
+			}
+			srvExport := &mcs_api.ServiceExport{}
+			if err := t.client.Get(ctx, srvExportName, srvExport); err == nil {
+
+				glog.V(6).Infof("Ignore TargetGroup(triggered by serviceexport) %v, %v since serviceexport object is found",
+					*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+				continue
+			}
+		}
+
+		// if its parentref is HTTP/route, check the parent HTTPRoute exist
+		// Ignore if httpRoute does NOT exist
+		if *parentRef == latticemodel.K8SHTTPRouteType {
+			glog.V(6).Infof("TargetGroup %v, %v is referenced by HTTPRoute",
+				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+
+			httpName, ok := tgTags.Tags[latticemodel.K8SHTTPRouteNameKey]
+
+			if !ok || httpName == nil {
+				glog.V(6).Infof("Ignore TargetGroup(triggered by httpRoute) %v, %v have no httproute name tag",
+					*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+				continue
+			}
+
+			httpNamespace, ok := tgTags.Tags[latticemodel.K8SHTTPRouteNamespaceKey]
+
+			if !ok || httpNamespace == nil {
+				glog.V(6).Infof("Ignore TargetGroup(triggered by httpRoute) %v, %v have no httproute namespace tag",
+					*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+				continue
+			}
+
+			httprouteName := types.NamespacedName{
+				Namespace: *httpNamespace,
+				Name:      *httpName,
+			}
+
+			httpRoute := &v1alpha2.HTTPRoute{}
+
+			tgName := latticestore.TargetGroupName(*srvName, *srvNamespace)
+
+			if err := t.client.Get(ctx, httprouteName, httpRoute); err != nil {
+				glog.V(6).Infof("tgname %v is not used by httproute %v\n", tgName, httpRoute)
+
+			} else {
+
+				isUsed := t.isTargetGroupUsedByaHTTPRoute(ctx, tgName, httpRoute)
+
+				if isUsed {
+
+					glog.V(6).Infof("Ignore TargetGroup(triggered by HTTProute) %v, %v since httproute object is found",
+						*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
+
+					continue
+				} else {
+					glog.V(6).Infof("tgname %v is not used by httproute %v\n", tgName, httpRoute)
+				}
+			}
+
+		}
+
+		if tg, err := t.latticeDataStore.GetTargetGroup(*sdkTG.getTargetGroupOutput.Name, true); err == nil {
 			glog.V(6).Infof("Ignore target group created by service import %v\n", tg)
 			continue
 		}
 
-		tg, err := t.latticeDataStore.GetTargetGroup(*sdkTG.Name, false)
-		if err != nil {
-			staleSDKTGs = append(staleSDKTGs, latticemodel.TargetGroup{
-				Spec: latticemodel.TargetGroupSpec{
-					Name:      *sdkTG.Name,
-					LatticeID: *sdkTG.Id,
-				},
-			})
-		} else {
-			if tg.ByServiceExport {
-				continue
-			}
+		glog.V(2).Infof("Append stale SDK TG to stale list Name %v, ARN %v",
+			*sdkTG.getTargetGroupOutput.Name, *sdkTG.getTargetGroupOutput.Id)
 
-			if t.isTargetGroupUsedByHTTPRoute(ctx, *sdkTG.Name) {
-				continue
-			}
-			staleSDKTGs = append(staleSDKTGs, latticemodel.TargetGroup{
-				Spec: latticemodel.TargetGroupSpec{
-					Name:      *sdkTG.Name,
-					LatticeID: *sdkTG.Id,
-				},
-			})
-
-		}
+		staleSDKTGs = append(staleSDKTGs, latticemodel.TargetGroup{
+			Spec: latticemodel.TargetGroupSpec{
+				Name:      *sdkTG.getTargetGroupOutput.Name,
+				LatticeID: *sdkTG.getTargetGroupOutput.Id,
+			},
+		})
 
 	}
 
@@ -211,8 +305,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		err := t.targetGroupManager.Delete(ctx, &sdkTG)
 		glog.V(6).Infof("SynthesizeSDKTargetGroups, deleting stale target group %v \n", err)
 
-		// TODO find out the error code
-		if err != nil && !strings.Contains(err.Error(), "ConflictException") {
+		if err != nil && !strings.Contains(err.Error(), "TargetGroup is referenced in routing configuration, listeners or rules of service.") {
 			ret_err = true
 		}
 		// continue on even when there is an err
@@ -227,35 +320,24 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 }
 
-// TODO put following routine to common library
-func (t *targetGroupSynthesizer) isTargetGroupUsedByHTTPRoute(ctx context.Context, tgName string) bool {
+func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Context, tgName string, httpRoute *v1alpha2.HTTPRoute) bool {
 
-	httpRouteList := &v1alpha2.HTTPRouteList{}
-
-	t.client.List(ctx, httpRouteList)
-
-	//glog.V(6).Infof("isTargetGroupUsedByHTTPRoute: tgName %v-- %v\n", tgName, httpRouteList)
-
-	for _, httpRoute := range httpRouteList.Items {
-		for _, httpRule := range httpRoute.Spec.Rules {
-			for _, httpBackendRef := range httpRule.BackendRefs {
-				//glog.V(6).Infof("isTargetGroupUsedByHTTPRoute: httpBackendRef: %v \n", httpBackendRef)
-				if string(*httpBackendRef.BackendObjectReference.Kind) != "Service" {
-					continue
-				}
-				namespace := "default"
-
-				if httpBackendRef.BackendObjectReference.Namespace != nil {
-					namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
-				}
-				refTGName := latticestore.TargetGroupName(string(httpBackendRef.BackendObjectReference.Name), namespace)
-				//glog.V(6).Infof("refTGName: %s\n", refTGName)
-
-				if tgName == refTGName {
-					return true
-				}
-
+	for _, httpRule := range httpRoute.Spec.Rules {
+		for _, httpBackendRef := range httpRule.BackendRefs {
+			if string(*httpBackendRef.BackendObjectReference.Kind) != "Service" {
+				continue
 			}
+			namespace := "default"
+
+			if httpBackendRef.BackendObjectReference.Namespace != nil {
+				namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
+			}
+			refTGName := latticestore.TargetGroupName(string(httpBackendRef.BackendObjectReference.Name), namespace)
+
+			if tgName == refTGName {
+				return true
+			}
+
 		}
 	}
 

@@ -16,7 +16,7 @@ import (
 type TargetGroupManager interface {
 	Create(ctx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error)
 	Delete(ctx context.Context, targetGroup *latticemodel.TargetGroup) error
-	List(ctx context.Context) ([]vpclattice.GetTargetGroupOutput, error)
+	List(ctx context.Context) ([]targetGroupOutput, error)
 	Get(tx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error)
 }
 
@@ -189,9 +189,14 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 	return err
 }
 
-func (s *defaultTargetGroupManager) List(ctx context.Context) ([]vpclattice.GetTargetGroupOutput, error) {
+type targetGroupOutput struct {
+	getTargetGroupOutput vpclattice.GetTargetGroupOutput
+	targetGroupTags      *vpclattice.ListTagsForResourceOutput
+}
+
+func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutput, error) {
 	vpcLatticeSess := s.cloud.Lattice()
-	var tgList []vpclattice.GetTargetGroupOutput
+	var tgList []targetGroupOutput
 	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
 	resp, err := vpcLatticeSess.ListTargetGroupsAsList(ctx, &targetGroupListInput)
 	glog.V(6).Infof("ManagerList: %v, err: %v \n", resp, err)
@@ -213,7 +218,25 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]vpclattice.GetT
 		//glog.V(6).Infof("Manager-List: tg-vpc %v , config.vpc %v\n", aws.StringValue(tgOutput.Config.VpcId), config.VpcID)
 
 		if tgOutput.Config != nil && aws.StringValue(tgOutput.Config.VpcIdentifier) == config.VpcID {
-			tgList = append(tgList, *tgOutput)
+			// retrieve target group tags
+			//ListTagsForResourceWithContext
+			tagsInput := vpclattice.ListTagsForResourceInput{
+				ResourceArn: tg.Arn,
+			}
+
+			tagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, &tagsInput)
+
+			glog.V(6).Infof("tagsOutput %v,  err: %v", tagsOutput, err)
+
+			if err != nil {
+				// setting it to nil, so the caller knows there is tag resource associated to this target group
+				tagsOutput = nil
+			}
+			tgOutput := targetGroupOutput{
+				getTargetGroupOutput: *tgOutput,
+				targetGroupTags:      tagsOutput,
+			}
+			tgList = append(tgList, tgOutput)
 		}
 	}
 	return tgList, err
