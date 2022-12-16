@@ -62,37 +62,37 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
 1. List the route’s yaml file to see the DNS address (highlighted here on the `message` line):
 
-   ```bash
-   kubectl get httproute inventory -o yaml
-   ```
+      ```bash
+      kubectl get httproute inventory -o yaml
+      ```
 
-   ```
-   apiVersion: gateway.networking.k8s.io/v1alpha2
-   kind: HTTPRoute
-   metadata:
-     annotations:
-       kubectl.kubernetes.io/last-applied-configuration: |
-         {"apiVersion":"gateway.networking.k8s.io/v1alpha2","kind":"HTTPRoute","metadata":{"annotations":{},"name":"inventory","namespace":"default"}... }}]}]}}
-   ...
-   status:
-     parents:
-     - conditions:
-       - lastTransitionTime: "2022-11-22T02:29:22Z"
-         message: 'DNS Name: <b><i>inventory-default-0f326944c3d681c0d.7d67968.vpc-lattice-svcs.us-west-2.on.aws</i></b>'
-         reason: Reconciled
-         status: "True"
-         type: httproute
-       controllerName: application-networking.k8s.aws/gateway-api-controller
-       parentRef:
-         group: gateway.networking.k8s.io
-         kind: Gateway
-         name: my-hotel
-   ...
-   ```
-   
-   ```bash
-   kubectl get httproute rates inventory -o yaml
-   ```
+      ```
+      apiVersion: gateway.networking.k8s.io/v1alpha2
+      kind: HTTPRoute
+      metadata:
+      annotations:
+         kubectl.kubernetes.io/last-applied-configuration: |
+            {"apiVersion":"gateway.networking.k8s.io/v1alpha2","kind":"HTTPRoute","metadata":{"annotations":{},"name":"inventory","namespace":"default"}... }}]}]}}
+      ...
+      status:
+      parents:
+      - conditions:
+         - lastTransitionTime: "2022-11-22T02:29:22Z"
+            message: 'DNS Name: <b><i>inventory-default-0f326944c3d681c0d.7d67968.vpc-lattice-svcs.us-west-2.on.aws</i></b>'
+            reason: Reconciled
+            status: "True"
+            type: httproute
+         controllerName: application-networking.k8s.aws/gateway-api-controller
+         parentRef:
+            group: gateway.networking.k8s.io
+            kind: Gateway
+            name: my-hotel
+      ...
+      ```
+      
+      ```bash
+      kubectl get httproute rates inventory -o yaml
+      ```
 
 **Check service connectivity**
 
@@ -196,18 +196,18 @@ The following figure illustrates this:
    ```
 1. From inside of the pod, use `curl` to connect to the inventory service:
  
-   ```bash
-   for ((i=1;i<=30;i++)); do   curl   "inventory-default-0f89d8ff5e98400d0.7d67968.vpc-lattice-svcs.us-west-2.on.aws"; done
-   ```
-   ```
-   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
-   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod <----> in 1st cluster
-   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-   Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
-   ```
-   You can see that the traffic is distributed between *inventory-ver1* and *inventory-ver2* as expected.
+      ```bash
+      for ((i=1;i<=30;i++)); do   curl   "inventory-default-0f89d8ff5e98400d0.7d67968.vpc-lattice-svcs.us-west-2.on.aws"; done
+      ```
+      ```
+      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
+      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+      Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod <----> in 1st cluster
+      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+      Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+      Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+      Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
+      ```
+      You can see that the traffic is distributed between *inventory-ver1* and *inventory-ver2* as expected.
