@@ -54,14 +54,19 @@ make build-deploy
 
 ##### Configure role for k8s pod to invoke lattice api
 
-Step 1: Create an IAM OIDC provider for your cluster:
+Step 1: Create an EKS cluster:
+
+```
+eksctl create cluster --name <my-cluster> --region us-west-2
+```
+
+Step 2: Create an IAM OIDC provider for your cluster:
 https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html
 ```
 eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
 ```
 
-Step 2: Create a policy in IAM that can invoke vpc-lattice API and copy the policy arn for later use
-(iam-policy.json is under /code) :
+Step 3: Create a policy in IAM that can invoke vpc-lattice API and copy the policy arn for later use :
 
 ```
 aws iam create-policy \
@@ -70,7 +75,7 @@ aws iam create-policy \
 ```
 
 
-Step 3: Create iamserviceaccount for pod level permission
+Step 4: Create iamserviceaccount for pod level permission
 ```
 eksctl create iamserviceaccount \
 --cluster=<my-cluster-name> \
@@ -82,13 +87,13 @@ eksctl create iamserviceaccount \
 --approve
 ```
 
-Step 4: Deploy into cluster using generated deploy.yaml
+Step 5: Deploy into cluster using generated deploy.yaml..
 
 ```
 kubectl apply -f deploy.yaml
 ```
 
-Step 4: Deploy using helm Chart
+Step 5: ..Or Deploy using helm Chart
 
 ```
 # login ECR
@@ -97,13 +102,13 @@ aws ecr-public get-login-password --region us-east-1 | helm registry login --use
 
 ```
 helm install(or upgrade) gateway-api-controller \
-oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
+oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
  --version=v0.0.2 \
  --set=aws.region=us-west-2 --set=serviceAccount.create=false --namespace system
 ```
 
 
-You can find more details are in  [Detail Notes](https://code.amazon.com/packages/MercuryK8SController/blobs/mainline/--/developer.md) and [end-to-end Smoke Test](https://quip-amazon.com/FaquAsssAitb/Testing-Manual-end-to-end-Smoke-Testing-for-Kubernetes-Controllers).
+You can find more details in  [Detail Notes](https://code.amazon.com/packages/MercuryK8SController/blobs/mainline/--/developer.md) and [end-to-end Smoke Test](https://quip-amazon.com/FaquAsssAitb/Testing-Manual-end-to-end-Smoke-Testing-for-Kubernetes-Controllers).
 
 ## Release
 
