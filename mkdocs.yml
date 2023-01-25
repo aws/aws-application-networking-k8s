@@ -1,4 +1,4 @@
-site_name: AWS Application Networking Controller
+site_name: AWS Gateway API Controller
 repo_name: aws/aws-application-networking-k8s
 repo_url: https://github.com/aws/aws-application-networking-k8s
 edit_uri: edit/main/docs/
@@ -6,13 +6,10 @@ strict: true
 
 
 nav:
-  - Home:
-    - Welcome: index.md
-    - How it works: how-it-works.md
-  - Deployment: deployment/index.md
-  - Reference: reference/index.md
-  - Examples:
-    - Blue/Green Deployment: examples/bluegreen.md
+  - Home: index.md
+  - Deployment: deploy.md
+  - Configuration: configure.md
+  - Design Overview: overview.md
 
 plugins:
   - search
@@ -25,8 +22,8 @@ theme:
   font:
     text: Roboto
     code: Roboto Mono
-  features:
-    - navigation.tabs
+#  features:
+#    - navigation.tabs
 # Extensions
 markdown_extensions:
   - admonition
