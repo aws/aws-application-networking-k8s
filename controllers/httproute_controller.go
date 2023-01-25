@@ -270,7 +270,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	glog.V(6).Infof("updateHTTPRouteStatus: httproute %v, dns %v\n", httproute, dns)
 	httprouteOld := httproute.DeepCopy()
 
-	if httproute.Status.RouteStatus.Parents == nil {
+	if len(httproute.Status.RouteStatus.Parents) == 0 {
 		httproute.Status.RouteStatus.Parents = make([]v1alpha2.RouteParentStatus, 1)
 		httproute.Status.RouteStatus.Parents[0].Conditions = make([]metav1.Condition, 1)
 		httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime = eventhandlers.ZeroTransitionTime
