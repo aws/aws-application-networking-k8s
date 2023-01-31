@@ -70,6 +70,9 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					*/
 					ruleTG.Name = string(httpBackendRef.BackendObjectReference.Name)
 					ruleTG.Namespace = "default"
+					if httpBackendRef.BackendObjectReference.Namespace != nil {
+						ruleTG.Namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
+					}
 					ruleTG.IsServiceImport = true
 
 					if httpBackendRef.Weight != nil {

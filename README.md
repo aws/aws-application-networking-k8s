@@ -21,6 +21,9 @@ kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceimports.yaml
 
 # Run the controller against the Kubernetes cluster pointed to by `kubectl config current-context`
 make run
+
+# or run it in debug mode
+GATEWAY_API_CONTROLLER_LOGLEVEL=debug make run
 ```
 
 ## End-to-End Testing
