@@ -111,6 +111,9 @@ func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error 
 		if string(*httpBackendRef.Kind) == "ServiceImport" {
 			is_import = true
 			targetgroupNamespace = "default"
+			if httpBackendRef.BackendObjectReference.Namespace != nil {
+				targetgroupNamespace = string(*httpBackendRef.BackendObjectReference.Namespace)
+			}
 			targetgroupName = string(httpBackendRef.BackendObjectReference.Name)
 
 		}
