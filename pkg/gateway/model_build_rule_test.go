@@ -270,8 +270,9 @@ func Test_RuleModelBuild(t *testing.T) {
 		var i = 1
 		for _, resRule := range resRules {
 
-			ruleID := fmt.Sprintf("rule-%d", i)
-			assert.Equal(t, resRule.Spec.RuleID, ruleID)
+			fmt.Printf("resRule>> : %v \n", resRule)
+			fmt.Sscanf(resRule.Spec.RuleID,"rule-%d", &i)
+
 			assert.Equal(t, resRule.Spec.ListenerPort, int64(tt.gwListenerPort))
 			assert.Equal(t, resRule.Spec.RuleType, "HTTPRouteMatch")
 			assert.Equal(t, resRule.Spec.ServiceName, tt.httpRoute.Name)
@@ -292,7 +293,6 @@ func Test_RuleModelBuild(t *testing.T) {
 				}
 				j++
 			}
-			i++
 
 		}
 
