@@ -24,6 +24,9 @@ make run
 
 # or run it in debug mode
 GATEWAY_API_CONTROLLER_LOGLEVEL=debug make run
+
+# to run it against specific lattice service endpoint
+LATTICE_ENDPOINT=https://mercury-gamma.us-west-2.amazonaws.com/ make run
 ```
 
 ## End-to-End Testing

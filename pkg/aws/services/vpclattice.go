@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"github.com/golang/glog"
+	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -30,11 +32,16 @@ const (
 
 func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 	var latticeSess vpclatticeiface.VpcLatticeAPI
-	if region == "us-east-1" {
-		latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion("us-east-1").WithEndpoint("https://mercury-beta.us-east-1.amazonaws.com/"))
-	} else {
-		latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion("us-west-2").WithEndpoint(BetaProdEndpoint))
+	endpoint := os.Getenv("LATTICE_ENDPOINT")
+
+	if endpoint == "" {
+		endpoint = BetaProdEndpoint
 	}
+
+	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion("us-west-2").WithEndpoint(endpoint))
+
+	glog.V(2).Infoln("Lattice Service EndPoint:", endpoint)
+
 	return &defaultLattice{VpcLatticeAPI: latticeSess}
 }
 
