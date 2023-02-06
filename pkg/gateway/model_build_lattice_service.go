@@ -75,6 +75,13 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 		return err
 	}
 
+	if !t.httpRoute.DeletionTimestamp.IsZero() {
+		// in case of deleting HTTPRoute, we will let reconcile logic to delete
+		// stated target group(s) at next reconcile interval
+		glog.V(6).Infof("latticeServiceModuleBuildTask: for HTTPRouteDelete, reconcile tagetgroups/targets at reconcile interval")
+		return nil
+	}
+
 	_, err = t.buildTargetGroup(ctx, t.Client)
 
 	if err != nil {
