@@ -118,6 +118,19 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		ServiceNetworkName: string(t.httpRoute.Spec.ParentRefs[0].Name),
 	}
 
+	if len(t.httpRoute.Spec.Hostnames) > 0 {
+		// The 1st hostname will be used as lattice customer-domain-name
+		spec.CustomerDomainName = string(t.httpRoute.Spec.Hostnames[0])
+
+		//TODO
+		glog.V(2).Infof("Setting customer-domain-name: %v for httpRoute %v-%v",
+		 spec.CustomerDomainName, t.httpRoute.Name, t.httpRoute.Namespace)
+	} else {
+	    glog.V(2).Infof("No customter-domain-name for httproute :%v-%v",
+		t.httpRoute.Name, t.httpRoute.Namespace)
+		spec.CustomerDomainName = ""
+	}
+
 	if t.httpRoute.DeletionTimestamp.IsZero() {
 		spec.IsDeleted = false
 	} else {

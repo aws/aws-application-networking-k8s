@@ -76,6 +76,10 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 			Name: &svcName,
 			Tags: nil,
 		}
+
+		if len(service.Spec.CustomerDomainName) > 0 {
+			serviceInput.CustomDomainName = &service.Spec.CustomerDomainName
+		}
 		latticeSess := s.cloud.Lattice()
 		resp, err := latticeSess.CreateServiceWithContext(ctx, &serviceInput)
 		glog.V(2).Infof("CreateServiceWithContext >>>> req %v resp %v err %v\n", serviceInput, resp, err)

@@ -17,6 +17,7 @@ type ServiceSpec struct {
 	Namespace          string    `json:"namespace"`
 	Protocols          []*string `json:"protocols"`
 	ServiceNetworkName string    `json:"servicenetworkhname"`
+	CustomerDomainName string    `json:"customerdomainname"`
 	IsDeleted          bool
 }
 
