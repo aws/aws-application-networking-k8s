@@ -18,6 +18,7 @@ type ServiceSpec struct {
 	Protocols          []*string `json:"protocols"`
 	ServiceNetworkName string    `json:"servicenetworkhname"`
 	CustomerDomainName string    `json:"customerdomainname"`
+	CustomerCertARN    string    `json:"customercertarn"`
 	IsDeleted          bool
 }
 
