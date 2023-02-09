@@ -57,6 +57,32 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		wantIsDeleted bool
 	}{
 		{
+			name: "Add LatticeService with hostname",
+			httpRoute: &v1alpha2.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "service1",
+				},
+				Spec: v1alpha2.HTTPRouteSpec{
+					CommonRouteSpec: v1alpha2.CommonRouteSpec{
+						ParentRefs: []v1alpha2.ParentRef{
+							{
+								Name: "gateway1",
+							},
+						},
+					},
+					Hostnames: []v1alpha2.Hostname{
+						"test1.test.com",
+						"test2.test.com",
+					},
+				},
+			},
+
+			wantError:     nil,
+			wantName:      "service1",
+			wantIsDeleted: false,
+			wantErrIsNil:  true,
+		},
+		{
 			name: "Add LatticeService",
 			httpRoute: &v1alpha2.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -159,6 +185,12 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				assert.Equal(t, false, task.latticeService.Spec.IsDeleted)
 				assert.Equal(t, tt.httpRoute.Name, task.latticeService.Spec.Name)
 				assert.Equal(t, tt.httpRoute.Namespace, task.latticeService.Spec.Namespace)
+
+				if len(tt.httpRoute.Spec.Hostnames) > 0 {
+					assert.Equal(t, string(tt.httpRoute.Spec.Hostnames[0]), task.latticeService.Spec.CustomerDomainName)
+				} else {
+					assert.Equal(t, "", task.latticeService.Spec.CustomerDomainName)
+				}
 			}
 
 			if tt.wantErrIsNil {
