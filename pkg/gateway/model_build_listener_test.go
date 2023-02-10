@@ -305,7 +305,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 							Name:     *tt.httpRoute.Spec.ParentRefs[0].SectionName,
 						}
 
-						if tt.tlsTerminate  {
+						if tt.tlsTerminate {
 							mode := v1alpha2.TLSModeTerminate
 							var tlsConfig v1alpha2.GatewayTLSConfig
 
