@@ -1,7 +1,7 @@
 # Configure a Customer Domain Name 
 Today when you create a HTTPRoute using `amazon-vpc-lattice` gatewayclass, lattice gateway-api-controller creates a AWS VPC lattice during reconciliation. And VPC Lattice generates a unique Fully Qualified Domain Name (FQDN). However, this VPC Lattice generated domain name is not easy for customers to remember and use.
 
-If you'd prefer to use a customer domain name for a HTTPRoute, you can specify them in hostname field of HTTPRoute.  Here is one example
+If you'd prefer to use a custome domain name for a HTTPRoute, you can specify them in hostname field of HTTPRoute.  Here is one example
 
 ```
 apiVersion: gateway.networking.k8s.io/v1alpha2
@@ -10,7 +10,7 @@ metadata:
   name: review
 spec:
   hostnames:
-  - review.my-test.com  <-----------  this is the customer domain name
+  - review.my-test.com  <-----------  this is the custome domain name
   parentRefs:
   - name: my-hotel
     sectionName: http
