@@ -1,5 +1,5 @@
 # Configure a Custom Domain Name for HTTPRoute
-Today when you create a HTTPRoute using `amazon-vpc-lattice` gatewayclass, Lattice gateway-api-controller creates a AWS VPC lattice during reconciliation. And VPC Lattice generates a unique Fully Qualified Domain Name (FQDN). However, this VPC Lattice generated domain name is not easy for customers to remember and use.
+Today when you create a HTTPRoute using `amazon-vpc-lattice` gatewayclass, Lattice gateway-api-controller creates a AWS VPC Lattice Service during reconciliation. And VPC Lattice generates a unique Fully Qualified Domain Name (FQDN). However, this VPC Lattice generated domain name is not easy for customers to remember and use.
 
 If you'd prefer to use a custom domain name for a HTTPRoute, you can specify them in hostname field of HTTPRoute.  Here is one example
 
