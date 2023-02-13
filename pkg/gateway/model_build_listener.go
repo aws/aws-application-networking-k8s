@@ -55,7 +55,7 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 				protocol = section.Protocol
 
 				if section.TLS != nil {
-					if *section.TLS.Mode == v1alpha2.TLSModeTerminate {
+					if section.TLS.Mode != nil && *section.TLS.Mode == v1alpha2.TLSModeTerminate {
 						curCertARN, ok := section.TLS.Options[awsCustomCertARN]
 
 						if ok {
