@@ -1,0 +1,19 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: review
+spec:
+  hostnames:
+  - review.my-test.com   
+  parentRefs:
+  - name: my-hotel
+    sectionName: tls-with-customer-cert
+  rules:    
+  - backendRefs:
+    - name: review1
+      kind: Service
+      port: 8090
+    matches:
+    - path:
+        type: PathPrefix
+        value: /review1

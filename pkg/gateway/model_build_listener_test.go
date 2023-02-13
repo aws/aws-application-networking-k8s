@@ -54,6 +54,10 @@ func Test_ListenerModelBuild(t *testing.T) {
 		wantErrIsNil       bool
 		k8sGetGatewayCall  bool
 		k8sGatewayReturnOK bool
+		tlsTerminate       bool
+		noTLSOption        bool
+		wrongTLSOption     bool
+		certARN            string
 	}{
 		{
 			name:               "listener, default service action",
@@ -61,6 +65,108 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
+			httpRoute: &v1alpha2.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.HTTPRouteSpec{
+					CommonRouteSpec: v1alpha2.CommonRouteSpec{
+						ParentRefs: []v1alpha2.ParentRef{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.HTTPRouteRule{
+						{
+							BackendRefs: []v1alpha2.HTTPBackendRef{
+								{
+									BackendRef: backendRef,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:               "listener, tls with cert arn",
+			gwListenerPort:     *PortNumberPtr(80),
+			wantErrIsNil:       true,
+			k8sGetGatewayCall:  true,
+			k8sGatewayReturnOK: true,
+			tlsTerminate:       true,
+			certARN:            "test-cert-ARN",
+			httpRoute: &v1alpha2.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.HTTPRouteSpec{
+					CommonRouteSpec: v1alpha2.CommonRouteSpec{
+						ParentRefs: []v1alpha2.ParentRef{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.HTTPRouteRule{
+						{
+							BackendRefs: []v1alpha2.HTTPBackendRef{
+								{
+									BackendRef: backendRef,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:               "listener, tls mode is not terminate",
+			gwListenerPort:     *PortNumberPtr(80),
+			wantErrIsNil:       true,
+			k8sGetGatewayCall:  true,
+			k8sGatewayReturnOK: true,
+			tlsTerminate:       false,
+			certARN:            "test-cert-ARN",
+			httpRoute: &v1alpha2.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.HTTPRouteSpec{
+					CommonRouteSpec: v1alpha2.CommonRouteSpec{
+						ParentRefs: []v1alpha2.ParentRef{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.HTTPRouteRule{
+						{
+							BackendRefs: []v1alpha2.HTTPBackendRef{
+								{
+									BackendRef: backendRef,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:               "listener, with wrong annotation",
+			gwListenerPort:     *PortNumberPtr(80),
+			wantErrIsNil:       true,
+			k8sGetGatewayCall:  true,
+			k8sGatewayReturnOK: true,
+			tlsTerminate:       false,
+			certARN:            "test-cert-ARN",
 			httpRoute: &v1alpha2.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -193,11 +299,39 @@ func Test_ListenerModelBuild(t *testing.T) {
 				func(ctx context.Context, gwName types.NamespacedName, gw *v1alpha2.Gateway) error {
 
 					if tt.k8sGatewayReturnOK {
-						gw.Spec.Listeners = append(gw.Spec.Listeners, v1alpha2.Listener{
+						listener := v1alpha2.Listener{
 							Port:     tt.gwListenerPort,
 							Protocol: "HTTP",
 							Name:     *tt.httpRoute.Spec.ParentRefs[0].SectionName,
-						})
+						}
+
+						if tt.tlsTerminate {
+							mode := v1alpha2.TLSModeTerminate
+							var tlsConfig v1alpha2.GatewayTLSConfig
+
+							if tt.noTLSOption {
+								tlsConfig = v1alpha2.GatewayTLSConfig{
+									Mode: &mode,
+								}
+
+							} else {
+
+								tlsConfig = v1alpha2.GatewayTLSConfig{
+									Mode:    &mode,
+									Options: make(map[v1alpha2.AnnotationKey]v1alpha2.AnnotationValue),
+								}
+
+								if tt.wrongTLSOption {
+									tlsConfig.Options["wrong-annotation"] = v1alpha2.AnnotationValue(tt.certARN)
+
+								} else {
+									tlsConfig.Options[awsCustomCertARN] = v1alpha2.AnnotationValue(tt.certARN)
+								}
+							}
+							listener.TLS = &tlsConfig
+
+						}
+						gw.Spec.Listeners = append(gw.Spec.Listeners, listener)
 						return nil
 					} else {
 						return errors.New("unknown k8s object")
@@ -217,6 +351,9 @@ func Test_ListenerModelBuild(t *testing.T) {
 			listenerByResID: make(map[string]*latticemodel.Listener),
 			Datastore:       ds,
 		}
+
+		service := latticemodel.Service{}
+		task.latticeService = &service
 
 		err := task.buildListener(ctx)
 
@@ -252,6 +389,12 @@ func Test_ListenerModelBuild(t *testing.T) {
 			assert.Equal(t, resListener[0].Spec.DefaultAction.Is_Import, false)
 		} else {
 			assert.Equal(t, resListener[0].Spec.DefaultAction.Is_Import, true)
+		}
+
+		if tt.tlsTerminate && !tt.noTLSOption && !tt.wrongTLSOption {
+			assert.Equal(t, task.latticeService.Spec.CustomerCertARN, tt.certARN)
+		} else {
+			assert.Equal(t, task.latticeService.Spec.CustomerCertARN, "")
 		}
 
 	}

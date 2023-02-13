@@ -14,9 +14,11 @@ import (
 
 const (
 	resourceIDListenerConfig = "ListenerConfig"
+
+	awsCustomCertARN = "application-networking.k8s.aws/certificate-arn"
 )
 
-func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, parentRef v1alpha2.ParentRef) (int64, string, error) {
+func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, parentRef v1alpha2.ParentRef) (int64, string, string, error) {
 
 	var protocol v1alpha2.ProtocolType = v1alpha2.HTTPProtocolType
 	if parentRef.SectionName != nil {
@@ -39,9 +41,10 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 
 	if err := t.Client.Get(ctx, gwName, gw); err != nil {
 		glog.V(6).Infof("Failed to build Listener due to unknow http parent ref , Name %v, err %v \n", gwName, err)
-		return 0, "", err
+		return 0, "", "", err
 	}
 
+	var certARN = ""
 	// go through parent find out the matching section name
 	if parentRef.SectionName != nil {
 		glog.V(6).Infof("HTTP SectionName %s \n", *parentRef.SectionName)
@@ -51,6 +54,20 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 				listenerPort = int(section.Port)
 				protocol = section.Protocol
 
+				if section.TLS != nil {
+					if section.TLS.Mode != nil && *section.TLS.Mode == v1alpha2.TLSModeTerminate {
+						curCertARN, ok := section.TLS.Options[awsCustomCertARN]
+
+						if ok {
+							glog.V(6).Infof("Found certification %v under section %v",
+								curCertARN, section.Name)
+							certARN = string(curCertARN)
+						}
+
+					}
+
+				}
+
 			}
 		}
 	} else {
@@ -59,12 +76,12 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 		if len(gw.Spec.Listeners) == 0 {
 			glog.V(6).Infof("Error building listener, there is NO listeners on GW for %v\n",
 				gwName)
-			return 0, "", errors.New("Error building listener, there is NO listeners on GW")
+			return 0, "", "", errors.New("Error building listener, there is NO listeners on GW")
 		}
 		listenerPort = int(gw.Spec.Listeners[0].Port)
 	}
 
-	return int64(listenerPort), string(protocol), nil
+	return int64(listenerPort), string(protocol), certARN, nil
 
 }
 
@@ -72,11 +89,14 @@ func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error 
 
 	for _, parentRef := range t.httpRoute.Spec.ParentRefs {
 
-		port, protocol, err := t.extractListnerInfo(ctx, parentRef)
+		port, protocol, certARN, err := t.extractListnerInfo(ctx, parentRef)
 
 		if err != nil {
 			glog.V(6).Infof("Error on buildListener %v\n", err)
 			return err
+		}
+		if t.latticeService != nil {
+			t.latticeService.Spec.CustomerCertARN = certARN
 		}
 
 		glog.V(6).Infof("Building Listener: found matching listner Port %v\n", port)

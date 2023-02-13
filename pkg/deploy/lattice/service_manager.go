@@ -76,6 +76,14 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 			Name: &svcName,
 			Tags: nil,
 		}
+
+		if len(service.Spec.CustomerDomainName) > 0 {
+			serviceInput.CustomDomainName = &service.Spec.CustomerDomainName
+		}
+
+		if len(service.Spec.CustomerCertARN) > 0 {
+			serviceInput.SetCertificateArn(service.Spec.CustomerCertARN)
+		}
 		latticeSess := s.cloud.Lattice()
 		resp, err := latticeSess.CreateServiceWithContext(ctx, &serviceInput)
 		glog.V(2).Infof("CreateServiceWithContext >>>> req %v resp %v err %v\n", serviceInput, resp, err)
@@ -91,6 +99,22 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 		serviceArn = aws.StringValue(serviceSummary.Arn)
 		if serviceSummary.DnsEntry != nil {
 			serviceDNS = aws.StringValue(serviceSummary.DnsEntry.DomainName)
+		}
+
+		if len(service.Spec.CustomerCertARN) > 0 {
+			serviceUpdateInput := vpclattice.UpdateServiceInput{
+				ServiceIdentifier: serviceSummary.Id,
+				CertificateArn:    aws.String(service.Spec.CustomerCertARN),
+			}
+
+			latticeSess := s.cloud.Lattice()
+			resp, err := latticeSess.UpdateServiceWithContext(ctx, &serviceUpdateInput)
+			glog.V(2).Infof("UpdateServiceWithContext >>>> req %v resp %v err %v\n", serviceUpdateInput, resp, err)
+			if err != nil {
+				glog.V(6).Infoln("fail to update service")
+				return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, err
+			}
+
 		}
 		isServiceAssociatedWithServiceNetwork, serviceDNS, err = s.isServiceAssociatedWithServiceNetwork(ctx, serviceID, serviceNetwork.ID)
 		if err != nil {

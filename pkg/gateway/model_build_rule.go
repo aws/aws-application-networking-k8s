@@ -15,7 +15,7 @@ const (
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 	var ruleID = 1
 	for _, parentRef := range t.httpRoute.Spec.ParentRefs {
-		port, protocol, err := t.extractListnerInfo(ctx, parentRef)
+		port, protocol, _, err := t.extractListnerInfo(ctx, parentRef)
 
 		if err != nil {
 			glog.V(6).Infof("Error on buildRules %v \n", err)

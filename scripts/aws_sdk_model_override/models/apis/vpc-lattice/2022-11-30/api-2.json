@@ -1,15 +1,16 @@
 {
   "version":"2.0",
   "metadata":{
-    "apiVersion":"2021-08-17",
-    "endpointPrefix":"mercury",
+    "apiVersion":"2022-11-30",
+    "endpointPrefix":"vpc-lattice",
     "jsonVersion":"1.1",
     "protocol":"rest-json",
+    "ripServiceName":"vpc-lattice",
     "serviceFullName":"VPC Lattice",
     "serviceId":"VpcLattice",
     "signatureVersion":"v4",
     "signingName":"vpc-lattice",
-    "uid":"vpclattice-2021-08-17"
+    "uid":"vpclattice-2022-11-30"
   },
   "operations":{
     "BatchUpdateRule":{
@@ -965,19 +966,19 @@
       "type":"string",
       "max":2048,
       "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:accesslogsubscription/als-[0-9a-z]{17}$"
+      "pattern":"^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:accesslogsubscription/als-[0-9a-z]{17}$"
     },
     "AccessLogSubscriptionId":{
       "type":"string",
-      "max":17,
-      "min":17,
+      "max":21,
+      "min":21,
       "pattern":"^als-[0-9a-z]{17}$"
     },
     "AccessLogSubscriptionIdentifier":{
       "type":"string",
       "max":2048,
       "min":17,
-      "pattern":"^((als-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:accesslogsubscription/als-[0-9a-z]{17}))$"
+      "pattern":"^((als-[0-9a-z]{17})|(arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:accesslogsubscription/als-[0-9a-z]{17}))$"
     },
     "AccessLogSubscriptionList":{
       "type":"list",
@@ -1014,7 +1015,7 @@
       "type":"string",
       "max":1224,
       "min":0,
-      "pattern":"^arn:[a-z0-9][-.a-z0-9]{0,62}:[a-z0-9][-.a-z0-9]{0,62}:([a-z0-9][-.a-z0-9]{0,62})?:([a-z0-9][-.a-z0-9]{0,62})?:[^/].{0,1023}$"
+      "pattern":"^arn:[a-z0-9][-.a-z0-9]{0,62}:vpc-lattice:([a-z0-9][-.a-z0-9]{0,62})?:\\d{12}?:[^/].{0,1023}$"
     },
     "AuthPolicyState":{
       "type":"string",
@@ -1064,7 +1065,16 @@
         "unsuccessful":{"shape":"RuleUpdateFailureList"}
       }
     },
-    "Boolean":{"type":"boolean"},
+    "Boolean":{
+      "type":"boolean",
+      "box":true
+    },
+    "CertificateArn":{
+      "type":"string",
+      "max":2048,
+      "min":0,
+      "pattern":"^(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:certificate/[0-9a-z-]+)?$"
+    },
     "ClientToken":{
       "type":"string",
       "max":64,
@@ -1246,6 +1256,7 @@
       "members":{
         "arn":{"shape":"ServiceNetworkServiceAssociationArn"},
         "createdBy":{"shape":"AccountId"},
+        "customDomainName":{"shape":"ServiceCustomDomainName"},
         "dnsEntry":{"shape":"DnsEntry"},
         "id":{"shape":"ServiceNetworkServiceAssociationIdentifier"},
         "status":{"shape":"ServiceNetworkServiceAssociationStatus"}
@@ -1289,10 +1300,12 @@
       "required":["name"],
       "members":{
         "authType":{"shape":"AuthType"},
+        "certificateArn":{"shape":"CertificateArn"},
         "clientToken":{
           "shape":"ClientToken",
           "idempotencyToken":true
         },
+        "customDomainName":{"shape":"ServiceCustomDomainName"},
         "name":{"shape":"ServiceName"},
         "tags":{"shape":"TagMap"}
       }
@@ -1302,6 +1315,8 @@
       "members":{
         "arn":{"shape":"ServiceArn"},
         "authType":{"shape":"AuthType"},
+        "certificateArn":{"shape":"CertificateArn"},
+        "customDomainName":{"shape":"ServiceCustomDomainName"},
         "dnsEntry":{"shape":"DnsEntry"},
         "id":{"shape":"ServiceId"},
         "name":{"shape":"ServiceName"},
@@ -1758,6 +1773,7 @@
         "arn":{"shape":"ServiceNetworkServiceAssociationArn"},
         "createdAt":{"shape":"Timestamp"},
         "createdBy":{"shape":"AccountId"},
+        "customDomainName":{"shape":"ServiceCustomDomainName"},
         "dnsEntry":{"shape":"DnsEntry"},
         "failureCode":{"shape":"String"},
         "failureMessage":{"shape":"String"},
@@ -1816,7 +1832,9 @@
       "members":{
         "arn":{"shape":"ServiceArn"},
         "authType":{"shape":"AuthType"},
+        "certificateArn":{"shape":"CertificateArn"},
         "createdAt":{"shape":"Timestamp"},
+        "customDomainName":{"shape":"ServiceCustomDomainName"},
         "dnsEntry":{"shape":"DnsEntry"},
         "failureCode":{"shape":"FailureCode"},
         "failureMessage":{"shape":"FailureMessage"},
@@ -1923,7 +1941,8 @@
     "HealthCheckPath":{
       "type":"string",
       "max":2048,
-      "min":1
+      "min":1,
+      "pattern":"^/[a-zA-Z0-9@:%_+.~#?&/=]*$"
     },
     "HealthCheckTimeoutSeconds":{
       "type":"integer",
@@ -2271,19 +2290,19 @@
       "type":"string",
       "max":2048,
       "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:service/svc-[0-9a-z]{17}/listener/listener-[0-9a-z]{17}$"
+      "pattern":"^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:service/svc-[0-9a-z]{17}/listener/listener-[0-9a-z]{17}$"
     },
     "ListenerId":{
       "type":"string",
-      "max":17,
-      "min":17,
+      "max":26,
+      "min":26,
       "pattern":"^listener-[0-9a-z]{17}$"
     },
     "ListenerIdentifier":{
       "type":"string",
       "max":2048,
       "min":20,
-      "pattern":"^((listener-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:service/svc-[0-9a-z]{17}/listener/listener-[0-9a-z]{17}))$"
+      "pattern":"^((listener-[0-9a-z]{17})|(^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:service/svc-[0-9a-z]{17}/listener/listener-[0-9a-z]{17}$))$"
     },
     "ListenerName":{
       "type":"string",
@@ -2347,12 +2366,14 @@
     "PathMatchExact":{
       "type":"string",
       "max":200,
-      "min":1
+      "min":1,
+      "pattern":"^/[a-zA-Z0-9@:%_+.~#?&/=]*$"
     },
     "PathMatchPrefix":{
       "type":"string",
       "max":200,
-      "min":1
+      "min":1,
+      "pattern":"^/[a-zA-Z0-9@:%_+.~#?&/=]*$"
     },
     "PathMatchType":{
       "type":"structure",
@@ -2491,19 +2512,19 @@
       "type":"string",
       "max":2048,
       "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:service/svc-[0-9a-z]{17}/listener/listener-[0-9a-z]{17}/rule/((rule-[0-9a-z]{17})|(default))$"
+      "pattern":"^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:service/svc-[0-9a-z]{17}/listener/listener-[0-9a-z]{17}/rule/rule-[0-9a-z]{17}$"
     },
     "RuleId":{
       "type":"string",
-      "max":17,
-      "min":17,
-      "pattern":"^((rule-[0-9a-z]{17})|(default))$"
+      "max":22,
+      "min":5,
+      "pattern":"^rule-[0-9a-z]{17}$"
     },
     "RuleIdentifier":{
       "type":"string",
       "max":2048,
       "min":20,
-      "pattern":"^((rule-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:service/svc-[0-9a-z]{17}/listener/listener-[0-9a-z]{17}/rule/((rule-[0-9a-z]{17})|(default))))$"
+      "pattern":"^((rule-[0-9a-z]{17})|(^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:service/svc-[0-9a-z]{17}/listener/listener-[0-9a-z]{17}/rule/rule-[0-9a-z]{17}$))$"
     },
     "RuleMatch":{
       "type":"structure",
@@ -2597,23 +2618,28 @@
       "type":"string",
       "max":2048,
       "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:service/svc-[0-9a-z]{17}$"
+      "pattern":"^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:service/svc-[0-9a-z]{17}$"
     },
     "ServiceArnList":{
       "type":"list",
       "member":{"shape":"ServiceArn"}
     },
+    "ServiceCustomDomainName":{
+      "type":"string",
+      "max":255,
+      "min":3
+    },
     "ServiceId":{
       "type":"string",
-      "max":17,
-      "min":17,
+      "max":21,
+      "min":21,
       "pattern":"^svc-[0-9a-z]{17}$"
     },
     "ServiceIdentifier":{
       "type":"string",
       "max":2048,
       "min":17,
-      "pattern":"^((svc-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:service/svc-[0-9a-z]{17}))$"
+      "pattern":"^((svc-[0-9a-z]{17})|(arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:service/svc-[0-9a-z]{17}))$"
     },
     "ServiceList":{
       "type":"list",
@@ -2629,7 +2655,7 @@
       "type":"string",
       "max":2048,
       "min":32,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetwork/sn-[0-9a-z]{17}$"
+      "pattern":"^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:servicenetwork/sn-[0-9a-z]{17}$"
     },
     "ServiceNetworkId":{
       "type":"string",
@@ -2641,7 +2667,7 @@
       "type":"string",
       "max":2048,
       "min":3,
-      "pattern":"^((sn-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetwork/sn-[0-9a-z]{17}))$"
+      "pattern":"^((sn-[0-9a-z]{17})|(arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:servicenetwork/sn-[0-9a-z]{17}))$"
     },
     "ServiceNetworkList":{
       "type":"list",
@@ -2657,13 +2683,13 @@
       "type":"string",
       "max":2048,
       "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetworkserviceassociation/snsa-[0-9a-z]{17}$"
+      "pattern":"^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:servicenetworkserviceassociation/snsa-[0-9a-z]{17}$"
     },
     "ServiceNetworkServiceAssociationIdentifier":{
       "type":"string",
       "max":2048,
       "min":17,
-      "pattern":"^((snsa-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetworkserviceassociation/snsa-[0-9a-z]{17}))$"
+      "pattern":"^((snsa-[0-9a-z]{17})|(arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:servicenetworkserviceassociation/snsa-[0-9a-z]{17}))$"
     },
     "ServiceNetworkServiceAssociationList":{
       "type":"list",
@@ -2685,6 +2711,7 @@
         "arn":{"shape":"ServiceNetworkServiceAssociationArn"},
         "createdAt":{"shape":"Timestamp"},
         "createdBy":{"shape":"AccountId"},
+        "customDomainName":{"shape":"ServiceCustomDomainName"},
         "dnsEntry":{"shape":"DnsEntry"},
         "id":{"shape":"ServiceNetworkServiceAssociationIdentifier"},
         "serviceArn":{"shape":"ServiceArn"},
@@ -2712,19 +2739,19 @@
       "type":"string",
       "max":2048,
       "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetworkvpcassociation/snva-[0-9a-z]{17}$"
+      "pattern":"^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:servicenetworkvpcassociation/snva-[0-9a-z]{17}$"
     },
     "ServiceNetworkVpcAssociationId":{
       "type":"string",
-      "max":17,
-      "min":17,
+      "max":22,
+      "min":22,
       "pattern":"^snva-[0-9a-z]{17}$"
     },
     "ServiceNetworkVpcAssociationIdentifier":{
       "type":"string",
       "max":2048,
       "min":17,
-      "pattern":"^((snva-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:servicenetworkvpcassociation/snva-[0-9a-z]{17}))$"
+      "pattern":"^((snva-[0-9a-z]{17})|(arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:servicenetworkvpcassociation/snva-[0-9a-z]{17}))$"
     },
     "ServiceNetworkVpcAssociationList":{
       "type":"list",
@@ -2793,6 +2820,7 @@
       "members":{
         "arn":{"shape":"ServiceArn"},
         "createdAt":{"shape":"Timestamp"},
+        "customDomainName":{"shape":"ServiceCustomDomainName"},
         "dnsEntry":{"shape":"DnsEntry"},
         "id":{"shape":"ServiceId"},
         "lastUpdatedAt":{"shape":"Timestamp"},
@@ -2869,7 +2897,7 @@
       "type":"string",
       "max":2048,
       "min":20,
-      "pattern":"^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:targetgroup/tg-[0-9a-z]{17}$"
+      "pattern":"^arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:targetgroup/tg-[0-9a-z]{17}$"
     },
     "TargetGroupConfig":{
       "type":"structure",
@@ -2888,15 +2916,15 @@
     },
     "TargetGroupId":{
       "type":"string",
-      "max":17,
-      "min":17,
+      "max":20,
+      "min":20,
       "pattern":"^tg-[0-9a-z]{17}$"
     },
     "TargetGroupIdentifier":{
       "type":"string",
       "max":2048,
       "min":17,
-      "pattern":"^((tg-[0-9a-z]{17})|(arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:targetgroup/tg-[0-9a-z]{17}))$"
+      "pattern":"^((tg-[0-9a-z]{17})|(arn:[a-z0-9\\-]+:vpc-lattice:[a-zA-Z0-9\\-]+:\\d{12}:targetgroup/tg-[0-9a-z]{17}))$"
     },
     "TargetGroupList":{
       "type":"list",
@@ -2941,9 +2969,12 @@
         "id":{"shape":"TargetGroupId"},
         "lastUpdatedAt":{"shape":"Timestamp"},
         "name":{"shape":"TargetGroupName"},
+        "port":{"shape":"Port"},
+        "protocol":{"shape":"TargetGroupProtocol"},
         "serviceArns":{"shape":"ServiceArnList"},
         "status":{"shape":"TargetGroupStatus"},
-        "type":{"shape":"TargetGroupType"}
+        "type":{"shape":"TargetGroupType"},
+        "vpcIdentifier":{"shape":"VpcId"}
       }
     },
     "TargetGroupType":{
@@ -3213,6 +3244,7 @@
       "required":["serviceIdentifier"],
       "members":{
         "authType":{"shape":"AuthType"},
+        "certificateArn":{"shape":"CertificateArn"},
         "serviceIdentifier":{
           "shape":"ServiceIdentifier",
           "location":"uri",
@@ -3225,6 +3257,8 @@
       "members":{
         "arn":{"shape":"ServiceArn"},
         "authType":{"shape":"AuthType"},
+        "certificateArn":{"shape":"CertificateArn"},
+        "customDomainName":{"shape":"ServiceCustomDomainName"},
         "id":{"shape":"ServiceId"},
         "name":{"shape":"ServiceName"}
       }
