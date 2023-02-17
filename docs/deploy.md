@@ -3,13 +3,17 @@
 Follow these instructions to create a cluster and deploy the AWS Gateway API Controller.
 Run through them again for a second cluster to use with the extended example shown later.
 
+1. Set your region (us-west-2 or us-east-1) as an environment variable. For example:
+   ```bash
+   export AWS_REGION=us-west-2
+   ```
 1. You can use an existing EKS cluster or create a new one as shown here:
    ```bash
-   eksctl create cluster --name <my-cluster> --region us-west-2
+   eksctl create cluster --name <my-cluster> --region $AWS_REGION
    ```
 1. Configure security group: To receive traffic from the VPC Lattice fleet, you must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic on all ports from the 169.254.171.0/24 address range. See [Control traffic to resources using security groups](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html) for details. You can use the following managed prefix to provide the values:
    ```bash
-   aws ec2 get-managed-prefix-list-entries --region us-west-2 --prefix-list-id pl-0721453c7ac4ec009
+   aws ec2 get-managed-prefix-list-entries --region $AWS_REGION --prefix-list-id pl-0721453c7ac4ec009
    ```
    ```
    ENTRIES 169.254.171.0/24
@@ -57,14 +61,14 @@ Run through them again for a second cluster to use with the extended example sho
       --name=gateway-api-controller \
       --attach-policy-arn=$VPCLatticeControllerIAMPolicyArn \
       --override-existing-serviceaccounts \
-      --region us-west-2 \
+      --region $AWS_REGION \
       --approve
    ```
 
 1. Run either `kubectl` or `helm` to deploy the controller:
 
       ```bash
-      kubectl apply -f examples/deploy-v0.0.1.yaml
+      kubectl apply -f examples/deploy-v0.0.3.yaml
       ```
       
       or
@@ -76,7 +80,7 @@ Run through them again for a second cluster to use with the extended example sho
       helm install gateway-api-controller \
          oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
          --version=v0.0.2 \
-         --set=aws.region=us-west-2 --set=serviceAccount.create=false --namespace system
+         --set=aws.region=$AWS_REGION --set=serviceAccount.create=false --namespace system
       ```
 
 1. Create the amazon-vpc-lattice GatewayClass:
