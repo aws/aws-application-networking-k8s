@@ -79,7 +79,7 @@ Run through them again for a second cluster to use with the extended example sho
       # Run helm with either install or upgrade
       helm install gateway-api-controller \
          oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
-         --version=v0.0.2 \
+         --version=v0.0.3 \
          --set=aws.region=$AWS_REGION --set=serviceAccount.create=false --namespace system
       ```
 
