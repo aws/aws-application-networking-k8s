@@ -64,7 +64,7 @@ vet: ## Vet the code and dependencies
 
 .PHONY: test
 test: ## Run tests.
-	go test ./... -coverprofile coverage.out
+	go test ./pkg/... -coverprofile coverage.out
 
 .PHONY: toolchain
 toolchain: ## Install developer toolchain
@@ -86,3 +86,8 @@ docker-push: ## Push docker image with the manager.
 build-deploy: ## Create a deployment file that can be applied with `kubectl apply -f deploy.yaml`
 	cd config/manager && kustomize edit set image controller=${ECRIMAGES}
 	kustomize build config/default > deploy.yaml
+
+## Run e2e tests against cluster pointed to by ~/.kube/config
+.PHONY: e2etest
+e2etest:
+	cd test && go test -v ./... -count=1 --ginkgo.v
