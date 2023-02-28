@@ -81,33 +81,37 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 		}
 	}
 
-	if isServiceNetworkAssociatedWithVPC == false {
-		createServiceNetworkVpcAssociationInput := vpclattice.CreateServiceNetworkVpcAssociationInput{
-			ServiceNetworkIdentifier: &service_networkID,
-			VpcIdentifier:            &config.VpcID,
-		}
-		glog.V(2).Infof("Create service_network/vpc association >>>> req[%v]\n", createServiceNetworkVpcAssociationInput)
-		resp, err := vpcLatticeSess.CreateServiceNetworkVpcAssociationWithContext(ctx, &createServiceNetworkVpcAssociationInput)
-		glog.V(2).Infof("Create service_network and vpc association here >>>> resp[%v] err [%v]\n", resp, err)
-		// Associate service_network with vpc
-		if err != nil {
-			glog.V(6).Infoln("ServiceNetwork is created successfully, but failed to associate service_network and vpc, err: ", err)
-			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
-		} else {
-			service_networkVPCAssociationStatus := aws.StringValue(resp.Status)
-			switch service_networkVPCAssociationStatus {
-			case vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress:
-				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
-			case vpclattice.ServiceNetworkVpcAssociationStatusActive:
-				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: service_networkArn, ServiceNetworkID: service_networkID}, nil
-			case vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed:
-				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
-			case vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed:
-				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
-			case vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress:
-				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
+	if service_network.Spec.AssociateToVPC == true {
+		if isServiceNetworkAssociatedWithVPC == false {
+			createServiceNetworkVpcAssociationInput := vpclattice.CreateServiceNetworkVpcAssociationInput{
+				ServiceNetworkIdentifier: &service_networkID,
+				VpcIdentifier:            &config.VpcID,
+			}
+			glog.V(2).Infof("Create service_network/vpc association >>>> req[%v]\n", createServiceNetworkVpcAssociationInput)
+			resp, err := vpcLatticeSess.CreateServiceNetworkVpcAssociationWithContext(ctx, &createServiceNetworkVpcAssociationInput)
+			glog.V(2).Infof("Create service_network and vpc association here >>>> resp[%v] err [%v]\n", resp, err)
+			// Associate service_network with vpc
+			if err != nil {
+				glog.V(6).Infoln("ServiceNetwork is created successfully, but failed to associate service_network and vpc, err: ", err)
+				return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
+			} else {
+				service_networkVPCAssociationStatus := aws.StringValue(resp.Status)
+				switch service_networkVPCAssociationStatus {
+				case vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress:
+					return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
+				case vpclattice.ServiceNetworkVpcAssociationStatusActive:
+					return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: service_networkArn, ServiceNetworkID: service_networkID}, nil
+				case vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed:
+					return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
+				case vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed:
+					return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
+				case vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress:
+					return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
+				}
 			}
 		}
+	} else {
+		glog.V(2).Infof("liwwu: Create service_network and NO vpc association here")
 	}
 	return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: service_networkArn, ServiceNetworkID: service_networkID}, nil
 }
