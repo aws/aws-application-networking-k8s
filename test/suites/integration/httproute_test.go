@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -66,7 +67,7 @@ var _ = Describe("HTTPRoute", func() {
 			})
 
 			// Create Kubernetes API Objects
-			env.ExpectCreated(ctx,
+			framework.ExpectCreated(ctx,
 				test.Gateway,
 				httpRoute,
 				serviceV1,
@@ -78,41 +79,43 @@ var _ = Describe("HTTPRoute", func() {
 			// Verify AWS API Objects
 
 			// (reverse order to allow dependency propagation)
-			targetGroupV1 := env.GetTargetGroup(ctx, serviceV1)
-			targetsV1 := env.GetTargets(ctx, targetGroupV1, deploymentV1)
+			targetGroupV1 := framework.GetTargetGroup(ctx, serviceV1)
+			targetsV1 := framework.GetTargets(ctx, targetGroupV1, deploymentV1)
 			Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 			Expect(*targetGroupV1.Protocol).To(Equal("HTTP"))                                         // TODO(liwenwu) should this be TCP?
 			Expect(*targetGroupV1.Port).To(BeEquivalentTo(serviceV1.Spec.Ports[0].TargetPort.IntVal)) // TODO(liwenwu) should this be .Spec.Port[0].Port?
 			for _, target := range targetsV1 {
 				Expect(*target.Port).To(BeEquivalentTo(serviceV1.Spec.Ports[0].TargetPort.IntVal))
-				Expect(*target.Status).To(BeEquivalentTo("UNUSED")) // TODO(liwenwu) should this be ACTIVE?
+				Expect(*target.Status).To(Equal(vpclattice.TargetStatusInitial)) // TODO(liwenwu) should this be HEALTHY?
 			}
 
-			targetGroupV2 := env.GetTargetGroup(ctx, serviceV2)
-			targetsV2 := env.GetTargets(ctx, targetGroupV2, deploymentV2)
+			targetGroupV2 := framework.GetTargetGroup(ctx, serviceV2)
+			targetsV2 := framework.GetTargets(ctx, targetGroupV2, deploymentV2)
 			Expect(*targetGroupV2.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 			Expect(*targetGroupV2.Protocol).To(Equal("HTTP"))                                         // TODO(liwenwu) should this be TCP?
 			Expect(*targetGroupV2.Port).To(BeEquivalentTo(serviceV2.Spec.Ports[0].TargetPort.IntVal)) // TODO(liwenwu) should this be .Spec.Port[0].Port?
 			for _, target := range targetsV2 {
 				Expect(*target.Port).To(BeEquivalentTo(serviceV2.Spec.Ports[0].TargetPort.IntVal))
-				Expect(*target.Status).To(BeEquivalentTo("UNUSED")) // TODO(liwenwu) should this be ACTIVE?
+				Expect(*target.Status).To(Equal(vpclattice.TargetStatusInitial)) // TODO(liwenwu) should this be HEALTHY?
 			}
 
-			service := env.GetService(ctx, httpRoute)
+			service := framework.GetService(ctx, httpRoute)
 			Expect(*service.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(httpRoute.Name, httpRoute.Namespace))) // TODO(liwenwu) is there something else we should verify about service?
 
-			serviceNetwork := env.GetServiceNetwork(ctx, test.Gateway)
+			serviceNetwork := framework.GetServiceNetwork(ctx, test.Gateway)
 			Expect(*serviceNetwork.NumberOfAssociatedServices).To(BeEquivalentTo(1))
 			Expect(*serviceNetwork.NumberOfAssociatedVPCs).To(BeEquivalentTo(0)) // TODO(liwenwu) should this be 1?
 
 			// Cleanup Kubernetes API Objects
-			Expect(env.Delete(ctx, test.Gateway)).To(Succeed())
-			Expect(env.Delete(ctx, httpRoute)).To(Succeed())
-			Expect(env.Delete(ctx, serviceV1)).To(Succeed())
-			Expect(env.Delete(ctx, deploymentV1)).To(Succeed())
-			Expect(env.Delete(ctx, serviceV2)).To(Succeed())
-			Expect(env.Delete(ctx, deploymentV2)).To(Succeed())
-			env.ExpectToBeClean(ctx)
+			framework.ExpectDeleted(ctx,
+				test.Gateway,
+				httpRoute,
+				serviceV1,
+				deploymentV1,
+				serviceV2,
+				deploymentV2,
+			)
+			framework.ExpectToBeClean(ctx)
 		})
 	})
 })

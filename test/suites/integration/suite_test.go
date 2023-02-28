@@ -9,12 +9,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var env *test.Framework
+var framework *test.Framework
 var ctx context.Context
 
 func TestIntegration(t *testing.T) {
 	ctx = test.NewContext(t)
-	env = test.NewFramework(ctx)
+	framework = test.NewFramework(ctx)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Integration")
 }

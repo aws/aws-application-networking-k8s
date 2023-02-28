@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -11,11 +10,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
-	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
+	"github.com/samber/lo/parallel"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,14 +29,13 @@ func init() {
 	format.MaxLength = 0
 }
 
+type TestObject struct {
+	Type     client.Object
+	ListType client.ObjectList
+}
+
 var (
-	CleanupTimeout  = 300 * time.Second
-	CreationTimeout = 120 * time.Second
-	TestObjects     = []struct {
-		Type     client.Object
-		ListType client.ObjectList
-	}{
-		// Must currently be deleted in order to avoid https://github.com/aws/aws-application-networking-k8s/issues/115
+	TestObjects = []TestObject{
 		{&v1.Service{}, &v1.ServiceList{}},
 		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
 		{&v1beta1.HTTPRoute{}, &v1beta1.HTTPRouteList{}},
@@ -59,7 +56,8 @@ func NewFramework(ctx context.Context) *Framework {
 		Client:        lo.Must(client.New(controllerruntime.GetConfigOrDie(), client.Options{Scheme: scheme})),
 		LatticeClient: services.NewDefaultLattice(session.Must(session.NewSession()), ""), // region is currently hardcoded
 	}
-	gomega.Default.SetDefaultEventuallyPollingInterval(time.Second * 1)
+	SetDefaultEventuallyTimeout(180 * time.Second)
+	SetDefaultEventuallyPollingInterval(1 * time.Second)
 	BeforeEach(func() { framework.ExpectToBeClean(ctx) })
 	AfterSuite(func() { framework.ExpectToClean(ctx) })
 	return framework
@@ -68,35 +66,31 @@ func NewFramework(ctx context.Context) *Framework {
 func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	Logger(ctx).Info("Expecting the test environment to be clean")
 	// Kubernetes API Objects
-	for _, testObject := range TestObjects {
-		env.EventuallyExpectNoneFound(ctx, testObject.ListType).WithOffset(1).Should(Succeed())
-	}
+	parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
+		defer GinkgoRecover()
+		env.EventuallyExpectNoneFound(ctx, testObject.ListType)
+	})
+
 	// AWS API Objects
 	Eventually(func(g Gomega) {
 		g.Expect(env.LatticeClient.ListServicesWithContext(ctx, &vpclattice.ListServicesInput{})).To(HaveField("Items", BeEmpty()))
 		g.Expect(env.LatticeClient.ListServiceNetworksWithContext(ctx, &vpclattice.ListServiceNetworksInput{})).To(HaveField("Items", BeEmpty()))
 		g.Expect(env.LatticeClient.ListTargetGroupsWithContext(ctx, &vpclattice.ListTargetGroupsInput{})).To(HaveField("Items", BeEmpty()))
-	})
+	}).Should(Succeed())
 }
 
 func (env *Framework) ExpectToClean(ctx context.Context) {
 	Logger(ctx).Info("Cleaning the test environment")
-	wg := sync.WaitGroup{}
-	namespaces := &v1.NamespaceList{}
 	// Kubernetes API Objects
+	namespaces := &v1.NamespaceList{}
 	Expect(env.List(ctx, namespaces)).WithOffset(1).To(Succeed())
 	for _, namespace := range namespaces.Items {
-		for _, object := range TestObjects {
-			wg.Add(1)
-			go func(object client.Object, objectList client.ObjectList, namespace string) {
-				defer wg.Done()
-				defer GinkgoRecover()
-				env.ExpectDeleteAllToSucceed(ctx, object, namespace)
-				env.EventuallyExpectNoneFound(ctx, objectList).Should(Succeed())
-			}(object.Type.DeepCopyObject().(client.Object), object.ListType.DeepCopyObject().(client.ObjectList), namespace.Name)
-		}
+		parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
+			defer GinkgoRecover()
+			env.ExpectDeleteAllToSucceed(ctx, testObject.Type, namespace.Name)
+			env.EventuallyExpectNoneFound(ctx, testObject.ListType)
+		})
 	}
-	wg.Wait()
 
 	// AWS API Objects
 	// Delete Services
@@ -167,19 +161,19 @@ func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object clien
 	Expect(env.DeleteAllOf(ctx, object, client.InNamespace(namespace), client.HasLabels([]string{DiscoveryLabel}))).WithOffset(1).To(Succeed())
 }
 
-func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) types.AsyncAssertion {
-	return Eventually(func(g Gomega) {
+func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) {
+	Eventually(func(g Gomega) {
 		for _, object := range objects {
 			g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(object), object))).To(BeTrue())
 		}
-	}, CleanupTimeout)
+	}).Should(Succeed())
 }
 
-func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList client.ObjectList) types.AsyncAssertion {
-	return Eventually(func(g Gomega) {
+func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList client.ObjectList) {
+	Eventually(func(g Gomega) {
 		g.Expect(env.List(ctx, objectList, client.HasLabels([]string{DiscoveryLabel}))).To(Succeed())
 		g.Expect(meta.ExtractList(objectList)).To(HaveLen(0), "Expected to not find any %q with label %q", reflect.TypeOf(objectList), DiscoveryLabel)
-	}, CleanupTimeout)
+	}).WithOffset(1).Should(Succeed())
 }
 
 func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *v1beta1.Gateway) *vpclattice.ServiceNetworkSummary {
@@ -194,7 +188,7 @@ func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *v1beta1.Ga
 			}
 		}
 		g.Expect(found).ToNot(BeNil())
-	}, CreationTimeout).WithOffset(1).Should(Succeed())
+	}).WithOffset(1).Should(Succeed())
 	return found
 }
 
@@ -211,7 +205,7 @@ func (env *Framework) GetService(ctx context.Context, httpRoute *v1beta1.HTTPRou
 		}
 		g.Expect(found).ToNot(BeNil())
 		g.Expect(found.Status).To(Equal(lo.ToPtr(vpclattice.ServiceStatusActive)))
-	}, CreationTimeout).WithOffset(1).Should(Succeed())
+	}).WithOffset(1).Should(Succeed())
 
 	return found
 }
@@ -229,7 +223,7 @@ func (env *Framework) GetTargetGroup(ctx context.Context, service *v1.Service) *
 		}
 		g.Expect(found).ToNot(BeNil())
 		g.Expect(found.Status).To(Equal(lo.ToPtr(vpclattice.TargetGroupStatusActive)))
-	}, CreationTimeout).WithOffset(1).Should(Succeed())
+	}).WithOffset(1).Should(Succeed())
 	return found
 }
 
@@ -245,10 +239,12 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 		g.Expect(listTargetsOutput.Items).To(HaveLen(int(*deployment.Spec.Replicas)))
 
 		podIps := lo.Map(podList.Items, func(pod v1.Pod, _ int) string { return pod.Status.PodIP })
-		targetIps := lo.Filter(listTargetsOutput.Items, func(target *vpclattice.TargetSummary, _ int) bool { return lo.Contains(podIps, *target.Id) })
+		targetIps := lo.Filter(listTargetsOutput.Items, func(target *vpclattice.TargetSummary, _ int) bool {
+			return *target.Status == vpclattice.TargetStatusInitial && lo.Contains(podIps, *target.Id)
+		})
 		g.Expect(targetIps).To(HaveLen(int(*deployment.Spec.Replicas)))
 
 		found = listTargetsOutput.Items
-	}, CreationTimeout).WithOffset(1).Should(Succeed())
+	}).WithOffset(1).Should(Succeed())
 	return found
 }
