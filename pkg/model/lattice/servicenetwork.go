@@ -4,6 +4,10 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
+const (
+	K8SServiceNetworkOwnedByVPC = "K8SServiceNetworkOwnedByVPC"
+)
+
 type ServiceNetwork struct {
 	core.ResourceMeta `json:"-"`
 

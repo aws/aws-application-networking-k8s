@@ -59,9 +59,14 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 	vpcLatticeSess := m.cloud.Lattice()
 	if service_networkSummary == nil {
 		glog.V(2).Infof("ServiceNetwork Create API here, service_network[%v] vpciID[%s]\n", service_network, config.VpcID)
+		// Add tag to show this is the VPC create this servicenetwork
+		// This means, the servicenetwork can only be deleted by the controller running in this VPC
+
 		service_networkInput := vpclattice.CreateServiceNetworkInput{
 			Name: &service_network.Spec.Name,
+			Tags: make(map[string]*string),
 		}
+		service_networkInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 		resp, err := vpcLatticeSess.CreateServiceNetworkWithContext(ctx, &service_networkInput)
 		if err != nil {
 			glog.V(6).Infoln("Failed to create service_network, err: ", err)
@@ -71,6 +76,7 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 		service_networkArn = aws.StringValue(resp.Arn)
 		isServiceNetworkAssociatedWithVPC = false
 		glog.V(2).Infof(" ServiceNetwork Create API resp [%v]\n", resp)
+
 	} else {
 		glog.V(6).Infoln("service_network exists, further check association")
 		service_networkID = aws.StringValue(service_networkSummary.Id)
