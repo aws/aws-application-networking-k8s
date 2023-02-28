@@ -61,8 +61,19 @@ func (t *serviceNetworkModelBuildTask) buildModel(ctx context.Context) error {
 
 func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) error {
 	spec := latticemodel.ServiceNetworkSpec{
-		Name:    t.gateway.Name,
-		Account: config.AccountID,
+		Name:           t.gateway.Name,
+		Account:        config.AccountID,
+		AssociateToVPC: false,
+	}
+
+	if len(t.gateway.ObjectMeta.Annotations) > 0 {
+		if value, exist := t.gateway.Annotations["application-networking.k8s.aws/lattice-vpc-association"]; exist {
+			if value == "true" {
+				spec.AssociateToVPC = true
+			}
+
+		}
+
 	}
 
 	if !t.gateway.DeletionTimestamp.IsZero() {

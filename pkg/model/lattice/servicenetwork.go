@@ -16,9 +16,10 @@ type ServiceNetwork struct {
 
 type ServiceNetworkSpec struct {
 	// The name of the ServiceNetwork
-	Name      string `json:"name"`
-	Account   string `json:"account"`
-	IsDeleted bool
+	Name           string `json:"name"`
+	Account        string `json:"account"`
+	AssociateToVPC bool
+	IsDeleted      bool
 }
 
 type ServiceNetworkStatus struct {
