@@ -282,6 +282,13 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 
 	httproute.ObjectMeta.Annotations["application-networking.k8s.aws/lattice-assigned-domain-name"] = dns
 
+	if err := r.Client.Patch(ctx, httproute, client.MergeFrom(httprouteOld)); err != nil {
+		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
+		return errors.Wrapf(err, "failed to update httproute status")
+	}
+
+	httprouteOld = httproute.DeepCopy()
+
 	httproute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
 	httproute.Status.RouteStatus.Parents[0].Conditions[0].Type = "httproute"
@@ -297,7 +304,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	httproute.Status.RouteStatus.Parents[0].ParentRef.Kind = httproute.Spec.ParentRefs[0].Kind
 	httproute.Status.RouteStatus.Parents[0].ParentRef.Name = httproute.Spec.ParentRefs[0].Name
 
-	if err := r.Client.Patch(ctx, httproute, client.MergeFrom(httprouteOld)); err != nil {
+	if err := r.Client.Status().Patch(ctx, httproute, client.MergeFrom(httprouteOld)); err != nil {
 		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
 		return errors.Wrapf(err, "failed to update httproute status")
 	}
