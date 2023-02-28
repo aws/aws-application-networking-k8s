@@ -15,7 +15,7 @@ import (
 )
 
 // ServiceNetwork does not exist before,happy case.
-func Test_CreateServiceNetwork_MeshNotExist(t *testing.T) {
+func Test_CreateServiceNetwork_MeshNotExist_NoAssociation(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -32,17 +32,12 @@ func Test_CreateServiceNetwork_MeshNotExist(t *testing.T) {
 		Name: &name,
 	}
 	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
-		Status: &status,
-	}
+
 	createServiceNetworkInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
+		Tags: make(map[string]*string),
 	}
-	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
-		ServiceNetworkIdentifier: &id,
-		VpcIdentifier:            &config.VpcID,
-	}
+	createServiceNetworkInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -51,7 +46,6 @@ func Test_CreateServiceNetwork_MeshNotExist(t *testing.T) {
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(meshCreateOutput, nil)
-	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
@@ -243,6 +237,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 }
 
 // ServiceNetwork already exists, association is ServiceNetworkVpcAssociationStatusCreateFailed.
+/* TODO for association
 func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusCreateFailed(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
@@ -297,8 +292,10 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	assert.Equal(t, resp.ServiceNetworkARN, meshArn)
 	assert.Equal(t, resp.ServiceNetworkID, meshId)
 }
+*/
 
 // ServiceNetwork already exists, associated with other VPC
+/* TODO for association test
 func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
@@ -354,8 +351,10 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *te
 	assert.Equal(t, resp.ServiceNetworkARN, meshArn)
 	assert.Equal(t, resp.ServiceNetworkID, meshId)
 }
+*/
 
 // ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusFailed.
+/* TODO test for association
 func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFailed(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
@@ -404,8 +403,10 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFa
 	assert.Equal(t, resp.ServiceNetworkARN, "")
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
+*/
 
 // ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusCreateInProgress.
+/* TODO for assocition
 func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
@@ -453,8 +454,10 @@ func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCr
 	assert.Equal(t, resp.ServiceNetworkARN, "")
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
+*/
 
 // ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusDeleteInProgress.
+/* TODO for association
 func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
@@ -502,8 +505,10 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDe
 	assert.Equal(t, resp.ServiceNetworkARN, "")
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
+*/
 
 // ServiceNetwork does not exists, association returns Error.
+/* TODO for association
 func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationReturnsError(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
@@ -548,6 +553,7 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationReturnsE
 	assert.Equal(t, resp.ServiceNetworkARN, "")
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
+*/
 
 // Mesh does not exist and failed to create.
 func Test_CreateMesh_MeshNotExist_MeshCreateFailed(t *testing.T) {
@@ -569,7 +575,10 @@ func Test_CreateMesh_MeshNotExist_MeshCreateFailed(t *testing.T) {
 	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
 	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
+		Tags: make(map[string]*string),
 	}
+
+	meshCreateInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 
 	c := gomock.NewController(t)
 	defer c.Finish()
