@@ -122,7 +122,7 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 			}
 		}
 	} else {
-		glog.V(2).Infof("liwwu: Create service_network and NO vpc association here")
+		glog.V(2).Infof("Create service_network(%v) without vpc association", service_network.Spec.Name)
 	}
 	return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: service_networkArn, ServiceNetworkID: service_networkID}, nil
 }
@@ -219,10 +219,11 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		if deleteNeedRetry {
 			return errors.New(LATTICE_RETRY)
 		} else {
-			glog.V(6).Infof("Successfully delete service_network %v\n", service_network)
+			glog.V(2).Infof("Successfully delete service_network %v\n", service_network)
 			return err
 		}
 	} else {
+		glog.V(2).Infof("Deleting service_network (%v) Skipped, since it is owned by different VPC ", service_network)
 		return nil
 	}
 }
