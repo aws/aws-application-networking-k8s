@@ -19,6 +19,11 @@ type ServiceNetworkManager interface {
 	Delete(ctx context.Context, service_network string) error
 }
 
+type serviceNetworkOutput struct {
+	snSummary *vpclattice.ServiceNetworkSummary
+	snTags    *vpclattice.ListTagsForResourceOutput
+}
+
 func NewDefaultServiceNetworkManager(cloud lattice_aws.Cloud) *defaultServiceNetworkManager {
 	return &defaultServiceNetworkManager{
 		cloud: cloud,
@@ -79,8 +84,8 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 
 	} else {
 		glog.V(6).Infoln("service_network exists, further check association")
-		service_networkID = aws.StringValue(service_networkSummary.Id)
-		service_networkArn = aws.StringValue(service_networkSummary.Arn)
+		service_networkID = aws.StringValue(service_networkSummary.snSummary.Id)
+		service_networkArn = aws.StringValue(service_networkSummary.snSummary.Arn)
 		isServiceNetworkAssociatedWithVPC, _, _, err = m.isServiceNetworkAssociatedWithVPC(ctx, service_networkID)
 		if err != nil {
 			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
@@ -158,7 +163,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 	}
 
 	vpcLatticeSess := m.cloud.Lattice()
-	service_networkID := aws.StringValue(service_networkSummary.Id)
+	service_networkID := aws.StringValue(service_networkSummary.snSummary.Id)
 	deleteNeedRetry := false
 
 	_, service_networkAssociatedWithCurrentVPCId, service_networkVPCAssociations, err := m.isServiceNetworkAssociatedWithVPC(ctx, service_networkID)
@@ -209,7 +214,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 }
 
 // Find service_network by name return service_network,err if service_network exists, otherwise return nil, nil.
-func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Context, targetServiceNetwork string) (*vpclattice.ServiceNetworkSummary, error) {
+func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Context, targetServiceNetwork string) (*serviceNetworkOutput, error) {
 	vpcLatticeSess := m.cloud.Lattice()
 	service_networkListInput := vpclattice.ListServiceNetworksInput{}
 	resp, err := vpcLatticeSess.ListServiceNetworksAsList(ctx, &service_networkListInput)
@@ -217,7 +222,22 @@ func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Cont
 		for _, r := range resp {
 			if aws.StringValue(r.Name) == targetServiceNetwork {
 				glog.V(6).Infoln("Found ServiceNetwork named ", targetServiceNetwork)
-				return r, err
+
+				tagsInput := vpclattice.ListTagsForResourceInput{
+					ResourceArn: r.Arn,
+				}
+				tagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, &tagsInput)
+
+				if err != nil {
+					tagsOutput = nil
+				}
+
+				snOutput := serviceNetworkOutput{
+					snSummary: r,
+					snTags:    tagsOutput,
+				}
+
+				return &snOutput, err
 			}
 		}
 		return nil, err

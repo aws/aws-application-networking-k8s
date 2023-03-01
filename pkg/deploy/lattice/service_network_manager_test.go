@@ -130,6 +130,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
@@ -179,6 +180,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
@@ -226,6 +228,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
@@ -638,6 +641,7 @@ func Test_DeleteMesh_MeshExistsNoAssociation(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkWithContext(ctx, deleteMeshInout).Return(deleteMeshOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
@@ -671,6 +675,7 @@ func Test_DeleteMesh_MeshExists_AssociationsWithOtherVPCExists(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
@@ -718,6 +723,7 @@ func Test_DeleteMesh_MeshExistsAssociatedWithVPC_Deleting(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkVpcAssociationWithContext(ctx, deleteServiceNetworkVpcAssociationInput).Return(deleteServiceNetworkVpcAssociationOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkWithContext(ctx, deleteMeshInput).Return(deleteMeshOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
@@ -762,6 +768,7 @@ func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
