@@ -197,19 +197,33 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		return nil
 	}
 
-	deleteInput := vpclattice.DeleteServiceNetworkInput{
-		ServiceNetworkIdentifier: &service_networkID,
-	}
-	_, err = vpcLatticeSess.DeleteServiceNetworkWithContext(ctx, &deleteInput)
-	if err != nil {
-		return err
+	// check if this VPC that creates the service network
+	needToDelete := false
+	if service_networkSummary.snTags != nil && service_networkSummary.snTags.Tags != nil {
+		snTags := service_networkSummary.snTags
+		vpcOwner, ok := snTags.Tags[latticemodel.K8SServiceNetworkOwnedByVPC]
+		if ok && *vpcOwner == config.VpcID {
+			needToDelete = true
+		}
 	}
 
-	if deleteNeedRetry {
-		return errors.New(LATTICE_RETRY)
+	if needToDelete {
+		deleteInput := vpclattice.DeleteServiceNetworkInput{
+			ServiceNetworkIdentifier: &service_networkID,
+		}
+		_, err = vpcLatticeSess.DeleteServiceNetworkWithContext(ctx, &deleteInput)
+		if err != nil {
+			return err
+		}
+
+		if deleteNeedRetry {
+			return errors.New(LATTICE_RETRY)
+		} else {
+			glog.V(6).Infof("Successfully delete service_network %v\n", service_network)
+			return err
+		}
 	} else {
-		glog.V(6).Infof("Successfully delete service_network %v\n", service_network)
-		return err
+		return nil
 	}
 }
 
