@@ -61,6 +61,7 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 	var service_networkID string
 	var service_networkArn string
 	var isServiceNetworkAssociatedWithVPC bool
+	var service_networkAssociatedWithCurrentVPCId *string
 	vpcLatticeSess := m.cloud.Lattice()
 	if service_networkSummary == nil {
 		glog.V(2).Infof("ServiceNetwork Create API here, service_network[%v] vpciID[%s]\n", service_network, config.VpcID)
@@ -86,7 +87,7 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 		glog.V(6).Infoln("service_network exists, further check association")
 		service_networkID = aws.StringValue(service_networkSummary.snSummary.Id)
 		service_networkArn = aws.StringValue(service_networkSummary.snSummary.Arn)
-		isServiceNetworkAssociatedWithVPC, _, _, err = m.isServiceNetworkAssociatedWithVPC(ctx, service_networkID)
+		isServiceNetworkAssociatedWithVPC, service_networkAssociatedWithCurrentVPCId, _, err = m.isServiceNetworkAssociatedWithVPC(ctx, service_networkID)
 		if err != nil {
 			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
 		}
@@ -122,6 +123,22 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 			}
 		}
 	} else {
+		if isServiceNetworkAssociatedWithVPC == true {
+			glog.V(2).Infof("Disassociate service_network(%v) from vpc association", service_network.Spec.Name)
+
+			deleteServiceNetworkVpcAssociationInput := vpclattice.DeleteServiceNetworkVpcAssociationInput{
+				ServiceNetworkVpcAssociationIdentifier: service_networkAssociatedWithCurrentVPCId,
+			}
+
+			resp, err := vpcLatticeSess.DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
+			if err != nil {
+				glog.V(2).Infof("Failed to delete association for %v err=%v , resp = %v\n", service_network.Spec.Name, err, resp)
+			}
+
+			// return retry and check later if disassociation workflow finishes
+			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
+
+		}
 		glog.V(2).Infof("Create service_network(%v) without vpc association", service_network.Spec.Name)
 	}
 	return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: service_networkArn, ServiceNetworkID: service_networkID}, nil
