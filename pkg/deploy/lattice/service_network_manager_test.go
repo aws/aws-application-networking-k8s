@@ -811,9 +811,7 @@ func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC_CreatedByVPC(t *testing.T)
 	}
 	snTagsOutput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(snTagsOutput, nil)
-	deleteMeshOutput := &vpclattice.DeleteServiceNetworkOutput{}
-	deleteMeshInout := &vpclattice.DeleteServiceNetworkInput{ServiceNetworkIdentifier: &id}
-	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkWithContext(ctx, deleteMeshInout).Return(deleteMeshOutput, errors.New("404"))
+
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)

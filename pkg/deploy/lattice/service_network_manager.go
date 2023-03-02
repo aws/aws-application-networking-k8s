@@ -73,7 +73,10 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 			Tags: make(map[string]*string),
 		}
 		service_networkInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
+
+		glog.V(2).Infof("Create service_network >>>> req[%v]", service_networkInput)
 		resp, err := vpcLatticeSess.CreateServiceNetworkWithContext(ctx, &service_networkInput)
+		glog.V(2).Infof("Create service_network >>>> resp[%v], err : %v", resp, err)
 		if err != nil {
 			glog.V(2).Infof("Failed to create service_network[%v], err: %v", service_network, err)
 			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
@@ -101,7 +104,7 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 				ServiceNetworkIdentifier: &service_networkID,
 				VpcIdentifier:            &config.VpcID,
 			}
-			glog.V(2).Infof("Create service_network/vpc association >>>> req[%v]\n", createServiceNetworkVpcAssociationInput)
+			glog.V(2).Infof("Create service_network/vpc association >>>> req[%v]", createServiceNetworkVpcAssociationInput)
 			resp, err := vpcLatticeSess.CreateServiceNetworkVpcAssociationWithContext(ctx, &createServiceNetworkVpcAssociationInput)
 			glog.V(2).Infof("Create service_network and vpc association here >>>> resp[%v] err [%v]\n", resp, err)
 			// Associate service_network with vpc
@@ -128,13 +131,15 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 		if isServiceNetworkAssociatedWithVPC == true {
 			// current state: service network is associated to VPC
 			// desired state: not to associate this service network to VPC
-			glog.V(2).Infof("Disassociate service_network(%v) from vpc association", service_network.Spec.Name)
+			glog.V(6).Infof("Disassociate service_network(%v) from vpc association", service_network.Spec.Name)
 
 			deleteServiceNetworkVpcAssociationInput := vpclattice.DeleteServiceNetworkVpcAssociationInput{
 				ServiceNetworkVpcAssociationIdentifier: service_networkAssociatedWithCurrentVPCId,
 			}
 
+			glog.V(2).Infof("Delete service_network association >>>> req[%v]", deleteServiceNetworkVpcAssociationInput)
 			resp, err := vpcLatticeSess.DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
+			glog.V(2).Infof("Delete service_network association >>>> resp[%v],err [%v]", resp, err)
 			if err != nil {
 				glog.V(2).Infof("Failed to delete association for %v err=%v , resp = %v\n", service_network.Spec.Name, err, resp)
 			}
@@ -143,7 +148,7 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
 
 		}
-		glog.V(2).Infof("Create service_network(%v) without vpc association", service_network.Spec.Name)
+		glog.V(2).Infof("Created service_network(%v) without vpc association", service_network.Spec.Name)
 	}
 	return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: service_networkArn, ServiceNetworkID: service_networkID}, nil
 }
@@ -172,14 +177,14 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 	}
 
 	if service_networkSummary == nil {
-		glog.V(6).Infof("Successfully deleted unknown service_network %v\n", service_network)
+		glog.V(2).Infof("Successfully deleted unknown service_network %v\n", service_network)
 		return nil
 	}
 
 	vpcLatticeSess := m.cloud.Lattice()
 	service_networkID := aws.StringValue(service_networkSummary.snSummary.Id)
 
-	_, service_networkAssociatedWithCurrentVPCId, _, err := m.isServiceNetworkAssociatedWithVPC(ctx, service_networkID)
+	_, service_networkAssociatedWithCurrentVPCId, assocResp, err := m.isServiceNetworkAssociatedWithVPC(ctx, service_networkID)
 	if err != nil {
 		return err
 	}
@@ -192,16 +197,16 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		}
 		glog.V(2).Infof("DeleteServiceNetworkVpcAssociationInput >>>> %v\n", deleteServiceNetworkVpcAssociationInput)
 		resp, err := vpcLatticeSess.DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
-		if err != nil {
-			glog.V(2).Infof("Failed to delete association %v \n", err)
-		}
 		glog.V(2).Infof("DeleteServiceNetworkVPCAssociationResp: service_network %v , resp %v, err %v \n", service_network, resp, err)
+		if err != nil {
+			glog.V(2).Infof("Failed to delete association for %v, err: %v \n", service_network, err)
+		}
 		// retry later to check if VPC disassociation workflow finishes
 		return errors.New(LATTICE_RETRY)
 
 	}
 
-	// check if this VPC that created the service network
+	// check if this VPC is the one created the service network
 	needToDelete := false
 	if service_networkSummary.snTags != nil && service_networkSummary.snTags.Tags != nil {
 		snTags := service_networkSummary.snTags
@@ -213,10 +218,17 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 
 	if needToDelete {
 
+		if len(assocResp) != 0 {
+			glog.V(6).Infof("Retry deleting %v later, due to service network still has VPCs associated", service_network)
+			return errors.New(LATTICE_RETRY)
+		}
+
 		deleteInput := vpclattice.DeleteServiceNetworkInput{
 			ServiceNetworkIdentifier: &service_networkID,
 		}
-		_, err = vpcLatticeSess.DeleteServiceNetworkWithContext(ctx, &deleteInput)
+		glog.V(2).Infof("DeleteServiceNetworkWithContext: service_network %v", service_network)
+		resp, err := vpcLatticeSess.DeleteServiceNetworkWithContext(ctx, &deleteInput)
+		glog.V(2).Infof("DeleteServiceNetworkWithContext: service_network %v , resp %v, err %v \n", service_network, resp, err)
 		if err != nil {
 			return errors.New(LATTICE_RETRY)
 		}
