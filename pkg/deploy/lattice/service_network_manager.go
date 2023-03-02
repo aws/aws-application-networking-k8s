@@ -213,13 +213,19 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		vpcOwner, ok := snTags.Tags[latticemodel.K8SServiceNetworkOwnedByVPC]
 		if ok && *vpcOwner == config.VpcID {
 			needToDelete = true
+		} else {
+			if ok {
+				glog.V(2).Infof("Skip deleting, the service network[%v] is created by VPC %v", service_network, *vpcOwner)
+			} else {
+				glog.V(2).Infof("Skip deleting, the service network[%v] is not created by K8S, since there is no tag", service_network)
+			}
 		}
 	}
 
 	if needToDelete {
 
 		if len(assocResp) != 0 {
-			glog.V(6).Infof("Retry deleting %v later, due to service network still has VPCs associated", service_network)
+			glog.V(2).Infof("Retry deleting %v later, due to service network still has VPCs associated", service_network)
 			return errors.New(LATTICE_RETRY)
 		}
 
