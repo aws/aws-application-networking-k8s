@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	ResourceIDServiceNetwork = "ServiceNetwork"
+	ResourceIDServiceNetwork        = "ServiceNetwork"
+	LatticeVPCAssociationAnnotation = "application-networking.k8s.aws/lattice-vpc-association"
 )
 
 // ModelBuilder builds the model stack for the mesh resource.
@@ -67,7 +68,7 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 	}
 
 	if len(t.gateway.ObjectMeta.Annotations) > 0 {
-		if value, exist := t.gateway.Annotations["application-networking.k8s.aws/lattice-vpc-association"]; exist {
+		if value, exist := t.gateway.Annotations[LatticeVPCAssociationAnnotation]; exist {
 			if value == "true" {
 				spec.AssociateToVPC = true
 			}
