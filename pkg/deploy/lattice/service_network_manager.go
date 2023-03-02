@@ -167,15 +167,8 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		return err
 	}
 
-	var ifServiceNetworkExist bool
 	if service_networkSummary == nil {
-		ifServiceNetworkExist = false
-	} else {
-		ifServiceNetworkExist = true
-	}
-
-	if ifServiceNetworkExist == false {
-		glog.V(6).Infof("ServiceNetworkManager-Delete, successfully deleting unknown service_network %v\n", service_network)
+		glog.V(6).Infof("Successfully deleted unknown service_network %v\n", service_network)
 		return nil
 	}
 
@@ -204,7 +197,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 
 	}
 
-	// check if this VPC that creates the service network
+	// check if this VPC that created the service network
 	needToDelete := false
 	if service_networkSummary.snTags != nil && service_networkSummary.snTags.Tags != nil {
 		snTags := service_networkSummary.snTags
