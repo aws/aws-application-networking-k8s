@@ -18,6 +18,19 @@ This example creates a single cluster in a single VPC, then configures two route
    ```bash
    kubectl apply -f examples/my-hotel-gateway.yaml
    ```
+   ***Note***
+
+   By default, the gateway(lattice service network) is not associated with cluster's VPC.  To associate a gateway(lattice service network) to VPC, gateway object must have following annotation.
+
+      
+       apiVersion: gateway.networking.k8s.io/v1alpha2
+       kind: Gateway
+       metadata:
+         name: my-hotel
+         annotations:
+           application-networking.k8s.aws/lattice-vpc-association: "true"
+       
+
 1. Verify that `my-hotel` gateway is created (this could take about five minutes):
    ```bash
    kubectl get gateway  

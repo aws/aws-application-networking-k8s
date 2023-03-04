@@ -249,7 +249,9 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetw
 
 	//if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
 	glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
-	gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+	if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
+		gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+	}
 	//}
 	gw.Status.Conditions[0].Status = "True"
 	gw.Status.Conditions[0].Message = fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN)

@@ -270,12 +270,6 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	glog.V(6).Infof("updateHTTPRouteStatus: httproute %v, dns %v\n", httproute, dns)
 	httprouteOld := httproute.DeepCopy()
 
-	if len(httproute.Status.RouteStatus.Parents) == 0 {
-		httproute.Status.RouteStatus.Parents = make([]v1alpha2.RouteParentStatus, 1)
-		httproute.Status.RouteStatus.Parents[0].Conditions = make([]metav1.Condition, 1)
-		httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime = eventhandlers.ZeroTransitionTime
-	}
-
 	if len(httproute.ObjectMeta.Annotations) == 0 {
 		httproute.ObjectMeta.Annotations = make(map[string]string)
 	}
@@ -288,7 +282,13 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	}
 
 	httprouteOld = httproute.DeepCopy()
+	if len(httproute.Status.RouteStatus.Parents) == 0 {
+		httproute.Status.RouteStatus.Parents = make([]v1alpha2.RouteParentStatus, 1)
+		httproute.Status.RouteStatus.Parents[0].Conditions = make([]metav1.Condition, 1)
+		httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime = eventhandlers.ZeroTransitionTime
+	}
 
+	fmt.Printf("liwwu >>>>httproute :%v \n", httproute)
 	httproute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
 	httproute.Status.RouteStatus.Parents[0].Conditions[0].Type = "httproute"
