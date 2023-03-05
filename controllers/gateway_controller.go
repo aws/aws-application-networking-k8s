@@ -78,6 +78,7 @@ func NewGatewayReconciler(client client.Client, scheme *runtime.Scheme, eventRec
 		Scheme:            scheme,
 		gwClassReconciler: gwClassReconciler,
 		finalizerManager:  finalizerManager,
+		eventRecorder:     eventRecorder,
 		modelBuilder:      modelBuilder,
 		stackDeployer:     stackDeployer,
 		cloud:             cloud,
