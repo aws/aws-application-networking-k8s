@@ -12,7 +12,7 @@ metadata:
     helm.sh/chart: {{ include "chart.name-version" . }}
     control-plane: controller
 spec:
-  replicas: 1
+  replicas: {{ .Values.deployment.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "app.name" . }}
