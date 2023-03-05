@@ -92,7 +92,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "6288bc47.amazon-vpc-lattice.io",
+		LeaderElectionID:       "amazon-vpc-lattice.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
