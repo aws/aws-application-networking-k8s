@@ -19,9 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -152,6 +154,10 @@ func (r *HTTPRouteReconciler) cleanupHTTPRouteResources(ctx context.Context, htt
 }
 
 func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute *v1alpha2.HTTPRoute) bool {
+
+	if controllerutil.ContainsFinalizer(httpRoute, httpRouteFinalizer) {
+		return true
+	}
 
 	if len(httpRoute.Spec.ParentRefs) == 0 {
 		glog.V(6).Infof("Ignore HTTPRoute which has no ParentRefs gateway %v \n ", httpRoute.Spec)

@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -123,59 +124,76 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		Name:      string(gw.Spec.GatewayClassName),
 	}
 
-	if err := r.gwClassReconciler.Client.Get(ctx, gwClassName, gwClass); err != nil {
-		gwLog.Info("Ignore it since not link to any gatewayclass")
-		return client.IgnoreNotFound(err)
+	if err := r.gwClassReconciler.Client.Get(ctx, gwClassName, gwClass); client.IgnoreNotFound(err) != nil {
+		return err
 	}
 
-	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
+	if !r.isGatewayRelevant(ctx, gw, gwClass) {
+		// not relevalnt
+		return nil
+	}
 
-		if !gw.DeletionTimestamp.IsZero() {
+	if !gw.DeletionTimestamp.IsZero() {
 
-			glog.V(6).Info(fmt.Sprintf("Checking if gateway can be deleted %v\n", gw.Name))
+		glog.V(6).Info(fmt.Sprintf("Checking if gateway can be deleted %v\n", gw.Name))
 
-			httpRouteList := &v1alpha2.HTTPRouteList{}
+		httpRouteList := &v1alpha2.HTTPRouteList{}
 
-			r.Client.List(context.TODO(), httpRouteList)
-			for _, httpRoute := range httpRouteList.Items {
+		r.Client.List(context.TODO(), httpRouteList)
+		for _, httpRoute := range httpRouteList.Items {
 
-				if len(httpRoute.Spec.ParentRefs) <= 0 {
-					continue
-				}
-				gwName := types.NamespacedName{
-					Namespace: "default",
-					Name:      string(httpRoute.Spec.ParentRefs[0].Name),
-				}
-
-				httpGW := &v1alpha2.Gateway{}
-
-				if err := r.Client.Get(context.TODO(), gwName, httpGW); err != nil {
-					continue
-				}
-
-				if httpGW.Name == gw.Name {
-
-					gwLog.Info("Can not delete because it is referenced by some HTTPRoutes")
-					return errors.New("retry later, since it is referenced by some HTTPRoutes")
-				}
-
+			if len(httpRoute.Spec.ParentRefs) <= 0 {
+				continue
+			}
+			gwName := types.NamespacedName{
+				Namespace: "default",
+				Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 			}
 
-			if err := r.cleanupGatewayResources(ctx, gw); err != nil {
-				glog.V(2).Info(fmt.Sprintf("Failed to cleanup gw %v, err %v \n", gw, err))
-				return err
+			httpGW := &v1alpha2.Gateway{}
 
+			if err := r.Client.Get(context.TODO(), gwName, httpGW); err != nil {
+				continue
 			}
-			gwLog.Info("Successfully removed finalizer")
-			r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
-			return nil
+
+			if httpGW.Name == gw.Name {
+
+				gwLog.Info("Can not delete because it is referenced by some HTTPRoutes")
+				return errors.New("retry later, since it is referenced by some HTTPRoutes")
+			}
+
 		}
 
-		return r.reconcileGatewayResources(ctx, gw)
-	} else {
+		if err := r.cleanupGatewayResources(ctx, gw); err != nil {
+			glog.V(2).Info(fmt.Sprintf("Failed to cleanup gw %v, err %v \n", gw, err))
+			return err
+
+		}
+		gwLog.Info("Successfully removed finalizer")
+		r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
+		return nil
+	}
+
+	return r.reconcileGatewayResources(ctx, gw)
+}
+
+func (r *GatewayReconciler) isGatewayRelevant(ctx context.Context, gw *v1alpha2.Gateway, gwClass *v1alpha2.GatewayClass) bool {
+	gwLog := log.FromContext(ctx)
+
+	if controllerutil.ContainsFinalizer(gw, gatewayFinalizer) {
+		return true
+	}
+
+	if gwClass == nil {
+		gwLog.Info("Ignore it since not link to any gatewayclass")
+		return false
+	}
+
+	if gwClass.Spec.ControllerName != config.LatticeGatewayControllerName {
 		gwLog.Info("Ignore non aws gateways!!!")
 	}
-	return nil
+
+	return true
 }
 
 func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *v1alpha2.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
