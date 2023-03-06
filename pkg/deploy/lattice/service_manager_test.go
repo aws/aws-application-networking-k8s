@@ -72,10 +72,10 @@ func Test_Create_ValidateService(t *testing.T) {
 
 		input := &latticemodel.Service{
 			Spec: latticemodel.ServiceSpec{
-				Name:               tt.wantServiceName,
-				Namespace:          "default",
-				Protocols:          []*string{aws.String("http")},
-				ServiceNetworkName: tt.meshName,
+				Name:                tt.wantServiceName,
+				Namespace:           "default",
+				Protocols:           []*string{aws.String("http")},
+				ServiceNetworkNames: []string{tt.meshName},
 			},
 			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
 		}
@@ -208,9 +208,9 @@ func Test_Create_CreateService_MeshServiceAssociation(t *testing.T) {
 		}
 		input := &latticemodel.Service{
 			Spec: latticemodel.ServiceSpec{
-				Name:               tt.wantServiceName,
-				Protocols:          []*string{aws.String("http")},
-				ServiceNetworkName: tt.meshName,
+				Name:                tt.wantServiceName,
+				Protocols:           []*string{aws.String("http")},
+				ServiceNetworkNames: []string{tt.meshName},
 			},
 			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
 		}
@@ -326,10 +326,10 @@ func Test_Create_MeshServiceAssociation(t *testing.T) {
 		}
 		input := &latticemodel.Service{
 			Spec: latticemodel.ServiceSpec{
-				Name:               tt.wantServiceName,
-				Namespace:          "default",
-				Protocols:          []*string{aws.String("http")},
-				ServiceNetworkName: tt.meshName,
+				Name:                tt.wantServiceName,
+				Namespace:           "default",
+				Protocols:           []*string{aws.String("http")},
+				ServiceNetworkNames: []string{tt.meshName},
 			},
 			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
 		}
@@ -408,10 +408,10 @@ func Test_Create_Check(t *testing.T) {
 
 		input := &latticemodel.Service{
 			Spec: latticemodel.ServiceSpec{
-				Name:               tt.wantServiceName,
-				Namespace:          "default",
-				Protocols:          []*string{aws.String("http")},
-				ServiceNetworkName: tt.meshName,
+				Name:                tt.wantServiceName,
+				Namespace:           "default",
+				Protocols:           []*string{aws.String("http")},
+				ServiceNetworkNames: []string{tt.meshName},
 			},
 			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
 		}
@@ -487,9 +487,9 @@ func Test_Delete_ValidateInput(t *testing.T) {
 		})
 		input := &latticemodel.Service{
 			Spec: latticemodel.ServiceSpec{
-				Name:               tt.wantServiceName,
-				Namespace:          "default",
-				ServiceNetworkName: tt.meshName,
+				Name:                tt.wantServiceName,
+				Namespace:           "default",
+				ServiceNetworkNames: []string{tt.meshName},
 			},
 		}
 		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{&vpclattice.ServiceNetworkServiceAssociationSummary{
@@ -598,9 +598,9 @@ func Test_Delete_Disassociation_DeleteService(t *testing.T) {
 		})
 		input := &latticemodel.Service{
 			Spec: latticemodel.ServiceSpec{
-				Name:               tt.wantServiceName,
-				Namespace:          "default",
-				ServiceNetworkName: tt.meshName,
+				Name:                tt.wantServiceName,
+				Namespace:           "default",
+				ServiceNetworkNames: []string{tt.meshName},
 			},
 		}
 		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{&vpclattice.ServiceNetworkServiceAssociationSummary{

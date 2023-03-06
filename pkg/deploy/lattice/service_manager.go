@@ -51,7 +51,7 @@ func NewServiceManager(cloud lattice_aws.Cloud, latticeDataStore *latticestore.L
 func (s *defaultServiceManager) Create(ctx context.Context, service *latticemodel.Service) (latticemodel.ServiceStatus, error) {
 
 	// get serviceNetwork info
-	serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(service.Spec.ServiceNetworkName, config.AccountID)
+	serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(service.Spec.ServiceNetworkNames[0], config.AccountID)
 	if err != nil {
 		glog.V(6).Infof("defaultServiceManager: fail to get serviceNetwork status for service %v\n", service)
 		return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, err
@@ -241,7 +241,7 @@ func (s *defaultServiceManager) Delete(ctx context.Context, service *latticemode
 	}
 
 	// find out serviceNetworkID
-	serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(service.Spec.ServiceNetworkName, config.AccountID)
+	serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(service.Spec.ServiceNetworkNames[0], config.AccountID)
 	if err != nil {
 		glog.V(6).Infof("defaultServiceManager: fail to get serviceNetwork status for service %v\n", service)
 		return err
