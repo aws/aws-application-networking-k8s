@@ -124,10 +124,9 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		Protocols: protocols,
 		//ServiceNetworkNames: string(t.httpRoute.Spec.ParentRefs[0].Name),
 	}
-	i := 0
 
 	for _, parentRef := range t.httpRoute.Spec.ParentRefs {
-		spec.ServiceNetworkNames[i] = string(parentRef.Name)
+		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
 
 	}
 
