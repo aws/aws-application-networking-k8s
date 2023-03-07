@@ -285,25 +285,18 @@ func (s *defaultServiceManager) Delete(ctx context.Context, service *latticemode
 func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context, snNames []string, svcID string) error {
 	glog.V(2).Infof("Desire to associate svc %v to  service network names %v", svcID, snNames)
 	latticeSess := s.cloud.Lattice()
-	listServiceNetworkServiceAssociationsInput := vpclattice.ListServiceNetworkServiceAssociationsInput{
-		ServiceIdentifier: &svcID,
-	}
-
-	resp, err := latticeSess.ListServiceNetworkServiceAssociationsAsList(ctx, &listServiceNetworkServiceAssociationsInput)
-
-	glog.V(2).Infof("ListServiceNetworkServiceAssociationsAsList req %v, resp %v err %v",
-		listServiceNetworkServiceAssociationsInput, resp, err)
-
+	
 	// go through desired SN list
 	// check if SN is in association list,
 	// if NOT, create svc-> SN association
 	for _, snName := range snNames {
 		serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(snName, config.AccountID)
 		if err != nil {
-			glog.V(2).Infof("Unable find service network[%v] to associate sservice %v to",
+			glog.V(2).Infof("Unable find service network[%v] in cache to associate sservice %v to",
 				snName, svcID)
 			return err
 		}
+
 		isServiceAssociatedWithServiceNetwork, _, err := s.isServiceAssociatedWithServiceNetwork(ctx, svcID, serviceNetwork.ID)
 
 		if isServiceAssociatedWithServiceNetwork == false {
@@ -312,7 +305,7 @@ func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context
 				ServiceIdentifier:        &svcID,
 			}
 			resp, err := latticeSess.CreateServiceNetworkServiceAssociationWithContext(ctx, &createServiceNetworkAssociationInput)
-			glog.V(2).Infof("create-associate  for service %v, in serviceNetwork %v, with resp %v err %v \n",
+			glog.V(2).Infof("Associate service %v to serviceNetwork %v, got resp %v err %v ",
 				svcID, serviceNetwork, resp, err)
 			if err != nil {
 				glog.V(6).Infoln("fail to associate serviceNetwork and service")
@@ -340,9 +333,14 @@ func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context
 	// check SN is in desired SN list
 	// if NOT, delete svc->SN association
 	// TODO logic here
-	resp, err = latticeSess.ListServiceNetworkServiceAssociationsAsList(ctx, &listServiceNetworkServiceAssociationsInput)
+	listServiceNetworkServiceAssociationsInput := vpclattice.ListServiceNetworkServiceAssociationsInput{
+		ServiceIdentifier: &svcID,
+	}
+	resp, err := latticeSess.ListServiceNetworkServiceAssociationsAsList(ctx, &listServiceNetworkServiceAssociationsInput)
 
 	glog.V(2).Infof("ListServiceNetworkServiceAssociationsAsList req %v, resp %v err %v",
 		listServiceNetworkServiceAssociationsInput, resp, err)
+
+		
 	return nil
 }
