@@ -299,7 +299,7 @@ func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context
 				case vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress:
 					return errors.New(LATTICE_RETRY)
 				case vpclattice.ServiceNetworkServiceAssociationStatusActive:
-					return nil
+					continue
 				case vpclattice.ServiceNetworkServiceAssociationStatusDeleteFailed:
 					return errors.New(LATTICE_RETRY)
 				case vpclattice.ServiceNetworkServiceAssociationStatusCreateFailed:
