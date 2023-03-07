@@ -82,8 +82,9 @@ func Test_Create_ValidateService(t *testing.T) {
 
 		createServiceInput := &vpclattice.CreateServiceInput{
 			Name: &SVCName,
-			Tags: nil,
+			Tags: make(map[string]*string),
 		}
+		createServiceInput.Tags[latticemodel.K8SServiceOwnedByVPC] = &config.VpcID
 		associateMeshService := &vpclattice.CreateServiceNetworkServiceAssociationInput{
 			ServiceNetworkIdentifier: &tt.meshId,
 			ServiceIdentifier:        &tt.wantServiceId,
@@ -91,6 +92,8 @@ func Test_Create_ValidateService(t *testing.T) {
 
 		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, tt.listServiceInput).Return(tt.wantListServiceOutput, nil)
 		mockVpcLatticeSess.EXPECT().CreateServiceWithContext(ctx, createServiceInput).Return(createServiceOutput, nil)
+
+		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any())
 		mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, associateMeshService).Return(createServiceNetworkServiceAssociationOutput, tt.wantErr)
 		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
