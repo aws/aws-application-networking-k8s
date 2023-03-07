@@ -252,23 +252,12 @@ func (s *defaultServiceManager) Delete(ctx context.Context, service *latticemode
 		return err
 	}
 
-	listServiceNetworkServiceAssociationsInput := vpclattice.ListServiceNetworkServiceAssociationsInput{
-		ServiceNetworkIdentifier: &serviceNetwork.ID,
-		ServiceIdentifier:        serviceSummary.Id,
-	}
-	listServiceNetworkOutput, err := latticeSess.ListServiceNetworkServiceAssociationsAsList(ctx, &listServiceNetworkServiceAssociationsInput)
+	// disassociate service from ALL service network(s) first
+	err = s.serviceNetworkAssociationMgr(ctx, []string{}, serviceNetwork.ID)
 
-	glog.V(2).Infof("ListServiceNetworkServiceAssociationsAsList req %v, resp %v err %v",
-		listServiceNetworkServiceAssociationsInput, listServiceNetworkOutput, err)
-
-	if err == nil && (len(listServiceNetworkOutput) != 0) {
-		svcServiceNetworkInput := vpclattice.DeleteServiceNetworkServiceAssociationInput{
-			ServiceNetworkServiceAssociationIdentifier: listServiceNetworkOutput[0].Id,
-		}
-
-		svcServiceNetworkOutput, err := latticeSess.DeleteServiceNetworkServiceAssociationWithContext(ctx, &svcServiceNetworkInput)
-
-		glog.V(6).Infof("defaultServiceManager-DeleteServiceNetworkServiceAssociation: input %v output %v err %v \n", svcServiceNetworkInput, svcServiceNetworkOutput, err)
+	if err != nil {
+		glog.V(6).Infof("Disassociation is not done yet for service %v\n", service)
+		return err
 	}
 
 	// delete service
@@ -285,7 +274,7 @@ func (s *defaultServiceManager) Delete(ctx context.Context, service *latticemode
 func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context, snNames []string, svcID string) error {
 	glog.V(2).Infof("Desire to associate svc %v to  service network names %v", svcID, snNames)
 	latticeSess := s.cloud.Lattice()
-	
+
 	// go through desired SN list
 	// check if SN is in association list,
 	// if NOT, create svc-> SN association
@@ -341,6 +330,34 @@ func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context
 	glog.V(2).Infof("ListServiceNetworkServiceAssociationsAsList req %v, resp %v err %v",
 		listServiceNetworkServiceAssociationsInput, resp, err)
 
-		
+	for _, snAssocResp := range resp {
+		// go through desired SN list
+		needDelete := true
+
+		for _, snName := range snNames {
+			if snName == aws.StringValue(snAssocResp.ServiceNetworkName) {
+				// snName is in the desired SN association list
+				needDelete = false
+			}
+
+		}
+
+		if needDelete {
+			svcServiceNetworkInput := vpclattice.DeleteServiceNetworkServiceAssociationInput{
+				ServiceNetworkServiceAssociationIdentifier: snAssocResp.Id,
+			}
+
+			svcServiceNetworkOutput, err := latticeSess.DeleteServiceNetworkServiceAssociationWithContext(ctx, &svcServiceNetworkInput)
+
+			glog.V(2).Infof("Disassociate service %v from service network %v, resp %v, err %v",
+				snAssocResp.ServiceName, snAssocResp.ServiceNetworkName, svcServiceNetworkOutput, err)
+
+			if err != nil {
+				return err
+			}
+
+		}
+
+	}
 	return nil
 }
