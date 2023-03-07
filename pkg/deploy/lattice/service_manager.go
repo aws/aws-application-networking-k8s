@@ -245,15 +245,8 @@ func (s *defaultServiceManager) Delete(ctx context.Context, service *latticemode
 		return nil
 	}
 
-	// find out serviceNetworkID
-	serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(service.Spec.ServiceNetworkNames[0], config.AccountID)
-	if err != nil {
-		glog.V(6).Infof("defaultServiceManager: fail to get serviceNetwork status for service %v\n", service)
-		return err
-	}
-
 	// disassociate service from ALL service network(s) first
-	err = s.serviceNetworkAssociationMgr(ctx, []string{}, serviceNetwork.ID)
+	err = s.serviceNetworkAssociationMgr(ctx, []string{}, *serviceSummary.Id)
 
 	if err != nil {
 		glog.V(6).Infof("Disassociation is not done yet for service %v\n", service)
