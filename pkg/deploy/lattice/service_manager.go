@@ -348,6 +348,12 @@ func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context
 			if err != nil {
 				return err
 			}
+			// also check the status, disassociation is still in progress, retry later
+			if aws.StringValue(svcServiceNetworkOutput.Status) == vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress {
+				glog.V(2).Infof("Disassociate-in-progress will retry later service %v from service network %v",
+					snAssocResp.ServiceName, snAssocResp.ServiceNetworkName)
+				return errors.New(LATTICE_RETRY)
+			}
 
 		}
 
