@@ -64,7 +64,6 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 	if serviceSummary == nil {
 		glog.V(6).Infof("lattice service create API here service [%v]\n", service)
 
-		// TODO, add resource tag
 		serviceInput := vpclattice.CreateServiceInput{
 			Name: &svcName,
 			Tags: make(map[string]*string),
@@ -307,7 +306,7 @@ func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context
 			}
 			// also check the status, disassociation is still in progress, retry later
 			if aws.StringValue(svcServiceNetworkOutput.Status) == vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress {
-				glog.V(2).Infof("Disassociate-in-progress will retry later service %v from service network %v",
+				glog.V(6).Infof("Disassociate-in-progress will retry later service %v from service network %v",
 					snAssocResp.ServiceName, snAssocResp.ServiceNetworkName)
 				return errors.New(LATTICE_RETRY)
 			}
