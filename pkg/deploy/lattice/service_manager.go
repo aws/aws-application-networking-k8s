@@ -50,14 +50,6 @@ func NewServiceManager(cloud lattice_aws.Cloud, latticeDataStore *latticestore.L
 //		MeshServiceAssociationStatusDeleteInProgress
 func (s *defaultServiceManager) Create(ctx context.Context, service *latticemodel.Service) (latticemodel.ServiceStatus, error) {
 
-	// get serviceNetwork info
-	// TODO, need to verify all desired SN are in datastore
-	serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(service.Spec.ServiceNetworkNames[0], config.AccountID)
-	if err != nil {
-		glog.V(6).Infof("defaultServiceManager: fail to get serviceNetwork status for service %v\n", service)
-		return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, err
-	}
-
 	// check if exists
 	svcName := latticestore.AWSServiceName(service.Spec.Name, service.Spec.Namespace)
 	serviceSummary, err := s.findServiceByName(ctx, svcName)
@@ -67,8 +59,6 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 	var serviceID string
 	var serviceArn string
 	var serviceDNS string
-	var isServiceAssociatedWithServiceNetwork bool
-	latticeSess := s.cloud.Lattice()
 
 	// create service
 	if serviceSummary == nil {
@@ -97,7 +87,6 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 		}
 		serviceID = aws.StringValue(resp.Id)
 		serviceArn = aws.StringValue(resp.Arn)
-		isServiceAssociatedWithServiceNetwork = false
 	} else {
 		serviceID = aws.StringValue(serviceSummary.Id)
 		serviceArn = aws.StringValue(serviceSummary.Arn)
@@ -120,46 +109,14 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 			}
 
 		}
-		isServiceAssociatedWithServiceNetwork, serviceDNS, err = s.isServiceAssociatedWithServiceNetwork(ctx, serviceID, serviceNetwork.ID)
-		if err != nil {
-			return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, err
-		}
-	}
-	s.serviceNetworkAssociationMgr(ctx, service.Spec.ServiceNetworkNames, serviceID)
 
-	// associate service with serviceNetwork
-	if isServiceAssociatedWithServiceNetwork == false {
-		createServiceNetworkAssociationInput := vpclattice.CreateServiceNetworkServiceAssociationInput{
-			ServiceNetworkIdentifier: &serviceNetwork.ID,
-			ServiceIdentifier:        &serviceID,
-		}
-		resp, err := latticeSess.CreateServiceNetworkServiceAssociationWithContext(ctx, &createServiceNetworkAssociationInput)
-		glog.V(6).Infof("create-associate  for service %v, in serviceNetwork %v, with resp %v err %v \n",
-			service, serviceNetwork, resp, err)
-		if err != nil {
-			glog.V(6).Infoln("fail to associate serviceNetwork and service")
-			return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, err
-		} else {
-			associationStatus := aws.StringValue(resp.Status)
-			respDNS := ""
-			if resp.DnsEntry != nil {
-				respDNS = aws.StringValue(resp.DnsEntry.DomainName)
-
-			}
-			switch associationStatus {
-			case vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress:
-				return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, errors.New(LATTICE_RETRY)
-			case vpclattice.ServiceNetworkServiceAssociationStatusActive:
-				return latticemodel.ServiceStatus{ServiceARN: serviceArn, ServiceID: serviceID, ServiceDNS: respDNS}, nil
-			case vpclattice.ServiceNetworkServiceAssociationStatusDeleteFailed:
-				return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, errors.New(LATTICE_RETRY)
-			case vpclattice.ServiceNetworkServiceAssociationStatusCreateFailed:
-				return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, errors.New(LATTICE_RETRY)
-			case vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress:
-				return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, errors.New(LATTICE_RETRY)
-			}
-		}
 	}
+	err = s.serviceNetworkAssociationMgr(ctx, service.Spec.ServiceNetworkNames, serviceID)
+
+	if err != nil {
+		return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, err
+	}
+
 	return latticemodel.ServiceStatus{ServiceARN: serviceArn, ServiceID: serviceID, ServiceDNS: serviceDNS}, nil
 }
 
