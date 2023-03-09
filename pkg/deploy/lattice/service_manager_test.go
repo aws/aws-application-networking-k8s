@@ -750,3 +750,84 @@ func Test_Delete_ReturnErrorFail(t *testing.T) {
 	}
 }
 */
+
+func Test_serviceNetworkAssociationMgr(t *testing.T) {
+	type SNAssociation struct {
+		snName string
+		status string
+	}
+	type SN struct {
+		snName string
+		snID   string
+	}
+	tests := []struct {
+		name             string
+		serviceName      string
+		serviceID        string
+		serviceNapespace string
+		desiredSNs       []SN
+		desiredSNInCache bool
+		existingSNs      []SNAssociation
+		wantErr          bool
+	}{
+		{
+			name:             "testing () --> (sn1, sn2) ",
+			serviceName:      "svc-123",
+			serviceID:        "svc-123-id",
+			serviceNapespace: "default",
+			desiredSNs: []SN{
+				{"sn1", "sn1-id"},
+				{"sn2", "sn2-id"},
+			},
+			desiredSNInCache: true,
+			existingSNs:      []SNAssociation{},
+			wantErr:          false,
+		},
+	}
+
+	for _, tt := range tests {
+		fmt.Printf("Testing >>>>>  %v \n", tt.name)
+
+		c := gomock.NewController(t)
+		defer c.Finish()
+		ctx := context.TODO()
+		mockVpcLatticeSess := mocks.NewMockLattice(c)
+
+		latticeDataStore := latticestore.NewLatticeDataStore()
+
+		if tt.desiredSNInCache {
+			for _, sn := range tt.desiredSNs {
+				latticeDataStore.AddServiceNetwork(sn.snName, config.AccountID, "snARN", sn.snID, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+			}
+		}
+		mockCloud := mocks_aws.NewMockCloud(c)
+
+		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+
+		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
+
+		desiredSNNames := []string{}
+		for _, sn := range tt.desiredSNs {
+			desiredSNNames = append(desiredSNNames, sn.snName)
+
+		}
+
+		// test adding more association path
+
+		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{}
+
+		for i := 0; i < len(tt.desiredSNs); i++ {
+			mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, nil)
+
+			snAssocOutput := vpclattice.CreateServiceNetworkServiceAssociationOutput{}
+			mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx,
+				gomock.Any()).Return(&snAssocOutput, nil)
+		}
+
+		// testing delete association path
+		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, nil)
+		err := serviceManager.serviceNetworkAssociationMgr(ctx, desiredSNNames, tt.serviceID)
+		assert.Nil(t, err)
+
+	}
+}
