@@ -756,33 +756,97 @@ func Test_serviceNetworkAssociationMgr(t *testing.T) {
 		snName string
 		status string
 	}
-	type SN struct {
+	type SNAssocStatus struct {
 		snName string
 		snID   string
+		status string
 	}
 	tests := []struct {
 		name             string
 		serviceName      string
 		serviceID        string
 		serviceNapespace string
-		desiredSNs       []SN
+		desiredSNs       []SNAssocStatus
 		desiredSNInCache bool
 		existingSNs      []SNAssociation
+		errOnAssociating bool
 		wantErr          bool
 	}{
 		{
-			name:             "testing () --> (sn1, sn2) ",
+			name:             "testing () --> (sn1, sn2) happy path",
 			serviceName:      "svc-123",
 			serviceID:        "svc-123-id",
 			serviceNapespace: "default",
-			desiredSNs: []SN{
-				{"sn1", "sn1-id"},
-				{"sn2", "sn2-id"},
+			desiredSNs: []SNAssocStatus{
+				{snName:"sn1", snID:"sn1-id", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName:"sn2", snID:"sn2-id", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
 			},
 			desiredSNInCache: true,
-			existingSNs:      []SNAssociation{},
+			existingSNs: []SNAssociation{
+				{snName: "sn1", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName: "sn2", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+			},
+			errOnAssociating: false,
 			wantErr:          false,
 		},
+		{
+			name:             "testing () --> (sn1, sn2), sn1 association-in-progress",
+			serviceName:      "svc-123",
+			serviceID:        "svc-123-id",
+			serviceNapespace: "default",
+			desiredSNs: []SNAssocStatus{
+				{snName:"sn1", snID: "sn1-id", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName:"sn2", snID: "sn2-id", status: vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress},
+			},
+			desiredSNInCache: true,
+			existingSNs: []SNAssociation{
+				{snName: "sn1", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName: "sn2", status: vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress},
+			},
+			errOnAssociating: true,
+			wantErr:          true,
+		},
+		{
+			name:             "testing () --> (sn1, sn2, sn3) happy path",
+			serviceName:      "svc-123",
+			serviceID:        "svc-123-id",
+			serviceNapespace: "default",
+			desiredSNs: []SNAssocStatus{
+				{snName:"sn1", snID:"sn1-id", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName:"sn2", snID:"sn2-id", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName:"sn3", snID:"sn3-id", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+			},
+			desiredSNInCache: true,
+			existingSNs: []SNAssociation{
+				{snName: "sn1", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName: "sn2", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName: "sn3", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+			},
+			errOnAssociating: false,
+			wantErr:          false,
+		},
+		/*
+		{
+			name:             "testing (sn1, sn2, sn3) --> ( sn2, sn3), happy path",
+			serviceName:      "svc-123",
+			serviceID:        "svc-123-id",
+			serviceNapespace: "default",
+			desiredSNs: []SNAssocStatus{
+				{snName: "sn1", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName: "sn2", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName: "sn3", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				
+			},
+			desiredSNInCache: true,
+			existingSNs: []SNAssociation{
+				{snName: "sn1", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName: "sn2", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+				{snName: "sn3", status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
+			},
+			errOnAssociating: true,
+			wantErr:          true,
+		},
+		*/
 	}
 
 	for _, tt := range tests {
@@ -819,15 +883,26 @@ func Test_serviceNetworkAssociationMgr(t *testing.T) {
 		for i := 0; i < len(tt.desiredSNs); i++ {
 			mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, nil)
 
-			snAssocOutput := vpclattice.CreateServiceNetworkServiceAssociationOutput{}
+			snAssocOutput := vpclattice.CreateServiceNetworkServiceAssociationOutput{
+				Status: &tt.existingSNs[i].status,
+			}
 			mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx,
 				gomock.Any()).Return(&snAssocOutput, nil)
+
+			if 	tt.desiredSNs[i].status != vpclattice.ServiceNetworkServiceAssociationStatusActive {
+				break
+			}
 		}
 
 		// testing delete association path
-		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, nil)
+		if !tt.errOnAssociating {
+			mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, nil)
+		}
 		err := serviceManager.serviceNetworkAssociationMgr(ctx, desiredSNNames, tt.serviceID)
-		assert.Nil(t, err)
+		if !tt.wantErr {
+
+			assert.Nil(t, err)
+		}
 
 	}
 }
