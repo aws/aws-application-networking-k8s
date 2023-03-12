@@ -3,7 +3,7 @@
 Follow these instructions to create a cluster and deploy the AWS Gateway API Controller.
 Run through them again for a second cluster to use with the extended example shown later.
 
-1. Set your region (`us-west-2` or `us-east-1`) as an environment variable. For example:
+1. Set your region as an environment variable. Nine regions are now supported, including `us-west-2` and `us-east-1`. For example:
    ```bash
    export AWS_REGION=us-west-2
    ```
