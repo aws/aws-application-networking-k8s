@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -24,32 +24,32 @@ import (
 )
 
 func Test_RuleModelBuild(t *testing.T) {
-	var httpSectionName v1alpha2.SectionName = "http"
-	var serviceKind v1alpha2.Kind = "Service"
-	var serviceimportKind v1alpha2.Kind = "ServiceImport"
+	var httpSectionName gateway_api.SectionName = "http"
+	var serviceKind gateway_api.Kind = "Service"
+	var serviceimportKind gateway_api.Kind = "ServiceImport"
 	var weight1 = int32(10)
 	var weight2 = int32(90)
-	var namespace = v1alpha2.Namespace("default")
+	var namespace = gateway_api.Namespace("default")
 	var path1 = string("/ver1")
 	var path2 = string("/ver2")
-	var backendRef1 = v1alpha2.BackendRef{
-		BackendObjectReference: v1alpha2.BackendObjectReference{
+	var backendRef1 = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
 			Name:      "targetgroup1",
 			Namespace: &namespace,
 			Kind:      &serviceKind,
 		},
 		Weight: &weight1,
 	}
-	var backendRef2 = v1alpha2.BackendRef{
-		BackendObjectReference: v1alpha2.BackendObjectReference{
+	var backendRef2 = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace,
 			Kind:      &serviceimportKind,
 		},
 		Weight: &weight2,
 	}
-	var backendServiceImportRef = v1alpha2.BackendRef{
-		BackendObjectReference: v1alpha2.BackendObjectReference{
+	var backendServiceImportRef = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
 			Name: "targetgroup1",
 			Kind: &serviceimportKind,
 		},
@@ -57,8 +57,8 @@ func Test_RuleModelBuild(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		gwListenerPort     v1alpha2.PortNumber
-		httpRoute          *v1alpha2.HTTPRoute
+		gwListenerPort     gateway_api.PortNumber
+		httpRoute          *gateway_api.HTTPRoute
 		wantErrIsNil       bool
 		k8sGetGatewayCall  bool
 		k8sGatewayReturnOK bool
@@ -69,23 +69,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -101,23 +101,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendServiceImportRef,
 								},
@@ -133,23 +133,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -168,48 +168,48 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							Matches: []v1alpha2.HTTPRouteMatch{
+							Matches: []gateway_api.HTTPRouteMatch{
 								{
 
-									Path: &v1alpha2.HTTPPathMatch{
+									Path: &gateway_api.HTTPPathMatch{
 
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []v1alpha2.HTTPRouteMatch{
+							Matches: []gateway_api.HTTPRouteMatch{
 								{
 
-									Path: &v1alpha2.HTTPPathMatch{
+									Path: &gateway_api.HTTPPathMatch{
 
 										Value: &path2,
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef2,
 								},
@@ -230,10 +230,10 @@ func Test_RuleModelBuild(t *testing.T) {
 		if tt.k8sGetGatewayCall {
 
 			k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, gwName types.NamespacedName, gw *v1alpha2.Gateway) error {
+				func(ctx context.Context, gwName types.NamespacedName, gw *gateway_api.Gateway) error {
 
 					if tt.k8sGatewayReturnOK {
-						gw.Spec.Listeners = append(gw.Spec.Listeners, v1alpha2.Listener{
+						gw.Spec.Listeners = append(gw.Spec.Listeners, gateway_api.Listener{
 							Port: tt.gwListenerPort,
 							Name: *tt.httpRoute.Spec.ParentRefs[0].SectionName,
 						})
@@ -280,9 +280,9 @@ func Test_RuleModelBuild(t *testing.T) {
 			var j = 0
 			for _, tg := range resRule.Spec.Action.TargetGroups {
 
-				assert.Equal(t, v1alpha2.ObjectName(tg.Name), tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Name)
+				assert.Equal(t, gateway_api.ObjectName(tg.Name), tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Name)
 				if tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Namespace != nil {
-					assert.Equal(t, v1alpha2.Namespace(tg.Namespace), *tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Namespace)
+					assert.Equal(t, gateway_api.Namespace(tg.Namespace), *tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Namespace)
 				}
 
 				if *tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Kind == "ServiceImport" {

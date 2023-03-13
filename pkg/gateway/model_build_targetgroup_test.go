@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
@@ -177,19 +177,19 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 	now := metav1.Now()
 
-	namespacePtr := func(ns string) *v1alpha2.Namespace {
-		p := v1alpha2.Namespace(ns)
+	namespacePtr := func(ns string) *gateway_api.Namespace {
+		p := gateway_api.Namespace(ns)
 		return &p
 	}
 
-	kindPtr := func(k string) *v1alpha2.Kind {
-		p := v1alpha2.Kind(k)
+	kindPtr := func(k string) *gateway_api.Kind {
+		p := gateway_api.Kind(k)
 		return &p
 	}
 
 	tests := []struct {
 		name          string
-		httpRoute     *v1alpha2.HTTPRoute
+		httpRoute     *gateway_api.HTTPRoute
 		svcExist      bool
 		wantError     error
 		wantErrIsNil  bool
@@ -198,24 +198,24 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
-									BackendRef: v1alpha2.BackendRef{
-										BackendObjectReference: v1alpha2.BackendObjectReference{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
 											Name:      "service1-tg1",
 											Namespace: namespacePtr("ns11"),
 											Kind:      kindPtr("Service"),
@@ -235,26 +235,26 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
-									BackendRef: v1alpha2.BackendRef{
-										BackendObjectReference: v1alpha2.BackendObjectReference{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
 											Name:      "service2-tg1",
 											Namespace: namespacePtr("ns21"),
 											Kind:      kindPtr("Service"),
@@ -274,26 +274,26 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Create LatticeService where backend K8S service does NOT exist",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service3",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
-									BackendRef: v1alpha2.BackendRef{
-										BackendObjectReference: v1alpha2.BackendObjectReference{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
 											Name:      "service3-tg1",
 											Namespace: namespacePtr("ns31"),
 											Kind:      kindPtr("Service"),
@@ -313,26 +313,26 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Create LatticeService where backend mcs serviceimport does NOT exist",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service4",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
-									BackendRef: v1alpha2.BackendRef{
-										BackendObjectReference: v1alpha2.BackendObjectReference{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
 											Name:      "service4-tg1",
 											Namespace: namespacePtr("ns31"),
 											Kind:      kindPtr("ServiceImport"),
@@ -437,19 +437,19 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 
 func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 	now := metav1.Now()
-	namespacePtr := func(ns string) *v1alpha2.Namespace {
-		p := v1alpha2.Namespace(ns)
+	namespacePtr := func(ns string) *gateway_api.Namespace {
+		p := gateway_api.Namespace(ns)
 		return &p
 	}
 
-	kindPtr := func(k string) *v1alpha2.Kind {
-		p := v1alpha2.Kind(k)
+	kindPtr := func(k string) *gateway_api.Kind {
+		p := gateway_api.Kind(k)
 		return &p
 	}
 
 	tests := []struct {
 		name           string
-		httpRoute      *v1alpha2.HTTPRoute
+		httpRoute      *gateway_api.HTTPRoute
 		svcImportExist bool
 		wantError      error
 		wantErrIsNil   bool
@@ -458,25 +458,25 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "serviceimport1",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
-									BackendRef: v1alpha2.BackendRef{
-										BackendObjectReference: v1alpha2.BackendObjectReference{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
 											Name:      "service1-tg2",
 											Namespace: namespacePtr("tg1-ns1"),
 											Kind:      kindPtr("ServiceImport"),
@@ -496,27 +496,27 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "serviceimport2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
-									BackendRef: v1alpha2.BackendRef{
-										BackendObjectReference: v1alpha2.BackendObjectReference{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
 											Name:      "service1-tg2",
 											Namespace: namespacePtr("tg1-ns1"),
 											Kind:      kindPtr("ServiceImport"),
