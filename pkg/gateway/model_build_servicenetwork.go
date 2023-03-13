@@ -4,7 +4,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
@@ -20,7 +20,7 @@ const (
 // ModelBuilder builds the model stack for the mesh resource.
 type ServiceNetworkModelBuilder interface {
 	// Build model stack for service
-	Build(ctx context.Context, gw *v1alpha2.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error)
+	Build(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error)
 }
 
 type serviceNetworkModelBuilder struct {
@@ -30,7 +30,7 @@ type serviceNetworkModelBuilder struct {
 func NewServiceNetworkModelBuilder() *serviceNetworkModelBuilder {
 	return &serviceNetworkModelBuilder{}
 }
-func (b *serviceNetworkModelBuilder) Build(ctx context.Context, gw *v1alpha2.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
+func (b *serviceNetworkModelBuilder) Build(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 
 	task := &serviceNetworkModelBuildTask{
@@ -89,7 +89,7 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 }
 
 type serviceNetworkModelBuildTask struct {
-	gateway *v1alpha2.Gateway
+	gateway *gateway_api.Gateway
 
 	mesh *latticemodel.ServiceNetwork
 

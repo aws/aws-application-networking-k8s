@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
@@ -110,7 +110,7 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 	// TODO(user): your logic here
 	httpLog.Info("HTTPRouteReconciler")
 
-	httpRoute := &v1alpha2.HTTPRoute{}
+	httpRoute := &gateway_api.HTTPRoute{}
 
 	if err := r.Client.Get(ctx, req.NamespacedName, httpRoute); err != nil {
 		return client.IgnoreNotFound(err)
@@ -144,14 +144,14 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 
 }
 
-func (r *HTTPRouteReconciler) cleanupHTTPRouteResources(ctx context.Context, httpRoute *v1alpha2.HTTPRoute) error {
+func (r *HTTPRouteReconciler) cleanupHTTPRouteResources(ctx context.Context, httpRoute *gateway_api.HTTPRoute) error {
 
 	_, _, err := r.buildAndDeployModel(ctx, httpRoute)
 
 	return err
 }
 
-func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute *v1alpha2.HTTPRoute) bool {
+func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute *gateway_api.HTTPRoute) bool {
 
 	if len(httpRoute.Spec.ParentRefs) == 0 {
 		glog.V(6).Infof("Ignore HTTPRoute which has no ParentRefs gateway %v \n ", httpRoute.Spec)
@@ -160,7 +160,7 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 
 	// TODO,  gatway are defined in default namespace for now
 	// TODO create a sim for need to handle namespaced gateway
-	gw := &v1alpha2.Gateway{}
+	gw := &gateway_api.Gateway{}
 
 	gwName := types.NamespacedName{
 		Namespace: "default",
@@ -174,7 +174,7 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 	}
 
 	// make sure gateway is a aws-vpc-lattice
-	gwClass := &v1alpha2.GatewayClass{}
+	gwClass := &gateway_api.GatewayClass{}
 	gwClassName := types.NamespacedName{
 		Namespace: "default",
 		Name:      string(gw.Spec.GatewayClassName),
@@ -195,7 +195,7 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 	}
 }
 
-func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, httproute *v1alpha2.HTTPRoute) (core.Stack, *latticemodel.Service, error) {
+func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, httproute *gateway_api.HTTPRoute) (core.Stack, *latticemodel.Service, error) {
 	httpLog := log.FromContext(ctx)
 
 	stack, latticeService, err := r.modelBuilder.Build(ctx, httproute)
@@ -240,7 +240,7 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, httproute
 	return stack, latticeService, err
 }
 
-func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, httproute *v1alpha2.HTTPRoute) error {
+func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, httproute *gateway_api.HTTPRoute) error {
 	glog.V(6).Infof("Beginning -- reconcileHTTPRouteResource, [%v]\n", httproute)
 
 	if err := r.finalizerManager.AddFinalizers(ctx, httproute, httpRouteFinalizer); err != nil {
@@ -266,7 +266,7 @@ func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, ht
 
 }
 
-func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns string, httproute *v1alpha2.HTTPRoute) error {
+func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns string, httproute *gateway_api.HTTPRoute) error {
 	glog.V(6).Infof("updateHTTPRouteStatus: httproute %v, dns %v\n", httproute, dns)
 	httprouteOld := httproute.DeepCopy()
 
@@ -283,7 +283,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 
 	httprouteOld = httproute.DeepCopy()
 	if len(httproute.Status.RouteStatus.Parents) == 0 {
-		httproute.Status.RouteStatus.Parents = make([]v1alpha2.RouteParentStatus, 1)
+		httproute.Status.RouteStatus.Parents = make([]gateway_api.RouteParentStatus, 1)
 		httproute.Status.RouteStatus.Parents[0].Conditions = make([]metav1.Condition, 1)
 		httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime = eventhandlers.ZeroTransitionTime
 	}
@@ -321,8 +321,8 @@ func (r *HTTPRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(r.Client)
 	return ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&v1alpha2.HTTPRoute{}).
-		Watches(&source.Kind{Type: &v1alpha2.Gateway{}}, gwEventHandler).
+		For(&gateway_api.HTTPRoute{}).
+		Watches(&source.Kind{Type: &gateway_api.Gateway{}}, gwEventHandler).
 		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
 		Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler).
 		Complete(r)

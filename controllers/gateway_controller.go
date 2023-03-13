@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -112,13 +112,13 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	gwLog := log.FromContext(ctx)
 
 	gwLog.Info("GatewayReconciler")
-	gw := &v1alpha2.Gateway{}
+	gw := &gateway_api.Gateway{}
 
 	if err := r.Client.Get(ctx, req.NamespacedName, gw); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 
-	gwClass := &v1alpha2.GatewayClass{}
+	gwClass := &gateway_api.GatewayClass{}
 	gwClassName := types.NamespacedName{
 		Namespace: "default",
 		Name:      string(gw.Spec.GatewayClassName),
@@ -135,7 +135,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 
 			glog.V(6).Info(fmt.Sprintf("Checking if gateway can be deleted %v\n", gw.Name))
 
-			httpRouteList := &v1alpha2.HTTPRouteList{}
+			httpRouteList := &gateway_api.HTTPRouteList{}
 
 			r.Client.List(context.TODO(), httpRouteList)
 			for _, httpRoute := range httpRouteList.Items {
@@ -148,7 +148,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 					Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 				}
 
-				httpGW := &v1alpha2.Gateway{}
+				httpGW := &gateway_api.Gateway{}
 
 				if err := r.Client.Get(context.TODO(), gwName, httpGW); err != nil {
 					continue
@@ -179,7 +179,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	return nil
 }
 
-func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *v1alpha2.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
+func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
 	gwLog := log.FromContext(ctx)
 
 	stack, serviceNetwork, err := r.modelBuilder.Build(ctx, gw)
@@ -204,7 +204,7 @@ func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *v1alpha
 
 	return stack, serviceNetwork, err
 }
-func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *v1alpha2.Gateway) error {
+func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *gateway_api.Gateway) error {
 	gwLog := log.FromContext(ctx)
 
 	gwLog.Info("reconcile gateway resource")
@@ -238,13 +238,13 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *v
 
 }
 
-func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *v1alpha2.Gateway) error {
+func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *gateway_api.Gateway) error {
 	_, _, err := r.buildAndDeployModel(ctx, gw)
 	return err
 
 }
 
-func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetworkStatus *latticestore.ServiceNetwork, gw *v1alpha2.Gateway) error {
+func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetworkStatus *latticestore.ServiceNetwork, gw *gateway_api.Gateway) error {
 
 	gwOld := gw.DeepCopy()
 
@@ -272,9 +272,9 @@ func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(r.Client)
 	return ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&v1alpha2.Gateway{}).
+		For(&gateway_api.Gateway{}).
 		Watches(
-			&source.Kind{Type: &v1alpha2.GatewayClass{}},
+			&source.Kind{Type: &gateway_api.GatewayClass{}},
 			gwClassEventHandler).
 		Complete(r)
 }
