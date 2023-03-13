@@ -13,8 +13,11 @@ const (
 )
 
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
+	// when a service is associate to multiple service network(s), all listener config MUST be same
+	// so here we are only using the 1st parentRef
 	var ruleID = 1
-	for _, parentRef := range t.httpRoute.Spec.ParentRefs {
+	if len(t.httpRoute.Spec.ParentRefs) > 0 {
+		parentRef := t.httpRoute.Spec.ParentRefs[0]
 		port, protocol, _, err := t.extractListnerInfo(ctx, parentRef)
 
 		if err != nil {

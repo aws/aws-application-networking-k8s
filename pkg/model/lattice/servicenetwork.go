@@ -6,6 +6,7 @@ import (
 
 const (
 	K8SServiceNetworkOwnedByVPC = "K8SServiceNetworkOwnedByVPC"
+	K8SServiceOwnedByVPC        = "K8SServiceOwnedByVPC"
 )
 
 type ServiceNetwork struct {
