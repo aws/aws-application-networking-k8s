@@ -28,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // GatewayClassReconciler reconciles a GatewayClass object
@@ -63,7 +63,7 @@ func NewGatewayGlassReconciler(client client.Client, scheme *runtime.Scheme) *Ga
 func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	gwClassLog := log.FromContext(ctx)
 
-	gwClass := &v1alpha2.GatewayClass{}
+	gwClass := &gateway_api.GatewayClass{}
 
 	if err := r.Client.Get(ctx, req.NamespacedName, gwClass); err != nil {
 		gwClassLog.Info("NotFound")
@@ -85,8 +85,8 @@ func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		gwClass.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
 
 		gwClass.Status.Conditions[0].Status = "True"
-		gwClass.Status.Conditions[0].Message = string(v1alpha2.GatewayClassReasonAccepted)
-		gwClass.Status.Conditions[0].Reason = string(v1alpha2.GatewayClassReasonAccepted)
+		gwClass.Status.Conditions[0].Message = string(gateway_api.GatewayClassReasonAccepted)
+		gwClass.Status.Conditions[0].Reason = string(gateway_api.GatewayClassReasonAccepted)
 
 		if err := r.Client.Status().Patch(ctx, gwClass, client.MergeFrom(gwClassOld)); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "failed to update gatewayclass status")
@@ -101,6 +101,6 @@ func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *GatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&v1alpha2.GatewayClass{}).
+		For(&gateway_api.GatewayClass{}).
 		Complete(r)
 }
