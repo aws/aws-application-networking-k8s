@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
@@ -24,7 +24,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 	now := metav1.Now()
 	tests := []struct {
 		name                string
-		gw                  *v1alpha2.Gateway
+		gw                  *gateway_api.Gateway
 		meshManagerErr      error
 		wantSynthesizerErr  error
 		wantDataStoreErr    error
@@ -32,7 +32,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 	}{
 		{
 			name: "Adding a new Mesh successfully",
-			gw: &v1alpha2.Gateway{
+			gw: &gateway_api.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "mesh1",
 				},
@@ -44,7 +44,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		},
 		{
 			name: "Adding a new Mesh associating in progress",
-			gw: &v1alpha2.Gateway{
+			gw: &gateway_api.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "mesh2",
 				},
@@ -57,7 +57,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 
 		{
 			name: "Deleting Mesh Successfully",
-			gw: &v1alpha2.Gateway{
+			gw: &gateway_api.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "mesh3",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
@@ -71,7 +71,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		},
 		{
 			name: "Deleting Mesh Successfully in progress",
-			gw: &v1alpha2.Gateway{
+			gw: &gateway_api.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "mesh4",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
