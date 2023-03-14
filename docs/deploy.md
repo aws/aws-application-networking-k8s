@@ -3,24 +3,25 @@
 Follow these instructions to create a cluster and deploy the AWS Gateway API Controller.
 Run through them again for a second cluster to use with the extended example shown later.
 
-1. Set your region as an environment variable. Nine regions are now supported, including `us-west-2` and `us-east-1`. For example:
+1. Set your region and cluster name as environment variables. Nine regions are now supported, including `us-west-2` and `us-east-1`. For example:
    ```bash
    export AWS_REGION=us-west-2
+   export CLUSTER_NAME=my-cluster
    ```
 1. You can use an existing EKS cluster or create a new one as shown here:
    ```bash
-   eksctl create cluster --name <my-cluster> --region $AWS_REGION
+   eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION
    ```
 1. First, configure security group to receive traffic from the VPC Lattice fleet. You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic on all ports from the `169.254.171.0/24` address range. 
 
    ```bash
-   MANAGED_PREFIX=$(aws ec2 get-managed-prefix-list-entries --region $AWS_DEFAULT_REGION --prefix-list-id pl-0721453c7ac4ec009  | jq -r '.Entries[0].Cidr')
-   CLUSTER_SG=$(aws eks describe-cluster --name <my-cluster> | jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
+   MANAGED_PREFIX=$(aws ec2 get-managed-prefix-list-entries --region $AWS_REGION --prefix-list-id pl-0721453c7ac4ec009  | jq -r '.Entries[0].Cidr')
+   CLUSTER_SG=$(aws eks describe-cluster --name $CLUSTER_NAME | jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
    aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --cidr $MANAGED_PREFIX --protocol -1
    ```
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
-   eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
+   eksctl utils associate-iam-oidc-provider --cluster $CLUSTER_NAME --approve --region $AWS_REGION
    ```
 1. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the gateway API and copy the policy arn for later use:
    ```bash
@@ -56,7 +57,7 @@ Run through them again for a second cluster to use with the extended example sho
 1. Create an iamserviceaccount for pod level permission:
    ```bash
    eksctl create iamserviceaccount \
-      --cluster=<my-cluster> \
+      --cluster=$CLUSTER_NAME \
       --namespace=system \
       --name=gateway-api-controller \
       --attach-policy-arn=$VPCLatticeControllerIAMPolicyArn \

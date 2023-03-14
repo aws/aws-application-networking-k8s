@@ -36,8 +36,8 @@ This example creates a single cluster in a single VPC, then configures two route
    kubectl get gateway  
    ```
    ```
-   NAME       CLASS         ADDRESS   READY   AGE
-   my-hotel   aws-lattice                     7d12h
+   NAME       CLASS                ADDRESS   READY   AGE
+   my-hotel   amazon-vpc-lattice                     7d12h
    ```
 1. Once the gateway is created, find the VPC Lattice service network:
    ```bash
@@ -83,28 +83,24 @@ This example creates a single cluster in a single VPC, then configures two route
       apiVersion: gateway.networking.k8s.io/v1alpha2
       kind: HTTPRoute
       metadata:
-      annotations:
-         kubectl.kubernetes.io/last-applied-configuration: |
-            {"apiVersion":"gateway.networking.k8s.io/v1alpha2","kind":"HTTPRoute","metadata":{"annotations":{},"name":"inventory","namespace":"default"}... }}]}]}}
-      ...
-      status:
-      parents:
-      - conditions:
-         - lastTransitionTime: "2022-11-22T02:29:22Z"
-            message: 'DNS Name: <b><i>inventory-default-0f326944c3d681c0d.7d67968.vpc-lattice-svcs.us-west-2.on.aws</i></b>'
-            reason: Reconciled
-            status: "True"
-            type: httproute
-         controllerName: application-networking.k8s.aws/gateway-api-controller
-         parentRef:
-            group: gateway.networking.k8s.io
-            kind: Gateway
-            name: my-hotel
+        annotations:
+          application-networking.k8s.aws/lattice-assigned-domain-name: inventory-default-02fb06f1acdeb5b55.7d67968.vpc-lattice-svcs.us-west-2.on.aws
       ...
       ```
       
       ```bash
       kubectl get httproute rates inventory -o yaml
+      ```
+
+      ```
+      apiVersion: v1
+      items:
+      - apiVersion: gateway.networking.k8s.io/v1alpha2
+        kind: HTTPRoute
+        metadata:
+          annotations:
+            application-networking.k8s.aws/lattice-assigned-domain-name: rates-default-0d38139624f20d213.7d67968.vpc-lattice-svcs.us-west-2.on.aws
+      ...
       ```
 
 **Check service connectivity**
@@ -128,7 +124,7 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
 1. From inside of the inventory pod, use `curl` to connect to the parking service (using the DNS Name from the previous `kubectl get httproute` command):
    ```bash
-   curl rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/parking 
+   curl rates-default-0d38139624f20d213.7d67968.vpc-lattice-svcs.us-west-2.on.aws/parking
    ```
    ```
    Requesting to Pod(parking-6cdcd5b4b4-g8dkb): parking handler pod
@@ -150,7 +146,7 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
 1. From inside of the parking pod, use `curl` to connect to the inventory-ver1 service:
    ```bash
-   curl inventory-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com
+   curl inventory-default-02fb06f1acdeb5b55.7d67968.vpc-lattice-svcs.us-west-2.on.aws
    ```
    ```
    Requesting to Pod(inventory-ver1-7bb6989d9d-2p2hk): inventory-ver1 handler pod 
