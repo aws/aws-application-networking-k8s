@@ -49,6 +49,7 @@ import (
 
 const (
 	gatewayFinalizer = "gateway.k8s.aws/resources"
+	defaultNameSpace = "default"
 )
 
 // GatewayReconciler reconciles a Gateway object
@@ -108,6 +109,10 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
 }
 
+func (r *GatewayReconciler) isDefaultNameSpace(n string) bool {
+	return n == defaultNameSpace
+}
+
 func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	gwLog := log.FromContext(ctx)
 
@@ -118,9 +123,16 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		return client.IgnoreNotFound(err)
 	}
 
+	if !r.isDefaultNameSpace(gw.Namespace) {
+		errmsg := "VPC lattice do not support no-default namespace gateway111"
+		glog.V(2).Infof(errmsg)
+		r.updateBadStatus(ctx, errmsg, gw)
+		return nil
+	}
+
 	gwClass := &gateway_api.GatewayClass{}
 	gwClassName := types.NamespacedName{
-		Namespace: "default",
+		Namespace: defaultNameSpace,
 		Name:      string(gw.Spec.GatewayClassName),
 	}
 
@@ -144,7 +156,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 					continue
 				}
 				gwName := types.NamespacedName{
-					Namespace: "default",
+					Namespace: defaultNameSpace,
 					Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 				}
 
@@ -171,7 +183,6 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 			r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
 			return nil
 		}
-
 		return r.reconcileGatewayResources(ctx, gw)
 	} else {
 		gwLog.Info("Ignore non aws gateways!!!")
@@ -257,6 +268,30 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetw
 	gw.Status.Conditions[0].Status = "True"
 	gw.Status.Conditions[0].Message = fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN)
 	gw.Status.Conditions[0].Reason = "Reconciled"
+	// TODO following is causing crash on some platform, see https://t.corp.amazon.com/b7c9ea6c-5168-4616-b718-c1bdf78dbdf1/communication
+	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
+
+	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
+		return errors.Wrapf(err, "failed to update gateway status")
+	}
+
+	return nil
+}
+
+func (r *GatewayReconciler) updateBadStatus(ctx context.Context, message string, gw *gateway_api.Gateway) error {
+
+	gwOld := gw.DeepCopy()
+
+	//if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
+	glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
+	if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
+		gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+	}
+	//}
+	gw.Status.Conditions[0].Status = "False"
+	gw.Status.Conditions[0].Message = fmt.Sprintf(message)
+	gw.Status.Conditions[0].Reason = fmt.Sprintf("NoReconcile")
+	gw.Status.Conditions[0].Type = "NotAccepted"
 	// TODO following is causing crash on some platform, see https://t.corp.amazon.com/b7c9ea6c-5168-4616-b718-c1bdf78dbdf1/communication
 	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
 
