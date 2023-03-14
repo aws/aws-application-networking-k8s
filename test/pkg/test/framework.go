@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
@@ -22,7 +23,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
@@ -40,8 +41,8 @@ var (
 		// Must currently be deleted in order to avoid https://github.com/aws/aws-application-networking-k8s/issues/115
 		{&v1.Service{}, &v1.ServiceList{}},
 		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
-		{&v1alpha2.HTTPRoute{}, &v1alpha2.HTTPRouteList{}},
-		{&v1alpha2.Gateway{}, &v1alpha2.GatewayList{}},
+		{&v1beta1.HTTPRoute{}, &v1beta1.HTTPRouteList{}},
+		{&v1beta1.Gateway{}, &v1beta1.GatewayList{}},
 	}
 )
 
@@ -52,16 +53,15 @@ type Framework struct {
 
 func NewFramework(ctx context.Context) *Framework {
 	var scheme = scheme.Scheme
-	lo.Must0(v1alpha2.Install(scheme))
+	lo.Must0(v1beta1.Install(scheme))
 	lo.Must0(v1alpha1.Install(scheme))
 	framework := &Framework{
 		Client:        lo.Must(client.New(controllerruntime.GetConfigOrDie(), client.Options{Scheme: scheme})),
 		LatticeClient: services.NewDefaultLattice(session.Must(session.NewSession()), ""), // region is currently hardcoded
 	}
-
+	gomega.Default.SetDefaultEventuallyPollingInterval(time.Second * 1)
 	BeforeEach(func() { framework.ExpectToBeClean(ctx) })
 	AfterSuite(func() { framework.ExpectToClean(ctx) })
-
 	return framework
 }
 
@@ -182,7 +182,7 @@ func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList 
 	}, CleanupTimeout)
 }
 
-func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *v1alpha2.Gateway) *vpclattice.ServiceNetworkSummary {
+func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *v1beta1.Gateway) *vpclattice.ServiceNetworkSummary {
 	var found *vpclattice.ServiceNetworkSummary
 	Eventually(func(g Gomega) {
 		listServiceNetworksOutput, err := env.LatticeClient.ListServiceNetworksWithContext(ctx, &vpclattice.ListServiceNetworksInput{})
@@ -198,7 +198,7 @@ func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *v1alpha2.G
 	return found
 }
 
-func (env *Framework) GetService(ctx context.Context, httpRoute *v1alpha2.HTTPRoute) *vpclattice.ServiceSummary {
+func (env *Framework) GetService(ctx context.Context, httpRoute *v1beta1.HTTPRoute) *vpclattice.ServiceSummary {
 	var found *vpclattice.ServiceSummary
 	Eventually(func(g Gomega) {
 		listServicesOutput, err := env.LatticeClient.ListServicesWithContext(ctx, &vpclattice.ListServicesInput{})

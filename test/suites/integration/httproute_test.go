@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("HTTPRoute", func() {
@@ -16,46 +16,46 @@ var _ = Describe("HTTPRoute", func() {
 		It("httprules should support multiple paths", func() {
 			deploymentV1, serviceV1 := test.HTTPApp(test.HTTPAppOptions{Name: "test-v1"})
 			deploymentV2, serviceV2 := test.HTTPApp(test.HTTPAppOptions{Name: "test-v2"})
-			httpRoute := test.New(&v1alpha2.HTTPRoute{
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{{
-							Name:        v1alpha2.ObjectName(test.Gateway.Name),
-							SectionName: lo.ToPtr(v1alpha2.SectionName("http")),
+			httpRoute := test.New(&v1beta1.HTTPRoute{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{{
+							Name:        v1beta1.ObjectName(test.Gateway.Name),
+							SectionName: lo.ToPtr(v1beta1.SectionName("http")),
 						}},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{{
-								BackendRef: v1alpha2.BackendRef{
-									BackendObjectReference: v1alpha2.BackendObjectReference{
-										Name: v1alpha2.ObjectName(serviceV1.Name),
-										Kind: lo.ToPtr(v1alpha2.Kind("Service")),
+							BackendRefs: []v1beta1.HTTPBackendRef{{
+								BackendRef: v1beta1.BackendRef{
+									BackendObjectReference: v1beta1.BackendObjectReference{
+										Name: v1beta1.ObjectName(serviceV1.Name),
+										Kind: lo.ToPtr(v1beta1.Kind("Service")),
 									},
 								},
 							}},
-							Matches: []v1alpha2.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
-									Path: &v1alpha2.HTTPPathMatch{
-										Type:  lo.ToPtr(v1alpha2.PathMatchPathPrefix),
+									Path: &v1beta1.HTTPPathMatch{
+										Type:  lo.ToPtr(v1beta1.PathMatchPathPrefix),
 										Value: lo.ToPtr("/ver1"),
 									},
 								},
 							},
 						},
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{{
-								BackendRef: v1alpha2.BackendRef{
-									BackendObjectReference: v1alpha2.BackendObjectReference{
-										Name: v1alpha2.ObjectName(serviceV2.Name),
-										Kind: lo.ToPtr(v1alpha2.Kind("Service")),
+							BackendRefs: []v1beta1.HTTPBackendRef{{
+								BackendRef: v1beta1.BackendRef{
+									BackendObjectReference: v1beta1.BackendObjectReference{
+										Name: v1beta1.ObjectName(serviceV2.Name),
+										Kind: lo.ToPtr(v1beta1.Kind("Service")),
 									},
 								},
 							}},
-							Matches: []v1alpha2.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
-									Path: &v1alpha2.HTTPPathMatch{
-										Type:  lo.ToPtr(v1alpha2.PathMatchPathPrefix),
+									Path: &v1beta1.HTTPPathMatch{
+										Type:  lo.ToPtr(v1beta1.PathMatchPathPrefix),
 										Value: lo.ToPtr("/ver2"),
 									},
 								},
