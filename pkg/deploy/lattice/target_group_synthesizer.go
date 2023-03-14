@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -255,7 +255,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 				Name:      *httpName,
 			}
 
-			httpRoute := &v1alpha2.HTTPRoute{}
+			httpRoute := &gateway_api.HTTPRoute{}
 
 			tgName := latticestore.TargetGroupName(*srvName, *srvNamespace)
 
@@ -320,7 +320,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 }
 
-func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Context, tgName string, httpRoute *v1alpha2.HTTPRoute) bool {
+func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Context, tgName string, httpRoute *gateway_api.HTTPRoute) bool {
 
 	for _, httpRule := range httpRoute.Spec.Rules {
 		for _, httpBackendRef := range httpRule.BackendRefs {

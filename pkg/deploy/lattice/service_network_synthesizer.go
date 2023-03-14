@@ -10,7 +10,7 @@ import (
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func NewServiceNetworkSynthesizer(client client.Client, serviceNetworkManager ServiceNetworkManager, stack core.Stack, latticeDataStore *latticestore.LatticeDataStore) *serviceNetworkSynthesizer {
@@ -116,7 +116,7 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 
 		if !toBeDeleted {
 			// check local K8S cache
-			gw := &v1alpha2.Gateway{}
+			gw := &gateway_api.Gateway{}
 			gwName := types.NamespacedName{
 				Namespace: "default",
 				Name:      sdkServiceNetwork,
