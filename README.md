@@ -15,7 +15,7 @@ make toolchain
 make presubmit
 
 # Install CRDs (which only need once) 
-kubectl apply -f config/crds/bases/k8s-gateway-v1alpha2.yaml
+kubectl apply -f config/crds/bases/k8s-gateway-v0.6.1.yaml.yaml
 kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceexports.yaml
 kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceimports.yaml
 
