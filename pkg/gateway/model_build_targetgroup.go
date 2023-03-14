@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -266,7 +266,7 @@ func (t *latticeServiceModelBuildTask) buildTargetGroup(ctx context.Context, cli
 
 }
 
-func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Context, client client.Client, httpBackendRef *v1alpha2.HTTPBackendRef) (latticemodel.TargetGroupSpec, error) {
+func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Context, client client.Client, httpBackendRef *gateway_api.HTTPBackendRef) (latticemodel.TargetGroupSpec, error) {
 	var namespace string
 
 	if httpBackendRef.BackendRef.BackendObjectReference.Namespace != nil {
@@ -360,7 +360,7 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 	}, nil
 }
 
-func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupName(_ context.Context, httpBackendRef *v1alpha2.HTTPBackendRef) string {
+func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupName(_ context.Context, httpBackendRef *gateway_api.HTTPBackendRef) string {
 	if httpBackendRef.BackendRef.BackendObjectReference.Namespace != nil {
 		return latticestore.TargetGroupName(string(httpBackendRef.BackendRef.BackendObjectReference.Name),
 			string(*httpBackendRef.BackendRef.BackendObjectReference.Namespace))

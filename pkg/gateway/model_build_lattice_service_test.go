@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -24,23 +24,23 @@ import (
 
 func Test_LatticeServiceModelBuild(t *testing.T) {
 	now := metav1.Now()
-	var httpSectionName v1alpha2.SectionName = "http"
-	var serviceKind v1alpha2.Kind = "Service"
-	var serviceimportKind v1alpha2.Kind = "ServiceImport"
+	var httpSectionName gateway_api.SectionName = "http"
+	var serviceKind gateway_api.Kind = "Service"
+	var serviceimportKind gateway_api.Kind = "ServiceImport"
 	var weight1 = int32(10)
 	var weight2 = int32(90)
-	var namespace = v1alpha2.Namespace("default")
+	var namespace = gateway_api.Namespace("default")
 
-	var backendRef1 = v1alpha2.BackendRef{
-		BackendObjectReference: v1alpha2.BackendObjectReference{
+	var backendRef1 = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
 			Name:      "targetgroup1",
 			Namespace: &namespace,
 			Kind:      &serviceKind,
 		},
 		Weight: &weight1,
 	}
-	var backendRef2 = v1alpha2.BackendRef{
-		BackendObjectReference: v1alpha2.BackendObjectReference{
+	var backendRef2 = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace,
 			Kind:      &serviceimportKind,
@@ -50,7 +50,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		httpRoute     *v1alpha2.HTTPRoute
+		httpRoute     *gateway_api.HTTPRoute
 		wantError     error
 		wantErrIsNil  bool
 		wantName      string
@@ -58,19 +58,19 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService with hostname",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Hostnames: []v1alpha2.Hostname{
+					Hostnames: []gateway_api.Hostname{
 						"test1.test.com",
 						"test2.test.com",
 					},
@@ -84,13 +84,13 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Add LatticeService",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -106,24 +106,24 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name:        "gateway2",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},

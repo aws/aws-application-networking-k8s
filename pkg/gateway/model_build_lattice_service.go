@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -22,7 +22,7 @@ const (
 )
 
 type LatticeServiceBuilder interface {
-	Build(ctx context.Context, httpRoute *v1alpha2.HTTPRoute) (core.Stack, *latticemodel.Service, error)
+	Build(ctx context.Context, httpRoute *gateway_api.HTTPRoute) (core.Stack, *latticemodel.Service, error)
 }
 
 type latticeServiceModelBuilder struct {
@@ -42,7 +42,7 @@ func NewLatticeServiceBuilder(client client.Client, datastore *latticestore.Latt
 }
 
 // TODO  right now everything is around HTTPRoute,  future, this might need to refactor for TLSRoute
-func (b *latticeServiceModelBuilder) Build(ctx context.Context, httpRoute *v1alpha2.HTTPRoute) (core.Stack, *latticemodel.Service, error) {
+func (b *latticeServiceModelBuilder) Build(ctx context.Context, httpRoute *gateway_api.HTTPRoute) (core.Stack, *latticemodel.Service, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(httpRoute)))
 
 	task := &latticeServiceModelBuildTask{
@@ -156,7 +156,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 }
 
 type latticeServiceModelBuildTask struct {
-	httpRoute *v1alpha2.HTTPRoute
+	httpRoute *gateway_api.HTTPRoute
 	client.Client
 
 	latticeService  *latticemodel.Service

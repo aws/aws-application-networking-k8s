@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 )
@@ -26,7 +26,7 @@ type enqueueRequestsForGatewayClassEvent struct {
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	gwClassNew := e.Object.(*v1alpha2.GatewayClass)
+	gwClassNew := e.Object.(*gateway_api.GatewayClass)
 	h.enqueueImpactedGateway(queue, gwClassNew)
 }
 
@@ -41,9 +41,9 @@ func (h *enqueueRequestsForGatewayClassEvent) Delete(e event.DeleteEvent, queue 
 func (h *enqueueRequestsForGatewayClassEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 }
 
-func (h *enqueueRequestsForGatewayClassEvent) enqueueImpactedGateway(queue workqueue.RateLimitingInterface, gwclass *v1alpha2.GatewayClass) {
+func (h *enqueueRequestsForGatewayClassEvent) enqueueImpactedGateway(queue workqueue.RateLimitingInterface, gwclass *gateway_api.GatewayClass) {
 
-	gwList := &v1alpha2.GatewayList{}
+	gwList := &gateway_api.GatewayList{}
 
 	h.client.List(context.TODO(), gwList)
 

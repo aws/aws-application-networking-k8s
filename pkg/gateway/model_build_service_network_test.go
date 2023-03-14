@@ -7,14 +7,14 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func Test_MeshModelBuild(t *testing.T) {
 	now := metav1.Now()
 	tests := []struct {
 		name           string
-		gw             *v1alpha2.Gateway
+		gw             *gateway_api.Gateway
 		wantErr        error
 		wantName       string
 		wantIsDeleted  bool
@@ -22,7 +22,7 @@ func Test_MeshModelBuild(t *testing.T) {
 	}{
 		{
 			name: "Adding Mesh, no annotation on VPC association",
-			gw: &v1alpha2.Gateway{
+			gw: &gateway_api.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "mesh1",
 				},
@@ -34,7 +34,7 @@ func Test_MeshModelBuild(t *testing.T) {
 		},
 		{
 			name: "Adding Mesh, and need VPC association",
-			gw: &v1alpha2.Gateway{
+			gw: &gateway_api.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "mesh1",
 					Annotations: map[string]string{LatticeVPCAssociationAnnotation: "true"},
@@ -47,7 +47,7 @@ func Test_MeshModelBuild(t *testing.T) {
 		},
 		{
 			name: "Adding Mesh, and need VPC association",
-			gw: &v1alpha2.Gateway{
+			gw: &gateway_api.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "mesh1",
 					Annotations: map[string]string{LatticeVPCAssociationAnnotation: "false"},
@@ -60,7 +60,7 @@ func Test_MeshModelBuild(t *testing.T) {
 		},
 		{
 			name: "Deleting Mesh",
-			gw: &v1alpha2.Gateway{
+			gw: &gateway_api.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "mesh1",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
