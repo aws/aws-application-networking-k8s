@@ -518,7 +518,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 					if sdkTG.refedByHTTPRoute {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute, arg3 ...interface{}) error {
 								httpRoute.Name = routename
 								httpRoute.Namespace = routenamespace
 
@@ -543,7 +543,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 					} else {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute, arg3 ...interface{}) error {
 								httpRoute.Name = routename
 								httpRoute.Namespace = routenamespace
 								return nil
@@ -555,7 +555,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 				} else {
 					if sdkTG.hasHTTPRouteTypeTag {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute, arg3 ...interface{}) error {
 
 								return errors.New("no httproute")
 
@@ -567,7 +567,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 				if sdkTG.hasServiceExportTypeTag {
 					if sdkTG.serviceExportExist {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport) error {
+							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport, arg3 ...interface{}) error {
 
 								return nil
 
@@ -576,7 +576,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 					} else {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport) error {
+							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport, arg3 ...interface{}) error {
 
 								return errors.New("no serviceexport")
 

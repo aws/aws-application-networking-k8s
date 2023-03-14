@@ -560,8 +560,8 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		for _, httpRules := range tt.httpRoute.Spec.Rules {
 			for _, httpBackendRef := range httpRules.BackendRefs {
 				if tt.svcImportExist {
-					k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-						func(ctx context.Context, name types.NamespacedName, svcImport *mcs_api.ServiceImport) error {
+					k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+						func(ctx context.Context, name types.NamespacedName, svcImport *mcs_api.ServiceImport, arg3 ...interface{}) error {
 							//TODO add more
 							svcImport.ObjectMeta.Name = string(httpBackendRef.Name)
 							return nil

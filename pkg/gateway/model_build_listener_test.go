@@ -296,7 +296,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 		if tt.k8sGetGatewayCall {
 
 			k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, gwName types.NamespacedName, gw *gateway_api.Gateway) error {
+				func(ctx context.Context, gwName types.NamespacedName, gw *gateway_api.Gateway, arg3 ...interface{}) error {
 
 					if tt.k8sGatewayReturnOK {
 						listener := gateway_api.Listener{
