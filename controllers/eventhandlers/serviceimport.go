@@ -13,7 +13,7 @@ import (
 
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
@@ -55,7 +55,7 @@ func (h *enqueueRequestsForServiceImportEvent) Generic(e event.GenericEvent, que
 func (h *enqueueRequestsForServiceImportEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, serviceImport *mcs_api.ServiceImport) {
 	glog.V(6).Infof("enqueueImpactedHTTPRoute, serviceImport[%v]\n", serviceImport)
 
-	httpRouteList := &v1alpha2.HTTPRouteList{}
+	httpRouteList := &gateway_api.HTTPRouteList{}
 
 	h.client.List(context.TODO(), httpRouteList)
 
@@ -78,7 +78,7 @@ func (h *enqueueRequestsForServiceImportEvent) enqueueImpactedService(queue work
 
 }
 
-func isServiceImportUsedByHTTPRoute(httpRoute v1alpha2.HTTPRoute, serviceImport *mcs_api.ServiceImport) bool {
+func isServiceImportUsedByHTTPRoute(httpRoute gateway_api.HTTPRoute, serviceImport *mcs_api.ServiceImport) bool {
 	for _, httpRule := range httpRoute.Spec.Rules {
 		for _, httpBackendRef := range httpRule.BackendRefs {
 			if string(*httpBackendRef.BackendObjectReference.Kind) != "serviceimport" {

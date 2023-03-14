@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -172,7 +172,7 @@ func (r *ServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Service{}).
 		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epsEventsHandler).
-		Watches(&source.Kind{Type: &v1alpha2.HTTPRoute{}}, httpRouteEventHandler).
+		Watches(&source.Kind{Type: &gateway_api.HTTPRoute{}}, httpRouteEventHandler).
 		Watches(&source.Kind{Type: &mcs_api.ServiceExport{}}, serviceExportHandler).
 		Complete(r)
 }

@@ -13,7 +13,7 @@ import (
 
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
@@ -93,7 +93,7 @@ func (h *enqueueHTTPRequetsForServiceEvent) Generic(e event.GenericEvent, queue 
 func (h *enqueueHTTPRequetsForServiceEvent) enqueueImpactedHTTPRoute(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
 	glog.V(6).Infof("enqueueImpactedHTTPRoute: %v\n", ep)
 
-	httpRouteList := &v1alpha2.HTTPRouteList{}
+	httpRouteList := &gateway_api.HTTPRouteList{}
 
 	h.client.List(context.TODO(), httpRouteList)
 
@@ -114,7 +114,7 @@ func (h *enqueueHTTPRequetsForServiceEvent) enqueueImpactedHTTPRoute(queue workq
 
 }
 
-func isServiceUsedByHTTPRoute(httpRoute v1alpha2.HTTPRoute, ep *corev1.Service) bool {
+func isServiceUsedByHTTPRoute(httpRoute gateway_api.HTTPRoute, ep *corev1.Service) bool {
 	for _, httpRule := range httpRoute.Spec.Rules {
 		for _, httpBackendRef := range httpRule.BackendRefs {
 			//glog.V(6).Infof("isServiceUsedByHTTPRoute httpBackendRef %v, %v\n", httpBackendRef.BackendObjectReference, ep.Name)
