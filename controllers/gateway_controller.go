@@ -183,6 +183,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 			r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
 			return nil
 		}
+
 		return r.reconcileGatewayResources(ctx, gw)
 	} else {
 		gwLog.Info("Ignore non aws gateways!!!")
