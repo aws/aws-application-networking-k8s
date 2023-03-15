@@ -75,36 +75,26 @@ var listenerList = vpclattice.ListListenersOutput{
 func Test_AddListener(t *testing.T) {
 
 	tests := []struct {
-		name            string
-		isUpdate        bool
-		noServiceID     bool
-		noTargetGroupID bool
+		name        string
+		isUpdate    bool
+		noServiceID bool
 	}{
 		{
-			name:            "add listner",
-			isUpdate:        false,
-			noServiceID:     false,
-			noTargetGroupID: false,
+			name:        "add listner",
+			isUpdate:    false,
+			noServiceID: false,
 		},
 
 		{
-			name:            "update listner",
-			isUpdate:        true,
-			noServiceID:     false,
-			noTargetGroupID: false,
+			name:        "update listner",
+			isUpdate:    true,
+			noServiceID: false,
 		},
 
 		{
-			name:            "add listner, no service ID",
-			isUpdate:        false,
-			noServiceID:     true,
-			noTargetGroupID: false,
-		},
-		{
-			name:            "add listner, no target ID",
-			isUpdate:        false,
-			noServiceID:     false,
-			noTargetGroupID: true,
+			name:        "add listner, no service ID",
+			isUpdate:    false,
+			noServiceID: true,
 		},
 	}
 
@@ -141,13 +131,6 @@ func Test_AddListener(t *testing.T) {
 			BackendServiceNamespace: "tg-default",
 		}
 
-		tgID := "tg-id"
-		if !tt.noTargetGroupID {
-			tgName := latticestore.TargetGroupName(action.BackendServiceName, action.BackendServiceNamespace)
-			latticeDataStore.AddTargetGroup(tgName, "vpc", "tg-arn", tgID, false)
-
-		}
-
 		listenerResourceName := fmt.Sprintf("%s-%s-%d-%s", namespaceName.Name, namespaceName.Namespace,
 			int64(listenersummarys[0].Port), "HTTP")
 
@@ -156,19 +139,18 @@ func Test_AddListener(t *testing.T) {
 
 		listenerOutput := vpclattice.CreateListenerOutput{}
 		listenerInput := vpclattice.CreateListenerInput{}
-		forwardAction := vpclattice.ForwardAction{
-			TargetGroups: []*vpclattice.WeightedTargetGroup{
-				&vpclattice.WeightedTargetGroup{
-					TargetGroupIdentifier: aws.String(tgID),
-					Weight:                aws.Int64(1)},
-			},
+
+		defaultStatus := aws.Int64(404)
+
+		defaultResp := vpclattice.FixedResponseAction{
+			StatusCode: defaultStatus,
 		}
 		defaultAction := vpclattice.RuleAction{
-			Forward: &forwardAction,
+			FixedResponse: &defaultResp,
 		}
 		//listenerARN := "listener-ARN"
 		//listenerID := "listener-ID"
-		if !tt.noServiceID && !tt.noTargetGroupID && !tt.isUpdate {
+		if !tt.noServiceID && !tt.isUpdate {
 
 			listername := k8sLatticeListenerName(namespaceName.Name, namespaceName.Namespace,
 				int(listenersummarys[0].Port), listenersummarys[0].Protocol)
@@ -205,7 +187,7 @@ func Test_AddListener(t *testing.T) {
 		}
 		resp, err := listenerManager.Create(ctx, listener)
 
-		if !tt.noServiceID && !tt.noTargetGroupID {
+		if !tt.noServiceID {
 			assert.NoError(t, err)
 
 			assert.Equal(t, resp.ListenerARN, listenersummarys[0].Arn)
@@ -218,7 +200,7 @@ func Test_AddListener(t *testing.T) {
 
 		fmt.Printf("listener create : resp %v, err %v, listernerOutput %v\n", resp, err, listenerOutput)
 
-		if tt.noServiceID || tt.noTargetGroupID {
+		if tt.noServiceID {
 			assert.NotNil(t, err)
 		}
 	}
