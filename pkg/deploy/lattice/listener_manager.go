@@ -62,17 +62,7 @@ func (s *defaultListenerManager) Create(ctx context.Context, listener *latticemo
 			ServiceID:   serviceStatus.ID,
 		}, nil
 	}
-	/*
-		tgName := latticestore.TargetGroupName(listener.Spec.DefaultAction.BackendServiceName, listener.Spec.DefaultAction.BackendServiceNamespace)
 
-		tg, err := s.latticeDataStore.GetTargetGroup(tgName, listener.Spec.DefaultAction.Is_Import)
-
-		if err != nil {
-			errmsg := fmt.Sprintf("default target group %s not found during listerner creation %v", tgName, listener.Spec)
-			glog.V(6).Infof("Error during create listener: %s\n", errmsg)
-			return latticemodel.ListenerStatus{}, errors.New(errmsg)
-		}
-	*/
 	defaultStatus := aws.Int64(404)
 
 	defaultResp := vpclattice.FixedResponseAction{
@@ -82,18 +72,8 @@ func (s *defaultListenerManager) Create(ctx context.Context, listener *latticemo
 		ClientToken: nil,
 		DefaultAction: &vpclattice.RuleAction{
 			FixedResponse: &defaultResp,
-			/* TODO liwenwu
-			Forward: &vpclattice.ForwardAction{
-				TargetGroups: []*vpclattice.WeightedTargetGroup{
-					&vpclattice.WeightedTargetGroup{
-						TargetGroupIdentifier: aws.String(tg.ID),
-						Weight:                aws.Int64(1)},
-				},
-			},
-			*/
 		},
 
-		// TODO take care namespace
 		Name:              aws.String(k8sLatticeListenerName(listener.Spec.Name, listener.Spec.Namespace, int(listener.Spec.Port), listener.Spec.Protocol)),
 		Port:              aws.Int64(listener.Spec.Port),
 		Protocol:          aws.String(listener.Spec.Protocol),
