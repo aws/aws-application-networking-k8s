@@ -283,18 +283,15 @@ func (r *GatewayReconciler) updateBadStatus(ctx context.Context, message string,
 
 	gwOld := gw.DeepCopy()
 
-	//if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
 	glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
 	if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
 		gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
 	}
-	//}
+
 	gw.Status.Conditions[0].Status = "False"
 	gw.Status.Conditions[0].Message = message
 	gw.Status.Conditions[0].Reason = "NoReconcile"
 	gw.Status.Conditions[0].Type = "NotAccepted"
-	// TODO following is causing crash on some platform, see https://t.corp.amazon.com/b7c9ea6c-5168-4616-b718-c1bdf78dbdf1/communication
-	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
 
 	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 		return errors.Wrapf(err, "failed to update gateway status")
