@@ -76,7 +76,7 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		g.Expect(env.LatticeClient.ListServicesWithContext(ctx, &vpclattice.ListServicesInput{})).To(HaveField("Items", BeEmpty()))
 		g.Expect(env.LatticeClient.ListServiceNetworksWithContext(ctx, &vpclattice.ListServiceNetworksInput{})).To(HaveField("Items", BeEmpty()))
 		g.Expect(env.LatticeClient.ListTargetGroupsWithContext(ctx, &vpclattice.ListTargetGroupsInput{})).To(HaveField("Items", BeEmpty()))
-	})
+	}).Should(Succeed())
 }
 
 func (env *Framework) ExpectToClean(ctx context.Context) {
