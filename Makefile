@@ -90,4 +90,12 @@ build-deploy: ## Create a deployment file that can be applied with `kubectl appl
 ## Run e2e tests against cluster pointed to by ~/.kube/config
 .PHONY: e2etest
 e2etest:
-	cd test && go test -v ./... -count=1 --ginkgo.v
+	cd test && go test \
+		-p 1 \
+		-count 1 \
+		-timeout 60m \
+		-v \
+		./suites/... \
+		--ginkgo.focus="${FOCUS}" \
+		--ginkgo.timeout=60m \
+		--ginkgo.v

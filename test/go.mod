@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go v1.42.18
 	github.com/imdario/mergo v0.3.13
 	github.com/onsi/ginkgo/v2 v2.9.1
-	github.com/onsi/gomega v1.27.3
+	github.com/onsi/gomega v1.27.4
 	github.com/samber/lo v1.37.0
 	go.uber.org/zap v1.24.0
 	k8s.io/api v0.26.2
