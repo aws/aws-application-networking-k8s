@@ -1,4 +1,4 @@
-apiVersion: multicluster.x-k8s.io/v1beta1
+apiVersion: multicluster.x-k8s.io/v1alpha1
 kind: ServiceExport
 metadata:
   name: inventory-ver2
