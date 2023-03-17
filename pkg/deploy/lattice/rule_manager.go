@@ -241,6 +241,39 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 	} else {
 
+		httpMatch := vpclattice.HttpMatch{}
+
+		glog.V(2).Infof("liwwu>> rule.Spec %v", rule.Spec)
+
+		// setup path based
+		if rule.Spec.PathMatchExact || rule.Spec.PathMatchPrefix {
+			matchType := vpclattice.PathMatchType{}
+			if rule.Spec.PathMatchExact {
+				matchType.Exact = aws.String(rule.Spec.PathMatchValue)
+			}
+			if rule.Spec.PathMatchPrefix {
+				matchType.Prefix = aws.String(rule.Spec.PathMatchValue)
+			}
+
+			httpMatch.PathMatch = &vpclattice.PathMatch{
+				Match: &matchType,
+			}
+
+		}
+
+		// setup header based
+		if rule.Spec.NumOfHeaderMatches > 0 {
+
+			for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
+				headerMatch := vpclattice.HeaderMatch{
+					Match: rule.Spec.MatchedHeaders[i].Match,
+				}
+				httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
+
+			}
+
+		}
+
 		ruleInput := vpclattice.CreateRuleInput{
 			Action: &vpclattice.RuleAction{
 				Forward: &vpclattice.ForwardAction{
@@ -250,15 +283,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 			ClientToken:        nil,
 			ListenerIdentifier: aws.String(listener.ID),
 			Match: &vpclattice.RuleMatch{
-				HttpMatch: &vpclattice.HttpMatch{
-					PathMatch: &vpclattice.PathMatch{
-						CaseSensitive: nil,
-						Match: &vpclattice.PathMatchType{
-							Exact:  nil,
-							Prefix: aws.String(rule.Spec.RuleValue),
-						},
-					},
-				},
+				HttpMatch: &httpMatch,
 			},
 			Name:              aws.String(ruleName),
 			Priority:          aws.Int64(ruleStatus.Priority),
@@ -348,6 +373,11 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 			glog.V(6).Infof("findMatchingRule, rule prefix %v does not match rule value %v\n",
 				aws.StringValue(ruleResp.Match.HttpMatch.PathMatch.Match.Prefix), rule.Spec.RuleValue)
 			continue
+		}
+
+		// header based comparasion
+		if !isHeaderMatchSame(ruleResp.Match, rule.Spec) {
+			continue
 
 		}
 
@@ -436,6 +466,40 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 		return latticemodel.RuleStatus{Priority: nextPriority}, errors.New("rule not found")
 	}
 
+}
+
+func isHeaderMatchSame(awsRuleMatch *vpclattice.RuleMatch, ruleSpec latticemodel.RuleSpec) bool {
+	if awsRuleMatch == nil {
+		fmt.Printf("liwwu>>> no rule match \n")
+		return false
+	}
+	if awsRuleMatch.HttpMatch.HeaderMatches == nil {
+		fmt.Printf("liwwu >>> no header Match %v\n", *awsRuleMatch)
+		return false
+
+	}
+
+	if len(awsRuleMatch.HttpMatch.HeaderMatches) != ruleSpec.NumOfHeaderMatches {
+		fmt.Printf("liwwu >>> number of headers are different \n")
+		return false
+	}
+
+	for _, match := range awsRuleMatch.HttpMatch.HeaderMatches {
+		found := false
+		for _, matchSpec := range ruleSpec.MatchedHeaders {
+			if aws.StringValue(match.Match.Exact) == aws.StringValue(matchSpec.Match.Exact) &&
+				aws.StringValue(match.Name) == aws.StringValue(matchSpec.Name) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+
+	}
+
+	return true
 }
 
 func ruleID2Priority(ruleID string) (int64, error) {
