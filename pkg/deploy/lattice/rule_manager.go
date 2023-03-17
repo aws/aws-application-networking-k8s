@@ -267,6 +267,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 			for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
 				headerMatch := vpclattice.HeaderMatch{
 					Match: rule.Spec.MatchedHeaders[i].Match,
+					Name: rule.Spec.MatchedHeaders[i].Name,
 				}
 				httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
 
