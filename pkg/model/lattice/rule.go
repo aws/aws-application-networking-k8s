@@ -1,8 +1,11 @@
 package lattice
 
 import (
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
 type Rule struct {
@@ -16,18 +19,28 @@ const (
 	MatchByPath = "HTTPRouteMatch"
 	// K8S HTTPRouteFilter
 	MatchByFilter = "HTTPRouteFilter"
+
+	MAX_NUM_OF_MATCHED_HEADERS = 5
 )
 
 type RuleSpec struct {
-	ServiceName      string     `json:"name"`
-	ServiceNamespace string     `json:"namespace"`
-	ListenerPort     int64      `json:"port"`
-	ListenerProtocol string     `json:"protocol"`
-	RuleType         string     `json:"ruletype"`
-	RuleValue        string     `json:"value"`
-	RuleID           string     `json:"id"`
-	Action           RuleAction `json:"action"`
-	CreateTime       time.Time  `json:"time"`
+	ServiceName      string `json:"name"`
+	ServiceNamespace string `json:"namespace"`
+	ListenerPort     int64  `json:"port"`
+	ListenerProtocol string `json:"protocol"`
+	// PathMatch
+	PathMatchValue  string `json:"pathmatchvalue"`
+	PathMatchExact  bool   `json:"pathmatchexact"`
+	PathMatchPrefix bool   `json:"pathmatchprefix"`
+	// Header
+	NumOfHeaderMatches int `json:"numofheadermatches"`
+	MatchedHeaders     [MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch
+
+	RuleType   string     `json:"ruletype"`
+	RuleValue  string     `json:"value"`
+	RuleID     string     `json:"id"`
+	Action     RuleAction `json:"action"`
+	CreateTime time.Time  `json:"time"`
 }
 
 type RuleAction struct {
