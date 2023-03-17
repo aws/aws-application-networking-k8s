@@ -44,7 +44,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 
 		for _, httpRule := range t.httpRoute.Spec.Rules {
 			glog.V(2).Infof("liwwu>>buildRoutingPolicy, examing rules spec: %v\n", httpRule)
-			var ruleValue string
+			//var ruleValue string
 			var ruleSpec latticemodel.RuleSpec
 
 			if len(httpRule.Matches) > 1 {
@@ -66,9 +66,11 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 
 				switch *match.Path.Type {
 				case gateway_api.PathMatchExact:
+					glog.V(2).Infof("liwwu>> Using PathMatchExact")
 					ruleSpec.PathMatchExact = true
 
 				case gateway_api.PathMatchPathPrefix:
+					glog.V(2).Infof("liwwu>> Using PathMatchPrefix")
 					ruleSpec.PathMatchPrefix = true
 				default:
 					glog.V(2).Infof("Unsupported path match type %v for httproute %s namespace %s",
@@ -101,8 +103,10 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 						Exact: aws.String(header.Value),
 					}
 					ruleSpec.MatchedHeaders[i].Match = &matchType
+					ruleSpec.MatchedHeaders[i].Name = (*string)(&header.Name)
 				}
 			}
+			glog.V(2).Infof("liwwu>> model built ruleSpec %v", ruleSpec)
 
 			// controller do not support these match type today
 			if match.Method != nil || match.QueryParams != nil {
@@ -167,7 +171,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 				TargetGroups: tgList,
 			}
 			latticemodel.NewRule(t.stack, ruleIDName, t.httpRoute.Name, t.httpRoute.Namespace, port,
-				protocol, latticemodel.MatchByPath, ruleValue, ruleAction)
+				protocol, ruleAction, ruleSpec)
 			ruleID++
 
 		}

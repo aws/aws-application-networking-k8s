@@ -65,22 +65,19 @@ type RuleStatus struct {
 }
 
 func NewRule(stack core.Stack, id string, name string, namespace string, port int64,
-	protocol string, ruleType string, ruleValue string, action RuleAction) *Rule {
+	protocol string, action RuleAction, ruleSpec RuleSpec) *Rule {
 
+	ruleSpec.ServiceName = name
+	ruleSpec.ServiceNamespace = namespace
+	ruleSpec.ListenerPort = port
+	ruleSpec.ListenerProtocol = protocol
+	ruleSpec.RuleID = id
+	ruleSpec.Action = action
+	ruleSpec.CreateTime = time.Now()
 	rule := &Rule{
 		ResourceMeta: core.NewResourceMeta(stack, "AWS::VPCServiceNetwork::Rule", id),
-		Spec: RuleSpec{
-			ServiceName:      name,
-			ServiceNamespace: namespace,
-			ListenerPort:     port,
-			ListenerProtocol: protocol,
-			RuleType:         ruleType,
-			RuleValue:        ruleValue,
-			RuleID:           id,
-			Action:           action,
-			CreateTime:       time.Now(),
-		},
-		Status: nil,
+		Spec:         ruleSpec,
+		Status:       nil,
 	}
 
 	stack.AddResource(rule)
