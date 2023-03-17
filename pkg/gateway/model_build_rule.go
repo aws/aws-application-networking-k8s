@@ -77,6 +77,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 						*match.Path.Type, t.httpRoute.Name, t.httpRoute.Namespace)
 					return errors.New(LATTICE_UNSUPPORTED_PATH_MATCH_TYPE)
 				}
+				ruleSpec.PathMatchValue = *match.Path.Value
 			}
 
 			// header based match
