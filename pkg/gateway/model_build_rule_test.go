@@ -221,6 +221,7 @@ func Test_RuleModelBuild(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		fmt.Printf("Testing >>> %v\n", tt.name)
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
@@ -265,7 +266,9 @@ func Test_RuleModelBuild(t *testing.T) {
 
 		stack.ListResources(&resRules)
 
-		fmt.Printf("resRules :%v \n", *resRules[0])
+		if len(resRules) > 0 {
+			fmt.Printf("resRules :%v \n", *resRules[0])
+		}
 
 		var i = 1
 		for _, resRule := range resRules {
