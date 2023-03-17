@@ -1,8 +1,8 @@
 apiVersion: v1
 name: aws-gateway-controller-chart
 description: A Helm chart for the Gateway Controller for AWS VPC Lattice
-version: v0.0.3
-appVersion: v0.0.3
+version: v0.0.1
+appVersion: v0.0.1
 home: https://github.com/aws/aws-application-networking-k8s
 icon: https://raw.githubusercontent.com/aws/eks-charts/master/docs/logo/aws.png
 sources:
