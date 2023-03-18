@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/golang/glog"
+	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -87,12 +88,34 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 
 	for _, modelRule := range resRule {
 
-		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) !=
-			modelRule.Spec.RuleValue {
-			glog.V(6).Infof("findMatchRule, skip due to different match modelRule %v, match %s\n",
-				modelRule, aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix))
-			continue
+
+		// Exact Path Match
+		if modelRule.Spec.PathMatchExact {
+			fmt.Println("liwwu>>> sdk, findMatchedRule PathMatchExact\n")
+
+			if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact) != modelRule.Spec.PathMatchValue {
+				fmt.Printf("liwwu>>> findMatchedRule, ignore exact path miss ")
+				continue
+			}
+
 		}
+
+		// Path Prefix
+		if modelRule.Spec.PathMatchPrefix {
+			fmt.Println("liwwu >>> sdk findMatchRule, PathMatchPrefix\n")
+
+			if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) != modelRule.Spec.PathMatchValue {
+				fmt.Printf("liwwu >>PathMatchPrefix ignore prefix path ")
+				continue
+			}
+		}
+
+		// Header Match
+
+		if modelRule.Spec.NumOfHeaderMatches > 0 {
+			fmt.Println("liwwu >>> numofheader matches %v \n", modelRule.Spec.NumOfHeaderMatches)
+		}
+
 		glog.V(6).Infof("findMatchedRule: found matched modelRule %v \n", modelRule)
 		return modelRule, nil
 	}
