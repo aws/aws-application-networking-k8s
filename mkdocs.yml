@@ -8,6 +8,7 @@ strict: true
 nav:
   - Home: index.md
   - Deployment: deploy.md
+  - Get Started: getstarted.md
   - Configuration: configure.md
   - Design Overview: overview.md
 
