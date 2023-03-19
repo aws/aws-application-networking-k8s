@@ -4,7 +4,7 @@
 
 Here is one popular multi-cluster architecture:
 
-* config cluster, where is used to configuration management
+* config cluster, where is used for configuration management
 * multiple work-load cluster(s), where are used to run application workload(s)
 
 You can see a production usecase at AirBnb [airbnb mullti-cluster](https://www.youtube.com/watch?v=1D8lg36ZNHs)
@@ -121,6 +121,70 @@ spec:
   listeners:
   ...
 ```  
+
+## Defining HTTPRoute in Config Cluster
+
+![ServiceImport](images/serviceimport.png)
+
+### Exporting Kubernetes Service to AWS Lattice Service
+
+In workload cluster, exports k8s service to AWS VPC lattice
+
+```
+# in workload cluster(s)
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: service-1
+  annotations:
+          multicluster.x-k8s.io/federation: "amazon-vpc-lattice"  <----------->  AWS VPC Lattice
+``` 
+
+### Configure HTTPRoute in config cluster to reference K8S service(s) in worload cluster(s)
+
+```
+# in config cluster
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceImport
+metadata:
+  name: service-1
+spec:
+  type: ClusterSetIP
+  ports:
+  - port: 80
+    protocol: TCP
+```
+
+```
+# httproute 
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: inventory
+spec:
+  parentRefs:
+  - name: gateway-1
+    sectionName: http 
+  rules:
+  - backendRefs:  
+    - name: service-1
+      kind: ServiceImport
+      weight: 25
+    - name: service-2
+      kind: ServiceImport
+      weight: 25  
+    - name: service-3
+      kind: ServiceImport
+      weight: 25
+    - name: service-4
+      kind: ServiceImport
+      weight: 25    
+```      
+
+
+
+
+
 
 
 
