@@ -160,7 +160,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  name: inventory
+  name: httproute-1
 spec:
   parentRefs:
   - name: gateway-1
