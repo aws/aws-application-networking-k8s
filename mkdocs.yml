@@ -11,8 +11,8 @@ nav:
   - Get Started: getstarted.md
   - Configuration:
     - Overview: configure/index.md
-    - Configure HTTPs: https.md
-    - Configure Healthchecks: health.md
+    - Configure HTTPs: configure/https.md
+    - Configure Healthchecks: configure/health.md
   - Design Overview: overview.md
 
 plugins:
