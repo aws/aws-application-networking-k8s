@@ -1,8 +1,12 @@
-# Using the AWS Gateway API Controller
+# Get Start Using the AWS Gateway API Controller
+
+Once you have [deployed the AWS Gateway API Controller](configure.md), this guide helps you get started using the controller.
 
 The first part of this section provides an example of setting up of service-to-service communications on a single cluster.
 The second section extends that example by creating another inventory service on a second cluster on a different VPC, and spreading traffic to that service across the two clusters and VPCs.
 Both clusters are created using `eksctl`, with both clusters created from the same account by the same cluster admin.
+
+Using these examples as a foundation, see the
 
 ## Set up single-cluster/VPC service-to-service communications
 
@@ -20,10 +24,10 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
    ***Note***
 
-   By default, the gateway(lattice service network) is not associated with cluster's VPC.  To associate a gateway(lattice service network) to VPC, gateway object must have following annotation.
+   By default, the gateway (lattice service network) is not associated with cluster's VPC.  To associate a gateway (lattice service network) to VPC, `my-hotel-gateway.yaml` includes the following annotation.
 
       
-       apiVersion: gateway.networking.k8s.io/v1alpha2
+       apiVersion: gateway.networking.k8s.io/v1beta1
        kind: Gateway
        metadata:
          name: my-hotel
@@ -44,7 +48,7 @@ This example creates a single cluster in a single VPC, then configures two route
    kubectl get gateway my-hotel -o yaml
    ```
    ```
-   apiVersion: gateway.networking.k8s.io/v1alpha2
+   apiVersion: gateway.networking.k8s.io/v1beta1
    kind: Gateway
    ...
    status:
@@ -52,6 +56,7 @@ This example creates a single cluster in a single VPC, then configures two route
    message: 'aws-gateway-arn: arn:aws:vpc-lattice:us-west-2:694065802095:servicenetwork/sn-0ab6bb70055929edd'
    reason: Reconciled
    status: "True"
+   type: Schedules
    ```
 1. Create the Kubernetes HTTPRoute rates for the parking service, review service, and HTTPRoute rate:
    ```bash
@@ -80,7 +85,7 @@ This example creates a single cluster in a single VPC, then configures two route
       ```
 
       ```
-      apiVersion: gateway.networking.k8s.io/v1alpha2
+      apiVersion: gateway.networking.k8s.io/v1beta1
       kind: HTTPRoute
       metadata:
         annotations:
@@ -89,13 +94,13 @@ This example creates a single cluster in a single VPC, then configures two route
       ```
       
       ```bash
-      kubectl get httproute rates inventory -o yaml
+      kubectl get httproute rates -o yaml
       ```
 
       ```
       apiVersion: v1
       items:
-      - apiVersion: gateway.networking.k8s.io/v1alpha2
+      - apiVersion: gateway.networking.k8s.io/v1beta1
         kind: HTTPRoute
         metadata:
           annotations:
@@ -151,6 +156,11 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
    Requesting to Pod(inventory-ver1-7bb6989d9d-2p2hk): inventory-ver1 handler pod 
    ```
+1. Exit the pod:
+   ```bash
+   exit
+   ```
+
 ## Set up multi-cluster/multi-VPC service-to-service communications
 
 This sections builds on the previous section by migrating a Kubernetes service (HTTPRoute inventory) from one Kubernetes cluster to a different Kubernetes cluster.

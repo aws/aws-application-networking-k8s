@@ -8,7 +8,11 @@ strict: true
 nav:
   - Home: index.md
   - Deployment: deploy.md
-  - Configuration: configure.md
+  - Get Started: getstarted.md
+  - Configuration:
+    - Overview: configure/index.md
+    - Configure HTTPs: configure/https.md
+    - Configure domain name: configure/customer_domain_name.md
   - Design Overview: overview.md
 
 plugins:
