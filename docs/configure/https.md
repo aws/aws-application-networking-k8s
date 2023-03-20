@@ -86,6 +86,8 @@ kind: HTTPRoute
 metadata:
   name: rates
 spec:
+  hostnames:
+    - review.my-test.com               # MUST match the DNS in the certificate
   parentRefs:
   - name: my-hotel
     sectionName: http 
