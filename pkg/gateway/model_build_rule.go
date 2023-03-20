@@ -61,8 +61,8 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 			match := httpRule.Matches[0]
 
 			if match.Path != nil && match.Path.Type != nil {
-				glog.V(2).Infof("liwwu>> Using pathmatch %v for for httproute %s namespace %s ",
-					*match.Path, t.httpRoute.Name, t.httpRoute.Namespace)
+				glog.V(2).Infof("liwwu>> Using pathmatch type %v value %v for for httproute %s namespace %s ",
+					*match.Path.Type, *match.Path.Value, t.httpRoute.Name, t.httpRoute.Namespace)
 
 				switch *match.Path.Type {
 				case gateway_api.PathMatchExact:
@@ -104,7 +104,11 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 						Exact: aws.String(header.Value),
 					}
 					ruleSpec.MatchedHeaders[i].Match = &matchType
-					ruleSpec.MatchedHeaders[i].Name = (*string)(&header.Name)
+					header_name := header.Name
+
+					glog.V(2).Infof("liwwu>>> i = %d header_name %v", i, &header_name)
+
+					ruleSpec.MatchedHeaders[i].Name = (*string)(&header_name)
 				}
 			}
 			glog.V(2).Infof("liwwu>> model built ruleSpec %v", ruleSpec)
