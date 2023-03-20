@@ -1,9 +1,4 @@
-# Configure the AWS Gateway API Controller
-
-Refer to this document to further configure your use of the AWS Gateway API Controller.
-The features here build on the examples shown in [Get Started Using the AWS Gateway API Controller](getstarted.md).
-
-## Setting up HTTPs connections
+## Configure HTTPs connections
 
 The Getting Started guide uses HTTP (insecure) communications by default.
 Using the examples here, you can change that to HTTPS (secure) communications.

@@ -9,7 +9,10 @@ nav:
   - Home: index.md
   - Deployment: deploy.md
   - Get Started: getstarted.md
-  - Configuration: configure.md
+  - Configuration:
+    - Overview: configure/index.md
+    - Configure HTTPs: https.md
+    - Configure Healthchecks: health.md
   - Design Overview: overview.md
 
 plugins:
