@@ -27,7 +27,7 @@ This example creates a single cluster in a single VPC, then configures two route
    By default, the gateway (lattice service network) is not associated with cluster's VPC.  To associate a gateway (lattice service network) to VPC, `my-hotel-gateway.yaml` includes the following annotation.
 
       
-       apiVersion: gateway.networking.k8s.io/v1alpha2
+       apiVersion: gateway.networking.k8s.io/v1beta1
        kind: Gateway
        metadata:
          name: my-hotel
@@ -48,7 +48,7 @@ This example creates a single cluster in a single VPC, then configures two route
    kubectl get gateway my-hotel -o yaml
    ```
    ```
-   apiVersion: gateway.networking.k8s.io/v1alpha2
+   apiVersion: gateway.networking.k8s.io/v1beta1
    kind: Gateway
    ...
    status:
@@ -85,7 +85,7 @@ This example creates a single cluster in a single VPC, then configures two route
       ```
 
       ```
-      apiVersion: gateway.networking.k8s.io/v1alpha2
+      apiVersion: gateway.networking.k8s.io/v1beta1
       kind: HTTPRoute
       metadata:
         annotations:
@@ -100,7 +100,7 @@ This example creates a single cluster in a single VPC, then configures two route
       ```
       apiVersion: v1
       items:
-      - apiVersion: gateway.networking.k8s.io/v1alpha2
+      - apiVersion: gateway.networking.k8s.io/v1beta1
         kind: HTTPRoute
         metadata:
           annotations:

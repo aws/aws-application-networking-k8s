@@ -4,7 +4,7 @@ Today when you create a HTTPRoute using `amazon-vpc-lattice` gatewayclass, Latti
 If you'd prefer to use a custom domain name for a HTTPRoute, you can specify them in hostname field of HTTPRoute.  Here is one example
 
 ```
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: review
