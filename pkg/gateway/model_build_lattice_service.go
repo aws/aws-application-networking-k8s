@@ -71,26 +71,26 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	err := t.buildLatticeService(ctx)
 
 	if err != nil {
-		glog.V(6).Infof("latticeServiceModelBuildTask: Failed on buildLatticeService %v\n ", err)
+		glog.V(2).Infof("latticeServiceModelBuildTask: Failed on buildLatticeService %v\n ", err)
 		return err
 	}
 
 	if !t.httpRoute.DeletionTimestamp.IsZero() {
 		// in case of deleting HTTPRoute, we will let reconcile logic to delete
 		// stated target group(s) at next reconcile interval
-		glog.V(6).Infof("latticeServiceModuleBuildTask: for HTTPRouteDelete, reconcile tagetgroups/targets at reconcile interval")
+		glog.V(2).Infof("latticeServiceModuleBuildTask: for HTTPRouteDelete, reconcile tagetgroups/targets at reconcile interval")
 		return nil
 	}
 
 	_, err = t.buildTargetGroup(ctx, t.Client)
 
 	if err != nil {
-		glog.V(6).Infof("latticeServiceModelBuildTask: Failed on buildTargetGroup, error=%v\n", err)
+		glog.V(2).Infof("latticeServiceModelBuildTask: Failed on buildTargetGroup, error=%v\n", err)
 		return err
 	}
 
 	if !t.httpRoute.DeletionTimestamp.IsZero() {
-		glog.V(6).Infof("latticeServiceModelBuildTask: for delete ignore Targets, policy %v\n", t.httpRoute)
+		glog.V(2).Infof("latticeServiceModelBuildTask: for delete ignore Targets, policy %v\n", t.httpRoute)
 		return nil
 	}
 
@@ -104,12 +104,14 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 
 	if err != nil {
 		glog.V(6).Infof("latticeServiceModelBuildTask: Faild on building listener, error = %v \n", err)
+		return err
 	}
 
 	err = t.buildRules(ctx)
 
 	if err != nil {
-		glog.V(6).Infof("latticeServiceModelBuildTask: Failed on building rule, error = %v \n", err)
+		glog.V(2).Infof("latticeServiceModelBuildTask: Failed on building rule, error = %v \n", err)
+		return err
 	}
 
 	return nil
