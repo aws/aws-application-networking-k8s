@@ -12,7 +12,7 @@ nav:
   - Configuration:
     - Overview: configure/index.md
     - Configure HTTPs: configure/https.md
-    - Configure Healthchecks: configure/health.md
+    - Configure domain name: configure/customer_domain_name.md
   - Design Overview: overview.md
 
 plugins:
