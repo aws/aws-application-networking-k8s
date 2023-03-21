@@ -1,6 +1,6 @@
 # Get Start Using the AWS Gateway API Controller
 
-Once you have [deployed the AWS Gateway API Controller](configure.md), this guide helps you get started using the controller.
+Once you have [deployed the AWS Gateway API Controller](configure/index.md), this guide helps you get started using the controller.
 
 The first part of this section provides an example of setting up of service-to-service communications on a single cluster.
 The second section extends that example by creating another inventory service on a second cluster on a different VPC, and spreading traffic to that service across the two clusters and VPCs.
