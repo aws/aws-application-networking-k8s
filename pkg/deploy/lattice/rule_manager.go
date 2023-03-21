@@ -368,10 +368,21 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 
 		priorityMap[aws.Int64Value(ruleResp.Priority)] = true
 
-		// path based comparasion
+		// path based PREFIX match comparasion
 
 		if ruleResp.Match != nil && ruleResp.Match.HttpMatch.PathMatch != nil &&
+		    rule.Spec.PathMatchPrefix &&
 			aws.StringValue(ruleResp.Match.HttpMatch.PathMatch.Match.Prefix) != rule.Spec.PathMatchValue {
+			glog.V(2).Infof("findMatchingRule, rule prefix %v does not match rule value %v\n",
+				aws.StringValue(ruleResp.Match.HttpMatch.PathMatch.Match.Prefix), rule.Spec.PathMatchValue)
+			continue
+		}
+
+		// path based EXACT match comparasion
+
+		if ruleResp.Match != nil && ruleResp.Match.HttpMatch.PathMatch != nil &&
+		    rule.Spec.PathMatchExact &&
+			aws.StringValue(ruleResp.Match.HttpMatch.PathMatch.Match.Exact) != rule.Spec.PathMatchValue {
 			glog.V(2).Infof("findMatchingRule, rule prefix %v does not match rule value %v\n",
 				aws.StringValue(ruleResp.Match.HttpMatch.PathMatch.Match.Prefix), rule.Spec.PathMatchValue)
 			continue
