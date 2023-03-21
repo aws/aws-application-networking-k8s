@@ -52,7 +52,7 @@ func (r *ruleSynthesizer) Synthesize(ctx context.Context) error {
 
 	// handle delete
 	sdkRules, err := r.getSDKRules(ctx)
-	glog.V(6).Infof("rule>>> synthesize,  sdkRules :%v err: %v \n", sdkRules, err)
+	glog.V(2).Infof("rule>>> synthesize,  sdkRules :%v err: %v \n", sdkRules, err)
 
 	for _, sdkrule := range sdkRules {
 		_, err := r.findMatchedRule(ctx, sdkrule.RuleID, sdkrule.ListenerID, sdkrule.ServiceID, resRule)
@@ -61,7 +61,7 @@ func (r *ruleSynthesizer) Synthesize(ctx context.Context) error {
 			continue
 		}
 
-		glog.V(6).Infof("rule-synthersize >>> deleting rule %v\n", *sdkrule)
+		glog.V(2).Infof("rule-synthersize >>> deleting rule %v\n", *sdkrule)
 		r.rule.Delete(ctx, sdkrule.RuleID, sdkrule.ListenerID, sdkrule.ServiceID)
 	}
 
@@ -86,11 +86,24 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 		return modelRule, errors.New("rule not found")
 	}
 
+	if sdkRuleDetail.Match == nil ||
+		sdkRuleDetail.Match.HttpMatch == nil {
+		fmt.Println("liwwu >>> no HTTPMatch ")
+		return modelRule, errors.New("rule not found")
+	}
+
 	for _, modelRule := range resRule {
 
 		// Exact Path Match
 		if modelRule.Spec.PathMatchExact {
 			fmt.Println("liwwu>>> sdk, findMatchedRule PathMatchExact")
+
+			if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
+				sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
+				sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact == nil {
+				fmt.Printf("liwwu >> no sdk HTTP PathExact match")
+				continue
+			}
 
 			if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact) != modelRule.Spec.PathMatchValue {
 				fmt.Printf("liwwu>>> findMatchedRule, ignore exact path miss ")
@@ -103,6 +116,13 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 		if modelRule.Spec.PathMatchPrefix {
 			fmt.Println("liwwu >>> sdk findMatchRule, PathMatchPrefix")
 
+			if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
+				sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
+				sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix == nil {
+				fmt.Println("liwwu >> no sdk HTTP PathPrefix")
+				continue
+			}
+
 			if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) != modelRule.Spec.PathMatchValue {
 				fmt.Printf("liwwu >>PathMatchPrefix ignore prefix path ")
 				continue
@@ -113,6 +133,41 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 
 		if modelRule.Spec.NumOfHeaderMatches > 0 {
 			fmt.Printf("liwwu >>> numofheader matches %v \n", modelRule.Spec.NumOfHeaderMatches)
+			if len(sdkRuleDetail.Match.HttpMatch.HeaderMatches) != modelRule.Spec.NumOfHeaderMatches {
+				fmt.Printf("liwwu>> header match number mismatch")
+				continue
+			}
+
+			misMatch := false
+
+			// compare 2 array
+			for _, sdkHeader := range sdkRuleDetail.Match.HttpMatch.HeaderMatches {
+				fmt.Printf("sdkHeader >> %v\n", sdkHeader)
+				matchFound := false
+				// check if this is in module
+				for i := 0; i < modelRule.Spec.NumOfHeaderMatches; i++ {
+					// compare header
+					if aws.StringValue(modelRule.Spec.MatchedHeaders[i].Name) ==
+						aws.StringValue(sdkHeader.Name) &&
+						aws.StringValue(modelRule.Spec.MatchedHeaders[i].Match.Exact) ==
+							aws.StringValue(sdkHeader.Match.Exact) {
+						matchFound = true
+						break
+					}
+
+				}
+
+				if !matchFound {
+					misMatch = true
+					fmt.Printf("liwwu >> header not found sdkHeader %v\n", *sdkHeader)
+					break
+				}
+			}
+
+			if misMatch {
+				fmt.Println("mismatch header")
+				continue
+			}
 		}
 
 		glog.V(6).Infof("findMatchedRule: found matched modelRule %v \n", modelRule)

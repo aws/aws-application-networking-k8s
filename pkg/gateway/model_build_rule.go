@@ -49,6 +49,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 
 			if len(httpRule.Matches) > 1 {
 				// only support 1 match today
+				glog.V(2).Infof("liwwu>>buildRoutingPolicy, num of matches: %v\n", len(httpRule.Matches))
 				return errors.New(LATTICE_NO_SUPPORT_FOR_MULTIPLE_MATCHES)
 			}
 
