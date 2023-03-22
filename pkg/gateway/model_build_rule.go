@@ -38,23 +38,22 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 		port, protocol, _, err := t.extractListnerInfo(ctx, parentRef)
 
 		if err != nil {
-			glog.V(6).Infof("Error on buildRules %v \n", err)
+			glog.V(2).Infof("Error on buildRules %v \n", err)
 			return err
 		}
 
 		for _, httpRule := range t.httpRoute.Spec.Rules {
-			glog.V(2).Infof("liwwu>>buildRoutingPolicy, examing rules spec: %v\n", httpRule)
-			//var ruleValue string
+			glog.V(6).Infof("Parsing http rule spec: %v\n", httpRule)
 			var ruleSpec latticemodel.RuleSpec
 
 			if len(httpRule.Matches) > 1 {
 				// only support 1 match today
-				glog.V(2).Infof("liwwu>>buildRoutingPolicy, num of matches: %v\n", len(httpRule.Matches))
+				glog.V(2).Infof("Do not support multiple matches: matches == %v ", len(httpRule.Matches))
 				return errors.New(LATTICE_NO_SUPPORT_FOR_MULTIPLE_MATCHES)
 			}
 
 			if len(httpRule.Matches) == 0 {
-				glog.V(2).Infof("liwwu>>buildRoutingPolicy,  no match")
+				glog.V(6).Infof("Continue next rule, no matches specified in current rule")
 				continue
 			}
 
@@ -62,16 +61,18 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 			match := httpRule.Matches[0]
 
 			if match.Path != nil && match.Path.Type != nil {
-				glog.V(2).Infof("liwwu>> Using pathmatch type %v value %v for for httproute %s namespace %s ",
+				glog.V(6).Infof("Examing pathmatch type %v value %v for for httproute %s namespace %s ",
 					*match.Path.Type, *match.Path.Value, t.httpRoute.Name, t.httpRoute.Namespace)
 
 				switch *match.Path.Type {
 				case gateway_api.PathMatchExact:
-					glog.V(2).Infof("liwwu>> Using PathMatchExact")
+					glog.V(6).Infof("Using PathMatchExact for httproute %s namespace %s ",
+						t.httpRoute.Name, t.httpRoute.Namespace)
 					ruleSpec.PathMatchExact = true
 
 				case gateway_api.PathMatchPathPrefix:
-					glog.V(2).Infof("liwwu>> Using PathMatchPrefix")
+					glog.V(6).Infof("Using PathMatchPathPrefix for httproute %s namespace %s ",
+						t.httpRoute.Name, t.httpRoute.Namespace)
 					ruleSpec.PathMatchPrefix = true
 				default:
 					glog.V(2).Infof("Unsupported path match type %v for httproute %s namespace %s",
@@ -90,16 +91,19 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 
 				ruleSpec.NumOfHeaderMatches = len(match.Headers)
 
-				glog.V(2).Infof("liwwu>> match.Headers %v", match.Headers)
+				glog.V(6).Infof("Examing match.Headers %v for httproute %s namespace %s",
+					match.Headers, t.httpRoute.Name, t.httpRoute.Namespace)
+
 				for i, header := range match.Headers {
-					glog.V(2).Infof("liwwu>>> i = %d header.Type %v", i, *header.Type)
+					glog.V(6).Infof("Examing match.Header: i = %d header.Type %v", i, *header.Type)
 					if header.Type != nil && gateway_api.HeaderMatchType(*header.Type) != gateway_api.HeaderMatchExact {
 						glog.V(2).Infof("Unsupported header matchtype %v for httproute %v namespace %s",
 							*header.Type, t.httpRoute.Name, t.httpRoute.Namespace)
 						return errors.New(LATTICE_UNSUPPORTED_HEADER_MATCH_TYPE)
 					}
 
-					glog.V(2).Infof("HeaderExactMatch==%v for HTTPRoute %v, namespace %v", header.Value, t.httpRoute.Name, t.httpRoute.Namespace)
+					glog.V(6).Infof("Found HeaderExactMatch==%v for HTTPRoute %v, namespace %v",
+						header.Value, t.httpRoute.Name, t.httpRoute.Namespace)
 
 					matchType := vpclattice.HeaderMatchType{
 						Exact: aws.String(header.Value),
@@ -107,12 +111,11 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					ruleSpec.MatchedHeaders[i].Match = &matchType
 					header_name := header.Name
 
-					glog.V(2).Infof("liwwu>>> i = %d header_name %v", i, &header_name)
+					glog.V(6).Infof("Found matching i = %d header_name %v", i, &header_name)
 
 					ruleSpec.MatchedHeaders[i].Name = (*string)(&header_name)
 				}
 			}
-			glog.V(2).Infof("liwwu>> model built ruleSpec %v", ruleSpec)
 
 			// controller do not support these match type today
 			if match.Method != nil || match.QueryParams != nil {
@@ -120,6 +123,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					match.Method, t.httpRoute.Name, t.httpRoute.Namespace)
 				return errors.New(LATTICE_UNSUPPORTED_MATCH_TYPE)
 			}
+			glog.V(6).Infof("Generated ruleSpec is: %v", ruleSpec)
 
 			tgList := []*latticemodel.RuleTargetGroup{}
 
