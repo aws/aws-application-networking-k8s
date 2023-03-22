@@ -310,6 +310,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	var path1 = string("/ver1")
 	//var path2 = string("/ver2")
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
+	var k8sPathMatchPrefixType = gateway_api.PathMatchPathPrefix
 
 	var backendRef1 = gateway_api.BackendRef{
 		BackendObjectReference: gateway_api.BackendObjectReference{
@@ -320,18 +321,17 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
-		gwListenerPort     gateway_api.PortNumber
-		httpRoute          *gateway_api.HTTPRoute
-		expectedRuleSpec   latticemodel.RuleSpec
-		samerule       bool
-		
+		name             string
+		gwListenerPort   gateway_api.PortNumber
+		httpRoute        *gateway_api.HTTPRoute
+		expectedRuleSpec latticemodel.RuleSpec
+		samerule         bool
 	}{
 		{
-			name:               "PathMatchExact",
-			gwListenerPort:     *PortNumberPtr(80),
+			name:           "PathMatchExact",
+			gwListenerPort: *PortNumberPtr(80),
 			samerule:       true,
-			
+
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -369,8 +369,51 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchExact: true,
 				PathMatchValue: path1,
+			},
+		},
+		{
+			name:           "PathMatchPrefix",
+			gwListenerPort: *PortNumberPtr(80),
+			samerule:       true,
 
-			} ,
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchPrefixType,
+										Value: &path1,
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				PathMatchPrefix: true,
+				PathMatchValue:  path1,
+			},
 		},
 	}
 
@@ -386,13 +429,12 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, gwName types.NamespacedName, gw *gateway_api.Gateway, arg3 ...interface{}) error {
 
-				
-					gw.Spec.Listeners = append(gw.Spec.Listeners, gateway_api.Listener{
-						Port: tt.gwListenerPort,
-						Name: *tt.httpRoute.Spec.ParentRefs[0].SectionName,
-					})
-					return nil
-				
+				gw.Spec.Listeners = append(gw.Spec.Listeners, gateway_api.Listener{
+					Port: tt.gwListenerPort,
+					Name: *tt.httpRoute.Spec.ParentRefs[0].SectionName,
+				})
+				return nil
+
 			},
 		)
 
@@ -423,7 +465,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		var i = 1
 		for _, resRule := range resRules {
 
-			fmt.Printf("i = %d resRule :%v \n, expected rule: %v\n", i, resRule, tt.expectedRuleSpec)
+			// for debugging, fmt.Printf("i = %d resRule :%v \n, expected rule: %v\n", i, resRule, tt.expectedRuleSpec)
 
 			sameRule := isRuleSpecSame(&tt.expectedRuleSpec, &resRule.Spec)
 
@@ -436,16 +478,13 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 		}
 
-
-
-
 	}
 }
 
 func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) bool {
 
 	// Path Exact Match
-    if rule1.PathMatchExact {
+	if rule1.PathMatchExact {
 		if !rule2.PathMatchExact {
 			return false
 		}
@@ -454,8 +493,6 @@ func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) 
 			return false
 		}
 	}
-
-
 
 	return true
 }
