@@ -69,7 +69,7 @@ Run through them again for a second cluster to use with the extended example sho
 1. Run either `kubectl` or `helm` to deploy the controller:
 
       ```bash
-      kubectl apply -f examples/deploy-v0.0.3.yaml
+      kubectl apply -f examples/deploy-v0.0.4.yaml
       ```
       
       or
