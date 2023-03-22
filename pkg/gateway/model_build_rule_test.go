@@ -308,7 +308,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 	var namespace = gateway_api.Namespace("default")
 	var path1 = string("/ver1")
-	//var path2 = string("/ver2")
+	var path2 = string("/ver2")
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var k8sPathMatchPrefixType = gateway_api.PathMatchPathPrefix
 
@@ -372,6 +372,50 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			},
 		},
 		{
+			name:           "PathMatchExact Mismatch",
+			gwListenerPort: *PortNumberPtr(80),
+			samerule:       true,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchExactType,
+										Value: &path1,
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				PathMatchExact: false,
+				PathMatchValue: path2,
+			},
+		},
+		{
 			name:           "PathMatchPrefix",
 			gwListenerPort: *PortNumberPtr(80),
 			samerule:       true,
@@ -413,6 +457,50 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchPrefix: true,
 				PathMatchValue:  path1,
+			},
+		},
+		{
+			name:           "PathMatchPrefix Mismatch",
+			gwListenerPort: *PortNumberPtr(80),
+			samerule:       true,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchPrefixType,
+										Value: &path1,
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				PathMatchPrefix: false,
+				PathMatchValue:  path2,
 			},
 		},
 	}
