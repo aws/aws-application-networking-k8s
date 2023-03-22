@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -311,6 +312,11 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	var path2 = string("/ver2")
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var k8sPathMatchPrefixType = gateway_api.PathMatchPathPrefix
+	
+	var k8sHeaderExactType = gateway_api.HeaderMatchExact
+	var hdr1 = "env1"
+	var hdr1Value = "test1"
+	
 
 	var backendRef1 = gateway_api.BackendRef{
 		BackendObjectReference: gateway_api.BackendObjectReference{
@@ -328,7 +334,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		samerule         bool
 	}{
 		{
-			name:           "PathMatchExact",
+			name:           "PathMatchExact Match",
 			gwListenerPort: *PortNumberPtr(80),
 			samerule:       true,
 
@@ -374,7 +380,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "PathMatchExact Mismatch",
 			gwListenerPort: *PortNumberPtr(80),
-			samerule:       true,
+			samerule:       false,
 
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -411,7 +417,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				},
 			},
 			expectedRuleSpec: latticemodel.RuleSpec{
-				PathMatchExact: false,
+				PathMatchExact: true,
 				PathMatchValue: path2,
 			},
 		},
@@ -459,10 +465,11 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				PathMatchValue:  path1,
 			},
 		},
+		
 		{
 			name:           "PathMatchPrefix Mismatch",
 			gwListenerPort: *PortNumberPtr(80),
-			samerule:       true,
+			samerule:       false,
 
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -499,10 +506,76 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				},
 			},
 			expectedRuleSpec: latticemodel.RuleSpec{
-				PathMatchPrefix: false,
+				PathMatchPrefix: true,
 				PathMatchValue:  path2,
 			},
 		},
+		
+		
+		{
+			name:           "1 header match",
+			gwListenerPort: *PortNumberPtr(80),
+			samerule:       true,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchPrefixType,
+										Value: &path1,
+									},
+									Headers: []gateway_api.HTTPHeaderMatch{
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Value: hdr1Value,
+										},
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				NumOfHeaderMatches: 1,
+				MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+					{
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr1Value},
+						Name: &hdr1,
+					},
+
+					{},
+					{},
+					{},
+					{},
+				},
+			},
+		},
+		
 	}
 
 	for _, tt := range tests {
@@ -560,7 +633,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			if tt.samerule {
 				assert.True(t, sameRule)
 			} else {
-				assert.False(t, tt.samerule)
+				assert.False(t, sameRule)
 			}
 			i++
 
@@ -571,6 +644,8 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) bool {
 
+	fmt.Printf("rule1 :%v \n", rule1)
+	fmt.Printf("rule2: %v \n", rule2)
 	// Path Exact Match
 	if rule1.PathMatchExact {
 		if !rule2.PathMatchExact {
@@ -582,5 +657,44 @@ func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) 
 		}
 	}
 
+	// Path Prefix Match
+	if rule1.PathMatchPrefix {
+		if !rule2.PathMatchPrefix {
+			return false
+		}
+		if rule1.PathMatchValue != rule2.PathMatchValue {
+			return false
+		}
+	}
+
+	// Header Match
+	if rule1.NumOfHeaderMatches != rule2.NumOfHeaderMatches {
+		fmt.Printf("len mismatch \n")
+		return false
+	}
+
+	// Verify each header
+	for i := 0; i < rule1.NumOfHeaderMatches; i++ {
+		// verify rule1 header is in rule2
+		rule1Hdr := rule1.MatchedHeaders[i]
+
+		found := false
+		for j := 0; j < rule2.NumOfHeaderMatches; j++ {
+
+			fmt.Printf("rule1 match :%v\n", rule1Hdr)
+			rule2Hdr := rule2.MatchedHeaders[j]
+			fmt.Printf("rule2 match: %v\n", rule2Hdr)
+
+			if *rule1Hdr.Match.Exact == *rule2Hdr.Match.Exact &&
+				*rule1Hdr.Name == *rule2Hdr.Name {
+				found = true
+				break
+			}
+
+		}
+		if !found {
+			return false
+		}
+	}
 	return true
 }
