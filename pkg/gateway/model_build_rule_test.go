@@ -189,7 +189,7 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 
 									Path: &gateway_api.HTTPPathMatch{
-										Type: &k8sPathMatchExactType, 
+										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
 								},
@@ -277,7 +277,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			fmt.Sscanf(resRule.Spec.RuleID, "rule-%d", &i)
 
 			assert.Equal(t, resRule.Spec.ListenerPort, int64(tt.gwListenerPort))
-// Defer this to dedicate rule check			assert.Equal(t, resRule.Spec.PathMatchValue, tt.httpRoute.)
+			// Defer this to dedicate rule check			assert.Equal(t, resRule.Spec.PathMatchValue, tt.httpRoute.)
 			assert.Equal(t, resRule.Spec.ServiceName, tt.httpRoute.Name)
 			assert.Equal(t, resRule.Spec.ServiceNamespace, tt.httpRoute.Namespace)
 
@@ -300,4 +300,162 @@ func Test_RuleModelBuild(t *testing.T) {
 		}
 
 	}
+}
+
+func Test_HeadersRuleBuild(t *testing.T) {
+	var httpSectionName gateway_api.SectionName = "http"
+	var serviceKind gateway_api.Kind = "Service"
+
+	var namespace = gateway_api.Namespace("default")
+	var path1 = string("/ver1")
+	//var path2 = string("/ver2")
+	var k8sPathMatchExactType = gateway_api.PathMatchExact
+
+	var backendRef1 = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
+			Name:      "targetgroup1",
+			Namespace: &namespace,
+			Kind:      &serviceKind,
+		},
+	}
+
+	tests := []struct {
+		name               string
+		gwListenerPort     gateway_api.PortNumber
+		httpRoute          *gateway_api.HTTPRoute
+		expectedRuleSpec   latticemodel.RuleSpec
+		samerule       bool
+		
+	}{
+		{
+			name:               "PathMatchExact",
+			gwListenerPort:     *PortNumberPtr(80),
+			samerule:       true,
+			
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchExactType,
+										Value: &path1,
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				PathMatchExact: true,
+				PathMatchValue: path1,
+
+			} ,
+		},
+	}
+
+	for _, tt := range tests {
+
+		fmt.Printf("Testing >>> %v\n", tt.name)
+		c := gomock.NewController(t)
+		defer c.Finish()
+		ctx := context.TODO()
+
+		k8sClient := mock_client.NewMockClient(c)
+
+		k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, gwName types.NamespacedName, gw *gateway_api.Gateway, arg3 ...interface{}) error {
+
+				
+					gw.Spec.Listeners = append(gw.Spec.Listeners, gateway_api.Listener{
+						Port: tt.gwListenerPort,
+						Name: *tt.httpRoute.Spec.ParentRefs[0].SectionName,
+					})
+					return nil
+				
+			},
+		)
+
+		ds := latticestore.NewLatticeDataStore()
+
+		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+
+		task := &latticeServiceModelBuildTask{
+			httpRoute:       tt.httpRoute,
+			stack:           stack,
+			Client:          k8sClient,
+			listenerByResID: make(map[string]*latticemodel.Listener),
+			Datastore:       ds,
+		}
+
+		err := task.buildRules(ctx)
+
+		assert.NoError(t, err)
+
+		var resRules []*latticemodel.Rule
+		stack.ListResources(&resRules)
+
+		if len(resRules) > 0 {
+			fmt.Printf("resRules :%v \n", *resRules[0])
+		}
+
+		// we are unit- testing various combination of one rule for now
+		var i = 1
+		for _, resRule := range resRules {
+
+			fmt.Printf("i = %d resRule :%v \n, expected rule: %v\n", i, resRule, tt.expectedRuleSpec)
+
+			sameRule := isRuleSpecSame(&tt.expectedRuleSpec, &resRule.Spec)
+
+			if tt.samerule {
+				assert.True(t, sameRule)
+			} else {
+				assert.False(t, tt.samerule)
+			}
+			i++
+
+		}
+
+
+
+
+	}
+}
+
+func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) bool {
+
+	// Path Exact Match
+    if rule1.PathMatchExact {
+		if !rule2.PathMatchExact {
+			return false
+		}
+
+		if rule1.PathMatchValue != rule2.PathMatchValue {
+			return false
+		}
+	}
+
+
+
+	return true
 }
