@@ -215,8 +215,8 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 					PathMatch: &vpclattice.PathMatch{
 						CaseSensitive: nil,
 						Match: &vpclattice.PathMatchType{
-							Exact:  nil,
-							Prefix: aws.String(rule.Spec.RuleValue),
+							Exact:  nil, // TODO handle PathExact case
+							Prefix: aws.String(rule.Spec.PathMatchValue),
 						},
 					},
 				},

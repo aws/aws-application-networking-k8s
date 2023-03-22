@@ -185,7 +185,7 @@ func Test_CreateRule(t *testing.T) {
 			ListenerPort:     ListenerPort,
 			ListenerProtocol: ListenerProtocol,
 			RuleID:           weightRuleID,
-			RuleValue:        "/ver-1",
+			PathMatchValue:   "/ver-1",
 			Action: latticemodel.RuleAction{
 				TargetGroups: []*latticemodel.RuleTargetGroup{
 					&WeigthedAction_1,
@@ -206,7 +206,7 @@ func Test_CreateRule(t *testing.T) {
 			ListenerPort:     ListenerPort,
 			ListenerProtocol: ListenerProtocol,
 			RuleID:           weightRuleID,
-			RuleValue:        "/ver-1",
+			PathMatchValue:   "/ver-1",
 			Action: latticemodel.RuleAction{
 				TargetGroups: []*latticemodel.RuleTargetGroup{
 					&WeigthedAction_2,
@@ -228,7 +228,7 @@ func Test_CreateRule(t *testing.T) {
 			ListenerPort:     ListenerPort,
 			ListenerProtocol: ListenerProtocol,
 			RuleID:           weightRuleID,
-			RuleValue:        "/ver-2",
+			PathMatchValue:   "/ver-2",
 			Action: latticemodel.RuleAction{
 				TargetGroups: []*latticemodel.RuleTargetGroup{
 					&WeigthedAction_1,
@@ -452,7 +452,7 @@ func Test_CreateRule(t *testing.T) {
 							PathMatch: &vpclattice.PathMatch{
 								Match: &vpclattice.PathMatchType{
 									Exact:  nil,
-									Prefix: aws.String(tt.oldRule.Spec.RuleValue),
+									Prefix: aws.String(tt.oldRule.Spec.PathMatchValue),
 								},
 							},
 						},
@@ -503,7 +503,7 @@ func Test_CreateRule(t *testing.T) {
 								CaseSensitive: nil,
 								Match: &vpclattice.PathMatchType{
 									Exact:  nil,
-									Prefix: aws.String(tt.newRule.Spec.RuleValue),
+									Prefix: aws.String(tt.newRule.Spec.PathMatchValue),
 								},
 							},
 						},
@@ -536,7 +536,7 @@ func Test_CreateRule(t *testing.T) {
 								CaseSensitive: nil,
 								Match: &vpclattice.PathMatchType{
 									Exact:  nil,
-									Prefix: aws.String(tt.newRule.Spec.RuleValue),
+									Prefix: aws.String(tt.newRule.Spec.PathMatchValue),
 								},
 							},
 						},

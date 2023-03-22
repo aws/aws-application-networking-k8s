@@ -276,7 +276,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			fmt.Sscanf(resRule.Spec.RuleID, "rule-%d", &i)
 
 			assert.Equal(t, resRule.Spec.ListenerPort, int64(tt.gwListenerPort))
-			assert.Equal(t, resRule.Spec.RuleType, "HTTPRouteMatch")
+			assert.Equal(t, resRule.Spec.PathMatchExact, "HTTPRouteMatch")
 			assert.Equal(t, resRule.Spec.ServiceName, tt.httpRoute.Name)
 			assert.Equal(t, resRule.Spec.ServiceNamespace, tt.httpRoute.Namespace)
 
