@@ -32,6 +32,7 @@ func Test_RuleModelBuild(t *testing.T) {
 	var namespace = gateway_api.Namespace("default")
 	var path1 = string("/ver1")
 	var path2 = string("/ver2")
+	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var backendRef1 = gateway_api.BackendRef{
 		BackendObjectReference: gateway_api.BackendObjectReference{
 			Name:      "targetgroup1",
@@ -188,7 +189,7 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 
 									Path: &gateway_api.HTTPPathMatch{
-
+										Type: &k8sPathMatchExactType, 
 										Value: &path1,
 									},
 								},
@@ -276,7 +277,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			fmt.Sscanf(resRule.Spec.RuleID, "rule-%d", &i)
 
 			assert.Equal(t, resRule.Spec.ListenerPort, int64(tt.gwListenerPort))
-			assert.Equal(t, resRule.Spec.PathMatchExact, "HTTPRouteMatch")
+// Defer this to dedicate rule check			assert.Equal(t, resRule.Spec.PathMatchValue, tt.httpRoute.)
 			assert.Equal(t, resRule.Spec.ServiceName, tt.httpRoute.Name)
 			assert.Equal(t, resRule.Spec.ServiceNamespace, tt.httpRoute.Namespace)
 
