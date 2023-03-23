@@ -312,6 +312,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	//var path2 = string("/ver2")
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var k8sPathMatchPrefixType = gateway_api.PathMatchPathPrefix
+	var k8sMethod = gateway_api.HTTPMethodGet
 
 	var k8sHeaderExactType = gateway_api.HeaderMatchExact
 	var hdr1 = "env1"
@@ -332,13 +333,13 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		gwListenerPort   gateway_api.PortNumber
 		httpRoute        *gateway_api.HTTPRoute
 		expectedRuleSpec latticemodel.RuleSpec
-		wantErrIsNil bool
+		wantErrIsNil     bool
 		samerule         bool
 	}{
 		{
 			name:           "PathMatchExact Match",
 			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil: false,
+			wantErrIsNil:   false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -384,7 +385,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "PathMatchPrefix",
 			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil: false,
+			wantErrIsNil:   false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -429,7 +430,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "1 header match",
 			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil: false,
+			wantErrIsNil:   false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -493,7 +494,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "2 header match",
 			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil: false,
+			wantErrIsNil:   false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -561,7 +562,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "2 header match , path exact",
 			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil: false,
+			wantErrIsNil:   false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -636,7 +637,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "2 header match , path prefix",
 			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil: false,
+			wantErrIsNil:   false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -711,7 +712,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "2 header match",
 			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil: false,
+			wantErrIsNil:   false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -779,7 +780,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           " negative 6 header match ",
 			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil: true,
+			wantErrIsNil:   true,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -874,7 +875,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "Negative, multiple methods",
 			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil: true,
+			wantErrIsNil:   true,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -909,6 +910,49 @@ func Test_HeadersRuleBuild(t *testing.T) {
 									},
 								},
 							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				PathMatchExact: true,
+				PathMatchValue: path1,
+			},
+		},
+		{
+			name:           "Negative, reject method based",
+			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil:   true,
+			samerule:       true,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Method: &k8sMethod,
+								},
+							},
+
 							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
