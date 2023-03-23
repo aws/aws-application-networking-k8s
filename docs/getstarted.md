@@ -19,21 +19,21 @@ This example creates a single cluster in a single VPC, then configures two route
    **Set up Service-to-Service communications**
 
 1. Create the Kubernetes Gateway `my-hotel`:
+
    ```bash
    kubectl apply -f examples/my-hotel-gateway.yaml
    ```
-   ***Note***
 
-   By default, the gateway (lattice service network) is not associated with cluster's VPC.  To associate a gateway (lattice service network) to VPC, `my-hotel-gateway.yaml` includes the following annotation.
+   ***Note***: By default, the gateway (lattice service network) is not associated with cluster's VPC.  To associate a gateway (lattice service network) to VPC, `my-hotel-gateway.yaml` includes the following annotation.
 
-      
-       apiVersion: gateway.networking.k8s.io/v1beta1
-       kind: Gateway
-       metadata:
-         name: my-hotel
-         annotations:
-           application-networking.k8s.aws/lattice-vpc-association: "true"
-       
+   ```
+   apiVersion: gateway.networking.k8s.io/v1beta1
+   kind: Gateway
+   metadata:
+     name: my-hotel
+     annotations:
+       application-networking.k8s.aws/lattice-vpc-association: "true"
+   ```
 
 1. Verify that `my-hotel` gateway is created (this could take about five minutes):
    ```bash
