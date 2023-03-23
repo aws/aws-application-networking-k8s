@@ -203,6 +203,10 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 	ruleName := fmt.Sprintf("k8s-%d-%s", rule.Spec.CreateTime.Unix(), rule.Spec.RuleID)
 
 	if ruleStatus.UpdateTGsNeeded {
+		httpMatch := vpclattice.HttpMatch{}
+
+		updateSDKhttpMatch(&httpMatch, rule)
+
 		updateRuleInput := vpclattice.UpdateRuleInput{
 			Action: &vpclattice.RuleAction{
 				Forward: &vpclattice.ForwardAction{
@@ -211,15 +215,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 			},
 			ListenerIdentifier: aws.String(listener.ID),
 			Match: &vpclattice.RuleMatch{
-				HttpMatch: &vpclattice.HttpMatch{
-					PathMatch: &vpclattice.PathMatch{
-						CaseSensitive: nil,
-						Match: &vpclattice.PathMatchType{
-							Exact:  nil, // TODO handle PathExact case
-							Prefix: aws.String(rule.Spec.PathMatchValue),
-						},
-					},
-				},
+				HttpMatch: &httpMatch,
 			},
 			Priority:          aws.Int64(ruleStatus.Priority),
 			ServiceIdentifier: aws.String(latticeService.ID),
@@ -243,37 +239,41 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 		httpMatch := vpclattice.HttpMatch{}
 
-		glog.V(2).Infof("liwwu>> rule.Spec %v", rule.Spec)
+		updateSDKhttpMatch(&httpMatch, rule)
 
-		// setup path based
-		if rule.Spec.PathMatchExact || rule.Spec.PathMatchPrefix {
-			matchType := vpclattice.PathMatchType{}
-			if rule.Spec.PathMatchExact {
-				matchType.Exact = aws.String(rule.Spec.PathMatchValue)
-			}
-			if rule.Spec.PathMatchPrefix {
-				matchType.Prefix = aws.String(rule.Spec.PathMatchValue)
-			}
+		/*
+			glog.V(2).Infof("liwwu>> rule.Spec %v", rule.Spec)
 
-			httpMatch.PathMatch = &vpclattice.PathMatch{
-				Match: &matchType,
-			}
-
-		}
-
-		// setup header based
-		if rule.Spec.NumOfHeaderMatches > 0 {
-
-			for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
-				headerMatch := vpclattice.HeaderMatch{
-					Match: rule.Spec.MatchedHeaders[i].Match,
-					Name:  rule.Spec.MatchedHeaders[i].Name,
+			// setup path based
+			if rule.Spec.PathMatchExact || rule.Spec.PathMatchPrefix {
+				matchType := vpclattice.PathMatchType{}
+				if rule.Spec.PathMatchExact {
+					matchType.Exact = aws.String(rule.Spec.PathMatchValue)
 				}
-				httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
+				if rule.Spec.PathMatchPrefix {
+					matchType.Prefix = aws.String(rule.Spec.PathMatchValue)
+				}
+
+				httpMatch.PathMatch = &vpclattice.PathMatch{
+					Match: &matchType,
+				}
 
 			}
 
-		}
+			// setup header based
+			if rule.Spec.NumOfHeaderMatches > 0 {
+
+				for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
+					headerMatch := vpclattice.HeaderMatch{
+						Match: rule.Spec.MatchedHeaders[i].Match,
+						Name:  rule.Spec.MatchedHeaders[i].Name,
+					}
+					httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
+
+				}
+
+			}
+		*/
 
 		ruleInput := vpclattice.CreateRuleInput{
 			Action: &vpclattice.RuleAction{
@@ -308,6 +308,40 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 				UpdateTGsNeeded:      ruleStatus.UpdatePriorityNeeded,
 			}, nil
 		}
+	}
+
+}
+
+func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *latticemodel.Rule) {
+	glog.V(6).Infof("Setting sdk HttpMatch using rule.Spec %v", rule.Spec)
+
+	// setup path based
+	if rule.Spec.PathMatchExact || rule.Spec.PathMatchPrefix {
+		matchType := vpclattice.PathMatchType{}
+		if rule.Spec.PathMatchExact {
+			matchType.Exact = aws.String(rule.Spec.PathMatchValue)
+		}
+		if rule.Spec.PathMatchPrefix {
+			matchType.Prefix = aws.String(rule.Spec.PathMatchValue)
+		}
+
+		httpMatch.PathMatch = &vpclattice.PathMatch{
+			Match: &matchType,
+		}
+
+		if rule.Spec.NumOfHeaderMatches > 0 {
+
+			for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
+				headerMatch := vpclattice.HeaderMatch{
+					Match: rule.Spec.MatchedHeaders[i].Match,
+					Name:  rule.Spec.MatchedHeaders[i].Name,
+				}
+				httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
+
+			}
+
+		}
+
 	}
 
 }
@@ -392,6 +426,8 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 	return true
 }
 
+// Determine if rule spec is same
+// If rule spec is same, then determine if there is any changes on target groups
 func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *latticemodel.Rule,
 	serviceID string, listenerID string) (latticemodel.RuleStatus, error) {
 
