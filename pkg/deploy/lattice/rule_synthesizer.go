@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-sdk-go/aws"
+	//"github.com/aws/aws-sdk-go/aws"
 )
 
 type ruleSynthesizer struct {
@@ -93,7 +93,12 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 	}
 
 	for _, modelRule := range resRule {
+		sameRule := isRulesSame(modelRule, sdkRuleDetail)
 
+		if !sameRule {
+			continue
+		}
+		/* TODO -- delete
 		// Exact Path Match
 		if modelRule.Spec.PathMatchExact {
 			fmt.Println("liwwu>>> sdk, findMatchedRule PathMatchExact")
@@ -169,6 +174,7 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 				continue
 			}
 		}
+		*/
 
 		glog.V(6).Infof("findMatchedRule: found matched modelRule %v \n", modelRule)
 		return modelRule, nil
