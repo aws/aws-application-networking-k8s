@@ -328,6 +328,13 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 			return false
 		}
 
+	} else {
+		if sdkRuleDetail.Match.HttpMatch.PathMatch != nil &&
+			sdkRuleDetail.Match.HttpMatch.PathMatch.Match != nil &&
+			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact != nil {
+			glog.V(6).Infoln("no sdk PathMatchExact match")
+			return false
+		}
 	}
 
 	// Path Prefix
@@ -343,6 +350,13 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 
 		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) != modelRule.Spec.PathMatchValue {
 			glog.V(6).Infoln("PathMatchPrefix mismatch ")
+			return false
+		}
+	} else {
+		if sdkRuleDetail.Match.HttpMatch.PathMatch != nil &&
+			sdkRuleDetail.Match.HttpMatch.PathMatch.Match != nil &&
+			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix != nil {
+			glog.V(6).Infoln("no sdk HTTP PathPrefix")
 			return false
 		}
 	}

@@ -926,6 +926,7 @@ func Test_DeleteRule(t *testing.T) {
 
 func Test_isRulesSame(t *testing.T) {
 	var path1 = string("/ver1")
+	var path2 = string("/ver2")
 	var hdr1 = "env1"
 	var hdr1Value = "test1"
 	var hdr2 = "env2"
@@ -1084,7 +1085,7 @@ func Test_isRulesSame(t *testing.T) {
 			ruleMatched: true,
 		},
 		{
-			name: "2 headers + heder mis Match",
+			name: "2 headers + header mis Match",
 			k8sRule: &latticemodel.Rule{
 				Spec: latticemodel.RuleSpec{
 					NumOfHeaderMatches: 2,
@@ -1113,6 +1114,369 @@ func Test_isRulesSame(t *testing.T) {
 								Name: &hdr2,
 							},
 							{},
+						},
+					},
+				},
+			},
+			ruleMatched: false,
+		},
+		{
+			name: "2 headers + value mis Match",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					NumOfHeaderMatches: 2,
+					MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr1,
+						},
+						{},
+
+						{},
+						{},
+						{},
+					},
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						HeaderMatches: []*vpclattice.HeaderMatch{
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr2Value},
+								Name: &hdr1,
+							},
+							{},
+						},
+					},
+				},
+			},
+			ruleMatched: false,
+		},
+		{
+			name: "PathMatchEaxt MisMatch",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					PathMatchExact: true,
+					PathMatchValue: path1,
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						PathMatch: &vpclattice.PathMatch{
+							Match: &vpclattice.PathMatchType{
+								Exact: &path2,
+							},
+						},
+					},
+				},
+			},
+			ruleMatched: false,
+		},
+		{
+			name: "PathMatchEaxt PathPrefix MisMatch",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					PathMatchPrefix: true,
+					PathMatchValue:  path1,
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						PathMatch: &vpclattice.PathMatch{
+							Match: &vpclattice.PathMatchType{
+								Exact: &path1,
+							},
+						},
+					},
+				},
+			},
+			ruleMatched: false,
+		},
+		{
+			name: "2 headers + path exact Match",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					PathMatchExact:     true,
+					PathMatchValue:     path1,
+					NumOfHeaderMatches: 2,
+					MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr1,
+						},
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr2Value},
+							Name: &hdr2,
+						},
+
+						{},
+						{},
+						{},
+					},
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						HeaderMatches: []*vpclattice.HeaderMatch{
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr1,
+							},
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr2Value},
+								Name: &hdr2,
+							},
+						},
+
+						PathMatch: &vpclattice.PathMatch{
+							Match: &vpclattice.PathMatchType{
+								Exact: &path1,
+							},
+						},
+					},
+				},
+			},
+			ruleMatched: true,
+		},
+		{
+			name: "number of header mis Match",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					NumOfHeaderMatches: 1,
+					MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr1,
+						},
+						{},
+
+						{},
+						{},
+						{},
+					},
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						HeaderMatches: []*vpclattice.HeaderMatch{
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr1,
+							},
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr2Value},
+								Name: &hdr2,
+							},
+						},
+					},
+				},
+			},
+			ruleMatched: false,
+		},
+		{
+			name: "2nd header value mis Match",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					NumOfHeaderMatches: 2,
+					MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr1,
+						},
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr2,
+						},
+
+						{},
+						{},
+						{},
+					},
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						HeaderMatches: []*vpclattice.HeaderMatch{
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr1,
+							},
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr2Value},
+								Name: &hdr2,
+							},
+						},
+						PathMatch: &vpclattice.PathMatch{
+							Match: &vpclattice.PathMatchType{
+								Exact: &path1,
+							},
+						},
+					},
+				},
+			},
+			ruleMatched: false,
+		},
+		{
+			name: "header match, but one has pathexat -- mis Match",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					NumOfHeaderMatches: 2,
+					MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr1,
+						},
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr2,
+						},
+
+						{},
+						{},
+						{},
+					},
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						HeaderMatches: []*vpclattice.HeaderMatch{
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr1,
+							},
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr2,
+							},
+						},
+						PathMatch: &vpclattice.PathMatch{
+							Match: &vpclattice.PathMatchType{
+								Exact: &path1,
+							},
+						},
+					},
+				},
+			},
+			ruleMatched: false,
+		},
+		{
+			name: "header match, but one has pathprefix -- mis Match",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					NumOfHeaderMatches: 2,
+					MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr1,
+						},
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr2,
+						},
+
+						{},
+						{},
+						{},
+					},
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						HeaderMatches: []*vpclattice.HeaderMatch{
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr1,
+							},
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr2,
+							},
+						},
+						PathMatch: &vpclattice.PathMatch{
+							Match: &vpclattice.PathMatchType{
+								Prefix: &path1,
+							},
+						},
+					},
+				},
+			},
+			ruleMatched: false,
+		},
+		{
+			name: "header match, but one has pathprefix -- mis Match",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					PathMatchPrefix:    true,
+					PathMatchValue:     path1,
+					NumOfHeaderMatches: 2,
+					MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr1,
+						},
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr2,
+						},
+
+						{},
+						{},
+						{},
+					},
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						HeaderMatches: []*vpclattice.HeaderMatch{
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr1,
+							},
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr2,
+							},
 						},
 					},
 				},
