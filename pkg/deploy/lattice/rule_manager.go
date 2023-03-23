@@ -241,40 +241,6 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 		updateSDKhttpMatch(&httpMatch, rule)
 
-		/*
-			glog.V(2).Infof("liwwu>> rule.Spec %v", rule.Spec)
-
-			// setup path based
-			if rule.Spec.PathMatchExact || rule.Spec.PathMatchPrefix {
-				matchType := vpclattice.PathMatchType{}
-				if rule.Spec.PathMatchExact {
-					matchType.Exact = aws.String(rule.Spec.PathMatchValue)
-				}
-				if rule.Spec.PathMatchPrefix {
-					matchType.Prefix = aws.String(rule.Spec.PathMatchValue)
-				}
-
-				httpMatch.PathMatch = &vpclattice.PathMatch{
-					Match: &matchType,
-				}
-
-			}
-
-			// setup header based
-			if rule.Spec.NumOfHeaderMatches > 0 {
-
-				for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
-					headerMatch := vpclattice.HeaderMatch{
-						Match: rule.Spec.MatchedHeaders[i].Match,
-						Name:  rule.Spec.MatchedHeaders[i].Name,
-					}
-					httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
-
-				}
-
-			}
-		*/
-
 		ruleInput := vpclattice.CreateRuleInput{
 			Action: &vpclattice.RuleAction{
 				Forward: &vpclattice.ForwardAction{
@@ -349,17 +315,17 @@ func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *latticemodel.Rule
 func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRuleOutput) bool {
 	// Exact Path Match
 	if modelRule.Spec.PathMatchExact {
-		fmt.Println("liwwu>>> sdk, findMatchedRule PathMatchExact")
+		glog.V(6).Infoln("Checking PathMatchExact")
 
 		if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact == nil {
-			fmt.Printf("liwwu >> no sdk HTTP PathExact match")
+			glog.V(6).Infoln("no sdk PathMatchExact match")
 			return false
 		}
 
 		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact) != modelRule.Spec.PathMatchValue {
-			fmt.Printf("liwwu>>> findMatchedRule, ignore exact path miss ")
+			glog.V(6).Infoln("Match.Exact mismatch")
 			return false
 		}
 
@@ -367,17 +333,17 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 
 	// Path Prefix
 	if modelRule.Spec.PathMatchPrefix {
-		fmt.Println("liwwu >>> sdk findMatchRule, PathMatchPrefix")
+		glog.V(6).Infoln("Checking PathMatchPrefix")
 
 		if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix == nil {
-			fmt.Println("liwwu >> no sdk HTTP PathPrefix")
+			glog.V(6).Infoln("no sdk HTTP PathPrefix")
 			return false
 		}
 
 		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) != modelRule.Spec.PathMatchValue {
-			fmt.Printf("liwwu >>PathMatchPrefix ignore prefix path ")
+			glog.V(6).Infoln("PathMatchPrefix mismatch ")
 			return false
 		}
 	}
@@ -385,9 +351,9 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 	// Header Match
 
 	if modelRule.Spec.NumOfHeaderMatches > 0 {
-		fmt.Printf("liwwu >>> numofheader matches %v \n", modelRule.Spec.NumOfHeaderMatches)
+		glog.V(6).Infof("Checking Header Match, numofheader matches %v \n", modelRule.Spec.NumOfHeaderMatches)
 		if len(sdkRuleDetail.Match.HttpMatch.HeaderMatches) != modelRule.Spec.NumOfHeaderMatches {
-			fmt.Printf("liwwu>> header match number mismatch")
+			glog.V(6).Infoln("header match number mismatch")
 			return false
 		}
 
@@ -395,7 +361,7 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 
 		// compare 2 array
 		for _, sdkHeader := range sdkRuleDetail.Match.HttpMatch.HeaderMatches {
-			fmt.Printf("sdkHeader >> %v\n", sdkHeader)
+			glog.V(6).Infof("sdkHeader >> %v\n", sdkHeader)
 			matchFound := false
 			// check if this is in module
 			for i := 0; i < modelRule.Spec.NumOfHeaderMatches; i++ {
@@ -412,13 +378,13 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 
 			if !matchFound {
 				misMatch = true
-				fmt.Printf("liwwu >> header not found sdkHeader %v\n", *sdkHeader)
+				glog.V(6).Infof("header not found sdkHeader %v\n", *sdkHeader)
 				break
 			}
 		}
 
 		if misMatch {
-			fmt.Println("mismatch header")
+			glog.V(6).Infof("mismatch header")
 			return false
 		}
 	}
