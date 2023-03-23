@@ -923,3 +923,41 @@ func Test_DeleteRule(t *testing.T) {
 	ruleManager.Delete(ctx, ruleID, listenerID, serviceID)
 
 }
+
+func Test_isRulesSame(t *testing.T) {
+	var path1 = string("/ver1")
+
+	tests := []struct {
+		name        string
+		k8sRule     *latticemodel.Rule
+		sdkRule     *vpclattice.GetRuleOutput
+		ruleMatched bool
+	}{
+		{
+			name: "PathMatchEact Match",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					PathMatchExact: true,
+					PathMatchValue: path1,
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						PathMatch: &vpclattice.PathMatch{
+							Match: &vpclattice.PathMatchType{
+								Exact: &path1,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		fmt.Printf("Testing >>>>> %v \n", tt.name)
+
+	}
+
+}
