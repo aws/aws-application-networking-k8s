@@ -81,6 +81,12 @@ func Test_CreateRule(t *testing.T) {
 	ListenerProtocol := "HTTP"
 	ListenerID := "listenerID"
 	ruleID := "ruleID"
+
+	var hdr1 = "env1"
+	var hdr1Value = "test1"
+	var hdr2 = "env2"
+	var hdr2Value = "test2"
+
 	var weight1 = int64(90)
 	var weight2 = int64(10)
 	weightRulePriority := 1
@@ -253,6 +259,47 @@ func Test_CreateRule(t *testing.T) {
 		},
 	}
 
+	headerRule_1 := latticemodel.Rule{
+		Spec: latticemodel.RuleSpec{
+			ServiceName:        ServiceName,
+			ServiceNamespace:   ServiceNameSpace,
+			ListenerPort:       ListenerPort,
+			ListenerProtocol:   ListenerProtocol,
+			RuleID:             weightRuleID,
+			PathMatchPrefix:    true,
+			PathMatchValue:     "/ver-2",
+			NumOfHeaderMatches: 2,
+			MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+				{
+					Match: &vpclattice.HeaderMatchType{
+						Exact: &hdr1Value},
+					Name: &hdr1,
+				},
+				{
+					Match: &vpclattice.HeaderMatchType{
+						Exact: &hdr2Value},
+					Name: &hdr2,
+				},
+
+				{},
+				{},
+				{},
+			},
+			Action: latticemodel.RuleAction{
+				TargetGroups: []*latticemodel.RuleTargetGroup{
+					&WeigthedAction_1,
+				},
+			},
+		},
+		Status: &latticemodel.RuleStatus{
+			RuleARN:    "ruleARn",
+			RuleID:     "rule-id-2-1",
+			ListenerID: ListenerID,
+			ServiceID:  ServiceID,
+		},
+	}
+
 	tests := []struct {
 		name                 string
 		oldRule              *latticemodel.Rule
@@ -265,6 +312,19 @@ func Test_CreateRule(t *testing.T) {
 		noTargetGroupID      bool
 		updatePriorityNeeded bool
 	}{
+
+		{
+			name:                 "create header-based rule with 1 TG",
+			oldRule:              nil,
+			newRule:              &headerRule_1,
+			createRule:           true,
+			updateRule:           false,
+			noServiceID:          false,
+			noListenerID:         false,
+			noTargetGroupID:      false,
+			updatePriorityNeeded: false,
+		},
+
 		{
 			name:                 "test1, create weighted rule with 1 TG",
 			oldRule:              nil,
@@ -372,6 +432,20 @@ func Test_CreateRule(t *testing.T) {
 			noTargetGroupID:      true,
 			updatePriorityNeeded: false,
 		},
+		/*
+			{
+				name:                 "create header-based rule with 1 TG",
+				oldRule:              nil,
+				newRule:              &headerRule_1,
+				createRule:           true,
+				updateRule:           false,
+				noServiceID:          false,
+				noListenerID:         false,
+				noTargetGroupID:      false,
+				updatePriorityNeeded: false,
+			},
+		*/
+
 	}
 
 	for _, tt := range tests {
@@ -449,6 +523,8 @@ func Test_CreateRule(t *testing.T) {
 					latticeTGs = append(latticeTGs, &latticeTG)
 				}
 
+				httpMatch := vpclattice.HttpMatch{}
+				updateSDKhttpMatch(&httpMatch, tt.oldRule)
 				ruleGetOutput := vpclattice.GetRuleOutput{
 					Id:       aws.String(tt.oldRule.Spec.RuleID),
 					Priority: aws.Int64(priority),
@@ -458,16 +534,21 @@ func Test_CreateRule(t *testing.T) {
 						},
 					},
 					Match: &vpclattice.RuleMatch{
-						HttpMatch: &vpclattice.HttpMatch{
-							Method: aws.String("Get"),
-							PathMatch: &vpclattice.PathMatch{
-								Match: &vpclattice.PathMatchType{
-									Exact:  nil, // TODO need test cases
-									Prefix: aws.String(tt.oldRule.Spec.PathMatchValue),
+						HttpMatch: &httpMatch,
+					},
+					/*
+						Match: &vpclattice.RuleMatch{
+							HttpMatch: &vpclattice.HttpMatch{
+								Method: aws.String("Get"),
+								PathMatch: &vpclattice.PathMatch{
+									Match: &vpclattice.PathMatchType{
+										Exact:  nil, // TODO need test cases
+										Prefix: aws.String(tt.oldRule.Spec.PathMatchValue),
+									},
 								},
 							},
 						},
-					},
+					*/
 				}
 
 				mockVpcLatticeSess.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
@@ -495,6 +576,8 @@ func Test_CreateRule(t *testing.T) {
 			}
 
 			if tt.createRule {
+				httpMatch := vpclattice.HttpMatch{}
+				updateSDKhttpMatch(&httpMatch, tt.newRule)
 				ruleInput := vpclattice.CreateRuleInput{
 					Action: &vpclattice.RuleAction{
 						Forward: &vpclattice.ForwardAction{
@@ -507,18 +590,23 @@ func Test_CreateRule(t *testing.T) {
 					Priority:           aws.Int64(priority),
 					ServiceIdentifier:  aws.String(ServiceID),
 					Match: &vpclattice.RuleMatch{
-						HttpMatch: &vpclattice.HttpMatch{
-							// TODO, what if not specfied this
-							//Method: aws.String(vpclattice.HttpMethodGet),
-							PathMatch: &vpclattice.PathMatch{
-								CaseSensitive: nil,
-								Match: &vpclattice.PathMatchType{
-									Exact:  nil,
-									Prefix: aws.String(tt.newRule.Spec.PathMatchValue),
+						HttpMatch: &httpMatch,
+					},
+					/*
+						Match: &vpclattice.RuleMatch{
+							HttpMatch: &vpclattice.HttpMatch{
+								// TODO, what if not specfied this
+								//Method: aws.String(vpclattice.HttpMethodGet),
+								PathMatch: &vpclattice.PathMatch{
+									CaseSensitive: nil,
+									Match: &vpclattice.PathMatchType{
+										Exact:  nil,
+										Prefix: aws.String(tt.newRule.Spec.PathMatchValue),
+									},
 								},
 							},
 						},
-					},
+					*/
 				}
 				ruleOutput := vpclattice.CreateRuleOutput{
 					Id: aws.String(ruleID),
