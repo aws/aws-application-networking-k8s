@@ -1083,6 +1083,42 @@ func Test_isRulesSame(t *testing.T) {
 			},
 			ruleMatched: true,
 		},
+		{
+			name: "2 headers + heder mis Match",
+			k8sRule: &latticemodel.Rule{
+				Spec: latticemodel.RuleSpec{
+					NumOfHeaderMatches: 2,
+					MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+						{
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value},
+							Name: &hdr1,
+						},
+						{},
+
+						{},
+						{},
+						{},
+					},
+				},
+			},
+			sdkRule: &vpclattice.GetRuleOutput{
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						HeaderMatches: []*vpclattice.HeaderMatch{
+							{
+								Match: &vpclattice.HeaderMatchType{
+									Exact: &hdr1Value},
+								Name: &hdr2,
+							},
+							{},
+						},
+					},
+				},
+			},
+			ruleMatched: false,
+		},
 	}
 
 	for _, tt := range tests {
