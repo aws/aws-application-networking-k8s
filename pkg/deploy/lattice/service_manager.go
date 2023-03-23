@@ -276,7 +276,7 @@ func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context
 	}
 	resp, err := latticeSess.ListServiceNetworkServiceAssociationsAsList(ctx, &listServiceNetworkServiceAssociationsInput)
 
-	glog.V(2).Infof("ListServiceNetworkServiceAssociationsAsList req %v, resp %v err %v",
+	glog.V(6).Infof("ListServiceNetworkServiceAssociationsAsList req %v, resp %v err %v",
 		listServiceNetworkServiceAssociationsInput, resp, err)
 
 	for _, snAssocResp := range resp {
