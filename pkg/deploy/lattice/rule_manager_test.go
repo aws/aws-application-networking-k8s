@@ -300,6 +300,48 @@ func Test_CreateRule(t *testing.T) {
 		},
 	}
 
+	headerRule_1_2 := latticemodel.Rule{
+		Spec: latticemodel.RuleSpec{
+			ServiceName:        ServiceName,
+			ServiceNamespace:   ServiceNameSpace,
+			ListenerPort:       ListenerPort,
+			ListenerProtocol:   ListenerProtocol,
+			RuleID:             weightRuleID,
+			PathMatchPrefix:    true,
+			PathMatchValue:     "/ver-2",
+			NumOfHeaderMatches: 2,
+			MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+				{
+					Match: &vpclattice.HeaderMatchType{
+						Exact: &hdr1Value},
+					Name: &hdr1,
+				},
+				{
+					Match: &vpclattice.HeaderMatchType{
+						Exact: &hdr2Value},
+					Name: &hdr2,
+				},
+
+				{},
+				{},
+				{},
+			},
+			Action: latticemodel.RuleAction{
+				TargetGroups: []*latticemodel.RuleTargetGroup{
+					&WeigthedAction_1,
+					&WeigthedAction_2,
+				},
+			},
+		},
+		Status: &latticemodel.RuleStatus{
+			RuleARN:    "ruleARn",
+			RuleID:     "rule-id-2-1",
+			ListenerID: ListenerID,
+			ServiceID:  ServiceID,
+		},
+	}
+
 	tests := []struct {
 		name                 string
 		oldRule              *latticemodel.Rule
@@ -319,6 +361,18 @@ func Test_CreateRule(t *testing.T) {
 			newRule:              &headerRule_1,
 			createRule:           true,
 			updateRule:           false,
+			noServiceID:          false,
+			noListenerID:         false,
+			noTargetGroupID:      false,
+			updatePriorityNeeded: false,
+		},
+
+		{
+			name:                 "create header-based rule with 2 TG",
+			oldRule:              &headerRule_1,
+			newRule:              &headerRule_1_2,
+			createRule:           false,
+			updateRule:           true,
 			noServiceID:          false,
 			noListenerID:         false,
 			noTargetGroupID:      false,
@@ -573,6 +627,8 @@ func Test_CreateRule(t *testing.T) {
 			}
 
 			if tt.updateRule {
+				httpMatch := vpclattice.HttpMatch{}
+				updateSDKhttpMatch(&httpMatch, tt.newRule)
 				ruleInput := vpclattice.UpdateRuleInput{
 					Action: &vpclattice.RuleAction{
 						Forward: &vpclattice.ForwardAction{
@@ -586,18 +642,23 @@ func Test_CreateRule(t *testing.T) {
 					Priority:          aws.Int64(priority),
 					ServiceIdentifier: aws.String(ServiceID),
 					Match: &vpclattice.RuleMatch{
-						HttpMatch: &vpclattice.HttpMatch{
-							// TODO, what if not specfied this
-							//Method: aws.String(vpclattice.HttpMethodGet),
-							PathMatch: &vpclattice.PathMatch{
-								CaseSensitive: nil,
-								Match: &vpclattice.PathMatchType{
-									Exact:  nil,
-									Prefix: aws.String(tt.newRule.Spec.PathMatchValue),
+						HttpMatch: &httpMatch,
+					},
+					/*
+						Match: &vpclattice.RuleMatch{
+							HttpMatch: &vpclattice.HttpMatch{
+								// TODO, what if not specfied this
+								//Method: aws.String(vpclattice.HttpMethodGet),
+								PathMatch: &vpclattice.PathMatch{
+									CaseSensitive: nil,
+									Match: &vpclattice.PathMatchType{
+										Exact:  nil,
+										Prefix: aws.String(tt.newRule.Spec.PathMatchValue),
+									},
 								},
 							},
 						},
-					},
+					*/
 				}
 				ruleOutput := vpclattice.UpdateRuleOutput{
 					Id: aws.String(ruleID),
