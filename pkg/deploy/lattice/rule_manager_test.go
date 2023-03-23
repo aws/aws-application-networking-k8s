@@ -432,20 +432,6 @@ func Test_CreateRule(t *testing.T) {
 			noTargetGroupID:      true,
 			updatePriorityNeeded: false,
 		},
-		/*
-			{
-				name:                 "create header-based rule with 1 TG",
-				oldRule:              nil,
-				newRule:              &headerRule_1,
-				createRule:           true,
-				updateRule:           false,
-				noServiceID:          false,
-				noListenerID:         false,
-				noTargetGroupID:      false,
-				updatePriorityNeeded: false,
-			},
-		*/
-
 	}
 
 	for _, tt := range tests {
@@ -536,19 +522,6 @@ func Test_CreateRule(t *testing.T) {
 					Match: &vpclattice.RuleMatch{
 						HttpMatch: &httpMatch,
 					},
-					/*
-						Match: &vpclattice.RuleMatch{
-							HttpMatch: &vpclattice.HttpMatch{
-								Method: aws.String("Get"),
-								PathMatch: &vpclattice.PathMatch{
-									Match: &vpclattice.PathMatchType{
-										Exact:  nil, // TODO need test cases
-										Prefix: aws.String(tt.oldRule.Spec.PathMatchValue),
-									},
-								},
-							},
-						},
-					*/
 				}
 
 				mockVpcLatticeSess.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
@@ -592,21 +565,6 @@ func Test_CreateRule(t *testing.T) {
 					Match: &vpclattice.RuleMatch{
 						HttpMatch: &httpMatch,
 					},
-					/*
-						Match: &vpclattice.RuleMatch{
-							HttpMatch: &vpclattice.HttpMatch{
-								// TODO, what if not specfied this
-								//Method: aws.String(vpclattice.HttpMethodGet),
-								PathMatch: &vpclattice.PathMatch{
-									CaseSensitive: nil,
-									Match: &vpclattice.PathMatchType{
-										Exact:  nil,
-										Prefix: aws.String(tt.newRule.Spec.PathMatchValue),
-									},
-								},
-							},
-						},
-					*/
 				}
 				ruleOutput := vpclattice.CreateRuleOutput{
 					Id: aws.String(ruleID),
