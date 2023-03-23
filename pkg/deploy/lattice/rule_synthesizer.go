@@ -3,7 +3,6 @@ package lattice
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -51,7 +50,7 @@ func (r *ruleSynthesizer) Synthesize(ctx context.Context) error {
 
 	// handle delete
 	sdkRules, err := r.getSDKRules(ctx)
-	glog.V(2).Infof("rule>>> synthesize,  sdkRules :%v err: %v \n", sdkRules, err)
+	glog.V(6).Infof("rule>>> synthesize,  sdkRules :%v err: %v \n", sdkRules, err)
 
 	for _, sdkrule := range sdkRules {
 		_, err := r.findMatchedRule(ctx, sdkrule.RuleID, sdkrule.ListenerID, sdkrule.ServiceID, resRule)
@@ -87,7 +86,7 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 
 	if sdkRuleDetail.Match == nil ||
 		sdkRuleDetail.Match.HttpMatch == nil {
-		fmt.Println("liwwu >>> no HTTPMatch ")
+		glog.V(6).Infof("no HTTPMatch ")
 		return modelRule, errors.New("rule not found")
 	}
 
