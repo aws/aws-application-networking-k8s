@@ -1,12 +1,12 @@
 # Get Start Using the AWS Gateway API Controller
 
-Once you have [deployed the AWS Gateway API Controller](configure/index.md), this guide helps you get started using the controller.
+Once you have [deployed the AWS Gateway API Controller](deploy.md), this guide helps you get started using the controller.
 
 The first part of this section provides an example of setting up of service-to-service communications on a single cluster.
 The second section extends that example by creating another inventory service on a second cluster on a different VPC, and spreading traffic to that service across the two clusters and VPCs.
 Both clusters are created using `eksctl`, with both clusters created from the same account by the same cluster admin.
 
-Using these examples as a foundation, see the
+Using these examples as a foundation, see the [Configuration](configure/index.md)) section for ways to further configure service-to-service communications.
 
 ## Set up single-cluster/VPC service-to-service communications
 
@@ -19,13 +19,10 @@ This example creates a single cluster in a single VPC, then configures two route
    **Set up Service-to-Service communications**
 
 1. Create the Kubernetes Gateway `my-hotel`:
-
    ```bash
    kubectl apply -f examples/my-hotel-gateway.yaml
    ```
-
    ***Note***: By default, the gateway (lattice service network) is not associated with cluster's VPC.  To associate a gateway (lattice service network) to VPC, `my-hotel-gateway.yaml` includes the following annotation.
-
    ```
    apiVersion: gateway.networking.k8s.io/v1beta1
    kind: Gateway
@@ -34,7 +31,6 @@ This example creates a single cluster in a single VPC, then configures two route
      annotations:
        application-networking.k8s.aws/lattice-vpc-association: "true"
    ```
-
 1. Verify that `my-hotel` gateway is created (this could take about five minutes):
    ```bash
    kubectl get gateway  
@@ -79,11 +75,9 @@ This example creates a single cluster in a single VPC, then configures two route
    rates                   6m11s
    ```
 1. List the route’s yaml file to see the DNS address (highlighted here on the `message` line):
-
       ```bash
       kubectl get httproute inventory -o yaml
       ```
-
       ```
       apiVersion: gateway.networking.k8s.io/v1beta1
       kind: HTTPRoute
@@ -96,7 +90,6 @@ This example creates a single cluster in a single VPC, then configures two route
       ```bash
       kubectl get httproute rates -o yaml
       ```
-
       ```
       apiVersion: v1
       items:
