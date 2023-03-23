@@ -299,6 +299,9 @@ func Test_CreateRule(t *testing.T) {
 			ServiceID:  ServiceID,
 		},
 	}
+	headerRule_1_path_exact := headerRule_1
+	headerRule_1_path_exact.Spec.PathMatchPrefix = false
+	headerRule_1_path_exact.Spec.PathMatchExact = true
 
 	headerRule_1_2 := latticemodel.Rule{
 		Spec: latticemodel.RuleSpec{
@@ -341,6 +344,9 @@ func Test_CreateRule(t *testing.T) {
 			ServiceID:  ServiceID,
 		},
 	}
+	headerRule_1_2_path_exact := headerRule_1_2
+	headerRule_1_2_path_exact.Spec.PathMatchPrefix = false
+	headerRule_1_2_path_exact.Spec.PathMatchExact = true
 
 	tests := []struct {
 		name                 string
@@ -356,7 +362,7 @@ func Test_CreateRule(t *testing.T) {
 	}{
 
 		{
-			name:                 "create header-based rule with 1 TG",
+			name:                 "create header-based + path prefix rule with 1 TG",
 			oldRule:              nil,
 			newRule:              &headerRule_1,
 			createRule:           true,
@@ -368,9 +374,33 @@ func Test_CreateRule(t *testing.T) {
 		},
 
 		{
-			name:                 "create header-based rule with 2 TG",
+			name:                 "create header-based + path prefix rule with 2 TG",
 			oldRule:              &headerRule_1,
 			newRule:              &headerRule_1_2,
+			createRule:           false,
+			updateRule:           true,
+			noServiceID:          false,
+			noListenerID:         false,
+			noTargetGroupID:      false,
+			updatePriorityNeeded: false,
+		},
+
+		{
+			name:                 "create header-based + path exact rule with 1 TG",
+			oldRule:              nil,
+			newRule:              &headerRule_1_path_exact,
+			createRule:           true,
+			updateRule:           false,
+			noServiceID:          false,
+			noListenerID:         false,
+			noTargetGroupID:      false,
+			updatePriorityNeeded: false,
+		},
+
+		{
+			name:                 "create header-based + path prefix rule with 2 TG",
+			oldRule:              &headerRule_1_path_exact,
+			newRule:              &headerRule_1_2_path_exact,
 			createRule:           false,
 			updateRule:           true,
 			noServiceID:          false,
