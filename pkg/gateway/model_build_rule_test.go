@@ -332,11 +332,13 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		gwListenerPort   gateway_api.PortNumber
 		httpRoute        *gateway_api.HTTPRoute
 		expectedRuleSpec latticemodel.RuleSpec
+		wantErrIsNil bool
 		samerule         bool
 	}{
 		{
 			name:           "PathMatchExact Match",
 			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil: false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -378,10 +380,11 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				PathMatchValue: path1,
 			},
 		},
-		
+
 		{
 			name:           "PathMatchPrefix",
 			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil: false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -426,6 +429,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "1 header match",
 			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil: false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -447,10 +451,10 @@ func Test_HeadersRuleBuild(t *testing.T) {
 							Matches: []gateway_api.HTTPRouteMatch{
 								{
 
-								//	Path: &gateway_api.HTTPPathMatch{
-								//		Type:  &k8sPathMatchPrefixType,
-								//		Value: &path1,
-								//	},
+									//	Path: &gateway_api.HTTPPathMatch{
+									//		Type:  &k8sPathMatchPrefixType,
+									//		Value: &path1,
+									//	},
 									Headers: []gateway_api.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
@@ -472,7 +476,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			expectedRuleSpec: latticemodel.RuleSpec{
 				NumOfHeaderMatches: 1,
 				MatchedHeaders: [5]vpclattice.HeaderMatch{
-					
+
 					{
 						Match: &vpclattice.HeaderMatchType{
 							Exact: &hdr1Value},
@@ -489,6 +493,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "2 header match",
 			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil: false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -509,11 +514,6 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						{
 							Matches: []gateway_api.HTTPRouteMatch{
 								{
-
-									//Path: &gateway_api.HTTPPathMatch{
-									//	Type:  &k8sPathMatchPrefixType,
-									//	Value: &path1,
-									//},
 									Headers: []gateway_api.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
@@ -547,11 +547,11 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						Name: &hdr1,
 					},
 					{
-					Match: &vpclattice.HeaderMatchType{
-						Exact: &hdr2Value},
-					Name: &hdr2,
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr2Value},
+						Name: &hdr2,
 					},
-					
+
 					{},
 					{},
 					{},
@@ -561,6 +561,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "2 header match , path exact",
 			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil: false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -610,8 +611,8 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				},
 			},
 			expectedRuleSpec: latticemodel.RuleSpec{
-				PathMatchExact: true,
-				PathMatchValue: path1,
+				PathMatchExact:     true,
+				PathMatchValue:     path1,
 				NumOfHeaderMatches: 2,
 				MatchedHeaders: [5]vpclattice.HeaderMatch{
 
@@ -621,11 +622,11 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						Name: &hdr1,
 					},
 					{
-					Match: &vpclattice.HeaderMatchType{
-						Exact: &hdr2Value},
-					Name: &hdr2,
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr2Value},
+						Name: &hdr2,
 					},
-					
+
 					{},
 					{},
 					{},
@@ -635,6 +636,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		{
 			name:           "2 header match , path prefix",
 			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil: false,
 			samerule:       true,
 
 			httpRoute: &gateway_api.HTTPRoute{
@@ -684,8 +686,8 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				},
 			},
 			expectedRuleSpec: latticemodel.RuleSpec{
-				PathMatchPrefix: true,
-				PathMatchValue: path1,
+				PathMatchPrefix:    true,
+				PathMatchValue:     path1,
 				NumOfHeaderMatches: 2,
 				MatchedHeaders: [5]vpclattice.HeaderMatch{
 
@@ -695,11 +697,174 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						Name: &hdr1,
 					},
 					{
-					Match: &vpclattice.HeaderMatchType{
-						Exact: &hdr2Value},
-					Name: &hdr2,
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr2Value},
+						Name: &hdr2,
 					},
-					
+
+					{},
+					{},
+					{},
+				},
+			},
+		},
+		{
+			name:           "2 header match",
+			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil: false,
+			samerule:       true,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+									Headers: []gateway_api.HTTPHeaderMatch{
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Value: hdr1Value,
+										},
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Value: hdr2Value,
+										},
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				NumOfHeaderMatches: 2,
+				MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+					{
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr1Value},
+						Name: &hdr1,
+					},
+					{
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr2Value},
+						Name: &hdr2,
+					},
+
+					{},
+					{},
+					{},
+				},
+			},
+		},
+		{
+			name:           " negative 6 header match ",
+			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil: true,
+			samerule:       true,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchExactType,
+										Value: &path1,
+									},
+									Headers: []gateway_api.HTTPHeaderMatch{
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Value: hdr1Value,
+										},
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Value: hdr2Value,
+										},
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Value: hdr1Value,
+										},
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Value: hdr2Value,
+										},
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Value: hdr1Value,
+										},
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Value: hdr2Value,
+										},
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				PathMatchExact:     true,
+				PathMatchValue:     path1,
+				NumOfHeaderMatches: 2,
+				MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+					{
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr1Value},
+						Name: &hdr1,
+					},
+					{
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr2Value},
+						Name: &hdr2,
+					},
+
 					{},
 					{},
 					{},
@@ -743,6 +908,10 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 		err := task.buildRules(ctx)
 
+		if tt.wantErrIsNil {
+			assert.Error(t, err)
+			continue
+		}
 		assert.NoError(t, err)
 
 		var resRules []*latticemodel.Rule
@@ -778,7 +947,7 @@ func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) 
 	// debug fmt.Printf("rule2: %v \n", rule2)
 	// Path Exact Match
 	if rule1.PathMatchExact || rule2.PathMatchExact {
-		if rule1.PathMatchExact!=rule2.PathMatchExact {
+		if rule1.PathMatchExact != rule2.PathMatchExact {
 			return false
 		}
 
@@ -788,7 +957,7 @@ func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) 
 	}
 
 	// Path Prefix Match
-	if rule1.PathMatchPrefix || rule2.PathMatchPrefix{
+	if rule1.PathMatchPrefix || rule2.PathMatchPrefix {
 		if rule1.PathMatchPrefix != rule2.PathMatchPrefix {
 			return false
 		}
