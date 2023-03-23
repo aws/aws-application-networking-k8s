@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	//"github.com/aws/aws-sdk-go/aws"
 )
 
 type ruleSynthesizer struct {
@@ -98,83 +97,6 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 		if !sameRule {
 			continue
 		}
-		/* TODO -- delete
-		// Exact Path Match
-		if modelRule.Spec.PathMatchExact {
-			fmt.Println("liwwu>>> sdk, findMatchedRule PathMatchExact")
-
-			if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
-				sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
-				sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact == nil {
-				fmt.Printf("liwwu >> no sdk HTTP PathExact match")
-				continue
-			}
-
-			if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact) != modelRule.Spec.PathMatchValue {
-				fmt.Printf("liwwu>>> findMatchedRule, ignore exact path miss ")
-				continue
-			}
-
-		}
-
-		// Path Prefix
-		if modelRule.Spec.PathMatchPrefix {
-			fmt.Println("liwwu >>> sdk findMatchRule, PathMatchPrefix")
-
-			if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
-				sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
-				sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix == nil {
-				fmt.Println("liwwu >> no sdk HTTP PathPrefix")
-				continue
-			}
-
-			if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) != modelRule.Spec.PathMatchValue {
-				fmt.Printf("liwwu >>PathMatchPrefix ignore prefix path ")
-				continue
-			}
-		}
-
-		// Header Match
-
-		if modelRule.Spec.NumOfHeaderMatches > 0 {
-			fmt.Printf("liwwu >>> numofheader matches %v \n", modelRule.Spec.NumOfHeaderMatches)
-			if len(sdkRuleDetail.Match.HttpMatch.HeaderMatches) != modelRule.Spec.NumOfHeaderMatches {
-				fmt.Printf("liwwu>> header match number mismatch")
-				continue
-			}
-
-			misMatch := false
-
-			// compare 2 array
-			for _, sdkHeader := range sdkRuleDetail.Match.HttpMatch.HeaderMatches {
-				fmt.Printf("sdkHeader >> %v\n", sdkHeader)
-				matchFound := false
-				// check if this is in module
-				for i := 0; i < modelRule.Spec.NumOfHeaderMatches; i++ {
-					// compare header
-					if aws.StringValue(modelRule.Spec.MatchedHeaders[i].Name) ==
-						aws.StringValue(sdkHeader.Name) &&
-						aws.StringValue(modelRule.Spec.MatchedHeaders[i].Match.Exact) ==
-							aws.StringValue(sdkHeader.Match.Exact) {
-						matchFound = true
-						break
-					}
-
-				}
-
-				if !matchFound {
-					misMatch = true
-					fmt.Printf("liwwu >> header not found sdkHeader %v\n", *sdkHeader)
-					break
-				}
-			}
-
-			if misMatch {
-				fmt.Println("mismatch header")
-				continue
-			}
-		}
-		*/
 
 		glog.V(6).Infof("findMatchedRule: found matched modelRule %v \n", modelRule)
 		return modelRule, nil

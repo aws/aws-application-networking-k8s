@@ -192,8 +192,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 		latticeTG := vpclattice.WeightedTargetGroup{
 			TargetGroupIdentifier: aws.String(tg.ID),
-			// TODO weighted target
-			Weight: aws.Int64(tgRule.Weight),
+			Weight:                aws.Int64(tgRule.Weight),
 		}
 
 		latticeTGs = append(latticeTGs, &latticeTG)
@@ -542,61 +541,6 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 	}
 
 }
-
-/* TODO to-be-deleted later
-
-func isHeaderMatchSame(awsRuleMatch *vpclattice.RuleMatch, ruleSpec latticemodel.RuleSpec) bool {
-	fmt.Printf("isHeaderMatchSamce,  awsrule %v, k8s rule %v \n", awsRuleMatch, ruleSpec)
-	if awsRuleMatch == nil {
-		fmt.Printf("liwwu>>> no rule match \n")
-		return false
-	}
-	if awsRuleMatch.HttpMatch.HeaderMatches == nil {
-		fmt.Printf("liwwu >>> no header Match %v\n", *awsRuleMatch)
-		return false
-
-	}
-
-	if len(awsRuleMatch.HttpMatch.HeaderMatches) != ruleSpec.NumOfHeaderMatches {
-		fmt.Printf("liwwu >>> number of headers are different \n")
-		return false
-	}
-
-	for _, match := range awsRuleMatch.HttpMatch.HeaderMatches {
-		found := false
-		fmt.Printf("liwwu>>> awsmatch :%v\n", match)
-		for _, matchSpec := range ruleSpec.MatchedHeaders {
-			fmt.Printf("liwwu >> k8s match %v \n", matchSpec)
-
-			if match.Match.Exact != nil &&
-				matchSpec.Match != nil &&
-				matchSpec.Match.Exact != nil &&
-				aws.StringValue(match.Match.Exact) == aws.StringValue(matchSpec.Match.Exact) &&
-				aws.StringValue(match.Name) == aws.StringValue(matchSpec.Name) {
-				fmt.Printf("liwwu >>> found matching rule")
-				found = true
-				break
-			}
-
-			if match.Match.Prefix != nil &&
-				matchSpec.Match.Prefix != nil &&
-				aws.StringValue(match.Match.Prefix) == aws.StringValue(matchSpec.Match.Prefix) &&
-				aws.StringValue(match.Name) == aws.StringValue(matchSpec.Name) {
-				fmt.Printf("liwwu >>> found matching rule")
-				found = true
-				break
-			}
-
-		}
-		if !found {
-			return false
-		}
-
-	}
-
-	return true
-}
-*/
 
 func ruleID2Priority(ruleID string) (int64, error) {
 
