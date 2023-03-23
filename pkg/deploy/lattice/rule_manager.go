@@ -412,11 +412,11 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 	var resp *vpclattice.ListRulesOutput
 	resp, err := r.cloud.Lattice().ListRules(&ruleListInput)
 
-	glog.V(2).Infoln("############list rules req############")
-	glog.V(2).Infof("rule: %v , serviceID: %v, listenerID %v \n", rule, serviceID, listenerID)
+	glog.V(6).Infoln("############list rules req############")
+	glog.V(6).Infof("rule: %v , serviceID: %v, listenerID %v \n", rule, serviceID, listenerID)
 
-	glog.V(2).Infoln("############list rules resp############")
-	glog.V(2).Infof("resp: %v, err: %v\n", resp, err)
+	glog.V(6).Infoln("############list rules resp############")
+	glog.V(6).Infof("resp: %v, err: %v\n", resp, err)
 
 	if err != nil {
 		return latticemodel.RuleStatus{}, err
