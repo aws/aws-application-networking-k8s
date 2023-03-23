@@ -312,11 +312,12 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	var path2 = string("/ver2")
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var k8sPathMatchPrefixType = gateway_api.PathMatchPathPrefix
-	
+
 	var k8sHeaderExactType = gateway_api.HeaderMatchExact
 	var hdr1 = "env1"
 	var hdr1Value = "test1"
-	
+	var hdr2 = "env2"
+	var hdr2Value = "test2"
 
 	var backendRef1 = gateway_api.BackendRef{
 		BackendObjectReference: gateway_api.BackendObjectReference{
@@ -465,7 +466,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				PathMatchValue:  path1,
 			},
 		},
-		
+
 		{
 			name:           "PathMatchPrefix Mismatch",
 			gwListenerPort: *PortNumberPtr(80),
@@ -510,8 +511,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				PathMatchValue:  path2,
 			},
 		},
-		
-		
+
 		{
 			name:           "1 header match",
 			gwListenerPort: *PortNumberPtr(80),
@@ -575,7 +575,177 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:           "1 header match, mismatch header",
+			gwListenerPort: *PortNumberPtr(80),
+			samerule:       false,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchPrefixType,
+										Value: &path1,
+									},
+									Headers: []gateway_api.HTTPHeaderMatch{
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Value: hdr1Value,
+										},
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				NumOfHeaderMatches: 1,
+				MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+					{
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr1Value},
+						Name: &hdr2,
+					},
+
+					{},
+					{},
+					{},
+					{},
+				},
+			},
+		},
+		{
+			name:           "1 header match, mismatch value",
+			gwListenerPort: *PortNumberPtr(80),
+			samerule:       false,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchPrefixType,
+										Value: &path1,
+									},
+									Headers: []gateway_api.HTTPHeaderMatch{
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Value: hdr1Value,
+										},
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+				{
+					name:           "1 K8S header match, 2 expected header",
+					gwListenerPort: *PortNumberPtr(80),
+					samerule:       false,
 		
+					httpRoute: &gateway_api.HTTPRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "service1",
+							Namespace: "default",
+						},
+						Spec: gateway_api.HTTPRouteSpec{
+							CommonRouteSpec: gateway_api.CommonRouteSpec{
+								ParentRefs: []gateway_api.ParentReference{
+									{
+										Name:        "mesh1",
+										SectionName: &httpSectionName,
+									},
+								},
+							},
+							Rules: []gateway_api.HTTPRouteRule{
+								{
+									Matches: []gateway_api.HTTPRouteMatch{
+										{
+		
+											Path: &gateway_api.HTTPPathMatch{
+												Type:  &k8sPathMatchPrefixType,
+												Value: &path1,
+											},
+											Headers: []gateway_api.HTTPHeaderMatch{
+												{
+													Type:  &k8sHeaderExactType,
+													Name:  gateway_api.HTTPHeaderName(hdr1),
+													Value: hdr1Value,
+												},
+											},
+										},
+									},
+									BackendRefs: []gateway_api.HTTPBackendRef{
+										{
+											BackendRef: backendRef1,
+										},
+									},
+								},
+							},
+						},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				NumOfHeaderMatches: 1,
+				MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+					{
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr2Value},
+						Name: &hdr1,
+					},
+
+					{},
+					{},
+					{},
+					{},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
