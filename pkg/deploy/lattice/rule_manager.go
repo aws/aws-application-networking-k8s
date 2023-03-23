@@ -312,7 +312,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 }
 
-func IsRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRuleOutput) bool {
+func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRuleOutput) bool {
 	// Exact Path Match
 	if modelRule.Spec.PathMatchExact {
 		fmt.Println("liwwu>>> sdk, findMatchedRule PathMatchExact")
@@ -448,7 +448,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 
 		priorityMap[aws.Int64Value(ruleResp.Priority)] = true
 
-		samerule := IsRulesSame(rule, ruleResp)
+		samerule := isRulesSame(rule, ruleResp)
 
 		if !samerule {
 			continue
@@ -457,14 +457,14 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 		matchRule = ruleResp
 
 		if len(ruleResp.Action.Forward.TargetGroups) != len(rule.Spec.Action.TargetGroups) {
-			glog.V(6).Infof("findMatchingRule, mismatch TGs lattice %v, k8s %v\n",
+			glog.V(6).Infof("Mismatched TGs lattice %v, k8s %v\n",
 				ruleResp.Action.Forward.TargetGroups, rule.Spec.Action.TargetGroups)
 			updateTGsNeeded = true
 			continue
 		}
 
 		if len(ruleResp.Action.Forward.TargetGroups) == 0 {
-			glog.V(6).Infof("findMatchingRule, 0 targetGroups \n")
+			glog.V(6).Infof("0 targetGroups \n")
 			continue
 		}
 
@@ -476,13 +476,13 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 				k8sTGinStore, err := r.latticeDataStore.GetTargetGroup(tgName, k8sTG.IsServiceImport)
 
 				if err != nil {
-					glog.V(6).Infof("findMatchingRule, failed to find tg %v in store \n", k8sTG)
+					glog.V(6).Infof("Failed to find k8s tg %v in store \n", k8sTG)
 					updateTGsNeeded = true
 					continue
 				}
 
 				if aws.StringValue(tg.TargetGroupIdentifier) != k8sTGinStore.ID {
-					glog.V(6).Infof("findMatchingRule, failed to TGID mismatch lattice %v, k8s %v\n",
+					glog.V(6).Infof("TGID mismatch lattice %v, k8s %v\n",
 						aws.StringValue(tg.TargetGroupIdentifier), k8sTGinStore.ID)
 					updateTGsNeeded = true
 					continue
@@ -490,7 +490,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 				}
 
 				if k8sTG.Weight != aws.Int64Value(tg.Weight) {
-					glog.V(6).Infof("findMatchRule, weight has changed for tg %v old %v new %v\n",
+					glog.V(6).Infof("Weight has changed for tg %v old %v new %v\n",
 						tg, aws.Int64Value(tg.Weight), k8sTG.Weight)
 					updateTGsNeeded = true
 					continue
@@ -501,7 +501,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 			}
 
 			if updateTGsNeeded {
-				glog.V(6).Infof("findMatchingRule: can not find matching TG tg %v in matching K8S tg\n", tg)
+				glog.V(6).Infof("update TGs Needed for tg %v \n", tg)
 				break
 
 			}
@@ -540,6 +540,8 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 	}
 
 }
+
+/* TODO to-be-deleted later
 
 func isHeaderMatchSame(awsRuleMatch *vpclattice.RuleMatch, ruleSpec latticemodel.RuleSpec) bool {
 	fmt.Printf("isHeaderMatchSamce,  awsrule %v, k8s rule %v \n", awsRuleMatch, ruleSpec)
@@ -592,6 +594,7 @@ func isHeaderMatchSame(awsRuleMatch *vpclattice.RuleMatch, ruleSpec latticemodel
 
 	return true
 }
+*/
 
 func ruleID2Priority(ruleID string) (int64, error) {
 
