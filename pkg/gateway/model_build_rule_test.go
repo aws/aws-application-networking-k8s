@@ -871,6 +871,58 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:           "Negative, multiple methods",
+			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil: true,
+			samerule:       true,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchExactType,
+										Value: &path1,
+									},
+								},
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchExactType,
+										Value: &path1,
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				PathMatchExact: true,
+				PathMatchValue: path1,
+			},
+		},
 	}
 
 	for _, tt := range tests {
