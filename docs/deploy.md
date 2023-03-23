@@ -17,6 +17,7 @@ Run through them again for a second cluster to use with the extended example sho
    MANAGED_PREFIX=$(aws ec2 get-managed-prefix-list-entries --region $AWS_REGION --prefix-list-id pl-0721453c7ac4ec009  | jq -r '.Entries[0].Cidr')
    CLUSTER_SG=$(aws eks describe-cluster --name $CLUSTER_NAME | jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
    aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --cidr $MANAGED_PREFIX --protocol -1
+   ```
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
    eksctl utils associate-iam-oidc-provider --cluster $CLUSTER_NAME --approve --region $AWS_REGION
