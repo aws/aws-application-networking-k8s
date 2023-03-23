@@ -316,8 +316,8 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	var k8sHeaderExactType = gateway_api.HeaderMatchExact
 	var hdr1 = "env1"
 	var hdr1Value = "test1"
-	//var hdr2 = "env2"
-	//var hdr2Value = "test2"
+	var hdr2 = "env2"
+	var hdr2Value = "test2"
 
 	var backendRef1 = gateway_api.BackendRef{
 		BackendObjectReference: gateway_api.BackendObjectReference{
@@ -486,6 +486,78 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:           "2 header match",
+			gwListenerPort: *PortNumberPtr(80),
+			samerule:       true,
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+
+									Path: &gateway_api.HTTPPathMatch{
+										Type:  &k8sPathMatchPrefixType,
+										Value: &path1,
+									},
+									Headers: []gateway_api.HTTPHeaderMatch{
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Value: hdr1Value,
+										},
+										{
+											Type:  &k8sHeaderExactType,
+											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Value: hdr2Value,
+										},
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRuleSpec: latticemodel.RuleSpec{
+				NumOfHeaderMatches: 2,
+				MatchedHeaders: [5]vpclattice.HeaderMatch{
+
+					{
+						Match: &vpclattice.HeaderMatchType{
+							Exact: &hdr1Value},
+						Name: &hdr1,
+					},
+					{
+					Match: &vpclattice.HeaderMatchType{
+						Exact: &hdr2Value},
+					Name: &hdr2,
+					},
+					
+					{},
+					{},
+					{},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -529,7 +601,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		stack.ListResources(&resRules)
 
 		if len(resRules) > 0 {
-			fmt.Printf("resRules :%v \n", *resRules[0])
+			// for debug fmt.Printf("resRules :%v \n", *resRules[0])
 		}
 
 		// we are unit- testing various combination of one rule for now
@@ -554,8 +626,8 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) bool {
 
-	fmt.Printf("rule1 :%v \n", rule1)
-	fmt.Printf("rule2: %v \n", rule2)
+	// debug fmt.Printf("rule1 :%v \n", rule1)
+	// debug fmt.Printf("rule2: %v \n", rule2)
 	// Path Exact Match
 	if rule1.PathMatchExact {
 		if !rule2.PathMatchExact {
@@ -579,7 +651,6 @@ func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) 
 
 	// Header Match
 	if rule1.NumOfHeaderMatches != rule2.NumOfHeaderMatches {
-		fmt.Printf("len mismatch \n")
 		return false
 	}
 
@@ -591,9 +662,9 @@ func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) 
 		found := false
 		for j := 0; j < rule2.NumOfHeaderMatches; j++ {
 
-			fmt.Printf("rule1 match :%v\n", rule1Hdr)
+			// fmt.Printf("rule1 match :%v\n", rule1Hdr)
 			rule2Hdr := rule2.MatchedHeaders[j]
-			fmt.Printf("rule2 match: %v\n", rule2Hdr)
+			// fmt.Printf("rule2 match: %v\n", rule2Hdr)
 
 			if *rule1Hdr.Match.Exact == *rule2Hdr.Match.Exact &&
 				*rule1Hdr.Name == *rule2Hdr.Name {
