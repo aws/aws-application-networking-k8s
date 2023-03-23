@@ -952,11 +952,20 @@ func Test_isRulesSame(t *testing.T) {
 					},
 				},
 			},
+			ruleMatched: true,
 		},
 	}
 
 	for _, tt := range tests {
 		fmt.Printf("Testing >>>>> %v \n", tt.name)
+
+		sameRule := isRulesSame(tt.k8sRule, tt.sdkRule)
+
+		if tt.ruleMatched {
+			assert.True(t, sameRule)
+		} else {
+			assert.False(t, sameRule)
+		}
 
 	}
 
