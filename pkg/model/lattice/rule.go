@@ -36,11 +36,6 @@ type RuleSpec struct {
 	NumOfHeaderMatches int `json:"numofheadermatches"`
 	MatchedHeaders     [MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch
 
-	// TODO delete RuleType and RuleValue
-	/*
-		RuleType   string     `json:"ruletype"`
-		RuleValue  string     `json:"value"`
-	*/
 	RuleID     string     `json:"id"`
 	Action     RuleAction `json:"action"`
 	CreateTime time.Time  `json:"time"`
