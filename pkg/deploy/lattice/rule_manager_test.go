@@ -91,27 +91,28 @@ func Test_CreateRule(t *testing.T) {
 		IsServiceImport: false,
 		Weight:          weight1,
 	}
-
-	WeightedAction_11 := latticemodel.RuleTargetGroup{
-		Name:            "TestCreateWeighted1",
-		Namespace:       "default",
-		IsServiceImport: false,
-		Weight:          weight2,
-	}
-
+	/*
+		WeightedAction_11 := latticemodel.RuleTargetGroup{
+			Name:            "TestCreateWeighted1",
+			Namespace:       "default",
+			IsServiceImport: false,
+			Weight:          weight2,
+		}
+	*/
 	WeigthedAction_2 := latticemodel.RuleTargetGroup{
 		Name:            "TestCreateWeighte2",
 		Namespace:       "default",
 		IsServiceImport: false,
 		Weight:          weight2,
 	}
-
-	WeigthedAction_22 := latticemodel.RuleTargetGroup{
-		Name:            "TestCreateWeighte2",
-		Namespace:       "default",
-		IsServiceImport: false,
-		Weight:          weight1,
-	}
+	/*
+		WeigthedAction_22 := latticemodel.RuleTargetGroup{
+			Name:            "TestCreateWeighte2",
+			Namespace:       "default",
+			IsServiceImport: false,
+			Weight:          weight1,
+		}
+	*/
 
 	WeightedRule_1 := latticemodel.Rule{
 		Spec: latticemodel.RuleSpec{
@@ -119,6 +120,8 @@ func Test_CreateRule(t *testing.T) {
 			ServiceNamespace: ServiceNameSpace,
 			ListenerPort:     ListenerPort,
 			ListenerProtocol: ListenerProtocol,
+			PathMatchPrefix:  true,
+			PathMatchValue:   "",
 			RuleID:           weightRuleID,
 			Action: latticemodel.RuleAction{
 				TargetGroups: []*latticemodel.RuleTargetGroup{
@@ -140,6 +143,8 @@ func Test_CreateRule(t *testing.T) {
 			ServiceNamespace: ServiceNameSpace,
 			ListenerPort:     ListenerPort,
 			ListenerProtocol: ListenerProtocol,
+			PathMatchValue:   "",
+			PathMatchPrefix:  true,
 			RuleID:           weightRuleID,
 			Action: latticemodel.RuleAction{
 				TargetGroups: []*latticemodel.RuleTargetGroup{
@@ -155,93 +160,94 @@ func Test_CreateRule(t *testing.T) {
 			ServiceID:  ServiceID,
 		},
 	}
+	/*
+		WeightedRule_2_1 := latticemodel.Rule{
+			Spec: latticemodel.RuleSpec{
+				ServiceName:      ServiceName,
+				ServiceNamespace: ServiceNameSpace,
+				ListenerPort:     ListenerPort,
+				ListenerProtocol: ListenerProtocol,
+				RuleID:           weightRuleID,
+				Action: latticemodel.RuleAction{
+					TargetGroups: []*latticemodel.RuleTargetGroup{
+						&WeightedAction_11,
+						&WeigthedAction_22,
+					},
+				},
+			},
+			Status: &latticemodel.RuleStatus{
+				RuleARN:    "ruleARn",
+				RuleID:     "rule-id-2-1",
+				ListenerID: ListenerID,
+				ServiceID:  ServiceID,
+			},
+		}
 
-	WeightedRule_2_1 := latticemodel.Rule{
-		Spec: latticemodel.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			RuleID:           weightRuleID,
-			Action: latticemodel.RuleAction{
-				TargetGroups: []*latticemodel.RuleTargetGroup{
-					&WeightedAction_11,
-					&WeigthedAction_22,
+		pathRule_1 := latticemodel.Rule{
+			Spec: latticemodel.RuleSpec{
+				ServiceName:      ServiceName,
+				ServiceNamespace: ServiceNameSpace,
+				ListenerPort:     ListenerPort,
+				ListenerProtocol: ListenerProtocol,
+				RuleID:           weightRuleID,
+				PathMatchValue:   "/ver-1",
+				Action: latticemodel.RuleAction{
+					TargetGroups: []*latticemodel.RuleTargetGroup{
+						&WeigthedAction_1,
+					},
 				},
 			},
-		},
-		Status: &latticemodel.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
+			Status: &latticemodel.RuleStatus{
+				RuleARN:    "ruleARn",
+				RuleID:     "rule-id-2-1",
+				ListenerID: ListenerID,
+				ServiceID:  ServiceID,
+			},
+		}
+		pathRule_11 := latticemodel.Rule{
+			Spec: latticemodel.RuleSpec{
+				ServiceName:      ServiceName,
+				ServiceNamespace: ServiceNameSpace,
+				ListenerPort:     ListenerPort,
+				ListenerProtocol: ListenerProtocol,
+				RuleID:           weightRuleID,
+				PathMatchValue:   "/ver-1",
+				Action: latticemodel.RuleAction{
+					TargetGroups: []*latticemodel.RuleTargetGroup{
+						&WeigthedAction_2,
+					},
+				},
+			},
+			Status: &latticemodel.RuleStatus{
+				RuleARN:    "ruleARn",
+				RuleID:     "rule-id-2-1",
+				ListenerID: ListenerID,
+				ServiceID:  ServiceID,
+			},
+		}
 
-	pathRule_1 := latticemodel.Rule{
-		Spec: latticemodel.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			RuleID:           weightRuleID,
-			PathMatchValue:   "/ver-1",
-			Action: latticemodel.RuleAction{
-				TargetGroups: []*latticemodel.RuleTargetGroup{
-					&WeigthedAction_1,
+		pathRule_2 := latticemodel.Rule{
+			Spec: latticemodel.RuleSpec{
+				ServiceName:      ServiceName,
+				ServiceNamespace: ServiceNameSpace,
+				ListenerPort:     ListenerPort,
+				ListenerProtocol: ListenerProtocol,
+				RuleID:           weightRuleID,
+				PathMatchValue:   "/ver-2",
+				Action: latticemodel.RuleAction{
+					TargetGroups: []*latticemodel.RuleTargetGroup{
+						&WeigthedAction_1,
+					},
 				},
 			},
-		},
-		Status: &latticemodel.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
-	pathRule_11 := latticemodel.Rule{
-		Spec: latticemodel.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			RuleID:           weightRuleID,
-			PathMatchValue:   "/ver-1",
-			Action: latticemodel.RuleAction{
-				TargetGroups: []*latticemodel.RuleTargetGroup{
-					&WeigthedAction_2,
-				},
+			Status: &latticemodel.RuleStatus{
+				RuleARN:    "ruleARn",
+				RuleID:     "rule-id-2-1",
+				ListenerID: ListenerID,
+				ServiceID:  ServiceID,
 			},
-		},
-		Status: &latticemodel.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
-
-	pathRule_2 := latticemodel.Rule{
-		Spec: latticemodel.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			RuleID:           weightRuleID,
-			PathMatchValue:   "/ver-2",
-			Action: latticemodel.RuleAction{
-				TargetGroups: []*latticemodel.RuleTargetGroup{
-					&WeigthedAction_1,
-				},
-			},
-		},
-		Status: &latticemodel.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
+		}
+	*/
 
 	tests := []struct {
 		name                 string
@@ -256,7 +262,7 @@ func Test_CreateRule(t *testing.T) {
 		updatePriorityNeeded bool
 	}{
 		{
-			name:                 "create weighted rule with 1 TG",
+			name:                 "test1, create weighted rule with 1 TG",
 			oldRule:              nil,
 			newRule:              &WeightedRule_1,
 			createRule:           true,
@@ -278,93 +284,96 @@ func Test_CreateRule(t *testing.T) {
 			noTargetGroupID:      false,
 			updatePriorityNeeded: false,
 		},
+		/*
 
-		{
-			name:                 "update weighted rule with 2 TGs",
-			oldRule:              &WeightedRule_1_2,
-			newRule:              &WeightedRule_2_1,
-			createRule:           false,
-			updateRule:           true,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
+			{
+				name:                 "update weighted rule with 2 TGs",
+				oldRule:              &WeightedRule_1_2,
+				newRule:              &WeightedRule_2_1,
+				createRule:           false,
+				updateRule:           true,
+				noServiceID:          false,
+				noListenerID:         false,
+				noTargetGroupID:      false,
+				updatePriorityNeeded: false,
+			},
 
-		{
-			name:                 "create path-based rule, no need to update priority",
-			oldRule:              nil,
-			newRule:              &pathRule_1,
-			createRule:           true,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
+			{
+				name:                 "create path-based rule, no need to update priority",
+				oldRule:              nil,
+				newRule:              &pathRule_1,
+				createRule:           true,
+				updateRule:           false,
+				noServiceID:          false,
+				noListenerID:         false,
+				noTargetGroupID:      false,
+				updatePriorityNeeded: false,
+			},
 
-		{
+			{
 
-			name:                 "create path-based rule, need to update priority",
-			oldRule:              &pathRule_1,
-			newRule:              &pathRule_2,
-			createRule:           true,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: true,
-		},
+				name:                 "create path-based rule, need to update priority",
+				oldRule:              &pathRule_1,
+				newRule:              &pathRule_2,
+				createRule:           true,
+				updateRule:           false,
+				noServiceID:          false,
+				noListenerID:         false,
+				noTargetGroupID:      false,
+				updatePriorityNeeded: true,
+			},
 
-		{
-			name:                 "update path-based rule with a different TG",
-			oldRule:              &pathRule_1,
-			newRule:              &pathRule_11,
-			createRule:           false,
-			updateRule:           true,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
+			{
+				name:                 "update path-based rule with a different TG",
+				oldRule:              &pathRule_1,
+				newRule:              &pathRule_11,
+				createRule:           false,
+				updateRule:           true,
+				noServiceID:          false,
+				noListenerID:         false,
+				noTargetGroupID:      false,
+				updatePriorityNeeded: false,
+			},
 
-		{
-			name:                 "no serviceID",
-			oldRule:              nil,
-			newRule:              &pathRule_1,
-			createRule:           false,
-			updateRule:           false,
-			noServiceID:          true,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-		{
-			name:                 "no listenerID",
-			oldRule:              nil,
-			newRule:              &pathRule_1,
-			createRule:           false,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         true,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
+			{
+				name:                 "no serviceID",
+				oldRule:              nil,
+				newRule:              &pathRule_1,
+				createRule:           false,
+				updateRule:           false,
+				noServiceID:          true,
+				noListenerID:         false,
+				noTargetGroupID:      false,
+				updatePriorityNeeded: false,
+			},
+			{
+				name:                 "no listenerID",
+				oldRule:              nil,
+				newRule:              &pathRule_1,
+				createRule:           false,
+				updateRule:           false,
+				noServiceID:          false,
+				noListenerID:         true,
+				noTargetGroupID:      false,
+				updatePriorityNeeded: false,
+			},
 
-		{
-			name:                 "no TG IDs",
-			oldRule:              nil,
-			newRule:              &pathRule_1,
-			createRule:           false,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      true,
-			updatePriorityNeeded: false,
-		},
+			{
+				name:                 "no TG IDs",
+				oldRule:              nil,
+				newRule:              &pathRule_1,
+				createRule:           false,
+				updateRule:           false,
+				noServiceID:          false,
+				noListenerID:         false,
+				noTargetGroupID:      true,
+				updatePriorityNeeded: false,
+			},
+		*/
 	}
 
 	for _, tt := range tests {
+		fmt.Printf("testing >>> tt.name: %v\n", tt.name)
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()

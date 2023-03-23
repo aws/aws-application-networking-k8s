@@ -96,7 +96,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Service %v not found during rule creation", rules[0].Spec)
-		glog.V(6).Infof("Error during update rule %s \n", errmsg)
+		glog.V(2).Infof("Error during update rule %s \n", errmsg)
 		return errors.New(errmsg)
 	}
 
@@ -105,7 +105,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Listener %v not found during rule creation", rules[0].Spec)
-		glog.V(6).Infof("Error during update rule %s \n", errmsg)
+		glog.V(2).Infof("Error during update rule %s \n", errmsg)
 		return errors.New(errmsg)
 	}
 
@@ -143,7 +143,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Service %v not found during rule creation", rule.Spec)
-		glog.V(6).Infof("Error during create rule %s \n", errmsg)
+		glog.V(2).Infof("Error during create rule %s \n", errmsg)
 		return latticemodel.RuleStatus{}, errors.New(errmsg)
 	}
 
@@ -152,7 +152,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Listener %v not found during rule creation", rule.Spec)
-		glog.V(6).Infof("Error during create rule %s \n", errmsg)
+		glog.V(2).Infof("Error during create rule %s \n", errmsg)
 		return latticemodel.RuleStatus{}, errors.New(errmsg)
 	}
 
@@ -160,7 +160,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 	glog.V(6).Infof("Convert rule id %s to priority %d error: %v \n", rule.Spec.RuleID, priority, err)
 
 	if err != nil {
-		glog.V(6).Infof("Error create rule, failed to convert RuleID %v to priority err :%v\n", rule.Spec.RuleID, err)
+		glog.V(2).Infof("Error create rule, failed to convert RuleID %v to priority err :%v\n", rule.Spec.RuleID, err)
 		return latticemodel.RuleStatus{}, errors.New("failed to create rule, due to invalid ruleID")
 	}
 
@@ -186,7 +186,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 		tg, err := r.latticeDataStore.GetTargetGroup(tgName, tgRule.IsServiceImport)
 
 		if err != nil {
-			glog.V(6).Infof("Faild to create rule due to unknown tg %v, err %v\n", tgName, err)
+			glog.V(2).Infof("Faild to create rule due to unknown tg %v, err %v\n", tgName, err)
 			return latticemodel.RuleStatus{}, err
 		}
 
@@ -312,6 +312,86 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 }
 
+func IsRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRuleOutput) bool {
+	// Exact Path Match
+	if modelRule.Spec.PathMatchExact {
+		fmt.Println("liwwu>>> sdk, findMatchedRule PathMatchExact")
+
+		if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
+			sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
+			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact == nil {
+			fmt.Printf("liwwu >> no sdk HTTP PathExact match")
+			return false
+		}
+
+		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact) != modelRule.Spec.PathMatchValue {
+			fmt.Printf("liwwu>>> findMatchedRule, ignore exact path miss ")
+			return false
+		}
+
+	}
+
+	// Path Prefix
+	if modelRule.Spec.PathMatchPrefix {
+		fmt.Println("liwwu >>> sdk findMatchRule, PathMatchPrefix")
+
+		if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
+			sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
+			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix == nil {
+			fmt.Println("liwwu >> no sdk HTTP PathPrefix")
+			return false
+		}
+
+		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) != modelRule.Spec.PathMatchValue {
+			fmt.Printf("liwwu >>PathMatchPrefix ignore prefix path ")
+			return false
+		}
+	}
+
+	// Header Match
+
+	if modelRule.Spec.NumOfHeaderMatches > 0 {
+		fmt.Printf("liwwu >>> numofheader matches %v \n", modelRule.Spec.NumOfHeaderMatches)
+		if len(sdkRuleDetail.Match.HttpMatch.HeaderMatches) != modelRule.Spec.NumOfHeaderMatches {
+			fmt.Printf("liwwu>> header match number mismatch")
+			return false
+		}
+
+		misMatch := false
+
+		// compare 2 array
+		for _, sdkHeader := range sdkRuleDetail.Match.HttpMatch.HeaderMatches {
+			fmt.Printf("sdkHeader >> %v\n", sdkHeader)
+			matchFound := false
+			// check if this is in module
+			for i := 0; i < modelRule.Spec.NumOfHeaderMatches; i++ {
+				// compare header
+				if aws.StringValue(modelRule.Spec.MatchedHeaders[i].Name) ==
+					aws.StringValue(sdkHeader.Name) &&
+					aws.StringValue(modelRule.Spec.MatchedHeaders[i].Match.Exact) ==
+						aws.StringValue(sdkHeader.Match.Exact) {
+					matchFound = true
+					break
+				}
+
+			}
+
+			if !matchFound {
+				misMatch = true
+				fmt.Printf("liwwu >> header not found sdkHeader %v\n", *sdkHeader)
+				break
+			}
+		}
+
+		if misMatch {
+			fmt.Println("mismatch header")
+			return false
+		}
+	}
+
+	return true
+}
+
 func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *latticemodel.Rule,
 	serviceID string, listenerID string) (latticemodel.RuleStatus, error) {
 
@@ -368,30 +448,10 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 
 		priorityMap[aws.Int64Value(ruleResp.Priority)] = true
 
-		// path based PREFIX match comparasion
+		samerule := IsRulesSame(rule, ruleResp)
 
-		if ruleResp.Match != nil && ruleResp.Match.HttpMatch.PathMatch != nil &&
-			rule.Spec.PathMatchPrefix &&
-			aws.StringValue(ruleResp.Match.HttpMatch.PathMatch.Match.Prefix) != rule.Spec.PathMatchValue {
-			glog.V(2).Infof("findMatchingRule, rule prefix %v does not match rule value %v\n",
-				aws.StringValue(ruleResp.Match.HttpMatch.PathMatch.Match.Prefix), rule.Spec.PathMatchValue)
+		if !samerule {
 			continue
-		}
-
-		// path based EXACT match comparasion
-
-		if ruleResp.Match != nil && ruleResp.Match.HttpMatch.PathMatch != nil &&
-			rule.Spec.PathMatchExact &&
-			aws.StringValue(ruleResp.Match.HttpMatch.PathMatch.Match.Exact) != rule.Spec.PathMatchValue {
-			glog.V(2).Infof("findMatchingRule, rule prefix %v does not match rule value %v\n",
-				aws.StringValue(ruleResp.Match.HttpMatch.PathMatch.Match.Prefix), rule.Spec.PathMatchValue)
-			continue
-		}
-
-		// header based comparasion
-		if !isHeaderMatchSame(ruleResp.Match, rule.Spec) {
-			continue
-
 		}
 
 		matchRule = ruleResp
