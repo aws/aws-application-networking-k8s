@@ -28,6 +28,7 @@ spec:
 
 ## Notes
 
-* You MUST have a registered domain name (e.g. `my-test.com`) in route53 and complete the `Prerequisites` mentioned in [TODO - public BYOC doc](http://dev-dsk-tnmat-1d-8836d755.us-east-1.amazon.com/mercury/build/AWSMercuryDocs/AWSMercuryDocs-3.0/AL2_x86_64/DEV.STD.PTHREAD/build/server-root/vpc-lattice/latest/ug/service-custom-domain-name.html#dns-associate-custom)
+* You MUST have a registered domain name (e.g. `my-test.com`) in route53 and complete the `Prerequisites` mentioned in [Configure a custom domain name for your service](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-custom-domain-name.html#dns-associate-custom).
 
-* In addition, you NEED to manually associate your custom domain name with your service following [TODO - public BYOC doc](http://dev-dsk-tnmat-1d-8836d755.us-east-1.amazon.com/mercury/build/AWSMercuryDocs/AWSMercuryDocs-3.0/AL2_x86_64/DEV.STD.PTHREAD/build/server-root/vpc-lattice/latest/ug/service-custom-domain-name.html#dns-associate-custom).  We do have [github issue](https://github.co
+* In addition, you NEED to manually associate your custom domain name with your service following [Configure a custom domain name for your service](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-custom-domain-name.html#dns-associate-custom).
+
