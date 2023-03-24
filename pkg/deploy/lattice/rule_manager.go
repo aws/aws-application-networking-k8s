@@ -293,17 +293,16 @@ func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *latticemodel.Rule
 		httpMatch.PathMatch = &vpclattice.PathMatch{
 			Match: &matchType,
 		}
+	}
 
-		if rule.Spec.NumOfHeaderMatches > 0 {
+	if rule.Spec.NumOfHeaderMatches > 0 {
 
-			for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
-				headerMatch := vpclattice.HeaderMatch{
-					Match: rule.Spec.MatchedHeaders[i].Match,
-					Name:  rule.Spec.MatchedHeaders[i].Name,
-				}
-				httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
-
+		for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
+			headerMatch := vpclattice.HeaderMatch{
+				Match: rule.Spec.MatchedHeaders[i].Match,
+				Name:  rule.Spec.MatchedHeaders[i].Name,
 			}
+			httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
 
 		}
 
