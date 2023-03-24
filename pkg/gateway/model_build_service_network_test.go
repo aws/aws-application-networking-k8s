@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,7 @@ func Test_MeshModelBuild(t *testing.T) {
 			wantErr:        nil,
 			wantName:       "mesh1",
 			wantIsDeleted:  false,
-			associateToVPC: false,
+			associateToVPC: true,
 		},
 		{
 			name: "Adding Mesh, and need VPC association",
@@ -67,13 +68,15 @@ func Test_MeshModelBuild(t *testing.T) {
 					DeletionTimestamp: &now,
 				},
 			},
-			wantErr:       nil,
-			wantName:      "mesh1",
-			wantIsDeleted: true,
+			wantErr:        nil,
+			wantName:       "mesh1",
+			wantIsDeleted:  true,
+			associateToVPC: true,
 		},
 	}
 
 	for _, tt := range tests {
+		fmt.Printf("Testing >>> %v\n", tt.name)
 		t.Run(tt.name, func(t *testing.T) {
 			builder := NewServiceNetworkModelBuilder()
 

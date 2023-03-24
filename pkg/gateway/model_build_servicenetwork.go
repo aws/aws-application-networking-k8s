@@ -67,10 +67,14 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 		AssociateToVPC: false,
 	}
 
+	// by default it is true
+	spec.AssociateToVPC = true
 	if len(t.gateway.ObjectMeta.Annotations) > 0 {
 		if value, exist := t.gateway.Annotations[LatticeVPCAssociationAnnotation]; exist {
 			if value == "true" {
 				spec.AssociateToVPC = true
+			} else {
+				spec.AssociateToVPC = false
 			}
 
 		}
