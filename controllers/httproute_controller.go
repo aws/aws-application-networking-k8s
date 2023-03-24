@@ -288,7 +288,6 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 		httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime = eventhandlers.ZeroTransitionTime
 	}
 
-	fmt.Printf("liwwu >>>>httproute :%v \n", httproute)
 	httproute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
 	httproute.Status.RouteStatus.Parents[0].Conditions[0].Type = "httproute"

@@ -303,7 +303,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 	for _, sdkTG := range staleSDKTGs {
 
 		err := t.targetGroupManager.Delete(ctx, &sdkTG)
-		glog.V(6).Infof("SynthesizeSDKTargetGroups, deleting stale target group %v \n", err)
+		glog.V(2).Infof("SynthesizeSDKTargetGroups, deleting stale target group %v \n", err)
 
 		if err != nil && !strings.Contains(err.Error(), "TargetGroup is referenced in routing configuration, listeners or rules of service.") {
 			ret_err = true

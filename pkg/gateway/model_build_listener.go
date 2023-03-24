@@ -40,7 +40,7 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 	}
 
 	if err := t.Client.Get(ctx, gwName, gw); err != nil {
-		glog.V(6).Infof("Failed to build Listener due to unknow http parent ref , Name %v, err %v \n", gwName, err)
+		glog.V(2).Infof("Failed to build Listener due to unknow http parent ref , Name %v, err %v \n", gwName, err)
 		return 0, "", "", err
 	}
 
@@ -74,7 +74,7 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 		// use 1st listener port
 		// TODO check no listerner
 		if len(gw.Spec.Listeners) == 0 {
-			glog.V(6).Infof("Error building listener, there is NO listeners on GW for %v\n",
+			glog.V(2).Infof("Error building listener, there is NO listeners on GW for %v\n",
 				gwName)
 			return 0, "", "", errors.New("Error building listener, there is NO listeners on GW")
 		}

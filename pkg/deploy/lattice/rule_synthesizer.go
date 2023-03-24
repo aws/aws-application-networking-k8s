@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 type ruleSynthesizer struct {
@@ -60,7 +59,7 @@ func (r *ruleSynthesizer) Synthesize(ctx context.Context) error {
 			continue
 		}
 
-		glog.V(6).Infof("rule-synthersize >>> deleting rule %v\n", *sdkrule)
+		glog.V(2).Infof("rule-synthersize >>> deleting rule %v\n", *sdkrule)
 		r.rule.Delete(ctx, sdkrule.RuleID, sdkrule.ListenerID, sdkrule.ServiceID)
 	}
 
@@ -85,14 +84,19 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 		return modelRule, errors.New("rule not found")
 	}
 
-	for _, modelRule := range resRule {
+	if sdkRuleDetail.Match == nil ||
+		sdkRuleDetail.Match.HttpMatch == nil {
+		glog.V(6).Infof("no HTTPMatch ")
+		return modelRule, errors.New("rule not found")
+	}
 
-		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) !=
-			modelRule.Spec.RuleValue {
-			glog.V(6).Infof("findMatchRule, skip due to different match modelRule %v, match %s\n",
-				modelRule, aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix))
+	for _, modelRule := range resRule {
+		sameRule := isRulesSame(modelRule, sdkRuleDetail)
+
+		if !sameRule {
 			continue
 		}
+
 		glog.V(6).Infof("findMatchedRule: found matched modelRule %v \n", modelRule)
 		return modelRule, nil
 	}

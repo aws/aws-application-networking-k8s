@@ -62,13 +62,14 @@ func Test_SynthesizeRule(t *testing.T) {
 		listenerID     string
 		serviceARN     string
 		serviceID      string
+		rulespec       []latticemodel.RuleSpec
 		updatedTGs     bool
 		mgrErr         error
 		wantErrIsNil   bool
 		wantIsDeleted  bool
 	}{
 		{
-			name:           "Add Rule",
+			name:           "test1: Add Rule",
 			gwListenerPort: *PortNumberPtr(80),
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -118,6 +119,16 @@ func Test_SynthesizeRule(t *testing.T) {
 					},
 				},
 			},
+			rulespec: []latticemodel.RuleSpec{
+				{
+					PathMatchPrefix: true,
+					PathMatchValue:  path1,
+				},
+				{
+					PathMatchPrefix: true,
+					PathMatchValue:  path2,
+				},
+			},
 
 			listenerARN:   "arn1234",
 			listenerID:    "1234",
@@ -129,7 +140,7 @@ func Test_SynthesizeRule(t *testing.T) {
 			wantErrIsNil:  true,
 		},
 		{
-			name:           "Add Rule",
+			name:           "Test2: Add Rule",
 			gwListenerPort: *PortNumberPtr(80),
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -177,6 +188,16 @@ func Test_SynthesizeRule(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+			rulespec: []latticemodel.RuleSpec{
+				{
+					PathMatchPrefix: true,
+					PathMatchValue:  path1,
+				},
+				{
+					PathMatchPrefix: true,
+					PathMatchValue:  path2,
 				},
 			},
 
@@ -194,6 +215,7 @@ func Test_SynthesizeRule(t *testing.T) {
 	var protocol = "HTTP"
 
 	for _, tt := range tests {
+		fmt.Printf("testing >>>> %v\n", tt.name)
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
@@ -206,16 +228,9 @@ func Test_SynthesizeRule(t *testing.T) {
 
 		var ruleID = 1
 
-		for _, httpRule := range tt.httpRoute.Spec.Rules {
-			var ruleValue string
+		for i, httpRule := range tt.httpRoute.Spec.Rules {
+			//var ruleValue string
 			tgList := []*latticemodel.RuleTargetGroup{}
-
-			if len(httpRule.Matches) != 0 {
-				// only handle 1 match for now using  path
-				if httpRule.Matches[0].Path.Value != nil {
-					ruleValue = *httpRule.Matches[0].Path.Value
-				}
-			}
 
 			for _, httpBackendRef := range httpRule.BackendRefs {
 				ruleTG := latticemodel.RuleTargetGroup{}
@@ -235,7 +250,7 @@ func Test_SynthesizeRule(t *testing.T) {
 				TargetGroups: tgList,
 			}
 			rule := latticemodel.NewRule(stack, ruleIDName, tt.httpRoute.Name, tt.httpRoute.Namespace, int64(tt.gwListenerPort),
-				protocol, latticemodel.MatchByPath, ruleValue, ruleAction)
+				protocol, ruleAction, tt.rulespec[i])
 
 			var ruleResp latticemodel.RuleStatus
 
