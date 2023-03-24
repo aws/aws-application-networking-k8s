@@ -2,8 +2,8 @@ package gateway
 
 import (
 	"context"
-	"testing"
 	"fmt"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 
@@ -68,9 +68,9 @@ func Test_MeshModelBuild(t *testing.T) {
 					DeletionTimestamp: &now,
 				},
 			},
-			wantErr:       nil,
-			wantName:      "mesh1",
-			wantIsDeleted: true,
+			wantErr:        nil,
+			wantName:       "mesh1",
+			wantIsDeleted:  true,
 			associateToVPC: true,
 		},
 	}
