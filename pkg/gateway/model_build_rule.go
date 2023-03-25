@@ -30,11 +30,16 @@ const (
 )
 
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
-	// when a service is associate to multiple service network(s), all listener config MUST be same
-	// so here we are only using the 1st parentRef
+
 	var ruleID = 1
-	if len(t.httpRoute.Spec.ParentRefs) > 0 {
-		parentRef := t.httpRoute.Spec.ParentRefs[0]
+	for _, parentRef := range t.httpRoute.Spec.ParentRefs {
+		if parentRef.Name != t.httpRoute.Spec.ParentRefs[0].Name {
+			// when a service is associate to multiple service network(s), all listener config MUST be same
+			// so here we are only using the 1st gateway
+			glog.V(2).Infof("Ignore parentref of different gateway %v", parentRef.Name)
+
+			continue
+		}
 		port, protocol, _, err := t.extractListnerInfo(ctx, parentRef)
 
 		if err != nil {
