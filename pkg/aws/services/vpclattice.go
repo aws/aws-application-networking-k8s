@@ -38,7 +38,7 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 		endpoint = BetaProdEndpoint
 	}
 
-	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion("us-west-2").WithEndpoint(endpoint))
+	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint))
 
 	glog.V(2).Infoln("Lattice Service EndPoint:", endpoint)
 
