@@ -33,8 +33,6 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 
 	if endpoint == "" {
 		endpoint = latticeEndpoint
-	} else {
-		endpoint = latticeEndpoint
 	}
 
 	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint))
