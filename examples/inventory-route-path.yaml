@@ -17,7 +17,8 @@ spec:
         value: /ver1
   - backendRefs:  
     - name: inventory-ver2
-      kind: ServiceImport
+      kind: Service
+      port: 8090
     matches:
     - path:
         type: PathPrefix
