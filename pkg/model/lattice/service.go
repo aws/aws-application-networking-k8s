@@ -13,13 +13,13 @@ type Service struct {
 }
 
 type ServiceSpec struct {
-	Name               string    `json:"name"`
-	Namespace          string    `json:"namespace"`
-	Protocols          []*string `json:"protocols"`
-	ServiceNetworkName string    `json:"servicenetworkhname"`
-	CustomerDomainName string    `json:"customerdomainname"`
-	CustomerCertARN    string    `json:"customercertarn"`
-	IsDeleted          bool
+	Name                string    `json:"name"`
+	Namespace           string    `json:"namespace"`
+	Protocols           []*string `json:"protocols"`
+	ServiceNetworkNames []string  `json:"servicenetworkhname"`
+	CustomerDomainName  string    `json:"customerdomainname"`
+	CustomerCertARN     string    `json:"customercertarn"`
+	IsDeleted           bool
 }
 
 type ServiceStatus struct {

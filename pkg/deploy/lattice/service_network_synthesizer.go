@@ -10,7 +10,7 @@ import (
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func NewServiceNetworkSynthesizer(client client.Client, serviceNetworkManager ServiceNetworkManager, stack core.Stack, latticeDataStore *latticestore.LatticeDataStore) *serviceNetworkSynthesizer {
@@ -39,21 +39,16 @@ func (s *serviceNetworkSynthesizer) Synthesize(ctx context.Context) error {
 		ret = LATTICE_RETRY
 	}
 
-	/* TODO
-	 * support following when we have tagging enabled, so that K8S will NOT accidently delete
-	 * other serviceNetworkes
-
-
 	if err := s.synthesizeSDKServiceNetworks(ctx); err != nil {
 		ret = LATTICE_RETRY
 	}
-	*/
 
 	//TODO
 	// https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/pkg/deploy/elbv2/load_balancer_synthesizer.go#L46
 	if ret != "" {
 		return errors.New(ret)
 	} else {
+		glog.V(6).Infof("Finish synthesizing ServiceNetworks/Gateways ...  \n")
 		return nil
 	}
 
@@ -109,7 +104,7 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 	var ret = ""
 	sdkServiceNetworks, err := s.serviceNetworkManager.List(ctx)
 	if err != nil {
-		glog.V(6).Infof("Synthesize failed on List lattice serviceNetworkes %v\n", err)
+		glog.V(2).Infof("Synthesize failed on List lattice serviceNetworkes %v\n", err)
 		return err
 	}
 	glog.V(6).Infof("SDK List: %v \n", sdkServiceNetworks)
@@ -121,7 +116,7 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 
 		if !toBeDeleted {
 			// check local K8S cache
-			gw := &v1alpha2.Gateway{}
+			gw := &gateway_api.Gateway{}
 			gwName := types.NamespacedName{
 				Namespace: "default",
 				Name:      sdkServiceNetwork,
@@ -136,16 +131,18 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 
 		if toBeDeleted {
 
-			glog.V(6).Infof("Synthesizing Gateway: Delete stale sdkServiceNetwork %v\n", sdkServiceNetwork)
+			glog.V(2).Infof("Synthesizing Gateway: Delete stale sdkServiceNetwork %v\n", sdkServiceNetwork)
 			err := s.serviceNetworkManager.Delete(ctx, sdkServiceNetwork)
 
 			if err != nil {
+				glog.V(6).Infof("Need to retry synthesizing err %v", err)
 				ret = LATTICE_RETRY
 			}
 		}
 
 	}
 	if ret != "" {
+		glog.V(2).Infof("Need to retry synthesizing, reg = %v", ret)
 		return errors.New(ret)
 	} else {
 		return nil

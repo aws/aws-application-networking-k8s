@@ -8,7 +8,11 @@ strict: true
 nav:
   - Home: index.md
   - Deployment: deploy.md
-  - Configuration: configure.md
+  - Get Started: getstarted.md
+  - Configuration:
+    - Overview: configure/index.md
+    - Configure HTTPs: configure/https.md
+    - Configure domain name: configure/customer_domain_name.md
   - Design Overview: overview.md
 
 plugins:
@@ -43,3 +47,7 @@ extra_css:
   - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css
 extra_javascript:
   - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js
+
+# Hosted with AWS Amplify
+# Isengard: aws-mercury+gateway-controller-docs@
+# Account Ownership Group: aws-mercury

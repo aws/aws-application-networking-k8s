@@ -3,26 +3,25 @@
 Follow these instructions to create a cluster and deploy the AWS Gateway API Controller.
 Run through them again for a second cluster to use with the extended example shown later.
 
-1. Set your region (`us-west-2` or `us-east-1`) as an environment variable. For example:
+1. Set your region and cluster name as environment variables. Nine regions are now supported, including `us-west-2` and `us-east-1`. For example:
    ```bash
    export AWS_REGION=us-west-2
+   export CLUSTER_NAME=my-cluster
    ```
 1. You can use an existing EKS cluster or create a new one as shown here:
    ```bash
-   eksctl create cluster --name <my-cluster> --region $AWS_REGION
+   eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION
    ```
 1. First, configure security group to receive traffic from the VPC Lattice fleet. You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic on all ports from the `169.254.171.0/24` address range. 
-
     ```bash
     PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_DEFAULT_REGION.vpc-lattice\'"].PrefixListId" | jq --raw-output .[])
     MANAGED_PREFIX=$(aws ec2 get-managed-prefix-list-entries --prefix-list-id $PREFIX_LIST_ID --output json  | jq -r '.Entries[0].Cidr')
     CLUSTER_SG=$(aws eks describe-cluster --name eks-workshop --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
     aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --cidr $MANAGED_PREFIX --protocol -1
     ```
-
 1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
-   eksctl utils associate-iam-oidc-provider --cluster <my-cluster> --approve
+   eksctl utils associate-iam-oidc-provider --cluster $CLUSTER_NAME --approve --region $AWS_REGION
    ```
 1. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the gateway API and copy the policy arn for later use:
    ```bash
@@ -58,7 +57,7 @@ Run through them again for a second cluster to use with the extended example sho
 1. Create an iamserviceaccount for pod level permission:
    ```bash
    eksctl create iamserviceaccount \
-      --cluster=<my-cluster> \
+      --cluster=$CLUSTER_NAME \
       --namespace=system \
       --name=gateway-api-controller \
       --attach-policy-arn=$VPCLatticeControllerIAMPolicyArn \
@@ -66,25 +65,20 @@ Run through them again for a second cluster to use with the extended example sho
       --region $AWS_REGION \
       --approve
    ```
-
 1. Run either `kubectl` or `helm` to deploy the controller:
-
-      ```bash
-      kubectl apply -f examples/deploy-v0.0.3.yaml
-      ```
-      
-      or
-
-      ```bash
-      # login to ECR
-      aws ecr-public get-login-password --region us-east-1 | helm registry login --username AWS --password-stdin public.ecr.aws
-      # Run helm with either install or upgrade
-      helm install gateway-api-controller \
-         oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
-         --version=v0.0.3 \
-         --set=aws.region=$AWS_REGION --set=serviceAccount.create=false --namespace system
-      ```
-
+   ```bash
+   kubectl apply -f examples/deploy-v0.0.7.yaml
+   ```
+   or
+   ```bash
+   # login to ECR
+   aws ecr-public get-login-password --region us-east-1 | helm registry login --username AWS --password-stdin public.ecr.aws
+   # Run helm with either install or upgrade
+   helm install gateway-api-controller \
+      oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
+      --version=v0.0.7 \
+      --set=aws.region=$AWS_REGION --set=serviceAccount.create=false --namespace system
+   ```
 1. Create the `amazon-vpc-lattice` GatewayClass:
    ```bash
    kubectl apply -f examples/gatewayclass.yaml

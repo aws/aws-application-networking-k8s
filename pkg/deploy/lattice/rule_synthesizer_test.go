@@ -11,7 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -21,24 +21,24 @@ import (
 
 func Test_SynthesizeRule(t *testing.T) {
 
-	//var httpSectionName v1alpha2.SectionName = "http"
-	var serviceKind v1alpha2.Kind = "Service"
-	var serviceimportKind v1alpha2.Kind = "ServiceImport"
+	//var httpSectionName gateway_api.SectionName = "http"
+	var serviceKind gateway_api.Kind = "Service"
+	var serviceimportKind gateway_api.Kind = "ServiceImport"
 	var weight1 = int32(10)
 	var weight2 = int32(90)
-	var namespace = v1alpha2.Namespace("default")
+	var namespace = gateway_api.Namespace("default")
 	var path1 = string("/ver1")
 	var path2 = string("/ver2")
-	var backendRef1 = v1alpha2.BackendRef{
-		BackendObjectReference: v1alpha2.BackendObjectReference{
+	var backendRef1 = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
 			Name:      "targetgroup1",
 			Namespace: &namespace,
 			Kind:      &serviceKind,
 		},
 		Weight: &weight1,
 	}
-	var backendRef2 = v1alpha2.BackendRef{
-		BackendObjectReference: v1alpha2.BackendObjectReference{
+	var backendRef2 = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace,
 			Kind:      &serviceimportKind,
@@ -46,8 +46,8 @@ func Test_SynthesizeRule(t *testing.T) {
 		Weight: &weight2,
 	}
 	/*
-		var backendServiceImportRef = v1alpha2.BackendRef{
-			BackendObjectReference: v1alpha2.BackendObjectReference{
+		var backendServiceImportRef = gateway_api.BackendRef{
+			BackendObjectReference: gateway_api.BackendObjectReference{
 				Name: "targetgroup1",
 				Kind: &serviceimportKind,
 			},
@@ -56,66 +56,77 @@ func Test_SynthesizeRule(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		gwListenerPort v1alpha2.PortNumber
-		httpRoute      *v1alpha2.HTTPRoute
+		gwListenerPort gateway_api.PortNumber
+		httpRoute      *gateway_api.HTTPRoute
 		listenerARN    string
 		listenerID     string
 		serviceARN     string
 		serviceID      string
+		rulespec       []latticemodel.RuleSpec
 		updatedTGs     bool
 		mgrErr         error
 		wantErrIsNil   bool
 		wantIsDeleted  bool
 	}{
 		{
-			name:           "Add Rule",
+			name:           "test1: Add Rule",
 			gwListenerPort: *PortNumberPtr(80),
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							Matches: []v1alpha2.HTTPRouteMatch{
+							Matches: []gateway_api.HTTPRouteMatch{
 								{
 
-									Path: &v1alpha2.HTTPPathMatch{
+									Path: &gateway_api.HTTPPathMatch{
 
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []v1alpha2.HTTPRouteMatch{
+							Matches: []gateway_api.HTTPRouteMatch{
 								{
 
-									Path: &v1alpha2.HTTPPathMatch{
+									Path: &gateway_api.HTTPPathMatch{
 
 										Value: &path2,
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef2,
 								},
 							},
 						},
 					},
+				},
+			},
+			rulespec: []latticemodel.RuleSpec{
+				{
+					PathMatchPrefix: true,
+					PathMatchValue:  path1,
+				},
+				{
+					PathMatchPrefix: true,
+					PathMatchValue:  path2,
 				},
 			},
 
@@ -129,54 +140,64 @@ func Test_SynthesizeRule(t *testing.T) {
 			wantErrIsNil:  true,
 		},
 		{
-			name:           "Add Rule",
+			name:           "Test2: Add Rule",
 			gwListenerPort: *PortNumberPtr(80),
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []v1alpha2.HTTPRouteRule{
+					Rules: []gateway_api.HTTPRouteRule{
 						{
-							Matches: []v1alpha2.HTTPRouteMatch{
+							Matches: []gateway_api.HTTPRouteMatch{
 								{
 
-									Path: &v1alpha2.HTTPPathMatch{
+									Path: &gateway_api.HTTPPathMatch{
 
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []v1alpha2.HTTPRouteMatch{
+							Matches: []gateway_api.HTTPRouteMatch{
 								{
 
-									Path: &v1alpha2.HTTPPathMatch{
+									Path: &gateway_api.HTTPPathMatch{
 
 										Value: &path2,
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.HTTPBackendRef{
+							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
 									BackendRef: backendRef2,
 								},
 							},
 						},
 					},
+				},
+			},
+			rulespec: []latticemodel.RuleSpec{
+				{
+					PathMatchPrefix: true,
+					PathMatchValue:  path1,
+				},
+				{
+					PathMatchPrefix: true,
+					PathMatchValue:  path2,
 				},
 			},
 
@@ -194,6 +215,7 @@ func Test_SynthesizeRule(t *testing.T) {
 	var protocol = "HTTP"
 
 	for _, tt := range tests {
+		fmt.Printf("testing >>>> %v\n", tt.name)
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
@@ -206,16 +228,9 @@ func Test_SynthesizeRule(t *testing.T) {
 
 		var ruleID = 1
 
-		for _, httpRule := range tt.httpRoute.Spec.Rules {
-			var ruleValue string
+		for i, httpRule := range tt.httpRoute.Spec.Rules {
+			//var ruleValue string
 			tgList := []*latticemodel.RuleTargetGroup{}
-
-			if len(httpRule.Matches) != 0 {
-				// only handle 1 match for now using  path
-				if httpRule.Matches[0].Path.Value != nil {
-					ruleValue = *httpRule.Matches[0].Path.Value
-				}
-			}
 
 			for _, httpBackendRef := range httpRule.BackendRefs {
 				ruleTG := latticemodel.RuleTargetGroup{}
@@ -235,7 +250,7 @@ func Test_SynthesizeRule(t *testing.T) {
 				TargetGroups: tgList,
 			}
 			rule := latticemodel.NewRule(stack, ruleIDName, tt.httpRoute.Name, tt.httpRoute.Namespace, int64(tt.gwListenerPort),
-				protocol, latticemodel.MatchByPath, ruleValue, ruleAction)
+				protocol, ruleAction, tt.rulespec[i])
 
 			var ruleResp latticemodel.RuleStatus
 
@@ -284,7 +299,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 	var serviceNamespace = "test"
 	var serviceID = "service1-id"
 
-	var httpRoute = v1alpha2.HTTPRoute{
+	var httpRoute = gateway_api.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: serviceName,
 		},

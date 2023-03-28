@@ -15,11 +15,12 @@ import (
 )
 
 // ServiceNetwork does not exist before,happy case.
-func Test_CreateServiceNetwork_MeshNotExist(t *testing.T) {
+func Test_CreateServiceNetwork_MeshNotExist_NoNeedToAssociate(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
-			Name:    "test",
-			Account: "123456789",
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: false,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
@@ -32,17 +33,12 @@ func Test_CreateServiceNetwork_MeshNotExist(t *testing.T) {
 		Name: &name,
 	}
 	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
-		Status: &status,
-	}
+
 	createServiceNetworkInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
+		Tags: make(map[string]*string),
 	}
-	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
-		ServiceNetworkIdentifier: &id,
-		VpcIdentifier:            &config.VpcID,
-	}
+	createServiceNetworkInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -51,6 +47,57 @@ func Test_CreateServiceNetwork_MeshNotExist(t *testing.T) {
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(meshCreateOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+
+	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	resp, err := meshManager.Create(ctx, &meshCreateInput)
+
+	assert.Nil(t, err)
+	assert.Equal(t, resp.ServiceNetworkARN, arn)
+	assert.Equal(t, resp.ServiceNetworkID, id)
+}
+
+func Test_CreateServiceNetwork_MeshNotExist_NeedToAssociate(t *testing.T) {
+	meshCreateInput := latticemodel.ServiceNetwork{
+		Spec: latticemodel.ServiceNetworkSpec{
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: true,
+		},
+		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
+	}
+	arn := "12345678912345678912"
+	id := "12345678912345678912"
+	name := "test"
+	meshCreateOutput := &vpclattice.CreateServiceNetworkOutput{
+		Arn:  &arn,
+		Id:   &id,
+		Name: &name,
+	}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
+
+	createServiceNetworkInput := &vpclattice.CreateServiceNetworkInput{
+		Name: &name,
+		Tags: make(map[string]*string),
+	}
+	createServiceNetworkInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(meshCreateOutput, nil)
+	meshId := "12345678912345678912"
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &meshId,
+		VpcIdentifier:            &config.VpcID,
+	}
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusUpdateInProgress
+	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
+		Status: &associationStatus,
+	}
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
@@ -103,8 +150,9 @@ func Test_CreateServiceNetwork_ListFailed(t *testing.T) {
 func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
-			Name:    "test",
-			Account: "123456789",
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: true,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
@@ -136,6 +184,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
@@ -185,6 +234,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
@@ -200,8 +250,9 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusActive(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
-			Name:    "test",
-			Account: "123456789",
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: true,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
@@ -232,6 +283,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
@@ -242,12 +294,65 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	assert.Equal(t, resp.ServiceNetworkID, meshId)
 }
 
+func Test_CreateServiceNetwork_MeshAlreadyExist_AssociateToNotAssociate(t *testing.T) {
+	meshCreateInput := latticemodel.ServiceNetwork{
+		Spec: latticemodel.ServiceNetworkSpec{
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: false,
+		},
+		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
+	}
+	meshId := "12345678912345678912"
+	meshArn := "12345678912345678912"
+	name := "test"
+	item := vpclattice.ServiceNetworkSummary{
+		Arn:  &meshArn,
+		Id:   &meshId,
+		Name: &name,
+	}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
+
+	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &config.VpcID,
+	}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
+	deleteInProgressStatus := vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress
+	deleteServiceNetworkVpcAssociationOutput := &vpclattice.DeleteServiceNetworkVpcAssociationOutput{Status: &deleteInProgressStatus}
+
+	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(deleteServiceNetworkVpcAssociationOutput, nil)
+
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+
+	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	_, err := meshManager.Create(ctx, &meshCreateInput)
+
+	assert.Equal(t, err, errors.New(LATTICE_RETRY))
+
+}
+
 // ServiceNetwork already exists, association is ServiceNetworkVpcAssociationStatusCreateFailed.
+
 func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusCreateFailed(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
-			Name:    "test",
-			Account: "123456789",
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: true,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
@@ -287,6 +392,11 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
+		Tags: make(map[string]*string),
+	}
+	snTagsOuput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(snTagsOuput, nil)
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
@@ -302,8 +412,9 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
-			Name:    "test",
-			Account: "123456789",
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: true,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
@@ -344,6 +455,12 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *te
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
+		Tags: make(map[string]*string),
+	}
+	dummy_vpc := "dummy-vpc-id"
+	snTagsOuput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &dummy_vpc
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(snTagsOuput, nil)
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
@@ -359,8 +476,9 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *te
 func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFailed(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
-			Name:    "test",
-			Account: "123456789",
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: true,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
@@ -380,7 +498,10 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFa
 	}
 	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
+		Tags: make(map[string]*string),
 	}
+	meshCreateInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
+
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: &meshId,
 		VpcIdentifier:            &config.VpcID,
@@ -409,8 +530,9 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFa
 func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
-			Name:    "test",
-			Account: "123456789",
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: true,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
@@ -429,7 +551,9 @@ func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCr
 	}
 	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
+		Tags: make(map[string]*string),
 	}
+	meshCreateInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: &meshId,
 		VpcIdentifier:            &config.VpcID,
@@ -458,8 +582,9 @@ func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCr
 func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
-			Name:    "test",
-			Account: "123456789",
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: true,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
@@ -478,7 +603,9 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDe
 	}
 	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
+		Tags: make(map[string]*string),
 	}
+	meshCreateInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: &meshId,
 		VpcIdentifier:            &config.VpcID,
@@ -507,8 +634,9 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDe
 func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationReturnsError(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
-			Name:    "test",
-			Account: "123456789",
+			Name:           "test",
+			Account:        "123456789",
+			AssociateToVPC: true,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
@@ -524,7 +652,9 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationReturnsE
 	}
 	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
+		Tags: make(map[string]*string),
 	}
+	meshCreateInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: &meshId,
 		VpcIdentifier:            &config.VpcID,
@@ -569,7 +699,10 @@ func Test_CreateMesh_MeshNotExist_MeshCreateFailed(t *testing.T) {
 	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{}
 	meshCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
+		Tags: make(map[string]*string),
 	}
+
+	meshCreateInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -606,6 +739,7 @@ func Test_DeleteMesh_MeshNotExist(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+// delte a service network, which has no association and also was created by this VPC
 func Test_DeleteMesh_MeshExistsNoAssociation(t *testing.T) {
 	arn := "123456789"
 	id := "123456789"
@@ -629,6 +763,12 @@ func Test_DeleteMesh_MeshExistsNoAssociation(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+
+	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
+		Tags: make(map[string]*string),
+	}
+	snTagsOuput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(snTagsOuput, nil)
 	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkWithContext(ctx, deleteMeshInout).Return(deleteMeshOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
@@ -638,38 +778,9 @@ func Test_DeleteMesh_MeshExistsNoAssociation(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func Test_DeleteMesh_MeshExists_AssociationsWithOtherVPCExists(t *testing.T) {
-	arn := "123456789"
-	id := "123456789"
-	name := "test"
-	vpcId := "123456789"
-	item := vpclattice.ServiceNetworkSummary{
-		Arn:  &arn,
-		Id:   &id,
-		Name: &name,
-	}
-	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&item}
-
-	ServiceNetworkVpcAssociationSummaryItem := vpclattice.ServiceNetworkVpcAssociationSummary{
-		VpcId: &vpcId,
-	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&ServiceNetworkVpcAssociationSummaryItem}
-
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
-
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
-	err := meshManager.Delete(ctx, "test")
-
-	assert.Nil(t, err)
-}
-
+// Deleting a service netwrok, when
+// * the service network is associated with current VPC
+// * and it is this VPC creates this service network
 func Test_DeleteMesh_MeshExistsAssociatedWithVPC_Deleting(t *testing.T) {
 	arn := "123456789"
 	id := "123456789"
@@ -698,9 +809,7 @@ func Test_DeleteMesh_MeshExistsAssociatedWithVPC_Deleting(t *testing.T) {
 
 	deleteInProgressStatus := vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress
 	deleteServiceNetworkVpcAssociationOutput := &vpclattice.DeleteServiceNetworkVpcAssociationOutput{Status: &deleteInProgressStatus}
-	deleteMeshOutput := &vpclattice.DeleteServiceNetworkOutput{}
 	deleteServiceNetworkVpcAssociationInput := &vpclattice.DeleteServiceNetworkVpcAssociationInput{ServiceNetworkVpcAssociationIdentifier: &associationID}
-	deleteMeshInput := &vpclattice.DeleteServiceNetworkInput{ServiceNetworkIdentifier: &id}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -709,8 +818,13 @@ func Test_DeleteMesh_MeshExistsAssociatedWithVPC_Deleting(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+
+	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
+		Tags: make(map[string]*string),
+	}
+	snTagsOuput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(snTagsOuput, nil)
 	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkVpcAssociationWithContext(ctx, deleteServiceNetworkVpcAssociationInput).Return(deleteServiceNetworkVpcAssociationOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkWithContext(ctx, deleteMeshInput).Return(deleteMeshOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
@@ -721,6 +835,54 @@ func Test_DeleteMesh_MeshExistsAssociatedWithVPC_Deleting(t *testing.T) {
 }
 
 func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC(t *testing.T) {
+	arn := "123456789"
+	id := "123456789"
+	name := "test"
+	itemMesh := vpclattice.ServiceNetworkSummary{
+		Arn:  &arn,
+		Id:   &id,
+		Name: &name,
+	}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&itemMesh}
+
+	associationArn := "123456789"
+	associationID := "123456789"
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	associationVPCId := "other-vpc-id"
+	itemAssociation := vpclattice.ServiceNetworkVpcAssociationSummary{
+		Arn:                &associationArn,
+		Id:                 &associationID,
+		ServiceNetworkArn:  &arn,
+		ServiceNetworkId:   &id,
+		ServiceNetworkName: &name,
+		Status:             &associationStatus,
+		VpcId:              &associationVPCId,
+	}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&itemAssociation}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+
+	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
+		Tags: make(map[string]*string),
+	}
+	snTagsOuput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(snTagsOuput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+
+	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	err := meshManager.Delete(ctx, "test")
+
+	assert.NotNil(t, err)
+	assert.Equal(t, err, errors.New(LATTICE_RETRY))
+}
+
+func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC_NotCreatedByVPC(t *testing.T) {
 	arn := "123456789"
 	id := "123456789"
 	name := "test"
@@ -753,12 +915,61 @@ func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	err := meshManager.Delete(ctx, "test")
 
 	assert.Nil(t, err)
+}
+
+func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC_CreatedByVPC(t *testing.T) {
+	arn := "123456789"
+	id := "123456789"
+	name := "test"
+	itemMesh := vpclattice.ServiceNetworkSummary{
+		Arn:  &arn,
+		Id:   &id,
+		Name: &name,
+	}
+	listServiceNetworkOutput := []*vpclattice.ServiceNetworkSummary{&itemMesh}
+
+	associationArn := "123456789"
+	associationID := "123456789"
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	associationVPCId := "123456789"
+	itemAssociation := vpclattice.ServiceNetworkVpcAssociationSummary{
+		Arn:                &associationArn,
+		Id:                 &associationID,
+		ServiceNetworkArn:  &arn,
+		ServiceNetworkId:   &id,
+		ServiceNetworkName: &name,
+		Status:             &associationStatus,
+		VpcId:              &associationVPCId,
+	}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&itemAssociation}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
+	mockVpcLatticeSess.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	snTagsOutput := &vpclattice.ListTagsForResourceOutput{
+		Tags: make(map[string]*string),
+	}
+	snTagsOutput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
+	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(snTagsOutput, nil)
+
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+
+	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	err := meshManager.Delete(ctx, "test")
+
+	assert.NotNil(t, err)
+	assert.Equal(t, err, errors.New(LATTICE_RETRY))
 }
 
 func Test_ListMesh_MeshExists(t *testing.T) {

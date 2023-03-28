@@ -5,7 +5,8 @@ export AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --o
 
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
-ECRIMAGES ?=public.ecr.aws/m7r9p7b3/aws-gateway-controller:latest
+VERSION ?= $(shell git tag --sort=committerdate | tail -1)
+ECRIMAGES ?=public.ecr.aws/m7r9p7b3/aws-gateway-controller:${VERSION}
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.22
@@ -55,10 +56,15 @@ vet: ## Vet the code and dependencies
 	go generate ./...
 	go vet ./...
 	go fmt ./...
+	@git diff --quiet ||\
+		{ echo "New file modification detected in the Git working tree. Please check in before commit."; git --no-pager diff --name-only | uniq | awk '{print "  - " $$0}'; \
+		if [ "${CI}" = true ]; then\
+			exit 1;\
+		fi;}
 
 .PHONY: test
 test: ## Run tests.
-	go test ./... -coverprofile coverage.out
+	go test ./pkg/... -coverprofile coverage.out
 
 .PHONY: toolchain
 toolchain: ## Install developer toolchain
@@ -80,3 +86,16 @@ docker-push: ## Push docker image with the manager.
 build-deploy: ## Create a deployment file that can be applied with `kubectl apply -f deploy.yaml`
 	cd config/manager && kustomize edit set image controller=${ECRIMAGES}
 	kustomize build config/default > deploy.yaml
+
+## Run e2e tests against cluster pointed to by ~/.kube/config
+.PHONY: e2etest
+e2etest:
+	cd test && go test \
+		-p 1 \
+		-count 1 \
+		-timeout 60m \
+		-v \
+		./suites/... \
+		--ginkgo.focus="${FOCUS}" \
+		--ginkgo.timeout=60m \
+		--ginkgo.v

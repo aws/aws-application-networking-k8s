@@ -4,7 +4,7 @@
 
 image:
   repository: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller
-  tag: v0.0.3
+  tag: v0.0.8
   pullPolicy: IfNotPresent
   pullSecrets: []
 
@@ -30,6 +30,8 @@ deployment:
   # Which priorityClassName to set?
   # See: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#pod-priority
   priorityClassName: ""
+  # Number of replicas.
+  replicas: 2
 
 # If "installScope: cluster" then these labels will be applied to ClusterRole
 role:

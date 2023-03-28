@@ -38,7 +38,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
@@ -51,7 +51,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	//+kubebuilder:scaffold:scheme
-	utilruntime.Must(v1alpha2.AddToScheme(scheme))
+	utilruntime.Must(gateway_api.AddToScheme(scheme))
 	utilruntime.Must(mcs_api.AddToScheme(scheme))
 }
 
@@ -92,7 +92,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "6288bc47.amazon-vpc-lattice.io",
+		LeaderElectionID:       "amazon-vpc-lattice.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

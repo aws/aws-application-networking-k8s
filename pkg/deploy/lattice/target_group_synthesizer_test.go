@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
@@ -323,8 +323,8 @@ type sdkTGDef struct {
 }
 
 func Test_SynthesizeSDKTargetGroups(t *testing.T) {
-	kindPtr := func(k string) *v1alpha2.Kind {
-		p := v1alpha2.Kind(k)
+	kindPtr := func(k string) *gateway_api.Kind {
+		p := gateway_api.Kind(k)
 		return &p
 	}
 
@@ -518,18 +518,18 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 					if sdkTG.refedByHTTPRoute {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+							func(ctx context.Context, name types.NamespacedName, httpRoute *gateway_api.HTTPRoute, arg3 ...interface{}) error {
 								httpRoute.Name = routename
 								httpRoute.Namespace = routenamespace
 
-								httpRoute.Spec.Rules = []v1alpha2.HTTPRouteRule{
+								httpRoute.Spec.Rules = []gateway_api.HTTPRouteRule{
 									{
-										BackendRefs: []v1alpha2.HTTPBackendRef{
+										BackendRefs: []gateway_api.HTTPBackendRef{
 											{
-												BackendRef: v1alpha2.BackendRef{
-													BackendObjectReference: v1alpha2.BackendObjectReference{
+												BackendRef: gateway_api.BackendRef{
+													BackendObjectReference: gateway_api.BackendObjectReference{
 														Kind: kindPtr("Service"),
-														Name: v1alpha2.ObjectName(srvname),
+														Name: gateway_api.ObjectName(srvname),
 													},
 												},
 											},
@@ -543,7 +543,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 					} else {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+							func(ctx context.Context, name types.NamespacedName, httpRoute *gateway_api.HTTPRoute, arg3 ...interface{}) error {
 								httpRoute.Name = routename
 								httpRoute.Namespace = routenamespace
 								return nil
@@ -555,7 +555,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 				} else {
 					if sdkTG.hasHTTPRouteTypeTag {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, httpRoute *v1alpha2.HTTPRoute) error {
+							func(ctx context.Context, name types.NamespacedName, httpRoute *gateway_api.HTTPRoute, arg3 ...interface{}) error {
 
 								return errors.New("no httproute")
 
@@ -567,7 +567,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 				if sdkTG.hasServiceExportTypeTag {
 					if sdkTG.serviceExportExist {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport) error {
+							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport, arg3 ...interface{}) error {
 
 								return nil
 
@@ -576,7 +576,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 					} else {
 						k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport) error {
+							func(ctx context.Context, name types.NamespacedName, svcexport *mcs_api.ServiceExport, arg3 ...interface{}) error {
 
 								return errors.New("no serviceexport")
 

@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -49,6 +49,7 @@ import (
 
 const (
 	gatewayFinalizer = "gateway.k8s.aws/resources"
+	defaultNameSpace = "default"
 )
 
 // GatewayReconciler reconciles a Gateway object
@@ -78,6 +79,7 @@ func NewGatewayReconciler(client client.Client, scheme *runtime.Scheme, eventRec
 		Scheme:            scheme,
 		gwClassReconciler: gwClassReconciler,
 		finalizerManager:  finalizerManager,
+		eventRecorder:     eventRecorder,
 		modelBuilder:      modelBuilder,
 		stackDeployer:     stackDeployer,
 		cloud:             cloud,
@@ -107,19 +109,30 @@ func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
 }
 
+func (r *GatewayReconciler) isDefaultNameSpace(n string) bool {
+	return n == defaultNameSpace
+}
+
 func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	gwLog := log.FromContext(ctx)
 
 	gwLog.Info("GatewayReconciler")
-	gw := &v1alpha2.Gateway{}
+	gw := &gateway_api.Gateway{}
 
 	if err := r.Client.Get(ctx, req.NamespacedName, gw); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 
-	gwClass := &v1alpha2.GatewayClass{}
+	if !r.isDefaultNameSpace(gw.Namespace) {
+		errmsg := "VPC lattice do not support no-default namespace gateway111"
+		glog.V(2).Infof(errmsg)
+		r.updateBadStatus(ctx, errmsg, gw)
+		return nil
+	}
+
+	gwClass := &gateway_api.GatewayClass{}
 	gwClassName := types.NamespacedName{
-		Namespace: "default",
+		Namespace: defaultNameSpace,
 		Name:      string(gw.Spec.GatewayClassName),
 	}
 
@@ -134,7 +147,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 
 			glog.V(6).Info(fmt.Sprintf("Checking if gateway can be deleted %v\n", gw.Name))
 
-			httpRouteList := &v1alpha2.HTTPRouteList{}
+			httpRouteList := &gateway_api.HTTPRouteList{}
 
 			r.Client.List(context.TODO(), httpRouteList)
 			for _, httpRoute := range httpRouteList.Items {
@@ -143,11 +156,11 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 					continue
 				}
 				gwName := types.NamespacedName{
-					Namespace: "default",
+					Namespace: defaultNameSpace,
 					Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 				}
 
-				httpGW := &v1alpha2.Gateway{}
+				httpGW := &gateway_api.Gateway{}
 
 				if err := r.Client.Get(context.TODO(), gwName, httpGW); err != nil {
 					continue
@@ -178,7 +191,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	return nil
 }
 
-func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *v1alpha2.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
+func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
 	gwLog := log.FromContext(ctx)
 
 	stack, serviceNetwork, err := r.modelBuilder.Build(ctx, gw)
@@ -203,7 +216,7 @@ func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *v1alpha
 
 	return stack, serviceNetwork, err
 }
-func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *v1alpha2.Gateway) error {
+func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *gateway_api.Gateway) error {
 	gwLog := log.FromContext(ctx)
 
 	gwLog.Info("reconcile gateway resource")
@@ -237,19 +250,21 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *v
 
 }
 
-func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *v1alpha2.Gateway) error {
+func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *gateway_api.Gateway) error {
 	_, _, err := r.buildAndDeployModel(ctx, gw)
 	return err
 
 }
 
-func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetworkStatus *latticestore.ServiceNetwork, gw *v1alpha2.Gateway) error {
+func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetworkStatus *latticestore.ServiceNetwork, gw *gateway_api.Gateway) error {
 
 	gwOld := gw.DeepCopy()
 
 	//if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
 	glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
-	gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+	if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
+		gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+	}
 	//}
 	gw.Status.Conditions[0].Status = "True"
 	gw.Status.Conditions[0].Message = fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN)
@@ -264,14 +279,35 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetw
 	return nil
 }
 
+func (r *GatewayReconciler) updateBadStatus(ctx context.Context, message string, gw *gateway_api.Gateway) error {
+
+	gwOld := gw.DeepCopy()
+
+	glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
+	if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
+		gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+	}
+
+	gw.Status.Conditions[0].Status = "False"
+	gw.Status.Conditions[0].Message = message
+	gw.Status.Conditions[0].Reason = "NoReconcile"
+	gw.Status.Conditions[0].Type = "NotAccepted"
+
+	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
+		return errors.Wrapf(err, "failed to update gateway status")
+	}
+
+	return nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(r.Client)
 	return ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&v1alpha2.Gateway{}).
+		For(&gateway_api.Gateway{}).
 		Watches(
-			&source.Kind{Type: &v1alpha2.GatewayClass{}},
+			&source.Kind{Type: &gateway_api.GatewayClass{}},
 			gwClassEventHandler).
 		Complete(r)
 }

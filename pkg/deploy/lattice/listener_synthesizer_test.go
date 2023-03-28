@@ -11,7 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -20,17 +20,17 @@ import (
 )
 
 // PortNumberPtr translates an int to a *PortNumber
-func PortNumberPtr(p int) *v1alpha2.PortNumber {
-	result := v1alpha2.PortNumber(p)
+func PortNumberPtr(p int) *gateway_api.PortNumber {
+	result := gateway_api.PortNumber(p)
 	return &result
 }
 func Test_SynthesizeListener(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		gwListenerPort v1alpha2.PortNumber
+		gwListenerPort gateway_api.PortNumber
 		gwProtocol     string
-		httpRoute      *v1alpha2.HTTPRoute
+		httpRoute      *gateway_api.HTTPRoute
 		listenerARN    string
 		listenerID     string
 		serviceARN     string
@@ -43,13 +43,13 @@ func Test_SynthesizeListener(t *testing.T) {
 			name:           "Add Listener",
 			gwListenerPort: *PortNumberPtr(80),
 			gwProtocol:     "HTTP",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -69,13 +69,13 @@ func Test_SynthesizeListener(t *testing.T) {
 			name:           "Delete Listener",
 			gwListenerPort: *PortNumberPtr(80),
 			gwProtocol:     "HTTP",
-			httpRoute: &v1alpha2.HTTPRoute{
+			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service2",
 				},
-				Spec: v1alpha2.HTTPRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentRef{
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
 							{
 								Name: "gateway2",
 							},

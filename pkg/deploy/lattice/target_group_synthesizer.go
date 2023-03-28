@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -255,7 +255,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 				Name:      *httpName,
 			}
 
-			httpRoute := &v1alpha2.HTTPRoute{}
+			httpRoute := &gateway_api.HTTPRoute{}
 
 			tgName := latticestore.TargetGroupName(*srvName, *srvNamespace)
 
@@ -303,7 +303,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 	for _, sdkTG := range staleSDKTGs {
 
 		err := t.targetGroupManager.Delete(ctx, &sdkTG)
-		glog.V(6).Infof("SynthesizeSDKTargetGroups, deleting stale target group %v \n", err)
+		glog.V(2).Infof("SynthesizeSDKTargetGroups, deleting stale target group %v \n", err)
 
 		if err != nil && !strings.Contains(err.Error(), "TargetGroup is referenced in routing configuration, listeners or rules of service.") {
 			ret_err = true
@@ -320,7 +320,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 }
 
-func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Context, tgName string, httpRoute *v1alpha2.HTTPRoute) bool {
+func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Context, tgName string, httpRoute *gateway_api.HTTPRoute) bool {
 
 	for _, httpRule := range httpRoute.Spec.Rules {
 		for _, httpBackendRef := range httpRule.BackendRefs {

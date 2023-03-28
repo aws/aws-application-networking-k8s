@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -30,15 +30,15 @@ func NewEnqueueRequestHTTPRouteEvent(client client.Client) handler.EventHandler 
 func (h *enqueueRequestsForHTTPRouteEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	glog.V(6).Info("HTTPRoute create")
 
-	newHTTPRoute := e.Object.(*v1alpha2.HTTPRoute)
+	newHTTPRoute := e.Object.(*gateway_api.HTTPRoute)
 	h.enqueueImpactedService(queue, newHTTPRoute)
 }
 
 func (h *enqueueRequestsForHTTPRouteEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
 	glog.V(6).Info("HTTPRoute update ")
 
-	oldHTTPRoute := e.ObjectOld.(*v1alpha2.HTTPRoute)
-	newHTTPRoute := e.ObjectNew.(*v1alpha2.HTTPRoute)
+	oldHTTPRoute := e.ObjectOld.(*gateway_api.HTTPRoute)
+	newHTTPRoute := e.ObjectNew.(*gateway_api.HTTPRoute)
 
 	if !equality.Semantic.DeepEqual(oldHTTPRoute.Spec, newHTTPRoute.Spec) {
 		glog.V(6).Infof("--oldHTTPRoute %v \n", oldHTTPRoute.Spec)
@@ -61,7 +61,7 @@ func (h *enqueueRequestsForHTTPRouteEvent) Generic(e event.GenericEvent, queue w
 
 }
 
-func (h *enqueueRequestsForHTTPRouteEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, httpRoute *v1alpha2.HTTPRoute) {
+func (h *enqueueRequestsForHTTPRouteEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, httpRoute *gateway_api.HTTPRoute) {
 	glog.V(6).Infof("enqueueImpactedService [%v]\n", httpRoute)
 
 	for _, httpRule := range httpRoute.Spec.Rules {

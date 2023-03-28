@@ -25,20 +25,17 @@ type defaultLattice struct {
 	vpclatticeiface.VpcLatticeAPI
 }
 
-const (
-	GammaEndpoint    = "https://mercury-gamma.us-west-2.amazonaws.com/"
-	BetaProdEndpoint = "https://vpc-lattice.us-west-2.amazonaws.com"
-)
-
 func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 	var latticeSess vpclatticeiface.VpcLatticeAPI
+
+	latticeEndpoint := "https://vpc-lattice." + region + ".amazonaws.com"
 	endpoint := os.Getenv("LATTICE_ENDPOINT")
 
 	if endpoint == "" {
-		endpoint = BetaProdEndpoint
+		endpoint = latticeEndpoint
 	}
 
-	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion("us-west-2").WithEndpoint(endpoint))
+	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint))
 
 	glog.V(2).Infoln("Lattice Service EndPoint:", endpoint)
 

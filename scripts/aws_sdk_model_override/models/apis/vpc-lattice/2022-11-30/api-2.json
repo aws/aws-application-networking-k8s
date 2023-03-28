@@ -390,6 +390,7 @@
         {"shape":"AccessDeniedException"},
         {"shape":"ThrottlingException"},
         {"shape":"ResourceNotFoundException"},
+        {"shape":"ConflictException"},
         {"shape":"InternalServerException"}
       ],
       "idempotent":true
@@ -1583,6 +1584,13 @@
     },
     "FailureCode":{"type":"string"},
     "FailureMessage":{"type":"string"},
+    "FixedResponseAction":{
+      "type":"structure",
+      "required":["statusCode"],
+      "members":{
+        "statusCode":{"shape":"HttpStatusCode"}
+      }
+    },
     "ForwardAction":{
       "type":"structure",
       "required":["targetGroups"],
@@ -1896,7 +1904,7 @@
     "HeaderMatchList":{
       "type":"list",
       "member":{"shape":"HeaderMatch"},
-      "max":100,
+      "max":5,
       "min":1
     },
     "HeaderMatchName":{
@@ -1927,8 +1935,9 @@
         "healthyThresholdCount":{"shape":"HealthyThresholdCount"},
         "matcher":{"shape":"Matcher"},
         "path":{"shape":"HealthCheckPath"},
-        "port":{"shape":"Port"},
+        "port":{"shape":"HealthCheckPort"},
         "protocol":{"shape":"TargetGroupProtocol"},
+        "protocolVersion":{"shape":"HealthCheckProtocolVersion"},
         "unhealthyThresholdCount":{"shape":"UnhealthyThresholdCount"}
       }
     },
@@ -1936,31 +1945,44 @@
       "type":"integer",
       "box":true,
       "max":300,
-      "min":5
+      "min":0
     },
     "HealthCheckPath":{
       "type":"string",
       "max":2048,
-      "min":1,
-      "pattern":"^/[a-zA-Z0-9@:%_+.~#?&/=]*$"
+      "min":0,
+      "pattern":"(^/[a-zA-Z0-9@:%_+.~#?&/=-]*$|(^$))"
+    },
+    "HealthCheckPort":{
+      "type":"integer",
+      "box":true,
+      "max":65535,
+      "min":0
+    },
+    "HealthCheckProtocolVersion":{
+      "type":"string",
+      "enum":[
+        "HTTP1",
+        "HTTP2"
+      ]
     },
     "HealthCheckTimeoutSeconds":{
       "type":"integer",
       "box":true,
       "max":120,
-      "min":1
+      "min":0
     },
     "HealthyThresholdCount":{
       "type":"integer",
       "box":true,
       "max":10,
-      "min":2
+      "min":0
     },
     "HttpCodeMatcher":{
       "type":"string",
       "max":2000,
-      "min":3,
-      "pattern":"^[0-9-,]+$"
+      "min":0,
+      "pattern":"(^[0-9-,]+$|(^$))"
     },
     "HttpMatch":{
       "type":"structure",
@@ -1974,6 +1996,12 @@
       "type":"string",
       "max":16,
       "min":0
+    },
+    "HttpStatusCode":{
+      "type":"integer",
+      "box":true,
+      "max":599,
+      "min":100
     },
     "Integer":{
       "type":"integer",
@@ -1994,6 +2022,13 @@
       "exception":true,
       "fault":true,
       "retryable":{"throttling":false}
+    },
+    "IpAddressType":{
+      "type":"string",
+      "enum":[
+        "IPV4",
+        "IPV6"
+      ]
     },
     "ListAccessLogSubscriptionsRequest":{
       "type":"structure",
@@ -2367,13 +2402,13 @@
       "type":"string",
       "max":200,
       "min":1,
-      "pattern":"^/[a-zA-Z0-9@:%_+.~#?&/=]*$"
+      "pattern":"^/[a-zA-Z0-9@:%_+.~#?&/=-]*$"
     },
     "PathMatchPrefix":{
       "type":"string",
       "max":200,
       "min":1,
-      "pattern":"^/[a-zA-Z0-9@:%_+.~#?&/=]*$"
+      "pattern":"^/[a-zA-Z0-9@:%_+.~#?&/=-]*$"
     },
     "PathMatchType":{
       "type":"structure",
@@ -2504,6 +2539,7 @@
     "RuleAction":{
       "type":"structure",
       "members":{
+        "fixedResponse":{"shape":"FixedResponseAction"},
         "forward":{"shape":"ForwardAction"}
       },
       "union":true
@@ -2553,7 +2589,8 @@
         "id":{"shape":"RuleId"},
         "isDefault":{"shape":"Boolean"},
         "lastUpdatedAt":{"shape":"Timestamp"},
-        "name":{"shape":"RuleName"}
+        "name":{"shape":"RuleName"},
+        "priority":{"shape":"RulePriority"}
       }
     },
     "RuleSummaryList":{
@@ -2832,7 +2869,7 @@
     "TagKey":{
       "type":"string",
       "max":128,
-      "min":0
+      "min":1
     },
     "TagKeys":{
       "type":"list",
@@ -2869,7 +2906,7 @@
     },
     "TagValue":{
       "type":"string",
-      "max":128,
+      "max":256,
       "min":0
     },
     "Target":{
@@ -2908,6 +2945,7 @@
       ],
       "members":{
         "healthCheck":{"shape":"HealthCheckConfig"},
+        "ipAddressType":{"shape":"IpAddressType"},
         "port":{"shape":"Port"},
         "protocol":{"shape":"TargetGroupProtocol"},
         "protocolVersion":{"shape":"TargetGroupProtocolVersion"},
@@ -2932,7 +2970,7 @@
     },
     "TargetGroupName":{
       "type":"string",
-      "max":63,
+      "max":128,
       "min":3,
       "pattern":"^(?!tg-)(?![-])(?!.*[-]$)(?!.*[-]{2})[a-z0-9-]+$"
     },
@@ -2967,6 +3005,7 @@
         "arn":{"shape":"TargetGroupArn"},
         "createdAt":{"shape":"Timestamp"},
         "id":{"shape":"TargetGroupId"},
+        "ipAddressType":{"shape":"IpAddressType"},
         "lastUpdatedAt":{"shape":"Timestamp"},
         "name":{"shape":"TargetGroupName"},
         "port":{"shape":"Port"},
@@ -2982,7 +3021,8 @@
       "enum":[
         "IP",
         "LAMBDA",
-        "INSTANCE"
+        "INSTANCE",
+        "ALB"
       ]
     },
     "TargetGroupWeight":{
@@ -3052,7 +3092,7 @@
       "type":"integer",
       "box":true,
       "max":10,
-      "min":2
+      "min":0
     },
     "UntagResourceRequest":{
       "type":"structure",

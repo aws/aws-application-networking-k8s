@@ -9,7 +9,7 @@ import (
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 
 	"k8s.io/apimachinery/pkg/types"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
@@ -18,9 +18,9 @@ const (
 	awsCustomCertARN = "application-networking.k8s.aws/certificate-arn"
 )
 
-func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, parentRef v1alpha2.ParentRef) (int64, string, string, error) {
+func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, parentRef gateway_api.ParentReference) (int64, string, string, error) {
 
-	var protocol v1alpha2.ProtocolType = v1alpha2.HTTPProtocolType
+	var protocol gateway_api.ProtocolType = gateway_api.HTTPProtocolType
 	if parentRef.SectionName != nil {
 		glog.V(6).Infof("HTTP SectionName %s \n", *parentRef.SectionName)
 	}
@@ -33,14 +33,14 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 	}
 	glog.V(6).Infof("build Listener, Parent Name %s Namespace %s\n", t.httpRoute.Spec.ParentRefs[0].Name, gwNamespace)
 	var listenerPort = 0
-	gw := &v1alpha2.Gateway{}
+	gw := &gateway_api.Gateway{}
 	gwName := types.NamespacedName{
 		Namespace: gwNamespace,
 		Name:      string(t.httpRoute.Spec.ParentRefs[0].Name),
 	}
 
 	if err := t.Client.Get(ctx, gwName, gw); err != nil {
-		glog.V(6).Infof("Failed to build Listener due to unknow http parent ref , Name %v, err %v \n", gwName, err)
+		glog.V(2).Infof("Failed to build Listener due to unknow http parent ref , Name %v, err %v \n", gwName, err)
 		return 0, "", "", err
 	}
 
@@ -55,7 +55,7 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 				protocol = section.Protocol
 
 				if section.TLS != nil {
-					if section.TLS.Mode != nil && *section.TLS.Mode == v1alpha2.TLSModeTerminate {
+					if section.TLS.Mode != nil && *section.TLS.Mode == gateway_api.TLSModeTerminate {
 						curCertARN, ok := section.TLS.Options[awsCustomCertARN]
 
 						if ok {
@@ -74,7 +74,7 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 		// use 1st listener port
 		// TODO check no listerner
 		if len(gw.Spec.Listeners) == 0 {
-			glog.V(6).Infof("Error building listener, there is NO listeners on GW for %v\n",
+			glog.V(2).Infof("Error building listener, there is NO listeners on GW for %v\n",
 				gwName)
 			return 0, "", "", errors.New("Error building listener, there is NO listeners on GW")
 		}
@@ -88,6 +88,13 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error {
 
 	for _, parentRef := range t.httpRoute.Spec.ParentRefs {
+		if parentRef.Name != t.httpRoute.Spec.ParentRefs[0].Name {
+			// when a service is associate to multiple service network(s), all listener config MUST be same
+			// so here we are only using the 1st gateway
+			glog.V(2).Infof("Ignore parentref of different gateway %v", parentRef.Name)
+
+			continue
+		}
 
 		port, protocol, certARN, err := t.extractListnerInfo(ctx, parentRef)
 

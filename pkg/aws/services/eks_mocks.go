@@ -601,6 +601,56 @@ func (mr *MockEKSMockRecorder) DescribeAddon(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeAddon", reflect.TypeOf((*MockEKS)(nil).DescribeAddon), arg0)
 }
 
+// DescribeAddonConfiguration mocks base method.
+func (m *MockEKS) DescribeAddonConfiguration(arg0 *eks.DescribeAddonConfigurationInput) (*eks.DescribeAddonConfigurationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeAddonConfiguration", arg0)
+	ret0, _ := ret[0].(*eks.DescribeAddonConfigurationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeAddonConfiguration indicates an expected call of DescribeAddonConfiguration.
+func (mr *MockEKSMockRecorder) DescribeAddonConfiguration(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeAddonConfiguration", reflect.TypeOf((*MockEKS)(nil).DescribeAddonConfiguration), arg0)
+}
+
+// DescribeAddonConfigurationRequest mocks base method.
+func (m *MockEKS) DescribeAddonConfigurationRequest(arg0 *eks.DescribeAddonConfigurationInput) (*request.Request, *eks.DescribeAddonConfigurationOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeAddonConfigurationRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*eks.DescribeAddonConfigurationOutput)
+	return ret0, ret1
+}
+
+// DescribeAddonConfigurationRequest indicates an expected call of DescribeAddonConfigurationRequest.
+func (mr *MockEKSMockRecorder) DescribeAddonConfigurationRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeAddonConfigurationRequest", reflect.TypeOf((*MockEKS)(nil).DescribeAddonConfigurationRequest), arg0)
+}
+
+// DescribeAddonConfigurationWithContext mocks base method.
+func (m *MockEKS) DescribeAddonConfigurationWithContext(arg0 aws.Context, arg1 *eks.DescribeAddonConfigurationInput, arg2 ...request.Option) (*eks.DescribeAddonConfigurationOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeAddonConfigurationWithContext", varargs...)
+	ret0, _ := ret[0].(*eks.DescribeAddonConfigurationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeAddonConfigurationWithContext indicates an expected call of DescribeAddonConfigurationWithContext.
+func (mr *MockEKSMockRecorder) DescribeAddonConfigurationWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeAddonConfigurationWithContext", reflect.TypeOf((*MockEKS)(nil).DescribeAddonConfigurationWithContext), varargs...)
+}
+
 // DescribeAddonRequest mocks base method.
 func (m *MockEKS) DescribeAddonRequest(arg0 *eks.DescribeAddonInput) (*request.Request, *eks.DescribeAddonOutput) {
 	m.ctrl.T.Helper()
