@@ -272,7 +272,8 @@ func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Cont
 					snTags:    tagsOutput,
 				}
 
-				return &snOutput, err
+				// treat err as no tag
+				return &snOutput, nil
 			}
 		}
 		return nil, err
