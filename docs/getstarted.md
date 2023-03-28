@@ -168,9 +168,11 @@ The following figure illustrates this:
 
 **Steps**
 
+
    **Set up inventory on a second cluster** 
 
 1. Create a second cluster (using the same instructions used to create the first).
+   **Important**: Note that each cluster requires its own gateway.
 
 1. Ensure you're using the second cluster profile. 
    ```bash
