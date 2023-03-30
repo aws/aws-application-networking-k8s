@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   labels:
     control-plane: gateway-api-controller
-  name: system
+  name: aws-application-networking-system

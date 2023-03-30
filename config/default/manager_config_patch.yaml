@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gateway-api-controller
-  namespace: system
+  namespace: aws-application-networking-system
 spec:
   template:
     spec:

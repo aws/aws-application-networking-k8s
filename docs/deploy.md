@@ -46,7 +46,7 @@ Run through them again for a second cluster to use with the extended example sho
       --policy-name VPCLatticeControllerIAMPolicy \
       --policy-document file://examples/recommended-inline-policy.json
    ```
-1. Create the `system` namespace:
+1. Create the `aws-application-networking-system` namespace:
    ```bash
    kubectl apply -f examples/deploy-namesystem.yaml
    ```
@@ -58,7 +58,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    eksctl create iamserviceaccount \
       --cluster=$CLUSTER_NAME \
-      --namespace=system \
+      --namespace=aws-application-networking-system \
       --name=gateway-api-controller \
       --attach-policy-arn=$VPCLatticeControllerIAMPolicyArn \
       --override-existing-serviceaccounts \
@@ -77,7 +77,7 @@ Run through them again for a second cluster to use with the extended example sho
    helm install gateway-api-controller \
       oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
       --version=v0.0.8 \
-      --set=aws.region=$AWS_REGION --set=serviceAccount.create=false --namespace system
+      --set=aws.region=$AWS_REGION --set=serviceAccount.create=false --namespace aws-application-networking-system
    ```
 1. Create the `amazon-vpc-lattice` GatewayClass:
    ```bash

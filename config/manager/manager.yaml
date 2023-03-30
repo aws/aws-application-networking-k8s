@@ -3,13 +3,13 @@ kind: Namespace
 metadata:
   labels:
     control-plane: gateway-api-controller
-  name: system
+  name: aws-application-networking-system
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gateway-api-controller
-  namespace: system
+  namespace: aws-application-networking-system
   labels:
     control-plane: gateway-api-controller
 spec:
