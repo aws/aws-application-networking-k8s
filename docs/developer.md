@@ -24,21 +24,11 @@ make run
 GATEWAY_API_CONTROLLER_LOGLEVEL=debug make run
 
 # to run it against specific lattice service endpoint
-LATTICE_ENDPOINT=https://mercury-gamma.us-west-2.amazonaws.com/ make run
+LATTICE_ENDPOINT=https://vpc-lattice.us-west-2.amazonaws.com/ make run
 ```
 
 ## End-to-End Testing
 
-### Install VPC lattice CLIs
-
-```
-# Add models to AWS CLI
-aws configure add-model --service-model file://scripts/aws_sdk_model_override/models/apis/vpc-lattice/2022-11-30/api-2.json --service-name vpc-lattice
-
-# List Services
-aws vpc-lattice list-services --endpoint-url=https://vpc-lattice.us-west-2.amazonaws.com
-
-```
 
 ### Make Docker Image
 
@@ -54,59 +44,3 @@ make docker-build
 make build-deploy
 ```
 Then follow [Deploying the AWS Gateway API Controller](https://github.com/aws/aws-application-networking-k8s/blob/main/docs/deploy.md) to configure and deploy the docker image 
-## Release
-
-To cut a new release, you will want to follow these steps:
-
-1. Create a new Git branch for the new release.
-
-```bash
-export RELEASE_VERSION=v0.0.1  # Change this to the next release version you want
-git checkout main
-git fetch --all --tags && git rebase upstream/main
-git checkout -b release-$RELEASE_VERSION
-```
-
-2. Update the Helm Chart's version and appVersion to the new release version.
-
-Open `helm/Chart.yaml` and change the `version` and `appVersion` to match the `$RELEASE_VERSION`.
-
-Open `helm/values.yaml` and change the `image.tag` value to match the `$RELEASE_VERSION`.
-
-3. Create a Git commit for the new release artifacts.
-
-```bash
-git commit -a -m "release artifacts for release $RELEASE_VERSION"
-git push origin release-$RELEASE_VERSION
-```
-
-4. Create a pull request from the release branch and have someone review and
-   merge that for you.
-
-5. Create a Git tag on the repository's main branch that points to the commit
-   that you just got merged.
-
-```bash
-git checkout main
-git fetch --all --tags && git rebase upstream/main
-git tag -a $RELEASE_VERSION
-git push origin $RELEASE_VERSION
-```
-
-6. Package and publish the controller container image and Helm chart.
-
-```
-PULL_BASE_REF=$RELEASE_VERSION ./scripts/release-controller.sh
-```
-
-NOTE: You will need to have exported an environment variable called
-`ECR_PUBLISH_ROLE_ARN` that contains an IAM Role that your AWS user has a trust
-relationship with and permission to publish to the ECR Public repositories. I
-personally have a file in `~/.aws/gateway-publisher` that contains the
-following:
-
-```bash
-export ECR_PUBLISH_ROLE_ARN="arn:aws:iam::606627242267:role/ECRPublisher"
-```
-
-which I `source` before running the `scripts/release-controller.sh` script.
