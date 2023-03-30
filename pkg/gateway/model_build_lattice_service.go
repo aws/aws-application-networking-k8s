@@ -54,7 +54,7 @@ func (b *latticeServiceModelBuilder) Build(ctx context.Context, httpRoute *gatew
 	}
 
 	if err := task.run(ctx); err != nil {
-		return stack, task.latticeService, errors.New("MERCURY_RETRY")
+		return stack, task.latticeService, errors.New("LATTICE_RETRY")
 	}
 
 	return task.stack, task.latticeService, nil
