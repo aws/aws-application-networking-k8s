@@ -132,7 +132,7 @@ In workload cluster, exports k8s service to AWS VPC lattice
 
 ```
 # in workload cluster(s)
-apiVersion: multicluster.x-k8s.io/v1alpha1
+apiVersion: multicluster.x-k8s.io/v1beta1
 kind: ServiceExport
 metadata:
   name: service-1
@@ -144,7 +144,7 @@ metadata:
 
 ```
 # in config cluster
-apiVersion: multicluster.x-k8s.io/v1alpha1
+apiVersion: multicluster.x-k8s.io/v1beta1
 kind: ServiceImport
 metadata:
   name: service-1
