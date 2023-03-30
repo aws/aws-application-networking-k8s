@@ -1551,6 +1551,39 @@ func (mr *MockVpcLatticeAPIMockRecorder) ListAccessLogSubscriptions(arg0 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAccessLogSubscriptions", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListAccessLogSubscriptions), arg0)
 }
 
+// ListAccessLogSubscriptionsPages mocks base method.
+func (m *MockVpcLatticeAPI) ListAccessLogSubscriptionsPages(arg0 *vpclattice.ListAccessLogSubscriptionsInput, arg1 func(*vpclattice.ListAccessLogSubscriptionsOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAccessLogSubscriptionsPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListAccessLogSubscriptionsPages indicates an expected call of ListAccessLogSubscriptionsPages.
+func (mr *MockVpcLatticeAPIMockRecorder) ListAccessLogSubscriptionsPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAccessLogSubscriptionsPages", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListAccessLogSubscriptionsPages), arg0, arg1)
+}
+
+// ListAccessLogSubscriptionsPagesWithContext mocks base method.
+func (m *MockVpcLatticeAPI) ListAccessLogSubscriptionsPagesWithContext(arg0 aws.Context, arg1 *vpclattice.ListAccessLogSubscriptionsInput, arg2 func(*vpclattice.ListAccessLogSubscriptionsOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListAccessLogSubscriptionsPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListAccessLogSubscriptionsPagesWithContext indicates an expected call of ListAccessLogSubscriptionsPagesWithContext.
+func (mr *MockVpcLatticeAPIMockRecorder) ListAccessLogSubscriptionsPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAccessLogSubscriptionsPagesWithContext", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListAccessLogSubscriptionsPagesWithContext), varargs...)
+}
+
 // ListAccessLogSubscriptionsRequest mocks base method.
 func (m *MockVpcLatticeAPI) ListAccessLogSubscriptionsRequest(arg0 *vpclattice.ListAccessLogSubscriptionsInput) (*request.Request, *vpclattice.ListAccessLogSubscriptionsOutput) {
 	m.ctrl.T.Helper()
@@ -1599,6 +1632,39 @@ func (m *MockVpcLatticeAPI) ListListeners(arg0 *vpclattice.ListListenersInput) (
 func (mr *MockVpcLatticeAPIMockRecorder) ListListeners(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListeners", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListListeners), arg0)
+}
+
+// ListListenersPages mocks base method.
+func (m *MockVpcLatticeAPI) ListListenersPages(arg0 *vpclattice.ListListenersInput, arg1 func(*vpclattice.ListListenersOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListListenersPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListListenersPages indicates an expected call of ListListenersPages.
+func (mr *MockVpcLatticeAPIMockRecorder) ListListenersPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListenersPages", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListListenersPages), arg0, arg1)
+}
+
+// ListListenersPagesWithContext mocks base method.
+func (m *MockVpcLatticeAPI) ListListenersPagesWithContext(arg0 aws.Context, arg1 *vpclattice.ListListenersInput, arg2 func(*vpclattice.ListListenersOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListListenersPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListListenersPagesWithContext indicates an expected call of ListListenersPagesWithContext.
+func (mr *MockVpcLatticeAPIMockRecorder) ListListenersPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListenersPagesWithContext", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListListenersPagesWithContext), varargs...)
 }
 
 // ListListenersRequest mocks base method.
@@ -1651,6 +1717,39 @@ func (mr *MockVpcLatticeAPIMockRecorder) ListRules(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRules", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListRules), arg0)
 }
 
+// ListRulesPages mocks base method.
+func (m *MockVpcLatticeAPI) ListRulesPages(arg0 *vpclattice.ListRulesInput, arg1 func(*vpclattice.ListRulesOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListRulesPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListRulesPages indicates an expected call of ListRulesPages.
+func (mr *MockVpcLatticeAPIMockRecorder) ListRulesPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRulesPages", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListRulesPages), arg0, arg1)
+}
+
+// ListRulesPagesWithContext mocks base method.
+func (m *MockVpcLatticeAPI) ListRulesPagesWithContext(arg0 aws.Context, arg1 *vpclattice.ListRulesInput, arg2 func(*vpclattice.ListRulesOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListRulesPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListRulesPagesWithContext indicates an expected call of ListRulesPagesWithContext.
+func (mr *MockVpcLatticeAPIMockRecorder) ListRulesPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRulesPagesWithContext", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListRulesPagesWithContext), varargs...)
+}
+
 // ListRulesRequest mocks base method.
 func (m *MockVpcLatticeAPI) ListRulesRequest(arg0 *vpclattice.ListRulesInput) (*request.Request, *vpclattice.ListRulesOutput) {
 	m.ctrl.T.Helper()
@@ -1699,6 +1798,39 @@ func (m *MockVpcLatticeAPI) ListServiceNetworkServiceAssociations(arg0 *vpclatti
 func (mr *MockVpcLatticeAPIMockRecorder) ListServiceNetworkServiceAssociations(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociations", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServiceNetworkServiceAssociations), arg0)
+}
+
+// ListServiceNetworkServiceAssociationsPages mocks base method.
+func (m *MockVpcLatticeAPI) ListServiceNetworkServiceAssociationsPages(arg0 *vpclattice.ListServiceNetworkServiceAssociationsInput, arg1 func(*vpclattice.ListServiceNetworkServiceAssociationsOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListServiceNetworkServiceAssociationsPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListServiceNetworkServiceAssociationsPages indicates an expected call of ListServiceNetworkServiceAssociationsPages.
+func (mr *MockVpcLatticeAPIMockRecorder) ListServiceNetworkServiceAssociationsPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociationsPages", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServiceNetworkServiceAssociationsPages), arg0, arg1)
+}
+
+// ListServiceNetworkServiceAssociationsPagesWithContext mocks base method.
+func (m *MockVpcLatticeAPI) ListServiceNetworkServiceAssociationsPagesWithContext(arg0 aws.Context, arg1 *vpclattice.ListServiceNetworkServiceAssociationsInput, arg2 func(*vpclattice.ListServiceNetworkServiceAssociationsOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListServiceNetworkServiceAssociationsPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListServiceNetworkServiceAssociationsPagesWithContext indicates an expected call of ListServiceNetworkServiceAssociationsPagesWithContext.
+func (mr *MockVpcLatticeAPIMockRecorder) ListServiceNetworkServiceAssociationsPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkServiceAssociationsPagesWithContext", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServiceNetworkServiceAssociationsPagesWithContext), varargs...)
 }
 
 // ListServiceNetworkServiceAssociationsRequest mocks base method.
@@ -1751,6 +1883,39 @@ func (mr *MockVpcLatticeAPIMockRecorder) ListServiceNetworkVpcAssociations(arg0 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociations", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServiceNetworkVpcAssociations), arg0)
 }
 
+// ListServiceNetworkVpcAssociationsPages mocks base method.
+func (m *MockVpcLatticeAPI) ListServiceNetworkVpcAssociationsPages(arg0 *vpclattice.ListServiceNetworkVpcAssociationsInput, arg1 func(*vpclattice.ListServiceNetworkVpcAssociationsOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListServiceNetworkVpcAssociationsPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListServiceNetworkVpcAssociationsPages indicates an expected call of ListServiceNetworkVpcAssociationsPages.
+func (mr *MockVpcLatticeAPIMockRecorder) ListServiceNetworkVpcAssociationsPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociationsPages", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServiceNetworkVpcAssociationsPages), arg0, arg1)
+}
+
+// ListServiceNetworkVpcAssociationsPagesWithContext mocks base method.
+func (m *MockVpcLatticeAPI) ListServiceNetworkVpcAssociationsPagesWithContext(arg0 aws.Context, arg1 *vpclattice.ListServiceNetworkVpcAssociationsInput, arg2 func(*vpclattice.ListServiceNetworkVpcAssociationsOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListServiceNetworkVpcAssociationsPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListServiceNetworkVpcAssociationsPagesWithContext indicates an expected call of ListServiceNetworkVpcAssociationsPagesWithContext.
+func (mr *MockVpcLatticeAPIMockRecorder) ListServiceNetworkVpcAssociationsPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworkVpcAssociationsPagesWithContext", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServiceNetworkVpcAssociationsPagesWithContext), varargs...)
+}
+
 // ListServiceNetworkVpcAssociationsRequest mocks base method.
 func (m *MockVpcLatticeAPI) ListServiceNetworkVpcAssociationsRequest(arg0 *vpclattice.ListServiceNetworkVpcAssociationsInput) (*request.Request, *vpclattice.ListServiceNetworkVpcAssociationsOutput) {
 	m.ctrl.T.Helper()
@@ -1801,6 +1966,39 @@ func (mr *MockVpcLatticeAPIMockRecorder) ListServiceNetworks(arg0 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworks", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServiceNetworks), arg0)
 }
 
+// ListServiceNetworksPages mocks base method.
+func (m *MockVpcLatticeAPI) ListServiceNetworksPages(arg0 *vpclattice.ListServiceNetworksInput, arg1 func(*vpclattice.ListServiceNetworksOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListServiceNetworksPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListServiceNetworksPages indicates an expected call of ListServiceNetworksPages.
+func (mr *MockVpcLatticeAPIMockRecorder) ListServiceNetworksPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworksPages", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServiceNetworksPages), arg0, arg1)
+}
+
+// ListServiceNetworksPagesWithContext mocks base method.
+func (m *MockVpcLatticeAPI) ListServiceNetworksPagesWithContext(arg0 aws.Context, arg1 *vpclattice.ListServiceNetworksInput, arg2 func(*vpclattice.ListServiceNetworksOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListServiceNetworksPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListServiceNetworksPagesWithContext indicates an expected call of ListServiceNetworksPagesWithContext.
+func (mr *MockVpcLatticeAPIMockRecorder) ListServiceNetworksPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServiceNetworksPagesWithContext", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServiceNetworksPagesWithContext), varargs...)
+}
+
 // ListServiceNetworksRequest mocks base method.
 func (m *MockVpcLatticeAPI) ListServiceNetworksRequest(arg0 *vpclattice.ListServiceNetworksInput) (*request.Request, *vpclattice.ListServiceNetworksOutput) {
 	m.ctrl.T.Helper()
@@ -1849,6 +2047,39 @@ func (m *MockVpcLatticeAPI) ListServices(arg0 *vpclattice.ListServicesInput) (*v
 func (mr *MockVpcLatticeAPIMockRecorder) ListServices(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServices", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServices), arg0)
+}
+
+// ListServicesPages mocks base method.
+func (m *MockVpcLatticeAPI) ListServicesPages(arg0 *vpclattice.ListServicesInput, arg1 func(*vpclattice.ListServicesOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListServicesPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListServicesPages indicates an expected call of ListServicesPages.
+func (mr *MockVpcLatticeAPIMockRecorder) ListServicesPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServicesPages", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServicesPages), arg0, arg1)
+}
+
+// ListServicesPagesWithContext mocks base method.
+func (m *MockVpcLatticeAPI) ListServicesPagesWithContext(arg0 aws.Context, arg1 *vpclattice.ListServicesInput, arg2 func(*vpclattice.ListServicesOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListServicesPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListServicesPagesWithContext indicates an expected call of ListServicesPagesWithContext.
+func (mr *MockVpcLatticeAPIMockRecorder) ListServicesPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListServicesPagesWithContext", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListServicesPagesWithContext), varargs...)
 }
 
 // ListServicesRequest mocks base method.
@@ -1951,6 +2182,39 @@ func (mr *MockVpcLatticeAPIMockRecorder) ListTargetGroups(arg0 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroups", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListTargetGroups), arg0)
 }
 
+// ListTargetGroupsPages mocks base method.
+func (m *MockVpcLatticeAPI) ListTargetGroupsPages(arg0 *vpclattice.ListTargetGroupsInput, arg1 func(*vpclattice.ListTargetGroupsOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTargetGroupsPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListTargetGroupsPages indicates an expected call of ListTargetGroupsPages.
+func (mr *MockVpcLatticeAPIMockRecorder) ListTargetGroupsPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroupsPages", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListTargetGroupsPages), arg0, arg1)
+}
+
+// ListTargetGroupsPagesWithContext mocks base method.
+func (m *MockVpcLatticeAPI) ListTargetGroupsPagesWithContext(arg0 aws.Context, arg1 *vpclattice.ListTargetGroupsInput, arg2 func(*vpclattice.ListTargetGroupsOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListTargetGroupsPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListTargetGroupsPagesWithContext indicates an expected call of ListTargetGroupsPagesWithContext.
+func (mr *MockVpcLatticeAPIMockRecorder) ListTargetGroupsPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroupsPagesWithContext", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListTargetGroupsPagesWithContext), varargs...)
+}
+
 // ListTargetGroupsRequest mocks base method.
 func (m *MockVpcLatticeAPI) ListTargetGroupsRequest(arg0 *vpclattice.ListTargetGroupsInput) (*request.Request, *vpclattice.ListTargetGroupsOutput) {
 	m.ctrl.T.Helper()
@@ -1999,6 +2263,39 @@ func (m *MockVpcLatticeAPI) ListTargets(arg0 *vpclattice.ListTargetsInput) (*vpc
 func (mr *MockVpcLatticeAPIMockRecorder) ListTargets(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargets", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListTargets), arg0)
+}
+
+// ListTargetsPages mocks base method.
+func (m *MockVpcLatticeAPI) ListTargetsPages(arg0 *vpclattice.ListTargetsInput, arg1 func(*vpclattice.ListTargetsOutput, bool) bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTargetsPages", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListTargetsPages indicates an expected call of ListTargetsPages.
+func (mr *MockVpcLatticeAPIMockRecorder) ListTargetsPages(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetsPages", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListTargetsPages), arg0, arg1)
+}
+
+// ListTargetsPagesWithContext mocks base method.
+func (m *MockVpcLatticeAPI) ListTargetsPagesWithContext(arg0 aws.Context, arg1 *vpclattice.ListTargetsInput, arg2 func(*vpclattice.ListTargetsOutput, bool) bool, arg3 ...request.Option) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListTargetsPagesWithContext", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ListTargetsPagesWithContext indicates an expected call of ListTargetsPagesWithContext.
+func (mr *MockVpcLatticeAPIMockRecorder) ListTargetsPagesWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetsPagesWithContext", reflect.TypeOf((*MockVpcLatticeAPI)(nil).ListTargetsPagesWithContext), varargs...)
 }
 
 // ListTargetsRequest mocks base method.
