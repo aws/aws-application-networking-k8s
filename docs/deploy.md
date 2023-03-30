@@ -3,7 +3,7 @@
 Follow these instructions to create a cluster and deploy the AWS Gateway API Controller.
 Run through them again for a second cluster to use with the extended example shown later.
 
-1. Set your region and cluster name as environment variables. Nine regions are now supported, including `us-west-2` and `us-east-1`. For example:
+1. Set your region and cluster name as environment variables. See the [Amazon VPC Lattice FAQs](https://aws.amazon.com/vpc/lattice/faqs/) for a list of supported regions. For this example, we use `us-west-2`:
    ```bash
    export AWS_REGION=us-west-2
    export CLUSTER_NAME=my-cluster
