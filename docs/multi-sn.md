@@ -28,7 +28,7 @@ kind: Gateway
 metadata:
   name: gateway-1
   annotations:
-    application-networking.k8s.aws/lattice-vpc-association: "false"  <-----> not associate to VPC
+    application-networking.k8s.aws/lattice-vpc-association: "false"  # not associate to VPC
 spec:
   gatewayClassName: amazon-vpc-lattice
   listeners:
@@ -42,7 +42,7 @@ kind: Gateway
 metadata:
   name: gateway-2
   annotations:
-    application-networking.k8s.aws/lattice-vpc-association: "false"  <-----> not associate to VPC
+    application-networking.k8s.aws/lattice-vpc-association: "false"  # not associate to VPC
 spec:
   gatewayClassName: amazon-vpc-lattice
   listeners:
@@ -57,7 +57,7 @@ metadata:
   name: httproute-1
 spec:
   parentRefs:
-  - name: gateway-1  <---> part of gateway-1/service-network-1
+  - name: gateway-1  # part of gateway-1/service-network-1
   ...
 ```  
 
@@ -69,7 +69,7 @@ metadata:
   name: httproute-2
 spec:
   parentRefs:
-  - name: gateway-1     <------> part of both gateway-1 and gateway-2 
+  - name: gateway-1     # part of both gateway-1 and gateway-2 
     sectionName: http
   - name: gateway-2
     sectionName: http
@@ -84,7 +84,7 @@ metadata:
   name: httproute-3
 spec:
   parentRefs:
-  - name: gateway-2  <---> part of gateway-2/service-network-2
+  - name: gateway-2  # part of gateway-2/service-network-2
   ...
 ```
 
@@ -98,7 +98,7 @@ kind: Gateway
 metadata:
   name: gateway-1
   annotations:
-    application-networking.k8s.aws/lattice-vpc-association: "true"  <----->  associate to VPC
+    application-networking.k8s.aws/lattice-vpc-association: "true"  #  associate to VPC
 spec:
   gatewayClassName: amazon-vpc-lattice
   listeners:
@@ -115,7 +115,7 @@ kind: Gateway
 metadata:
   name: gateway-2
   annotations:
-    application-networking.k8s.aws/lattice-vpc-association: "true"  <----->  associate to VPC
+    application-networking.k8s.aws/lattice-vpc-association: "true"  #  associate to VPC
 spec:
   gatewayClassName: amazon-vpc-lattice
   listeners:
@@ -137,7 +137,7 @@ kind: ServiceExport
 metadata:
   name: service-1
   annotations:
-          multicluster.x-k8s.io/federation: "amazon-vpc-lattice"  <----------->  AWS VPC Lattice
+          multicluster.x-k8s.io/federation: "amazon-vpc-lattice"  #  AWS VPC Lattice
 ``` 
 
 ### Configure HTTPRoute in config cluster to reference K8S service(s) in worload cluster(s)
