@@ -45,12 +45,6 @@ e.g. new EC2/K8s API, IMDS API, dependency on specific kernel module/version or 
 
 **Will this break upgrades or downgrades. Has updating a running cluster been tested?**:
 
-
-**Does this change require updates to the VPC Lattice daemonset config files to work?**:
-<!--
-If this change does not work with a "kubectl patch" of the image tag, please explain why.
--->
-
 **Does this PR introduce any user-facing change?**:
 <!--
 If yes, a release note update is required:
