@@ -3,7 +3,7 @@
 Follow these instructions to create a cluster and deploy the AWS Gateway API Controller.
 Run through them again for a second cluster to use with the extended example shown later.
 
-**NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller for VPC Lattice](https://github.com/aws/aws-application-networking-k8) site. The files are in the `examples/` directory.
+**NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller for VPC Lattice](https://github.com/aws/aws-application-networking-k8s) site. The files are in the `examples/` directory.
 
 1. Set your region and cluster name as environment variables. See the [Amazon VPC Lattice FAQs](https://aws.amazon.com/vpc/lattice/faqs/) for a list of supported regions. For this example, we use `us-west-2`:
    ```bash
