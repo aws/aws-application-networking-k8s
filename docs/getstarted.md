@@ -8,6 +8,9 @@ Both clusters are created using `eksctl`, with both clusters created from the sa
 
 Using these examples as a foundation, see the [Configuration](configure/index.md) section for ways to further configure service-to-service communications.
 
+
+**NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller for VPC Lattice](https://github.com/aws/aws-application-networking-k8) site. The files are in the `examples/` directory.
+
 ## Set up single-cluster/VPC service-to-service communications
 
 This example creates a single cluster in a single VPC, then configures two routes (rates and inventory) and three services (parking, review, and inventory-1). The following figure illustrates this setup:
