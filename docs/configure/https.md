@@ -4,7 +4,7 @@ The Getting Started guide uses HTTP (insecure) communications by default.
 Using the examples here, you can change that to HTTPS (secure) communications.
 If you choose, you can further customize your HTTPS connections by adding custom domain names and certificates, as described below.
 
-**NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller for VPC Lattice](https://github.com/aws/aws-application-networking-k8) site. The files are in the `examples/` directory.
+**NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller for VPC Lattice](https://github.com/aws/aws-application-networking-k8s) site. The files are in the `examples/` directory.
 
 ### Securing Traffic using HTTPS
 
