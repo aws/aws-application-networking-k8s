@@ -19,6 +19,6 @@ For more information on this technology, see [Kubernetes Gateway API](https://ga
 A few things to keep in mind:
 
 * If you are new to the VPC Lattice service, keep in mind that names you use for objects must be unique across your entire account and not just across each cluster used by that account.
-* Your AWS CNI must be v1.8.0 or later to work with VPC Lattice.
+* Your AWS VPC CNI must be v1.8.0 or later to work with VPC Lattice.
 
 
