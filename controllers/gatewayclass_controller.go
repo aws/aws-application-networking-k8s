@@ -83,6 +83,7 @@ func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		gwClassOld := gwClass.DeepCopy()
 
 		gwClass.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+		gwClass.Status.Conditions[0].ObservedGeneration = gwClass.Generation
 
 		gwClass.Status.Conditions[0].Status = "True"
 		gwClass.Status.Conditions[0].Message = string(gateway_api.GatewayClassReasonAccepted)
