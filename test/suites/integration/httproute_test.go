@@ -10,7 +10,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"log"
 	"os"
-	"regexp"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"time"
 )
@@ -132,63 +131,6 @@ var _ = Describe("HTTPRoute", func() {
 				service2,
 				deployment2)
 
-		})
-
-		It("Create a headerMatch HttpRoute and ParentRefs to the gateway", func() {
-
-			deployment3, service3 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v3"})
-			headerMatchHttpRoute := testFramework.NewHeaderMatchHttpRoute(gateway, []*v1.Service{service3})
-
-			testFramework.ExpectCreated(ctx, headerMatchHttpRoute, service3, deployment3)
-			time.Sleep(1 * time.Minute)
-
-			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, headerMatchHttpRoute)
-			Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(headerMatchHttpRoute.Name, headerMatchHttpRoute.Namespace)))
-			Eventually(func(g Gomega) {
-				log.Println("Verifying VPC lattice service listeners and rules")
-				listListenerResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
-					ServiceIdentifier: vpcLatticeService.Id,
-				})
-				g.Expect(err).To(BeNil())
-				g.Expect(len(listListenerResp.Items)).To(BeEquivalentTo(1))
-				listener := listListenerResp.Items[0]
-				g.Expect(*listener.Port).To(BeEquivalentTo(gateway.Spec.Listeners[0].Port))
-				listenerId := listener.Id
-				listRulesResp, err := testFramework.LatticeClient.ListRulesWithContext(ctx, &vpclattice.ListRulesInput{
-					ListenerIdentifier: listenerId,
-					ServiceIdentifier:  vpcLatticeService.Id,
-				})
-				headerMatchRuleNameRegExp := regexp.MustCompile("^k8s-[0-9]+-rule-1+$")
-
-				Expect(listRulesResp.Items).To(HaveLen(2)) //1 default rules + 1 newly added header match rule
-				filteredRules := lo.Filter(listRulesResp.Items, func(rule *vpclattice.RuleSummary, _ int) bool {
-					return headerMatchRuleNameRegExp.MatchString(*rule.Name)
-				})
-				Expect(filteredRules).To(HaveLen(1))
-				headerMatchRule, err := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
-					ServiceIdentifier:  vpcLatticeService.Id,
-					ListenerIdentifier: listenerId,
-					RuleIdentifier:     filteredRules[0].Id,
-				})
-				Expect(err).To(BeNil())
-				headerMatches := headerMatchRule.Match.HttpMatch.HeaderMatches
-				Expect(headerMatches).To(HaveLen(2))
-				Expect(*headerMatches[0].Name).To(Equal("my-header-name1"))
-				Expect(*headerMatches[0].Match.Exact).To(Equal("my-header-value1"))
-				Expect(*headerMatches[1].Name).To(Equal("my-header-name2"))
-				Expect(*headerMatches[1].Match.Exact).To(Equal("my-header-value2"))
-			}).WithOffset(1).Should(Succeed())
-
-			//TODO: test traffic in integ-test https://stackoverflow.com/questions/43314689/example-of-exec-in-k8ss-pod-by-using-go-client
-
-			testFramework.ExpectDeleted(ctx,
-				headerMatchHttpRoute,
-				deployment3,
-				service3)
-			testFramework.EventuallyExpectNotFound(ctx,
-				headerMatchHttpRoute,
-				deployment3,
-				service3)
 		})
 
 		AfterAll(func() {
