@@ -3,9 +3,11 @@ package test
 import (
 	"context"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"log"
+	"os"
 	"reflect"
 	"time"
 
@@ -69,7 +71,7 @@ func NewFramework(ctx context.Context) *Framework {
 
 	SetDefaultEventuallyTimeout(180 * time.Second)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
-	//AfterEach(func() { framework.ExpectToBeClean(ctx) })  //After each test finished, we sometime don't expect to resource to be cleaned
+	AfterEach(func() { framework.ExpectToBeClean(ctx) })
 	AfterSuite(func() { framework.CleanTestEnvironment(ctx) })
 	return framework
 }
@@ -82,22 +84,51 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		env.EventuallyExpectNoneFound(ctx, testObject.ListType)
 	})
 
-	// AWS API Objects
+	currentClusterVpcId := os.Getenv("CLUSTER_VPC_ID")
 	Eventually(func(g Gomega) {
+		retrievedServiceNetworks, _ := env.LatticeClient.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
+		for _, sn := range retrievedServiceNetworks {
+			Logger(ctx).Infof("Found service network, checking whether it's created by current EKS Cluster: %v", sn)
+			g.Expect(*sn.Name).Should(Not(BeKeyOf(env.TestCasesCreatedServiceNetworkNames)))
+			retrievedTags, err := env.LatticeClient.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
+				ResourceArn: sn.Arn,
+			})
+			if err == nil { // for err != nil, it is possible that this service network own by other account, and it is shared to current account by RAM
+				Logger(ctx).Infof("Found Tags for serviceNetwork %v tags: %v", *sn.Name, retrievedTags)
+
+				value, ok := retrievedTags.Tags[lattice.K8SServiceNetworkOwnedByVPC]
+				if ok {
+					g.Expect(*value).To(Not(Equal(currentClusterVpcId)))
+				}
+			}
+		}
 
 		retrievedServices, _ := env.LatticeClient.ListServicesAsList(ctx, &vpclattice.ListServicesInput{})
-		retrievedServiceNames := lo.Map(retrievedServices, func(item *vpclattice.ServiceSummary, _ int) string { return *item.Name })
-		g.Expect(retrievedServiceNames).ShouldNot(ContainElement(BeKeyOf(env.TestCasesCreatedServiceNames)))
-
-		retrievedSns, _ := env.LatticeClient.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
-		retrievedSnNames := lo.Map(retrievedSns, func(item *vpclattice.ServiceNetworkSummary, _ int) string { return *item.Name })
-		g.Expect(retrievedSnNames).ShouldNot((ContainElement(BeKeyOf(env.TestCasesCreatedServiceNames))))
-
-		retrievedTgs, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
-		retrievedTgNames := lo.Map(retrievedTgs, func(item *vpclattice.TargetGroupSummary, _ int) string { return *item.Name })
-		g.Expect(retrievedTgNames).ShouldNot(ContainElement(BeKeyOf(env.TestCasesCreatedServiceNames)))
-
+		for _, service := range retrievedServices {
+			Logger(ctx).Infof("Found service, checking whether it's created by current EKS Cluster: %v", service)
+			g.Expect(*service.Name).Should(Not(BeKeyOf(env.TestCasesCreatedServiceNames)))
+			retrievedTags, err := env.LatticeClient.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
+				ResourceArn: service.Arn,
+			})
+			if err == nil { // for err != nil, it is possible that this service own by other account, and it is shared to current account by RAM
+				Logger(ctx).Infof("Found Tags for service %v tags: %v", *service.Name, retrievedTags)
+				value, ok := retrievedTags.Tags[lattice.K8SServiceOwnedByVPC]
+				if ok {
+					g.Expect(*value).To(Not(Equal(currentClusterVpcId)))
+				}
+			}
+		}
 	}).Should(Succeed())
+
+	//Currently, We have a know issue that the controller will not clear the TargetGroup when it cleans the k8s service
+	//Also, TargetGroup don't have an appropriate tag to identify whether this tg is created by current EKS Cluster or not.
+	//So, we temporarily don't check whether the TargetGroup have been cleaned.
+
+	//retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
+	//for _, tg := range retrievedTargetGroups {
+	//	Logger(ctx).Infof("Found TargetGroup: %v, checking it whether it's created by current EKS Cluster", tg)
+	//	g.Expect(*tg.Name).To(Not(ContainElements(BeKeyOf(env.TestCasesCreatedServiceNames))))
+	//}
 }
 
 func (env *Framework) CleanTestEnvironment(ctx context.Context) {

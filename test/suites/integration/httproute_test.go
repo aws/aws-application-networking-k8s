@@ -10,18 +10,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"log"
 	"os"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"time"
 )
 
 var _ = Describe("HTTPRoute", func() {
 	Context("HTTPRules", Ordered, func() {
-		var gateway *v1beta1.Gateway
-		BeforeAll(func() {
-			gateway = testFramework.NewGateway()
-			testFramework.ExpectCreated(ctx, gateway)
-		})
 		It("httprules should support multiple path matches", func() {
+			gateway := testFramework.NewGateway()
+			testFramework.ExpectCreated(ctx, gateway)
 
 			deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1"})
 			deployment2, service2 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2"})
@@ -39,7 +35,7 @@ var _ = Describe("HTTPRoute", func() {
 
 			// Verify VPC Lattice Resource
 			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
-			Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace))) // TODO(liwenwu) is there something else we should verify about vpcLatticeService?
+			Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
 
 			targetGroupV1 := testFramework.GetTargetGroup(ctx, service1)
 			Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
@@ -118,6 +114,7 @@ var _ = Describe("HTTPRoute", func() {
 			//TODO: test traffic in integ-test https://stackoverflow.com/questions/43314689/example-of-exec-in-k8ss-pod-by-using-go-client
 
 			testFramework.ExpectDeleted(ctx,
+				gateway,
 				pathMatchHttpRoute,
 				service1,
 				deployment1,
@@ -125,6 +122,7 @@ var _ = Describe("HTTPRoute", func() {
 				deployment2,
 			)
 			testFramework.EventuallyExpectNotFound(ctx,
+				gateway,
 				pathMatchHttpRoute,
 				service1,
 				deployment1,
@@ -133,8 +131,5 @@ var _ = Describe("HTTPRoute", func() {
 
 		})
 
-		AfterAll(func() {
-			testFramework.ExpectDeleted(ctx, gateway)
-		})
 	})
 })
