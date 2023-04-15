@@ -139,7 +139,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		glog.V(2).Infof("Setting customer-domain-name: %v for httpRoute %v-%v",
 			spec.CustomerDomainName, t.httpRoute.Name, t.httpRoute.Namespace)
 	} else {
-		glog.V(2).Infof("No customter-domain-name for httproute :%v-%v",
+		glog.V(2).Infof("No custom-domain-name for httproute :%v-%v",
 			t.httpRoute.Name, t.httpRoute.Namespace)
 		spec.CustomerDomainName = ""
 	}

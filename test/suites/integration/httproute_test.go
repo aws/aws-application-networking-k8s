@@ -1,121 +1,135 @@
 package integration
 
 import (
-	"os"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "k8s.io/api/core/v1"
+	"log"
+	"os"
+	"time"
 )
 
 var _ = Describe("HTTPRoute", func() {
-	Context("HTTPRules", func() {
-		It("httprules should support multiple paths", func() {
-			deploymentV1, serviceV1 := test.HTTPApp(test.HTTPAppOptions{Name: "test-v1"})
-			deploymentV2, serviceV2 := test.HTTPApp(test.HTTPAppOptions{Name: "test-v2"})
-			httpRoute := test.New(&v1beta1.HTTPRoute{
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{{
-							Name:        v1beta1.ObjectName(test.Gateway.Name),
-							SectionName: lo.ToPtr(v1beta1.SectionName("http")),
-						}},
-					},
-					Rules: []v1beta1.HTTPRouteRule{
-						{
-							BackendRefs: []v1beta1.HTTPBackendRef{{
-								BackendRef: v1beta1.BackendRef{
-									BackendObjectReference: v1beta1.BackendObjectReference{
-										Name: v1beta1.ObjectName(serviceV1.Name),
-										Kind: lo.ToPtr(v1beta1.Kind("Service")),
-									},
-								},
-							}},
-							Matches: []v1beta1.HTTPRouteMatch{
-								{
-									Path: &v1beta1.HTTPPathMatch{
-										Type:  lo.ToPtr(v1beta1.PathMatchPathPrefix),
-										Value: lo.ToPtr("/ver1"),
-									},
-								},
-							},
-						},
-						{
-							BackendRefs: []v1beta1.HTTPBackendRef{{
-								BackendRef: v1beta1.BackendRef{
-									BackendObjectReference: v1beta1.BackendObjectReference{
-										Name: v1beta1.ObjectName(serviceV2.Name),
-										Kind: lo.ToPtr(v1beta1.Kind("Service")),
-									},
-								},
-							}},
-							Matches: []v1beta1.HTTPRouteMatch{
-								{
-									Path: &v1beta1.HTTPPathMatch{
-										Type:  lo.ToPtr(v1beta1.PathMatchPathPrefix),
-										Value: lo.ToPtr("/ver2"),
-									},
-								},
-							},
-						},
-					},
-				},
-			})
+	Context("HTTPRules", Ordered, func() {
+		It("httprules should support multiple path matches", func() {
+			gateway := testFramework.NewGateway()
+			testFramework.ExpectCreated(ctx, gateway)
+
+			deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1"})
+			deployment2, service2 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2"})
+			pathMatchHttpRoute := testFramework.NewPathMatchHttpRoute(gateway, []*v1.Service{service1, service2})
 
 			// Create Kubernetes API Objects
-			framework.ExpectCreated(ctx,
-				test.Gateway,
-				httpRoute,
-				serviceV1,
-				deploymentV1,
-				serviceV2,
-				deploymentV2,
+			testFramework.ExpectCreated(ctx,
+				pathMatchHttpRoute,
+				service1,
+				deployment1,
+				service2,
+				deployment2,
 			)
+			time.Sleep(1 * time.Minute) //Need some time to wait for VPCLattice resources to be created
 
-			// Verify AWS API Objects
+			// Verify VPC Lattice Resource
+			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
+			Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
 
-			// (reverse order to allow dependency propagation)
-			targetGroupV1 := framework.GetTargetGroup(ctx, serviceV1)
-			targetsV1 := framework.GetTargets(ctx, targetGroupV1, deploymentV1)
+			targetGroupV1 := testFramework.GetTargetGroup(ctx, service1)
 			Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-			Expect(*targetGroupV1.Protocol).To(Equal("HTTP"))                                         // TODO(liwenwu) should this be TCP?
-			Expect(*targetGroupV1.Port).To(BeEquivalentTo(serviceV1.Spec.Ports[0].TargetPort.IntVal)) // TODO(liwenwu) should this be .Spec.Port[0].Port?
+			Expect(*targetGroupV1.Protocol).To(Equal("HTTP"))
+			targetsV1 := testFramework.GetTargets(ctx, targetGroupV1, deployment1)
+			Expect(*targetGroupV1.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
 			for _, target := range targetsV1 {
-				Expect(*target.Port).To(BeEquivalentTo(serviceV1.Spec.Ports[0].TargetPort.IntVal))
-				Expect(*target.Status).To(Equal(vpclattice.TargetStatusInitial)) // TODO(liwenwu) should this be HEALTHY?
+				Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
+				Expect(*target.Status).To(Or(
+					Equal(vpclattice.TargetStatusInitial),
+					Equal(vpclattice.TargetStatusHealthy),
+				))
 			}
 
-			targetGroupV2 := framework.GetTargetGroup(ctx, serviceV2)
-			targetsV2 := framework.GetTargets(ctx, targetGroupV2, deploymentV2)
+			targetGroupV2 := testFramework.GetTargetGroup(ctx, service2)
 			Expect(*targetGroupV2.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-			Expect(*targetGroupV2.Protocol).To(Equal("HTTP"))                                         // TODO(liwenwu) should this be TCP?
-			Expect(*targetGroupV2.Port).To(BeEquivalentTo(serviceV2.Spec.Ports[0].TargetPort.IntVal)) // TODO(liwenwu) should this be .Spec.Port[0].Port?
+			Expect(*targetGroupV2.Protocol).To(Equal("HTTP"))
+			targetsV2 := testFramework.GetTargets(ctx, targetGroupV2, deployment2)
+
+			Expect(*targetGroupV2.Port).To(BeEquivalentTo(service2.Spec.Ports[0].TargetPort.IntVal))
 			for _, target := range targetsV2 {
-				Expect(*target.Port).To(BeEquivalentTo(serviceV2.Spec.Ports[0].TargetPort.IntVal))
-				Expect(*target.Status).To(Equal(vpclattice.TargetStatusInitial)) // TODO(liwenwu) should this be HEALTHY?
+				Expect(*target.Port).To(BeEquivalentTo(service2.Spec.Ports[0].TargetPort.IntVal))
+				Expect(*target.Status).To(Or(
+					Equal(vpclattice.TargetStatusInitial),
+					Equal(vpclattice.TargetStatusHealthy),
+				))
 			}
 
-			service := framework.GetService(ctx, httpRoute)
-			Expect(*service.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(httpRoute.Name, httpRoute.Namespace))) // TODO(liwenwu) is there something else we should verify about service?
+			Eventually(func(g Gomega) {
+				log.Println("Verifying VPC lattice service listeners and rules")
+				listListenerResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+					ServiceIdentifier: vpcLatticeService.Id,
+				})
+				g.Expect(err).To(BeNil())
+				g.Expect(len(listListenerResp.Items)).To(BeEquivalentTo(1))
+				listener := listListenerResp.Items[0]
+				g.Expect(*listener.Port).To(BeEquivalentTo(gateway.Spec.Listeners[0].Port))
+				listenerId := listener.Id
+				listRulesResp, err := testFramework.LatticeClient.ListRulesWithContext(ctx, &vpclattice.ListRulesInput{
+					ListenerIdentifier: listenerId,
+					ServiceIdentifier:  vpcLatticeService.Id,
+				})
+				nonDefaultRules := lo.Filter(listRulesResp.Items, func(rule *vpclattice.RuleSummary, _ int) bool {
+					return rule.IsDefault == nil || *rule.IsDefault == false
+				})
+				ruleIds := lo.Map(nonDefaultRules, func(rule *vpclattice.RuleSummary, _ int) *string {
+					return rule.Id
+				})
 
-			serviceNetwork := framework.GetServiceNetwork(ctx, test.Gateway)
-			Expect(*serviceNetwork.NumberOfAssociatedServices).To(BeEquivalentTo(1))
-			Expect(*serviceNetwork.NumberOfAssociatedVPCs).To(BeEquivalentTo(0)) // TODO(liwenwu) should this be 1?
+				rule0, err := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+					ServiceIdentifier:  vpcLatticeService.Id,
+					ListenerIdentifier: listenerId,
+					RuleIdentifier:     ruleIds[0],
+				})
+				g.Expect(err).To(BeNil())
 
-			// Cleanup Kubernetes API Objects
-			framework.ExpectDeleted(ctx,
-				test.Gateway,
-				httpRoute,
-				serviceV1,
-				deploymentV1,
-				serviceV2,
-				deploymentV2,
+				rule1, err := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+					ServiceIdentifier:  vpcLatticeService.Id,
+					ListenerIdentifier: listenerId,
+					RuleIdentifier:     ruleIds[1],
+				})
+				httprouteRules := pathMatchHttpRoute.Spec.Rules
+
+				g.Expect(err).To(BeNil())
+				log.Println("*httprouteRules[0].Matches[0].Path.Value", *(httprouteRules[0].Matches[0].Path.Value))
+				log.Println("*rule0.Match.HttpMatch.PathMatch.Match.Prefix", *(rule0.Match.HttpMatch.PathMatch.Match.Prefix))
+
+				g.Expect([]string{
+					*rule0.Match.HttpMatch.PathMatch.Match.Prefix,
+					*rule1.Match.HttpMatch.PathMatch.Match.Prefix}).To(
+					ContainElements(
+						*httprouteRules[0].Matches[0].Path.Value,
+						*httprouteRules[1].Matches[0].Path.Value))
+			}).WithOffset(1).Should(Succeed())
+
+			//TODO: test traffic in integ-test https://stackoverflow.com/questions/43314689/example-of-exec-in-k8ss-pod-by-using-go-client
+
+			testFramework.ExpectDeleted(ctx,
+				gateway,
+				pathMatchHttpRoute,
+				service1,
+				deployment1,
+				service2,
+				deployment2,
 			)
-			framework.ExpectToBeClean(ctx)
+			testFramework.EventuallyExpectNotFound(ctx,
+				gateway,
+				pathMatchHttpRoute,
+				service1,
+				deployment1,
+				service2,
+				deployment2)
+
 		})
+
 	})
 })

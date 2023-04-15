@@ -16,7 +16,7 @@ const (
 // TODO endpoint, region
 var VpcID = "vpc-xxxx"
 var AccountID = "yyyyyy"
-var Region = "us-east-2"
+var Region = "us-west-2"
 var logLevel = defaultLogLevel
 
 func GetLogLevel() string {
