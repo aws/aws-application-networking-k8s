@@ -44,7 +44,7 @@ func (env *Framework) NewHttpApp(options HTTPAppOptions) (*appsv1.Deployment, *v
 						Image: "public.ecr.aws/x2j8p8w7/http-server:latest",
 						Env: []v1.EnvVar{{
 							Name:  "PodName",
-							Value: options.Name,
+							Value: options.Name + " handler pod",
 						}},
 					}},
 				},

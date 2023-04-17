@@ -6,6 +6,9 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"log"
 	"os"
 	"reflect"
@@ -51,6 +54,9 @@ var (
 
 type Framework struct {
 	client.Client
+	ctx                                 context.Context
+	k8sScheme                           *runtime.Scheme
+	controllerRuntimeConfig             *rest.Config
 	LatticeClient                       services.Lattice
 	TestCasesCreatedServiceNetworkNames map[string]bool //key: ServiceNetworkName; value: not in use, meaningless
 	TestCasesCreatedServiceNames        map[string]bool //key: ServiceName; value not in use, meaningless
@@ -61,9 +67,13 @@ func NewFramework(ctx context.Context) *Framework {
 	var scheme = scheme.Scheme
 	lo.Must0(v1beta1.Install(scheme))
 	lo.Must0(v1alpha1.Install(scheme))
+	controllerRuntimeConfig := controllerruntime.GetConfigOrDie()
 	framework := &Framework{
-		Client:                              lo.Must(client.New(controllerruntime.GetConfigOrDie(), client.Options{Scheme: scheme})),
+		Client:                              lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: scheme})),
 		LatticeClient:                       services.NewDefaultLattice(session.Must(session.NewSession()), config.Region), // region is currently hardcoded
+		ctx:                                 ctx,
+		k8sScheme:                           scheme,
+		controllerRuntimeConfig:             controllerRuntimeConfig,
 		TestCasesCreatedServiceNetworkNames: make(map[string]bool),
 		TestCasesCreatedServiceNames:        make(map[string]bool),
 		TestCasesCreatedTargetGroupNames:    make(map[string]bool),
@@ -470,4 +480,11 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 
 	}
 	env.TestCasesCreatedServiceNames = make(map[string]bool)
+}
+
+func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNamespace string) string {
+	httproute := v1beta1.HTTPRoute{}
+	env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
+	vpcLatticeServiceDns := httproute.Annotations["application-networking.k8s.aws/lattice-assigned-domain-name"]
+	return vpcLatticeServiceDns
 }
