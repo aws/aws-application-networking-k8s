@@ -28,8 +28,21 @@ GATEWAY_API_CONTROLLER_LOGLEVEL=debug make run
 LATTICE_ENDPOINT=https://vpc-lattice.us-west-2.amazonaws.com/ make run
 ```
 
-## End-to-End Testing
+### End-to-End Testing
 
+Run the following command to run the end-to-end tests against the Kubernetes cluster pointed to by `kubectl config current-context`:
+You should set up the correct `REGION` env variable
+```
+export REGION=us-west-2
+make e2etest
+```
+Notice: the prerequisites for running the end-to-end tests success are:
+- Current eks cluster don't have any k8s resource
+- The vpc used by current eks cluster don't have any vpc service network association
+
+After all test cases running finished, in the `AfterSuite()` function, it will clean up k8s and vpc lattice resource created by current test cases running.
+
+Before sending a Pull Request, usually you should run the `make e2etest` to make sure all e2e tests pass.
 
 ### Make Docker Image
 
