@@ -177,6 +177,7 @@ func Test_SythesizeSDKMeshs(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		fmt.Printf("Testing >>>>> %v\n", tt.name)
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
@@ -192,18 +193,40 @@ func Test_SythesizeSDKMeshs(t *testing.T) {
 		if len(tt.sdkMeshes) > 0 {
 			fmt.Printf("Testing deleting non-existing SDK mesh")
 
+			gwList := &gateway_api.GatewayList{}
+
 			for _, sdkMesh := range tt.sdkMeshes {
 				fmt.Printf("sdkMesh %v\n", sdkMesh)
 				sdkMeshsReturned = append(sdkMeshsReturned, sdkMesh.name)
 				fmt.Printf("sdkMeshsReturned --loop %v\n", sdkMeshsReturned)
 				ds.AddServiceNetwork(sdkMesh.name, config.AccountID, "staleMeshARN", "staleMeshId", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+				if !sdkMesh.isStale {
+					gwList.Items = append(gwList.Items,
+						gateway_api.Gateway{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: sdkMesh.name,
+							},
+						})
+
+				}
+			}
+
+			mock_client.EXPECT().List(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+				func(ctx context.Context, retGWList *gateway_api.GatewayList, arg3 ...interface{}) error {
+					for _, gw := range gwList.Items {
+						retGWList.Items = append(retGWList.Items, gw)
+
+					}
+					return nil
+
+				},
+			)
+
+			for _, sdkMesh := range tt.sdkMeshes {
 				if sdkMesh.isStale {
 					// first add this datastore and see if it can be deleted byy business logic
-					mock_client.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).Return(errors.New("K8S not found"))
 					mockMeshManager.EXPECT().Delete(ctx, sdkMesh.name).Return(sdkMesh.meshManagerErr)
 
-				} else {
-					mock_client.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).Return(nil)
 				}
 			}
 		}

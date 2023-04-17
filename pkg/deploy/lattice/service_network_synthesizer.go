@@ -3,12 +3,12 @@ package lattice
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -108,25 +108,28 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 		return err
 	}
 	glog.V(6).Infof("SDK List: %v \n", sdkServiceNetworks)
+
 	// handling delete those gateway in lattice DB, but not in K8S DB
+	// check local K8S cache
+	gwList := &gateway_api.GatewayList{}
+	s.Client.List(context.TODO(), gwList)
+
+	fmt.Printf("liwwu>> gwList %v\n", gwList)
 	for _, sdkServiceNetwork := range sdkServiceNetworks {
 		glog.V(6).Infof("Synthersizing Gateway: checking if sdkServiceNetwork %v needed to be deleted \n", sdkServiceNetwork)
 
 		toBeDeleted := false
 
-		if !toBeDeleted {
-			// check local K8S cache
-			gw := &gateway_api.Gateway{}
-			gwName := types.NamespacedName{
-				Namespace: "default",
-				Name:      sdkServiceNetwork,
+		snUsedByGateway := false
+		for _, gw := range gwList.Items {
+			if gw.Name == sdkServiceNetwork {
+				snUsedByGateway = true
+				break
 			}
+		}
 
-			if err := s.Client.Get(ctx, gwName, gw); err != nil {
-				glog.V(6).Infof("Synthesizing Gateway %v not found in K8S cache\n", gwName)
-				toBeDeleted = true
-
-			}
+		if !snUsedByGateway {
+			toBeDeleted = true
 		}
 
 		if toBeDeleted {
