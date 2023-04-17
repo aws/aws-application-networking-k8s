@@ -63,6 +63,7 @@ func (t *serviceNetworkModelBuildTask) buildModel(ctx context.Context) error {
 func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) error {
 	spec := latticemodel.ServiceNetworkSpec{
 		Name:           t.gateway.Name,
+		Namespace:      t.gateway.Namespace,
 		Account:        config.AccountID,
 		AssociateToVPC: false,
 	}

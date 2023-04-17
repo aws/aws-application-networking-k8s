@@ -65,6 +65,26 @@ func (s *serviceNetworkSynthesizer) synthesizeTriggeredGateways(ctx context.Cont
 	for _, resServiceNetwork := range resServiceNetworks {
 		if resServiceNetwork.Spec.IsDeleted {
 			glog.V(6).Infof("Synthersing Gateway: Del %v\n", resServiceNetwork.Spec.Name)
+
+			// TODO need to check if servicenetwork is referenced by gateway in other namespace
+			gwList := &gateway_api.GatewayList{}
+			s.Client.List(context.TODO(), gwList)
+			snUsedByGateway := false
+			for _, gw := range gwList.Items {
+				if gw.Name == resServiceNetwork.Spec.Name &&
+					gw.Namespace != resServiceNetwork.Spec.Namespace {
+					snUsedByGateway = true
+					break
+				}
+			}
+
+			if snUsedByGateway {
+				glog.V(6).Infof("Skiping deleting gw: %v since it is still used by gateway(s)",
+					resServiceNetwork.Spec.Name)
+
+				continue
+			}
+
 			err := s.serviceNetworkManager.Delete(ctx, resServiceNetwork.Spec.Name)
 			if err != nil {
 				ret = LATTICE_RETRY

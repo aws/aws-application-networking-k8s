@@ -22,6 +22,7 @@ type ServiceNetwork struct {
 type ServiceNetworkSpec struct {
 	// The name of the ServiceNetwork
 	Name           string `json:"name"`
+	Namespace      string `json:"namespace"`
 	Account        string `json:"account"`
 	AssociateToVPC bool
 	IsDeleted      bool
