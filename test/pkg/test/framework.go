@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"github.com/aws/aws-application-networking-k8s/controllers"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-sdk-go/aws"
@@ -485,6 +486,6 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNamespace string) string {
 	httproute := v1beta1.HTTPRoute{}
 	env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
-	vpcLatticeServiceDns := httproute.Annotations["application-networking.k8s.aws/lattice-assigned-domain-name"]
+	vpcLatticeServiceDns := httproute.Annotations[controllers.LatticeAssignedDomainName]
 	return vpcLatticeServiceDns
 }
