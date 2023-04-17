@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -8,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"os"
 	"time"
@@ -100,18 +102,38 @@ var _ = Describe("HTTPRoute", func() {
 				httprouteRules := pathMatchHttpRoute.Spec.Rules
 
 				g.Expect(err).To(BeNil())
-				log.Println("*httprouteRules[0].Matches[0].Path.Value", *(httprouteRules[0].Matches[0].Path.Value))
-				log.Println("*rule0.Match.HttpMatch.PathMatch.Match.Prefix", *(rule0.Match.HttpMatch.PathMatch.Match.Prefix))
-
-				g.Expect([]string{
+				retrievedRules := []string{
 					*rule0.Match.HttpMatch.PathMatch.Match.Prefix,
-					*rule1.Match.HttpMatch.PathMatch.Match.Prefix}).To(
-					ContainElements(
-						*httprouteRules[0].Matches[0].Path.Value,
-						*httprouteRules[1].Matches[0].Path.Value))
-			}).WithOffset(1).Should(Succeed())
+					*rule1.Match.HttpMatch.PathMatch.Match.Prefix}
+				expectedRules := []string{*httprouteRules[0].Matches[0].Path.Value,
+					*httprouteRules[1].Matches[0].Path.Value}
+				log.Println("retrievedRules", retrievedRules)
+				log.Println("expectedRules", expectedRules)
 
-			//TODO: test traffic in integ-test https://stackoverflow.com/questions/43314689/example-of-exec-in-k8ss-pod-by-using-go-client
+				g.Expect(retrievedRules).To(
+					ContainElements(expectedRules))
+			}).WithOffset(1).Should(Succeed())
+			time.Sleep(30 * time.Second) //Need to wait for config propagate to VPC lattice dataplane
+
+			log.Println("Verifying traffic")
+			dnsName := testFramework.GetVpcLatticeServiceDns(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)
+
+			testFramework.Get(ctx, types.NamespacedName{Name: deployment1.Name, Namespace: deployment1.Namespace}, deployment1)
+
+			//get the pods of deployment1
+			pods := testFramework.GetPodsByDeploymentName(deployment1.Name, deployment1.Namespace)
+			Expect(len(pods)).To(BeEquivalentTo(1))
+			log.Println("pods[0].Name:", pods[0].Name)
+
+			cmd1 := fmt.Sprintf("curl %s/pathmatch0", dnsName)
+			stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd1)
+			Expect(err).To(BeNil())
+			Expect(stdout).To(ContainSubstring("test-v1 handler pod"))
+
+			cmd2 := fmt.Sprintf("curl %s/pathmatch1", dnsName)
+			stdout, _, err = testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd2)
+			Expect(err).To(BeNil())
+			Expect(stdout).To(ContainSubstring("test-v2 handler pod"))
 
 			testFramework.ExpectDeleted(ctx,
 				gateway,
@@ -130,6 +152,5 @@ var _ = Describe("HTTPRoute", func() {
 				deployment2)
 
 		})
-
 	})
 })

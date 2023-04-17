@@ -63,7 +63,8 @@ type HTTPRouteReconciler struct {
 }
 
 const (
-	httpRouteFinalizer = "httproute.k8s.aws/resources"
+	httpRouteFinalizer        = "httproute.k8s.aws/resources"
+	LatticeAssignedDomainName = "application-networking.k8s.aws/lattice-assigned-domain-name"
 )
 
 func NewHttpRouteReconciler(cloud aws.Cloud, client client.Client, scheme *runtime.Scheme, eventRecorder record.EventRecorder,
@@ -274,7 +275,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 		httproute.ObjectMeta.Annotations = make(map[string]string)
 	}
 
-	httproute.ObjectMeta.Annotations["application-networking.k8s.aws/lattice-assigned-domain-name"] = dns
+	httproute.ObjectMeta.Annotations[LatticeAssignedDomainName] = dns
 
 	if err := r.Client.Patch(ctx, httproute, client.MergeFrom(httprouteOld)); err != nil {
 		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
