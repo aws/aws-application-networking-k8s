@@ -3,7 +3,6 @@ package lattice
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -73,6 +72,7 @@ func (s *serviceNetworkSynthesizer) synthesizeTriggeredGateways(ctx context.Cont
 			for _, gw := range gwList.Items {
 				if gw.Name == resServiceNetwork.Spec.Name &&
 					gw.Namespace != resServiceNetwork.Spec.Namespace {
+					glog.V(6).Infof("Skip deleting gw %v, namespace %v, since it is still used", gw.Name, gw.Namespace)
 					snUsedByGateway = true
 					break
 				}
@@ -134,7 +134,6 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 	gwList := &gateway_api.GatewayList{}
 	s.Client.List(context.TODO(), gwList)
 
-	fmt.Printf("liwwu>> gwList %v\n", gwList)
 	for _, sdkServiceNetwork := range sdkServiceNetworks {
 		glog.V(6).Infof("Synthersizing Gateway: checking if sdkServiceNetwork %v needed to be deleted \n", sdkServiceNetwork)
 
