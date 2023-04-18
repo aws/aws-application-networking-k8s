@@ -25,6 +25,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 	tests := []struct {
 		name                string
 		gw                  *gateway_api.Gateway
+		gwUsedByOtherNS     bool
 		meshManagerErr      error
 		wantSynthesizerErr  error
 		wantDataStoreErr    error
@@ -65,9 +66,25 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 				},
 			},
 			meshManagerErr:      nil,
+			gwUsedByOtherNS:     false,
 			wantSynthesizerErr:  nil,
 			wantDataStoreErr:    errors.New(latticestore.DATASTORE_SERVICE_NETWORK_NOT_EXIST),
 			wantDataStoreStatus: latticestore.DATASTORE_SERVICE_NETWORK_NOT_EXIST,
+		},
+		{
+			name: "Deleting Mesh Skipped due to other NS still uses it",
+			gw: &gateway_api.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "mesh3",
+					Finalizers:        []string{"gateway.k8s.aws/resources"},
+					DeletionTimestamp: &now,
+				},
+			},
+			meshManagerErr:      nil,
+			gwUsedByOtherNS:     true,
+			wantSynthesizerErr:  nil,
+			wantDataStoreErr:    nil,
+			wantDataStoreStatus: "",
 		},
 		{
 			name: "Deleting Mesh Successfully in progress",
@@ -116,14 +133,25 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 			gwList.Items = append(gwList.Items,
 				gateway_api.Gateway{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: tt.name,
+						Name: tt.gw.GetObjectMeta().GetName(),
 					},
 				})
+			if tt.gwUsedByOtherNS {
+				gwList.Items = append(gwList.Items,
+					gateway_api.Gateway{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      tt.gw.GetObjectMeta().GetName(),
+							Namespace: "non-default",
+						},
+					},
+				)
+			}
 
 			mock_client.EXPECT().List(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(ctx context.Context, retGWList *gateway_api.GatewayList, arg3 ...interface{}) error {
 					// return empty gatway
 					for _, gw := range gwList.Items {
+						fmt.Printf("liwwu>>> test append %v\n", gw)
 						retGWList.Items = append(retGWList.Items, gw)
 					}
 					return nil
@@ -131,7 +159,9 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 				},
 			)
 
-			mockMeshManager.EXPECT().Delete(ctx, tt.gw.Name).Return(tt.meshManagerErr)
+			if !tt.gwUsedByOtherNS {
+				mockMeshManager.EXPECT().Delete(ctx, tt.gw.Name).Return(tt.meshManagerErr)
+			}
 		} else {
 			meshStatus = latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "testing arn", ServiceNetworkID: "87654321"}
 			mockMeshManager.EXPECT().Create(ctx, mesh).Return(meshStatus, tt.meshManagerErr)

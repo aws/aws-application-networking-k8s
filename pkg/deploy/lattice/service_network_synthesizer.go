@@ -160,6 +160,10 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 				glog.V(6).Infof("Need to retry synthesizing err %v", err)
 				ret = LATTICE_RETRY
 			}
+		} else {
+			glog.V(6).Infof("Skip deleting sdkServiceNetwork %v since some gateway(s) still reference it",
+				sdkServiceNetwork)
+
 		}
 
 	}
