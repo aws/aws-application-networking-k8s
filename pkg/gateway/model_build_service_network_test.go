@@ -18,11 +18,12 @@ func Test_MeshModelBuild(t *testing.T) {
 		gw             *gateway_api.Gateway
 		wantErr        error
 		wantName       string
+		wantNamespace  string
 		wantIsDeleted  bool
 		associateToVPC bool
 	}{
 		{
-			name: "Adding Mesh, no annotation on VPC association",
+			name: "Adding Mesh in default namespace, no annotation on VPC association",
 			gw: &gateway_api.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "mesh1",
@@ -30,6 +31,21 @@ func Test_MeshModelBuild(t *testing.T) {
 			},
 			wantErr:        nil,
 			wantName:       "mesh1",
+			wantNamespace:  "",
+			wantIsDeleted:  false,
+			associateToVPC: true,
+		},
+		{
+			name: "Adding Mesh in non-default namespace, no annotation on VPC association",
+			gw: &gateway_api.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mesh1",
+					Namespace: "non-default",
+				},
+			},
+			wantErr:        nil,
+			wantName:       "mesh1",
+			wantNamespace:  "non-default",
 			wantIsDeleted:  false,
 			associateToVPC: true,
 		},
@@ -43,6 +59,7 @@ func Test_MeshModelBuild(t *testing.T) {
 			},
 			wantErr:        nil,
 			wantName:       "mesh1",
+			wantNamespace:  "",
 			wantIsDeleted:  false,
 			associateToVPC: true,
 		},
@@ -56,6 +73,7 @@ func Test_MeshModelBuild(t *testing.T) {
 			},
 			wantErr:        nil,
 			wantName:       "mesh1",
+			wantNamespace:  "",
 			wantIsDeleted:  false,
 			associateToVPC: false,
 		},
@@ -70,6 +88,7 @@ func Test_MeshModelBuild(t *testing.T) {
 			},
 			wantErr:        nil,
 			wantName:       "mesh1",
+			wantNamespace:  "",
 			wantIsDeleted:  true,
 			associateToVPC: true,
 		},
@@ -86,6 +105,7 @@ func Test_MeshModelBuild(t *testing.T) {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.Equal(t, tt.wantName, got.Spec.Name)
+				assert.Equal(t, tt.wantNamespace, got.Spec.Namespace)
 				assert.Equal(t, tt.wantIsDeleted, got.Spec.IsDeleted)
 				assert.Equal(t, tt.associateToVPC, got.Spec.AssociateToVPC)
 			}
