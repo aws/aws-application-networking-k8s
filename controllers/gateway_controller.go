@@ -123,13 +123,6 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		return client.IgnoreNotFound(err)
 	}
 
-	if !r.isDefaultNameSpace(gw.Namespace) {
-		errmsg := "VPC lattice do not support no-default namespace gateway111"
-		glog.V(2).Infof(errmsg)
-		r.updateBadStatus(ctx, errmsg, gw)
-		return nil
-	}
-
 	gwClass := &gateway_api.GatewayClass{}
 	gwClassName := types.NamespacedName{
 		Namespace: defaultNameSpace,
@@ -156,7 +149,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 					continue
 				}
 				gwName := types.NamespacedName{
-					Namespace: defaultNameSpace,
+					Namespace: httpRoute.Namespace,
 					Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 				}
 
@@ -166,7 +159,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 					continue
 				}
 
-				if httpGW.Name == gw.Name {
+				if httpGW.Name == gw.Name && httpGW.Namespace == gw.Namespace {
 
 					gwLog.Info("Can not delete because it is referenced by some HTTPRoutes")
 					return errors.New("retry later, since it is referenced by some HTTPRoutes")

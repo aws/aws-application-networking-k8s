@@ -159,12 +159,15 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 		return false
 	}
 
-	// TODO,  gatway are defined in default namespace for now
-	// TODO create a sim for need to handle namespaced gateway
 	gw := &gateway_api.Gateway{}
 
+	// TODO handle multiple parentRefs
+	gwNamespace := "default"
+	if httpRoute.Spec.ParentRefs[0].Namespace != nil {
+		gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
+	}
 	gwName := types.NamespacedName{
-		Namespace: "default",
+		Namespace: gwNamespace,
 		// TODO assume one parent for now and point to service network
 		Name: string(httpRoute.Spec.ParentRefs[0].Name),
 	}
