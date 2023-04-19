@@ -123,15 +123,6 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		return client.IgnoreNotFound(err)
 	}
 
-	/* TODO, allow non-default namespaced gateway
-	if !r.isDefaultNameSpace(gw.Namespace) {
-		errmsg := "VPC lattice do not support no-default namespace gateway111"
-		glog.V(2).Infof(errmsg)
-		r.updateBadStatus(ctx, errmsg, gw)
-		return nil
-	}
-	*/
-
 	gwClass := &gateway_api.GatewayClass{}
 	gwClassName := types.NamespacedName{
 		Namespace: defaultNameSpace,
