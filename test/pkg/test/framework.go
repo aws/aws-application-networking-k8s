@@ -84,6 +84,8 @@ func NewFramework(ctx context.Context) *Framework {
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
 	AfterEach(func() { framework.ExpectToBeClean(ctx) })
 	AfterSuite(func() { framework.CleanTestEnvironment(ctx) })
+	// TODO: in BeforeSuite(), need to make sure current cluster's VPC don't have any Vpc ServiceNetwork association,
+	//  and current k8s cluster is clean (no existing service, deployment(pods), gateway, httproute)
 	return framework
 }
 
@@ -150,6 +152,9 @@ func (env *Framework) CleanTestEnvironment(ctx context.Context) {
 	Expect(env.List(ctx, namespaces)).WithOffset(1).To(Succeed())
 	Eventually(func(g Gomega) {
 		for _, namespace := range namespaces.Items {
+			if namespace.Name == "kube-system" {
+				continue
+			}
 			parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
 				log.Println("ExpectDeleteAllToSucceed for testObject.Type", testObject.Type, "in namespace", namespace.Name)
 				env.ExpectDeleteAllToSucceed(ctx, testObject.Type, namespace.Name)
