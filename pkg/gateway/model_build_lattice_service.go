@@ -8,6 +8,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -130,6 +131,10 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	for _, parentRef := range t.httpRoute.Spec.ParentRefs {
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
 
+	}
+	defaultGateway, err := config.GetClusterLocalGateway()
+	if err == nil {
+		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, defaultGateway)
 	}
 
 	if len(t.httpRoute.Spec.Hostnames) > 0 {

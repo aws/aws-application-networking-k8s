@@ -81,6 +81,12 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 		}
 
 	}
+	_, err := config.GetClusterLocalGateway()
+
+	if err == nil {
+		// there is a default gateway for local cluster, all other gateways are not associate to VPC
+		spec.AssociateToVPC = false
+	}
 
 	if !t.gateway.DeletionTimestamp.IsZero() {
 		spec.IsDeleted = true

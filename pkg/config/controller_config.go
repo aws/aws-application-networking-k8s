@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -11,6 +12,8 @@ import (
 const (
 	LatticeGatewayControllerName = "application-networking.k8s.aws/gateway-api-controller"
 	defaultLogLevel              = "Info"
+	NoDefaultServiceNetwork      = ""
+	NO_DEFAULT_SERVICE_NETWORK   = "NO_DEFAULT_SERVICE_NETWORK"
 )
 
 // TODO endpoint, region
@@ -18,6 +21,7 @@ var VpcID = "vpc-xxxx"
 var AccountID = "yyyyyy"
 var Region = "us-west-2"
 var logLevel = defaultLogLevel
+var DefaultServiceNetwork = NoDefaultServiceNetwork
 
 func GetLogLevel() string {
 	logLevel = os.Getenv("GATEWAY_API_CONTROLLER_LOGLEVEL")
@@ -28,6 +32,14 @@ func GetLogLevel() string {
 		return "2"
 	}
 	return "2"
+}
+
+func GetClusterLocalGateway() (string, error) {
+	if DefaultServiceNetwork == NoDefaultServiceNetwork {
+		return NoDefaultServiceNetwork, errors.New(NO_DEFAULT_SERVICE_NETWORK)
+	}
+
+	return DefaultServiceNetwork, nil
 }
 
 func ConfigInit() {
@@ -48,6 +60,15 @@ func ConfigInit() {
 
 	logLevel = os.Getenv("GATEWAY_API_CONTROLLER_LOGLEVEL")
 	glog.V(2).Infoln("Logging Level:", os.Getenv("GATEWAY_API_CONTROLLER_LOGLEVEL"))
+
+	DefaultServiceNetwork = os.Getenv("CLUSTER_LOCAL_GATEWAY")
+
+	if DefaultServiceNetwork == NoDefaultServiceNetwork {
+		glog.V(2).Infoln("No CLUSTER_LOCAL_GATEWAY")
+	} else {
+
+		glog.V(2).Infoln("CLUSTER_LOCAL_GATEWAY", DefaultServiceNetwork)
+	}
 
 	sess, _ := session.NewSession()
 	metadata := NewEC2Metadata(sess)
