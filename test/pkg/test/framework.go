@@ -169,6 +169,9 @@ func (env *Framework) CleanTestEnvironment(ctx context.Context) {
 	env.DeleteAllFrameworkTracedTargetGroups(ctx)
 	Eventually(func(g Gomega) {
 		for _, namespace := range namespaces.Items {
+			if namespace.Name == "kube-system" {
+				continue
+			}
 			parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
 				log.Println("EventuallyExpectNoneFound for testObject.Type", testObject.Type, "in namespace", namespace.Name)
 				defer GinkgoRecover()
