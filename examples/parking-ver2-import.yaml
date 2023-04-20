@@ -3,8 +3,8 @@ kind: ServiceImport
 metadata:
   name: parking-ver2
   annotations:
-          multicluster.x-k8s.io/aws-vpc: "your-vpc-id"    
-          multicluster.x-k8s.io/aws-eks-cluster-name: "lattice-eks-test-1"
+    multicluster.x-k8s.io/aws-vpc: "your-vpc-id"
+    multicluster.x-k8s.io/aws-eks-cluster-name: "lattice-eks-test-1"
 spec:
   type: ClusterSetIP
   ports:

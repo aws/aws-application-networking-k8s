@@ -5,9 +5,9 @@ metadata:
 spec:
   parentRefs:
   - name: my-hotel
-    sectionName: http 
+    sectionName: http
   rules:
-  - backendRefs:  
-    - name: httpbin 
+  - backendRefs:
+    - name: httpbin
       kind: Service
       port: 80

@@ -2,7 +2,7 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: my-hotel
-  namespace: gw-infra-1 
+  namespace: gw-infra-1
   annotations:
     application-networking.k8s.aws/lattice-vpc-association: "true"
 spec:

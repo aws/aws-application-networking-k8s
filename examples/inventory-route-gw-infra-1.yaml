@@ -7,9 +7,9 @@ spec:
   parentRefs:
   - name: my-hotel
     namespace: gw-infra-1
-    sectionName: http 
+    sectionName: http
   rules:
-  - backendRefs:  
+  - backendRefs:
     - name: inventory-v1
       namespace: gw-infra-1
       kind: Service

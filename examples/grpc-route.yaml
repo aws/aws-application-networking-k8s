@@ -5,9 +5,9 @@ metadata:
 spec:
   parentRefs:
   - name: my-hotel
-    sectionName: https 
+    sectionName: https
   rules:
-  - backendRefs:  
+  - backendRefs:
     - name: grpc-server
       kind: Service
       port: 50051

@@ -4,11 +4,11 @@ metadata:
   name: tls-parking
 spec:
   hostnames:
-  - tls-parking.my-test.com   
+  - tls-parking.my-test.com
   parentRefs:
   - name: my-hotel
     sectionName: tls-with-customer-cert
-  rules:    
+  rules:
   - backendRefs:
     - name: parking-ver3
       kind: Service

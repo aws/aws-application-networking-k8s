@@ -19,7 +19,7 @@ spec:
         image: public.ecr.aws/x2j8p8w7/http-server:latest
         env:
         - name: PodName
-          value: "review handler pod" 
+          value: "review handler pod"
 
 
 ---
