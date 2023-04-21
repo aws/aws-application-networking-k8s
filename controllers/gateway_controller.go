@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -221,7 +222,13 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 
 	_, _, err := r.buildAndDeployModel(ctx, gw)
 
+	r.updateGatewayAcceptStatus(ctx, gw)
+
 	if err != nil {
+		if !strings.Contains(err.Error(), gateway.ModelBuiltError) {
+			r.updateGatewayAcceptStatus(ctx, gw)
+
+		}
 		glog.V(6).Infof("Failed on buildAndDeployModel %v\n", err)
 		return err
 	}
@@ -253,15 +260,57 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetw
 
 	gwOld := gw.DeepCopy()
 
-	//if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
+	if len(gw.Status.Conditions) <= 1 {
+		condition := metav1.Condition{}
+
+		glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
+		//if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
+		//gw.Status.Conditions[1].LastTransitionTime = metav1.NewTime(time.Now())
+		condition.LastTransitionTime = metav1.NewTime(time.Now())
+		//}
+		/*
+			gw.Status.Conditions[1].Status = "True"
+			gw.Status.Conditions[1].Message = fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN)
+			gw.Status.Conditions[1].Reason = "Reconciled"
+			gw.Status.Conditions[1].ObservedGeneration = gw.Generation
+			gw.Status.Conditions[1].Type = string(gateway_api.GatewayConditionProgrammed)
+		*/
+		condition.Status = "True"
+		condition.Message = fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN)
+		condition.Reason = "Reconciled"
+		condition.ObservedGeneration = gw.Generation
+		condition.Type = string(gateway_api.GatewayConditionProgrammed)
+		gw.Status.Conditions = append(gw.Status.Conditions, condition)
+	} else {
+		gw.Status.Conditions[1].Status = "True"
+		gw.Status.Conditions[1].Message = fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN)
+		gw.Status.Conditions[1].Reason = "Reconciled"
+		gw.Status.Conditions[1].ObservedGeneration = gw.Generation
+		gw.Status.Conditions[1].Type = string(gateway_api.GatewayConditionProgrammed)
+	}
+	// TODO following is causing crash on some platform, see https://t.corp.amazon.com/b7c9ea6c-5168-4616-b718-c1bdf78dbdf1/communication
+	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
+
+	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
+		return errors.Wrapf(err, "failed to update gateway status")
+	}
+
+	return nil
+}
+
+func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *gateway_api.Gateway) error {
+
+	gwOld := gw.DeepCopy()
+
 	glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
 	if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
 		gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
 	}
-	//}
 	gw.Status.Conditions[0].Status = "True"
-	gw.Status.Conditions[0].Message = fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN)
-	gw.Status.Conditions[0].Reason = "Reconciled"
+	gw.Status.Conditions[0].Reason = "Accepted"
+	gw.Status.Conditions[0].Message = config.LatticeGatewayControllerName
+	gw.Status.Conditions[0].ObservedGeneration = gw.Generation
+	gw.Status.Conditions[0].Type = string(gateway_api.GatewayConditionAccepted)
 	// TODO following is causing crash on some platform, see https://t.corp.amazon.com/b7c9ea6c-5168-4616-b718-c1bdf78dbdf1/communication
 	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
 
