@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("HTTPRoute header matches", func() {
 	It("Create a HttpRoute with a header match rule, http traffic should work if pass the correct headers", func() {
-		gateway := testFramework.NewGateway()
+		gateway := testFramework.NewHttpGateway()
 
 		deployment3, service3 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v3"})
 		headerMatchHttpRoute := testFramework.NewHeaderMatchHttpRoute(gateway, []*v1.Service{service3})
@@ -28,7 +28,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 			service3,
 			deployment3)
 
-		time.Sleep(2 * time.Minute)
+		time.Sleep(3 * time.Minute)
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, headerMatchHttpRoute)
 		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(headerMatchHttpRoute.Name, headerMatchHttpRoute.Namespace)))
 		Eventually(func(g Gomega) {

@@ -5,7 +5,7 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-func (env *Framework) NewGateway() *v1beta1.Gateway {
+func (env *Framework) NewHttpGateway() *v1beta1.Gateway {
 	gateway := New(
 		&v1beta1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
@@ -15,15 +15,18 @@ func (env *Framework) NewGateway() *v1beta1.Gateway {
 			},
 			Spec: v1beta1.GatewaySpec{
 				GatewayClassName: "amazon-vpc-lattice",
-				Listeners: []v1beta1.Listener{{
-					Name:     "http",
-					Protocol: v1beta1.HTTPProtocolType,
-					Port:     80,
-				}},
+				Listeners: []v1beta1.Listener{
+					{
+						Name:     "http",
+						Protocol: v1beta1.HTTPProtocolType,
+						Port:     80,
+					},
+				},
 			},
 			Status: v1beta1.GatewayStatus{},
 		},
 	)
 	env.TestCasesCreatedServiceNetworkNames[gateway.Name] = true
+	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, gateway)
 	return gateway
 }
