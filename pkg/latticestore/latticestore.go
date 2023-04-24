@@ -307,8 +307,8 @@ func (ds *LatticeDataStore) AddTargetGroup(name string, vpc string, arn string, 
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("AddTargetGroup, name[%s]  isServiceImport[%v] vpc[%s] arn[%s] tgID[%s] ds [%v]\n",
-		name, isServiceImport, vpc, arn, tgID, ds)
+	glog.V(6).Infof("AddTargetGroup, name[%s]  isServiceImport[%v] vpc[%s] arn[%s] ds [%v]\n",
+		name, isServiceImport, vpc, arn, ds)
 
 	targetGroupKey := TargetGroupKey{
 		Name:            name,

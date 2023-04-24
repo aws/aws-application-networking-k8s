@@ -70,7 +70,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 	for _, resTargetGroup := range resTargetGroups {
 
 		// find out VPC for service import
-		if resTargetGroup.Spec.Config.IsServiceImport || resTargetGroup.Spec.Config.IsServiceExport {
+		if resTargetGroup.Spec.Config.IsServiceImport {
 			/* right now, TG are unique across VPC, we do NOT need to get VPC
 			if resTargetGroup.Spec.Config.EKSClusterName != "" {
 				eksSess := t.cloud.EKS()
@@ -108,7 +108,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 			}
 
 			t.latticeDataStore.AddTargetGroup(resTargetGroup.Spec.Name,
-				resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN, tgStatus.TargetGroupID, true)
+				resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN, tgStatus.TargetGroupID, resTargetGroup.Spec.Config.IsServiceImport)
 
 			glog.V(6).Infof("targetGroup Synthesized successfully for %s: %v\n", resTargetGroup.Spec.Name, tgStatus)
 
