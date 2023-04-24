@@ -11,8 +11,8 @@ spec:
     protocol: HTTP
     port: 80
 
----
 
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,7 +38,6 @@ spec:
 
 
 ---
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -51,8 +50,8 @@ spec:
       port: 80
       targetPort: 8090
 
----
 
+---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
@@ -69,4 +68,3 @@ spec:
         - path:
             type: PathPrefix
             value: /
-

@@ -3,4 +3,4 @@ kind: ServiceExport
 metadata:
   name: inventory-ver2
   annotations:
-          multicluster.x-k8s.io/federation: "amazon-vpc-lattice"     
+    multicluster.x-k8s.io/federation: "amazon-vpc-lattice"

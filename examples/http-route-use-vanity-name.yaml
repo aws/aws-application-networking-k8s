@@ -8,7 +8,7 @@ spec:
   parentRefs:
   - name: my-hotel
     sectionName: http
-  rules:    
+  rules:
   - backendRefs:
     - name: parking-ver2
       kind: Service
