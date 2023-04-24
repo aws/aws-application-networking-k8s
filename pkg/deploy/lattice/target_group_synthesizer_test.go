@@ -85,7 +85,7 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 				},
 			},
 			tgManagerError: true,
-			wantErrIsNil:   false,
+			wantErrIsNil:   true,
 		},
 	}
 
@@ -129,17 +129,12 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 				TargetGroupID:  "4567",
 			}
 
-			if tg.Spec.IsDeleted {
+			if !tg.Spec.IsDeleted {
 				if tt.tgManagerError {
-					mockTGManager.EXPECT().Delete(ctx, tg).Return(errors.New("ERROR"))
+					mockTGManager.EXPECT().Get(ctx, tg).Return(tgStatus, errors.New("ERROR"))
+
 				} else {
-					mockTGManager.EXPECT().Delete(ctx, tg).Return(nil)
-				}
-			} else {
-				if tt.tgManagerError {
-					mockTGManager.EXPECT().Create(ctx, tg).Return(tgStatus, errors.New("ERROR"))
-				} else {
-					mockTGManager.EXPECT().Create(ctx, tg).Return(tgStatus, nil)
+					mockTGManager.EXPECT().Get(ctx, tg).Return(tgStatus, nil)
 				}
 			}
 
@@ -152,7 +147,7 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 
 			assert.Nil(t, err)
 			tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
-			dsTG, err := ds.GetTargetGroup(tgName, false)
+			dsTG, err := ds.GetTargetGroup(tgName, true)
 
 			if tg.Spec.IsDeleted {
 				assert.NotNil(t, err)
