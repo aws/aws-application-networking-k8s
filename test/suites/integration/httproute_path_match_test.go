@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("HTTPRoute path matches", func() {
 	It("HTTPRoute should support multiple path matches", func() {
-		gateway := testFramework.NewHttpGateway()
+		gateway := testFramework.NewGateway()
 		deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1"})
 		deployment2, service2 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2"})
 		pathMatchHttpRoute := testFramework.NewPathMatchHttpRoute(gateway, []client.Object{service1, service2}, "http")

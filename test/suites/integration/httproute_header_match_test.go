@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("HTTPRoute header matches", func() {
 	It("Create a HttpRoute with a header match rule, http traffic should work if pass the correct headers", func() {
-		gateway := testFramework.NewHttpGateway()
+		gateway := testFramework.NewGateway()
 
 		deployment3, service3 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v3"})
 		headerMatchHttpRoute := testFramework.NewHeaderMatchHttpRoute(gateway, []*v1.Service{service3})

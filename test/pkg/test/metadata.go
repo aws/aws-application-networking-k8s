@@ -43,5 +43,5 @@ func RandomName() string {
 	sequentialNumberLock.Lock()
 	defer sequentialNumberLock.Unlock()
 	sequentialNumber++
-	return strings.ToLower(fmt.Sprintf("%s-%d-%s", randomdata.Alphanumeric(5), sequentialNumber, randomdata.Alphanumeric(10)))
+	return strings.ToLower(fmt.Sprintf("%s-%d-%s", randomdata.SillyName()[:5], sequentialNumber, randomdata.Alphanumeric(10)))
 }

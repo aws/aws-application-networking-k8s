@@ -5,7 +5,7 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-func (env *Framework) NewHttpGateway() *v1beta1.Gateway {
+func (env *Framework) NewGateway() *v1beta1.Gateway {
 	gateway := New(
 		&v1beta1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
@@ -20,6 +20,11 @@ func (env *Framework) NewHttpGateway() *v1beta1.Gateway {
 						Name:     "http",
 						Protocol: v1beta1.HTTPProtocolType,
 						Port:     80,
+					},
+					{
+						Name:     "https",
+						Protocol: v1beta1.HTTPSProtocolType,
+						Port:     443,
 					},
 				},
 			},
