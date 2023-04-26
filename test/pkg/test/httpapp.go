@@ -11,6 +11,7 @@ import (
 
 type HTTPAppOptions struct {
 	Name                string
+	Namespace           string // the object will be created in this namespace
 	Port                int
 	TargetPort          int
 	MergeFromDeployment []*appsv1.Deployment
@@ -25,6 +26,9 @@ func (env *Framework) NewHttpApp(options HTTPAppOptions) (*appsv1.Deployment, *v
 		options.TargetPort = 8090
 	}
 	deployment := New(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: options.Namespace,
+		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: lo.ToPtr(int32(1)),
 			Selector: &metav1.LabelSelector{
@@ -34,6 +38,7 @@ func (env *Framework) NewHttpApp(options HTTPAppOptions) (*appsv1.Deployment, *v
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
+					Namespace: options.Namespace,
 					Labels: map[string]string{
 						"app":          options.Name,
 						DiscoveryLabel: "true",
@@ -56,6 +61,9 @@ func (env *Framework) NewHttpApp(options HTTPAppOptions) (*appsv1.Deployment, *v
 	service := New(&v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: options.Namespace,
 		},
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
