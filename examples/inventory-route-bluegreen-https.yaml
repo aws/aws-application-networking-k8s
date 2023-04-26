@@ -5,11 +5,11 @@ metadata:
 spec:
   parentRefs:
   - name: my-hotel
-    sectionName: http 
+    sectionName: http
   - name: my-hotel
-    sectionName: https  
+    sectionName: https
   rules:
-  - backendRefs:  
+  - backendRefs:
     - name: inventory-ver1
       kind: Service
       port: 8090

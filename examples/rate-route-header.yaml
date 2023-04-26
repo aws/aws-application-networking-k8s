@@ -5,9 +5,9 @@ metadata:
 spec:
   parentRefs:
   - name: my-hotel
-    sectionName: http 
+    sectionName: http
   rules:
-  - backendRefs:  
+  - backendRefs:
     - name: rate-canary
       kind: Service
       port: 8090

@@ -19,7 +19,7 @@ spec:
         image: public.ecr.aws/x2j8p8w7/http-server:latest
         env:
         - name: PodName
-          value: "Inventory-ver2 handler pod" 
+          value: "Inventory-ver2 handler pod"
 
 
 ---

@@ -5,9 +5,9 @@ metadata:
 spec:
   parentRefs:
   - name: my-hotel
-    sectionName: http 
+    sectionName: http
   rules:
-  - backendRefs:  
+  - backendRefs:
     - name: parking
       kind: Service
       port: 8090

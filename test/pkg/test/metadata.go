@@ -16,7 +16,7 @@ var (
 	sequentialNumber     = 0
 	randomizer           = rand.New(rand.NewSource(time.Now().UnixNano())) //nolint
 	sequentialNumberLock = new(sync.Mutex)
-	DiscoveryLabel       = "testing.kubernetes.io-" + randomdata.Alphanumeric(8) // Each time test suite run have a different label for k8s resource
+	DiscoveryLabel       = "testing.kubernetes.io"
 )
 
 func New[T client.Object](t T, mergeFrom ...T) T {
