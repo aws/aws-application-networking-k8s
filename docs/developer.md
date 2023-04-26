@@ -28,6 +28,9 @@ GATEWAY_API_CONTROLLER_LOGLEVEL=debug make run
 LATTICE_ENDPOINT=https://vpc-lattice.us-west-2.amazonaws.com/ make run
 ```
 
+To easier load environment variables, if you hope to run the controller by GoLand IDE locally, you could run the `scripts/load_env_variables.sh`
+And use "EnvFile" GoLand plugin to read the env variables from the generated `.env` file.
+
 ### End-to-End Testing
 
 Run the following command to run the end-to-end tests against the Kubernetes cluster pointed to by `kubectl config current-context`:
@@ -36,6 +39,17 @@ You should set up the correct `REGION` env variable
 export REGION=us-west-2
 make e2etest
 ```
+
+Pass `FOCUS` environment variable to run some specific test cases based on filter condition:
+```bash
+export REGION=us-west-2
+export FOCUS="HTTPRoute should support multiple path matches" 
+make e2etest
+```
+For more detail on filter condition for ginkgo
+https://onsi.github.io/ginkgo/#focused-specs
+https://onsi.github.io/ginkgo/#description-based-filtering
+
 Notice: the prerequisites for running the end-to-end tests success are:
 - Current eks cluster don't have any k8s resource
 - The vpc used by current eks cluster don't have any vpc service network association

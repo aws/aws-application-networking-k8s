@@ -83,20 +83,8 @@ func NewFramework(ctx context.Context) *Framework {
 
 	SetDefaultEventuallyTimeout(180 * time.Second)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
-	BeforeSuite(func() {
-		framework.CleanServiceNetworkVpcAssociationForCurrentK8sClusterVpc()
-	})
-	AfterEach(func() { // Clean up this test case created k8s resources, in case this test case failed-in-the-middle
-		for _, object := range framework.TestCasesCreatedK8sResource {
-			Logger(ctx).Infof("In AfterEach Deleting %s %s/%s", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
-			//Ignore  resource-not-found here, as the test case logic itself could already clear the resources
-			framework.Delete(ctx, object)
-		}
-		framework.TestCasesCreatedK8sResource = nil
-		framework.CleanServiceNetworkVpcAssociationForCurrentK8sClusterVpc()
-
-	})
-	AfterSuite(func() { framework.CleanTestEnvironment(ctx) })
+	BeforeEach(func() { framework.ExpectToBeClean(ctx) })
+	AfterEach(func() { framework.CleanTestEnvironment(ctx) })
 	return framework
 }
 
@@ -109,6 +97,11 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	})
 
 	currentClusterVpcId := os.Getenv("CLUSTER_VPC_ID")
+	retrievedServiceNetworkVpcAssociations, _ := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
+		VpcIdentifier: aws.String(currentClusterVpcId),
+	})
+	Logger(ctx).Infof("Expect VPC used by current cluster don't have any ServiceNetworkVPCAssociation, if it has you should manually delete it")
+	Expect(len(retrievedServiceNetworkVpcAssociations)).To(Equal(0))
 	Eventually(func(g Gomega) {
 		retrievedServiceNetworks, _ := env.LatticeClient.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
 		for _, sn := range retrievedServiceNetworks {
@@ -185,35 +178,19 @@ func (env *Framework) CleanTestEnvironment(ctx context.Context) {
 	// Kubernetes API Objects
 	namespaces := &v1.NamespaceList{}
 	Expect(env.List(ctx, namespaces)).WithOffset(1).To(Succeed())
-	Eventually(func(g Gomega) {
-		for _, namespace := range namespaces.Items {
-			if namespace.Name == "kube-system" {
-				continue
-			}
-			parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
-				log.Println("ExpectDeleteAllToSucceed for testObject.Type", testObject.Type, "in namespace", namespace.Name)
-				env.ExpectDeleteAllToSucceed(ctx, testObject.Type, namespace.Name)
-			})
-		}
-	}).Should(Succeed())
+	for _, object := range env.TestCasesCreatedK8sResource {
+		Logger(ctx).Infof("Deleting k8s resource %s %s/%s", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
+		env.Delete(ctx, object)
+		//Ignore resource-not-found error here, as the test case logic itself could already clear the resources
+	}
 
 	//Theoretically, Deleting all k8s resource by `env.ExpectDeleteAllToSucceed()`, will make controller delete all related VPC Lattice resource,
 	//but the controller is still developing in the progress and may leaking some vPCLattice resource, need to invoke vpcLattice api to double confirm and delete leaking resource.
 	env.DeleteAllFrameworkTracedServiceNetworks(ctx)
 	env.DeleteAllFrameworkTracedVpcLatticeServices(ctx)
 	env.DeleteAllFrameworkTracedTargetGroups(ctx)
-	Eventually(func(g Gomega) {
-		for _, namespace := range namespaces.Items {
-			if namespace.Name == "kube-system" {
-				continue
-			}
-			parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
-				log.Println("EventuallyExpectNoneFound for testObject.Type", testObject.Type, "in namespace", namespace.Name)
-				defer GinkgoRecover()
-				env.EventuallyExpectNoneFound(ctx, testObject.ListType)
-			})
-		}
-	}).Should(Succeed())
+	env.EventuallyExpectNotFound(ctx, env.TestCasesCreatedK8sResource...)
+	env.TestCasesCreatedK8sResource = nil
 
 }
 
@@ -245,9 +222,10 @@ func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object clien
 func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) {
 	Eventually(func(g Gomega) {
 		for _, object := range objects {
+			Logger(ctx).Infof("Checking whether %s %s %s is not found", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
 			g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(object), object))).To(BeTrue())
 		}
-	}).Should(Succeed())
+	}).WithOffset(1).Should(Succeed())
 }
 
 func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList client.ObjectList) {
