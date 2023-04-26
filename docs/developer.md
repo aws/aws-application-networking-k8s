@@ -47,8 +47,15 @@ var _ = Describe("HTTPRoute path matches", func() {
         // test case body
     })
 ```
-For example, to run the test case "HTTPRoute should support multiple path matches", you could run the following command:
+
 ```
+export FOCUS="HTTPRoute should support multiple path matches"
+export REGION=us-west-2
+make e2etest
+```
+
+For example, to run the test case "HTTPRoute should support multiple path matches", you could run the following command:
+
 For more detail on filter condition for ginkgo
 https://onsi.github.io/ginkgo/#focused-specs
 https://onsi.github.io/ginkgo/#description-based-filtering
