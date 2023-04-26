@@ -40,7 +40,15 @@ export REGION=us-west-2
 make e2etest
 ```
 
-Pass `FOCUS` environment variable to run some specific test cases based on filter condition:
+Pass `FOCUS` environment variable to run some specific test cases based on filter condition.
+You could assign the string in the Describe("xxxxxx") or It("xxxxxx") to the FOCUS environment variable to run the specific test cases.
+```go
+var _ = Describe("HTTPRoute path matches", func() {
+	It("HTTPRoute should support multiple path matches", func() {
+        // test case body
+    })
+```
+For example, to run the test case "HTTPRoute should support multiple path matches", you could run the following command:
 ```bash
 export REGION=us-west-2
 export FOCUS="HTTPRoute should support multiple path matches" 

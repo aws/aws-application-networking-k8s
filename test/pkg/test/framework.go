@@ -84,7 +84,7 @@ func NewFramework(ctx context.Context) *Framework {
 	SetDefaultEventuallyTimeout(180 * time.Second)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
 	BeforeEach(func() { framework.ExpectToBeClean(ctx) })
-	AfterEach(func() { framework.CleanTestEnvironment(ctx) })
+	AfterEach(func() { framework.ExpectToBeClean(ctx) })
 	return framework
 }
 
@@ -292,13 +292,13 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 		log.Println("Trying to retrieve registered targets for targetGroup", targetGroup)
 		log.Println("deployment.Spec.Selector.MatchLabels:", deployment.Spec.Selector.MatchLabels)
 		podList := &v1.PodList{}
-		expectedMatchingLables := make(map[string]string, len(deployment.Spec.Selector.MatchLabels))
+		expectedMatchingLabels := make(map[string]string, len(deployment.Spec.Selector.MatchLabels))
 		for k, v := range deployment.Spec.Selector.MatchLabels {
-			expectedMatchingLables[k] = v
+			expectedMatchingLabels[k] = v
 		}
-		expectedMatchingLables[DiscoveryLabel] = "true"
-		log.Println("Expected matching labels:", expectedMatchingLables)
-		g.Expect(env.List(ctx, podList, client.MatchingLabels(expectedMatchingLables))).To(Succeed())
+		expectedMatchingLabels[DiscoveryLabel] = "true"
+		log.Println("Expected matching labels:", expectedMatchingLabels)
+		g.Expect(env.List(ctx, podList, client.MatchingLabels(expectedMatchingLabels))).To(Succeed())
 		g.Expect(podList.Items).To(HaveLen(int(*deployment.Spec.Replicas)))
 		retrievedTargets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroup.Id})
 		g.Expect(err).To(BeNil())
