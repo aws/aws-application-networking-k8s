@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -219,9 +218,6 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return errors.New("TODO ")
 	}
-
-	_, _, err := r.buildAndDeployModel(ctx, gw)
-
 	if UpdateGWListenerStatus(ctx, r.Client, gw) == nil {
 		r.updateGatewayAcceptStatus(ctx, gw, true)
 	} else {
@@ -229,11 +225,9 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 		return errors.New("failed to update gateway listener status")
 	}
 
-	if err != nil {
-		if !strings.Contains(err.Error(), gateway.ModelBuiltError) {
-			r.updateGatewayAcceptStatus(ctx, gw, true)
+	_, _, err := r.buildAndDeployModel(ctx, gw)
 
-		}
+	if err != nil {
 		glog.V(6).Infof("Failed on buildAndDeployModel %v\n", err)
 		return err
 	}
@@ -243,15 +237,11 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 
 	glog.V(6).Infof("serviceNetworkStatus : %v for %s  error %v \n", serviceNetworkStatus, gw.Name, err)
 
-	if err == nil {
-		if err = r.updateGatewayStatus(ctx, &serviceNetworkStatus, gw); err != nil {
-			glog.V(2).Infof("Failed to updateGatewayStatus %v err %v\n", gw, err)
-			return errors.New("failed to update gateway status")
-		}
-		return nil
-	} else {
-		return err
+	if err = r.updateGatewayStatus(ctx, &serviceNetworkStatus, gw); err != nil {
+		glog.V(2).Infof("Failed to updateGatewayStatus %v err %v\n", gw, err)
+		return errors.New("failed to update gateway status")
 	}
+	return nil
 
 }
 
@@ -307,8 +297,6 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	gw.Status.Conditions[0].Message = config.LatticeGatewayControllerName
 	gw.Status.Conditions[0].ObservedGeneration = gw.Generation
 	gw.Status.Conditions[0].Type = string(gateway_api.GatewayConditionAccepted)
-	// TODO following is causing crash on some platform, see https://t.corp.amazon.com/b7c9ea6c-5168-4616-b718-c1bdf78dbdf1/communication
-	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
 
 	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 		return errors.Wrapf(err, "failed to update gateway status")
@@ -370,6 +358,7 @@ func listenerRouteGroupKindSupported(listener gateway_api.Listener) (bool, []gat
 	supportedKind := make([]gateway_api.RouteGroupKind, 0)
 
 	for _, routeGroupKind := range listener.AllowedRoutes.Kinds {
+		// today, controller only support HTTPRoute
 		if routeGroupKind.Kind != "HTTPRoute" {
 			validRoute = false
 		} else {
@@ -413,7 +402,6 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 
 		listenerStatus := gateway_api.ListenerStatus{
 			Name: listener.Name,
-			//SupportedKinds: make([]gateway_api.RouteGroupKind, 0),
 		}
 
 		// mark listenerStatus's condition
@@ -499,7 +487,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 	if hasValidListener {
 		return nil
 	} else {
-		fmt.Printf("liwwu>>>> invalid listeners for %v\n", gw.Name)
+		glog.V(2).Infof("no valid listeners for %v\n", gw.Name)
 		return errors.New("invalid listeners")
 	}
 
