@@ -35,7 +35,8 @@ func (env *Framework) NewHttpApp(options HTTPAppOptions) (*appsv1.Deployment, *v
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": options.Name,
+						"app":          options.Name,
+						DiscoveryLabel: "true",
 					},
 				},
 				Spec: v1.PodSpec{
@@ -53,6 +54,9 @@ func (env *Framework) NewHttpApp(options HTTPAppOptions) (*appsv1.Deployment, *v
 	}, options.MergeFromDeployment...)
 
 	service := New(&v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
 				"app": options.Name,
@@ -65,7 +69,7 @@ func (env *Framework) NewHttpApp(options HTTPAppOptions) (*appsv1.Deployment, *v
 		},
 	}, options.MergeFromService...)
 	env.TestCasesCreatedTargetGroupNames[latticestore.TargetGroupName(service.Name, service.Namespace)] = true
-
+	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, service, deployment)
 	return deployment, service
 
 }

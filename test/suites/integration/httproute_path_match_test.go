@@ -8,31 +8,30 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"log"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
 var _ = Describe("HTTPRoute path matches", func() {
 	It("HTTPRoute should support multiple path matches", func() {
 		gateway := testFramework.NewGateway()
-		testFramework.ExpectCreated(ctx, gateway)
-
 		deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1"})
 		deployment2, service2 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2"})
-		pathMatchHttpRoute := testFramework.NewPathMatchHttpRoute(gateway, []*v1.Service{service1, service2})
+		pathMatchHttpRoute := testFramework.NewPathMatchHttpRoute(gateway, []client.Object{service1, service2}, "http")
 
 		// Create Kubernetes API Objects
 		testFramework.ExpectCreated(ctx,
+			gateway,
 			pathMatchHttpRoute,
 			service1,
 			deployment1,
 			service2,
 			deployment2,
 		)
-		time.Sleep(2 * time.Minute) //Need some time to wait for VPCLattice resources to be created
+		time.Sleep(3 * time.Minute) //Need some time to wait for VPCLattice resources to be created
 
 		// Verify VPC Lattice Resource
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
@@ -55,7 +54,6 @@ var _ = Describe("HTTPRoute path matches", func() {
 		Expect(*targetGroupV2.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 		Expect(*targetGroupV2.Protocol).To(Equal("HTTP"))
 		targetsV2 := testFramework.GetTargets(ctx, targetGroupV2, deployment2)
-
 		Expect(*targetGroupV2.Port).To(BeEquivalentTo(service2.Spec.Ports[0].TargetPort.IntVal))
 		for _, target := range targetsV2 {
 			Expect(*target.Port).To(BeEquivalentTo(service2.Spec.Ports[0].TargetPort.IntVal))

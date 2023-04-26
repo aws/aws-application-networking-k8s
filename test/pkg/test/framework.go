@@ -62,6 +62,7 @@ type Framework struct {
 	TestCasesCreatedServiceNetworkNames map[string]bool //key: ServiceNetworkName; value: not in use, meaningless
 	TestCasesCreatedServiceNames        map[string]bool //key: ServiceName; value not in use, meaningless
 	TestCasesCreatedTargetGroupNames    map[string]bool //key: TargetGroupName; value: not in use, meaningless
+	TestCasesCreatedK8sResource         []client.Object
 }
 
 func NewFramework(ctx context.Context) *Framework {
@@ -82,10 +83,8 @@ func NewFramework(ctx context.Context) *Framework {
 
 	SetDefaultEventuallyTimeout(180 * time.Second)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
+	BeforeEach(func() { framework.ExpectToBeClean(ctx) })
 	AfterEach(func() { framework.ExpectToBeClean(ctx) })
-	AfterSuite(func() { framework.CleanTestEnvironment(ctx) })
-	// TODO: in BeforeSuite(), need to make sure current cluster's VPC don't have any Vpc ServiceNetwork association,
-	//  and current k8s cluster is clean (no existing service, deployment(pods), gateway, httproute)
 	return framework
 }
 
@@ -98,6 +97,11 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	})
 
 	currentClusterVpcId := os.Getenv("CLUSTER_VPC_ID")
+	retrievedServiceNetworkVpcAssociations, _ := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
+		VpcIdentifier: aws.String(currentClusterVpcId),
+	})
+	Logger(ctx).Infof("Expect VPC used by current cluster don't have any ServiceNetworkVPCAssociation, if it has you should manually delete it")
+	Expect(len(retrievedServiceNetworkVpcAssociations)).To(Equal(0))
 	Eventually(func(g Gomega) {
 		retrievedServiceNetworks, _ := env.LatticeClient.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
 		for _, sn := range retrievedServiceNetworks {
@@ -150,35 +154,19 @@ func (env *Framework) CleanTestEnvironment(ctx context.Context) {
 	// Kubernetes API Objects
 	namespaces := &v1.NamespaceList{}
 	Expect(env.List(ctx, namespaces)).WithOffset(1).To(Succeed())
-	Eventually(func(g Gomega) {
-		for _, namespace := range namespaces.Items {
-			if namespace.Name == "kube-system" {
-				continue
-			}
-			parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
-				log.Println("ExpectDeleteAllToSucceed for testObject.Type", testObject.Type, "in namespace", namespace.Name)
-				env.ExpectDeleteAllToSucceed(ctx, testObject.Type, namespace.Name)
-			})
-		}
-	}).Should(Succeed())
+	for _, object := range env.TestCasesCreatedK8sResource {
+		Logger(ctx).Infof("Deleting k8s resource %s %s/%s", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
+		env.Delete(ctx, object)
+		//Ignore resource-not-found error here, as the test case logic itself could already clear the resources
+	}
 
 	//Theoretically, Deleting all k8s resource by `env.ExpectDeleteAllToSucceed()`, will make controller delete all related VPC Lattice resource,
 	//but the controller is still developing in the progress and may leaking some vPCLattice resource, need to invoke vpcLattice api to double confirm and delete leaking resource.
 	env.DeleteAllFrameworkTracedServiceNetworks(ctx)
 	env.DeleteAllFrameworkTracedVpcLatticeServices(ctx)
 	env.DeleteAllFrameworkTracedTargetGroups(ctx)
-	Eventually(func(g Gomega) {
-		for _, namespace := range namespaces.Items {
-			if namespace.Name == "kube-system" {
-				continue
-			}
-			parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
-				log.Println("EventuallyExpectNoneFound for testObject.Type", testObject.Type, "in namespace", namespace.Name)
-				defer GinkgoRecover()
-				env.EventuallyExpectNoneFound(ctx, testObject.ListType)
-			})
-		}
-	}).Should(Succeed())
+	env.EventuallyExpectNotFound(ctx, env.TestCasesCreatedK8sResource...)
+	env.TestCasesCreatedK8sResource = nil
 
 }
 
@@ -210,9 +198,10 @@ func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object clien
 func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) {
 	Eventually(func(g Gomega) {
 		for _, object := range objects {
+			Logger(ctx).Infof("Checking whether %s %s %s is not found", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
 			g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(object), object))).To(BeTrue())
 		}
-	}).Should(Succeed())
+	}).WithOffset(1).Should(Succeed())
 }
 
 func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList client.ObjectList) {
@@ -277,8 +266,15 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 	var found []*vpclattice.TargetSummary
 	Eventually(func(g Gomega) {
 		log.Println("Trying to retrieve registered targets for targetGroup", targetGroup)
+		log.Println("deployment.Spec.Selector.MatchLabels:", deployment.Spec.Selector.MatchLabels)
 		podList := &v1.PodList{}
-		g.Expect(env.List(ctx, podList, client.MatchingLabels(deployment.Spec.Selector.MatchLabels))).To(Succeed())
+		expectedMatchingLabels := make(map[string]string, len(deployment.Spec.Selector.MatchLabels))
+		for k, v := range deployment.Spec.Selector.MatchLabels {
+			expectedMatchingLabels[k] = v
+		}
+		expectedMatchingLabels[DiscoveryLabel] = "true"
+		log.Println("Expected matching labels:", expectedMatchingLabels)
+		g.Expect(env.List(ctx, podList, client.MatchingLabels(expectedMatchingLabels))).To(Succeed())
 		g.Expect(podList.Items).To(HaveLen(int(*deployment.Spec.Replicas)))
 		retrievedTargets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroup.Id})
 		g.Expect(err).To(BeNil())
@@ -324,7 +320,25 @@ func (env *Framework) DeleteAllFrameworkTracedServiceNetworks(ctx aws.Context) {
 		}
 	}
 
-	//TODO: check and delete serviceNetwork VPC associations
+	var allServiceNetworkVpcAssociationIdsToBeDeleted []*string
+	for _, snIdWithRemainingAssociations := range serviceNetworkIdsWithRemainingAssociations {
+		associations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
+			ServiceNetworkIdentifier: snIdWithRemainingAssociations,
+		})
+		Expect(err).ToNot(HaveOccurred())
+
+		snvaIds := lo.Map(associations, func(association *vpclattice.ServiceNetworkVpcAssociationSummary, _ int) *string {
+			return association.Id
+		})
+		allServiceNetworkVpcAssociationIdsToBeDeleted = append(allServiceNetworkVpcAssociationIdsToBeDeleted, snvaIds...)
+	}
+
+	for _, snvaId := range allServiceNetworkVpcAssociationIdsToBeDeleted {
+		_, err := env.LatticeClient.DeleteServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.DeleteServiceNetworkVpcAssociationInput{
+			ServiceNetworkVpcAssociationIdentifier: snvaId,
+		})
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	var allServiceNetworkServiceAssociationIdsToBeDeleted []*string
 
@@ -348,12 +362,20 @@ func (env *Framework) DeleteAllFrameworkTracedServiceNetworks(ctx aws.Context) {
 	}
 
 	Eventually(func(g Gomega) {
+		for _, snvaId := range allServiceNetworkVpcAssociationIdsToBeDeleted {
+			_, err := env.LatticeClient.GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+				ServiceNetworkVpcAssociationIdentifier: snvaId,
+			})
+			if err != nil {
+				g.Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
+			}
+		}
 		for _, snsaId := range allServiceNetworkServiceAssociationIdsToBeDeleted {
 			_, err := env.LatticeClient.GetServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
 				ServiceNetworkServiceAssociationIdentifier: snsaId,
 			})
 			if err != nil {
-				Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
+				g.Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
 			}
 		}
 	}).Should(Succeed())
@@ -492,6 +514,7 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 }
 
 func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNamespace string) string {
+	log.Println("GetVpcLatticeServiceDns: ", httpRouteName, httpRouteNamespace)
 	httproute := v1beta1.HTTPRoute{}
 	env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
 	vpcLatticeServiceDns := httproute.Annotations[controllers.LatticeAssignedDomainName]

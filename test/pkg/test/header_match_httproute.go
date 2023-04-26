@@ -51,5 +51,6 @@ func (env *Framework) NewHeaderMatchHttpRoute(parentRefsGateway *v1beta1.Gateway
 	})
 
 	env.TestCasesCreatedServiceNames[latticestore.AWSServiceName(httpRoute.Name, httpRoute.Namespace)] = true
+	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, httpRoute)
 	return httpRoute
 }

@@ -28,7 +28,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 			service3,
 			deployment3)
 
-		time.Sleep(2 * time.Minute)
+		time.Sleep(3 * time.Minute)
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, headerMatchHttpRoute)
 		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(headerMatchHttpRoute.Name, headerMatchHttpRoute.Namespace)))
 		Eventually(func(g Gomega) {
