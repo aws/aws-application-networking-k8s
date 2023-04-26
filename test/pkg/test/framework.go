@@ -148,30 +148,6 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	//}
 }
 
-func (env *Framework) CleanServiceNetworkVpcAssociationForCurrentK8sClusterVpc() {
-	currentClusterVpcId := os.Getenv("CLUSTER_VPC_ID")
-	snvas, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(env.ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
-		VpcIdentifier: aws.String(currentClusterVpcId),
-	})
-	Expect(err).To(BeNil())
-	if len(snvas) == 0 {
-		return
-	}
-	for _, snva := range snvas {
-		_, err := env.LatticeClient.DeleteServiceNetworkVpcAssociationWithContext(env.ctx, &vpclattice.DeleteServiceNetworkVpcAssociationInput{
-			ServiceNetworkVpcAssociationIdentifier: snva.Id,
-		})
-		Expect(err).To(BeNil())
-	}
-	Eventually(func(g Gomega) {
-		snvas, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(env.ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
-			VpcIdentifier: aws.String(currentClusterVpcId),
-		})
-		g.Expect(err).To(BeNil())
-		g.Expect(snvas).To(BeEmpty())
-	}).Should(Succeed())
-}
-
 func (env *Framework) CleanTestEnvironment(ctx context.Context) {
 	defer GinkgoRecover()
 	Logger(ctx).Info("Cleaning the test environment")

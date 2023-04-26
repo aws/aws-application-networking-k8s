@@ -13,7 +13,7 @@ type ObjectAndWeight struct {
 }
 
 func (env *Framework) NewWeightedRoutingHttpRoute(parentRefsGateway *v1beta1.Gateway, backendRefObjectAndWeights []*ObjectAndWeight,
-	gwListenerSectionName string) *v1beta1.HTTPRoute {
+	gwListenerSectionNames []string) *v1beta1.HTTPRoute {
 
 	var backendRefs []v1beta1.HTTPBackendRef
 	for _, objectAndWeight := range backendRefObjectAndWeights {
@@ -27,13 +27,17 @@ func (env *Framework) NewWeightedRoutingHttpRoute(parentRefsGateway *v1beta1.Gat
 			},
 		})
 	}
+	var parentRefs []v1beta1.ParentReference
+	for _, gwListenerSectionName := range gwListenerSectionNames {
+		parentRefs = append(parentRefs, v1beta1.ParentReference{
+			Name:        v1beta1.ObjectName(parentRefsGateway.Name),
+			SectionName: lo.ToPtr(v1beta1.SectionName(gwListenerSectionName)),
+		})
+	}
 	httpRoute := New(&v1beta1.HTTPRoute{
 		Spec: v1beta1.HTTPRouteSpec{
 			CommonRouteSpec: v1beta1.CommonRouteSpec{
-				ParentRefs: []v1beta1.ParentReference{{
-					Name:        v1beta1.ObjectName(parentRefsGateway.Name),
-					SectionName: lo.ToPtr(v1beta1.SectionName(gwListenerSectionName)),
-				}},
+				ParentRefs: parentRefs,
 			},
 			Rules: []v1beta1.HTTPRouteRule{
 				{

@@ -18,7 +18,7 @@ import (
 )
 
 // https://github.com/aws/amazon-vpc-cni-k8s/blob/7eeb2a9ab437887f77de30a5eab20bb42742df06/test/framework/resources/k8s/resources/pod.go#L188
-func (env *Framework) PodExec(namespace string, podName string, cmd string) (string, string, error) {
+func (env *Framework) PodExec(namespace string, podName string, cmd string, printOutput bool) (string, string, error) {
 	log.Printf("PodExec() [namespace: %v] [podName: %v] [command: %v] \n", namespace, podName, cmd)
 	restClient, err := env.getRestClientForPod(namespace, podName)
 	if err != nil {
@@ -55,9 +55,12 @@ func (env *Framework) PodExec(namespace string, podName string, cmd string) (str
 	})
 	stdoutStr := stdout.String()
 	stderrStr := stderr.String()
-	log.Println("stdout: ", stdoutStr)
-	log.Println("stderr: ", stderrStr)
-	log.Println("err: ", err)
+	if printOutput {
+		log.Println("stdout: ", stdoutStr)
+		log.Println("stderr: ", stderrStr)
+		log.Println("err: ", err)
+	}
+
 	return stdoutStr, stderrStr, err
 }
 
