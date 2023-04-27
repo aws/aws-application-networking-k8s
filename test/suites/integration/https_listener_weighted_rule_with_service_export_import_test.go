@@ -16,23 +16,23 @@ import (
 )
 
 var _ = Describe("Test 2 listeners gateway with weighted httproute rules and service export import", func() {
-	It("Create a gateway 2 listeners(http and https), create a weightedRoutingHttpRoute that parentRef to both http and https listeners,"+
+	It("Create a gateway with 2 listeners(http and https), create a weightedRoutingHttpRoute that parentRef to both http and https listeners,"+
 		" and this httpRoute BackendRef to one service and one serviceImport, weighted traffic should work for both http and https listeners",
 		func() {
-			gateway := testFramework.NewGateway()
+			gateway := testFramework.NewGateway("", "")
 			deployment0, service0 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "service-import-export-test0"})
 			deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "service-import-export-test1"})
-			serviceExport1, serviceImport1 := testFramework.GetServiceExportAndServiceImportByService(service1)
+			serviceExport1, serviceImport1 := testFramework.CreateServiceExportAndServiceImportByService(service1)
 			deployments := []*appsv1.Deployment{deployment0, deployment1}
 			httpRoute := testFramework.NewWeightedRoutingHttpRoute(gateway,
 				[]*test.ObjectAndWeight{
 					{
 						Object: service0,
-						Weight: 30,
+						Weight: 20,
 					},
 					{
 						Object: serviceImport1,
-						Weight: 70,
+						Weight: 80,
 					},
 				}, []string{"http", "https"})
 			log.Println("httpRoute0 Weight:", *httpRoute.Spec.Rules[0].BackendRefs[0].Weight)
@@ -100,9 +100,9 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 					retrievedWeightedTargetGroup0InRule := retrievedWeightedTGRule.Action.Forward.TargetGroups[0]
 					retrievedWeightedTargetGroup1InRule := retrievedWeightedTGRule.Action.Forward.TargetGroups[1]
 					Expect(*retrievedWeightedTargetGroup0InRule.TargetGroupIdentifier).To(Equal(*retrievedTg0.Id))
-					Expect(*retrievedWeightedTargetGroup0InRule.Weight).To(BeEquivalentTo(30))
+					Expect(*retrievedWeightedTargetGroup0InRule.Weight).To(BeEquivalentTo(20))
 					Expect(*retrievedWeightedTargetGroup1InRule.TargetGroupIdentifier).To(Equal(*retrievedTg1.Id))
-					Expect(*retrievedWeightedTargetGroup1InRule.Weight).To(BeEquivalentTo(70))
+					Expect(*retrievedWeightedTargetGroup1InRule.Weight).To(BeEquivalentTo(80))
 				}
 			}).Should(Succeed())
 			log.Println("Verifying Weighted rule traffic")
@@ -136,8 +136,8 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 					}
 				}
 				log.Printf("Send traffic to %s listener: \n", protocol)
-				log.Printf("Expect 30 %% of traffic hit tg0, hitTg0: %d \n", hitTg0)
-				log.Printf("Expect 70 %% of traffic hit tg1, hitTg1: %d  \n", hitTg1)
+				log.Printf("Expect 20 %% of traffic hit tg0, hitTg0: %d \n", hitTg0)
+				log.Printf("Expect 80 %% of traffic hit tg1, hitTg1: %d  \n", hitTg1)
 				Expect(hitTg0).To(BeNumerically("<", hitTg1))
 			}
 

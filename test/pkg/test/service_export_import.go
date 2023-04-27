@@ -6,7 +6,7 @@ import (
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
-func (env *Framework) GetServiceExportAndServiceImportByService(service *v1.Service) (*v1alpha1.ServiceExport, *v1alpha1.ServiceImport) {
+func (env *Framework) CreateServiceExportAndServiceImportByService(service *v1.Service) (*v1alpha1.ServiceExport, *v1alpha1.ServiceImport) {
 	serviceExport := New(&v1alpha1.ServiceExport{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "multicluster.x-k8s.io/v1alpha1",
