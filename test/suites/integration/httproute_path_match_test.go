@@ -127,12 +127,12 @@ var _ = Describe("HTTPRoute path matches", func() {
 		log.Println("pods[0].Name:", pods[0].Name)
 
 		cmd1 := fmt.Sprintf("curl %s/pathmatch0", dnsName)
-		stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd1)
+		stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd1, true)
 		Expect(err).To(BeNil())
 		Expect(stdout).To(ContainSubstring("test-v1 handler pod"))
 
 		cmd2 := fmt.Sprintf("curl %s/pathmatch1", dnsName)
-		stdout, _, err = testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd2)
+		stdout, _, err = testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd2, true)
 		Expect(err).To(BeNil())
 		Expect(stdout).To(ContainSubstring("test-v2 handler pod"))
 
