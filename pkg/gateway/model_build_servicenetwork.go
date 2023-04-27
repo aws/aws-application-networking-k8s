@@ -15,6 +15,7 @@ import (
 const (
 	ResourceIDServiceNetwork        = "ServiceNetwork"
 	LatticeVPCAssociationAnnotation = "application-networking.k8s.aws/lattice-vpc-association"
+	ModelBuiltError                 = "Failed to build model"
 )
 
 // ModelBuilder builds the model stack for the mesh resource.

@@ -5,10 +5,12 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-func (env *Framework) NewGateway() *v1beta1.Gateway {
+func (env *Framework) NewGateway(name string, namespace string) *v1beta1.Gateway {
 	gateway := New(
 		&v1beta1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+				Namespace: namespace,
 				Annotations: map[string]string{
 					"application-networking.k8s.aws/lattice-vpc-association": "true",
 				},

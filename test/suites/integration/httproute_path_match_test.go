@@ -15,12 +15,17 @@ import (
 	"time"
 )
 
+const (
+	k8snamespace = "non-default"
+)
+
 var _ = Describe("HTTPRoute path matches", func() {
 	It("HTTPRoute should support multiple path matches", func() {
-		gateway := testFramework.NewGateway()
-		deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1"})
-		deployment2, service2 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2"})
-		pathMatchHttpRoute := testFramework.NewPathMatchHttpRoute(gateway, []client.Object{service1, service2}, "http")
+		gateway := testFramework.NewGateway("",k8snamespace)
+		deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
+		deployment2, service2 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2", Namespace: k8snamespace})
+		pathMatchHttpRoute := testFramework.NewPathMatchHttpRoute(gateway, []client.Object{service1, service2}, "http",
+	"", k8snamespace)
 
 		// Create Kubernetes API Objects
 		testFramework.ExpectCreated(ctx,

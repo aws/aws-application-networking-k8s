@@ -304,7 +304,7 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 		}
 
 	} else {
-		var namespace = "default"
+		var namespace = t.httpRoute.Namespace
 
 		if httpBackendRef.Namespace != nil {
 			namespace = string(*httpBackendRef.Namespace)
@@ -365,6 +365,7 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupName(_ context.Contex
 		return latticestore.TargetGroupName(string(httpBackendRef.BackendRef.BackendObjectReference.Name),
 			string(*httpBackendRef.BackendRef.BackendObjectReference.Namespace))
 	} else {
-		return latticestore.TargetGroupName(string(httpBackendRef.BackendRef.BackendObjectReference.Name), "default")
+		return latticestore.TargetGroupName(string(httpBackendRef.BackendRef.BackendObjectReference.Name),
+			t.httpRoute.Namespace)
 	}
 }

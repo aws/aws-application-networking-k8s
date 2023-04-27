@@ -130,6 +130,7 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 			glog.V(6).Infof("Failed to cleanup HTTPRoute %v err %v\n", httpRoute, err)
 			return err
 		}
+		UpdateHTTPRouteListenerStatus(ctx, r.Client, httpRoute)
 		r.finalizerManager.RemoveFinalizers(ctx, httpRoute, httpRouteFinalizer)
 
 		// TODO delete metrics
@@ -306,6 +307,9 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	httproute.Status.RouteStatus.Parents[0].ParentRef.Group = httproute.Spec.ParentRefs[0].Group
 	httproute.Status.RouteStatus.Parents[0].ParentRef.Kind = httproute.Spec.ParentRefs[0].Kind
 	httproute.Status.RouteStatus.Parents[0].ParentRef.Name = httproute.Spec.ParentRefs[0].Name
+
+	// Update listener Status
+	UpdateHTTPRouteListenerStatus(ctx, r.Client, httproute)
 
 	if err := r.Client.Status().Patch(ctx, httproute, client.MergeFrom(httprouteOld)); err != nil {
 		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
