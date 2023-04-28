@@ -10,6 +10,7 @@ import (
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
@@ -28,6 +29,18 @@ func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 	return &defaultTargetGroupManager{
 		cloud: cloud,
 	}
+}
+
+func TG2LatticeTGName(targetGroup *latticemodel.TargetGroup) string {
+	var tgname string
+	if config.UseLongTGName {
+		tgname = latticestore.TargetGroupLongName(targetGroup.Spec.Name,
+			targetGroup.Spec.Config.K8SHTTPRouteName, config.VpcID)
+	} else {
+		tgname = targetGroup.Spec.Name
+	}
+
+	return tgname
 }
 
 // Create will try to create a target group
@@ -50,8 +63,10 @@ func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error) {
 
 	glog.V(6).Infof("Create Target Group API call for name %s \n", targetGroup.Spec.Name)
+
+	latticeTGName := TG2LatticeTGName(targetGroup)
 	// check if exists
-	tgSummary, err := s.findTGByName(ctx, targetGroup.Spec.Name)
+	tgSummary, err := s.findTGByName(ctx, latticeTGName)
 	if err != nil {
 		return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
 	}
@@ -61,7 +76,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 
 	glog.V(6).Infof("create targetgropu API here %v\n", targetGroup)
 	port := int64(targetGroup.Spec.Config.Port)
-	config := &vpclattice.TargetGroupConfig{
+	TGconfig := &vpclattice.TargetGroupConfig{
 		Port:            &port,
 		Protocol:        &targetGroup.Spec.Config.Protocol,
 		ProtocolVersion: &targetGroup.Spec.Config.ProtocolVersion,
@@ -69,9 +84,10 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 	}
 
 	targetGroupType := string(targetGroup.Spec.Type)
+
 	createTargetGroupInput := vpclattice.CreateTargetGroupInput{
-		Config: config,
-		Name:   &targetGroup.Spec.Name,
+		Config: TGconfig,
+		Name:   &latticeTGName,
 		Type:   &targetGroupType,
 		Tags:   make(map[string]*string),
 	}
@@ -116,8 +132,9 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 
 func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error) {
 	glog.V(6).Infof("Create Lattice Target Group API call for name %s \n", targetGroup.Spec.Name)
+
 	// check if exists
-	tgSummary, err := s.findTGByName(ctx, targetGroup.Spec.Name)
+	tgSummary, err := s.findTGByName(ctx, TG2LatticeTGName(targetGroup))
 	if err != nil {
 		return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
 	}

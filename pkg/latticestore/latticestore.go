@@ -296,8 +296,8 @@ func TargetGroupName(name string, namespace string) string {
 	return fmt.Sprintf("k8s-%0.20s-%0.20s", name, namespace)
 }
 
-func TargetGroupLongName(name string, namespace string, httprouteName string, vpcid string) string {
-	return fmt.Sprintf("k8s-%0.20s-%0.20s-%0.20s-%0.20s", name, namespace, httprouteName, vpcid)
+func TargetGroupLongName(k8sname string, routename string, vpcid string) string {
+	return fmt.Sprintf("k8s-%0.40s-%0.20s-%0.20s", k8sname, routename, vpcid)
 }
 
 // TODO , find out a good name
