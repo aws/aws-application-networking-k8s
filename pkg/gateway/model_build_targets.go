@@ -22,7 +22,7 @@ const (
 )
 
 type LatticeTargetsBuilder interface {
-	Build(ctx context.Context, service *corev1.Service) (core.Stack, *latticemodel.Targets, error)
+	Build(ctx context.Context, service *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error)
 }
 
 type latticeTargetsModelBuilder struct {
@@ -42,13 +42,14 @@ func NewTargetsBuilder(client client.Client, cloud lattice_aws.Cloud, datastore 
 	}
 }
 
-func (b *latticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *latticemodel.Targets, error) {
+func (b *latticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName((service))))
 
 	task := &latticeTargetsModelBuildTask{
 		Client:      b.Client,
 		tgName:      service.Name,
 		tgNamespace: service.Namespace,
+		routename:   routename,
 		stack:       stack,
 		datastore:   b.datastore,
 	}
@@ -80,7 +81,7 @@ func (t *latticeTargetsModelBuildTask) buildModel(ctx context.Context) error {
 func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) error {
 	ds := t.datastore
 	tgName := latticestore.TargetGroupName(t.tgName, t.tgNamespace)
-	tg, err := ds.GetTargetGroup(tgName, false) // isServiceImport= false
+	tg, err := ds.GetTargetGroup(tgName, t.routename, false) // isServiceImport= false
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Build Targets failed because target group (name=%s, namespace=%s found not in datastore)", t.tgName, t.tgNamespace)
@@ -131,6 +132,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	spec := latticemodel.TargetsSpec{
 		Name:         t.tgName,
 		Namespace:    t.tgNamespace,
+		RouteName:    t.routename,
 		TargetIPList: targetList,
 	}
 
@@ -143,6 +145,7 @@ type latticeTargetsModelBuildTask struct {
 	client.Client
 	tgName      string
 	tgNamespace string
+	routename   string
 
 	latticeTargets *latticemodel.Targets
 	stack          core.Stack

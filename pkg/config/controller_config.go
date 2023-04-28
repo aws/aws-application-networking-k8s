@@ -22,6 +22,7 @@ var AccountID = "yyyyyy"
 var Region = "us-west-2"
 var logLevel = defaultLogLevel
 var DefaultServiceNetwork = NoDefaultServiceNetwork
+var UseLongTGName = false
 
 func GetLogLevel() string {
 	logLevel = os.Getenv("GATEWAY_API_CONTROLLER_LOGLEVEL")
@@ -68,6 +69,16 @@ func ConfigInit() {
 	} else {
 
 		glog.V(2).Infoln("CLUSTER_LOCAL_GATEWAY", DefaultServiceNetwork)
+	}
+
+	tgNameLengthMode := os.Getenv("TARGET_GROUP_NAME_LEN_MODE")
+
+	glog.V(2).Infoln("TARGET_GROUP_NAME_LEN_MODE", tgNameLengthMode)
+
+	if tgNameLengthMode == "long" {
+		UseLongTGName = true
+	} else {
+		UseLongTGName = false
 	}
 
 	sess, _ := session.NewSession()

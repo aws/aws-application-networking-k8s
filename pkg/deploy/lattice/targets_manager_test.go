@@ -55,7 +55,8 @@ func Test_RegisterTargets_RegisterSuccessfully(t *testing.T) {
 
 	latticeDataStore := latticestore.NewLatticeDataStore()
 	tgName := latticestore.TargetGroupName("test", "")
-	latticeDataStore.AddTargetGroup(tgName, "vpc-123456789", "123456789", "123456789", false)
+	//TODO routename
+	latticeDataStore.AddTargetGroup(tgName, "vpc-123456789", "123456789", "123456789", false, "")
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
@@ -129,7 +130,8 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 
 	latticeDataStore := latticestore.NewLatticeDataStore()
 	tgName := latticestore.TargetGroupName("test", "")
-	latticeDataStore.AddTargetGroup(tgName, "vpc-123456789", "123456789", "123456789", false)
+	// routename
+	latticeDataStore.AddTargetGroup(tgName, "vpc-123456789", "123456789", "123456789", false, "")
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
@@ -212,7 +214,8 @@ func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 
 	latticeDataStore := latticestore.NewLatticeDataStore()
 	tgName := latticestore.TargetGroupName("test", "")
-	latticeDataStore.AddTargetGroup(tgName, "vpc-123456789", "123456789", "123456789", false)
+	//routename
+	latticeDataStore.AddTargetGroup(tgName, "vpc-123456789", "123456789", "123456789", false, "")
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()

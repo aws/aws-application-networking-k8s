@@ -41,7 +41,7 @@ func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemode
 
 	// Need to find TargetGroup ID from datastore
 	tgName := latticestore.TargetGroupName(targets.Spec.Name, targets.Spec.Namespace)
-	tg, err := s.datastore.GetTargetGroup(tgName, false) // isServiceImport=false
+	tg, err := s.datastore.GetTargetGroup(tgName, targets.Spec.RouteName, false) // isServiceImport=false
 
 	if err != nil {
 		glog.V(6).Infof("Failed to Create targets, service ( name %v namespace %v) not found, retry later\n", targets.Spec.Name, targets.Spec.Namespace)

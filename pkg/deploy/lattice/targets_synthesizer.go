@@ -60,7 +60,7 @@ func (t *targetsSynthesizer) SynthesizeTargets(ctx context.Context, resTargets [
 			})
 		}
 
-		t.latticeDataStore.UpdateTargetsForTargetGroup(tgName, targetList)
+		t.latticeDataStore.UpdateTargetsForTargetGroup(tgName, targets.Spec.RouteName, targetList)
 
 	}
 	return nil

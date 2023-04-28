@@ -161,7 +161,8 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 			tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
 			assert.Equal(t, tgName, tg.Spec.Name)
 
-			dsTG, err := ds.GetTargetGroup(tgName, false)
+			// for serviceexport, the routename is ""
+			dsTG, err := ds.GetTargetGroup(tgName, "", false)
 			assert.Nil(t, err)
 			if tt.wantIsDeleted {
 				assert.Equal(t, false, dsTG.ByServiceExport)
@@ -415,13 +416,14 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 								fmt.Printf("--task.tgByResID[tgName] %v \n", tg)
 								assert.Equal(t, true, tg.Spec.IsDeleted)
 							} else {
-								dsTG, err := ds.GetTargetGroup(tgName, false)
+								dsTG, err := ds.GetTargetGroup(tgName, tt.httpRoute.Name, false)
 								assert.Equal(t, true, dsTG.ByBackendRef)
 								fmt.Printf("--dsTG %v\n", dsTG)
 								assert.Nil(t, err)
 							}
 						} else {
-							dsTG, err := ds.GetTargetGroup(tgName, true)
+							// the routename for serviceimport is ""
+							dsTG, err := ds.GetTargetGroup(tgName, "", true)
 							fmt.Printf("dsTG %v\n", dsTG)
 							assert.Nil(t, err)
 						}
@@ -595,13 +597,13 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 							fmt.Printf("--task.tgByResID[tgName] %v \n", tg)
 							assert.Equal(t, true, tg.Spec.IsDeleted)
 						} else {
-							dsTG, err := ds.GetTargetGroup(tgName, false)
+							dsTG, err := ds.GetTargetGroup(tgName, tt.httpRoute.Name, false)
 							assert.Equal(t, true, dsTG.ByBackendRef)
 							fmt.Printf("--dsTG %v\n", dsTG)
 							assert.Nil(t, err)
 						}
 					} else {
-						dsTG, err := ds.GetTargetGroup(tgName, true)
+						dsTG, err := ds.GetTargetGroup(tgName, "", true)
 						fmt.Printf("dsTG %v\n", dsTG)
 						if tt.wantIsDeleted {
 							tg := task.tgByResID[tgName]

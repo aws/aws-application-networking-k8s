@@ -48,6 +48,7 @@ type RuleAction struct {
 type RuleTargetGroup struct {
 	Name            string `json:"name"`
 	Namespace       string `json:"namespace"`
+	RouteName       string `json:"routename"`
 	IsServiceImport bool   `json:"isServiceImport"`
 	Weight          int64  `json:"weight"`
 }

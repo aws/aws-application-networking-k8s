@@ -74,7 +74,8 @@ func Test_SynthesizeTargets(t *testing.T) {
 		ds := latticestore.NewLatticeDataStore()
 
 		tgName := latticestore.TargetGroupName(tt.srvExportName, tt.srvExportNamespace)
-		err := ds.AddTargetGroup(tgName, "", "", "", false)
+		// TODO routename
+		err := ds.AddTargetGroup(tgName, "", "", "", false, "")
 		assert.Nil(t, err)
 		ds.SetTargetGroupByServiceExport(tgName, false, true)
 
@@ -106,7 +107,8 @@ func Test_SynthesizeTargets(t *testing.T) {
 		err = targetsSynthesizer.SynthesizeTargets(ctx, resTargetsList)
 		assert.Nil(t, err)
 
-		dsTG, err := ds.GetTargetGroup(tgName, false)
+		// TODO routename
+		dsTG, err := ds.GetTargetGroup(tgName, "", false)
 		assert.Equal(t, tt.expectedTargetList, dsTG.EndPoints)
 
 		assert.Nil(t, err)

@@ -548,7 +548,7 @@ func Test_CreateRule(t *testing.T) {
 		if !tt.noTargetGroupID {
 			for _, tg := range tt.newRule.Spec.Action.TargetGroups {
 				tgName := latticestore.TargetGroupName(tg.Name, tg.Namespace)
-				latticeDataStore.AddTargetGroup(tgName, "vpc", "arn", "tg-id", tg.IsServiceImport)
+				latticeDataStore.AddTargetGroup(tgName, "vpc", "arn", "tg-id", tg.IsServiceImport, "")
 			}
 
 		}

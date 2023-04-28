@@ -145,6 +145,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					}
 					ruleTG.Name = string(httpBackendRef.BackendObjectReference.Name)
 					ruleTG.Namespace = namespace
+					ruleTG.RouteName = t.httpRoute.Name
 					ruleTG.IsServiceImport = false
 					if httpBackendRef.Weight != nil {
 						ruleTG.Weight = int64(*httpBackendRef.Weight)
@@ -170,6 +171,8 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					if httpBackendRef.BackendObjectReference.Namespace != nil {
 						ruleTG.Namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
 					}
+					// the routename for serviceimport is always ""
+					ruleTG.RouteName = ""
 					ruleTG.IsServiceImport = true
 
 					if httpBackendRef.Weight != nil {

@@ -167,7 +167,7 @@ func (d *latticeTargetsStackDeploy) Deploy(ctx context.Context, stack core.Stack
 				targetList = append(targetList, t)
 
 			}
-			d.latticeDataStore.UpdateTargetsForTargetGroup(tgName, targetList)
+			d.latticeDataStore.UpdateTargetsForTargetGroup(tgName, targets.Spec.RouteName, targetList)
 		}
 
 	}

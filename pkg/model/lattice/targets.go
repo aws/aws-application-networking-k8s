@@ -10,8 +10,9 @@ type Targets struct {
 }
 
 type TargetsSpec struct {
-	Name          string   `json:"name"`
-	Namespace     string   `json:"namespace"`
+	Name          string `json:"name"`
+	Namespace     string `json:"namespace"`
+	RouteName     string
 	TargetGroupID string   `json:"targetgroupID"`
 	TargetIPList  []Target `json:"targetIPlist"`
 }
