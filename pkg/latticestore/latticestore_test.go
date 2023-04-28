@@ -187,7 +187,7 @@ func Test_TargetGroup(t *testing.T) {
 	assert.Equal(t, errors.New(DATASTORE_TG_NOT_EXIST), err)
 
 	// Happy Path for a serviceImport
-	err = inputDataStore.AddTargetGroup(tgName, vpc, arn, tgID, serviceImport, routename)
+	err = inputDataStore.AddTargetGroup(tgName, vpc, arn, tgID, serviceImport, "")
 	assert.Nil(t, err)
 
 	store := dumpCurrentLatticeDataStore(inputDataStore)
@@ -196,7 +196,7 @@ func Test_TargetGroup(t *testing.T) {
 	assert.Equal(t, 1, len(store.TargetGroups), "")
 
 	// Verify GetTargetGroup return TG just added
-	tg, err := inputDataStore.GetTargetGroup(tgName, routename, serviceImport)
+	tg, err := inputDataStore.GetTargetGroup(tgName, "", serviceImport)
 	assert.Nil(t, err)
 	assert.Equal(t, vpc, tg.VpcID)
 	assert.Equal(t, arn, tg.ARN)
@@ -205,22 +205,22 @@ func Test_TargetGroup(t *testing.T) {
 	assert.Equal(t, false, tg.ByBackendRef)
 	assert.Equal(t, false, tg.ByServiceExport)
 
-	inputDataStore.SetTargetGroupByBackendRef(tgName, routename, serviceImport, true)
-	tg, err = inputDataStore.GetTargetGroup(tgName, routename, serviceImport)
+	inputDataStore.SetTargetGroupByBackendRef(tgName, "", serviceImport, true)
+	tg, err = inputDataStore.GetTargetGroup(tgName, "", serviceImport)
 	assert.Nil(t, err)
 	assert.Equal(t, true, tg.ByBackendRef)
 
 	inputDataStore.SetTargetGroupByServiceExport(tgName, serviceImport, true)
-	tg, err = inputDataStore.GetTargetGroup(tgName, routename, serviceImport)
+	tg, err = inputDataStore.GetTargetGroup(tgName, "", serviceImport)
 	assert.Nil(t, err)
 	assert.Equal(t, true, tg.ByServiceExport)
 
 	// Verify GetTargetGroup will fail if it is K8SService
-	_, err = inputDataStore.GetTargetGroup(tgName, routename, K8SService)
+	_, err = inputDataStore.GetTargetGroup(tgName, "", K8SService)
 	assert.Equal(t, errors.New(DATASTORE_TG_NOT_EXIST), err)
 
 	// Add same TG again, no impact
-	err = inputDataStore.AddTargetGroup(tgName, vpc, arn, tgID, serviceImport, routename)
+	err = inputDataStore.AddTargetGroup(tgName, vpc, arn, tgID, serviceImport, "")
 	assert.Nil(t, err)
 
 	store = dumpCurrentLatticeDataStore(inputDataStore)

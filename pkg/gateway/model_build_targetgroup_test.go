@@ -539,6 +539,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		fmt.Printf("Test >>>> %v\n", tt.name)
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.Background()

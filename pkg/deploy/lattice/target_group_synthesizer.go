@@ -6,6 +6,8 @@ import (
 	"github.com/golang/glog"
 	"strings"
 
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -241,6 +243,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
 			httpName, ok := tgTags.Tags[latticemodel.K8SHTTPRouteNameKey]
+			tgRouteName = *httpName
 
 			if !ok || httpName == nil {
 				glog.V(6).Infof("Ignore TargetGroup(triggered by httpRoute) %v, %v have no httproute name tag",
@@ -280,7 +283,6 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 					continue
 				} else {
 					glog.V(6).Infof("tgname %v is not used by httproute %v\n", tgName, httpRoute)
-					tgRouteName = *httpName
 				}
 			}
 
@@ -292,8 +294,11 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 			continue
 		}
 
-		glog.V(2).Infof("Append stale SDK TG to stale list Name %v, ARN %v",
-			*sdkTG.getTargetGroupOutput.Name, *sdkTG.getTargetGroupOutput.Id)
+		glog.V(2).Infof("Append stale SDK TG to stale list Name %v, routename %v, ARN %v",
+			*sdkTG.getTargetGroupOutput.Name, tgRouteName, *sdkTG.getTargetGroupOutput.Id)
+
+		fmt.Printf("liwwu>>>Append stale SDK TG to stale list Name %v, routename %v, ARN %v\n",
+			*sdkTG.getTargetGroupOutput.Name, tgRouteName, *sdkTG.getTargetGroupOutput.Id)
 
 		staleSDKTGs = append(staleSDKTGs, latticemodel.TargetGroup{
 			Spec: latticemodel.TargetGroupSpec{

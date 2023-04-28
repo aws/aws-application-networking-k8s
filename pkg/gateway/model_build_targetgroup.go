@@ -247,7 +247,11 @@ func (t *latticeServiceModelBuildTask) buildTargetGroup(ctx context.Context, cli
 			}
 
 			// add targetgroup to localcache for service reconcile to reference
-			t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, t.httpRoute.Name)
+			if *httpBackendRef.Kind == "Service" {
+				t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, t.httpRoute.Name)
+			} else {
+				t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, "")
+			}
 
 			if t.httpRoute.DeletionTimestamp.IsZero() {
 				// to add

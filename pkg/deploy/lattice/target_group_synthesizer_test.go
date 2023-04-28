@@ -513,6 +513,9 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 						LatticeID: sdkTG.id,
 					},
 				}
+				if sdkTG.hasHTTPRouteTypeTag {
+					tgSpec.Spec.Config.K8SHTTPRouteName = routename
+				}
 
 				if sdkTG.HTTPRouteExist {
 
