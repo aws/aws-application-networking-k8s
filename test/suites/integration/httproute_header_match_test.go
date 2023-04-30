@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("HTTPRoute header matches", func() {
 	It("Create a HttpRoute with a header match rule, http traffic should work if pass the correct headers", func() {
-		gateway := testFramework.NewGateway()
+		gateway := testFramework.NewGateway("","")
 
 		deployment3, service3 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v3"})
 		headerMatchHttpRoute := testFramework.NewHeaderMatchHttpRoute(gateway, []*v1.Service{service3})
@@ -74,12 +74,12 @@ var _ = Describe("HTTPRoute header matches", func() {
 		log.Println("pods[0].Name:", pods[0].Name)
 
 		cmd := fmt.Sprintf("curl %s -H \"my-header-name1: my-header-value1\" -H \"my-header-name2: my-header-value2\"", dnsName)
-		stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd)
+		stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, true)
 		Expect(err).To(BeNil())
 		Expect(stdout).To(ContainSubstring("test-v3 handler pod"))
 
 		invalidCmd := fmt.Sprintf("curl %s -H \"my-header-name1: my-header-value1\" -H \"my-header-name2: value2-invalid\"", dnsName)
-		stdout2, _, err2 := testFramework.PodExec(pods[0].Namespace, pods[0].Name, invalidCmd)
+		stdout2, _, err2 := testFramework.PodExec(pods[0].Namespace, pods[0].Name, invalidCmd, true)
 		Expect(err2).To(BeNil())
 		Expect(stdout2).To(ContainSubstring("Not Found"))
 

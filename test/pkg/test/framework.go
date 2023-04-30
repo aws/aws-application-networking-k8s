@@ -47,6 +47,8 @@ type TestObject struct {
 var (
 	TestObjects = []TestObject{
 		{&v1.Service{}, &v1.ServiceList{}},
+		{&v1alpha1.ServiceExport{}, &v1alpha1.ServiceExportList{}},
+		{&v1alpha1.ServiceImport{}, &v1alpha1.ServiceImportList{}},
 		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
 		{&v1beta1.HTTPRoute{}, &v1beta1.HTTPRouteList{}},
 		{&v1beta1.Gateway{}, &v1beta1.GatewayList{}},
