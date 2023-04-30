@@ -216,6 +216,7 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		t.Datastore.SetTargetGroupByServiceExport(tgName, false, true)
 	}
 
+	// for serviceexport, the routename is null
 	dsTG, err := t.Datastore.GetTargetGroup(tgName, "", false)
 
 	glog.V(6).Infof("TargetGroup cached in datastore: %v \n", dsTG)
