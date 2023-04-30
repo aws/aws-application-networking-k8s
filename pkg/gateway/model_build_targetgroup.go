@@ -150,7 +150,7 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 				Client:      t.Client,
 				tgName:      string(httpBackendRef.Name),
 				tgNamespace: backendNamespace,
-				routename: t.httpRoute.Name,
+				routename:   t.httpRoute.Name,
 				stack:       t.stack,
 				datastore:   t.Datastore,
 			}
