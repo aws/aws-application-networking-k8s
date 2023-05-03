@@ -31,7 +31,7 @@ func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 	}
 }
 
-func TG2LatticeTGName(targetGroup *latticemodel.TargetGroup) string {
+func getLatticeTGName(targetGroup *latticemodel.TargetGroup) string {
 	var tgName string
 	if config.UseLongTGName {
 		tgName = latticestore.TargetGroupLongName(targetGroup.Spec.Name,
@@ -64,7 +64,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 
 	glog.V(6).Infof("Create Target Group API call for name %s \n", targetGroup.Spec.Name)
 
-	latticeTGName := TG2LatticeTGName(targetGroup)
+	latticeTGName := getLatticeTGName(targetGroup)
 	// check if exists
 	tgSummary, err := s.findTGByName(ctx, latticeTGName)
 	if err != nil {
@@ -74,7 +74,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 		return latticemodel.TargetGroupStatus{TargetGroupARN: aws.StringValue(tgSummary.Arn), TargetGroupID: aws.StringValue(tgSummary.Id)}, err
 	}
 
-	glog.V(6).Infof("create targetgropu API here %v\n", targetGroup)
+	glog.V(6).Infof("create targetgroup API here %v\n", targetGroup)
 	port := int64(targetGroup.Spec.Config.Port)
 	tgConfig := &vpclattice.TargetGroupConfig{
 		Port:            &port,
@@ -134,7 +134,7 @@ func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *lattic
 	glog.V(6).Infof("Create Lattice Target Group API call for name %s \n", targetGroup.Spec.Name)
 
 	// check if exists
-	tgSummary, err := s.findTGByName(ctx, TG2LatticeTGName(targetGroup))
+	tgSummary, err := s.findTGByName(ctx, getLatticeTGName(targetGroup))
 	if err != nil {
 		return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
 	}
