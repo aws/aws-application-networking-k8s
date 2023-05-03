@@ -296,8 +296,8 @@ func TargetGroupName(name string, namespace string) string {
 	return fmt.Sprintf("k8s-%0.20s-%0.20s", name, namespace)
 }
 
-func TargetGroupLongName(k8sname string, routename string, vpcid string) string {
-	return fmt.Sprintf("k8s-%0.40s-%0.20s-%0.20s", k8sname, routename, vpcid)
+func TargetGroupLongName(k8sName string, routeName string, vpcid string) string {
+	return fmt.Sprintf("k8s-%0.40s-%0.20s-%0.20s", k8sName, routeName, vpcid)
 }
 
 // TODO , find out a good name
@@ -392,7 +392,7 @@ func (ds *LatticeDataStore) SetTargetGroupByBackendRef(name string, routeName st
 
 }
 
-func (ds *LatticeDataStore) DelTargetGroup(name string, routename string, isServiceImport bool) error {
+func (ds *LatticeDataStore) DelTargetGroup(name string, routeName string, isServiceImport bool) error {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
@@ -401,7 +401,7 @@ func (ds *LatticeDataStore) DelTargetGroup(name string, routename string, isServ
 
 	targetGroupKey := TargetGroupKey{
 		Name:            name,
-		RouteName:       routename,
+		RouteName:       routeName,
 		IsServiceImport: isServiceImport,
 	}
 
@@ -418,13 +418,13 @@ func (ds *LatticeDataStore) DelTargetGroup(name string, routename string, isServ
 
 }
 
-func (ds *LatticeDataStore) GetTargetGroup(name string, routename string, isServiceImport bool) (TargetGroup, error) {
+func (ds *LatticeDataStore) GetTargetGroup(name string, routeName string, isServiceImport bool) (TargetGroup, error) {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
 	targetGroupKey := TargetGroupKey{
 		Name:            name,
-		RouteName:       routename,
+		RouteName:       routeName,
 		IsServiceImport: isServiceImport,
 	}
 
@@ -455,13 +455,13 @@ func (ds *LatticeDataStore) GetTargetGroupsByTG(name string) []TargetGroup {
 	return tgs
 }
 
-func (ds *LatticeDataStore) UpdateTargetsForTargetGroup(name string, routename string, targetList []Target) error {
+func (ds *LatticeDataStore) UpdateTargetsForTargetGroup(name string, routeName string, targetList []Target) error {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
 	targetGroupKey := TargetGroupKey{
 		Name:            name,
-		RouteName:       routename,
+		RouteName:       routeName,
 		IsServiceImport: false, // only update target list in the local cluster
 	}
 

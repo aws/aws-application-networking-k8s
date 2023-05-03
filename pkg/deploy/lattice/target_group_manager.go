@@ -32,15 +32,15 @@ func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 }
 
 func TG2LatticeTGName(targetGroup *latticemodel.TargetGroup) string {
-	var tgname string
+	var tgName string
 	if config.UseLongTGName {
-		tgname = latticestore.TargetGroupLongName(targetGroup.Spec.Name,
+		tgName = latticestore.TargetGroupLongName(targetGroup.Spec.Name,
 			targetGroup.Spec.Config.K8SHTTPRouteName, config.VpcID)
 	} else {
-		tgname = targetGroup.Spec.Name
+		tgName = targetGroup.Spec.Name
 	}
 
-	return tgname
+	return tgName
 }
 
 // Create will try to create a target group
@@ -76,7 +76,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 
 	glog.V(6).Infof("create targetgropu API here %v\n", targetGroup)
 	port := int64(targetGroup.Spec.Config.Port)
-	TGconfig := &vpclattice.TargetGroupConfig{
+	tgConfig := &vpclattice.TargetGroupConfig{
 		Port:            &port,
 		Protocol:        &targetGroup.Spec.Config.Protocol,
 		ProtocolVersion: &targetGroup.Spec.Config.ProtocolVersion,
@@ -86,7 +86,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 	targetGroupType := string(targetGroup.Spec.Type)
 
 	createTargetGroupInput := vpclattice.CreateTargetGroupInput{
-		Config: TGconfig,
+		Config: tgConfig,
 		Name:   &latticeTGName,
 		Type:   &targetGroupType,
 		Tags:   make(map[string]*string),
