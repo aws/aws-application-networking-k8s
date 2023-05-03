@@ -69,7 +69,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```
 1. Run either `kubectl` or `helm` to deploy the controller:
    ```bash
-   kubectl apply -f examples/deploy-v0.0.10.yaml
+   kubectl apply -f examples/deploy-v0.0.11.yaml
    ```
    or
    ```bash
@@ -78,7 +78,7 @@ Run through them again for a second cluster to use with the extended example sho
    # Run helm with either install or upgrade
    helm install gateway-api-controller \
       oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
-      --version=v0.0.10 \
+      --version=v0.0.11 \
       --set=aws.region=$AWS_REGION --set=serviceAccount.create=false --namespace aws-application-networking-system
    ```
 1. Create the `amazon-vpc-lattice` GatewayClass:
