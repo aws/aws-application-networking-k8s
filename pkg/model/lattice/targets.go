@@ -12,6 +12,7 @@ type Targets struct {
 type TargetsSpec struct {
 	Name          string   `json:"name"`
 	Namespace     string   `json:"namespace"`
+	RouteName     string   `json:"routename"`
 	TargetGroupID string   `json:"targetgroupID"`
 	TargetIPList  []Target `json:"targetIPlist"`
 }

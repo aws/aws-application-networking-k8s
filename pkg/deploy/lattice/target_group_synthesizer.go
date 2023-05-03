@@ -107,8 +107,11 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 				continue
 			}
 
+			// for serviceimport, the httproutename is ""
+
 			t.latticeDataStore.AddTargetGroup(resTargetGroup.Spec.Name,
-				resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN, tgStatus.TargetGroupID, resTargetGroup.Spec.Config.IsServiceImport)
+				resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN, tgStatus.TargetGroupID,
+				resTargetGroup.Spec.Config.IsServiceImport, "")
 
 			glog.V(6).Infof("targetGroup Synthesized successfully for %s: %v\n", resTargetGroup.Spec.Name, tgStatus)
 
@@ -121,7 +124,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 					continue
 				} else {
 					glog.V(6).Infof("Synthersizing Target Group: successfully deleted target group %v\n", resTargetGroup)
-					t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, false)
+					t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, false)
 				}
 
 			} else {
@@ -136,7 +139,9 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 				}
 
 				t.latticeDataStore.AddTargetGroup(resTargetGroup.Spec.Name,
-					resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN, tgStatus.TargetGroupID, resTargetGroup.Spec.Config.IsServiceImport)
+					resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN,
+					tgStatus.TargetGroupID, resTargetGroup.Spec.Config.IsServiceImport,
+					resTargetGroup.Spec.Config.K8SHTTPRouteName)
 
 				glog.V(6).Infof("targetGroup Synthesized successfully for %v: %v\n", resTargetGroup.Spec, tgStatus)
 			}
@@ -167,6 +172,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 	glog.V(6).Infof("SynthesizeSDKTargetGroups: here is sdkTGs %v len %v \n", sdkTGs, len(sdkTGs))
 
 	for _, sdkTG := range sdkTGs {
+		tgRouteName := ""
 
 		if *sdkTG.getTargetGroupOutput.Config.VpcIdentifier != config.VpcID {
 			glog.V(6).Infof("Ignore target group ARN %v Name %v for other VPCs",
@@ -235,6 +241,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
 			httpName, ok := tgTags.Tags[latticemodel.K8SHTTPRouteNameKey]
+			tgRouteName = *httpName
 
 			if !ok || httpName == nil {
 				glog.V(6).Infof("Ignore TargetGroup(triggered by httpRoute) %v, %v have no httproute name tag",
@@ -279,17 +286,21 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 		}
 
-		if tg, err := t.latticeDataStore.GetTargetGroup(*sdkTG.getTargetGroupOutput.Name, true); err == nil {
+		// the routename for serviceimport is ""
+		if tg, err := t.latticeDataStore.GetTargetGroup(*sdkTG.getTargetGroupOutput.Name, "", true); err == nil {
 			glog.V(6).Infof("Ignore target group created by service import %v\n", tg)
 			continue
 		}
 
-		glog.V(2).Infof("Append stale SDK TG to stale list Name %v, ARN %v",
-			*sdkTG.getTargetGroupOutput.Name, *sdkTG.getTargetGroupOutput.Id)
+		glog.V(2).Infof("Append stale SDK TG to stale list Name %v, routename %v, ARN %v",
+			*sdkTG.getTargetGroupOutput.Name, tgRouteName, *sdkTG.getTargetGroupOutput.Id)
 
 		staleSDKTGs = append(staleSDKTGs, latticemodel.TargetGroup{
 			Spec: latticemodel.TargetGroupSpec{
-				Name:      *sdkTG.getTargetGroupOutput.Name,
+				Name: *sdkTG.getTargetGroupOutput.Name,
+				Config: latticemodel.TargetGroupConfig{
+					K8SHTTPRouteName: tgRouteName,
+				},
 				LatticeID: *sdkTG.getTargetGroupOutput.Id,
 			},
 		})

@@ -238,7 +238,7 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 	glog.V(6).Infof("serviceNetworkStatus : %v for %s  error %v \n", serviceNetworkStatus, gw.Name, err)
 
 	if err = r.updateGatewayStatus(ctx, &serviceNetworkStatus, gw); err != nil {
-		glog.V(2).Infof("Failed to updateGatewayStatus %v err %v\n", gw, err)
+		glog.V(2).Infof("Failed to updateGatewayStatus err %v, gw %v\n", err, gw)
 		return errors.New("failed to update gateway status")
 	}
 	return nil
@@ -273,6 +273,7 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetw
 	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
 
 	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
+		glog.V(2).Infof("Failed to update gateway status %v for gateway %v", err, gw)
 		return errors.Wrapf(err, "failed to update gateway status")
 	}
 
@@ -299,6 +300,7 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	gw.Status.Conditions[0].Type = string(gateway_api.GatewayConditionAccepted)
 
 	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
+		glog.V(2).Infof("Failed to Patch acceptance status, err %v gw %v", err, gw)
 		return errors.Wrapf(err, "failed to update gateway status")
 	}
 
@@ -480,7 +482,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 	glog.V(6).Infof("After update, the snapshot of listener status %v", gw.Status.Listeners)
 
 	if err := k8sclient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		glog.V(2).Infof("liwwu1-failed to update gateway listener status %v, status %v", err, gw.Status.Listeners)
+		glog.V(2).Infof("Failed to update gateway listener err: %v, status: %v", err, gw.Status.Listeners)
 		return errors.Wrapf(err, "failed to update gateway status")
 	}
 

@@ -152,7 +152,7 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 
 			assert.Nil(t, err)
 			tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
-			dsTG, err := ds.GetTargetGroup(tgName, false)
+			dsTG, err := ds.GetTargetGroup(tgName, "", false)
 
 			if tg.Spec.IsDeleted {
 				assert.NotNil(t, err)
@@ -290,11 +290,11 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 			// check datastore
 			for _, tgImport := range tt.svcImportList {
 				if tgImport.mgrErr {
-					_, err := ds.GetTargetGroup(tgImport.name, true)
+					_, err := ds.GetTargetGroup(tgImport.name, "", true)
 					assert.NotNil(t, err)
 
 				} else {
-					tg, err := ds.GetTargetGroup(tgImport.name, true)
+					tg, err := ds.GetTargetGroup(tgImport.name, "", true)
 					assert.Nil(t, err)
 					assert.Equal(t, tgImport.tgARN, tg.ARN)
 					assert.Equal(t, tgImport.tgID, tg.ID)
@@ -512,6 +512,9 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 						Name:      sdkTG.name,
 						LatticeID: sdkTG.id,
 					},
+				}
+				if sdkTG.hasHTTPRouteTypeTag {
+					tgSpec.Spec.Config.K8SHTTPRouteName = routename
 				}
 
 				if sdkTG.HTTPRouteExist {
@@ -731,11 +734,13 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 			// check datastore
 			for _, tg := range tt.svcList {
 				if tg.mgrErr {
-					_, err := ds.GetTargetGroup(tg.name, false)
+					//TODO, test routename
+					_, err := ds.GetTargetGroup(tg.name, "", false)
 					assert.NotNil(t, err)
 
 				} else {
-					dsTG, err := ds.GetTargetGroup(tg.name, false)
+					//TODO, test routename
+					dsTG, err := ds.GetTargetGroup(tg.name, "", false)
 					assert.Nil(t, err)
 					assert.Equal(t, tg.tgARN, dsTG.ARN)
 					assert.Equal(t, tg.tgID, dsTG.ID)

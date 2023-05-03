@@ -79,6 +79,7 @@ func (b *targetGroupBuilder) Build(ctx context.Context, srvExport *mcs_api.Servi
 	return task.stack, task.targetGroup, nil
 }
 
+// for serviceexport
 func (t *targetGroupModelBuildTask) run(ctx context.Context) error {
 	/*
 		if !t.serviceExport.DeletionTimestamp.IsZero() {
@@ -92,6 +93,7 @@ func (t *targetGroupModelBuildTask) run(ctx context.Context) error {
 	return err
 }
 
+// for serviceexport
 func (t *targetGroupModelBuildTask) buildModel(ctx context.Context) error {
 	err := t.BuildTargetGroup(ctx)
 
@@ -148,6 +150,7 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 				Client:      t.Client,
 				tgName:      string(httpBackendRef.Name),
 				tgNamespace: backendNamespace,
+				routename:   t.httpRoute.Name,
 				stack:       t.stack,
 				datastore:   t.Datastore,
 			}
@@ -202,7 +205,8 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 	glog.V(6).Infof("buildTargetGroup, tg[%s], tgSpec%v \n", tgName, tg)
 
 	// add targetgroup to localcache for service reconcile to reference
-	t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport)
+	// for serviceexport, the httproutename is set to ""
+	t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, "")
 
 	if !t.serviceExport.DeletionTimestamp.IsZero() {
 		// triggered by serviceexport delete
@@ -212,7 +216,8 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		t.Datastore.SetTargetGroupByServiceExport(tgName, false, true)
 	}
 
-	dsTG, err := t.Datastore.GetTargetGroup(tgName, false)
+	// for serviceexport, the routename is null
+	dsTG, err := t.Datastore.GetTargetGroup(tgName, "", false)
 
 	glog.V(6).Infof("TargetGroup cached in datastore: %v \n", dsTG)
 	if (err != nil) || (!dsTG.ByBackendRef && !dsTG.ByServiceExport) {
@@ -244,14 +249,18 @@ func (t *latticeServiceModelBuildTask) buildTargetGroup(ctx context.Context, cli
 			}
 
 			// add targetgroup to localcache for service reconcile to reference
-			t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport)
+			if *httpBackendRef.Kind == "Service" {
+				t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, t.httpRoute.Name)
+			} else {
+				t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, "")
+			}
 
 			if t.httpRoute.DeletionTimestamp.IsZero() {
 				// to add
-				t.Datastore.SetTargetGroupByBackendRef(tgName, false, true)
+				t.Datastore.SetTargetGroupByBackendRef(tgName, t.httpRoute.Name, false, true)
 			} else {
 				// to delete
-				t.Datastore.SetTargetGroupByBackendRef(tgName, false, false)
+				t.Datastore.SetTargetGroupByBackendRef(tgName, t.httpRoute.Name, false, false)
 			}
 
 			tg := latticemodel.NewTargetGroup(t.stack, tgName, tgSpec)

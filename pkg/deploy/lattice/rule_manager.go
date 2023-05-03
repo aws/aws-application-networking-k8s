@@ -183,7 +183,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 	for _, tgRule := range rule.Spec.Action.TargetGroups {
 
 		tgName := latticestore.TargetGroupName(tgRule.Name, tgRule.Namespace)
-		tg, err := r.latticeDataStore.GetTargetGroup(tgName, tgRule.IsServiceImport)
+		tg, err := r.latticeDataStore.GetTargetGroup(tgName, tgRule.RouteName, tgRule.IsServiceImport)
 
 		if err != nil {
 			glog.V(2).Infof("Faild to create rule due to unknown tg %v, err %v\n", tgName, err)
@@ -487,7 +487,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 			for _, k8sTG := range rule.Spec.Action.TargetGroups {
 				// get k8sTG id
 				tgName := latticestore.TargetGroupName(k8sTG.Name, k8sTG.Namespace)
-				k8sTGinStore, err := r.latticeDataStore.GetTargetGroup(tgName, k8sTG.IsServiceImport)
+				k8sTGinStore, err := r.latticeDataStore.GetTargetGroup(tgName, rule.Spec.ServiceName, k8sTG.IsServiceImport)
 
 				if err != nil {
 					glog.V(6).Infof("Failed to find k8s tg %v in store \n", k8sTG)

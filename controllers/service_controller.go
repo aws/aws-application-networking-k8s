@@ -116,32 +116,32 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// TODO also need to check serviceexport object to trigger building TargetGroup
 	tgName := latticestore.TargetGroupName(svc.Name, svc.Namespace)
-	tg, err := ds.GetTargetGroup(tgName, false) // isServiceImport = false
+	TGs := ds.GetTargetGroupsByTG(tgName) // isServiceImport = false
 
-	if err == nil && (tg.ByBackendRef || tg.ByServiceExport) {
-		glog.V(6).Infof("ServiceReconcile: endpoints change trigger target IP list registration %v\n", tgName)
+	for _, tg := range TGs {
 
-		r.reconcileTargetsResource(ctx, svc)
+		glog.V(6).Infof("endpoints change trigger target IP list registration %v and tg %v\n",
+			tgName, tg)
 
-	} else {
-		glog.V(6).Infof("Ignore non-relevant svc %v]\n", svc)
+		r.reconcileTargetsResource(ctx, svc, tg.TargetGroupKey.RouteName)
+
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *ServiceReconciler) reconcileTargetsResource(ctx context.Context, svc *corev1.Service) {
+func (r *ServiceReconciler) reconcileTargetsResource(ctx context.Context, svc *corev1.Service, routename string) {
 
 	if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("Failed and finalizer due %v", err))
 	}
 
-	r.buildAndDeployModel(ctx, svc)
+	r.buildAndDeployModel(ctx, svc, routename)
 }
 
-func (r *ServiceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service) (core.Stack, *latticemodel.Targets, error) {
+func (r *ServiceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error) {
 	svcLog := log.FromContext(ctx)
-	stack, latticeTargets, err := r.modelBuilder.Build(ctx, svc)
+	stack, latticeTargets, err := r.modelBuilder.Build(ctx, svc, routename)
 
 	if err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning,

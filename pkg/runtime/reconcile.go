@@ -14,6 +14,8 @@ func HandleReconcileError(err error) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
+	fmt.Printf("HandleReconcileError handle Error %v \n", err)
+
 	retryErr := NewRetryError()
 	if errors.As(err, &retryErr) {
 		fmt.Printf(">>>>>> Retrying Reconcile after 20 seconds ...\n")

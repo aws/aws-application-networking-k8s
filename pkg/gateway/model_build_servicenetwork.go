@@ -82,9 +82,9 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 		}
 
 	}
-	_, err := config.GetClusterLocalGateway()
+	defaultSN, err := config.GetClusterLocalGateway()
 
-	if err == nil {
+	if err == nil && defaultSN != t.gateway.Name {
 		// there is a default gateway for local cluster, all other gateways are not associate to VPC
 		spec.AssociateToVPC = false
 	}

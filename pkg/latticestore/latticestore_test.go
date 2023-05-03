@@ -179,14 +179,15 @@ func Test_TargetGroup(t *testing.T) {
 	//byBackendRef := true
 	//byServiceExport := false
 	K8SService := false
+	routeName := "httproute"
 
 	// GetTargetGroup on an unknown TG
 	tgName := TargetGroupName(name, namespace)
-	_, err := inputDataStore.GetTargetGroup(tgName, serviceImport)
+	_, err := inputDataStore.GetTargetGroup(tgName, routeName, serviceImport)
 	assert.Equal(t, errors.New(DATASTORE_TG_NOT_EXIST), err)
 
 	// Happy Path for a serviceImport
-	err = inputDataStore.AddTargetGroup(tgName, vpc, arn, tgID, serviceImport)
+	err = inputDataStore.AddTargetGroup(tgName, vpc, arn, tgID, serviceImport, "")
 	assert.Nil(t, err)
 
 	store := dumpCurrentLatticeDataStore(inputDataStore)
@@ -195,7 +196,7 @@ func Test_TargetGroup(t *testing.T) {
 	assert.Equal(t, 1, len(store.TargetGroups), "")
 
 	// Verify GetTargetGroup return TG just added
-	tg, err := inputDataStore.GetTargetGroup(tgName, serviceImport)
+	tg, err := inputDataStore.GetTargetGroup(tgName, "", serviceImport)
 	assert.Nil(t, err)
 	assert.Equal(t, vpc, tg.VpcID)
 	assert.Equal(t, arn, tg.ARN)
@@ -204,22 +205,22 @@ func Test_TargetGroup(t *testing.T) {
 	assert.Equal(t, false, tg.ByBackendRef)
 	assert.Equal(t, false, tg.ByServiceExport)
 
-	inputDataStore.SetTargetGroupByBackendRef(tgName, serviceImport, true)
-	tg, err = inputDataStore.GetTargetGroup(tgName, serviceImport)
+	inputDataStore.SetTargetGroupByBackendRef(tgName, "", serviceImport, true)
+	tg, err = inputDataStore.GetTargetGroup(tgName, "", serviceImport)
 	assert.Nil(t, err)
 	assert.Equal(t, true, tg.ByBackendRef)
 
 	inputDataStore.SetTargetGroupByServiceExport(tgName, serviceImport, true)
-	tg, err = inputDataStore.GetTargetGroup(tgName, serviceImport)
+	tg, err = inputDataStore.GetTargetGroup(tgName, "", serviceImport)
 	assert.Nil(t, err)
 	assert.Equal(t, true, tg.ByServiceExport)
 
 	// Verify GetTargetGroup will fail if it is K8SService
-	_, err = inputDataStore.GetTargetGroup(tgName, K8SService)
+	_, err = inputDataStore.GetTargetGroup(tgName, "", K8SService)
 	assert.Equal(t, errors.New(DATASTORE_TG_NOT_EXIST), err)
 
 	// Add same TG again, no impact
-	err = inputDataStore.AddTargetGroup(tgName, vpc, arn, tgID, serviceImport)
+	err = inputDataStore.AddTargetGroup(tgName, vpc, arn, tgID, serviceImport, "")
 	assert.Nil(t, err)
 
 	store = dumpCurrentLatticeDataStore(inputDataStore)
@@ -228,7 +229,7 @@ func Test_TargetGroup(t *testing.T) {
 
 	// add 2nd TG
 	tgName1 := TargetGroupName(name1, namespace1)
-	err = inputDataStore.AddTargetGroup(tgName1, vpc, arn, tgID, K8SService)
+	err = inputDataStore.AddTargetGroup(tgName1, vpc, arn, tgID, K8SService, routeName)
 	assert.Nil(t, err)
 
 	store = dumpCurrentLatticeDataStore(inputDataStore)
@@ -241,11 +242,11 @@ func Test_TargetGroup(t *testing.T) {
 	targets = append(targets, Target{TargetIP: "2.2.2.2", TargetPort: 20})
 	unknownTGName := TargetGroupName(unknowntg, namespace)
 	// Update an unknown TG
-	err = inputDataStore.UpdateTargetsForTargetGroup(unknownTGName, targets)
+	err = inputDataStore.UpdateTargetsForTargetGroup(unknownTGName, routeName, targets)
 	assert.Equal(t, errors.New(DATASTORE_TG_NOT_EXIST), err)
 
 	// update with the correct name
-	err = inputDataStore.UpdateTargetsForTargetGroup(tgName1, targets)
+	err = inputDataStore.UpdateTargetsForTargetGroup(tgName1, routeName, targets)
 	assert.Nil(t, err)
 
 	store = dumpCurrentLatticeDataStore(inputDataStore)
@@ -253,21 +254,21 @@ func Test_TargetGroup(t *testing.T) {
 
 	// Update targets
 	targets = append(targets, Target{TargetIP: "3.3.3.3", TargetPort: 30})
-	err = inputDataStore.UpdateTargetsForTargetGroup(tgName1, targets)
+	err = inputDataStore.UpdateTargetsForTargetGroup(tgName1, routeName, targets)
 	assert.Nil(t, err)
 
 	store = dumpCurrentLatticeDataStore(inputDataStore)
 	fmt.Printf("store:%v \n", store)
 
 	// delete 2nd TG
-	err = inputDataStore.DelTargetGroup(tgName1, K8SService)
+	err = inputDataStore.DelTargetGroup(tgName1, routeName, K8SService)
 	assert.Nil(t, err)
 
-	_, err = inputDataStore.GetTargetGroup(tgName1, K8SService)
+	_, err = inputDataStore.GetTargetGroup(tgName1, routeName, K8SService)
 	assert.Equal(t, errors.New(DATASTORE_TG_NOT_EXIST), err)
 
 	// delete twice
-	err = inputDataStore.DelTargetGroup(tgName1, K8SService)
+	err = inputDataStore.DelTargetGroup(tgName1, routeName, K8SService)
 	assert.Equal(t, errors.New(DATASTORE_TG_NOT_EXIST), err)
 
 }

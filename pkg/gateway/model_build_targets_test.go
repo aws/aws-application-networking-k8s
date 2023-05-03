@@ -184,13 +184,13 @@ func Test_Targets(t *testing.T) {
 
 		if tt.inDataStore {
 			tgName := latticestore.TargetGroupName(tt.srvExportName, tt.srvExportNamespace)
-			err := ds.AddTargetGroup(tgName, "", "", "", false)
+			err := ds.AddTargetGroup(tgName, "", "", "", false, "")
 			assert.Nil(t, err)
 			if tt.refByServiceExport {
 				ds.SetTargetGroupByServiceExport(tgName, false, true)
 			}
 			if tt.refByService {
-				ds.SetTargetGroupByBackendRef(tgName, false, true)
+				ds.SetTargetGroupByBackendRef(tgName, "", false, true)
 			}
 
 		}

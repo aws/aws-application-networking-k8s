@@ -70,6 +70,7 @@ type ListenerPool map[ListenerKey]*Listener
 
 type TargetGroupKey struct {
 	Name            string
+	RouteName       string
 	IsServiceImport bool
 }
 
@@ -290,9 +291,13 @@ func (ds *LatticeDataStore) GetLatticeService(name string, namespace string) (La
 
 }
 
-// the max tg name length is 63
+// the max tg name length is 127
 func TargetGroupName(name string, namespace string) string {
 	return fmt.Sprintf("k8s-%0.20s-%0.20s", name, namespace)
+}
+
+func TargetGroupLongName(k8sName string, routeName string, vpcid string) string {
+	return fmt.Sprintf("k8s-%0.40s-%0.20s-%0.20s", k8sName, routeName, vpcid)
 }
 
 // TODO , find out a good name
@@ -303,7 +308,7 @@ func AWSServiceName(name string, namespace string) string {
 }
 
 func (ds *LatticeDataStore) AddTargetGroup(name string, vpc string, arn string, tgID string,
-	isServiceImport bool) error {
+	isServiceImport bool, routeName string) error {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
@@ -312,6 +317,7 @@ func (ds *LatticeDataStore) AddTargetGroup(name string, vpc string, arn string, 
 
 	targetGroupKey := TargetGroupKey{
 		Name:            name,
+		RouteName:       routeName,
 		IsServiceImport: isServiceImport,
 	}
 
@@ -365,12 +371,13 @@ func (ds *LatticeDataStore) SetTargetGroupByServiceExport(name string, isService
 
 }
 
-func (ds *LatticeDataStore) SetTargetGroupByBackendRef(name string, isServiceImport bool, byBackendRef bool) error {
+func (ds *LatticeDataStore) SetTargetGroupByBackendRef(name string, routeName string, isServiceImport bool, byBackendRef bool) error {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
 	targetGroupKey := TargetGroupKey{
 		Name:            name,
+		RouteName:       routeName,
 		IsServiceImport: isServiceImport,
 	}
 
@@ -385,7 +392,7 @@ func (ds *LatticeDataStore) SetTargetGroupByBackendRef(name string, isServiceImp
 
 }
 
-func (ds *LatticeDataStore) DelTargetGroup(name string, isServiceImport bool) error {
+func (ds *LatticeDataStore) DelTargetGroup(name string, routeName string, isServiceImport bool) error {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
@@ -394,6 +401,7 @@ func (ds *LatticeDataStore) DelTargetGroup(name string, isServiceImport bool) er
 
 	targetGroupKey := TargetGroupKey{
 		Name:            name,
+		RouteName:       routeName,
 		IsServiceImport: isServiceImport,
 	}
 
@@ -410,12 +418,13 @@ func (ds *LatticeDataStore) DelTargetGroup(name string, isServiceImport bool) er
 
 }
 
-func (ds *LatticeDataStore) GetTargetGroup(name string, isServiceImport bool) (TargetGroup, error) {
+func (ds *LatticeDataStore) GetTargetGroup(name string, routeName string, isServiceImport bool) (TargetGroup, error) {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
 	targetGroupKey := TargetGroupKey{
 		Name:            name,
+		RouteName:       routeName,
 		IsServiceImport: isServiceImport,
 	}
 
@@ -433,12 +442,26 @@ func (ds *LatticeDataStore) GetTargetGroup(name string, isServiceImport bool) (T
 
 }
 
-func (ds *LatticeDataStore) UpdateTargetsForTargetGroup(name string, targetList []Target) error {
+func (ds *LatticeDataStore) GetTargetGroupsByTG(name string) []TargetGroup {
+	tgs := make([]TargetGroup, 0)
+
+	for _, tg := range ds.targetGroups {
+		if tg.TargetGroupKey.Name == name && !tg.TargetGroupKey.IsServiceImport {
+			tgs = append(tgs, *tg)
+
+		}
+	}
+
+	return tgs
+}
+
+func (ds *LatticeDataStore) UpdateTargetsForTargetGroup(name string, routeName string, targetList []Target) error {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
 	targetGroupKey := TargetGroupKey{
 		Name:            name,
+		RouteName:       routeName,
 		IsServiceImport: false, // only update target list in the local cluster
 	}
 
