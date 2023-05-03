@@ -33,8 +33,8 @@ func NewEnqueueRequestGatewayEvent(client client.Client) handler.EventHandler {
 var ZeroTransitionTime = metav1.NewTime(time.Time{})
 
 func (h *enqueueRequestsForGatewayEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("Gateway Create")
 	gwNew := e.Object.(*gateway_api.Gateway)
+	glog.V(2).Infof("Gateway Create and Spec is %v", gwNew.Spec)
 
 	// initialize transition time
 	gwNew.Status.Conditions[0].LastTransitionTime = ZeroTransitionTime
@@ -48,6 +48,8 @@ func (h *enqueueRequestsForGatewayEvent) Update(e event.UpdateEvent, queue workq
 	gwNew := e.ObjectNew.(*gateway_api.Gateway)
 
 	if !equality.Semantic.DeepEqual(gwOld.Spec, gwNew.Spec) {
+		glog.V(2).Infof("Gateway Update old spec %v to new spec %v",
+			gwOld.Spec, gwNew.Spec)
 		// initialize transition time
 		gwNew.Status.Conditions[0].LastTransitionTime = ZeroTransitionTime
 		h.enqueueImpactedHTTPRoute(queue, gwNew)
@@ -101,7 +103,7 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedHTTPRoute(queue workqueu
 		}
 
 		if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-			glog.V(6).Infof("Trigger HTTPRoute from Gateway event , httpRoute %s", httpRoute.Name)
+			glog.V(2).Infof("Trigger HTTPRoute from Gateway event , httpRoute %s", httpRoute.Name)
 			queue.Add(reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: httpRoute.Namespace,

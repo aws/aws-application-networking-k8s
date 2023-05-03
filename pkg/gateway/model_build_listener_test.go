@@ -360,11 +360,10 @@ func Test_ListenerModelBuild(t *testing.T) {
 		fmt.Printf("task.buildListener err: %v \n", err)
 
 		if !tt.wantErrIsNil {
-			fmt.Printf("liwwu task.buildListener err: %v %v\n", err, err != nil)
 			// TODO why following is failing????
 			//assert.Equal(t, err!=nil, true)
 			//assert.Error(t, err)
-			fmt.Printf("liwwu task.buildListener tt : %v err: %v %v\n", tt.name, err, err != nil)
+			fmt.Printf("task.buildListener tt : %v err: %v %v\n", tt.name, err, err != nil)
 			continue
 		} else {
 			assert.NoError(t, err)

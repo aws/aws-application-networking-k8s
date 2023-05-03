@@ -151,7 +151,6 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 				func(ctx context.Context, retGWList *gateway_api.GatewayList, arg3 ...interface{}) error {
 					// return empty gatway
 					for _, gw := range gwList.Items {
-						fmt.Printf("liwwu>>> test append %v\n", gw)
 						retGWList.Items = append(retGWList.Items, gw)
 					}
 					return nil

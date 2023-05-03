@@ -6,8 +6,6 @@ import (
 	"github.com/golang/glog"
 	"strings"
 
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -295,9 +293,6 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		}
 
 		glog.V(2).Infof("Append stale SDK TG to stale list Name %v, routename %v, ARN %v",
-			*sdkTG.getTargetGroupOutput.Name, tgRouteName, *sdkTG.getTargetGroupOutput.Id)
-
-		fmt.Printf("liwwu>>>Append stale SDK TG to stale list Name %v, routename %v, ARN %v\n",
 			*sdkTG.getTargetGroupOutput.Name, tgRouteName, *sdkTG.getTargetGroupOutput.Id)
 
 		staleSDKTGs = append(staleSDKTGs, latticemodel.TargetGroup{
