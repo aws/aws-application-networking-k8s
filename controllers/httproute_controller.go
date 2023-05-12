@@ -295,10 +295,10 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 
 	httproute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
-	httproute.Status.RouteStatus.Parents[0].Conditions[0].Type = "httproute"
-	httproute.Status.RouteStatus.Parents[0].Conditions[0].Status = "True"
+	httproute.Status.RouteStatus.Parents[0].Conditions[0].Type = string(gateway_api.RouteConditionAccepted)
+	httproute.Status.RouteStatus.Parents[0].Conditions[0].Status = metav1.ConditionTrue
 	httproute.Status.RouteStatus.Parents[0].Conditions[0].Message = fmt.Sprintf("DNS Name: %s", dns)
-	httproute.Status.RouteStatus.Parents[0].Conditions[0].Reason = "Reconciled"
+	httproute.Status.RouteStatus.Parents[0].Conditions[0].Reason = string(gateway_api.RouteReasonAccepted)
 
 	if httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
 		httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
