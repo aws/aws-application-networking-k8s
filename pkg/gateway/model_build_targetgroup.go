@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -196,10 +197,18 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		},
 	}
 
-	glog.V(6).Infof("Found backend service port %v , intval %v \n", svc.Spec.Ports[0].TargetPort,
-		svc.Spec.Ports[0].TargetPort.IntVal)
-
-	tgSpec.Config.Port = svc.Spec.Ports[0].TargetPort.IntVal
+	var backendServicePort int32
+	if port := svc.Spec.Ports[0].TargetPort.IntVal; port != 0 {
+		backendServicePort = port
+		glog.V(6).Infof("Found backend service port %v, intval %v\n", svc.Spec.Ports[0].TargetPort,
+			svc.Spec.Ports[0].TargetPort.IntVal)
+	} else {
+		// Fallback to default HTTP port. This can be any number, because we always use the port defined in targets.
+		backendServicePort = 80
+		glog.V(6).Infof("Backend service has named port %v, falling back to default port 80\n",
+			svc.Spec.Ports[0].TargetPort)
+	}
+	tgSpec.Config.Port = backendServicePort
 
 	tg := latticemodel.NewTargetGroup(t.stack, tgName, tgSpec)
 	glog.V(6).Infof("buildTargetGroup, tg[%s], tgSpec%v \n", tgName, tg)
@@ -331,10 +340,16 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 		}
 
 		if svc.Spec.Ports != nil {
-			glog.V(6).Infof("Found backend service port %v , intval %v \n", svc.Spec.Ports[0].TargetPort,
-				svc.Spec.Ports[0].TargetPort.IntVal)
-
-			backendServicePort = svc.Spec.Ports[0].TargetPort.IntVal
+			if port := svc.Spec.Ports[0].TargetPort.IntVal; port != 0 {
+				backendServicePort = port
+				glog.V(6).Infof("Found backend service port %v, intval %v\n", svc.Spec.Ports[0].TargetPort,
+					svc.Spec.Ports[0].TargetPort.IntVal)
+			} else {
+				// Fallback to default HTTP port. This can be any number, because we always use the port defined in targets.
+				backendServicePort = 80
+				glog.V(6).Infof("Backend service has named port %v, falling back to default port 80\n",
+					svc.Spec.Ports[0].TargetPort)
+			}
 		}
 
 	}
