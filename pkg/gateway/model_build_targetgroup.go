@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -186,7 +187,8 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		Type: latticemodel.TargetGroupTypeIP,
 		Config: latticemodel.TargetGroupConfig{
 			VpcID: config.VpcID,
-			//Port:            backendServicePort,
+			// Fill in default HTTP port as we are using target port anyway.
+			Port:                80,
 			IsServiceImport:     false,
 			IsServiceExport:     true,
 			K8SServiceName:      t.serviceExport.Name,
@@ -195,11 +197,6 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 			ProtocolVersion:     vpclattice.TargetGroupProtocolVersionHttp1,
 		},
 	}
-
-	glog.V(6).Infof("Found backend service port %v , intval %v \n", svc.Spec.Ports[0].TargetPort,
-		svc.Spec.Ports[0].TargetPort.IntVal)
-
-	tgSpec.Config.Port = svc.Spec.Ports[0].TargetPort.IntVal
 
 	tg := latticemodel.NewTargetGroup(t.stack, tgName, tgSpec)
 	glog.V(6).Infof("buildTargetGroup, tg[%s], tgSpec%v \n", tgName, tg)
@@ -290,9 +287,6 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 	var vpc = config.VpcID
 	var ekscluster = ""
 	var isServiceImport bool
-	var backendServicePort int32
-
-	isServiceImport = false
 
 	if backendKind == "ServiceImport" {
 		namespaceName := types.NamespacedName{
@@ -329,14 +323,6 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 			glog.V(6).Infof("Error finding backend service %v error :%v \n", serviceNamespaceName, err)
 			return latticemodel.TargetGroupSpec{}, err
 		}
-
-		if svc.Spec.Ports != nil {
-			glog.V(6).Infof("Found backend service port %v , intval %v \n", svc.Spec.Ports[0].TargetPort,
-				svc.Spec.Ports[0].TargetPort.IntVal)
-
-			backendServicePort = svc.Spec.Ports[0].TargetPort.IntVal
-		}
-
 	}
 
 	tgName := latticestore.TargetGroupName(string(httpBackendRef.Name), namespace)
@@ -363,7 +349,8 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 			K8SHTTPRouteNamespace: t.httpRoute.Namespace,
 			Protocol:              "HTTP",
 			ProtocolVersion:       vpclattice.TargetGroupProtocolVersionHttp1,
-			Port:                  backendServicePort,
+			// Fill in default HTTP port as we are using target port anyway.
+			Port: 80,
 		},
 		IsDeleted: isDeleted,
 	}, nil

@@ -2,17 +2,19 @@ package integration
 
 import (
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"log"
+	"os"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/types"
-	"log"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
 const (
@@ -21,11 +23,11 @@ const (
 
 var _ = Describe("HTTPRoute path matches", func() {
 	It("HTTPRoute should support multiple path matches", func() {
-		gateway := testFramework.NewGateway("",k8snamespace)
+		gateway := testFramework.NewGateway("", k8snamespace)
 		deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
 		deployment2, service2 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2", Namespace: k8snamespace})
 		pathMatchHttpRoute := testFramework.NewPathMatchHttpRoute(gateway, []client.Object{service1, service2}, "http",
-	"", k8snamespace)
+			"", k8snamespace)
 
 		// Create Kubernetes API Objects
 		testFramework.ExpectCreated(ctx,
@@ -46,7 +48,7 @@ var _ = Describe("HTTPRoute path matches", func() {
 		Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 		Expect(*targetGroupV1.Protocol).To(Equal("HTTP"))
 		targetsV1 := testFramework.GetTargets(ctx, targetGroupV1, deployment1)
-		Expect(*targetGroupV1.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
+		Expect(*targetGroupV1.Port).To(BeEquivalentTo(80))
 		for _, target := range targetsV1 {
 			Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
 			Expect(*target.Status).To(Or(
@@ -59,7 +61,7 @@ var _ = Describe("HTTPRoute path matches", func() {
 		Expect(*targetGroupV2.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 		Expect(*targetGroupV2.Protocol).To(Equal("HTTP"))
 		targetsV2 := testFramework.GetTargets(ctx, targetGroupV2, deployment2)
-		Expect(*targetGroupV2.Port).To(BeEquivalentTo(service2.Spec.Ports[0].TargetPort.IntVal))
+		Expect(*targetGroupV2.Port).To(BeEquivalentTo(80))
 		for _, target := range targetsV2 {
 			Expect(*target.Port).To(BeEquivalentTo(service2.Spec.Ports[0].TargetPort.IntVal))
 			Expect(*target.Status).To(Or(
