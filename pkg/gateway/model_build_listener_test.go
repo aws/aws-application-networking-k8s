@@ -285,7 +285,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			},
 		},
 		{
-			name:              "no section name ",
+			name:               "no section name ",
 			gwListenerPort:     *PortNumberPtr(80),
 			wantErrIsNil:       false,
 			k8sGetGatewayCall:  true,
