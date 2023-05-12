@@ -187,7 +187,8 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		Type: latticemodel.TargetGroupTypeIP,
 		Config: latticemodel.TargetGroupConfig{
 			VpcID: config.VpcID,
-			//Port:            backendServicePort,
+			// Fill in default HTTP port as we are using target port anyway.
+			Port:                80,
 			IsServiceImport:     false,
 			IsServiceExport:     true,
 			K8SServiceName:      t.serviceExport.Name,
@@ -196,19 +197,6 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 			ProtocolVersion:     vpclattice.TargetGroupProtocolVersionHttp1,
 		},
 	}
-
-	var backendServicePort int32
-	if port := svc.Spec.Ports[0].TargetPort.IntVal; port != 0 {
-		backendServicePort = port
-		glog.V(6).Infof("Found backend service port %v, intval %v\n", svc.Spec.Ports[0].TargetPort,
-			svc.Spec.Ports[0].TargetPort.IntVal)
-	} else {
-		// Fallback to default HTTP port. This can be any number, because we always use the port defined in targets.
-		backendServicePort = 80
-		glog.V(6).Infof("Backend service has named port %v, falling back to default port 80\n",
-			svc.Spec.Ports[0].TargetPort)
-	}
-	tgSpec.Config.Port = backendServicePort
 
 	tg := latticemodel.NewTargetGroup(t.stack, tgName, tgSpec)
 	glog.V(6).Infof("buildTargetGroup, tg[%s], tgSpec%v \n", tgName, tg)
@@ -299,9 +287,6 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 	var vpc = config.VpcID
 	var ekscluster = ""
 	var isServiceImport bool
-	var backendServicePort int32
-
-	isServiceImport = false
 
 	if backendKind == "ServiceImport" {
 		namespaceName := types.NamespacedName{
@@ -338,20 +323,6 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 			glog.V(6).Infof("Error finding backend service %v error :%v \n", serviceNamespaceName, err)
 			return latticemodel.TargetGroupSpec{}, err
 		}
-
-		if svc.Spec.Ports != nil {
-			if port := svc.Spec.Ports[0].TargetPort.IntVal; port != 0 {
-				backendServicePort = port
-				glog.V(6).Infof("Found backend service port %v, intval %v\n", svc.Spec.Ports[0].TargetPort,
-					svc.Spec.Ports[0].TargetPort.IntVal)
-			} else {
-				// Fallback to default HTTP port. This can be any number, because we always use the port defined in targets.
-				backendServicePort = 80
-				glog.V(6).Infof("Backend service has named port %v, falling back to default port 80\n",
-					svc.Spec.Ports[0].TargetPort)
-			}
-		}
-
 	}
 
 	tgName := latticestore.TargetGroupName(string(httpBackendRef.Name), namespace)
@@ -378,7 +349,8 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 			K8SHTTPRouteNamespace: t.httpRoute.Namespace,
 			Protocol:              "HTTP",
 			ProtocolVersion:       vpclattice.TargetGroupProtocolVersionHttp1,
-			Port:                  backendServicePort,
+			// Fill in default HTTP port as we are using target port anyway.
+			Port: 80,
 		},
 		IsDeleted: isDeleted,
 	}, nil

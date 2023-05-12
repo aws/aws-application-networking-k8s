@@ -2,17 +2,19 @@ package integration
 
 import (
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
-	appsv1 "k8s.io/api/apps/v1"
 	"log"
 	"os"
 	"strings"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	appsv1 "k8s.io/api/apps/v1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
 var _ = Describe("Test 2 listeners gateway with weighted httproute rules and service export import", func() {
@@ -61,7 +63,7 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 				Expect(*retrievedTargetGroupSummary.Protocol).To(Equal("HTTP"))
 				targets := testFramework.GetTargets(ctx, retrievedTargetGroupSummary, deployments[i])
 				Expect(len(targets)).To(BeEquivalentTo(1))
-				Expect(*retrievedTargetGroupSummary.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
+				Expect(*retrievedTargetGroupSummary.Port).To(BeEquivalentTo(80))
 				for _, target := range targets {
 					Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
 					Expect(*target.Status).To(Or(
