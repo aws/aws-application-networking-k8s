@@ -293,6 +293,5 @@ func Test_Targets(t *testing.T) {
 			assert.NotNil(t, err)
 		}
 
-		//break
 	}
 }

@@ -141,6 +141,7 @@ func (r *ServiceReconciler) reconcileTargetsResource(ctx context.Context, svc *c
 	if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("Failed and finalizer due %v", err))
 	}
+
 	r.buildAndDeployModel(ctx, svc, routename)
 }
 

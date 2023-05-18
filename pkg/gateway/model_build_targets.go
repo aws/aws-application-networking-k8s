@@ -55,7 +55,6 @@ func (b *latticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.
 	}
 
 	if err := task.run(ctx); err != nil {
-		fmt.Println(err)
 		return nil, nil, corev1.ErrIntOverflowGenerated
 	}
 
@@ -97,6 +96,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	}
 
 	endPoints := &corev1.Endpoints{}
+
 	svc := &corev1.Service{}
 	namespacedName := types.NamespacedName{
 		Namespace: t.tgNamespace,
@@ -129,9 +129,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 					}
 					targetList = append(targetList, target)
 				}
-
 			}
-
 		}
 	}
 
