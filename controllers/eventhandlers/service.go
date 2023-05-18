@@ -29,6 +29,7 @@ func NewEqueueRequestServiceEvent(client client.Client) handler.EventHandler {
 
 func (h *enqueueRequetsForServiceEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	service := e.Object.(*corev1.Service)
+	h.enqueueImpactedService(queue, service)
 	h.enqueueImpactedServiceExport(queue, service)
 }
 
@@ -37,10 +38,31 @@ func (h *enqueueRequetsForServiceEvent) Update(e event.UpdateEvent, queue workqu
 
 func (h *enqueueRequetsForServiceEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
 	service := e.Object.(*corev1.Service)
+	h.enqueueImpactedService(queue, service)
 	h.enqueueImpactedServiceExport(queue, service)
 }
 
 func (h *enqueueRequetsForServiceEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+
+}
+
+func (h *enqueueRequetsForServiceEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
+	glog.V(6).Infof("enqueueImpactedService: %v\n", ep)
+
+	srv := &corev1.Service{}
+	namespacedName := types.NamespacedName{
+		Namespace: ep.Namespace,
+		Name:      ep.Name,
+	}
+
+	if err := h.client.Get(context.TODO(), namespacedName, srv); err != nil {
+		glog.V(6).Infof("enqueueImpactedService, service not found %v\n", err)
+		return
+	}
+
+	queue.Add(reconcile.Request{
+		NamespacedName: namespacedName,
+	})
 
 }
 
