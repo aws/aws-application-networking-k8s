@@ -44,7 +44,7 @@ func (h *enqueueRequestsForEndpointsEvent) Update(e event.UpdateEvent, queue wor
 }
 
 func (h *enqueueRequestsForEndpointsEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Infof("Event: deletion delete [%v]", ep)
+	glog.V(6).Infof("Event: endpoints delete [%v]", ep)
 	// service event handler handles this event here
 }
 

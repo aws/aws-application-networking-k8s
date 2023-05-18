@@ -42,6 +42,7 @@ import (
 )
 
 const (
+	// Typo
 	serviceFinalizer = "service.ki8s.aws/resources"
 )
 
@@ -102,6 +103,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	svc := &corev1.Service{}
 	ds := r.latticeDataStore
+
 	if err := r.Client.Get(ctx, req.NamespacedName, svc); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -116,6 +118,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		}
 		r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer)
+
 		return ctrl.Result{}, nil
 	}
 
