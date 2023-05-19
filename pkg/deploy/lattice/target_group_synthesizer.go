@@ -3,8 +3,9 @@ package lattice
 import (
 	"context"
 	"errors"
-	"github.com/golang/glog"
 	"strings"
+
+	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -338,8 +339,7 @@ func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Conte
 			if string(*httpBackendRef.BackendObjectReference.Kind) != "Service" {
 				continue
 			}
-			namespace := "default"
-
+			namespace := httpRoute.Namespace
 			if httpBackendRef.BackendObjectReference.Namespace != nil {
 				namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
 			}

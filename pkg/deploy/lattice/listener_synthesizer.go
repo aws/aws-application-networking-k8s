@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/golang/glog"
 
 	//"string"
@@ -65,9 +66,8 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 
 		glog.V(6).Infof("ListenerSynthesize >>>> delete staled sdk listener %v\n", *sdkListener)
 		l.listener.Delete(ctx, sdkListener.ListenerID, sdkListener.ServiceID)
-		k8sname, k8snamespace := latticeName2k8s(sdkListener.Name)
 
-		l.latticestore.DelListener(k8sname, k8snamespace, sdkListener.Port, sdkListener.Protocol)
+		l.latticestore.DelListener(sdkListener.Name, sdkListener.Namespace, sdkListener.Port, sdkListener.Protocol)
 	}
 
 	return nil
@@ -112,6 +112,7 @@ func (l *listenerSynthesizer) getSDKListeners(ctx context.Context) ([]*latticemo
 
 			sdkListeners = append(sdkListeners, &latticemodel.ListenerStatus{
 				Name:        aws.StringValue(listenerSummary.Name),
+				Namespace:   service.Spec.Namespace,
 				ListenerARN: aws.StringValue(listenerSummary.Arn),
 				ListenerID:  aws.StringValue(listenerSummary.Id),
 				ServiceID:   aws.StringValue(&latticeService.ID),

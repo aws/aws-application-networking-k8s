@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
 
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
@@ -139,7 +141,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 				ruleTG := latticemodel.RuleTargetGroup{}
 
 				if string(*httpBackendRef.BackendObjectReference.Kind) == "Service" {
-					namespace := "default"
+					namespace := t.httpRoute.Namespace
 					if httpBackendRef.BackendObjectReference.Namespace != nil {
 						namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
 					}
@@ -167,7 +169,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					}
 					*/
 					ruleTG.Name = string(httpBackendRef.BackendObjectReference.Name)
-					ruleTG.Namespace = "default"
+					ruleTG.Namespace = t.httpRoute.Namespace
 					if httpBackendRef.BackendObjectReference.Namespace != nil {
 						ruleTG.Namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
 					}

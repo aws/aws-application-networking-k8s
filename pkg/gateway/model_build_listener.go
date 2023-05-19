@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/golang/glog"
 
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -26,8 +27,7 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 	}
 
 	glog.V(6).Infof("Building Listener for HTTPRoute Name %s NameSpace %s\n", t.httpRoute.Name, t.httpRoute.Namespace)
-	var gwNamespace = "default"
-
+	var gwNamespace = t.httpRoute.Namespace
 	if t.httpRoute.Spec.ParentRefs[0].Namespace != nil {
 		gwNamespace = string(*t.httpRoute.Spec.ParentRefs[0].Namespace)
 	}
@@ -124,7 +124,7 @@ func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error 
 
 		var is_import = false
 		var targetgroupName = ""
-		var targetgroupNamespace = "default"
+		var targetgroupNamespace = t.httpRoute.Namespace
 
 		if string(*httpBackendRef.Kind) == "Service" {
 			if httpBackendRef.BackendObjectReference.Namespace != nil {
@@ -132,17 +132,14 @@ func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error 
 			}
 			targetgroupName = string(httpBackendRef.BackendObjectReference.Name)
 			is_import = false
-
 		}
 
 		if string(*httpBackendRef.Kind) == "ServiceImport" {
 			is_import = true
-			targetgroupNamespace = "default"
 			if httpBackendRef.BackendObjectReference.Namespace != nil {
 				targetgroupNamespace = string(*httpBackendRef.BackendObjectReference.Namespace)
 			}
 			targetgroupName = string(httpBackendRef.BackendObjectReference.Name)
-
 		}
 
 		action := latticemodel.DefaultAction{
