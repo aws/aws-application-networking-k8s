@@ -2,21 +2,23 @@ package test
 
 import (
 	"context"
-	"log"
-	"os"
-	"reflect"
-	"time"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	"log"
+	"os"
+	"reflect"
+	"time"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
@@ -31,11 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
 func init() {
@@ -89,7 +86,7 @@ func NewFramework(ctx context.Context) *Framework {
 	SetDefaultEventuallyTimeout(180 * time.Second)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
 	BeforeEach(func() { framework.ExpectToBeClean(ctx) })
-	AfterEach(func() { framework.CleanTestEnvironment(ctx); framework.ExpectToBeClean(ctx) })
+	AfterEach(func() { framework.ExpectToBeClean(ctx) })
 	return framework
 }
 
