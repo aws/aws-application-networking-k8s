@@ -249,7 +249,6 @@ func Test_Targets(t *testing.T) {
 			assert.NoError(t, k8sClient.Create(ctx, tt.endPoints[0].DeepCopy()))
 		}
 
-		//if tt.svc != nil {
 		assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
 
 		ds := latticestore.NewLatticeDataStore()
