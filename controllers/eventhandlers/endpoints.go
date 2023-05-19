@@ -76,7 +76,7 @@ func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedService(queue workqueu
 	}
 
 	if err := h.client.Get(context.TODO(), namespaceName, svc); err != nil {
-		glog.V(2).Infof("Event: enqueueImpactedService, service not found %v\n", err)
+		glog.V(6).Infof("Event: enqueueImpactedService, service not found %v\n", err)
 		return
 	}
 

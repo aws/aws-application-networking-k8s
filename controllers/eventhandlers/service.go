@@ -28,6 +28,7 @@ func NewEqueueRequestServiceEvent(client client.Client) handler.EventHandler {
 }
 
 func (h *enqueueRequetsForServiceEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+	glog.V(6).Info("Event: service create")
 	service := e.Object.(*corev1.Service)
 	h.enqueueImpactedService(queue, service)
 	h.enqueueImpactedServiceExport(queue, service)
@@ -37,6 +38,7 @@ func (h *enqueueRequetsForServiceEvent) Update(e event.UpdateEvent, queue workqu
 }
 
 func (h *enqueueRequetsForServiceEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+	glog.V(6).Info("Event: service delete")
 	service := e.Object.(*corev1.Service)
 	h.enqueueImpactedService(queue, service)
 	h.enqueueImpactedServiceExport(queue, service)
@@ -47,7 +49,7 @@ func (h *enqueueRequetsForServiceEvent) Generic(e event.GenericEvent, queue work
 }
 
 func (h *enqueueRequetsForServiceEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
-	glog.V(6).Infof("enqueueImpactedService: %v\n", ep)
+	glog.V(6).Infof("Event: enqueueImpactedService: %v\n", ep)
 
 	srv := &corev1.Service{}
 	namespacedName := types.NamespacedName{
@@ -56,7 +58,7 @@ func (h *enqueueRequetsForServiceEvent) enqueueImpactedService(queue workqueue.R
 	}
 
 	if err := h.client.Get(context.TODO(), namespacedName, srv); err != nil {
-		glog.V(6).Infof("enqueueImpactedService, service not found %v\n", err)
+		glog.V(6).Infof("Event: enqueueImpactedService, service not found %v\n", err)
 		return
 	}
 
@@ -67,7 +69,7 @@ func (h *enqueueRequetsForServiceEvent) enqueueImpactedService(queue workqueue.R
 }
 
 func (h *enqueueRequetsForServiceEvent) enqueueImpactedServiceExport(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
-	glog.V(6).Infof("enqueueImpactedServiceExport: %v\n", ep)
+	glog.V(6).Infof("Event: enqueueImpactedServiceExport: %v\n", ep)
 
 	srvExport := &mcs_api.ServiceExport{}
 	namespacedName := types.NamespacedName{
@@ -76,7 +78,7 @@ func (h *enqueueRequetsForServiceEvent) enqueueImpactedServiceExport(queue workq
 	}
 
 	if err := h.client.Get(context.TODO(), namespacedName, srvExport); err != nil {
-		glog.V(6).Infof("enqueueImpactedServiceExport, serviceexport not found %v\n", err)
+		glog.V(6).Infof("Event: enqueueImpactedServiceExport, serviceexport not found %v\n", err)
 		return
 	}
 
@@ -113,7 +115,7 @@ func (h *enqueueHTTPRequetsForServiceEvent) Generic(e event.GenericEvent, queue 
 }
 
 func (h *enqueueHTTPRequetsForServiceEvent) enqueueImpactedHTTPRoute(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
-	glog.V(6).Infof("enqueueImpactedHTTPRoute: %v\n", ep)
+	glog.V(6).Infof("Event: enqueueImpactedHTTPRoute: %v\n", ep)
 
 	httpRouteList := &gateway_api.HTTPRouteList{}
 
@@ -123,7 +125,7 @@ func (h *enqueueHTTPRequetsForServiceEvent) enqueueImpactedHTTPRoute(queue workq
 		if !isServiceUsedByHTTPRoute(httpRoute, ep) {
 			continue
 		}
-		glog.V(6).Infof("enqueueImpactedHTTPRoute --> httproute %v \n", httpRoute)
+		glog.V(6).Infof("Event: enqueueImpactedHTTPRoute --> httproute %v \n", httpRoute)
 		namespacedName := types.NamespacedName{
 			Namespace: httpRoute.Namespace,
 			Name:      httpRoute.Name,

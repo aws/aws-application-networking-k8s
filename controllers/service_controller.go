@@ -112,7 +112,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		tgNameD := latticestore.TargetGroupName(svc.Name, svc.Namespace)
 		TGDeleted := ds.GetTargetGroupsByTG(tgNameD)
 		for _, tg := range TGDeleted {
-			glog.V(6).Infof("endpoints change trigger target IP list registration %v and tg %v\n",
+			glog.V(6).Infof("service deletion trigger target IP list registration %v and tg %v\n",
 				tgNameD, tg)
 			r.reconcileTargetsResource(ctx, svc, tg.TargetGroupKey.RouteName)
 

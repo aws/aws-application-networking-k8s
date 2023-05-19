@@ -82,7 +82,7 @@ func Test_Targets(t *testing.T) {
 			},
 		},
 		{
-			name:               "Add all endpoints to build spec",
+			name:               "Delete svc and all endpoints to build spec",
 			srvExportName:      "export1",
 			srvExportNamespace: "ns1",
 			endPoints: []corev1.Endpoints{
@@ -99,6 +99,25 @@ func Test_Targets(t *testing.T) {
 					},
 				},
 			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+					Name:      "export1",
+					DeletionTimestamp: &metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			inDataStore:        true,
+			refByServiceExport: true,
+			wantErrIsNil:       true,
+			expectedTargetList: nil,
+		},
+		{
+			name:               "Delete svc and no endpoints to build spec",
+			srvExportName:      "export1",
+			srvExportNamespace: "ns1",
+			endPoints:          []corev1.Endpoints{},
 			svc: corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "ns1",
