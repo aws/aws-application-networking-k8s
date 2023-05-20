@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
-
 	"github.com/golang/glog"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -52,9 +51,10 @@ func (s *defaultListenerManager) Create(ctx context.Context, listener *latticemo
 	if err == nil {
 		// update Listener
 		// TODO
+		k8sname, k8snamespace := latticeName2k8s(aws.StringValue(lis.Name))
 		return latticemodel.ListenerStatus{
-			Name:        aws.StringValue(lis.Name),
-			Namespace:   listener.Spec.Namespace,
+			Name:        k8sname,
+			Namespace:   k8snamespace,
 			Port:        aws.Int64Value(lis.Port),
 			Protocol:    aws.StringValue(lis.Protocol),
 			ListenerARN: aws.StringValue(lis.Arn),
