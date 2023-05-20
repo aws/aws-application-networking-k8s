@@ -383,8 +383,13 @@ func Test_ListenerModelBuild(t *testing.T) {
 
 		assert.Equal(t, resListener[0].Spec.DefaultAction.BackendServiceName,
 			string(tt.httpRoute.Spec.Rules[0].BackendRefs[0].BackendRef.Name))
+		if ns := tt.httpRoute.Spec.Rules[0].BackendRefs[0].BackendRef.Namespace; ns != nil {
+			assert.Equal(t, resListener[0].Spec.DefaultAction.BackendServiceNamespace, *ns)
+		} else {
+			assert.Equal(t, resListener[0].Spec.DefaultAction.BackendServiceNamespace, tt.httpRoute.ObjectMeta.Namespace)
+		}
 
-		if *tt.httpRoute.Spec.Rules[0].BackendRefs[0].Kind == gateway_api.Kind("Service") {
+		if *tt.httpRoute.Spec.Rules[0].BackendRefs[0].Kind == "Service" {
 			assert.Equal(t, resListener[0].Spec.DefaultAction.Is_Import, false)
 		} else {
 			assert.Equal(t, resListener[0].Spec.DefaultAction.Is_Import, true)
