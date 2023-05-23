@@ -149,8 +149,12 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 				if len(httpRoute.Spec.ParentRefs) <= 0 {
 					continue
 				}
+				gwNamespace := httpRoute.Namespace
+				if httpRoute.Spec.ParentRefs[0].Namespace != nil {
+					gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
+				}
 				gwName := types.NamespacedName{
-					Namespace: gw.Namespace,
+					Namespace: gwNamespace,
 					Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 				}
 
