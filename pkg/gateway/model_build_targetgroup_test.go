@@ -473,7 +473,6 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 						},
 					},
 					Rules: []gateway_api.HTTPRouteRule{
-
 						{
 							BackendRefs: []gateway_api.HTTPBackendRef{
 								{
@@ -482,6 +481,43 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 											Name:      "service1-tg2",
 											Namespace: namespacePtr("tg1-ns1"),
 											Kind:      kindPtr("ServiceImport"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			svcImportExist: true,
+			wantError:      nil,
+			wantName:       "service1",
+			wantIsDeleted:  false,
+			wantErrIsNil:   true,
+		},
+		{
+			name: "Add LatticeService, implicit namespace",
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "serviceimport1",
+					Namespace: "tg1-ns2",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name: "gateway1",
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
+											Name: "service1-tg2",
+											Kind: kindPtr("ServiceImport"),
 										},
 									},
 								},
@@ -589,7 +625,11 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 			// verify data store
 			for _, httpRules := range tt.httpRoute.Spec.Rules {
 				for _, httpBackendRef := range httpRules.BackendRefs {
-					tgName := latticestore.TargetGroupName(string(httpBackendRef.Name), string(*httpBackendRef.Namespace))
+					ns := tt.httpRoute.Namespace
+					if httpBackendRef.Namespace != nil {
+						ns = string(*httpBackendRef.Namespace)
+					}
+					tgName := latticestore.TargetGroupName(string(httpBackendRef.Name), ns)
 
 					fmt.Printf("httpBacndendRef %s\n", *httpBackendRef.BackendObjectReference.Kind)
 					if "Service" == *httpBackendRef.BackendObjectReference.Kind {

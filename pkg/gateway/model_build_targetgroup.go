@@ -140,11 +140,10 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 				glog.V(6).Infof("latticeServiceModelBuildTask: ignore service: %v \n", httpBackendRef)
 				continue
 			}
-			backendNamespace := "default"
 
+			backendNamespace := t.httpRoute.Namespace
 			if httpBackendRef.Namespace != nil {
 				backendNamespace = string(*httpBackendRef.Namespace)
-
 			}
 
 			targetTask := &latticeTargetsModelBuildTask{
@@ -278,7 +277,7 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 	if httpBackendRef.BackendRef.BackendObjectReference.Namespace != nil {
 		namespace = string(*httpBackendRef.BackendRef.BackendObjectReference.Namespace)
 	} else {
-		namespace = "default"
+		namespace = t.httpRoute.Namespace
 	}
 
 	backendKind := string(*httpBackendRef.BackendRef.BackendObjectReference.Kind)

@@ -24,7 +24,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,6 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -148,8 +149,12 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 				if len(httpRoute.Spec.ParentRefs) <= 0 {
 					continue
 				}
+				gwNamespace := httpRoute.Namespace
+				if httpRoute.Spec.ParentRefs[0].Namespace != nil {
+					gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
+				}
 				gwName := types.NamespacedName{
-					Namespace: httpRoute.Namespace,
+					Namespace: gwNamespace,
 					Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 				}
 
@@ -331,7 +336,7 @@ func (r *GatewayReconciler) updateBadStatus(ctx context.Context, message string,
 func UpdateHTTPRouteListenerStatus(ctx context.Context, k8sclient client.Client, httproute *gateway_api.HTTPRoute) error {
 	gw := &gateway_api.Gateway{}
 
-	gwNamespace := "default"
+	gwNamespace := httproute.Namespace
 	if httproute.Spec.ParentRefs[0].Namespace != nil {
 		gwNamespace = string(*httproute.Spec.ParentRefs[0].Namespace)
 	}

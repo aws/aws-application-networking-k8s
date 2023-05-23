@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -30,22 +31,38 @@ func Test_RuleModelBuild(t *testing.T) {
 	var serviceimportKind gateway_api.Kind = "ServiceImport"
 	var weight1 = int32(10)
 	var weight2 = int32(90)
-	var namespace = gateway_api.Namespace("default")
+	var namespace = gateway_api.Namespace("testnamespace")
+	var namespace2 = gateway_api.Namespace("testnamespace2")
 	var path1 = string("/ver1")
 	var path2 = string("/ver2")
+	var path3 = string("/ver3")
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var backendRef1 = gateway_api.BackendRef{
 		BackendObjectReference: gateway_api.BackendObjectReference{
-			Name:      "targetgroup1",
-			Namespace: &namespace,
-			Kind:      &serviceKind,
+			Name: "targetgroup1",
+			Kind: &serviceKind,
 		},
 		Weight: &weight1,
 	}
 	var backendRef2 = gateway_api.BackendRef{
 		BackendObjectReference: gateway_api.BackendObjectReference{
+			Name: "targetgroup2",
+			Kind: &serviceimportKind,
+		},
+		Weight: &weight2,
+	}
+	var backendRef1Namespace1 = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace,
+			Kind:      &serviceimportKind,
+		},
+		Weight: &weight2,
+	}
+	var backendRef1Namespace2 = gateway_api.BackendRef{
+		BackendObjectReference: gateway_api.BackendObjectReference{
+			Name:      "targetgroup2",
+			Namespace: &namespace2,
 			Kind:      &serviceimportKind,
 		},
 		Weight: &weight2,
@@ -221,6 +238,73 @@ func Test_RuleModelBuild(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:               "rule, different namespace combination",
+			gwListenerPort:     *PortNumberPtr(80),
+			wantErrIsNil:       true,
+			k8sGetGatewayCall:  true,
+			k8sGatewayReturnOK: true,
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "non-default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+									Path: &gateway_api.HTTPPathMatch{
+										Value: &path1,
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+									Path: &gateway_api.HTTPPathMatch{
+										Value: &path2,
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1Namespace1,
+								},
+							},
+						},
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+									Path: &gateway_api.HTTPPathMatch{
+										Value: &path3,
+									},
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1Namespace2,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		fmt.Printf("Testing >>> %v\n", tt.name)
@@ -288,6 +372,8 @@ func Test_RuleModelBuild(t *testing.T) {
 				assert.Equal(t, gateway_api.ObjectName(tg.Name), tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Name)
 				if tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Namespace != nil {
 					assert.Equal(t, gateway_api.Namespace(tg.Namespace), *tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Namespace)
+				} else {
+					assert.Equal(t, tg.Namespace, tt.httpRoute.Namespace)
 				}
 
 				if *tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Kind == "ServiceImport" {
