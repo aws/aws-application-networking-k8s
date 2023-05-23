@@ -97,34 +97,40 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 
 	endPoints := &corev1.Endpoints{}
 
+	svc := &corev1.Service{}
 	namespacedName := types.NamespacedName{
 		Namespace: t.tgNamespace,
 		Name:      t.tgName,
 	}
 
-	if err := t.Client.Get(ctx, namespacedName, endPoints); err != nil {
+	if err := t.Client.Get(ctx, namespacedName, svc); err != nil {
 		errmsg := fmt.Sprintf("Build Targets failed because K8S service %v does not exist", namespacedName)
-		glog.V(6).Infof("errmsg: %v\n", errmsg)
 		return errors.New(errmsg)
 	}
-
-	glog.V(6).Infof("Build Targets:  endPoints %v \n", endPoints)
 	var targetList []latticemodel.Target
 
-	for _, endPoint := range endPoints.Subsets {
-
-		for _, address := range endPoint.Addresses {
-			for _, port := range endPoint.Ports {
-				glog.V(6).Infof("serviceReconcile-endpoints: address %v, port %v\n", address, port)
-				target := latticemodel.Target{
-					TargetIP: address.IP,
-					Port:     int64(port.Port),
-				}
-				targetList = append(targetList, target)
-			}
-
+	if svc.DeletionTimestamp.IsZero() {
+		if err := t.Client.Get(ctx, namespacedName, endPoints); err != nil {
+			errmsg := fmt.Sprintf("Build Targets failed because K8S service %v does not exist", namespacedName)
+			glog.V(6).Infof("errmsg: %v\n", errmsg)
+			return errors.New(errmsg)
 		}
 
+		glog.V(6).Infof("Build Targets:  endPoints %v \n", endPoints)
+
+		for _, endPoint := range endPoints.Subsets {
+
+			for _, address := range endPoint.Addresses {
+				for _, port := range endPoint.Ports {
+					glog.V(6).Infof("serviceReconcile-endpoints: address %v, port %v\n", address, port)
+					target := latticemodel.Target{
+						TargetIP: address.IP,
+						Port:     int64(port.Port),
+					}
+					targetList = append(targetList, target)
+				}
+			}
+		}
 	}
 
 	glog.V(6).Infof("Build Targets--- targetIPList [%v]\n", targetList)

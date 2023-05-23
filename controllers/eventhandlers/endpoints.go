@@ -2,7 +2,6 @@ package eventhandlers
 
 import (
 	"context"
-	"fmt"
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,14 +26,14 @@ func NewEnqueueRequestEndpointEvent(client client.Client) handler.EventHandler {
 }
 
 func (h *enqueueRequestsForEndpointsEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("endpoint create")
+	glog.V(6).Info("Event: endpoint create")
 
 	epNew := e.Object.(*corev1.Endpoints)
 	h.enqueueImpactedService(queue, epNew)
 }
 
 func (h *enqueueRequestsForEndpointsEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("endpoints Update")
+	glog.V(6).Info("Event: endpoints update")
 	epOld := e.ObjectOld.(*corev1.Endpoints)
 	epNew := e.ObjectNew.(*corev1.Endpoints)
 	// fmt.Printf("endpoints update epOld [%v]  epNew[%v]\n", epOld, epNew)
@@ -45,7 +44,8 @@ func (h *enqueueRequestsForEndpointsEvent) Update(e event.UpdateEvent, queue wor
 }
 
 func (h *enqueueRequestsForEndpointsEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	fmt.Printf("TODO endpoints Delete \n")
+	glog.V(6).Infof("Event: endpoints delete")
+	// service event handler handles this event here
 }
 
 func (h *enqueueRequestsForEndpointsEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
@@ -53,7 +53,7 @@ func (h *enqueueRequestsForEndpointsEvent) Generic(e event.GenericEvent, queue w
 }
 
 func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, ep *corev1.Endpoints) {
-	glog.V(6).Infof("enqueueImpactedService [%v]", ep)
+	glog.V(6).Infof("Event: enqueueImpactedService [%v]", ep)
 
 	var targetIPList []string
 
@@ -76,7 +76,7 @@ func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedService(queue workqueu
 	}
 
 	if err := h.client.Get(context.TODO(), namespaceName, svc); err != nil {
-		glog.V(2).Infof("enqueueImpactedService, service not found %v\n", err)
+		glog.V(6).Infof("Event: enqueueImpactedService, service not found %v\n", err)
 		return
 	}
 

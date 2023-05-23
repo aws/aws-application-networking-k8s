@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +27,7 @@ func Test_Targets(t *testing.T) {
 		srvExportName      string
 		srvExportNamespace string
 		endPoints          []corev1.Endpoints
+		svc                corev1.Service
 		inDataStore        bool
 		refByServiceExport bool
 		refByService       bool
@@ -48,6 +50,13 @@ func Test_Targets(t *testing.T) {
 							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
 						},
 					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export1",
+					DeletionTimestamp: nil,
 				},
 			},
 			inDataStore:        true,
@@ -73,6 +82,57 @@ func Test_Targets(t *testing.T) {
 			},
 		},
 		{
+			name:               "Delete svc and all endpoints to build spec",
+			srvExportName:      "export1",
+			srvExportNamespace: "ns1",
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "export1",
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
+							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
+						},
+					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+					Name:      "export1",
+					DeletionTimestamp: &metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			inDataStore:        true,
+			refByServiceExport: true,
+			wantErrIsNil:       true,
+			expectedTargetList: nil,
+		},
+		{
+			name:               "Delete svc and no endpoints to build spec",
+			srvExportName:      "export1",
+			srvExportNamespace: "ns1",
+			endPoints:          []corev1.Endpoints{},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+					Name:      "export1",
+					DeletionTimestamp: &metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			inDataStore:        true,
+			refByServiceExport: true,
+			wantErrIsNil:       true,
+			expectedTargetList: nil,
+		},
+		{
 			name:               "Endpoints without TargetGroup",
 			srvExportName:      "export2",
 			srvExportNamespace: "ns1",
@@ -88,6 +148,13 @@ func Test_Targets(t *testing.T) {
 							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
 						},
 					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export1",
+					DeletionTimestamp: nil,
 				},
 			},
 			inDataStore:        false,
@@ -112,6 +179,13 @@ func Test_Targets(t *testing.T) {
 					},
 				},
 			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export1",
+					DeletionTimestamp: nil,
+				},
+			},
 			inDataStore:        true,
 			refByServiceExport: false,
 			refByService:       false,
@@ -124,6 +198,13 @@ func Test_Targets(t *testing.T) {
 			inDataStore:        false,
 			refByServiceExport: true,
 			wantErrIsNil:       false,
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export1",
+					DeletionTimestamp: nil,
+				},
+			},
 		},
 		{
 			name:               "Add all endpoints to build spec",
@@ -141,6 +222,13 @@ func Test_Targets(t *testing.T) {
 							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
 						},
 					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export5",
+					DeletionTimestamp: nil,
 				},
 			},
 			inDataStore:  true,
@@ -179,6 +267,8 @@ func Test_Targets(t *testing.T) {
 		if len(tt.endPoints) > 0 {
 			assert.NoError(t, k8sClient.Create(ctx, tt.endPoints[0].DeepCopy()))
 		}
+
+		assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
 
 		ds := latticestore.NewLatticeDataStore()
 

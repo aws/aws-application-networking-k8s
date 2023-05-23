@@ -42,6 +42,7 @@ import (
 )
 
 const (
+	// Typo
 	serviceFinalizer = "service.ki8s.aws/resources"
 )
 
@@ -101,23 +102,29 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	svcLog.Info("ServiceReconciler")
 
 	svc := &corev1.Service{}
+	ds := r.latticeDataStore
 
 	if err := r.Client.Get(ctx, req.NamespacedName, svc); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	if !svc.DeletionTimestamp.IsZero() {
+		tgNameD := latticestore.TargetGroupName(svc.Name, svc.Namespace)
+		TGDeleted := ds.GetTargetGroupsByTG(tgNameD)
+		for _, tg := range TGDeleted {
+			glog.V(6).Infof("service deletion trigger target IP list registration %v and tg %v\n",
+				tgNameD, tg)
+			r.reconcileTargetsResource(ctx, svc, tg.TargetGroupKey.RouteName)
+
+		}
 		r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer)
+
 		return ctrl.Result{}, nil
-
 	}
-
-	ds := r.latticeDataStore
 
 	// TODO also need to check serviceexport object to trigger building TargetGroup
 	tgName := latticestore.TargetGroupName(svc.Name, svc.Namespace)
 	TGs := ds.GetTargetGroupsByTG(tgName) // isServiceImport = false
-
 	for _, tg := range TGs {
 
 		glog.V(6).Infof("endpoints change trigger target IP list registration %v and tg %v\n",
@@ -131,7 +138,6 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *ServiceReconciler) reconcileTargetsResource(ctx context.Context, svc *corev1.Service, routename string) {
-
 	if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("Failed and finalizer due %v", err))
 	}
