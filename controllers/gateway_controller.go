@@ -400,24 +400,18 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 	// Add one of lattice domains as GW address. This can represent incorrect value in some cases (e.g. cross-account)
 	// TODO: support multiple endpoint addresses across services.
 	if len(httpRouteList.Items) > 0 {
-		domain := ""
+
+		gw.Status.Addresses = []gateway_api.GatewayAddress{}
+
+		addressType := gateway_api.HostnameAddressType
 		for _, route := range httpRouteList.Items {
 			if route.DeletionTimestamp.IsZero() && len(route.Annotations) > 0 {
-				exists := false
-				if domain, exists = route.Annotations[LatticeAssignedDomainName]; exists {
-					break
+				if domain, exists := route.Annotations[LatticeAssignedDomainName]; exists {
+					gw.Status.Addresses = append(gw.Status.Addresses, gateway_api.GatewayAddress{
+						Type:  &addressType,
+						Value: domain,
+					})
 				}
-			}
-		}
-		if domain == "" {
-			gw.Status.Addresses = []gateway_api.GatewayAddress{}
-		} else {
-			addressType := gateway_api.HostnameAddressType
-			gw.Status.Addresses = []gateway_api.GatewayAddress{
-				{
-					Type:  &addressType,
-					Value: domain,
-				},
 			}
 		}
 	}
