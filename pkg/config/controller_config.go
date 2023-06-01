@@ -43,21 +43,66 @@ func GetClusterLocalGateway() (string, error) {
 	return DefaultServiceNetwork, nil
 }
 
-func ConfigInit() {
-	// discover VPC using environment first
-	VpcID = os.Getenv("CLUSTER_VPC_ID")
-	glog.V(2).Infoln("CLUSTER_VPC_ID: ", os.Getenv("CLUSTER_VPC_ID"))
+func ConfigInit(vpcId string, region string, accountId string) {
 
-	// discover Account
-	AccountID = os.Getenv("AWS_ACCOUNT_ID")
-	if AccountID == "" {
-		AccountID = os.Getenv("AWS_ACCOUNT") // Fallback to AWS_ACCOUNT for compatibility
+	sess, _ := session.NewSession()
+	metadata := NewEC2Metadata(sess)
+	var err error
+
+	// Check if controller running inside the k8s pod
+	configDiscoveryNeeded := ifRunningInCluster()
+
+	// VpcId
+	if vpcId != "" {
+		VpcID = vpcId
+		glog.V(2).Infoln("CLUSTER_VPC_ID passed as input:", VpcID)
+	} else {
+		if configDiscoveryNeeded {
+			VpcID, err = metadata.VpcID()
+			glog.V(2).Infoln("CLUSTER_VPC_ID from IMDS config discovery :", VpcID)
+			if err != nil {
+				glog.V(2).Infoln("IMDS config discovery is NOT AVAILABLE :", err)
+				return
+			}
+		} else {
+			VpcID = os.Getenv("CLUSTER_VPC_ID")
+			glog.V(2).Infoln("CLUSTER_VPC_ID from local dev environment: ", VpcID)
+		}
 	}
-	glog.V(2).Infoln("AWS_ACCOUNT_ID:", AccountID)
 
-	// discover Region
-	Region = os.Getenv("REGION")
-	glog.V(2).Infoln("REGION:", os.Getenv("REGION"))
+	// Region
+	if region != "" {
+		Region = region
+		glog.V(2).Infoln("REGION passed as input:", Region)
+	} else {
+		if configDiscoveryNeeded {
+			Region, err = metadata.Region()
+			glog.V(2).Infoln("REGION from IMDS config discovery :", Region)
+			if err != nil {
+				return
+			}
+		} else {
+			Region = os.Getenv("REGION")
+			glog.V(2).Infoln("REGION from local dev environment: ", Region)
+		}
+	}
+
+	// AccountId
+	if accountId != "" {
+		AccountID = accountId
+		glog.V(2).Infoln("AWS_ACCOUNT_ID passed as input:", AccountID)
+	} else {
+		if configDiscoveryNeeded {
+			AccountID, err = metadata.AccountId()
+			glog.V(2).Infoln("AWS_ACCOUNT_ID from IMDS config discovery :", AccountID)
+			if err != nil {
+				return
+			}
+		} else {
+			AccountID = os.Getenv("AWS_ACCOUNT_ID")
+			glog.V(2).Infoln("AWS_ACCOUNT_ID from local dev environment: ", AccountID)
+		}
+	}
 
 	logLevel = os.Getenv("GATEWAY_API_CONTROLLER_LOGLEVEL")
 	glog.V(2).Infoln("Logging Level:", os.Getenv("GATEWAY_API_CONTROLLER_LOGLEVEL"))
@@ -81,41 +126,12 @@ func ConfigInit() {
 		UseLongTGName = false
 	}
 
-	sess, _ := session.NewSession()
-	metadata := NewEC2Metadata(sess)
-
-	var err error
-	if ifRunningInCluster() {
-		VpcID, err = metadata.VpcID()
-		if err != nil {
-			return
-		}
-		Region, err = metadata.Region()
-		if err != nil {
-			return
-		}
-		AccountID, err = metadata.AccountId()
-		if err != nil {
-			return
-		}
-		glog.V(2).Infoln("INSIDE CLUSTER CLUSTER_VPC_ID: ", VpcID)
-		glog.V(2).Infoln("INSIDE CLUSTER  REGION: ", Region)
-		glog.V(2).Infoln("INSIDE CLUSTER ACCOUNT_ID: ", AccountID)
-	}
 }
 
 func ifRunningInCluster() bool {
 	_, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount")
 	if err == nil {
-		glog.V(2).Infoln("Controller is running inside cluster")
 		return true
 	}
-
-	if os.IsNotExist(err) {
-		glog.V(2).Infoln("Controller is NOT running inside cluster")
-		return false
-	}
-
-	glog.V(2).Infoln("Controller is NOT running inside cluster")
 	return false
 }
