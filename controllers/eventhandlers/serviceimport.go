@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -89,8 +90,7 @@ func isServiceImportUsedByHTTPRoute(httpRoute gateway_api.HTTPRoute, serviceImpo
 				continue
 			}
 
-			namespace := "default"
-
+			namespace := httpRoute.Namespace
 			if httpBackendRef.BackendObjectReference.Namespace != nil {
 				namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
 			}

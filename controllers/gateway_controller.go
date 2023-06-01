@@ -397,6 +397,31 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 
 	k8sclient.List(context.TODO(), httpRouteList)
 
+	// Add one of lattice domains as GW address. This can represent incorrect value in some cases (e.g. cross-account)
+	// TODO: support multiple endpoint addresses across services.
+	if len(httpRouteList.Items) > 0 {
+		domain := ""
+		for _, route := range httpRouteList.Items {
+			if route.DeletionTimestamp.IsZero() && len(route.Annotations) > 0 {
+				exists := false
+				if domain, exists = route.Annotations[LatticeAssignedDomainName]; exists {
+					break
+				}
+			}
+		}
+		if domain == "" {
+			gw.Status.Addresses = []gateway_api.GatewayAddress{}
+		} else {
+			addressType := gateway_api.HostnameAddressType
+			gw.Status.Addresses = []gateway_api.GatewayAddress{
+				{
+					Type:  &addressType,
+					Value: domain,
+				},
+			}
+		}
+	}
+
 	if len(gw.Spec.Listeners) == 0 {
 		glog.V(2).Infof("Failed to find gateway listener for gw %v ", gw)
 		return errors.New("no gateway listner found")
