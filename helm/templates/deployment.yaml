@@ -44,7 +44,6 @@ spec:
         - /manager
         args:
         - --leader-elect
-        - --
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: manager
