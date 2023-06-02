@@ -59,9 +59,6 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	var vpcId string
-	var accountId string
-	var region string
 
 	// setup glog level
 	flag.Lookup("logtostderr").Value.Set("true")
@@ -72,9 +69,6 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&vpcId, "aws-vpc-id", "", "ID of VPC to create load balancers in.")
-	flag.StringVar(&accountId, "aws-account-id", "", "ID of Account to create load balancers in.")
-	flag.StringVar(&region, "aws-region", "", "Region to create load balancers in.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -83,7 +77,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	config.ConfigInit(vpcId, region, accountId)
+	config.ConfigInit()
 
 	cloud, err := aws.NewCloud()
 

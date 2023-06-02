@@ -43,64 +43,48 @@ func GetClusterLocalGateway() (string, error) {
 	return DefaultServiceNetwork, nil
 }
 
-func ConfigInit(vpcId string, region string, accountId string) {
+func ConfigInit() {
 
 	sess, _ := session.NewSession()
 	metadata := NewEC2Metadata(sess)
 	var err error
 
-	// Check if controller running inside the k8s pod
-	configDiscoveryNeeded := ifRunningInCluster()
-
 	// VpcId
-	if vpcId != "" {
-		VpcID = vpcId
+	VpcID = os.Getenv("CLUSTER_VPC_ID")
+	if VpcID != "" {
 		glog.V(2).Infoln("CLUSTER_VPC_ID passed as input:", VpcID)
 	} else {
-		if configDiscoveryNeeded {
-			VpcID, err = metadata.VpcID()
-			glog.V(2).Infoln("CLUSTER_VPC_ID from IMDS config discovery :", VpcID)
-			if err != nil {
-				glog.V(2).Infoln("IMDS config discovery is NOT AVAILABLE :", err)
-				return
-			}
-		} else {
-			VpcID = os.Getenv("CLUSTER_VPC_ID")
-			glog.V(2).Infoln("CLUSTER_VPC_ID from local dev environment: ", VpcID)
+		VpcID, err = metadata.VpcID()
+		glog.V(2).Infoln("CLUSTER_VPC_ID from IMDS config discovery :", VpcID)
+		if err != nil {
+			glog.V(2).Infoln("IMDS config discovery for CLUSTER_VPC_ID is NOT AVAILABLE :", err)
+			return
 		}
 	}
 
 	// Region
-	if region != "" {
-		Region = region
+	Region = os.Getenv("REGION")
+	if Region != "" {
 		glog.V(2).Infoln("REGION passed as input:", Region)
 	} else {
-		if configDiscoveryNeeded {
-			Region, err = metadata.Region()
-			glog.V(2).Infoln("REGION from IMDS config discovery :", Region)
-			if err != nil {
-				return
-			}
-		} else {
-			Region = os.Getenv("REGION")
-			glog.V(2).Infoln("REGION from local dev environment: ", Region)
+		Region, err = metadata.Region()
+		glog.V(2).Infoln("REGION from IMDS config discovery :", Region)
+		if err != nil {
+			glog.V(2).Infoln("IMDS config discovery for REGION is NOT AVAILABLE :", err)
+			return
 		}
 	}
 
 	// AccountId
-	if accountId != "" {
-		AccountID = accountId
+	AccountID = os.Getenv("AWS_ACCOUNT_ID")
+	if AccountID != "" {
 		glog.V(2).Infoln("AWS_ACCOUNT_ID passed as input:", AccountID)
 	} else {
-		if configDiscoveryNeeded {
-			AccountID, err = metadata.AccountId()
-			glog.V(2).Infoln("AWS_ACCOUNT_ID from IMDS config discovery :", AccountID)
-			if err != nil {
-				return
-			}
-		} else {
-			AccountID = os.Getenv("AWS_ACCOUNT_ID")
-			glog.V(2).Infoln("AWS_ACCOUNT_ID from local dev environment: ", AccountID)
+		AccountID, err = metadata.AccountId()
+		glog.V(2).Infoln("AWS_ACCOUNT_ID from IMDS config discovery :", AccountID)
+		if err != nil {
+			glog.V(2).Infoln("IMDS config discovery for AWS_ACCOUNT_ID is NOT AVAILABLE :", err)
+			return
 		}
 	}
 
