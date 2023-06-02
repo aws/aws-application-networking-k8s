@@ -34,7 +34,6 @@ func (c *defaultEC2Metadata) VpcID() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("Get VPC ID from ec2 metadata: ", vpcID)
 	return vpcID, nil
 }
 
@@ -43,7 +42,6 @@ func (c *defaultEC2Metadata) Region() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("Get region from ec2 metadata: ", region)
 	return region, nil
 }
 

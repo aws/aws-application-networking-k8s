@@ -66,6 +66,23 @@ spec:
           periodSeconds: 10
         securityContext:
           allowPrivilegeEscalation: false
+        env:
+          - name: REGION
+            valueFrom:
+              configMapKeyRef:
+                name: env-config
+                key: awsRegion
+          - name: AWS_ACCOUNT_ID
+            valueFrom:
+              configMapKeyRef:
+                name: env-config
+                key: awsAccountId
+          - name: CLUSTER_VPC_ID
+            valueFrom:
+              configMapKeyRef:
+                name: env-config
+                key: clusterVpcId
+
       terminationGracePeriodSeconds: 10
       nodeSelector: {{ toYaml .Values.deployment.nodeSelector | nindent 8 }}
       {{ if .Values.deployment.tolerations -}}

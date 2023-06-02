@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: env-config
+data:
+    awsRegion: {{ .Values.awsRegion }}
+    awsAccountId: {{ .Values.awsAccountId }}
+    clusterVpcId: {{ .Values.clusterVpcId }}

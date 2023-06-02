@@ -12,20 +12,28 @@ import (
 const (
 	LatticeGatewayControllerName = "application-networking.k8s.aws/gateway-api-controller"
 	defaultLogLevel              = "Info"
-	NoDefaultServiceNetwork      = ""
-	NO_DEFAULT_SERVICE_NETWORK   = "NO_DEFAULT_SERVICE_NETWORK"
+	UnknownInput                 = ""
 )
 
-// TODO endpoint, region
-var VpcID = "vpc-xxxx"
-var AccountID = "yyyyyy"
-var Region = "us-west-2"
+const (
+	NO_DEFAULT_SERVICE_NETWORK      = "NO_DEFAULT_SERVICE_NETWORK"
+	REGION                          = "REGION"
+	CLUSTER_VPC_ID                  = "CLUSTER_VPC_ID"
+	CLUSTER_LOCAL_GATEWAY           = "CLUSTER_LOCAL_GATEWAY"
+	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
+	TARGET_GROUP_NAME_LEN_MODE      = "TARGET_GROUP_NAME_LEN_MODE"
+	GATEWAY_API_CONTROLLER_LOGLEVEL = "GATEWAY_API_CONTROLLER_LOGLEVEL"
+)
+
+var VpcID = UnknownInput
+var AccountID = UnknownInput
+var Region = UnknownInput
 var logLevel = defaultLogLevel
-var DefaultServiceNetwork = NoDefaultServiceNetwork
+var DefaultServiceNetwork = UnknownInput
 var UseLongTGName = false
 
 func GetLogLevel() string {
-	logLevel = os.Getenv("GATEWAY_API_CONTROLLER_LOGLEVEL")
+	logLevel = os.Getenv(GATEWAY_API_CONTROLLER_LOGLEVEL)
 	switch strings.ToLower(logLevel) {
 	case "debug":
 		return "10"
@@ -36,43 +44,69 @@ func GetLogLevel() string {
 }
 
 func GetClusterLocalGateway() (string, error) {
-	if DefaultServiceNetwork == NoDefaultServiceNetwork {
-		return NoDefaultServiceNetwork, errors.New(NO_DEFAULT_SERVICE_NETWORK)
+	if DefaultServiceNetwork == UnknownInput {
+		return UnknownInput, errors.New(NO_DEFAULT_SERVICE_NETWORK)
 	}
 
 	return DefaultServiceNetwork, nil
 }
 
 func ConfigInit() {
-	// discover VPC using environment first
-	VpcID = os.Getenv("CLUSTER_VPC_ID")
-	glog.V(2).Infoln("CLUSTER_VPC_ID: ", os.Getenv("CLUSTER_VPC_ID"))
 
-	// discover Account
-	AccountID = os.Getenv("AWS_ACCOUNT_ID")
-	if AccountID == "" {
-		AccountID = os.Getenv("AWS_ACCOUNT") // Fallback to AWS_ACCOUNT for compatibility
+	sess, _ := session.NewSession()
+	metadata := NewEC2Metadata(sess)
+	var err error
+
+	// CLUSTER_VPC_ID
+	VpcID = os.Getenv(CLUSTER_VPC_ID)
+	if VpcID != UnknownInput {
+		glog.V(2).Infoln("CLUSTER_VPC_ID passed as input:", VpcID)
+	} else {
+		VpcID, err = metadata.VpcID()
+		glog.V(2).Infoln("CLUSTER_VPC_ID from IMDS config discovery :", VpcID)
+		if err != nil {
+			glog.V(2).Infoln("IMDS config discovery for CLUSTER_VPC_ID is NOT AVAILABLE :", err)
+		}
 	}
-	glog.V(2).Infoln("AWS_ACCOUNT_ID:", AccountID)
 
-	// discover Region
-	Region = os.Getenv("REGION")
-	glog.V(2).Infoln("REGION:", os.Getenv("REGION"))
+	// REGION
+	Region = os.Getenv(REGION)
+	if Region != UnknownInput {
+		glog.V(2).Infoln("REGION passed as input:", Region)
+	} else {
+		Region, err = metadata.Region()
+		glog.V(2).Infoln("REGION from IMDS config discovery :", Region)
+		if err != nil {
+			glog.V(2).Infoln("IMDS config discovery for REGION is NOT AVAILABLE :", err)
+		}
+	}
 
-	logLevel = os.Getenv("GATEWAY_API_CONTROLLER_LOGLEVEL")
-	glog.V(2).Infoln("Logging Level:", os.Getenv("GATEWAY_API_CONTROLLER_LOGLEVEL"))
+	// AWS_ACCOUNT_ID
+	AccountID = os.Getenv(AWS_ACCOUNT_ID)
+	if AccountID != UnknownInput {
+		glog.V(2).Infoln("AWS_ACCOUNT_ID passed as input:", AccountID)
+	} else {
+		AccountID, err = metadata.AccountId()
+		glog.V(2).Infoln("AWS_ACCOUNT_ID from IMDS config discovery :", AccountID)
+		if err != nil {
+			glog.V(2).Infoln("IMDS config discovery for AWS_ACCOUNT_ID is NOT AVAILABLE :", err)
+		}
+	}
 
-	DefaultServiceNetwork = os.Getenv("CLUSTER_LOCAL_GATEWAY")
+	// GATEWAY_API_CONTROLLER_LOGLEVEL
+	logLevel = os.Getenv(GATEWAY_API_CONTROLLER_LOGLEVEL)
+	glog.V(2).Infoln("Logging Level:", os.Getenv(GATEWAY_API_CONTROLLER_LOGLEVEL))
 
-	if DefaultServiceNetwork == NoDefaultServiceNetwork {
+	// CLUSTER_LOCAL_GATEWAY
+	DefaultServiceNetwork = os.Getenv(CLUSTER_LOCAL_GATEWAY)
+	if DefaultServiceNetwork == UnknownInput {
 		glog.V(2).Infoln("No CLUSTER_LOCAL_GATEWAY")
 	} else {
-
 		glog.V(2).Infoln("CLUSTER_LOCAL_GATEWAY", DefaultServiceNetwork)
 	}
 
-	tgNameLengthMode := os.Getenv("TARGET_GROUP_NAME_LEN_MODE")
-
+	// TARGET_GROUP_NAME_LEN_MODE
+	tgNameLengthMode := os.Getenv(TARGET_GROUP_NAME_LEN_MODE)
 	glog.V(2).Infoln("TARGET_GROUP_NAME_LEN_MODE", tgNameLengthMode)
 
 	if tgNameLengthMode == "long" {
@@ -80,42 +114,4 @@ func ConfigInit() {
 	} else {
 		UseLongTGName = false
 	}
-
-	sess, _ := session.NewSession()
-	metadata := NewEC2Metadata(sess)
-
-	var err error
-	if ifRunningInCluster() {
-		VpcID, err = metadata.VpcID()
-		if err != nil {
-			return
-		}
-		Region, err = metadata.Region()
-		if err != nil {
-			return
-		}
-		AccountID, err = metadata.AccountId()
-		if err != nil {
-			return
-		}
-		glog.V(2).Infoln("INSIDE CLUSTER CLUSTER_VPC_ID: ", VpcID)
-		glog.V(2).Infoln("INSIDE CLUSTER  REGION: ", Region)
-		glog.V(2).Infoln("INSIDE CLUSTER ACCOUNT_ID: ", AccountID)
-	}
-}
-
-func ifRunningInCluster() bool {
-	_, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount")
-	if err == nil {
-		glog.V(2).Infoln("Controller is running inside cluster")
-		return true
-	}
-
-	if os.IsNotExist(err) {
-		glog.V(2).Infoln("Controller is NOT running inside cluster")
-		return false
-	}
-
-	glog.V(2).Infoln("Controller is NOT running inside cluster")
-	return false
 }
