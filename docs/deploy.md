@@ -14,7 +14,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION
    ```
-1. First, configure security group to receive traffic from the VPC Lattice fleet. You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic on all ports from the `169.254.171.0/24` address range. 
+1. First, configure security group to receive traffic from the VPC Lattice fleet. You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic on all ports from the `169.254.171.0/24` address range.
     ```bash
     PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
     MANAGED_PREFIX=$(aws ec2 get-managed-prefix-list-entries --prefix-list-id $PREFIX_LIST_ID --output json  | jq -r '.Entries[0].Cidr')
@@ -79,7 +79,12 @@ Run through them again for a second cluster to use with the extended example sho
    helm install gateway-api-controller \
       oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
       --version=v0.0.12 \
-      --set=aws.region=$AWS_REGION --set=serviceAccount.create=false --namespace aws-application-networking-system
+      --set=serviceAccount.create=false --namespace aws-application-networking-system \
+      # Region, clusterVpcId, awsAccountId are required for fargate use case
+      --set=awsRegion= \
+      --set=clusterVpcId= \
+      --set=awsAccountId= \
+
    ```
 1. Create the `amazon-vpc-lattice` GatewayClass:
    ```bash

@@ -17,9 +17,9 @@ const (
 )
 
 // TODO endpoint, region
-var VpcID = "vpc-xxxx"
-var AccountID = "yyyyyy"
-var Region = "us-west-2"
+var VpcID = ""
+var AccountID = ""
+var Region = ""
 var logLevel = defaultLogLevel
 var DefaultServiceNetwork = NoDefaultServiceNetwork
 var UseLongTGName = false

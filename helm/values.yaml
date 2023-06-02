@@ -70,3 +70,7 @@ serviceAccount:
   name: gateway-api-controller
   annotations: {}
     # eks.amazonaws.com/role-arn: arn:aws:iam::AWS_ACCOUNT_ID:role/IAM_ROLE_NAME
+
+awsRegion:
+awsAccountId:
+clusterVpcId:
