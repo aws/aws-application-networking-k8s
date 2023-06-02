@@ -13,7 +13,7 @@ const (
 	LatticeGatewayControllerName = "application-networking.k8s.aws/gateway-api-controller"
 	defaultLogLevel              = "Info"
 	NoDefaultServiceNetwork      = ""
-	UnknownInput = ""
+	UnknownInput                 = ""
 	NO_DEFAULT_SERVICE_NETWORK   = "NO_DEFAULT_SERVICE_NETWORK"
 )
 
