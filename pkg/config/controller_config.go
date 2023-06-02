@@ -13,13 +13,13 @@ const (
 	LatticeGatewayControllerName = "application-networking.k8s.aws/gateway-api-controller"
 	defaultLogLevel              = "Info"
 	NoDefaultServiceNetwork      = ""
+	UnknownInput = ""
 	NO_DEFAULT_SERVICE_NETWORK   = "NO_DEFAULT_SERVICE_NETWORK"
 )
 
-// TODO endpoint, region
-var VpcID = ""
-var AccountID = ""
-var Region = ""
+var VpcID = UnknownInput
+var AccountID = UnknownInput
+var Region = UnknownInput
 var logLevel = defaultLogLevel
 var DefaultServiceNetwork = NoDefaultServiceNetwork
 var UseLongTGName = false
