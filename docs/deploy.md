@@ -80,7 +80,7 @@ Run through them again for a second cluster to use with the extended example sho
       oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
       --version=v0.0.12 \
       --set=serviceAccount.create=false --namespace aws-application-networking-system \
-      # Region, clusterVpcId, awsAccountId are required for fargate use case
+      # Region, clusterVpcId, awsAccountId are required for case where IMDS is NOT AVAILABLE, e.g Fargate
       --set=awsRegion= \
       --set=clusterVpcId= \
       --set=awsAccountId= \
