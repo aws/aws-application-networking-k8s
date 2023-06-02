@@ -51,7 +51,7 @@ func ConfigInit() {
 
 	// VpcId
 	VpcID = os.Getenv("CLUSTER_VPC_ID")
-	if VpcID != "" {
+	if VpcID != UnknownInput {
 		glog.V(2).Infoln("CLUSTER_VPC_ID passed as input:", VpcID)
 	} else {
 		VpcID, err = metadata.VpcID()
@@ -64,7 +64,7 @@ func ConfigInit() {
 
 	// Region
 	Region = os.Getenv("REGION")
-	if Region != "" {
+	if Region != UnknownInput {
 		glog.V(2).Infoln("REGION passed as input:", Region)
 	} else {
 		Region, err = metadata.Region()
@@ -77,7 +77,7 @@ func ConfigInit() {
 
 	// AccountId
 	AccountID = os.Getenv("AWS_ACCOUNT_ID")
-	if AccountID != "" {
+	if AccountID != UnknownInput {
 		glog.V(2).Infoln("AWS_ACCOUNT_ID passed as input:", AccountID)
 	} else {
 		AccountID, err = metadata.AccountId()
