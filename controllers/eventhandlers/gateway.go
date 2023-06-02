@@ -3,8 +3,9 @@ package eventhandlers
 import (
 	"context"
 	"fmt"
-	"github.com/golang/glog"
 	"time"
+
+	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,21 +73,24 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedHTTPRoute(queue workqueu
 	for _, httpRoute := range httpRouteList.Items {
 
 		if len(httpRoute.Spec.ParentRefs) <= 0 {
-			glog.V(6).Infof("Ingnore httpRoute no parentRefs %s", httpRoute.Name)
+			glog.V(6).Infof("Ignore httpRoute no parentRefs %s", httpRoute.Name)
 			continue
 		}
 
 		// find the parent gw object
-		// TODO gw is in default namespace
+		var gwNamespace = httpRoute.Namespace
+		if httpRoute.Spec.ParentRefs[0].Namespace != nil {
+			gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
+		}
 		gwName := types.NamespacedName{
-			Namespace: "default",
+			Namespace: gwNamespace,
 			Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 		}
 
 		gw := &gateway_api.Gateway{}
 
 		if err := h.client.Get(context.TODO(), gwName, gw); err != nil {
-			glog.V(6).Infof("Ignore HTTPRoute with unknow parentRef %s\n", httpRoute.Name)
+			glog.V(6).Infof("Ignore HTTPRoute with unknown parentRef %s\n", httpRoute.Name)
 			continue
 		}
 

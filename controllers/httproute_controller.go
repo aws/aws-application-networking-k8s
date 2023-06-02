@@ -19,9 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -163,7 +164,7 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 	gw := &gateway_api.Gateway{}
 
 	// TODO handle multiple parentRefs
-	gwNamespace := "default"
+	gwNamespace := httpRoute.Namespace
 	if httpRoute.Spec.ParentRefs[0].Namespace != nil {
 		gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
 	}
@@ -174,6 +175,7 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 	}
 
 	if err := r.gwReconciler.Client.Get(ctx, gwName, gw); err != nil {
+		glog.V(6).Infof("Could not find gateway %s: %s\n", gwName.String(), err.Error())
 		glog.V(6).Infof("Ignore HTTPRoute whose ParentRef gatway object has NOT defined yet for %v\n", httpRoute.Spec)
 		return false
 	}
@@ -195,7 +197,7 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 
 		return true
 	} else {
-		glog.V(6).Infof("Ingore non aws-vpc-lattice HTTPRoute !!! %v\n", httpRoute.Spec)
+		glog.V(6).Infof("Ignore non aws-vpc-lattice HTTPRoute !!! %v\n", httpRoute.Spec)
 		return false
 	}
 }
@@ -225,7 +227,7 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, httproute
 	httpLog.Info("Successfully built model:", stackJSON, "")
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
-		glog.V(6).Infof("HTTPRouteREconciler: Failed deploy %s due to err %v \n", httproute.Name, err)
+		glog.V(6).Infof("HTTPRouteReconciler: Failed deploy %s due to err %v \n", httproute.Name, err)
 
 		var retryErr = errors.New(lattice.LATTICE_RETRY)
 
@@ -299,6 +301,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	httproute.Status.RouteStatus.Parents[0].Conditions[0].Status = metav1.ConditionTrue
 	httproute.Status.RouteStatus.Parents[0].Conditions[0].Message = fmt.Sprintf("DNS Name: %s", dns)
 	httproute.Status.RouteStatus.Parents[0].Conditions[0].Reason = string(gateway_api.RouteReasonAccepted)
+	httproute.Status.RouteStatus.Parents[0].Conditions[0].ObservedGeneration = httproute.Generation
 
 	if httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
 		httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
