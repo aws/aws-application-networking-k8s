@@ -111,11 +111,3 @@ func ConfigInit() {
 	}
 
 }
-
-func ifRunningInCluster() bool {
-	_, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount")
-	if err == nil {
-		return true
-	}
-	return false
-}
