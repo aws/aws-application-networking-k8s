@@ -71,6 +71,7 @@ func NewFramework(ctx context.Context) *Framework {
 	var scheme = scheme.Scheme
 	lo.Must0(v1beta1.Install(scheme))
 	lo.Must0(v1alpha1.Install(scheme))
+	config.ConfigInit()
 	controllerRuntimeConfig := controllerruntime.GetConfigOrDie()
 	framework := &Framework{
 		Client:                              lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: scheme})),
