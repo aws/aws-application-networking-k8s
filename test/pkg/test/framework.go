@@ -138,17 +138,30 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 				}
 			}
 		}
+
+		retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
+		for _, tg := range retrievedTargetGroups {
+			Logger(ctx).Infof("Found TargetGroup: %v, checking it whether it's created by current EKS Cluster", tg)
+			if currentClusterVpcId != *tg.VpcIdentifier {
+				//This tg is not created by current EKS Cluster, skip it
+				continue
+			}
+			retrievedTags, err := env.LatticeClient.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
+				ResourceArn: tg.Arn,
+			})
+			if err == nil {
+				Logger(ctx).Infof("Found Tags for tg %v tags: %v", *tg.Name, retrievedTags)
+				tagValue, ok := retrievedTags.Tags[lattice.K8SParentRefTypeKey]
+				if ok && *tagValue == lattice.K8SServiceExportType {
+					//This tg is created by k8s controller, by a ServiceExport,
+					//ServiceExport still have a known targetGroup leaking issue,
+					//so we temporarily skip to verify whether ServiceExport created TargetGroup is deleted or not
+					continue
+				}
+				Expect(*tg.Name).To(Not(ContainElements(BeKeyOf(env.TestCasesCreatedServiceNames))))
+			}
+		}
 	}).Should(Succeed())
-
-	//Currently, We have a know issue that the controller will not clear the TargetGroup when it cleans the k8s service
-	//Also, TargetGroup don't have an appropriate tag to identify whether this tg is created by current EKS Cluster or not.
-	//So, we temporarily don't check whether the TargetGroup have been cleaned.
-
-	//retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
-	//for _, tg := range retrievedTargetGroups {
-	//	Logger(ctx).Infof("Found TargetGroup: %v, checking it whether it's created by current EKS Cluster", tg)
-	//	g.Expect(*tg.Name).To(Not(ContainElements(BeKeyOf(env.TestCasesCreatedServiceNames))))
-	//}
 }
 
 func (env *Framework) CleanTestEnvironment(ctx context.Context) {
@@ -204,7 +217,9 @@ func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...c
 			Logger(ctx).Infof("Checking whether %s %s %s is not found", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
 			g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(object), object))).To(BeTrue())
 		}
-	}).WithOffset(1).Should(Succeed())
+		// Wait for 6 minutes at maximum just in case the k8sService deletion triggered targets draining time
+		// and httproute deletion need to wait for that targets draining time finish then it can return
+	}).WithTimeout(6 * time.Minute).WithOffset(1).Should(Succeed())
 }
 
 func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList client.ObjectList) {
