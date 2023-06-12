@@ -143,7 +143,11 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 				}
 			}
 
-			err = synthersizer.SynthesizeTriggeredTargetGroup(ctx)
+			if tg.Spec.IsDeleted {
+				err = synthersizer.SynthesizeTriggeredDeleteTargetGroups(ctx)
+			} else {
+				err = synthersizer.SynthesizeTriggeredCreateTargetGroups(ctx)
+			}
 
 			if !tt.wantErrIsNil {
 				assert.NotNil(t, err)
@@ -277,7 +281,13 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 			}
 		}
 		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
-		err := synthesizer.SynthesizeTriggeredTargetGroup(ctx)
+		var err error
+		if !tt.isDeleted {
+			err = synthesizer.SynthesizeTriggeredCreateTargetGroups(ctx)
+		} else {
+			err = synthesizer.SynthesizeTriggeredDeleteTargetGroups(ctx)
+		}
+
 		fmt.Printf("err:%v \n", err)
 
 		if tt.wantErrIsNil {
@@ -721,7 +731,12 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 		}
 
 		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
-		err := synthesizer.SynthesizeTriggeredTargetGroup(ctx)
+		var err error
+		if !tt.isDeleted {
+			err = synthesizer.SynthesizeTriggeredCreateTargetGroups(ctx)
+		} else {
+			err = synthesizer.SynthesizeTriggeredDeleteTargetGroups(ctx)
+		}
 		fmt.Printf("err:%v \n", err)
 
 		if tt.wantErrIsNil {

@@ -95,8 +95,8 @@ func NewLatticeServiceStackDeploy(cloud aws.Cloud, k8sClient client.Client, latt
 func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	synthesizers := []ResourceSynthesizer{
 		lattice.NewTargetGroupSynthesizer(d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore),
-		lattice.NewServiceSynthesizer(d.latticeServiceManager, stack, d.latticeDataStore),
 		lattice.NewTargetsSynthesizer(d.cloud, lattice.NewTargetsManager(d.cloud, d.latticeDataStore), stack, d.latticeDataStore),
+		lattice.NewServiceSynthesizer(d.latticeServiceManager, stack, d.latticeDataStore),
 		lattice.NewListenerSynthesizer(d.listenerManager, stack, d.latticeDataStore),
 		lattice.NewRuleSynthesizer(d.ruleManager, stack, d.latticeDataStore),
 	}

@@ -38,38 +38,32 @@ type targetGroupSynthesizer struct {
 }
 
 func (t *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
-	var ret = ""
 
 	glog.V(6).Infof("Start synthesizing TargetGroupss ...\n")
 
-	if err := t.SynthesizeTriggeredTargetGroup(ctx); err != nil {
-		ret = LATTICE_RETRY
+	if err := t.SynthesizeTriggeredCreateTargetGroups(ctx); err != nil {
+		return errors.New(LATTICE_RETRY)
 	}
 
 	/* TODO,  resolve bug that this might delete other HTTPRoute's TG before they have chance
 	 * to be reconcile during controller restart
 	 */
-	if err := t.SynthesizeSDKTargetGroups(ctx); err != nil {
-		ret = LATTICE_RETRY
-	}
-
-	if ret != "" {
-		return errors.New(ret)
-	} else {
-		return nil
-	}
+	return nil
 }
 
-func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Context) error {
+func (t *targetGroupSynthesizer) SynthesizeTriggeredCreateTargetGroups(ctx context.Context) error {
 	var resTargetGroups []*latticemodel.TargetGroup
 	var returnErr = false
 
 	t.stack.ListResources(&resTargetGroups)
 
-	glog.V(6).Infof("Synthesize TargetGroups ==[%v]\n", resTargetGroups)
+	glog.V(6).Infof("SynthesizeTriggeredCreateTargetGroups TargetGroups: [%v]\n", resTargetGroups)
 
 	for _, resTargetGroup := range resTargetGroups {
-
+		if resTargetGroup.Spec.IsDeleted {
+			// in SynthesizeTriggeredCreateTargetGroups(), we only handle TG Creation request
+			continue
+		}
 		// find out VPC for service import
 		if resTargetGroup.Spec.Config.IsServiceImport {
 			/* right now, TG are unique across VPC, we do NOT need to get VPC
@@ -96,12 +90,8 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 			*/
 
 			// TODO in future, we might want to use annotation to specify lattice TG arn or ID
-			if resTargetGroup.Spec.IsDeleted {
-				//Ingnore TG delete since this is an import from elsewhere
-				continue
-			}
-			tgStatus, err := t.targetGroupManager.Get(ctx, resTargetGroup)
 
+			tgStatus, err := t.targetGroupManager.Get(ctx, resTargetGroup)
 			if err != nil {
 				glog.V(6).Infof("Error on t.targetGroupManager.Get for %v err %v\n", resTargetGroup, err)
 				returnErr = true
@@ -116,50 +106,41 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 
 			glog.V(6).Infof("targetGroup Synthesized successfully for %s: %v\n", resTargetGroup.Spec.Name, tgStatus)
 
-		} else {
-			if resTargetGroup.Spec.IsDeleted {
-				err := t.targetGroupManager.Delete(ctx, resTargetGroup)
+		} else { // handle TargetGroup creation requestion from k8sService or serviceExport
 
-				if err != nil {
-					returnErr = true
-					continue
-				} else {
-					glog.V(6).Infof("Synthersizing Target Group: successfully deleted target group %v\n", resTargetGroup)
-					t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, false)
-				}
+			resTargetGroup.Spec.Config.VpcID = config.VpcID
 
-			} else {
-				resTargetGroup.Spec.Config.VpcID = config.VpcID
+			tgStatus, err := t.targetGroupManager.Create(ctx, resTargetGroup)
 
-				tgStatus, err := t.targetGroupManager.Create(ctx, resTargetGroup)
-
-				if err != nil {
-					glog.V(6).Infof("Error on t.targetGroupManager.Create for %v err %v\n", resTargetGroup, err)
-					returnErr = true
-					continue
-				}
-
-				t.latticeDataStore.AddTargetGroup(resTargetGroup.Spec.Name,
-					resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN,
-					tgStatus.TargetGroupID, resTargetGroup.Spec.Config.IsServiceImport,
-					resTargetGroup.Spec.Config.K8SHTTPRouteName)
-
-				glog.V(6).Infof("targetGroup Synthesized successfully for %v: %v\n", resTargetGroup.Spec, tgStatus)
+			if err != nil {
+				glog.V(6).Infof("Error on t.targetGroupManager.Create for %v err %v\n", resTargetGroup, err)
+				returnErr = true
+				continue
 			}
+
+			//In the ModelBuildTask, it should already add a tg entry in the latticeDataStore,
+			//in here, only UPDATE the entry with tgStatus.TargetGroupARN and tgStatus.TargetGroupID
+			t.latticeDataStore.AddTargetGroup(resTargetGroup.Spec.Name,
+				resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN,
+				tgStatus.TargetGroupID, resTargetGroup.Spec.Config.IsServiceImport,
+				resTargetGroup.Spec.Config.K8SHTTPRouteName)
+
+			glog.V(6).Infof("targetGroup Synthesized successfully for %v: %v\n", resTargetGroup.Spec, tgStatus)
 		}
 
 	}
 
-	glog.V(6).Infof("Done -- SynthesizeTriggeredTargetGroup %v\n", resTargetGroups)
+	glog.V(6).Infof("Done -- SynthesizeTriggeredCreateTargetGroups %v\n", resTargetGroups)
 
 	if returnErr {
-		return errors.New("LATTICE-RETRY")
+		return errors.New(LATTICE_RETRY)
 	} else {
 		return nil
 	}
 
 }
 
+// TODO: run t.SynthesizeSDKTargetGroups(ctx) as an global garbage collection (i.e., run it as a goroutine in main.go)
 func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) error {
 
 	staleSDKTGs := []latticemodel.TargetGroup{}
@@ -269,16 +250,11 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 			if err := t.client.Get(ctx, httprouteName, httpRoute); err != nil {
 				glog.V(6).Infof("tgname %v is not used by httproute %v\n", tgName, httpRoute)
-
 			} else {
-
 				isUsed := t.isTargetGroupUsedByaHTTPRoute(ctx, tgName, httpRoute)
-
 				if isUsed {
-
 					glog.V(6).Infof("Ignore TargetGroup(triggered by HTTProute) %v, %v since httproute object is found",
 						*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
-
 					continue
 				} else {
 					glog.V(6).Infof("tgname %v is not used by httproute %v\n", tgName, httpRoute)
@@ -355,7 +331,51 @@ func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Conte
 	return false
 }
 
+func (t *targetGroupSynthesizer) SynthesizeTriggeredDeleteTargetGroups(ctx context.Context) error {
+	var resTargetGroups []*latticemodel.TargetGroup
+	var returnErr = false
+
+	t.stack.ListResources(&resTargetGroups)
+
+	glog.V(2).Infof("SynthesizeTriggeredDeleteTargetGroups: TargetGroups ==[%v]\n", resTargetGroups)
+	for _, resTargetGroup := range resTargetGroups {
+		if resTargetGroup.Spec.IsDeleted && !resTargetGroup.Spec.Config.IsServiceImport {
+			//Handle deleting target groups request triggered by k8sService or ServiceExport deletion, ignore request from ServiceImport deletion
+			err := t.targetGroupManager.Delete(ctx, resTargetGroup)
+			if err != nil {
+				glog.V(6).Infof("Delete Target Group in PostSynthesize: failed to delete target group %v, err %v \n", resTargetGroup, err)
+				returnErr = true
+			} else {
+				glog.V(6).Infof("Delete Target Group in PostSynthesize: successfully deleted target group %v\n", resTargetGroup)
+				t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, resTargetGroup.Spec.Config.IsServiceImport)
+			}
+		}
+	}
+	if returnErr {
+		return errors.New(LATTICE_RETRY)
+	} else {
+		return nil
+	}
+}
+
 func (t *targetGroupSynthesizer) PostSynthesize(ctx context.Context) error {
-	// nothing to do here
-	return nil
+
+	glog.V(2).Infof("PostSynthesize TargetGroups\n")
+
+	var returnErr = false
+	if err := t.SynthesizeTriggeredDeleteTargetGroups(ctx); err != nil {
+		returnErr = true
+	}
+
+	//TODO: run t.SynthesizeSDKTargetGroups(ctx) as an global garbage collection (i.e., run it as a goroutine in main.go)
+	if err := t.SynthesizeSDKTargetGroups(ctx); err != nil {
+		returnErr = true
+	}
+
+	if returnErr {
+		return errors.New(LATTICE_RETRY)
+	} else {
+		return nil
+	}
+
 }

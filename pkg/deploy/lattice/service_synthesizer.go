@@ -34,39 +34,21 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 
 		glog.V(6).Infof("Synthesize Service/HTTPRoute: %v\n", resService)
 		if resService.Spec.IsDeleted {
-			// handle service delete
-			err := s.serviceManager.Delete(ctx, resService)
-
-			if err == nil {
-				glog.V(6).Infof("service - Synthesizer: finish deleting service %v\n", *resService)
-				s.latticeDataStore.DelLatticeService(resService.Spec.Name, resService.Spec.Namespace)
-
-				// also delete all listeners of this service
-				listeners, err := s.latticeDataStore.GetAllListeners(resService.Spec.Name, resService.Spec.Namespace)
-
-				glog.V(6).Infof("service synthesize -- need to delete listeners %v, err : %v\n", listeners, err)
-
-				for _, l := range listeners {
-					s.latticeDataStore.DelListener(resService.Spec.Name, resService.Spec.Namespace,
-						l.Key.Port, l.Key.Protocol)
-				}
-
-			}
-			return err
-		} else {
-
-			serviceStatus, err := s.serviceManager.Create(ctx, resService)
-
-			if err != nil {
-				glog.V(6).Infof("Error on s.serviceManager.Create %v \n", err)
-				return err
-			}
-
-			s.latticeDataStore.AddLatticeService(resService.Spec.Name, resService.Spec.Namespace,
-				serviceStatus.ServiceARN, serviceStatus.ServiceID, serviceStatus.ServiceDNS)
-
-			glog.V(6).Infof("serviceStatus %v, error = %v \n", serviceStatus, err)
+			// handle latticeService creation request in Synthesize() only, will handle the deletion request in PostSynthesize()
+			continue
 		}
+
+		serviceStatus, err := s.serviceManager.Create(ctx, resService)
+
+		if err != nil {
+			glog.V(6).Infof("Error on s.serviceManager.Create %v \n", err)
+			return err
+		}
+
+		s.latticeDataStore.AddLatticeService(resService.Spec.Name, resService.Spec.Namespace,
+			serviceStatus.ServiceARN, serviceStatus.ServiceID, serviceStatus.ServiceDNS)
+
+		glog.V(6).Infof("serviceStatus %v, error = %v \n", serviceStatus, err)
 	}
 
 	glog.V(6).Infof("Service-synthesize end %v \n", resServices)
@@ -75,6 +57,21 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 }
 
 func (s *serviceSynthesizer) PostSynthesize(ctx context.Context) error {
-	// nothing to do here
+	var resServices []*latticemodel.Service
+
+	s.stack.ListResources(&resServices)
+	glog.V(6).Infof("Service PostSynthesize(Deletion) start: %v \n", resServices)
+
+	for _, resService := range resServices {
+		if resService.Spec.IsDeleted {
+			// handle service delete
+			if err := s.serviceManager.Delete(ctx, resService); err == nil {
+				glog.V(6).Infof("service  PostSynthesize: finish deleting service %v\n", *resService)
+				s.latticeDataStore.DelLatticeService(resService.Spec.Name, resService.Spec.Namespace)
+			} else {
+				return err
+			}
+		}
+	}
 	return nil
 }

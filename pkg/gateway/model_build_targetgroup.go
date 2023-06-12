@@ -132,7 +132,7 @@ func (t *targetGroupModelBuildTask) BuildTargets(ctx context.Context) error {
 	return nil
 }
 
-// Triggered from httproute/service/targetgrou
+// Triggered from httproute/service/targetgroup
 func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 	for _, httpRule := range t.httpRoute.Spec.Rules {
 		for _, httpBackendRef := range httpRule.BackendRefs {
@@ -248,15 +248,19 @@ func (t *latticeServiceModelBuildTask) buildTargetGroup(ctx context.Context, cli
 			if *httpBackendRef.Kind == "Service" {
 				t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, t.httpRoute.Name)
 			} else {
+				// for serviceimport, the httproutename is ""
 				t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, "")
 			}
 
 			if t.httpRoute.DeletionTimestamp.IsZero() {
 				// to add
-				t.Datastore.SetTargetGroupByBackendRef(tgName, t.httpRoute.Name, false, true)
+				t.Datastore.SetTargetGroupByBackendRef(tgName, t.httpRoute.Name, tgSpec.Config.IsServiceImport, true)
 			} else {
 				// to delete
-				t.Datastore.SetTargetGroupByBackendRef(tgName, t.httpRoute.Name, false, false)
+				t.Datastore.SetTargetGroupByBackendRef(tgName, t.httpRoute.Name, tgSpec.Config.IsServiceImport, false)
+				dsTG, _ := t.Datastore.GetTargetGroup(tgName, t.httpRoute.Name, tgSpec.Config.IsServiceImport)
+				tgSpec.IsDeleted = true
+				tgSpec.LatticeID = dsTG.ID
 			}
 
 			tg := latticemodel.NewTargetGroup(t.stack, tgName, tgSpec)
@@ -271,6 +275,7 @@ func (t *latticeServiceModelBuildTask) buildTargetGroup(ctx context.Context, cli
 
 }
 
+// Now, Only k8sService and serviceImport creation deletion use this function to build TargetGroupSpec, serviceExport does not use this function to create TargetGroupSpec
 func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Context, client client.Client, httpBackendRef *gateway_api.HTTPBackendRef) (latticemodel.TargetGroupSpec, error) {
 	var namespace string
 
@@ -286,7 +291,13 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 	var vpc = config.VpcID
 	var ekscluster = ""
 	var isServiceImport bool
+	var isDeleted bool
 
+	if t.httpRoute.DeletionTimestamp.IsZero() {
+		isDeleted = false
+	} else {
+		isDeleted = true
+	}
 	if backendKind == "ServiceImport" {
 		namespaceName := types.NamespacedName{
 			Namespace: namespace,
@@ -302,7 +313,11 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 
 		} else {
 			glog.V(6).Infof("buildHTTPTargetGroupSpec, using service Import %v, err :%v\n", namespaceName, err)
-			return latticemodel.TargetGroupSpec{}, err
+			if !isDeleted {
+				//Return error for creation request only.
+				//For ServiceImport deletion request, we should go ahead to build TargetGroupSpec model
+				return latticemodel.TargetGroupSpec{}, err
+			}
 		}
 
 	} else {
@@ -320,19 +335,15 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 		svc := &corev1.Service{}
 		if err := t.Client.Get(ctx, serviceNamespaceName, svc); err != nil {
 			glog.V(6).Infof("Error finding backend service %v error :%v \n", serviceNamespaceName, err)
-			return latticemodel.TargetGroupSpec{}, err
+			if !isDeleted {
+				//Return error for creation request only,
+				//For k8sService deletion request, we should go ahead to build TargetGroupSpec model
+				return latticemodel.TargetGroupSpec{}, err
+			}
 		}
 	}
 
 	tgName := latticestore.TargetGroupName(string(httpBackendRef.Name), namespace)
-
-	var isDeleted bool
-
-	if t.httpRoute.DeletionTimestamp.IsZero() {
-		isDeleted = false
-	} else {
-		isDeleted = true
-	}
 
 	return latticemodel.TargetGroupSpec{
 		Name: tgName,

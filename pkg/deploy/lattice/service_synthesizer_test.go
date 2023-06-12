@@ -162,8 +162,12 @@ func Test_SynthesizeService(t *testing.T) {
 		}
 
 		synthesizer := NewServiceSynthesizer(mockSvcManager, stack, ds)
-
-		err := synthesizer.Synthesize(ctx)
+		var err error
+		if tt.httpRoute.DeletionTimestamp.IsZero() {
+			err = synthesizer.Synthesize(ctx)
+		} else {
+			err = synthesizer.PostSynthesize(ctx)
+		}
 
 		if tt.wantErrIsNil {
 			assert.Nil(t, err)
