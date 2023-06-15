@@ -31,6 +31,7 @@ func PortNumberPtr(p int) *gateway_api.PortNumber {
 
 func Test_ListenerModelBuild(t *testing.T) {
 	var httpSectionName gateway_api.SectionName = "http"
+	var missingSectionName gateway_api.SectionName = "miss"
 	var serviceKind gateway_api.Kind = "Service"
 	var serviceimportKind gateway_api.Kind = "ServiceImport"
 	var backendRef = gateway_api.BackendRef{
@@ -268,6 +269,38 @@ func Test_ListenerModelBuild(t *testing.T) {
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:               "no section name ",
+			gwListenerPort:     *PortNumberPtr(80),
+			wantErrIsNil:       false,
+			k8sGetGatewayCall:  true,
+			k8sGatewayReturnOK: true,
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &missingSectionName,
 							},
 						},
 					},
