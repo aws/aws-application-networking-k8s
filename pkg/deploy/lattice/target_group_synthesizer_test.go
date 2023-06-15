@@ -31,7 +31,7 @@ import (
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
-func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
+func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *testing.T) {
 	now := metav1.Now()
 	tests := []struct {
 		name           string
@@ -40,7 +40,7 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 		wantErrIsNil   bool
 	}{
 		{
-			name: "Adding a new targetgroup, ok case",
+			name: "Creating ServiceExport request trigger targetgroup creation, ok case",
 			svcExport: &mcs_api.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "export1",
@@ -51,7 +51,7 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 			wantErrIsNil:   true,
 		},
 		{
-			name: "Adding a new targetgroup, nok case",
+			name: "Creating ServiceExport request trigger targetgroup creation, not ok case",
 			svcExport: &mcs_api.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "export2",
@@ -62,7 +62,7 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 			wantErrIsNil:   false,
 		},
 		{
-			name: "Deleting a targetgroup, ok case",
+			name: "SynthesizeTriggeredTargetGroupsCreation() should ignore any targetgroup deletion request",
 			svcExport: &mcs_api.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "export3",
@@ -73,19 +73,6 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 			},
 			tgManagerError: false,
 			wantErrIsNil:   true,
-		},
-		{
-			name: "Deleting a targetgroup, nok case",
-			svcExport: &mcs_api.ServiceExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              "export3",
-					Namespace:         "ns1",
-					Finalizers:        []string{"gateway.k8s.aws/resources"},
-					DeletionTimestamp: &now,
-				},
-			},
-			tgManagerError: true,
-			wantErrIsNil:   false,
 		},
 	}
 
@@ -129,26 +116,14 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 				TargetGroupID:  "4567",
 			}
 
-			if tg.Spec.IsDeleted {
-				if tt.tgManagerError {
-					mockTGManager.EXPECT().Delete(ctx, tg).Return(errors.New("ERROR"))
-				} else {
-					mockTGManager.EXPECT().Delete(ctx, tg).Return(nil)
-				}
-			} else {
+			if !tg.Spec.IsDeleted {
 				if tt.tgManagerError {
 					mockTGManager.EXPECT().Create(ctx, tg).Return(tgStatus, errors.New("ERROR"))
 				} else {
 					mockTGManager.EXPECT().Create(ctx, tg).Return(tgStatus, nil)
 				}
 			}
-
-			if tg.Spec.IsDeleted {
-				err = synthersizer.SynthesizeTriggeredDeleteTargetGroups(ctx)
-			} else {
-				err = synthersizer.SynthesizeTriggeredCreateTargetGroups(ctx)
-			}
-
+			err = synthersizer.SynthesizeTriggeredTargetGroupsCreation(ctx)
 			if !tt.wantErrIsNil {
 				assert.NotNil(t, err)
 				return
@@ -157,12 +132,8 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 			assert.Nil(t, err)
 			tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
 			dsTG, err := ds.GetTargetGroup(tgName, "", false)
-
-			if tg.Spec.IsDeleted {
-				assert.NotNil(t, err)
-
-			} else {
-				assert.Nil(t, err)
+			assert.Nil(t, err)
+			if !tg.Spec.IsDeleted {
 				assert.Equal(t, dsTG.ARN, tgStatus.TargetGroupARN)
 				assert.Equal(t, dsTG.ID, tgStatus.TargetGroupID)
 			}
@@ -178,7 +149,7 @@ type svcImportDef struct {
 	mgrErr  bool
 }
 
-func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
+func Test_Synthesize_TriggeredByServiceImport(t *testing.T) {
 	tests := []struct {
 		name          string
 		svcImportList []svcImportDef
@@ -207,7 +178,7 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 			wantErrIsNil: true,
 		},
 		{
-			name: "service import triggered target group, 1st one return err",
+			name: "service import triggered target group, tgMgr return err for the 1st service import",
 			svcImportList: []svcImportDef{
 				{
 					name:    "service-import21",
@@ -226,7 +197,7 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 			wantErrIsNil: false,
 		},
 		{
-			name: "service import triggered target group, 1st one return err",
+			name: "targetGroupSynthesizer.Synthesize() should ignore any TG deletion request",
 			svcImportList: []svcImportDef{
 				{
 					name:    "service-import31",
@@ -281,12 +252,8 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 			}
 		}
 		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
-		var err error
-		if !tt.isDeleted {
-			err = synthesizer.SynthesizeTriggeredCreateTargetGroups(ctx)
-		} else {
-			err = synthesizer.SynthesizeTriggeredDeleteTargetGroups(ctx)
-		}
+
+		err := synthesizer.Synthesize(ctx)
 
 		fmt.Printf("err:%v \n", err)
 
@@ -310,6 +277,66 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 					assert.Equal(t, tgImport.tgID, tg.ID)
 
 				}
+			}
+		}
+
+	}
+}
+
+func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByServiceImport(t *testing.T) {
+	tests := []struct {
+		name          string
+		svcImportList []svcImportDef
+	}{
+
+		{
+			name: " ignore all target group deletion triggered by service import",
+			svcImportList: []svcImportDef{
+				{
+					name:    "service-import31",
+					tgExist: false,
+					mgrErr:  true,
+				},
+				{
+					name:    "service-import32",
+					tgARN:   "service-import32-arn",
+					tgID:    "service-import32-ID",
+					tgExist: true,
+					mgrErr:  false,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		fmt.Printf("testing >>>> %v\n", tt.name)
+
+		c := gomock.NewController(t)
+		defer c.Finish()
+		ctx := context.TODO()
+
+		mockTGManager := NewMockTargetGroupManager(c)
+		ds := latticestore.NewLatticeDataStore()
+
+		for _, svcImport := range tt.svcImportList {
+			if svcImport.tgExist {
+				ds.AddTargetGroup(svcImport.name, "my-vpc", svcImport.tgARN, svcImport.tgID, true, "")
+			}
+		}
+		stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
+
+		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+
+		err := synthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx)
+		assert.Nil(t, err)
+
+		for _, svcImport := range tt.svcImportList {
+			if svcImport.tgExist {
+				// synthesizer.SynthesizeTriggeredTargetGroupsDeletion() should ignore all serviceImport triggered TG deletion,
+				// so the previouly existed TG should still exist in datastore
+				tgDataStore, err := ds.GetTargetGroup(svcImport.name, "", true)
+				assert.Nil(t, err)
+				assert.Equal(t, svcImport.tgID, tgDataStore.ID)
+				assert.Equal(t, svcImport.tgARN, tgDataStore.ARN)
 			}
 		}
 
@@ -624,7 +651,7 @@ type svcDef struct {
 	mgrErr bool
 }
 
-func Test_SynthesizeTriggeredService(t *testing.T) {
+func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testing.T) {
 	tests := []struct {
 		name         string
 		svcList      []svcDef
@@ -632,7 +659,7 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 		wantErrIsNil bool
 	}{
 		{
-			name: "service triggered target group",
+			name: "service triggered target group creation, ok case",
 			svcList: []svcDef{
 				{
 					name:   "service11",
@@ -651,7 +678,7 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 			wantErrIsNil: true,
 		},
 		{
-			name: "service triggered target group",
+			name: "service triggered target group creation, mgrErr",
 			svcList: []svcDef{
 				{
 					name:   "service21",
@@ -670,13 +697,13 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 			wantErrIsNil: false,
 		},
 		{
-			name: "service triggered target group",
+			name: "SynthesizeTriggeredTargetGroupsCreation should ignore any target group deletion request",
 			svcList: []svcDef{
 				{
 					name:   "service31",
 					tgARN:  "service31-arn",
 					tgID:   "service31-ID",
-					mgrErr: true,
+					mgrErr: false,
 				},
 				{
 					name:   "service32",
@@ -686,7 +713,7 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 				},
 			},
 			isDeleted:    true,
-			wantErrIsNil: false,
+			wantErrIsNil: true,
 		},
 	}
 
@@ -721,22 +748,14 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 				} else {
 					mockTGManager.EXPECT().Create(ctx, tg).Return(latticemodel.TargetGroupStatus{TargetGroupARN: svc.tgARN, TargetGroupID: svc.tgID}, nil)
 				}
-			} else {
-				if svc.mgrErr {
-					mockTGManager.EXPECT().Delete(ctx, tg).Return(errors.New("tgmgr err"))
-				} else {
-					mockTGManager.EXPECT().Delete(ctx, tg).Return(nil)
-				}
 			}
 		}
 
 		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
 		var err error
-		if !tt.isDeleted {
-			err = synthesizer.SynthesizeTriggeredCreateTargetGroups(ctx)
-		} else {
-			err = synthesizer.SynthesizeTriggeredDeleteTargetGroups(ctx)
-		}
+
+		err = synthesizer.SynthesizeTriggeredTargetGroupsCreation(ctx)
+
 		fmt.Printf("err:%v \n", err)
 
 		if tt.wantErrIsNil {
@@ -765,4 +784,138 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 		}
 
 	}
+}
+
+func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByK8sService(t *testing.T) {
+	tests := []struct {
+		name         string
+		svcList      []svcDef
+		isDeleted    bool
+		wantErrIsNil bool
+	}{
+		{
+			name: "k8sService triggered target group deletion, ok case",
+			svcList: []svcDef{
+				{
+					name:   "service11",
+					tgARN:  "service11-arn",
+					tgID:   "service11-ID",
+					mgrErr: false,
+				},
+				{
+					name:   "service12",
+					tgARN:  "service12-arn",
+					tgID:   "service12-ID",
+					mgrErr: false,
+				},
+			},
+			isDeleted:    true,
+			wantErrIsNil: true,
+		},
+		{
+			name: "k8sService triggered target group deletion, mgrErr",
+			svcList: []svcDef{
+				{
+					name:   "service21",
+					tgARN:  "service21-arn",
+					tgID:   "service21-ID",
+					mgrErr: true,
+				},
+				{
+					name:   "service22",
+					tgARN:  "service22-arn",
+					tgID:   "service22-ID",
+					mgrErr: false,
+				},
+			},
+			isDeleted:    true,
+			wantErrIsNil: false,
+		},
+		{
+			name: "SynthesizeTriggeredTargetGroupsDeletion should ignore target group creation request",
+			svcList: []svcDef{
+				{
+					name:   "service31",
+					tgARN:  "service31-arn",
+					tgID:   "service31-ID",
+					mgrErr: true,
+				},
+				{
+					name:   "service32",
+					tgARN:  "service32-arn",
+					tgID:   "service32-ID",
+					mgrErr: false,
+				},
+			},
+			isDeleted:    false,
+			wantErrIsNil: true,
+		},
+	}
+
+	httpRouteName := "my-http-route"
+	for _, tt := range tests {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		ctx := context.TODO()
+
+		mockTGManager := NewMockTargetGroupManager(c)
+
+		ds := latticestore.NewLatticeDataStore()
+
+		stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
+
+		for _, svc := range tt.svcList {
+			tgSpec := latticemodel.TargetGroupSpec{
+				Name: svc.name,
+				Type: latticemodel.TargetGroupTypeIP,
+				Config: latticemodel.TargetGroupConfig{
+					K8SHTTPRouteName: httpRouteName,
+					IsServiceImport:  false,
+				},
+				IsDeleted: tt.isDeleted,
+			}
+
+			tg := latticemodel.NewTargetGroup(stack, svc.name, tgSpec)
+			fmt.Printf("tg : %v\n", tg)
+
+			if tt.isDeleted {
+				ds.AddTargetGroup(tg.Spec.Name, tg.Spec.Config.VpcID, svc.tgARN, svc.tgID, tg.Spec.Config.IsServiceImport, httpRouteName)
+
+				if svc.mgrErr {
+					mockTGManager.EXPECT().Delete(ctx, tg).Return(errors.New("tgmgr err"))
+				} else {
+					mockTGManager.EXPECT().Delete(ctx, tg).Return(nil)
+				}
+			}
+		}
+
+		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		var err error
+		err = synthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx)
+		if tt.wantErrIsNil {
+			assert.Nil(t, err)
+		} else {
+			assert.NotNil(t, err)
+		}
+		fmt.Printf("err:%v \n", err)
+
+		for _, svc := range tt.svcList {
+			if tt.isDeleted {
+				tgDateStore, err := ds.GetTargetGroup(svc.name, httpRouteName, false)
+
+				if svc.mgrErr {
+					assert.Nil(t, err, "targetGroup should still exist since targetGroupManager.Delete return error")
+					assert.Equal(t, svc.tgID, tgDateStore.ID)
+					assert.Equal(t, svc.tgID, tgDateStore.ID)
+
+				} else {
+					_, err := ds.GetTargetGroup(svc.name, httpRouteName, false)
+					assert.Equal(t, err, errors.New(latticestore.DATASTORE_TG_NOT_EXIST),
+						"targetGroup %v should be deleted in the datastore if targetGroupManager.Delete() success", svc.name)
+
+				}
+			}
+		}
+	}
+
 }

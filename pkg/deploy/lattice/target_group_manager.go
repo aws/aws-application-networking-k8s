@@ -168,19 +168,20 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 	var targets []*vpclattice.Target
 	for _, t := range listResp {
 		if t.Status != nil && *t.Status != vpclattice.TargetStatusUnused {
-			// When delete a target group, and it has non-notInUsed status target(e.g, healthy, unhealthy, initial status),
+			// When delete a target group, and it has non-notInUsed status target(e.g., healthy, unhealthy, initial status),
 			// it means this target group is still in use (referenced by latticeService's listeners and rules).
 
-			//The caller path of defaultTargetGroupManager.Delete() can be following 2 cases only:
-			// 1. delete a HttpRoute trigger the delete of target group (httproute_controller -> model_build_targetgroup -> target_group_synthesizer -> target_group_manager code path)
-			// 2. delete the serviceExport trigger the delete of target group (serviceexport_controller -> model_build_targetgroup -> target_group_synthesizer -> target_group_manager code path)
-			//In both 2 above cases, listeners and rules that related to this tg should be deleted prior to hitting the defaultTargetGroupManager.Delete().
-			//(FYI: if the serivceImport of this serviceExport still in used by a httproute, the controller will forbid delete the serviceExport)
-			//In that case, if this tg still has non-notInUsed status targets, it means the listenerRules-to-target_group disassociation still need some time to take effect.
-			//We could do a LATTICE_RETRY to wait 20 sec to make the target group (targets) status changed to Unused.
+			// The caller path of defaultTargetGroupManager.Delete() can be following 2 cases only:
+			// 1. HttpRoute(with backendref service) deletion triggers the deletion of target group (httproute_controller -> model_build_targetgroup -> target_group_synthesizer -> target_group_manager code path)
+			// 2. ServiceExport deletion trigger the deletion of target group (serviceexport_controller -> model_build_targetgroup -> target_group_synthesizer -> target_group_manager code path)
+			// In both 2 above cases, listeners and rules that related to this tg should be deleted prior to hitting the defaultTargetGroupManager.Delete().
+			// (FYI: if the serivceImport of this serviceExport still in used by a httproute, the controller will forbid to delete this serviceExport)
+			// In that case, if this tg still has non-notInUsed status targets, it means the listenerRules-to-target_group disassociation still need some time to take effect.
+			// We could do a LATTICE_RETRY to wait 20 sec to make the target group (targets) status changed to Unused.
 
-			//FYI: delete k8sService request (service_controller -> model_build_targets -> targets_synthesizer -> targets_manager code path) can still deregister targets for a still-in-use target group,
-			//which could cause draining status targets. In that case, HttpRoute deletion request need to retry (5min at maximum) until the draining targets to be removed from the target group by vpc lattice backend, then the controller could delete the target group.
+			// FYI: delete k8sService request (service_controller -> model_build_targets -> targets_synthesizer -> targets_manager code path) can still deregister targets for a still-in-use target group,
+			// which could cause draining status targets. In that case, HttpRoute deletion request need to retry (5min at maximum) until the draining targets to be removed from the target group by vpc lattice backend,
+			// then the controller could delete the target group.
 
 			return errors.New(LATTICE_RETRY)
 		}

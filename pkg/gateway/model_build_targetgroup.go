@@ -315,7 +315,8 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 			glog.V(6).Infof("buildHTTPTargetGroupSpec, using service Import %v, err :%v\n", namespaceName, err)
 			if !isDeleted {
 				//Return error for creation request only.
-				//For ServiceImport deletion request, we should go ahead to build TargetGroupSpec model
+				//For ServiceImport deletion request, we should go ahead to build TargetGroupSpec model,
+				//although the targetGroupSynthesizer could skip TargetGroup deletion triggered by ServiceImport deletion
 				return latticemodel.TargetGroupSpec{}, err
 			}
 		}

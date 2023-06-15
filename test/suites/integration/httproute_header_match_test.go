@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var _ = Describe("HTTPRoute header matches", Focus, func() {
+var _ = Describe("HTTPRoute header matches", func() {
 	It("Create a HttpRoute with a header match rule, http traffic should work if pass the correct headers", func() {
 		gateway := testFramework.NewGateway("", "")
 

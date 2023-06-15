@@ -41,7 +41,7 @@ func (t *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
 
 	glog.V(6).Infof("Start synthesizing TargetGroupss ...\n")
 
-	if err := t.SynthesizeTriggeredCreateTargetGroups(ctx); err != nil {
+	if err := t.SynthesizeTriggeredTargetGroupsCreation(ctx); err != nil {
 		return errors.New(LATTICE_RETRY)
 	}
 
@@ -51,17 +51,17 @@ func (t *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
 	return nil
 }
 
-func (t *targetGroupSynthesizer) SynthesizeTriggeredCreateTargetGroups(ctx context.Context) error {
+func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsCreation(ctx context.Context) error {
 	var resTargetGroups []*latticemodel.TargetGroup
 	var returnErr = false
 
 	t.stack.ListResources(&resTargetGroups)
 
-	glog.V(6).Infof("SynthesizeTriggeredCreateTargetGroups TargetGroups: [%v]\n", resTargetGroups)
+	glog.V(6).Infof("SynthesizeTriggeredTargetGroupsCreation TargetGroups: [%v]\n", resTargetGroups)
 
 	for _, resTargetGroup := range resTargetGroups {
 		if resTargetGroup.Spec.IsDeleted {
-			// in SynthesizeTriggeredCreateTargetGroups(), we only handle TG Creation request
+			// in SynthesizeTriggeredTargetGroupsCreation(), we only handle TG Creation request
 			continue
 		}
 		// find out VPC for service import
@@ -106,7 +106,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredCreateTargetGroups(ctx conte
 
 			glog.V(6).Infof("targetGroup Synthesized successfully for %s: %v\n", resTargetGroup.Spec.Name, tgStatus)
 
-		} else { // handle TargetGroup creation requestion from k8sService or serviceExport
+		} else { // handle TargetGroup creation request that triggered by httproute with backendref k8sService creation or serviceExport creation
 
 			resTargetGroup.Spec.Config.VpcID = config.VpcID
 
@@ -130,7 +130,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredCreateTargetGroups(ctx conte
 
 	}
 
-	glog.V(6).Infof("Done -- SynthesizeTriggeredCreateTargetGroups %v\n", resTargetGroups)
+	glog.V(6).Infof("Done -- SynthesizeTriggeredTargetGroupsCreation %v\n", resTargetGroups)
 
 	if returnErr {
 		return errors.New(LATTICE_RETRY)
@@ -140,7 +140,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredCreateTargetGroups(ctx conte
 
 }
 
-// TODO: run t.SynthesizeSDKTargetGroups(ctx) as an global garbage collection (i.e., run it as a goroutine in main.go)
+// TODO: run t.SynthesizeSDKTargetGroups(ctx) as a global garbage collector schedule backgroud task (i.e., run it as a goroutine in main.go)
 func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) error {
 
 	staleSDKTGs := []latticemodel.TargetGroup{}
@@ -331,16 +331,18 @@ func (t *targetGroupSynthesizer) isTargetGroupUsedByaHTTPRoute(ctx context.Conte
 	return false
 }
 
-func (t *targetGroupSynthesizer) SynthesizeTriggeredDeleteTargetGroups(ctx context.Context) error {
+func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsDeletion(ctx context.Context) error {
 	var resTargetGroups []*latticemodel.TargetGroup
 	var returnErr = false
 
 	t.stack.ListResources(&resTargetGroups)
 
-	glog.V(2).Infof("SynthesizeTriggeredDeleteTargetGroups: TargetGroups ==[%v]\n", resTargetGroups)
+	glog.V(2).Infof("SynthesizeTriggeredTargetGroupsDeletion: TargetGroups ==[%v]\n", resTargetGroups)
 	for _, resTargetGroup := range resTargetGroups {
 		if resTargetGroup.Spec.IsDeleted && !resTargetGroup.Spec.Config.IsServiceImport {
-			//Handle deleting target groups request triggered by k8sService or ServiceExport deletion, ignore request from ServiceImport deletion
+			//Handle deleting target groups request triggered by httproute with BackendRef k8sService deletion or ServiceExport deletion,
+			//ignore target group deletion request triggered by ServiceImport deletion
+			//ignore any target group creation request
 			err := t.targetGroupManager.Delete(ctx, resTargetGroup)
 			if err != nil {
 				glog.V(6).Infof("Delete Target Group in PostSynthesize: failed to delete target group %v, err %v \n", resTargetGroup, err)
@@ -363,11 +365,11 @@ func (t *targetGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 	glog.V(2).Infof("PostSynthesize TargetGroups\n")
 
 	var returnErr = false
-	if err := t.SynthesizeTriggeredDeleteTargetGroups(ctx); err != nil {
+	if err := t.SynthesizeTriggeredTargetGroupsDeletion(ctx); err != nil {
 		returnErr = true
 	}
 
-	//TODO: run t.SynthesizeSDKTargetGroups(ctx) as an global garbage collection (i.e., run it as a goroutine in main.go)
+	//TODO: run t.SynthesizeSDKTargetGroups(ctx) as a global garbage collector scheduled backgroud task (i.e., run it as a goroutine in main.go)
 	if err := t.SynthesizeSDKTargetGroups(ctx); err != nil {
 		returnErr = true
 	}

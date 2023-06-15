@@ -64,7 +64,8 @@ func (s *serviceSynthesizer) PostSynthesize(ctx context.Context) error {
 
 	for _, resService := range resServices {
 		if resService.Spec.IsDeleted {
-			// handle service delete
+			// In serviceSynthesizer.PostSynthesize(), we only handle the deletion request,
+			// ignore the creation request which is handled in Synthesize()
 			if err := s.serviceManager.Delete(ctx, resService); err == nil {
 				glog.V(6).Infof("service  PostSynthesize: finish deleting service %v\n", *resService)
 				s.latticeDataStore.DelLatticeService(resService.Spec.Name, resService.Spec.Namespace)
