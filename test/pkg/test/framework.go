@@ -217,7 +217,7 @@ func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...c
 			Logger(ctx).Infof("Checking whether %s %s %s is not found", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
 			g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(object), object))).To(BeTrue())
 		}
-	}).WithOffset(1).Should(Succeed())
+	}).WithTimeout(5 * time.Minute).WithOffset(1).Should(Succeed())
 }
 
 func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList client.ObjectList) {

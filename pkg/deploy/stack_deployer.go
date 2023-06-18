@@ -93,14 +93,48 @@ func NewLatticeServiceStackDeploy(cloud aws.Cloud, k8sClient client.Client, latt
 }
 
 func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
-	synthesizers := []ResourceSynthesizer{
-		lattice.NewTargetGroupSynthesizer(d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore),
-		lattice.NewTargetsSynthesizer(d.cloud, lattice.NewTargetsManager(d.cloud, d.latticeDataStore), stack, d.latticeDataStore),
-		lattice.NewServiceSynthesizer(d.latticeServiceManager, stack, d.latticeDataStore),
-		lattice.NewListenerSynthesizer(d.listenerManager, stack, d.latticeDataStore),
-		lattice.NewRuleSynthesizer(d.ruleManager, stack, d.latticeDataStore),
+	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore)
+	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.cloud, lattice.NewTargetsManager(d.cloud, d.latticeDataStore), stack, d.latticeDataStore)
+	serviceSynthesizer := lattice.NewServiceSynthesizer(d.latticeServiceManager, stack, d.latticeDataStore)
+	listenerSynthesizer := lattice.NewListenerSynthesizer(d.listenerManager, stack, d.latticeDataStore)
+	ruleSynthesizer := lattice.NewRuleSynthesizer(d.ruleManager, stack, d.latticeDataStore)
+
+	//Handle targetGroups creation request
+	if err := targetGroupSynthesizer.Synthesize(ctx); err != nil {
+		return err
 	}
-	return deploy(ctx, stack, synthesizers)
+
+	//Handle targets "reconciliation" request (register intend-to-be-registered targets and deregister intend-to-be-registered targets)
+	if err := targetsSynthesizer.Synthesize(ctx); err != nil {
+		return err
+	}
+
+	// Handle latticeService creation request
+	if err := serviceSynthesizer.Synthesize(ctx); err != nil {
+		return err
+	}
+
+	//Handle latticeService listeners "reconciliation" request
+	if err := listenerSynthesizer.Synthesize(ctx); err != nil {
+		return err
+	}
+
+	//Handle latticeService listener's rules "reconciliation" request
+	if err := ruleSynthesizer.Synthesize(ctx); err != nil {
+		return err
+	}
+
+	//Handle latticeService Deletion request
+	if err := serviceSynthesizer.PostSynthesize(ctx); err != nil {
+		return err
+	}
+
+	//Handle targetGroup Deletion request and garbage collection for not-in-use targetGroups
+	if err := targetGroupSynthesizer.PostSynthesize(ctx); err != nil {
+		return err
+	}
+
+	return nil
 
 }
 
