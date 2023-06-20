@@ -41,13 +41,12 @@ func (t *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
 
 	glog.V(6).Infof("Start synthesizing TargetGroupss ...\n")
 
+	// Synthesize() Handle the TargetGroup creation request only.
+	//For TargetGroup Deletion request, it will be handled by SynthesizeTriggeredTargetGroupsDeletion() which is invoked in the PostSynthesize()
 	if err := t.SynthesizeTriggeredTargetGroupsCreation(ctx); err != nil {
 		return errors.New(LATTICE_RETRY)
 	}
 
-	/* TODO,  resolve bug that this might delete other HTTPRoute's TG before they have chance
-	 * to be reconcile during controller restart
-	 */
 	return nil
 }
 
@@ -61,7 +60,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsCreation(ctx con
 
 	for _, resTargetGroup := range resTargetGroups {
 		if resTargetGroup.Spec.IsDeleted {
-			// in SynthesizeTriggeredTargetGroupsCreation(), we only handle TG Creation request
+			glog.V(6).Infof("In the SynthesizeTriggeredTargetGroupsCreation(), we only handle TG Creation request and skip any deletion request [%v] \n", resTargetGroup)
 			continue
 		}
 		// find out VPC for service import
@@ -140,7 +139,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsCreation(ctx con
 
 }
 
-// TODO: run t.SynthesizeSDKTargetGroups(ctx) as a global garbage collector schedule backgroud task (i.e., run it as a goroutine in main.go)
+// TODO: run SynthesizeSDKTargetGroups(ctx) as a global garbage collector schedule backgroud task (i.e., run it as a goroutine in main.go)
 func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) error {
 
 	staleSDKTGs := []latticemodel.TargetGroup{}
@@ -339,16 +338,22 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsDeletion(ctx con
 
 	glog.V(2).Infof("SynthesizeTriggeredTargetGroupsDeletion: TargetGroups ==[%v]\n", resTargetGroups)
 	for _, resTargetGroup := range resTargetGroups {
-		if resTargetGroup.Spec.IsDeleted && !resTargetGroup.Spec.Config.IsServiceImport {
-			//Handle deleting target groups request triggered by httproute with BackendRef k8sService deletion or ServiceExport deletion,
-			//ignore target group deletion request triggered by ServiceImport deletion
-			//ignore any target group creation request
+		if !resTargetGroup.Spec.IsDeleted {
+			glog.V(6).Infof("SynthesizeTriggeredTargetGroupsDeletion should ignore target group creation request for tg: [%v]\n", resTargetGroup)
+			continue
+		}
+
+		if resTargetGroup.Spec.Config.IsServiceImport {
+			// For delete TargetGroup request triggered by service import, we just delete the tg in the datastore
+			t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, resTargetGroup.Spec.Config.IsServiceImport)
+		} else {
+			// For delete TargetGroup request triggered by k8s service, invoke vpc lattice api to delete it, if success, delete the tg in the datastore as well
 			err := t.targetGroupManager.Delete(ctx, resTargetGroup)
 			if err != nil {
-				glog.V(6).Infof("Delete Target Group in PostSynthesize: failed to delete target group %v, err %v \n", resTargetGroup, err)
+				glog.V(6).Infof("Delete Target Group in SynthesizeTriggeredTargetGroupsDeletion: failed to delete target group %v, err %v \n", resTargetGroup, err)
 				returnErr = true
 			} else {
-				glog.V(6).Infof("Delete Target Group in PostSynthesize: successfully deleted target group %v\n", resTargetGroup)
+				glog.V(6).Infof("Delete Target Group in SynthesizeTriggeredTargetGroupsDeletion: successfully deleted target group %v\n", resTargetGroup)
 				t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, resTargetGroup.Spec.Config.IsServiceImport)
 			}
 		}

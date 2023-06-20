@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"errors"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
@@ -100,7 +101,7 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.ruleManager, stack, d.latticeDataStore)
 
 	//Handle targetGroups creation request
-	if err := targetGroupSynthesizer.Synthesize(ctx); err != nil {
+	if err := targetGroupSynthesizer.SynthesizeTriggeredTargetGroupsCreation(ctx); err != nil {
 		return err
 	}
 
@@ -110,7 +111,7 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	}
 
 	// Handle latticeService creation request
-	if err := serviceSynthesizer.Synthesize(ctx); err != nil {
+	if err := serviceSynthesizer.SynthesizeCreation(ctx); err != nil {
 		return err
 	}
 
@@ -125,17 +126,27 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	}
 
 	//Handle latticeService Deletion request
-	if err := serviceSynthesizer.PostSynthesize(ctx); err != nil {
+	if err := serviceSynthesizer.SynthesizeDeletion(ctx); err != nil {
 		return err
 	}
 
-	//Handle targetGroup Deletion request and garbage collection for not-in-use targetGroups
-	if err := targetGroupSynthesizer.PostSynthesize(ctx); err != nil {
-		return err
+	//Handle targetGroup deletion request
+	var returnErr = false
+	if err := targetGroupSynthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx); err != nil {
+		returnErr = true
 	}
 
-	return nil
+	// Do garbage collection for not-in-use targetGroups
+	//TODO: run SynthesizeSDKTargetGroups(ctx) as a global garbage collector scheduled backgroud task (i.e., run it as a goroutine in main.go)
+	if err := targetGroupSynthesizer.SynthesizeSDKTargetGroups(ctx); err != nil {
+		returnErr = true
+	}
 
+	if returnErr {
+		return errors.New(lattice.LATTICE_RETRY)
+	} else {
+		return nil
+	}
 }
 
 type latticeTargetGroupStackDeployer struct {

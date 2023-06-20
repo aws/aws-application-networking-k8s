@@ -217,7 +217,9 @@ func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...c
 			Logger(ctx).Infof("Checking whether %s %s %s is not found", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
 			g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(object), object))).To(BeTrue())
 		}
-	}).WithTimeout(5 * time.Minute).WithOffset(1).Should(Succeed())
+		// Wait for 6 minutes at maximum just in case the k8sService deletion triggered targets draining time
+		// and httproute deletion need to wait for that targets draining time finish then it can return
+	}).WithTimeout(6 * time.Minute).WithOffset(1).Should(Succeed())
 }
 
 func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList client.ObjectList) {

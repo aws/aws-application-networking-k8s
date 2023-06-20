@@ -23,7 +23,7 @@ type serviceSynthesizer struct {
 	latticeDataStore *latticestore.LatticeDataStore
 }
 
-func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
+func (s *serviceSynthesizer) SynthesizeCreation(ctx context.Context) error {
 	var resServices []*latticemodel.Service
 
 	s.stack.ListResources(&resServices)
@@ -32,9 +32,9 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 	// TODO
 	for _, resService := range resServices {
 
-		glog.V(6).Infof("Synthesize Service/HTTPRoute: %v\n", resService)
+		glog.V(6).Infof("SynthesizeCreation Service/HTTPRoute: %v\n", resService)
 		if resService.Spec.IsDeleted {
-			// handle latticeService creation request in Synthesize() only, will handle the deletion request in PostSynthesize()
+			// handle latticeService creation request in SynthesizeCreation() only, will handle the deletion request in SynthesizeDeletion()
 			continue
 		}
 
@@ -56,18 +56,18 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 	return nil
 }
 
-func (s *serviceSynthesizer) PostSynthesize(ctx context.Context) error {
+func (s *serviceSynthesizer) SynthesizeDeletion(ctx context.Context) error {
 	var resServices []*latticemodel.Service
 
 	s.stack.ListResources(&resServices)
-	glog.V(6).Infof("Service PostSynthesize(Deletion) start: %v \n", resServices)
+	glog.V(6).Infof("Service SynthesizeDeletion(Deletion) start: %v \n", resServices)
 
 	for _, resService := range resServices {
 		if resService.Spec.IsDeleted {
-			// In serviceSynthesizer.PostSynthesize(), we only handle the deletion request,
-			// ignore the creation request which is handled in Synthesize()
+			// In serviceSynthesizer.SynthesizeDeletion(), we only handle the deletion request,
+			// ignore the creation request which is handled in SynthesizeCreation()
 			if err := s.serviceManager.Delete(ctx, resService); err == nil {
-				glog.V(6).Infof("service  PostSynthesize: finish deleting service %v\n", *resService)
+				glog.V(6).Infof("service  SynthesizeDeletion: finish deleting service %v\n", *resService)
 				s.latticeDataStore.DelLatticeService(resService.Spec.Name, resService.Spec.Namespace)
 			} else {
 				return err

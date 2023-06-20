@@ -53,7 +53,7 @@ func Test_SynthesizeService(t *testing.T) {
 			wantErrIsNil:  true,
 		},
 		{
-			name: "Add LatticeService, if serviceManager return error, then Synthesize() should return error",
+			name: "Add LatticeService, if serviceManager return error, then SynthesizeCreation() should return error",
 
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -76,7 +76,7 @@ func Test_SynthesizeService(t *testing.T) {
 			wantErrIsNil:  false,
 		},
 		{
-			name: "serviceSynthesizer.Synthesize() should ignore LatticeService deletion request",
+			name: "serviceSynthesizer.SynthesizeCreation() should ignore LatticeService deletion request",
 
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -137,7 +137,7 @@ func Test_SynthesizeService(t *testing.T) {
 
 		synthesizer := NewServiceSynthesizer(mockSvcManager, stack, ds)
 
-		err := synthesizer.Synthesize(ctx)
+		err := synthesizer.SynthesizeCreation(ctx)
 
 		if tt.wantErrIsNil {
 			assert.Nil(t, err)
@@ -166,7 +166,7 @@ func Test_PostSynthesizeService(t *testing.T) {
 		wantIsDeleted bool
 	}{
 		{
-			name: "serviceSynthesizer.PostSynthesize() should ignore any LatticeService creation request",
+			name: "serviceSynthesizer.SynthesizeDeletion() should ignore any LatticeService creation request",
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
@@ -277,7 +277,7 @@ func Test_PostSynthesizeService(t *testing.T) {
 		synthesizer := NewServiceSynthesizer(mockSvcManager, stack, ds)
 		var err error
 
-		err = synthesizer.PostSynthesize(ctx)
+		err = synthesizer.SynthesizeDeletion(ctx)
 
 		if tt.wantErrIsNil {
 			assert.Nil(t, err)
