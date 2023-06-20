@@ -29,7 +29,6 @@ func (s *serviceSynthesizer) SynthesizeCreation(ctx context.Context) error {
 	s.stack.ListResources(&resServices)
 	glog.V(6).Infof("Service-synthesize start: %v \n", resServices)
 
-	// TODO
 	for _, resService := range resServices {
 
 		glog.V(6).Infof("SynthesizeCreation Service/HTTPRoute: %v\n", resService)

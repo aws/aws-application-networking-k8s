@@ -290,7 +290,7 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByServiceImport(t *te
 	}{
 
 		{
-			name: " ignore all target group deletion triggered by service import",
+			name: "Ignore all target group deletion request triggered by httproute deletion with backendref service import",
 			svcImportList: []svcImportDef{
 				{
 					name:    "service-import31",
@@ -794,7 +794,7 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByK8sService(t *testi
 		wantErrIsNil bool
 	}{
 		{
-			name: "k8sService triggered target group deletion, ok case",
+			name: "httproute with backendref k8sService deletion request triggering target group deletion, ok case",
 			svcList: []svcDef{
 				{
 					name:   "service11",
@@ -813,7 +813,7 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByK8sService(t *testi
 			wantErrIsNil: true,
 		},
 		{
-			name: "k8sService triggered target group deletion, mgrErr",
+			name: "httproute with backendref k8sService deletion request triggering target group deletion, mgrErr",
 			svcList: []svcDef{
 				{
 					name:   "service21",
