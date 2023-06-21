@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"strings"
 
+	"github.com/golang/glog"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
@@ -107,7 +109,7 @@ func k8s2LatticeName(name string, namespace string) string {
 }
 
 func k8sLatticeListenerName(name string, namespace string, port int, protocol string) string {
-	listenerName := fmt.Sprintf("%s-%s-%d-%s", name, namespace, port, strings.ToLower(protocol))
+	listenerName := fmt.Sprintf("%s-%s-%d-%s", utils.Truncate(name, 20), utils.Truncate(namespace, 18), port, strings.ToLower(protocol))
 
 	return listenerName
 }

@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go/aws"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -59,7 +61,7 @@ func Test_Create_ValidateService(t *testing.T) {
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		SVCName := latticestore.AWSServiceName(tt.wantServiceName, "default")
+		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
 		createServiceOutput := &vpclattice.CreateServiceOutput{
 			Arn:    &tt.wantServiceArn,
 			Id:     &tt.wantServiceId,
@@ -360,7 +362,7 @@ func Test_Create_MeshServiceAssociation(t *testing.T) {
 			},
 			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
 		}
-		SVCName := latticestore.AWSServiceName(tt.wantServiceName, "default")
+		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
 		tt.wantListServiceOutput = append(tt.wantListServiceOutput, &vpclattice.ServiceSummary{
 			Arn:  &tt.wantServiceArn,
 			Id:   &tt.wantServiceId,
@@ -443,7 +445,7 @@ func Test_Create_Check(t *testing.T) {
 			},
 			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
 		}
-		SVCName := latticestore.AWSServiceName(tt.wantServiceName, "default")
+		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
 		tt.wantListServiceOutput = append(tt.wantListServiceOutput, &vpclattice.ServiceSummary{
 			Arn:  &tt.wantServiceArn,
 			Id:   &tt.wantServiceId,
@@ -509,7 +511,7 @@ func Test_Delete_ValidateInput(t *testing.T) {
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		SVCName := latticestore.AWSServiceName(tt.wantServiceName, "default")
+		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
 		tt.wantListServiceOutput = append(tt.wantListServiceOutput, &vpclattice.ServiceSummary{
 			Arn:  &tt.wantServiceArn,
 			Id:   &tt.wantServiceId,
@@ -624,7 +626,7 @@ func Test_Delete_Disassociation_DeleteService(t *testing.T) {
 		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
-		SVCName := latticestore.AWSServiceName(tt.wantServiceName, "default")
+		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
 		tt.wantListServiceOutput = append(tt.wantListServiceOutput, &vpclattice.ServiceSummary{
 			Arn:  &tt.wantServiceArn,
 			Id:   &tt.wantServiceId,

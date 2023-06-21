@@ -53,7 +53,7 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 
 			time.Sleep(3 * time.Minute)
 			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, httpRoute)
-			Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(httpRoute.Name, httpRoute.Namespace)))
+			Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
 			log.Println("Verifying Target Groups")
 			retrievedTg0 := testFramework.GetTargetGroup(ctx, service0)
 			retrievedTg1 := testFramework.GetTargetGroup(ctx, service1)

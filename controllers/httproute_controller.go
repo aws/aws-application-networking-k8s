@@ -291,25 +291,31 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	httprouteOld = httproute.DeepCopy()
 	if len(httproute.Status.RouteStatus.Parents) == 0 {
 		httproute.Status.RouteStatus.Parents = make([]gateway_api.RouteParentStatus, 1)
-		httproute.Status.RouteStatus.Parents[0].Conditions = make([]metav1.Condition, 1)
-		httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime = eventhandlers.ZeroTransitionTime
 	}
 
+	httproute.Status.RouteStatus.Parents[0].ParentRef = httproute.Spec.ParentRefs[0]
 	httproute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
-	httproute.Status.RouteStatus.Parents[0].Conditions[0].Type = string(gateway_api.RouteConditionAccepted)
-	httproute.Status.RouteStatus.Parents[0].Conditions[0].Status = metav1.ConditionTrue
-	httproute.Status.RouteStatus.Parents[0].Conditions[0].Message = fmt.Sprintf("DNS Name: %s", dns)
-	httproute.Status.RouteStatus.Parents[0].Conditions[0].Reason = string(gateway_api.RouteReasonAccepted)
-	httproute.Status.RouteStatus.Parents[0].Conditions[0].ObservedGeneration = httproute.Generation
-
-	if httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
-		httproute.Status.RouteStatus.Parents[0].Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+	accepted := metav1.Condition{
+		Type:               string(gateway_api.RouteConditionAccepted),
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: httproute.Generation,
+		LastTransitionTime: metav1.NewTime(time.Now()),
+		Reason:             string(gateway_api.RouteReasonAccepted),
+		Message:            fmt.Sprintf("DNS Name: %s", dns),
 	}
-
-	httproute.Status.RouteStatus.Parents[0].ParentRef.Group = httproute.Spec.ParentRefs[0].Group
-	httproute.Status.RouteStatus.Parents[0].ParentRef.Kind = httproute.Spec.ParentRefs[0].Kind
-	httproute.Status.RouteStatus.Parents[0].ParentRef.Name = httproute.Spec.ParentRefs[0].Name
+	resolvedRefs := metav1.Condition{
+		Type:               string(gateway_api.RouteConditionResolvedRefs),
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: httproute.Generation,
+		LastTransitionTime: metav1.NewTime(time.Now()),
+		Reason:             string(gateway_api.RouteReasonResolvedRefs),
+		Message:            fmt.Sprintf("DNS Name: %s", dns),
+	}
+	httproute.Status.RouteStatus.Parents[0].Conditions = []metav1.Condition{
+		accepted,
+		resolvedRefs,
+	}
 
 	// Update listener Status
 	UpdateHTTPRouteListenerStatus(ctx, r.Client, httproute)

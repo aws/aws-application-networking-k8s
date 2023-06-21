@@ -3,8 +3,11 @@ package latticestore
 import (
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"sync"
+
+	"github.com/golang/glog"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
 // ERROR CODE
@@ -293,18 +296,15 @@ func (ds *LatticeDataStore) GetLatticeService(name string, namespace string) (La
 
 // the max tg name length is 127
 func TargetGroupName(name string, namespace string) string {
-	return fmt.Sprintf("k8s-%0.20s-%0.20s", name, namespace)
+	return fmt.Sprintf("k8s-%s-%s", utils.Truncate(name, 20), utils.Truncate(namespace, 20))
 }
 
 func TargetGroupLongName(k8sName string, routeName string, vpcid string) string {
-	return fmt.Sprintf("k8s-%0.40s-%0.20s-%0.20s", k8sName, routeName, vpcid)
+	return fmt.Sprintf("%s-%s-%s", k8sName, utils.Truncate(routeName, 20), utils.Truncate(vpcid, 20))
 }
 
-// TODO , find out a good name
-// AWSserviceName,  or VSNServiceName or LatticeServiceName
-// the max name length is 40
-func AWSServiceName(name string, namespace string) string {
-	return fmt.Sprintf("%0.20s-%0.18s", name, namespace)
+func LatticeServiceName(name string, namespace string) string {
+	return fmt.Sprintf("%s-%s", utils.Truncate(name, 20), utils.Truncate(namespace, 18))
 }
 
 func (ds *LatticeDataStore) AddTargetGroup(name string, vpc string, arn string, tgID string,
