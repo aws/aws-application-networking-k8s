@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"testing"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,7 +77,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 			wantIsDeleted: false,
 		},
 		{
-			name: "Deleting ServieExport where service object does NOT exist",
+			name: "Deleting ServiceExport where service object does NOT exist",
 			svcExport: &mcs_api.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "export3",
@@ -277,9 +276,8 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 			name: "Create LatticeService where backend K8S service does NOT exist",
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              "service3",
-					Finalizers:        []string{"gateway.k8s.aws/resources"},
-					DeletionTimestamp: &now,
+					Name:       "service3",
+					Finalizers: []string{"gateway.k8s.aws/resources"},
 				},
 				Spec: gateway_api.HTTPRouteSpec{
 					CommonRouteSpec: gateway_api.CommonRouteSpec{
@@ -316,9 +314,8 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 			name: "Create LatticeService where backend mcs serviceimport does NOT exist",
 			httpRoute: &gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:              "service4",
-					Finalizers:        []string{"gateway.k8s.aws/resources"},
-					DeletionTimestamp: &now,
+					Name:       "service4",
+					Finalizers: []string{"gateway.k8s.aws/resources"},
 				},
 				Spec: gateway_api.HTTPRouteSpec{
 					CommonRouteSpec: gateway_api.CommonRouteSpec{

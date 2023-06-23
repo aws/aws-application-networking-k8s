@@ -2,7 +2,7 @@ export KUBEBUILDER_ASSETS ?= ${HOME}/.kubebuilder/bin
 export CLUSTER_NAME ?= $(shell kubectl config view --minify -o jsonpath='{.clusters[].name}' | rev | cut -d"/" -f1 | rev | cut -d"." -f1)
 export CLUSTER_VPC_ID ?= $(shell aws eks describe-cluster --name $(CLUSTER_NAME) | jq -r ".cluster.resourcesVpcConfig.vpcId")
 export AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text)
-
+export REGION ?= $(shell aws configure get region)
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 VERSION ?= $(shell git tag --sort=committerdate | tail -1)
