@@ -42,7 +42,7 @@ var _ = Describe("HTTPRoute path matches", func() {
 
 		// Verify VPC Lattice Resource
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
+		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
 
 		targetGroupV1 := testFramework.GetTargetGroup(ctx, service1)
 		Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))

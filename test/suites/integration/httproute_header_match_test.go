@@ -2,17 +2,19 @@ package integration
 
 import (
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"log"
+	"regexp"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"log"
-	"regexp"
-	"time"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
 var _ = Describe("HTTPRoute header matches", func() {
@@ -30,7 +32,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 
 		time.Sleep(3 * time.Minute)
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, headerMatchHttpRoute)
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.AWSServiceName(headerMatchHttpRoute.Name, headerMatchHttpRoute.Namespace)))
+		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(headerMatchHttpRoute.Name, headerMatchHttpRoute.Namespace)))
 		Eventually(func(g Gomega) {
 			log.Println("Verifying VPC lattice service listeners and rules")
 			listListenerResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{

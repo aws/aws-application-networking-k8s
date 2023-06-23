@@ -1,10 +1,11 @@
 package test
 
 import (
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/samber/lo"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 type ObjectAndWeight struct {
@@ -46,7 +47,7 @@ func (env *Framework) NewWeightedRoutingHttpRoute(parentRefsGateway *v1beta1.Gat
 			},
 		},
 	})
-	env.TestCasesCreatedServiceNames[latticestore.AWSServiceName(httpRoute.Name, httpRoute.Namespace)] = true
+	env.TestCasesCreatedServiceNames[latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)] = true
 	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, httpRoute)
 	return httpRoute
 }

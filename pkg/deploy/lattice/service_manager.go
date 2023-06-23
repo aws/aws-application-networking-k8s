@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -51,7 +52,7 @@ func NewServiceManager(cloud lattice_aws.Cloud, latticeDataStore *latticestore.L
 func (s *defaultServiceManager) Create(ctx context.Context, service *latticemodel.Service) (latticemodel.ServiceStatus, error) {
 
 	// check if exists
-	svcName := latticestore.AWSServiceName(service.Spec.Name, service.Spec.Namespace)
+	svcName := latticestore.LatticeServiceName(service.Spec.Name, service.Spec.Namespace)
 	serviceSummary, err := s.findServiceByName(ctx, svcName)
 	if err != nil {
 		return latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""}, err
@@ -194,7 +195,7 @@ func (s *defaultServiceManager) Delete(ctx context.Context, service *latticemode
 
 	latticeSess := s.cloud.Lattice()
 
-	svcName := latticestore.AWSServiceName(service.Spec.Name, service.Spec.Namespace)
+	svcName := latticestore.LatticeServiceName(service.Spec.Name, service.Spec.Namespace)
 	serviceSummary, err := s.findServiceByName(ctx, svcName)
 	if err != nil || serviceSummary == nil {
 		glog.V(6).Infof("defaultServiceManager: Deleting unknown service %v\n", service.Spec.Name)
