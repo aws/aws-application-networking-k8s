@@ -212,22 +212,17 @@ The following figure illustrates this:
    ```
 1. Check the Service-Rates/parking pod access to Service-Inventory by execing into the parking pod:
    ```bash
-   kubectl exec -ti parking-6cdcd5b4b4-bbzvt sh
+   kubectl exec -it deploy/parking -- sh -c 'for ((i=1; i<=30; i++)); do curl "$0"; done' "$inventoryFQDN"
    ```
-1. From inside of the pod, use `curl` to connect to the inventory service:
- 
-      ```bash
-      for ((i=1;i<=30;i++)); do   curl   "inventory-default-0f89d8ff5e98400d0.7d67968.vpc-lattice-svcs.us-west-2.on.aws"; done
-      ```
-      ```
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod <----> in 1st cluster
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
-      ```
-      You can see that the traffic is distributed between *inventory-ver1* and *inventory-ver2* as expected.
+   ```
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod <----> in 1st cluster
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
+   ```
+   You can see that the traffic is distributed between *inventory-ver1* and *inventory-ver2* as expected.
