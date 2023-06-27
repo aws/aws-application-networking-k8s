@@ -98,8 +98,6 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		return errors.New(errmsg)
 	}
 
-	endPoints := &corev1.Endpoints{}
-
 	svc := &corev1.Service{}
 	namespacedName := types.NamespacedName{
 		Namespace: t.tgNamespace,
@@ -126,6 +124,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	}
 
 	var targetList []latticemodel.Target
+	endPoints := &corev1.Endpoints{}
 
 	if svc.DeletionTimestamp.IsZero() {
 		if err := t.Client.Get(ctx, namespacedName, endPoints); err != nil {
@@ -137,7 +136,6 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		glog.V(6).Infof("Build Targets:  endPoints %v \n", endPoints)
 
 		for _, endPoint := range endPoints.Subsets {
-
 			for _, address := range endPoint.Addresses {
 				for _, port := range endPoint.Ports {
 					glog.V(6).Infof("serviceReconcile-endpoints: address %v, port %v\n", address, port)
@@ -145,15 +143,10 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-					if portAnnotations == 0 {
+					if portAnnotations == 0 || int64(target.Port) == portAnnotations {
 						targetList = append(targetList, target)
 					} else {
-						if int64(target.Port) == portAnnotations {
-							targetList = append(targetList, target)
-							glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
-						} else {
-							glog.V(6).Infof("The ports do not match, Not registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
-						}
+						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
 					}
 				}
 			}
