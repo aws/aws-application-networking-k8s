@@ -1,15 +1,16 @@
 package integration
 
 import (
+	"log"
+	"os"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"log"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	"time"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -45,8 +46,9 @@ var _ = Describe("Deregister Targets", func() {
 
 		// Verify VPC Lattice Service exists
 		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
+
 		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(
-			latticestore.AWSServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
+			latticestore.LatticeServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
 
 		// Verify VPC Lattice Target Group exists
 		targetGroup = testFramework.GetTargetGroup(ctx, service)

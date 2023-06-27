@@ -104,9 +104,33 @@ This example creates a single cluster in a single VPC, then configures two route
       ...
       ```
 
+1. if the previous step returns the expected response, store assigned DNS names to variables.
+
+
+   ```bash
+   ratesdns=$(kubectl get httproute rates -o json | jq -r .status.parents[].conditions[].message)
+   inventorydns=$(kubectl get httproute inventory -o json | jq -r .status.parents[].conditions[].message)
+   ```
+   
+   remove preceding extra text:
+   
+   ```bash
+   prefix="DNS Name: "
+   echo $ratesdns
+   echo $inventorydns
+   ratesFQDN=${ratesdns#$prefix}
+   inventoryFQDN=${inventorydns#$prefix}
+   ```
+
+confirm that the URLs are stored correctly:
+
+```bash
+echo $ratesFQDN $inventoryFQDN
+```
+
 **Check service connectivity**
 
-1. Check Service-Inventory Pod access for Service-Rates/parking or Service-Rates/review by execing into the pod, then curling each service.
+1. Check Service-Inventory Pod access for Service-Rates/parking or Service-Rates/review by executing into the pod, then curling each service.
    ```bash
    kubectl get pod
    ```
@@ -121,40 +145,19 @@ This example creates a single cluster in a single VPC, then configures two route
    ```
 1. Exec into an inventory pod to check connectivity to parking and review services:
    ```bash
-   kubectl exec -ti inventory-ver1-7bb6989d9d-2p2hk sh
-   ```
-1. From inside of the inventory pod, use `curl` to connect to the parking service (using the DNS Name from the previous `kubectl get httproute` command):
-   ```bash
-   curl rates-default-0d38139624f20d213.7d67968.vpc-lattice-svcs.us-west-2.on.aws/parking
+   kubectl exec -it deploy/inventory-ver1 -- curl $ratesFQDN/parking $ratesFQDN/review
    ```
    ```
-   Requesting to Pod(parking-6cdcd5b4b4-g8dkb): parking handler pod
+   Requsting to Pod(parking-8548d7f98d-57whb): parking handler pod
+   Requsting to Pod(review-6df847686d-dhzwc): review handler pod
    ```
-1. From inside of the pod, use `curl` to connect to the review service:
-   ```bash
-   curl rates-00422586e3362607e.7d67968.vpc-service-network-svcs.us-west-2.amazonaws.com/review 
-   ```
-   ```
-   Requesting to Pod(review-5888566ff6-89fqk): review handler pod
-   ```
-1. Exit the pod:
-   ```bash
-   exit
-   ```
+ 
 1. Exec into a parking pod to check connectivity to the inventory-ver1 service:
    ```bash
-   kubectl exec -ti parking-6cdcd5b4b4-bbzvt sh
-   ```
-1. From inside of the parking pod, use `curl` to connect to the inventory-ver1 service:
-   ```bash
-   curl inventory-default-02fb06f1acdeb5b55.7d67968.vpc-lattice-svcs.us-west-2.on.aws
+   kubectl exec -it deploy/parking -- curl $inventoryFQDN
    ```
    ```
-   Requesting to Pod(inventory-ver1-7bb6989d9d-2p2hk): inventory-ver1 handler pod 
-   ```
-1. Exit the pod:
-   ```bash
-   exit
+   Requsting to Pod(inventory-ver1-99d48958c-whr2q): Inventory-ver1 handler pod
    ```
 
 ## Set up multi-cluster/multi-VPC service-to-service communications
@@ -209,22 +212,17 @@ The following figure illustrates this:
    ```
 1. Check the Service-Rates/parking pod access to Service-Inventory by execing into the parking pod:
    ```bash
-   kubectl exec -ti parking-6cdcd5b4b4-bbzvt sh
+   kubectl exec -it deploy/parking -- sh -c 'for ((i=1; i<=30; i++)); do curl "$0"; done' "$inventoryFQDN"
    ```
-1. From inside of the pod, use `curl` to connect to the inventory service:
- 
-      ```bash
-      for ((i=1;i<=30;i++)); do   curl   "inventory-default-0f89d8ff5e98400d0.7d67968.vpc-lattice-svcs.us-west-2.on.aws"; done
-      ```
-      ```
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod <----> in 1st cluster
-      Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-      Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
-      ```
-      You can see that the traffic is distributed between *inventory-ver1* and *inventory-ver2* as expected.
+   ```
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod <----> in 1st cluster
+   Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+   Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
+   ```
+   You can see that the traffic is distributed between *inventory-ver1* and *inventory-ver2* as expected.

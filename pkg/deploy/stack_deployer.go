@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -74,6 +75,7 @@ type latticeServiceStackDeployer struct {
 	k8sclient             client.Client
 	latticeServiceManager lattice.ServiceManager
 	targetGroupManager    lattice.TargetGroupManager
+	targetsManager        lattice.TargetsManager
 	listenerManager       lattice.ListenerManager
 	ruleManager           lattice.RuleManager
 	latticeDataStore      *latticestore.LatticeDataStore
@@ -85,6 +87,7 @@ func NewLatticeServiceStackDeploy(cloud aws.Cloud, k8sClient client.Client, latt
 		k8sclient:             k8sClient,
 		latticeServiceManager: lattice.NewServiceManager(cloud, latticeDataStore),
 		targetGroupManager:    lattice.NewTargetGroupManager(cloud),
+		targetsManager:        lattice.NewTargetsManager(cloud, latticeDataStore),
 		listenerManager:       lattice.NewListenerManager(cloud, latticeDataStore),
 		ruleManager:           lattice.NewRuleManager(cloud, latticeDataStore),
 		latticeDataStore:      latticeDataStore,
@@ -93,7 +96,7 @@ func NewLatticeServiceStackDeploy(cloud aws.Cloud, k8sClient client.Client, latt
 
 func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore)
-	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.cloud, lattice.NewTargetsManager(d.cloud, d.latticeDataStore), stack, d.latticeDataStore)
+	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.cloud, d.targetsManager, stack, d.latticeDataStore)
 	serviceSynthesizer := lattice.NewServiceSynthesizer(d.latticeServiceManager, stack, d.latticeDataStore)
 	listenerSynthesizer := lattice.NewListenerSynthesizer(d.listenerManager, stack, d.latticeDataStore)
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.ruleManager, stack, d.latticeDataStore)
