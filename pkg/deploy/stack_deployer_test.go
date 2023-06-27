@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -65,7 +66,9 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 		latticeDataStore:      mockLatticeDataStore,
 	}
 
-	deployer.Deploy(ctx, s)
+	err := deployer.Deploy(ctx, s)
+
+	assert.Nil(t, err)
 }
 
 func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
@@ -110,7 +113,9 @@ func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
 		latticeDataStore:      mockLatticeDataStore,
 	}
 
-	deployer.Deploy(ctx, s)
+	err := deployer.Deploy(ctx, s)
+
+	assert.Nil(t, err)
 }
 
 func Test_latticeServiceStackDeployer_DeleteService(t *testing.T) {
@@ -157,7 +162,9 @@ func Test_latticeServiceStackDeployer_DeleteService(t *testing.T) {
 		latticeDataStore:      mockLatticeDataStore,
 	}
 
-	deployer.Deploy(ctx, s)
+	err := deployer.Deploy(ctx, s)
+
+	assert.Nil(t, err)
 }
 
 func Test_latticeServiceStackDeployer_DeleteAllResources(t *testing.T) {
@@ -208,5 +215,7 @@ func Test_latticeServiceStackDeployer_DeleteAllResources(t *testing.T) {
 		latticeDataStore:      mockLatticeDataStore,
 	}
 
-	deployer.Deploy(ctx, s)
+	err := deployer.Deploy(ctx, s)
+
+	assert.Nil(t, err)
 }
