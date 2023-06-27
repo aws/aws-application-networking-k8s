@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -28,6 +30,7 @@ func Test_Targets(t *testing.T) {
 		srvExportNamespace string
 		endPoints          []corev1.Endpoints
 		svc                corev1.Service
+		serviceExport      mcs_api.ServiceExport
 		inDataStore        bool
 		refByServiceExport bool
 		refByService       bool
@@ -78,6 +81,53 @@ func Test_Targets(t *testing.T) {
 				{
 					TargetIP: "10.10.2.2",
 					Port:     309,
+				},
+			},
+		},
+		{
+			name:               "Add all endpoints to build spec with port annotation",
+			srvExportName:      "export1",
+			srvExportNamespace: "ns1",
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "export1",
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
+							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 3090}},
+						},
+					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export1",
+					DeletionTimestamp: nil,
+				},
+			},
+			serviceExport: mcs_api.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export1",
+					DeletionTimestamp: nil,
+					Annotations:       map[string]string{"multicluster.x-k8s.io/port": "3090"},
+				},
+			},
+			inDataStore:        true,
+			refByServiceExport: true,
+			wantErrIsNil:       true,
+			expectedTargetList: []latticemodel.Target{
+				{
+					TargetIP: "10.10.1.1",
+					Port:     3090,
+				},
+				{
+					TargetIP: "10.10.2.2",
+					Port:     3090,
 				},
 			},
 		},
@@ -261,8 +311,13 @@ func Test_Targets(t *testing.T) {
 		ctx := context.TODO()
 
 		k8sSchema := runtime.NewScheme()
+		k8sSchema.AddKnownTypes(mcs_api.SchemeGroupVersion, &mcs_api.ServiceExport{})
 		clientgoscheme.AddToScheme(k8sSchema)
 		k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+
+		if !reflect.DeepEqual(tt.serviceExport, mcs_api.ServiceExport{}) {
+			assert.NoError(t, k8sClient.Create(ctx, tt.serviceExport.DeepCopy()))
+		}
 
 		if len(tt.endPoints) > 0 {
 			assert.NoError(t, k8sClient.Create(ctx, tt.endPoints[0].DeepCopy()))

@@ -116,7 +116,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
 	} else {
 		//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
-		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Port"], 10, 64)
+		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/port"], 10, 64)
 		if err != nil {
 			glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/port"], err)
 		}
@@ -145,6 +145,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 					}
 					if portAnnotations == 0 || int64(target.Port) == portAnnotations {
 						targetList = append(targetList, target)
+						fmt.Printf("SESMAILI GOT HERE 1 - portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
 					} else {
 						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
 					}
