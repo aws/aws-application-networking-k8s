@@ -48,11 +48,13 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 	// go through parent find out the matching section name
 	if parentRef.SectionName != nil {
 		glog.V(6).Infof("HTTP SectionName %s \n", *parentRef.SectionName)
+		found := false
 		for _, section := range gw.Spec.Listeners {
 			glog.V(6).Infof("listener: %v\n", section)
 			if section.Name == *parentRef.SectionName {
 				listenerPort = int(section.Port)
 				protocol = section.Protocol
+				found = true
 
 				if section.TLS != nil {
 					if section.TLS.Mode != nil && *section.TLS.Mode == gateway_api.TLSModeTerminate {
@@ -67,8 +69,12 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 					}
 
 				}
-
+				break
 			}
+		}
+		if !found {
+			glog.V(2).Infof("Failed to build Listener due to unknown http parent ref section, Name %s, Section %s \n", parentRef.Name, *parentRef.SectionName)
+			return 0, "", "", errors.New("Error building listener, no matching sectionName in parentRef")
 		}
 	} else {
 		// use 1st listener port

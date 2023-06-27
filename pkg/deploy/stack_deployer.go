@@ -2,7 +2,6 @@ package deploy
 
 import (
 	"context"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -93,15 +92,49 @@ func NewLatticeServiceStackDeploy(cloud aws.Cloud, k8sClient client.Client, latt
 }
 
 func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
-	synthesizers := []ResourceSynthesizer{
-		lattice.NewTargetGroupSynthesizer(d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore),
-		lattice.NewServiceSynthesizer(d.latticeServiceManager, stack, d.latticeDataStore),
-		lattice.NewTargetsSynthesizer(d.cloud, lattice.NewTargetsManager(d.cloud, d.latticeDataStore), stack, d.latticeDataStore),
-		lattice.NewListenerSynthesizer(d.listenerManager, stack, d.latticeDataStore),
-		lattice.NewRuleSynthesizer(d.ruleManager, stack, d.latticeDataStore),
-	}
-	return deploy(ctx, stack, synthesizers)
+	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore)
+	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.cloud, lattice.NewTargetsManager(d.cloud, d.latticeDataStore), stack, d.latticeDataStore)
+	serviceSynthesizer := lattice.NewServiceSynthesizer(d.latticeServiceManager, stack, d.latticeDataStore)
+	listenerSynthesizer := lattice.NewListenerSynthesizer(d.listenerManager, stack, d.latticeDataStore)
+	ruleSynthesizer := lattice.NewRuleSynthesizer(d.ruleManager, stack, d.latticeDataStore)
 
+	//Handle targetGroups creation request
+	if err := targetGroupSynthesizer.SynthesizeTriggeredTargetGroupsCreation(ctx); err != nil {
+		return err
+	}
+
+	//Handle targets "reconciliation" request (register intend-to-be-registered targets and deregister intend-to-be-registered targets)
+	if err := targetsSynthesizer.Synthesize(ctx); err != nil {
+		return err
+	}
+
+	// Handle latticeService "reconciliation" request
+	if err := serviceSynthesizer.Synthesize(ctx); err != nil {
+		return err
+	}
+
+	//Handle latticeService listeners "reconciliation" request
+	if err := listenerSynthesizer.Synthesize(ctx); err != nil {
+		return err
+	}
+
+	//Handle latticeService listener's rules "reconciliation" request
+	if err := ruleSynthesizer.Synthesize(ctx); err != nil {
+		return err
+	}
+
+	//Handle targetGroup deletion request
+	if err := targetGroupSynthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx); err != nil {
+		return err
+	}
+
+	// Do garbage collection for not-in-use targetGroups
+	//TODO: run SynthesizeSDKTargetGroups(ctx) as a global garbage collector scheduled backgroud task (i.e., run it as a goroutine in main.go)
+	if err := targetGroupSynthesizer.SynthesizeSDKTargetGroups(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type latticeTargetGroupStackDeployer struct {

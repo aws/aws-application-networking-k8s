@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -160,13 +161,19 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 	}
 	glog.V(6).Infof("TG manager list, listReq %v\n", listTargetsInput)
 	listResp, err := vpcLatticeSess.ListTargetsAsList(ctx, &listTargetsInput)
-	glog.V(6).Infof("manager delete,  listResp %v, err: %v \n", listResp, err)
+	glog.V(6).Infof("TG manager delete,  listResp %v, err: %v \n", listResp, err)
 	if err != nil {
 		return err
 	}
 
 	var targets []*vpclattice.Target
 	for _, t := range listResp {
+		if t.Status != nil && *t.Status != vpclattice.TargetStatusUnused {
+			glog.V(6).Infof("TargetGroupManager: The targetGroup [%v] has non-Unused status target(s), which means this targetGroup is still in use by latticeService, it cannot be deleted now\n", targetGroup.Spec.LatticeID)
+			// Before call the defaultTargetGroupManager.Delete(), we always call the latticeServiceManager.Delete() first,
+			//  *t.Status != vpclattice.TargetStatusUnused means previous delete latticeService still in the progress, we could wait for 20 seconds and then retry
+			return errors.New(LATTICE_RETRY)
+		}
 		targets = append(targets, &vpclattice.Target{
 			Id:   t.Id,
 			Port: t.Port,
@@ -200,7 +207,17 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 	}
 
 	delResp, err := vpcLatticeSess.DeleteTargetGroupWithContext(ctx, &deleteTGInput)
-
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case vpclattice.ErrCodeResourceNotFoundException:
+				err = nil
+				break
+			default:
+				glog.V(6).Infof("vpcLatticeSess.DeleteTargetGroupWithContext() return error %v \n", err)
+			}
+		}
+	}
 	glog.V(2).Infof("TGManager delTGInput >>>> %v delTGResp :%v, err %v \n", deleteTGInput, delResp, err)
 
 	return err

@@ -359,3 +359,84 @@ func (t *targetGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 	// nothing to do here
 	return nil
 }
+
+func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsCreation(ctx context.Context) error {
+	var resTargetGroups []*latticemodel.TargetGroup
+	var returnErr = false
+	t.stack.ListResources(&resTargetGroups)
+	glog.V(6).Infof("SynthesizeTriggeredTargetGroupsCreation TargetGroups: [%v]\n", resTargetGroups)
+	for _, resTargetGroup := range resTargetGroups {
+		if resTargetGroup.Spec.IsDeleted {
+			glog.V(6).Infof("In the SynthesizeTriggeredTargetGroupsCreation(), we only handle TG Creation request and skip any deletion request [%v] \n", resTargetGroup)
+			continue
+		}
+		if resTargetGroup.Spec.Config.IsServiceImport {
+			tgStatus, err := t.targetGroupManager.Get(ctx, resTargetGroup)
+			if err != nil {
+				glog.V(6).Infof("Error on t.targetGroupManager.Get for %v err %v\n", resTargetGroup, err)
+				returnErr = true
+				continue
+			}
+			// for serviceimport, the httproutename is ""
+			t.latticeDataStore.AddTargetGroup(resTargetGroup.Spec.Name,
+				resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN, tgStatus.TargetGroupID,
+				resTargetGroup.Spec.Config.IsServiceImport, "")
+			glog.V(6).Infof("targetGroup Synthesized successfully for %s: %v\n", resTargetGroup.Spec.Name, tgStatus)
+		} else { // handle TargetGroup creation request that triggered by httproute with backendref k8sService creation or serviceExport creation
+			resTargetGroup.Spec.Config.VpcID = config.VpcID
+			tgStatus, err := t.targetGroupManager.Create(ctx, resTargetGroup)
+			if err != nil {
+				glog.V(6).Infof("Error on t.targetGroupManager.Create for %v err %v\n", resTargetGroup, err)
+				returnErr = true
+				continue
+			}
+			//In the ModelBuildTask, it should already add a tg entry in the latticeDataStore,
+			//in here, only UPDATE the entry with tgStatus.TargetGroupARN and tgStatus.TargetGroupID
+			t.latticeDataStore.AddTargetGroup(resTargetGroup.Spec.Name,
+				resTargetGroup.Spec.Config.VpcID, tgStatus.TargetGroupARN,
+				tgStatus.TargetGroupID, resTargetGroup.Spec.Config.IsServiceImport,
+				resTargetGroup.Spec.Config.K8SHTTPRouteName)
+			glog.V(6).Infof("targetGroup Synthesized successfully for %v: %v\n", resTargetGroup.Spec, tgStatus)
+		}
+	}
+	glog.V(6).Infof("Done -- SynthesizeTriggeredTargetGroupsCreation %v\n", resTargetGroups)
+	if returnErr {
+		return errors.New(LATTICE_RETRY)
+	} else {
+		return nil
+	}
+
+}
+
+func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsDeletion(ctx context.Context) error {
+	var resTargetGroups []*latticemodel.TargetGroup
+	var returnErr = false
+	t.stack.ListResources(&resTargetGroups)
+	glog.V(2).Infof("SynthesizeTriggeredTargetGroupsDeletion: TargetGroups ==[%v]\n", resTargetGroups)
+	for _, resTargetGroup := range resTargetGroups {
+		if !resTargetGroup.Spec.IsDeleted {
+			glog.V(6).Infof("SynthesizeTriggeredTargetGroupsDeletion should ignore target group creation request for tg: [%v]\n", resTargetGroup)
+			continue
+		}
+		if resTargetGroup.Spec.Config.IsServiceImport {
+			// For delete TargetGroup request triggered by service import, we just delete the tg in the datastore
+			t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, resTargetGroup.Spec.Config.IsServiceImport)
+		} else {
+			// For delete TargetGroup request triggered by k8s service, invoke vpc lattice api to delete it, if success, delete the tg in the datastore as well
+			err := t.targetGroupManager.Delete(ctx, resTargetGroup)
+			glog.V(6).Infof("err := t.targetGroupManager.Delete(ctx, resTargetGroup) err: %v\n", err)
+			if err == nil {
+				glog.V(6).Infof("Delete Target Group in SynthesizeTriggeredTargetGroupsDeletion: successfully deleted target group %v\n", resTargetGroup)
+				t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, resTargetGroup.Spec.Config.IsServiceImport)
+			} else {
+				glog.V(6).Infof("Delete Target Group in SynthesizeTriggeredTargetGroupsDeletion: failed to delete target group %v, err %v \n", resTargetGroup, err)
+				returnErr = true
+			}
+		}
+	}
+	if returnErr {
+		return errors.New(LATTICE_RETRY)
+	} else {
+		return nil
+	}
+}

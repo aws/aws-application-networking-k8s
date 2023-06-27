@@ -449,7 +449,6 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 		} else {
 
 			hasValidListener = true
-			attachedRoutes := 0
 
 			condition := metav1.Condition{
 				Type:               "Accepted",
@@ -474,7 +473,6 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 						*parentRef.Namespace != gateway_api.Namespace(gw.Namespace) {
 						continue
 					}
-					attachedRoutes++
 
 					var httpSectionName string
 					if parentRef.SectionName == nil {
@@ -487,8 +485,10 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 					if httpSectionName != string(listener.Name) {
 						continue
 					}
+					if parentRef.Port != nil && *parentRef.Port != listener.Port {
+						continue
+					}
 					listenerStatus.AttachedRoutes++
-					attachedRoutes++
 
 				}
 			}

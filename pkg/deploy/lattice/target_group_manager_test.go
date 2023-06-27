@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"testing"
 
@@ -511,20 +512,24 @@ func Test_CreateTargetGroup_CreateTGFailed(t *testing.T) {
 	assert.Equal(t, resp.TargetGroupID, "")
 }
 
-// Case1: Deregister targets and delete target group work perfectly fine
+// Case1: Deregister unused status targets and delete target group work perfectly fine
 // Case2: Delete target group that no targets register on it
 // Case3: While deleting target group, deregister targets fails
 // Case4: While deleting target group, list targets fails
 // Case5: While deleting target group, deregister targets unsuccessfully
 // Case6: Delete target group fails
+// Case7: While deleting target group, that it has non-unused status targets, return LATTICE_RETRY
+// Case8: While deleting target group, the vpcLatticeSess.DeleteTargetGroupWithContext() return ResourceNotFoundException, delete target group success and return err nil
 
-// Case1: Deregister targets and delete target group work perfectly fine
+// Case1: Deregister unused status targets and delete target group work perfectly fine
 func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 	sId := "123.456.7.890"
 	sPort := int64(80)
+	targetStatus := vpclattice.TargetStatusUnused
 	targetsList := &vpclattice.TargetSummary{
-		Id:   &sId,
-		Port: &sPort,
+		Id:     &sId,
+		Port:   &sPort,
+		Status: &targetStatus,
 	}
 	targetsSuccessful := &vpclattice.Target{
 		Id:   &sId,
@@ -772,6 +777,84 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroupFailed(t *testing.T) {
 
 	assert.NotNil(t, err)
 	assert.Equal(t, err, errors.New("DeleteTG_failed"))
+}
+
+// Case7: While deleting target group, it has non-unused status targets, return LATTICE_RETRY
+func Test_DeleteTG_TargetsNonUnused(t *testing.T) {
+	targetId := "123.456.7.890"
+	targetPort := int64(80)
+	targetStatus := vpclattice.TargetStatusHealthy
+	targets := &vpclattice.TargetSummary{
+		Id:     &targetId,
+		Port:   &targetPort,
+		Status: &targetStatus,
+	}
+	listTargetsOutput := []*vpclattice.TargetSummary{targets}
+
+	tgSpec := latticemodel.TargetGroupSpec{
+		Name:      "test",
+		Config:    latticemodel.TargetGroupConfig{},
+		Type:      "IP",
+		IsDeleted: false,
+		LatticeID: "123",
+	}
+	tgDeleteInput := latticemodel.TargetGroup{
+		ResourceMeta: core.ResourceMeta{},
+		Spec:         tgSpec,
+		Status:       nil,
+	}
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
+	tgManager := NewTargetGroupManager(mockCloud)
+
+	err := tgManager.Delete(ctx, &tgDeleteInput)
+
+	assert.NotNil(t, err)
+	assert.Equal(t, err, errors.New(LATTICE_RETRY))
+}
+
+// Case8: While deleting target group, the vpcLatticeSess.DeleteTargetGroupWithContext() return ResourceNotFoundException, delete target group success and return err nil
+func Test_DeleteTG_vpcLatticeSessReturnResourceNotFound_DeleteTargetGroupSuccessAndErrIsNil(t *testing.T) {
+	sId := "123.456.7.890"
+	sPort := int64(80)
+	targets := &vpclattice.TargetSummary{
+		Id:   &sId,
+		Port: &sPort,
+	}
+	listTargetsOutput := []*vpclattice.TargetSummary{targets}
+	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{}
+	deleteTargetGroupOutput := &vpclattice.DeleteTargetGroupOutput{}
+
+	tgSpec := latticemodel.TargetGroupSpec{
+		Name:      "test",
+		Config:    latticemodel.TargetGroupConfig{},
+		Type:      "IP",
+		IsDeleted: false,
+		LatticeID: "123",
+	}
+	tgDeleteInput := latticemodel.TargetGroup{
+		ResourceMeta: core.ResourceMeta{},
+		Spec:         tgSpec,
+	}
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockVpcLatticeSess.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, awserr.New(vpclattice.ErrCodeResourceNotFoundException, "", nil))
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	tgManager := NewTargetGroupManager(mockCloud)
+
+	err := tgManager.Delete(ctx, &tgDeleteInput)
+
+	assert.Nil(t, err)
 }
 
 func Test_ListTG_TGsExist(t *testing.T) {
