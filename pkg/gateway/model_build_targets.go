@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
@@ -107,6 +110,21 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		errmsg := fmt.Sprintf("Build Targets failed because K8S service %v does not exist", namespacedName)
 		return errors.New(errmsg)
 	}
+
+	portAnnotations := int64(0)
+	serviceExport := &mcs_api.ServiceExport{}
+	err = t.Client.Get(ctx, namespacedName, serviceExport)
+	if err != nil {
+		glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
+	} else {
+		//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
+		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Port"], 10, 64)
+		if err != nil {
+			glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/port"], err)
+		}
+		glog.V(6).Infof("Build Targets - portAnnotations: %v \n", portAnnotations)
+	}
+
 	var targetList []latticemodel.Target
 
 	if svc.DeletionTimestamp.IsZero() {
@@ -127,7 +145,16 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-					targetList = append(targetList, target)
+					if portAnnotations == 0 {
+						targetList = append(targetList, target)
+					} else {
+						if int64(target.Port) == portAnnotations {
+							targetList = append(targetList, target)
+							glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
+						} else {
+							glog.V(6).Infof("The ports do not match, Not registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
+						}
+					}
 				}
 			}
 		}
