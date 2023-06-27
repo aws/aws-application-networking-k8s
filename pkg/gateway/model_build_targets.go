@@ -22,6 +22,7 @@ import (
 
 const (
 	resourceIDLatticeTargets = "LatticeTargets"
+	portAnnotationsKey       = "multicluster.x-k8s.io/port"
 )
 
 type LatticeTargetsBuilder interface {
@@ -115,10 +116,11 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	if err != nil {
 		glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
 	} else {
+		// TODO: Change the code to support multiple comma separated ports instead of a single port
 		//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
-		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/port"], 10, 64)
+		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], 10, 64)
 		if err != nil {
-			glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/port"], err)
+			glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
 		}
 		glog.V(6).Infof("Build Targets - portAnnotations: %v \n", portAnnotations)
 	}
