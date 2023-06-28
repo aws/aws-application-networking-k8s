@@ -23,6 +23,7 @@ import (
 const (
 	resourceIDLatticeTargets = "LatticeTargets"
 	portAnnotationsKey       = "multicluster.x-k8s.io/port"
+	undefinedPort            = int64(0)
 )
 
 type LatticeTargetsBuilder interface {
@@ -110,7 +111,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		return errors.New(errmsg)
 	}
 
-	portAnnotations := int64(0)
+	portAnnotations := undefinedPort
 	serviceExport := &mcs_api.ServiceExport{}
 	err = t.Client.Get(ctx, namespacedName, serviceExport)
 	if err != nil {
@@ -145,9 +146,9 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-					if portAnnotations == 0 || int64(target.Port) == portAnnotations {
+					if portAnnotations == undefinedPort || int64(target.Port) == portAnnotations {
 						targetList = append(targetList, target)
-						fmt.Printf("portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
+						glog.V(6).Infof("portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
 					} else {
 						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
 					}
