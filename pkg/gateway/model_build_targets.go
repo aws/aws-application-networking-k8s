@@ -147,7 +147,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 					}
 					if portAnnotations == 0 || int64(target.Port) == portAnnotations {
 						targetList = append(targetList, target)
-						fmt.Printf("SESMAILI GOT HERE 1 - portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
+						fmt.Printf("portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
 					} else {
 						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
 					}
