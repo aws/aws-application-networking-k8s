@@ -1,0 +1,7 @@
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: elasticsearch
+  annotations:
+    multicluster.x-k8s.io/federation: "amazon-vpc-lattice"
+    multicluster.x-k8s.io/port: "9200"

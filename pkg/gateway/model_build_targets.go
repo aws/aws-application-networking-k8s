@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
@@ -19,6 +22,8 @@ import (
 
 const (
 	resourceIDLatticeTargets = "LatticeTargets"
+	portAnnotationsKey       = "multicluster.x-k8s.io/port"
+	undefinedPort            = int64(0)
 )
 
 type LatticeTargetsBuilder interface {
@@ -95,8 +100,6 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		return errors.New(errmsg)
 	}
 
-	endPoints := &corev1.Endpoints{}
-
 	svc := &corev1.Service{}
 	namespacedName := types.NamespacedName{
 		Namespace: t.tgNamespace,
@@ -107,7 +110,24 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		errmsg := fmt.Sprintf("Build Targets failed because K8S service %v does not exist", namespacedName)
 		return errors.New(errmsg)
 	}
+
+	portAnnotations := undefinedPort
+	serviceExport := &mcs_api.ServiceExport{}
+	err = t.Client.Get(ctx, namespacedName, serviceExport)
+	if err != nil {
+		glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
+	} else {
+		// TODO: Change the code to support multiple comma separated ports instead of a single port
+		//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
+		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], 10, 64)
+		if err != nil {
+			glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+		}
+		glog.V(6).Infof("Build Targets - portAnnotations: %v \n", portAnnotations)
+	}
+
 	var targetList []latticemodel.Target
+	endPoints := &corev1.Endpoints{}
 
 	if svc.DeletionTimestamp.IsZero() {
 		if err := t.Client.Get(ctx, namespacedName, endPoints); err != nil {
@@ -119,7 +139,6 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		glog.V(6).Infof("Build Targets:  endPoints %v \n", endPoints)
 
 		for _, endPoint := range endPoints.Subsets {
-
 			for _, address := range endPoint.Addresses {
 				for _, port := range endPoint.Ports {
 					glog.V(6).Infof("serviceReconcile-endpoints: address %v, port %v\n", address, port)
@@ -127,7 +146,12 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-					targetList = append(targetList, target)
+					if portAnnotations == undefinedPort || int64(target.Port) == portAnnotations {
+						targetList = append(targetList, target)
+						glog.V(6).Infof("portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
+					} else {
+						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
+					}
 				}
 			}
 		}
