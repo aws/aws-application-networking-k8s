@@ -112,18 +112,23 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	}
 
 	portAnnotations := undefinedPort
-	serviceExport := &mcs_api.ServiceExport{}
-	err = t.Client.Get(ctx, namespacedName, serviceExport)
-	if err != nil {
-		glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
-	} else {
-		// TODO: Change the code to support multiple comma separated ports instead of a single port
-		//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
-		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], 10, 64)
+	if tg.ByServiceExport {
+		serviceExport := &mcs_api.ServiceExport{}
+		err = t.Client.Get(ctx, namespacedName, serviceExport)
 		if err != nil {
-			glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+			glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
+		} else {
+			// TODO: Change the code to support multiple comma separated ports instead of a single port
+			//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
+			portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], 10, 64)
+			if err != nil {
+				glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+			}
+			glog.V(6).Infof("Build Targets - portAnnotations: %v \n", portAnnotations)
 		}
-		glog.V(6).Infof("Build Targets - portAnnotations: %v \n", portAnnotations)
+	} else if tg.ByBackendRef {
+		//httpRoute := &gateway_api.HTTPRoute{}
+		//err := t.Client.Get(ctx, namespacedName, httpRoute)
 	}
 
 	var targetList []latticemodel.Target
