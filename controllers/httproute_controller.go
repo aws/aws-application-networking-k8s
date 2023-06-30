@@ -276,31 +276,40 @@ func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, ht
 func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns string, httproute *gateway_api.HTTPRoute) error {
 	glog.V(6).Infof("updateHTTPRouteStatus: httproute %v, dns %v\n", httproute, dns)
 	httprouteOld := httproute.DeepCopy()
+	compare := true
 
 	if len(httproute.ObjectMeta.Annotations) == 0 {
 		httproute.ObjectMeta.Annotations = make(map[string]string)
+		compare = false
 	}
 
 	httproute.ObjectMeta.Annotations[LatticeAssignedDomainName] = dns
-
 	if err := r.Client.Patch(ctx, httproute, client.MergeFrom(httprouteOld)); err != nil {
 		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
 		return errors.Wrapf(err, "failed to update httproute status")
 	}
-
 	httprouteOld = httproute.DeepCopy()
+
 	if len(httproute.Status.RouteStatus.Parents) == 0 {
 		httproute.Status.RouteStatus.Parents = make([]gateway_api.RouteParentStatus, 1)
+		compare = false
 	}
 
 	httproute.Status.RouteStatus.Parents[0].ParentRef = httproute.Spec.ParentRefs[0]
 	httproute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
+	timeNow := metav1.NewTime(time.Now())
+	if httprouteOld.Status.RouteStatus.Parents != nil {
+		if len(httprouteOld.Status.RouteStatus.Parents[0].Conditions) > 0 {
+			timeNow = httprouteOld.Status.Parents[0].Conditions[0].LastTransitionTime
+		}
+	}
+
 	accepted := metav1.Condition{
 		Type:               string(gateway_api.RouteConditionAccepted),
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: httproute.Generation,
-		LastTransitionTime: metav1.NewTime(time.Now()),
+		LastTransitionTime: timeNow,
 		Reason:             string(gateway_api.RouteReasonAccepted),
 		Message:            fmt.Sprintf("DNS Name: %s", dns),
 	}
@@ -308,7 +317,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 		Type:               string(gateway_api.RouteConditionResolvedRefs),
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: httproute.Generation,
-		LastTransitionTime: metav1.NewTime(time.Now()),
+		LastTransitionTime: timeNow,
 		Reason:             string(gateway_api.RouteReasonResolvedRefs),
 		Message:            fmt.Sprintf("DNS Name: %s", dns),
 	}
@@ -320,14 +329,45 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	// Update listener Status
 	UpdateHTTPRouteListenerStatus(ctx, r.Client, httproute)
 
+	if compare && r.compareHttproutes(httproute, httprouteOld) {
+		glog.V(6).Infof("updateHTTPRouteStatus: httproute is already up-to-date %v, dns %v\n", httproute, dns)
+		return nil
+	}
+
 	if err := r.Client.Status().Patch(ctx, httproute, client.MergeFrom(httprouteOld)); err != nil {
 		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
 		return errors.Wrapf(err, "failed to update httproute status")
 	}
-
 	glog.V(6).Infof("updateHTTPRouteStatus patched dns %v \n", dns)
 
 	return nil
+}
+
+func (r *HTTPRouteReconciler) compareHttproutes(httproute1 *gateway_api.HTTPRoute, httproute2 *gateway_api.HTTPRoute) bool {
+
+	result := false
+
+	if httproute1 == httproute2 {
+		return true
+	}
+
+	if (httproute1.Name == httproute2.Name) && (httproute1.Namespace == httproute2.Namespace) &&
+		(len(httproute1.Status.RouteStatus.Parents[0].Conditions) == len(httproute2.Status.RouteStatus.Parents[0].Conditions)) &&
+		(httproute1.Status.RouteStatus.Parents[0].ParentRef.Name == httproute2.Status.RouteStatus.Parents[0].ParentRef.Name) &&
+		(httproute1.Status.RouteStatus.Parents[0].ControllerName == httproute2.Status.RouteStatus.Parents[0].ControllerName) &&
+		(httproute1.ObjectMeta.Annotations[LatticeAssignedDomainName] == httproute2.ObjectMeta.Annotations[LatticeAssignedDomainName]) {
+		i := 0
+		for _, condition := range httproute1.Status.RouteStatus.Parents[0].Conditions {
+			if condition != httproute2.Status.RouteStatus.Parents[0].Conditions[i] {
+				result = false
+				break
+			}
+			i++
+		}
+		result = true
+	}
+
+	return result
 }
 
 // SetupWithManager sets up the controller with the Manager.
