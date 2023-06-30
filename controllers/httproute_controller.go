@@ -299,8 +299,8 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	httproute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
 	timeNow := metav1.NewTime(time.Now())
-	if nil != httprouteOld.Status.RouteStatus.Parents {
-		if 0 != len(httprouteOld.Status.RouteStatus.Parents[0].Conditions) {
+	if httprouteOld.Status.RouteStatus.Parents != nil {
+		if len(httprouteOld.Status.RouteStatus.Parents[0].Conditions) > 0 {
 			timeNow = httprouteOld.Status.Parents[0].Conditions[0].LastTransitionTime
 		}
 	}
