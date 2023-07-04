@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -111,19 +112,35 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		return errors.New(errmsg)
 	}
 
-	portAnnotations := undefinedPort
-	serviceExport := &mcs_api.ServiceExport{}
-	err = t.Client.Get(ctx, namespacedName, serviceExport)
-	if err != nil {
-		glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
-	} else {
-		// TODO: Change the code to support multiple comma separated ports instead of a single port
-		//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
-		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], 10, 64)
+	definedPorts := []int64{undefinedPort}
+	if tg.ByServiceExport {
+		serviceExport := &mcs_api.ServiceExport{}
+		err = t.Client.Get(ctx, namespacedName, serviceExport)
 		if err != nil {
-			glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+			glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
+		} else {
+			// TODO: Change the code to support multiple comma separated ports instead of a single port
+			//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
+			definedPorts[0], err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], 10, 64)
+			if err != nil {
+				glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+			}
+			glog.V(6).Infof("Build Targets - portAnnotations: %v \n", definedPorts)
 		}
-		glog.V(6).Infof("Build Targets - portAnnotations: %v \n", portAnnotations)
+	} else if tg.ByBackendRef {
+		if (t.httpRoute != nil) && (t.httpRoute.Spec.Rules != nil) && (0 < len(t.httpRoute.Spec.Rules)) {
+			definedPorts = []int64{}
+			for _, rule := range t.httpRoute.Spec.Rules {
+				for _, ref := range rule.BackendRefs {
+					if ref.Port != nil {
+						definedPorts = append(definedPorts, int64(*ref.Port))
+					}
+				}
+			}
+		}
+	}
+	if len(definedPorts) == 0 {
+		definedPorts = []int64{undefinedPort}
 	}
 
 	var targetList []latticemodel.Target
@@ -146,11 +163,11 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-					if portAnnotations == undefinedPort || int64(target.Port) == portAnnotations {
+					if definedPorts[0] == undefinedPort || portdefined(definedPorts, int64(target.Port)) {
 						targetList = append(targetList, target)
-						glog.V(6).Infof("portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
+						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), definedPorts[0], target)
 					} else {
-						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
+						glog.V(6).Infof("Found port does not match the defined port. definedPort:%v, target.Port:%v\n", definedPorts[0], target.Port)
 					}
 				}
 			}
@@ -171,14 +188,22 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	return nil
 }
 
+func portdefined(definedPorts []int64, foundPort int64) bool {
+	for _, port := range definedPorts {
+		if foundPort == port {
+			return true
+		}
+	}
+	return false
+}
+
 type latticeTargetsModelBuildTask struct {
 	client.Client
-	tgName      string
-	tgNamespace string
-	routename   string
-
+	tgName         string
+	tgNamespace    string
+	routename      string
 	latticeTargets *latticemodel.Targets
 	stack          core.Stack
-
-	datastore *latticestore.LatticeDataStore
+	datastore      *latticestore.LatticeDataStore
+	httpRoute      *gateway_api.HTTPRoute
 }

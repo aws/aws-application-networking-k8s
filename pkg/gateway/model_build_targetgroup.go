@@ -153,6 +153,7 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 				routename:   t.httpRoute.Name,
 				stack:       t.stack,
 				datastore:   t.Datastore,
+				httpRoute:   t.httpRoute,
 			}
 
 			err := targetTask.buildLatticeTargets(ctx)
