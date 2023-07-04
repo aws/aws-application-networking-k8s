@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
-var _ = Describe("Port Annotations Targets", func() {
+var _ = Describe("Defined Target Ports", func() {
 	var (
 		gateway           *v1beta1.Gateway
 		deployment        *appsv1.Deployment
@@ -27,58 +27,30 @@ var _ = Describe("Port Annotations Targets", func() {
 		httpRoute         *v1beta1.HTTPRoute
 		vpcLatticeService *vpclattice.ServiceSummary
 		targetGroup       *vpclattice.TargetGroupSummary
+		definedPorts      []int64
 	)
 
 	BeforeEach(func() {
 		gateway = testFramework.NewGateway("test-gateway", k8snamespace)
-		deployment, service = testFramework.NewElasticeApp(test.ElasticSearchOptions{
+		deployment, service = testFramework.NewNginxeApp(test.ElasticSearchOptions{
 			Name:      "port-test",
 			Namespace: k8snamespace,
 		})
-		serviceExport = testFramework.CreateServiceExport(service)
-		serviceImport = testFramework.CreateServiceImport(service)
-		httpRoute = testFramework.NewHttpRoute(gateway, service)
-		testFramework.ExpectCreated(
-			ctx,
-			gateway,
-			serviceExport,
-			serviceImport,
-			service,
-			deployment,
-			httpRoute,
-		)
-		time.Sleep(3 * time.Minute) // Wait for creation of VPCLattice resources
 
-		// Verify VPC Lattice Service exists
-		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
+	})
+
+	AfterEach(func() {
 
 		// Verify VPC Lattice Target Group exists
 		targetGroup = testFramework.GetTargetGroup(ctx, service)
 		Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 		Expect(*targetGroup.Protocol).To(Equal("HTTP"))
-	})
-
-	AfterEach(func() {
-		testFramework.CleanTestEnvironment(ctx)
-		testFramework.EventuallyExpectNotFound(
-			ctx,
-			gateway,
-			serviceExport,
-			serviceImport,
-			service,
-			deployment,
-			httpRoute,
-		)
-	})
-
-	It("Port Annotaion on Service Export", func() {
 
 		targets := testFramework.GetTargets(ctx, targetGroup, deployment)
 		Expect(*targetGroup.Port).To(BeEquivalentTo(80))
 		log.Println("Verifying Targets are only craeted for the port defined in Port Annotaion in ServiceExport")
 		for _, target := range targets {
-			Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].Port))
+			Expect(*target.Port).To(BeEquivalentTo(definedPorts[0]))
 			Expect(*target.Status).To(Or(
 				Equal(vpclattice.TargetStatusInitial),
 				Equal(vpclattice.TargetStatusHealthy),
@@ -92,5 +64,56 @@ var _ = Describe("Port Annotations Targets", func() {
 			targets := testFramework.GetTargets(ctx, targetGroup, deployment)
 			Expect(len(targets) == 0)
 		}).WithTimeout(5*time.Minute + 30*time.Second)
+
+		testFramework.CleanTestEnvironment(ctx)
+		testFramework.EventuallyExpectNotFound(
+			ctx,
+			gateway,
+			service,
+			deployment,
+			httpRoute,
+			serviceExport,
+			serviceImport,
+		)
+	})
+
+	It("Port Annotaion on Service Export", func() {
+
+		serviceExport = testFramework.CreateServiceExport(service)
+		serviceImport = testFramework.CreateServiceImport(service)
+		httpRoute = testFramework.NewHttpRoute(gateway, service, "ServiceImport")
+		testFramework.ExpectCreated(
+			ctx,
+			gateway,
+			serviceExport,
+			serviceImport,
+			service,
+			deployment,
+			httpRoute,
+		)
+		time.Sleep(3 * time.Minute) // Wait for creation of VPCLattice resources
+		definedPorts = []int64{int64(service.Spec.Ports[0].Port)}
+		// Verify VPC Lattice Service exists
+		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
+		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
+	})
+
+	It("BackendRef Ports registered only", func() {
+
+		serviceExport = testFramework.CreateServiceExport(service)
+		serviceImport = testFramework.CreateServiceImport(service)
+		httpRoute = testFramework.NewHttpRoute(gateway, service, "Service")
+		testFramework.ExpectCreated(
+			ctx,
+			gateway,
+			service,
+			deployment,
+			httpRoute,
+		)
+		time.Sleep(3 * time.Minute) // Wait for creation of VPCLattice resources
+		definedPorts = []int64{int64(service.Spec.Ports[0].Port)}
+		// Verify VPC Lattice Service exists
+		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
+		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
 	})
 })

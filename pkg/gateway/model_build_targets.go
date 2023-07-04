@@ -128,14 +128,19 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 			glog.V(6).Infof("Build Targets - portAnnotations: %v \n", definedPorts)
 		}
 	} else if tg.ByBackendRef {
-		if (nil != t.httpRoute) && (nil != t.httpRoute.Spec.Rules) && (0 < len(t.httpRoute.Spec.Rules)) {
+		if (t.httpRoute != nil) && (t.httpRoute.Spec.Rules != nil) && (0 < len(t.httpRoute.Spec.Rules)) {
 			definedPorts = []int64{}
 			for _, rule := range t.httpRoute.Spec.Rules {
 				for _, ref := range rule.BackendRefs {
-					definedPorts = append(definedPorts, int64(*ref.Port))
+					if ref.Port != nil {
+						definedPorts = append(definedPorts, int64(*ref.Port))
+					}
 				}
 			}
 		}
+	}
+	if len(definedPorts) == 0 {
+		definedPorts = []int64{undefinedPort}
 	}
 
 	var targetList []latticemodel.Target

@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -24,6 +25,11 @@ import (
 )
 
 func Test_Targets(t *testing.T) {
+
+	var httpSectionName gateway_api.SectionName = "http"
+	var serviceKind gateway_api.Kind = "Service"
+	var namespace = gateway_api.Namespace("ns1")
+
 	tests := []struct {
 		name               string
 		srvExportName      string
@@ -36,6 +42,7 @@ func Test_Targets(t *testing.T) {
 		refByService       bool
 		wantErrIsNil       bool
 		expectedTargetList []latticemodel.Target
+		httpRoute          *gateway_api.HTTPRoute
 	}{
 		{
 			name:               "Add all endpoints to build spec",
@@ -303,6 +310,217 @@ func Test_Targets(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "backendRef port is defined",
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export6",
+					Namespace: string(namespace),
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
+											Name:      "targetgroup1",
+											Namespace: &namespace,
+											Kind:      &serviceKind,
+											Port:      PortNumberPtr(8070),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			srvExportName:      "export6",
+			srvExportNamespace: string(namespace),
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: string(namespace),
+						Name:      "export6",
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
+							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8070}, {Name: "b", Port: 3090}},
+						},
+					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         string(namespace),
+					Name:              "export6",
+					DeletionTimestamp: nil,
+				},
+			},
+			inDataStore:  true,
+			refByService: true,
+			wantErrIsNil: true,
+			expectedTargetList: []latticemodel.Target{
+				{
+					TargetIP: "10.10.1.1",
+					Port:     8070,
+				},
+				{
+					TargetIP: "10.10.2.2",
+					Port:     8070,
+				},
+			},
+		},
+		{
+			name: "backendRef port is NOT defined",
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: string(namespace),
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
+											Name:      "targetgroup2",
+											Namespace: &namespace,
+											Kind:      &serviceKind,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			srvExportName:      "export7",
+			srvExportNamespace: string(namespace),
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: string(namespace),
+						Name:      "export7",
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
+							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8070}, {Name: "b", Port: 3090}},
+						},
+					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         string(namespace),
+					Name:              "export7",
+					DeletionTimestamp: nil,
+				},
+			},
+			inDataStore:  true,
+			refByService: true,
+			wantErrIsNil: true,
+			expectedTargetList: []latticemodel.Target{
+				{
+					TargetIP: "10.10.1.1",
+					Port:     8070,
+				},
+				{
+					TargetIP: "10.10.1.1",
+					Port:     3090,
+				},
+				{
+					TargetIP: "10.10.2.2",
+					Port:     8070,
+				},
+				{
+					TargetIP: "10.10.2.2",
+					Port:     3090,
+				},
+			},
+		},
+		{
+			name: "backendRef defined port does not mathch any of the service ports",
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: string(namespace),
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
+											Name:      "targetgroup2",
+											Namespace: &namespace,
+											Kind:      &serviceKind,
+											Port:      PortNumberPtr(123),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			srvExportName:      "export7",
+			srvExportNamespace: string(namespace),
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: string(namespace),
+						Name:      "export7",
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
+							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8070}, {Name: "b", Port: 3090}},
+						},
+					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         string(namespace),
+					Name:              "export7",
+					DeletionTimestamp: nil,
+				},
+			},
+			inDataStore:        true,
+			refByService:       true,
+			wantErrIsNil:       true,
+			expectedTargetList: nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -350,9 +568,9 @@ func Test_Targets(t *testing.T) {
 			tgNamespace: tt.srvExportNamespace,
 			datastore:   ds,
 			stack:       core.NewDefaultStack(core.StackID(srvName)),
+			httpRoute:   tt.httpRoute,
 		}
 		err := targetTask.buildLatticeTargets(ctx)
-
 		if tt.wantErrIsNil {
 			fmt.Printf("t.latticeTargets %v \n", targetTask.latticeTargets)
 			assert.Equal(t, tt.srvExportName, targetTask.latticeTargets.Spec.Name)
