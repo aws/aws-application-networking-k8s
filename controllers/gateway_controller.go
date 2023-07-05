@@ -415,6 +415,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 				Status:             metav1.ConditionFalse,
 				Reason:             string(gateway_api.ListenerReasonInvalidRouteKinds),
 				ObservedGeneration: gw.Generation,
+				LastTransitionTime: metav1.Now(),
 			}
 			listenerStatus.SupportedKinds = supportedkind
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
