@@ -155,7 +155,7 @@ func (r *HTTPRouteReconciler) cleanupHTTPRouteResources(ctx context.Context, htt
 func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute *gateway_api.HTTPRoute) bool {
 
 	if len(httpRoute.Spec.ParentRefs) == 0 {
-		glog.V(6).Infof("Ignore HTTPRoute which has no ParentRefs gateway %v \n ", httpRoute.Spec)
+		glog.V(2).Infof("Ignore HTTPRoute which has no ParentRefs gateway %v \n ", httpRoute.Spec)
 		return false
 	}
 
