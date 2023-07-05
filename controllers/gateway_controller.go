@@ -19,8 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
@@ -258,21 +256,15 @@ func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *gat
 
 func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetworkStatus *latticestore.ServiceNetwork, gw *gateway_api.Gateway) error {
 
-	glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
 	gwOld := gw.DeepCopy()
 
-	if len(gw.Status.Conditions) <= 1 {
-		condition := metav1.Condition{}
-		gw.Status.Conditions = append(gw.Status.Conditions, condition)
-	}
-
-	gw.Status.Conditions[1].LastTransitionTime = metav1.NewTime(time.Now())
-	gw.Status.Conditions[1].Status = "True"
-	gw.Status.Conditions[1].Message = fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN)
-	gw.Status.Conditions[1].Reason = "Reconciled"
-	gw.Status.Conditions[1].ObservedGeneration = gw.Generation
-	gw.Status.Conditions[0].ObservedGeneration = gw.Generation // update the accept
-	gw.Status.Conditions[1].Type = string(gateway_api.GatewayConditionProgrammed)
+	gw.Status.Conditions = updateCondition(gw.Status.Conditions, metav1.Condition{
+		Type:               string(gateway_api.GatewayConditionProgrammed),
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: gw.Generation,
+		Reason:             string(gateway_api.GatewayReasonProgrammed),
+		Message:            fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN),
+	})
 
 	// TODO following is causing crash on some platform, see https://t.corp.amazon.com/b7c9ea6c-5168-4616-b718-c1bdf78dbdf1/communication
 	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
@@ -289,44 +281,28 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 
 	gwOld := gw.DeepCopy()
 
-	glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
-	if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
-		gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
-	}
+	var cond metav1.Condition
 	if accepted {
-		gw.Status.Conditions[0].Status = "True"
-		gw.Status.Conditions[0].Reason = "Accepted"
+		cond = metav1.Condition{
+			Type:               string(gateway_api.GatewayConditionAccepted),
+			ObservedGeneration: gw.Generation,
+			Message:            config.LatticeGatewayControllerName,
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gateway_api.GatewayReasonAccepted),
+		}
 	} else {
-		gw.Status.Conditions[0].Status = "False"
-		gw.Status.Conditions[0].Reason = "Invalid"
+		cond = metav1.Condition{
+			Type:               string(gateway_api.GatewayConditionAccepted),
+			ObservedGeneration: gw.Generation,
+			Message:            config.LatticeGatewayControllerName,
+			Status:             metav1.ConditionFalse,
+			Reason:             string(gateway_api.GatewayReasonInvalid),
+		}
 	}
-	gw.Status.Conditions[0].Message = config.LatticeGatewayControllerName
-	gw.Status.Conditions[0].ObservedGeneration = gw.Generation
-	gw.Status.Conditions[0].Type = string(gateway_api.GatewayConditionAccepted)
+	gw.Status.Conditions = updateCondition(gw.Status.Conditions, cond)
 
 	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 		glog.V(2).Infof("Failed to Patch acceptance status, err %v gw %v", err, gw)
-		return errors.Wrapf(err, "failed to update gateway status")
-	}
-
-	return nil
-}
-
-func (r *GatewayReconciler) updateBadStatus(ctx context.Context, message string, gw *gateway_api.Gateway) error {
-
-	gwOld := gw.DeepCopy()
-
-	glog.V(6).Infof("updateGatewayStatus: updating last transition time \n")
-	if gw.Status.Conditions[0].LastTransitionTime == eventhandlers.ZeroTransitionTime {
-		gw.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
-	}
-
-	gw.Status.Conditions[0].Status = "False"
-	gw.Status.Conditions[0].Message = message
-	gw.Status.Conditions[0].Reason = "NoReconcile"
-	gw.Status.Conditions[0].Type = "NotAccepted"
-
-	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 		return errors.Wrapf(err, "failed to update gateway status")
 	}
 
@@ -391,8 +367,6 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 
 	glog.V(6).Infof("Before update, the snapshot of listeners  %v \n", gw.Status.Listeners)
 
-	gw.Status.Listeners = make([]gateway_api.ListenerStatus, 0)
-
 	httpRouteList := &gateway_api.HTTPRouteList{}
 
 	k8sclient.List(context.TODO(), httpRouteList)
@@ -441,7 +415,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 				Status:             metav1.ConditionFalse,
 				Reason:             string(gateway_api.ListenerReasonInvalidRouteKinds),
 				ObservedGeneration: gw.Generation,
-				LastTransitionTime: metav1.NewTime(time.Now()),
+				LastTransitionTime: metav1.Now(),
 			}
 			listenerStatus.SupportedKinds = supportedkind
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
@@ -451,12 +425,11 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 			hasValidListener = true
 
 			condition := metav1.Condition{
-				Type:               "Accepted",
-				Status:             "True",
-				Reason:             "Accepted",
+				Type:               string(gateway_api.ListenerConditionAccepted),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(gateway_api.ListenerReasonAccepted),
 				ObservedGeneration: gw.Generation,
-				// TODO need to use previous one
-				LastTransitionTime: metav1.NewTime(time.Now()),
+				LastTransitionTime: metav1.Now(),
 			}
 
 			for _, httpRoute := range httpRouteList.Items {
@@ -499,8 +472,20 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
 
 		}
-		gw.Status.Listeners = append(gw.Status.Listeners, listenerStatus)
 
+		found := false
+		for i, oldStatus := range gw.Status.Listeners {
+			if oldStatus.Name == listenerStatus.Name {
+				gw.Status.Listeners[i].AttachedRoutes = listenerStatus.AttachedRoutes
+				gw.Status.Listeners[i].SupportedKinds = listenerStatus.SupportedKinds
+				// Only have one condition in the logic
+				gw.Status.Listeners[i].Conditions = updateCondition(gw.Status.Listeners[i].Conditions, listenerStatus.Conditions[0])
+				found = true
+			}
+		}
+		if !found {
+			gw.Status.Listeners = append(gw.Status.Listeners, listenerStatus)
+		}
 	}
 
 	glog.V(6).Infof("After update, the snapshot of listener status %v", gw.Status.Listeners)
