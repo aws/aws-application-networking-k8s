@@ -108,8 +108,8 @@ This example creates a single cluster in a single VPC, then configures two route
 
 
    ```bash
-   ratesdns=$(kubectl get httproute rates -o json | jq -r .status.parents[].conditions[].message)
-   inventorydns=$(kubectl get httproute inventory -o json | jq -r .status.parents[].conditions[].message)
+   ratesdns=$(kubectl get httproute rates -o json | jq -r '.status.parents[].conditions[0].message')
+   inventorydns=$(kubectl get httproute inventory -o json | jq -r '.status.parents[].conditions[0].message')
    ```
    
    remove preceding extra text:
@@ -126,6 +126,10 @@ confirm that the URLs are stored correctly:
 
 ```bash
 echo $ratesFQDN $inventoryFQDN
+```
+
+```
+rates-default-034e0056410499722.7d67968.vpc-lattice-svcs.us-west-2.on.aws inventory-default-0c54a5e5a426f92c2.7d67968.vpc-lattice-svcs.us-west-2.on.aws
 ```
 
 **Check service connectivity**
