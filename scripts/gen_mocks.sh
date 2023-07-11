@@ -11,6 +11,7 @@ mockgen -package=lattice -destination=./pkg/deploy/lattice/targets_manager_mock.
 mockgen -package=lattice -destination=./pkg/deploy/lattice/service_manager_mock.go -source=./pkg/deploy/lattice/service_manager.go
 mockgen -package=lattice -destination=./pkg/deploy/lattice/listener_manager_mock.go -source=./pkg/deploy/lattice/listener_manager.go
 mockgen -package=lattice -destination=./pkg/deploy/lattice/rule_manager_mock.go -source=./pkg/deploy/lattice/rule_manager.go
+mockgen -package=externaldns -destination=./pkg/deploy/externaldns/dnsendpoint_manager_mock.go -source=./pkg/deploy/externaldns/dnsendpoint_manager.go
 # need some manual update to remote core for stack_mock.go
 mockgen -package=core -destination=./pkg/model/core/stack_mock.go -source=./pkg/model/core/stack.go
 mockgen -package=services -destination=./pkg/aws/services/vpclattice_service_api_mock.go -source=./scripts/aws_sdk_model_override/aws-sdk-go/service/vpclattice/vpclatticeiface/interface.go

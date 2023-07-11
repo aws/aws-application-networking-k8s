@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -137,6 +138,7 @@ func Test_SynthesizeService(t *testing.T) {
 		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
 
 		mockSvcManager := NewMockServiceManager(c)
+		mockDnsManager := externaldns.NewMockDnsEndpointManager(c)
 
 		pro := "HTTP"
 		protocols := []*string{&pro}
@@ -161,7 +163,11 @@ func Test_SynthesizeService(t *testing.T) {
 			mockSvcManager.EXPECT().Delete(ctx, latticeService).Return(tt.mgrErr)
 		}
 
-		synthesizer := NewServiceSynthesizer(mockSvcManager, stack, ds)
+		if !spec.IsDeleted && tt.mgrErr == nil {
+			mockDnsManager.EXPECT().Create(ctx, gomock.Any()).Return(nil)
+		}
+
+		synthesizer := NewServiceSynthesizer(mockSvcManager, mockDnsManager, stack, ds)
 
 		err := synthesizer.Synthesize(ctx)
 

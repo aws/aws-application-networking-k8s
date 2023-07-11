@@ -45,6 +45,9 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/discovery"
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 // HTTPRouteReconciler reconciles a HTTPRoute object
@@ -336,11 +339,41 @@ func (r *HTTPRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(r.Client)
 	svcEventHandler := eventhandlers.NewEqueueHTTPRequestServiceEvent(r.Client)
 	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(r.Client)
-	return ctrl.NewControllerManagedBy(mgr).
+
+	builder := ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
 		For(&gateway_api.HTTPRoute{}).
 		Watches(&source.Kind{Type: &gateway_api.Gateway{}}, gwEventHandler).
 		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
-		Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler).
-		Complete(r)
+		Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler)
+
+	if ok, err := isExternalDNSSupported(mgr); ok {
+		builder.Owns(&endpoint.DNSEndpoint{})
+	} else if err != nil {
+		glog.V(2).Infof("Unknown error while discovering CRD: %v", err)
+		return err
+	}
+	return builder.Complete(r)
+}
+
+func isExternalDNSSupported(mgr ctrl.Manager) (bool, error) {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
+	if err != nil {
+		return false, err
+	}
+	// Query for known OpenShift API resource to verify it is available
+	apiResources, err := discoveryClient.ServerResourcesForGroupVersion("externaldns.k8s.io/v1alpha1")
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			glog.V(2).Infof("DNSEndpoint CRD is not supported")
+			return false, nil
+		}
+		return false, err
+	}
+	for i := range apiResources.APIResources {
+		if apiResources.APIResources[i].Kind == "DNSEndpoint" {
+			return true, nil
+		}
+	}
+	return false, nil
 }

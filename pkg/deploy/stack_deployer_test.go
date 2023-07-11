@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -31,6 +32,8 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 	mockListenerManager := lattice.NewMockListenerManager(c)
 
 	mockRuleManager := lattice.NewMockRuleManager(c)
+
+	mockDnsManager := externaldns.NewMockDnsEndpointManager(c)
 
 	mockTargetsManager := lattice.NewMockTargetsManager(c)
 
@@ -54,6 +57,7 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 	mockTargetsManager.EXPECT().Create(gomock.Any(), gomock.Any())
 	mockListenerManager.EXPECT().Create(gomock.Any(), gomock.Any())
 	mockRuleManager.EXPECT().Create(gomock.Any(), gomock.Any())
+	mockDnsManager.EXPECT().Create(gomock.Any(), gomock.Any())
 
 	deployer := &latticeServiceStackDeployer{
 		cloud:                 mockCloud,
@@ -63,6 +67,7 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 		listenerManager:       mockListenerManager,
 		ruleManager:           mockRuleManager,
 		targetsManager:        mockTargetsManager,
+		dnsEndpointManager:    mockDnsManager,
 		latticeDataStore:      mockLatticeDataStore,
 	}
 
@@ -89,6 +94,8 @@ func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
 
 	mockRuleManager := lattice.NewMockRuleManager(c)
 
+	mockDnsManager := externaldns.NewMockDnsEndpointManager(c)
+
 	mockLatticeDataStore := latticestore.NewLatticeDataStore()
 
 	ctx := context.TODO()
@@ -97,6 +104,7 @@ func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
 	mockListenerManager.EXPECT().List(gomock.Any(), gomock.Any())
 
 	mockServiceManager.EXPECT().Create(gomock.Any(), gomock.Any())
+	mockDnsManager.EXPECT().Create(gomock.Any(), gomock.Any())
 
 	s := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
 
@@ -110,6 +118,7 @@ func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
 		targetsManager:        mockTargetsManager,
 		listenerManager:       mockListenerManager,
 		ruleManager:           mockRuleManager,
+		dnsEndpointManager:    mockDnsManager,
 		latticeDataStore:      mockLatticeDataStore,
 	}
 

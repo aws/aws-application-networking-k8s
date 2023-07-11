@@ -38,6 +38,9 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/external-dns/endpoint"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
@@ -53,6 +56,16 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 	utilruntime.Must(gateway_api.AddToScheme(scheme))
 	utilruntime.Must(mcs_api.AddToScheme(scheme))
+	addEndpointToScheme(scheme)
+}
+
+func addEndpointToScheme(scheme *runtime.Scheme) {
+	dnsEndpointGV := schema.GroupVersion{
+		Group:   "externaldns.k8s.io",
+		Version: "v1alpha1",
+	}
+	scheme.AddKnownTypes(dnsEndpointGV, &endpoint.DNSEndpoint{}, &endpoint.DNSEndpointList{})
+	metav1.AddToGroupVersion(scheme, dnsEndpointGV)
 }
 
 func main() {
