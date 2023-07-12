@@ -74,7 +74,7 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 			resService.Status = &serviceStatus
 			err = s.dnsEndpointManager.Create(ctx, resService)
 			if err != nil {
-				glog.V(6).Infof("Failed creating service DNS: %v", err)
+				glog.V(2).Infof("Failed creating service DNS: %v", err)
 				return err
 			}
 

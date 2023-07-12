@@ -28,22 +28,25 @@ spec:
 ```
 
 
-## Generating DNS records using ExternalDNS
+## Managing DNS records using ExternalDNS
 
-AWS Gateway API Controller supports integration with [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) using CRD source.
+To register custom domain names to your DNS provider, we recommend using [ExternalDNS](https://github.com/kubernetes-sigs/external-dns).
+AWS Gateway API Controller supports ExternalDNS integration through CRD source - the controller will manage `DNSEndpoint` resource for you.
 
-1. Install DNSEndpoint CRD. This is bundled with Gateway API Controller helm chart, but also can be installed manually by the following command:
+1. Install `DNSEndpoint` CRD. This is bundled with both Gateway API Controller Helm chart and `examples/deploy-*.yaml` manifest, but also can be installed manually by the following command:
    ```sh
    kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
    ```
-2. Restart the controller if running already.
-3. Run ExternalDNS controller watching `crd` source. The following example command runs ExternalDNS compiled from source:
+   If the CRD does not exist, `DNSEndpoint` resource will not be created or managed by the controller.
+1. Restart the controller if running already.
+1. Run ExternalDNS controller watching `crd` source. 
+   The following example command runs ExternalDNS compiled from source, using AWS Route53 provider:
    ```sh
    build/external-dns --source crd --crd-source-apiversion externaldns.k8s.io/v1alpha1 \
    --crd-source-kind DNSEndpoint --provider aws
    ```
-4. Create HTTPRoutes and Services. The controller should create DNSEndpoint resource owned by the HTTPRoute you created.
-5. ExternalDNS will watch the changes and create DNS record on the configured DNS provider.
+1. Create HTTPRoutes and Services. The controller should create `DNSEndpoint` resource owned by the HTTPRoute you created.
+1. ExternalDNS will watch the changes and create DNS record on the configured DNS provider.
 
 ## Notes
 

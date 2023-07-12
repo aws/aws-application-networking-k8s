@@ -341,7 +341,6 @@ func (r *HTTPRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(r.Client)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
 		For(&gateway_api.HTTPRoute{}).
 		Watches(&source.Kind{Type: &gateway_api.Gateway{}}, gwEventHandler).
 		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
@@ -349,9 +348,12 @@ func (r *HTTPRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if ok, err := isExternalDNSSupported(mgr); ok {
 		builder.Owns(&endpoint.DNSEndpoint{})
-	} else if err != nil {
-		glog.V(2).Infof("Unknown error while discovering CRD: %v", err)
-		return err
+	} else {
+		// This means DNSEndpoint CRD does not exist which is fine, but getting API error is not.
+		if err != nil {
+			glog.V(2).Infof("Unknown error while discovering CRD: %v", err)
+			return err
+		}
 	}
 	return builder.Complete(r)
 }

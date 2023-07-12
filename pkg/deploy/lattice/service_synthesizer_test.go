@@ -27,6 +27,7 @@ func Test_SynthesizeService(t *testing.T) {
 		serviceARN    string
 		serviceID     string
 		mgrErr        error
+		dnsErr        error
 		wantErrIsNil  bool
 		wantIsDeleted bool
 	}{
@@ -126,6 +127,29 @@ func Test_SynthesizeService(t *testing.T) {
 			wantIsDeleted: true,
 			wantErrIsNil:  false,
 		},
+		{
+			name: "Add LatticeService, getting error registering DNS",
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "service3",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name: "gateway1",
+							},
+						},
+					},
+				},
+			},
+			serviceARN:    "arn1234",
+			serviceID:     "56789",
+			dnsErr:        errors.New("Failed registering DNS"),
+			wantIsDeleted: false,
+			wantErrIsNil:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -164,7 +188,7 @@ func Test_SynthesizeService(t *testing.T) {
 		}
 
 		if !spec.IsDeleted && tt.mgrErr == nil {
-			mockDnsManager.EXPECT().Create(ctx, gomock.Any()).Return(nil)
+			mockDnsManager.EXPECT().Create(ctx, gomock.Any()).Return(tt.dnsErr)
 		}
 
 		synthesizer := NewServiceSynthesizer(mockSvcManager, mockDnsManager, stack, ds)
