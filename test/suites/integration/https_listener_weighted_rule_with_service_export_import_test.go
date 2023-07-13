@@ -18,6 +18,12 @@ import (
 )
 
 var _ = Describe("Test 2 listeners gateway with weighted httproute rules and service export import", func() {
+	// Clean up resources in case an assertion failed before cleaning up
+	// at the end
+	AfterEach(func() {
+		testFramework.CleanTestEnvironment(ctx)
+	})
+
 	It("Create a gateway with 2 listeners(http and https), create a weightedRoutingHttpRoute that parentRef to both http and https listeners,"+
 		" and this httpRoute BackendRef to one service and one serviceImport, weighted traffic should work for both http and https listeners",
 		func() {
@@ -134,7 +140,7 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 					} else if strings.Contains(stdout, "service-import-export-test1 handler pod") {
 						hitTg1++
 					} else {
-						Fail("Unexpected response")
+						Fail(fmt.Sprintf("Unexpected response: %s", stdout))
 					}
 				}
 				log.Printf("Send traffic to %s listener: \n", protocol)
