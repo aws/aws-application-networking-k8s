@@ -16,6 +16,7 @@ make presubmit
 kubectl apply -f config/crds/bases/k8s-gateway-v0.6.1.yaml
 kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceexports.yaml
 kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceimports.yaml
+kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
 kubectl apply -f examples/gatewayclass.yaml
 
 # Run the controller against the Kubernetes cluster pointed to by `kubectl config current-context`
@@ -76,7 +77,17 @@ Notice: the prerequisites for running the end-to-end tests success are:
 
 After all test cases running finished, in the `AfterSuite()` function, it will clean up k8s and vpc lattice resource created by current test cases running.
 
-Before sending a Pull Request, usually you should run the `make e2etest` to make sure all e2e tests pass.
+
+### Contributing
+
+Before sending a Pull Request, you should run unit tests and end-to-end integration tests successfully:
+```sh
+make presubmit
+make e2etest
+```
+
+It is recommended to run `make e2etest` in both environments where `DNSEndpoint` CRD exists and does not exist,
+as the controller is designed to support both use cases.
 
 ### Make Docker Image
 

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -78,6 +79,7 @@ type latticeServiceStackDeployer struct {
 	targetsManager        lattice.TargetsManager
 	listenerManager       lattice.ListenerManager
 	ruleManager           lattice.RuleManager
+	dnsEndpointManager    externaldns.DnsEndpointManager
 	latticeDataStore      *latticestore.LatticeDataStore
 }
 
@@ -90,6 +92,7 @@ func NewLatticeServiceStackDeploy(cloud aws.Cloud, k8sClient client.Client, latt
 		targetsManager:        lattice.NewTargetsManager(cloud, latticeDataStore),
 		listenerManager:       lattice.NewListenerManager(cloud, latticeDataStore),
 		ruleManager:           lattice.NewRuleManager(cloud, latticeDataStore),
+		dnsEndpointManager:    externaldns.NewDnsEndpointManager(k8sClient),
 		latticeDataStore:      latticeDataStore,
 	}
 }
@@ -97,7 +100,7 @@ func NewLatticeServiceStackDeploy(cloud aws.Cloud, k8sClient client.Client, latt
 func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore)
 	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.cloud, d.targetsManager, stack, d.latticeDataStore)
-	serviceSynthesizer := lattice.NewServiceSynthesizer(d.latticeServiceManager, stack, d.latticeDataStore)
+	serviceSynthesizer := lattice.NewServiceSynthesizer(d.latticeServiceManager, d.dnsEndpointManager, stack, d.latticeDataStore)
 	listenerSynthesizer := lattice.NewListenerSynthesizer(d.listenerManager, stack, d.latticeDataStore)
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.ruleManager, stack, d.latticeDataStore)
 
