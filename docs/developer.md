@@ -35,22 +35,28 @@ And use "EnvFile" GoLand plugin to read the env variables from the generated `.e
 
 ### End-to-End Testing
 
-Run the following command to run the end-to-end tests against the Kubernetes cluster pointed to by `kubectl config current-context`:
-You should set up the correct `REGION` env variable and create `non-default`
-namespace if it doesn't exist.
-
-NOTE: You'll need to allow in-bound traffics from lattice prefix list in the security
-groups of your cluster.
-
-```bash
-# create non-default namespace if it hasn't existed yet
+To run end-to-end tests against your local controller you need:
+- aws account and fetch credentials for "default" profile
+- follow deploy.md steps, except a few last steps for controller deployment to EKS
+  - setup env vars
+  - create EKS cluster
+  - allow traffic from Lattice IP to EKS cluster
+  - create IAM OIDC provider and policy
+- install CRD's (see above)
+- create non-default namespace
+```
 kubectl create namespace non-default
-
-export REGION=us-west-2
-make e2etest
+```
+- start local controller (in background or new session)
+```
+REGION=us-west-2 make run
+```
+- run tests against local controller
+```
+REGION=us-west-2 make e2etest
 ```
 
-Pass `FOCUS` environment variable to run some specific test cases based on filter condition.
+You can use `FOCUS` environment variable to run some specific test cases based on filter condition.
 You could assign the string in the Describe("xxxxxx") or It("xxxxxx") to the FOCUS environment variable to run the specific test cases.
 ```go
 var _ = Describe("HTTPRoute path matches", func() {

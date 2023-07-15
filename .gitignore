@@ -6,3 +6,8 @@ deploy.yaml
 # MkDocs documentation
 site*/
 
+# Multi-module go project
+go.work*
+
+# envFile from load_env_variables.sh
+**/envFile
