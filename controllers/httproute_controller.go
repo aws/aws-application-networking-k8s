@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
@@ -164,15 +165,13 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 
 	gw := &gateway_api.Gateway{}
 
-	// TODO handle multiple parentRefs
 	gwNamespace := httpRoute.Namespace
 	if httpRoute.Spec.ParentRefs[0].Namespace != nil {
 		gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
 	}
 	gwName := types.NamespacedName{
 		Namespace: gwNamespace,
-		// TODO assume one parent for now and point to service network
-		Name: string(httpRoute.Spec.ParentRefs[0].Name),
+		Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 	}
 
 	if err := r.gwReconciler.Client.Get(ctx, gwName, gw); err != nil {
