@@ -69,7 +69,7 @@ Run through them again for a second cluster to use with the extended example sho
    ```
 1. Run either `kubectl` or `helm` to deploy the controller:
    ```bash
-   kubectl apply -f examples/deploy-v0.0.14.yaml
+   kubectl apply -f examples/deploy-v0.0.15.yaml
    ```
    or
    ```bash
@@ -78,7 +78,7 @@ Run through them again for a second cluster to use with the extended example sho
    # Run helm with either install or upgrade
    helm install gateway-api-controller \
       oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
-      --version=v0.0.14 \
+      --version=v0.0.15 \
       --set=serviceAccount.create=false --namespace aws-application-networking-system \
       # Region, clusterVpcId, awsAccountId are required for case where IMDS is NOT AVAILABLE, e.g Fargate
       --set=awsRegion= \
