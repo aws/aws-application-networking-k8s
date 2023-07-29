@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -47,6 +46,9 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/discovery"
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 // HTTPRouteReconciler reconciles a HTTPRoute object
@@ -157,21 +159,19 @@ func (r *HTTPRouteReconciler) cleanupHTTPRouteResources(ctx context.Context, htt
 func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute *gateway_api.HTTPRoute) bool {
 
 	if len(httpRoute.Spec.ParentRefs) == 0 {
-		glog.V(6).Infof("Ignore HTTPRoute which has no ParentRefs gateway %v \n ", httpRoute.Spec)
+		glog.V(2).Infof("Ignore HTTPRoute which has no ParentRefs gateway %v \n ", httpRoute.Spec)
 		return false
 	}
 
 	gw := &gateway_api.Gateway{}
 
-	// TODO handle multiple parentRefs
 	gwNamespace := httpRoute.Namespace
 	if httpRoute.Spec.ParentRefs[0].Namespace != nil {
 		gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
 	}
 	gwName := types.NamespacedName{
 		Namespace: gwNamespace,
-		// TODO assume one parent for now and point to service network
-		Name: string(httpRoute.Spec.ParentRefs[0].Name),
+		Name:      string(httpRoute.Spec.ParentRefs[0].Name),
 	}
 
 	if err := r.gwReconciler.Client.Get(ctx, gwName, gw); err != nil {
@@ -276,11 +276,9 @@ func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, ht
 func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns string, httproute *gateway_api.HTTPRoute) error {
 	glog.V(6).Infof("updateHTTPRouteStatus: httproute %v, dns %v\n", httproute, dns)
 	httprouteOld := httproute.DeepCopy()
-	compare := true
 
 	if len(httproute.ObjectMeta.Annotations) == 0 {
 		httproute.ObjectMeta.Annotations = make(map[string]string)
-		compare = false
 	}
 
 	httproute.ObjectMeta.Annotations[LatticeAssignedDomainName] = dns
@@ -292,46 +290,34 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 
 	if len(httproute.Status.RouteStatus.Parents) == 0 {
 		httproute.Status.RouteStatus.Parents = make([]gateway_api.RouteParentStatus, 1)
-		compare = false
 	}
-
 	httproute.Status.RouteStatus.Parents[0].ParentRef = httproute.Spec.ParentRefs[0]
 	httproute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
-	timeNow := metav1.NewTime(time.Now())
-	if httprouteOld.Status.RouteStatus.Parents != nil {
-		if len(httprouteOld.Status.RouteStatus.Parents[0].Conditions) > 0 {
-			timeNow = httprouteOld.Status.Parents[0].Conditions[0].LastTransitionTime
-		}
-	}
-
-	accepted := metav1.Condition{
-		Type:               string(gateway_api.RouteConditionAccepted),
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: httproute.Generation,
-		LastTransitionTime: timeNow,
-		Reason:             string(gateway_api.RouteReasonAccepted),
-		Message:            fmt.Sprintf("DNS Name: %s", dns),
-	}
-	resolvedRefs := metav1.Condition{
-		Type:               string(gateway_api.RouteConditionResolvedRefs),
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: httproute.Generation,
-		LastTransitionTime: timeNow,
-		Reason:             string(gateway_api.RouteReasonResolvedRefs),
-		Message:            fmt.Sprintf("DNS Name: %s", dns),
-	}
-	httproute.Status.RouteStatus.Parents[0].Conditions = []metav1.Condition{
-		accepted,
-		resolvedRefs,
-	}
-
 	// Update listener Status
-	UpdateHTTPRouteListenerStatus(ctx, r.Client, httproute)
-
-	if compare && r.compareHttproutes(httproute, httprouteOld) {
-		glog.V(6).Infof("updateHTTPRouteStatus: httproute is already up-to-date %v, dns %v\n", httproute, dns)
-		return nil
+	if err := UpdateHTTPRouteListenerStatus(ctx, r.Client, httproute); err != nil {
+		updateRouteCondition(httproute, metav1.Condition{
+			Type:               string(gateway_api.RouteConditionAccepted),
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: httproute.Generation,
+			Reason:             string(gateway_api.RouteReasonNoMatchingParent),
+			Message:            fmt.Sprintf("Could not match gateway %s: %s", httproute.Spec.ParentRefs[0].Name, err.Error()),
+		})
+	} else {
+		updateRouteCondition(httproute, metav1.Condition{
+			Type:               string(gateway_api.RouteConditionAccepted),
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: httproute.Generation,
+			Reason:             string(gateway_api.RouteReasonAccepted),
+			Message:            fmt.Sprintf("DNS Name: %s", dns),
+		})
+		updateRouteCondition(httproute, metav1.Condition{
+			Type:               string(gateway_api.RouteConditionResolvedRefs),
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: httproute.Generation,
+			Reason:             string(gateway_api.RouteReasonResolvedRefs),
+			Message:            fmt.Sprintf("DNS Name: %s", dns),
+		})
 	}
 
 	if err := r.Client.Status().Patch(ctx, httproute, client.MergeFrom(httprouteOld)); err != nil {
@@ -343,31 +329,8 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	return nil
 }
 
-func (r *HTTPRouteReconciler) compareHttproutes(httproute1 *gateway_api.HTTPRoute, httproute2 *gateway_api.HTTPRoute) bool {
-
-	result := false
-
-	if httproute1 == httproute2 {
-		return true
-	}
-
-	if (httproute1.Name == httproute2.Name) && (httproute1.Namespace == httproute2.Namespace) &&
-		(len(httproute1.Status.RouteStatus.Parents[0].Conditions) == len(httproute2.Status.RouteStatus.Parents[0].Conditions)) &&
-		(httproute1.Status.RouteStatus.Parents[0].ParentRef.Name == httproute2.Status.RouteStatus.Parents[0].ParentRef.Name) &&
-		(httproute1.Status.RouteStatus.Parents[0].ControllerName == httproute2.Status.RouteStatus.Parents[0].ControllerName) &&
-		(httproute1.ObjectMeta.Annotations[LatticeAssignedDomainName] == httproute2.ObjectMeta.Annotations[LatticeAssignedDomainName]) {
-		i := 0
-		for _, condition := range httproute1.Status.RouteStatus.Parents[0].Conditions {
-			if condition != httproute2.Status.RouteStatus.Parents[0].Conditions[i] {
-				result = false
-				break
-			}
-			i++
-		}
-		result = true
-	}
-
-	return result
+func updateRouteCondition(httproute *gateway_api.HTTPRoute, updated metav1.Condition) {
+	httproute.Status.RouteStatus.Parents[0].Conditions = updateCondition(httproute.Status.RouteStatus.Parents[0].Conditions, updated)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -375,11 +338,43 @@ func (r *HTTPRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(r.Client)
 	svcEventHandler := eventhandlers.NewEqueueHTTPRequestServiceEvent(r.Client)
 	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(r.Client)
-	return ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
+
+	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&gateway_api.HTTPRoute{}).
 		Watches(&source.Kind{Type: &gateway_api.Gateway{}}, gwEventHandler).
 		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
-		Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler).
-		Complete(r)
+		Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler)
+
+	if ok, err := isExternalDNSSupported(mgr); ok {
+		builder.Owns(&endpoint.DNSEndpoint{})
+	} else {
+		// This means DNSEndpoint CRD does not exist which is fine, but getting API error is not.
+		if err != nil {
+			glog.V(2).Infof("Unknown error while discovering CRD: %v", err)
+			return err
+		}
+	}
+	return builder.Complete(r)
+}
+
+func isExternalDNSSupported(mgr ctrl.Manager) (bool, error) {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
+	if err != nil {
+		return false, err
+	}
+	// Query for known OpenShift API resource to verify it is available
+	apiResources, err := discoveryClient.ServerResourcesForGroupVersion("externaldns.k8s.io/v1alpha1")
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			glog.V(2).Infof("DNSEndpoint CRD is not supported")
+			return false, nil
+		}
+		return false, err
+	}
+	for i := range apiResources.APIResources {
+		if apiResources.APIResources[i].Kind == "DNSEndpoint" {
+			return true, nil
+		}
+	}
+	return false, nil
 }

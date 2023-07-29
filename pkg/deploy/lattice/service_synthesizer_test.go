@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -26,6 +27,7 @@ func Test_SynthesizeService(t *testing.T) {
 		serviceARN    string
 		serviceID     string
 		mgrErr        error
+		dnsErr        error
 		wantErrIsNil  bool
 		wantIsDeleted bool
 	}{
@@ -125,6 +127,29 @@ func Test_SynthesizeService(t *testing.T) {
 			wantIsDeleted: true,
 			wantErrIsNil:  false,
 		},
+		{
+			name: "Add LatticeService, getting error registering DNS",
+
+			httpRoute: &gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "service3",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name: "gateway1",
+							},
+						},
+					},
+				},
+			},
+			serviceARN:    "arn1234",
+			serviceID:     "56789",
+			dnsErr:        errors.New("Failed registering DNS"),
+			wantIsDeleted: false,
+			wantErrIsNil:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -137,6 +162,7 @@ func Test_SynthesizeService(t *testing.T) {
 		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
 
 		mockSvcManager := NewMockServiceManager(c)
+		mockDnsManager := externaldns.NewMockDnsEndpointManager(c)
 
 		pro := "HTTP"
 		protocols := []*string{&pro}
@@ -161,7 +187,11 @@ func Test_SynthesizeService(t *testing.T) {
 			mockSvcManager.EXPECT().Delete(ctx, latticeService).Return(tt.mgrErr)
 		}
 
-		synthesizer := NewServiceSynthesizer(mockSvcManager, stack, ds)
+		if !spec.IsDeleted && tt.mgrErr == nil {
+			mockDnsManager.EXPECT().Create(ctx, gomock.Any()).Return(tt.dnsErr)
+		}
+
+		synthesizer := NewServiceSynthesizer(mockSvcManager, mockDnsManager, stack, ds)
 
 		err := synthesizer.Synthesize(ctx)
 

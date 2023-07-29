@@ -4,23 +4,27 @@ import (
 	"context"
 	"github.com/golang/glog"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
-func NewServiceSynthesizer(serviceManager ServiceManager, stack core.Stack, latticeDataStore *latticestore.LatticeDataStore) *serviceSynthesizer {
+func NewServiceSynthesizer(serviceManager ServiceManager, dnsEndpointManager externaldns.DnsEndpointManager,
+	stack core.Stack, latticeDataStore *latticestore.LatticeDataStore) *serviceSynthesizer {
 	return &serviceSynthesizer{
-		serviceManager:   serviceManager,
-		stack:            stack,
-		latticeDataStore: latticeDataStore,
+		serviceManager:     serviceManager,
+		dnsEndpointManager: dnsEndpointManager,
+		stack:              stack,
+		latticeDataStore:   latticeDataStore,
 	}
 }
 
 type serviceSynthesizer struct {
-	serviceManager   ServiceManager
-	stack            core.Stack
-	latticeDataStore *latticestore.LatticeDataStore
+	serviceManager     ServiceManager
+	dnsEndpointManager externaldns.DnsEndpointManager
+	stack              core.Stack
+	latticeDataStore   *latticestore.LatticeDataStore
 }
 
 func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
@@ -51,6 +55,7 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 						l.Key.Port, l.Key.Protocol)
 				}
 
+				// Deleting DNSEndpoint is not required, as it has ownership relation.
 			}
 			return err
 		} else {
@@ -64,6 +69,14 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 
 			s.latticeDataStore.AddLatticeService(resService.Spec.Name, resService.Spec.Namespace,
 				serviceStatus.ServiceARN, serviceStatus.ServiceID, serviceStatus.ServiceDNS)
+
+			glog.V(6).Infof("Creating Service DNS")
+			resService.Status = &serviceStatus
+			err = s.dnsEndpointManager.Create(ctx, resService)
+			if err != nil {
+				glog.V(2).Infof("Failed creating service DNS: %v", err)
+				return err
+			}
 
 			glog.V(6).Infof("serviceStatus %v, error = %v \n", serviceStatus, err)
 		}

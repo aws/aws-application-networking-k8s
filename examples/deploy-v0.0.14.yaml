@@ -5304,7 +5304,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: public.ecr.aws/m7r9p7b3/aws-gateway-controller:v0.0.9
+        image: public.ecr.aws/m7r9p7b3/aws-gateway-controller:v0.0.14
         livenessProbe:
           httpGet:
             path: /healthz
