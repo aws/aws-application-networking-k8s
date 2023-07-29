@@ -112,7 +112,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		return errors.New(errmsg)
 	}
 
-	definedPorts := []int64{undefinedPort}
+	definedPorts := make([]int64, undefinedPort)
 	if tg.ByServiceExport {
 		serviceExport := &mcs_api.ServiceExport{}
 		err = t.Client.Get(ctx, namespacedName, serviceExport)
@@ -128,7 +128,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 			glog.V(6).Infof("Build Targets - portAnnotations: %v \n", definedPorts)
 		}
 	} else if tg.ByBackendRef {
-		if (t.httpRoute != nil) && (t.httpRoute.Spec.Rules != nil) && (0 < len(t.httpRoute.Spec.Rules)) {
+		if t.httpRoute != nil && t.httpRoute.Spec.Rules != nil && 0 < len(t.httpRoute.Spec.Rules) {
 			definedPorts = []int64{}
 			for _, rule := range t.httpRoute.Spec.Rules {
 				for _, ref := range rule.BackendRefs {
@@ -163,9 +163,9 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-					if definedPorts[0] == undefinedPort || portdefined(definedPorts, int64(target.Port)) {
+					if definedPorts[0] == undefinedPort || portdefined(definedPorts, target.Port) {
 						targetList = append(targetList, target)
-						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), definedPorts[0], target)
+						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, target:%v ***\n", int64(target.Port), definedPorts[0], target)
 					} else {
 						glog.V(6).Infof("Found port does not match the defined port. definedPort:%v, target.Port:%v\n", definedPorts[0], target.Port)
 					}
