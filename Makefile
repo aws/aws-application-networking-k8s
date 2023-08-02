@@ -100,3 +100,17 @@ e2etest:
 		--ginkgo.focus="${FOCUS}" \
 		--ginkgo.timeout=60m \
 		--ginkgo.v
+
+
+e2etest-clean-env:
+	cd test && go test \
+		-p 1 \
+		-count 1 \
+		-timeout 60m \
+		-v \
+		./scripts/... \
+		--ginkgo.focus=delete_all_resource_with_discovery_label_test \
+		--ginkgo.timeout=60m \
+		--ginkgo.v
+
+

@@ -2,26 +2,24 @@ package integration
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"strings"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
+	"log"
+	"os"
+	"strings"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
-var _ = Describe("Test 2 listeners gateway with weighted httproute rules and service export import", func() {
+var _ = Describe("Test 2 listeners gateway with weighted httproute rules and service export import", Focus, func() {
 	// Clean up resources in case an assertion failed before cleaning up
 	// at the end
 	AfterEach(func() {
-		testFramework.CleanTestEnvironment(ctx)
+		testFramework.DeleteAllTestCasesCreatedK8sResourceAndVpcLatticeResource(ctx)
 	})
 
 	It("Create a gateway with 2 listeners(http and https), create a weightedRoutingHttpRoute that parentRef to both http and https listeners,"+
@@ -56,9 +54,12 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 				serviceExport1,
 				serviceImport1,
 			)
-
-			time.Sleep(3 * time.Minute)
-			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, httpRoute)
+			var vpcLatticeService *vpclattice.ServiceSummary
+			Eventually(func(g Gomega) {
+				// Put vpcLatticeService verification logic in the Eventually block(), because the controller need some time to create vpcLattice resource
+				vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
+				g.Expect(vpcLatticeService).NotTo(BeNil())
+			}).Should(Succeed())
 			Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
 			log.Println("Verifying Target Groups")
 			retrievedTg0 := testFramework.GetTargetGroup(ctx, service0)
@@ -67,15 +68,12 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 				Expect(retrievedTargetGroupSummary).NotTo(BeNil())
 				Expect(*retrievedTargetGroupSummary.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 				Expect(*retrievedTargetGroupSummary.Protocol).To(Equal("HTTP"))
+				testFramework.ExpectEventuallyAllLatticeTargetsHealthy(ctx, retrievedTargetGroupSummary)
 				targets := testFramework.GetTargets(ctx, retrievedTargetGroupSummary, deployments[i])
 				Expect(len(targets)).To(BeEquivalentTo(1))
 				Expect(*retrievedTargetGroupSummary.Port).To(BeEquivalentTo(80))
 				for _, target := range targets {
 					Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
-					Expect(*target.Status).To(Or(
-						Equal(vpclattice.TargetStatusInitial),
-						Equal(vpclattice.TargetStatusHealthy),
-					))
 				}
 			}
 
@@ -113,6 +111,9 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 					Expect(*retrievedWeightedTargetGroup1InRule.Weight).To(BeEquivalentTo(80))
 				}
 			}).Should(Succeed())
+			sn := testFramework.GetServiceNetwork(ctx, gateway)
+			testFramework.ExpectEventuallyVpcOfCurrentClusterAssociateWithServiceNetwork(ctx, sn)
+
 			log.Println("Verifying Weighted rule traffic")
 			dnsName := testFramework.GetVpcLatticeServiceDns(httpRoute.Name, httpRoute.Namespace)
 

@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"reflect"
@@ -87,13 +88,16 @@ func NewFramework(ctx context.Context) *Framework {
 		TestCasesCreatedTargetGroupNames:    make(map[string]bool),
 	}
 
-	SetDefaultEventuallyTimeout(180 * time.Second)
-	SetDefaultEventuallyPollingInterval(10 * time.Second)
-	BeforeEach(func() { framework.ExpectToBeClean(ctx) })
-	AfterEach(func() { framework.ExpectToBeClean(ctx) })
 	return framework
 }
+func (env *Framework) DeleteAllK8sResourceWithDiscoveryLabel(ctx context.Context) {
+	parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
+		defer GinkgoRecover()
+		env.DeleteAllOf(ctx, testObject.Type, client.InNamespace("default"), client.HasLabels([]string{DiscoveryLabel}))
+		env.DeleteAllOf(ctx, testObject.Type, client.InNamespace("non-default"), client.HasLabels([]string{DiscoveryLabel}))
 
+	})
+}
 func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	Logger(ctx).Info("Expecting the test environment to be clean")
 	// Kubernetes API Objects
@@ -167,7 +171,7 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	}).Should(Succeed())
 }
 
-func (env *Framework) CleanTestEnvironment(ctx context.Context) {
+func (env *Framework) DeleteAllTestCasesCreatedK8sResourceAndVpcLatticeResource(ctx context.Context) {
 	defer GinkgoRecover()
 	Logger(ctx).Info("Cleaning the test environment")
 	// Kubernetes API Objects
@@ -283,6 +287,7 @@ func (env *Framework) GetTargetGroup(ctx context.Context, service *v1.Service) *
 	return found
 }
 
+// TODO: Change this function name to GetAndVerifyTargets()
 func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment) []*vpclattice.TargetSummary {
 	var found []*vpclattice.TargetSummary
 	Eventually(func(g Gomega) {
@@ -311,6 +316,36 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 		found = retrievedTargets
 	}).Should(Succeed())
 	return found
+}
+
+func (env *Framework) ExpectEventuallyVpcOfCurrentClusterAssociateWithServiceNetwork(ctx context.Context, sn *vpclattice.ServiceNetworkSummary) {
+	currentClusterVpcId := os.Getenv("CLUSTER_VPC_ID")
+	fmt.Println("ExpectEventuallyVpcOfCurrentClusterAssociateWithServiceNetwork currentClusterVpcId:", currentClusterVpcId)
+	Eventually(func(g Gomega) {
+		vpcAssociations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
+			ServiceNetworkIdentifier: sn.Id,
+			VpcIdentifier:            &currentClusterVpcId,
+		})
+		g.Expect(err).To(BeNil())
+		g.Expect(vpcAssociations).To(HaveLen(1))
+		for _, association := range vpcAssociations {
+			g.Expect(*association.Status).To(Equal(vpclattice.ServiceNetworkVpcAssociationStatusActive))
+		}
+	}).Should(Succeed())
+
+}
+
+func (env *Framework) ExpectEventuallyAllLatticeTargetsHealthy(ctx context.Context, tg *vpclattice.TargetGroupSummary) {
+	fmt.Printf("ExpectEventuallyAllLatticeTargetsHealthy for targetGroup: %+v\n", tg)
+	Eventually(func(g Gomega) {
+		targets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: tg.Id})
+		g.Expect(err).To(BeNil())
+		g.Expect(targets).ToNot(BeEmpty())
+		for _, target := range targets {
+			log.Println("target:", target)
+			g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusHealthy))
+		}
+	}).WithPolling(time.Second * 5).WithTimeout(time.Minute * 3).Should(Succeed())
 }
 
 func (env *Framework) DeleteAllFrameworkTracedServiceNetworks(ctx aws.Context) {
@@ -528,12 +563,13 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 					g.Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
 				}
 			}
-		}).WithTimeout(360 * time.Second).Should(Succeed())
+		}).WithTimeout(8 * time.Minute).Should(Succeed())
 
 	}
 	env.TestCasesCreatedServiceNames = make(map[string]bool)
 }
 
+// TODO: Change this function name to GetVpcLatticeServiceDnsFromHttpRoute()
 func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNamespace string) string {
 	log.Println("GetVpcLatticeServiceDns: ", httpRouteName, httpRouteNamespace)
 	httproute := v1beta1.HTTPRoute{}

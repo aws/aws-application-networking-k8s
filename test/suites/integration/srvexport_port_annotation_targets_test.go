@@ -47,11 +47,12 @@ var _ = Describe("Port Annotations Targets", func() {
 			deployment,
 			httpRoute,
 		)
-		time.Sleep(3 * time.Minute) // Wait for creation of VPCLattice resources
-
-		// Verify VPC Lattice Service exists
-		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
+		Eventually(func(g Gomega) {
+			// Put vpcLatticeService verification logic in the Eventually block(), because the controller need some time to create vpcLattice resource
+			vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
+			g.Expect(vpcLatticeService).NotTo(BeNil())
+			g.Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
+		}).Should(Succeed())
 
 		// Verify VPC Lattice Target Group exists
 		targetGroup = testFramework.GetTargetGroup(ctx, service)
@@ -60,7 +61,7 @@ var _ = Describe("Port Annotations Targets", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.CleanTestEnvironment(ctx)
+		testFramework.DeleteAllTestCasesCreatedK8sResourceAndVpcLatticeResource(ctx)
 		testFramework.EventuallyExpectNotFound(
 			ctx,
 			gateway,
@@ -90,7 +91,7 @@ var _ = Describe("Port Annotations Targets", func() {
 		Eventually(func(g Gomega) {
 			log.Println("Verifying Targets are only craeted for the port defined in Port Annotaion in ServiceExport")
 			targets := testFramework.GetTargets(ctx, targetGroup, deployment)
-			Expect(len(targets) == 0)
-		}).WithTimeout(5*time.Minute + 30*time.Second)
+			g.Expect(targets).To(HaveLen(0))
+		}).WithTimeout(5*time.Minute + 30*time.Second).Should(Succeed())
 	})
 })

@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
-var _ = Describe("Deregister Targets", func() {
+var _ = Describe("Deregister Targets", Ordered, func() {
 	var (
 		gateway            *v1beta1.Gateway
 		deployment         *appsv1.Deployment
@@ -42,33 +42,33 @@ var _ = Describe("Deregister Targets", func() {
 			service,
 			deployment,
 		)
-		time.Sleep(3 * time.Minute) // Wait for creation of VPCLattice resources
+		Eventually(func(g Gomega) {
+			// Put vpcLatticeService verification logic in the Eventually block(), because the controller need some time to create vpcLattice resource
+			vpcLatticeService = testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
+			g.Expect(vpcLatticeService).NotTo(BeNil())
+			Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(
+				latticestore.LatticeServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
 
-		// Verify VPC Lattice Service exists
-		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
+			// Verify VPC Lattice Target Group exists
+			targetGroup = testFramework.GetTargetGroup(ctx, service)
+			Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
+			Expect(*targetGroup.Protocol).To(Equal("HTTP"))
 
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(
-			latticestore.LatticeServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
-
-		// Verify VPC Lattice Target Group exists
-		targetGroup = testFramework.GetTargetGroup(ctx, service)
-		Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-		Expect(*targetGroup.Protocol).To(Equal("HTTP"))
-
-		// Verify VPC Lattice Targets exist
-		targets := testFramework.GetTargets(ctx, targetGroup, deployment)
-		Expect(*targetGroup.Port).To(BeEquivalentTo(80))
-		for _, target := range targets {
-			Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].TargetPort.IntVal))
-			Expect(*target.Status).To(Or(
-				Equal(vpclattice.TargetStatusInitial),
-				Equal(vpclattice.TargetStatusHealthy),
-			))
-		}
+			// Verify VPC Lattice Targets exist
+			targets := testFramework.GetTargets(ctx, targetGroup, deployment)
+			Expect(*targetGroup.Port).To(BeEquivalentTo(80))
+			for _, target := range targets {
+				Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].TargetPort.IntVal))
+				Expect(*target.Status).To(Or(
+					Equal(vpclattice.TargetStatusInitial),
+					Equal(vpclattice.TargetStatusHealthy),
+				))
+			}
+		}).Should(Succeed())
 	})
 
 	AfterEach(func() {
-		testFramework.CleanTestEnvironment(ctx)
+		testFramework.DeleteAllTestCasesCreatedK8sResourceAndVpcLatticeResource(ctx)
 		testFramework.EventuallyExpectNotFound(
 			ctx,
 			gateway,
@@ -83,8 +83,8 @@ var _ = Describe("Deregister Targets", func() {
 		Eventually(func(g Gomega) {
 			log.Println("Verifying VPC lattice Targets deregistered")
 			targets := testFramework.GetTargets(ctx, targetGroup, deployment)
-			Expect(len(targets) == 0)
-		}).WithTimeout(5*time.Minute + 10*time.Second)
+			g.Expect(targets).To(HaveLen(0))
+		}).WithTimeout(5*time.Minute + 10*time.Second).Should(Succeed())
 	})
 
 	It("Kubernetes Deployment deletion deregisters targets", func() {
@@ -92,7 +92,7 @@ var _ = Describe("Deregister Targets", func() {
 		Eventually(func(g Gomega) {
 			log.Println("Verifying VPC lattice Targets deregistered")
 			targets := testFramework.GetTargets(ctx, targetGroup, deployment)
-			Expect(len(targets) == 0)
-		}).WithTimeout(5*time.Minute + 10*time.Second)
+			g.Expect(targets).To(HaveLen(0))
+		}).WithTimeout(5*time.Minute + 10*time.Second).Should(Succeed())
 	})
 })

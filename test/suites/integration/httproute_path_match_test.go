@@ -2,17 +2,15 @@ package integration
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"time"
-
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/types"
+	"log"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
@@ -38,36 +36,32 @@ var _ = Describe("HTTPRoute path matches", func() {
 			service2,
 			deployment2,
 		)
-		time.Sleep(3 * time.Minute) //Need some time to wait for VPCLattice resources to be created
-
-		// Verify VPC Lattice Resource
-		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
+		var vpcLatticeService *vpclattice.ServiceSummary
+		Eventually(func(g Gomega) {
+			// Put vpcLatticeService verification logic in the Eventually block(), because the controller need some time to create vpcLattice resource
+			vpcLatticeService = testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
+			g.Expect(vpcLatticeService).NotTo(BeNil())
+			g.Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
+		}).Should(Succeed())
 
 		targetGroupV1 := testFramework.GetTargetGroup(ctx, service1)
 		Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 		Expect(*targetGroupV1.Protocol).To(Equal("HTTP"))
+		testFramework.ExpectEventuallyAllLatticeTargetsHealthy(ctx, targetGroupV1)
 		targetsV1 := testFramework.GetTargets(ctx, targetGroupV1, deployment1)
 		Expect(*targetGroupV1.Port).To(BeEquivalentTo(80))
 		for _, target := range targetsV1 {
 			Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
-			Expect(*target.Status).To(Or(
-				Equal(vpclattice.TargetStatusInitial),
-				Equal(vpclattice.TargetStatusHealthy),
-			))
 		}
 
 		targetGroupV2 := testFramework.GetTargetGroup(ctx, service2)
 		Expect(*targetGroupV2.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 		Expect(*targetGroupV2.Protocol).To(Equal("HTTP"))
+		testFramework.ExpectEventuallyAllLatticeTargetsHealthy(ctx, targetGroupV2)
 		targetsV2 := testFramework.GetTargets(ctx, targetGroupV2, deployment2)
 		Expect(*targetGroupV2.Port).To(BeEquivalentTo(80))
 		for _, target := range targetsV2 {
 			Expect(*target.Port).To(BeEquivalentTo(service2.Spec.Ports[0].TargetPort.IntVal))
-			Expect(*target.Status).To(Or(
-				Equal(vpclattice.TargetStatusInitial),
-				Equal(vpclattice.TargetStatusHealthy),
-			))
 		}
 
 		Eventually(func(g Gomega) {
