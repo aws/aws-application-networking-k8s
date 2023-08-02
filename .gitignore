@@ -11,3 +11,6 @@ go.work*
 
 # envFile from load_env_variables.sh
 **/envFile
+
+# IDE files/directories
+.idea/
