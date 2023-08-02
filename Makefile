@@ -45,7 +45,7 @@ help: ## Display this help.
 
 .PHONY: run
 run: ## Run in development mode
-	go run main.go
+	go run cmd/aws-application-networking-k8s/main.go
 
 
 .PHONY: presubmit

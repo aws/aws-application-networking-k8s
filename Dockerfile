@@ -15,7 +15,7 @@ COPY scripts/aws_sdk_model_override/aws-sdk-go/go.sum scripts/aws_sdk_model_over
 RUN GOPROXY=direct go mod download
 
 # Copy the go source
-COPY main.go main.go
+COPY cmd/aws-application-networking-k8s/main.go main.go
 COPY pkg/ pkg/
 COPY controllers/ controllers/
 COPY scripts scripts
