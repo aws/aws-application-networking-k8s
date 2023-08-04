@@ -119,23 +119,23 @@ func (s GRPCRouteSpec) GetRules() []RouteRule {
 }
 
 type RouteStatus interface {
-	GetRouteStatus() gateway_api_v1beta1.RouteStatus
+	GetParents() []gateway_api_v1beta1.RouteParentStatus
 }
 
 type HTTPRouteStatus struct {
 	gateway_api_v1beta1.HTTPRouteStatus
 }
 
-func (s HTTPRouteStatus) GetRouteStatus() gateway_api_v1beta1.RouteStatus {
-	return s.RouteStatus
+func (s HTTPRouteStatus) GetParents() []gateway_api_v1beta1.RouteParentStatus {
+	return s.Parents
 }
 
 type GRPCRouteStatus struct {
 	gateway_api_v1alpha2.GRPCRouteStatus
 }
 
-func (s GRPCRouteStatus) GetRouteStatus() gateway_api_v1beta1.RouteStatus {
-	return s.RouteStatus
+func (s GRPCRouteStatus) GetParents() []gateway_api_v1beta1.RouteParentStatus {
+	return s.Parents
 }
 
 type RouteRule interface {

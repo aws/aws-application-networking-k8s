@@ -40,12 +40,11 @@ func NewLatticeServiceBuilder(client client.Client, datastore *latticestore.Latt
 	}
 }
 
-// TODO  right now everything is around HTTPRoute,  future, this might need to refactor for TLSRoute
-func (b *latticeServiceModelBuilder) Build(ctx context.Context, httpRoute core.Route) (core.Stack, *latticemodel.Service, error) {
-	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(httpRoute)))
+func (b *latticeServiceModelBuilder) Build(ctx context.Context, route core.Route) (core.Stack, *latticemodel.Service, error) {
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route)))
 
 	task := &latticeServiceModelBuildTask{
-		route:     httpRoute,
+		route:     route,
 		stack:     stack,
 		Client:    b.Client,
 		tgByResID: make(map[string]*latticemodel.TargetGroup),
@@ -116,7 +115,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		Name:      t.route.GetName(),
 		Namespace: t.route.GetNamespace(),
 		Protocols: protocols,
-		//ServiceNetworkNames: string(t.httpRoute.Spec.ParentRefs[0].Name),
+		//ServiceNetworkNames: string(t.route.GetSpec().GetParentRefs()[0].Name),
 	}
 
 	for _, parentRef := range t.route.GetSpec().GetParentRefs() {
