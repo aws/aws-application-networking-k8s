@@ -144,8 +144,9 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 
 		retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
 		for _, tg := range retrievedTargetGroups {
-			Logger(ctx).Infof("Found TargetGroup: %v, checking it whether it's created by current EKS Cluster", tg)
-			if tg.VpcIdentifier != nil && currentClusterVpcId != *tg.VpcIdentifier {
+			Logger(ctx).Infof("Found TargetGroup: %s, checking it whether it's created by current EKS Cluster", *tg.Id)
+			if currentClusterVpcId != *tg.VpcIdentifier {
+				Logger(ctx).Infof("Target group VPC Id: %s, does not match current EKS Cluster VPC Id: %s", *tg.VpcIdentifier, currentClusterVpcId)
 				//This tg is not created by current EKS Cluster, skip it
 				continue
 			}
@@ -156,12 +157,13 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 				Logger(ctx).Infof("Found Tags for tg %v tags: %v", *tg.Name, retrievedTags)
 				tagValue, ok := retrievedTags.Tags[lattice.K8SParentRefTypeKey]
 				if ok && *tagValue == lattice.K8SServiceExportType {
+					Logger(ctx).Infof("TargetGroup: %s was created by k8s controller, by a ServiceExport", *tg.Id)
 					//This tg is created by k8s controller, by a ServiceExport,
 					//ServiceExport still have a known targetGroup leaking issue,
 					//so we temporarily skip to verify whether ServiceExport created TargetGroup is deleted or not
 					continue
 				}
-				Expect(env.TestCasesCreatedServiceNames).To(Not(ContainElements(BeKeyOf(*tg.Name))))
+				Expect(*tg.Name).To(Not(ContainElements(BeKeyOf(env.TestCasesCreatedServiceNames))))
 			}
 		}
 	}).Should(Succeed())
@@ -220,9 +222,9 @@ func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...c
 			Logger(ctx).Infof("Checking whether %s %s %s is not found", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
 			g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(object), object))).To(BeTrue())
 		}
-		// Wait for 6 minutes at maximum just in case the k8sService deletion triggered targets draining time
+		// Wait for 7 minutes at maximum just in case the k8sService deletion triggered targets draining time
 		// and httproute deletion need to wait for that targets draining time finish then it can return
-	}).WithTimeout(6 * time.Minute).WithOffset(1).Should(Succeed())
+	}).WithTimeout(7 * time.Minute).WithOffset(1).Should(Succeed())
 }
 
 func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList client.ObjectList) {
@@ -459,7 +461,9 @@ func (env *Framework) DeleteAllFrameworkTracedVpcLatticeServices(ctx aws.Context
 		_, err := env.LatticeClient.DeleteServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.DeleteServiceNetworkServiceAssociationInput{
 			ServiceNetworkServiceAssociationIdentifier: snsaId,
 		})
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
+		}
 	}
 
 	Eventually(func(g Gomega) {
@@ -493,6 +497,9 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 	tgIds := lo.Map(filteredTgs, func(targetGroup *vpclattice.TargetGroupSummary, _ int) *string {
 		return targetGroup.Id
 	})
+
+	log.Println("Number of traced target groups to delete is:", len(tgIds))
+
 	for _, tgId := range tgIds {
 		targetSummaries, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{
 			TargetGroupIdentifier: tgId,
@@ -510,6 +517,18 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 				TargetGroupIdentifier: tgId,
 				Targets:               targets,
 			})
+		} else {
+			Logger(ctx).Infof("Target group %s no longer has targets registered. Deleting now.", *tgId)
+			Eventually(func() bool {
+				_, err := env.LatticeClient.DeleteTargetGroup(&vpclattice.DeleteTargetGroupInput{
+					TargetGroupIdentifier: tgId,
+				})
+				if err != nil {
+					// Allow time for related service to be deleted prior
+					return err.(awserr.Error).Code() == vpclattice.ErrCodeResourceNotFoundException
+				}
+				return true
+			}).WithPolling(15 * time.Second).WithTimeout(2 * time.Minute).Should(BeTrue())
 		}
 	}
 
@@ -518,7 +537,7 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 		//After initiating the DeregisterTargets call, the Targets will be in `draining` status for the next 5 minutes,
 		//And VPC lattice backend will run a background job to completely delete the targets within 6 minutes at maximum in total.
 		Eventually(func(g Gomega) {
-			log.Println("Trying to clear Target group", tgIdsThatNeedToWaitForDrainingTargetsToBeDeleted, " need to wait for draining targets to be deregistered")
+			log.Println("Trying to clear Target group", tgIdsThatNeedToWaitForDrainingTargetsToBeDeleted, "need to wait for draining targets to be deregistered")
 
 			for _, tgId := range tgIdsThatNeedToWaitForDrainingTargetsToBeDeleted {
 				_, err := env.LatticeClient.DeleteTargetGroupWithContext(ctx, &vpclattice.DeleteTargetGroupInput{
@@ -528,7 +547,7 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 					g.Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
 				}
 			}
-		}).WithTimeout(360 * time.Second).Should(Succeed())
+		}).WithPolling(time.Minute).WithTimeout(7 * time.Minute).Should(Succeed())
 
 	}
 	env.TestCasesCreatedServiceNames = make(map[string]bool)

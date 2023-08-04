@@ -19,7 +19,7 @@ type ElasticSearchOptions struct {
 	MergeFromService    []*v1.Service
 }
 
-func (env *Framework) NewElasticeApp(options ElasticSearchOptions) (*appsv1.Deployment, *v1.Service) {
+func (env *Framework) NewElasticApp(options ElasticSearchOptions) (*appsv1.Deployment, *v1.Service) {
 	if options.Port == 0 {
 		options.Port = 80
 	}
