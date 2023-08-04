@@ -134,7 +134,7 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 			return err
 		}
 		UpdateHTTPRouteListenerStatus(ctx, r.Client, httpRoute)
-		r.finalizerManager.RemoveFinalizers(ctx, &httpRoute, httpRouteFinalizer)
+		r.finalizerManager.RemoveFinalizers(ctx, &httpRoute.HTTPRoute, httpRouteFinalizer)
 
 		// TODO delete metrics
 		return nil
