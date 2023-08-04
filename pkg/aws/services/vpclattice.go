@@ -2,14 +2,12 @@ package services
 
 import (
 	"context"
-	"github.com/golang/glog"
-	"os"
-	"time"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice/vpclatticeiface"
+	"github.com/golang/glog"
+	"os"
 )
 
 type Lattice interface {
@@ -36,7 +34,7 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 		endpoint = latticeEndpoint
 	}
 
-	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint).WithMaxRetries(20).WithSleepDelay(func(t time.Duration) { time.Sleep(time.Millisecond * 500) }))
+	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint).WithMaxRetries(20))
 
 	glog.V(2).Infoln("Lattice Service EndPoint:", endpoint)
 
