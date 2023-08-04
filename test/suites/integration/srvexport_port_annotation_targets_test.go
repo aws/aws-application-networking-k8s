@@ -1,20 +1,16 @@
 package integration
 
 import (
-	"log"
-	"os"
-	"time"
-
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"log"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
 var _ = Describe("Port Annotations Targets", func() {
@@ -47,16 +43,17 @@ var _ = Describe("Port Annotations Targets", func() {
 			deployment,
 			httpRoute,
 		)
-		time.Sleep(3 * time.Minute) // Wait for creation of VPCLattice resources
+		Eventually(func(g Gomega) {
+			// Verify VPC Lattice Service
+			vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
+			g.Expect(vpcLatticeService).NotTo(BeNil())
+			g.Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
 
-		// Verify VPC Lattice Service exists
-		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
-
-		// Verify VPC Lattice Target Group exists
-		targetGroup = testFramework.GetTargetGroup(ctx, service)
-		Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-		Expect(*targetGroup.Protocol).To(Equal("HTTP"))
+			// Verify VPC Lattice Target Group exists
+			targetGroup = testFramework.GetTargetGroup(ctx, service)
+			g.Expect(*targetGroup.VpcIdentifier).To(Equal(test.CurrentClusterVpcId))
+			g.Expect(*targetGroup.Protocol).To(Equal("HTTP"))
+		}).Should(Succeed())
 	})
 
 	AfterEach(func() {
@@ -69,6 +66,7 @@ var _ = Describe("Port Annotations Targets", func() {
 		log.Println("Verifying Targets are only created for the port defined in Port Annotation in ServiceExport")
 		for _, target := range targets {
 			Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].Port))
+			Expect(*target.Port).NotTo(BeEquivalentTo(service.Spec.Ports[1].Port))
 			Expect(*target.Status).To(Or(
 				Equal(vpclattice.TargetStatusInitial),
 				Equal(vpclattice.TargetStatusHealthy),

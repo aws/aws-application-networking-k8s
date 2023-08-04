@@ -48,13 +48,14 @@ type TestObject struct {
 }
 
 var (
-	TestObjects = []TestObject{
-		{&v1.Service{}, &v1.ServiceList{}},
+	CurrentClusterVpcId = os.Getenv("CLUSTER_VPC_ID")
+	TestObjects         = []TestObject{
+		{&v1beta1.HTTPRoute{}, &v1beta1.HTTPRouteList{}},
 		{&v1alpha1.ServiceExport{}, &v1alpha1.ServiceExportList{}},
 		{&v1alpha1.ServiceImport{}, &v1alpha1.ServiceImportList{}},
-		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
-		{&v1beta1.HTTPRoute{}, &v1beta1.HTTPRouteList{}},
 		{&v1beta1.Gateway{}, &v1beta1.GatewayList{}},
+		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
+		{&v1.Service{}, &v1.ServiceList{}},
 	}
 )
 
@@ -86,11 +87,8 @@ func NewFramework(ctx context.Context) *Framework {
 		TestCasesCreatedServiceNames:        make(map[string]bool),
 		TestCasesCreatedTargetGroupNames:    make(map[string]bool),
 	}
-
-	SetDefaultEventuallyTimeout(180 * time.Second)
+	SetDefaultEventuallyTimeout(5 * time.Minute)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
-	BeforeEach(func() { framework.ExpectToBeClean(ctx) })
-	AfterEach(func() { framework.ExpectToBeClean(ctx) })
 	return framework
 }
 
@@ -102,13 +100,12 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		env.EventuallyExpectNoneFound(ctx, testObject.ListType)
 	})
 
-	currentClusterVpcId := os.Getenv("CLUSTER_VPC_ID")
-	retrievedServiceNetworkVpcAssociations, _ := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
-		VpcIdentifier: aws.String(currentClusterVpcId),
-	})
-	Logger(ctx).Infof("Expect VPC used by current cluster don't have any ServiceNetworkVPCAssociation, if it has you should manually delete it")
-	Expect(len(retrievedServiceNetworkVpcAssociations)).To(Equal(0))
 	Eventually(func(g Gomega) {
+		retrievedServiceNetworkVpcAssociations, _ := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
+			VpcIdentifier: aws.String(CurrentClusterVpcId),
+		})
+		Logger(ctx).Infof("Expect VPC used by current cluster don't have any ServiceNetworkVPCAssociation, if it has you should manually delete it")
+		g.Expect(len(retrievedServiceNetworkVpcAssociations)).To(Equal(0))
 		retrievedServiceNetworks, _ := env.LatticeClient.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
 		for _, sn := range retrievedServiceNetworks {
 			Logger(ctx).Infof("Found service network, checking whether it's created by current EKS Cluster: %v", sn)
@@ -121,7 +118,7 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 
 				value, ok := retrievedTags.Tags[lattice.K8SServiceNetworkOwnedByVPC]
 				if ok {
-					g.Expect(*value).To(Not(Equal(currentClusterVpcId)))
+					g.Expect(*value).To(Not(Equal(CurrentClusterVpcId)))
 				}
 			}
 		}
@@ -137,7 +134,7 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 				Logger(ctx).Infof("Found Tags for service %v tags: %v", *service.Name, retrievedTags)
 				value, ok := retrievedTags.Tags[lattice.K8SServiceOwnedByVPC]
 				if ok {
-					g.Expect(*value).To(Not(Equal(currentClusterVpcId)))
+					g.Expect(*value).To(Not(Equal(CurrentClusterVpcId)))
 				}
 			}
 		}
@@ -145,8 +142,8 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
 		for _, tg := range retrievedTargetGroups {
 			Logger(ctx).Infof("Found TargetGroup: %s, checking it whether it's created by current EKS Cluster", *tg.Id)
-			if currentClusterVpcId != *tg.VpcIdentifier {
-				Logger(ctx).Infof("Target group VPC Id: %s, does not match current EKS Cluster VPC Id: %s", *tg.VpcIdentifier, currentClusterVpcId)
+			if CurrentClusterVpcId != *tg.VpcIdentifier {
+				Logger(ctx).Infof("Target group VPC Id: %s, does not match current EKS Cluster VPC Id: %s", *tg.VpcIdentifier, CurrentClusterVpcId)
 				//This tg is not created by current EKS Cluster, skip it
 				continue
 			}
@@ -163,7 +160,7 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 					//so we temporarily skip to verify whether ServiceExport created TargetGroup is deleted or not
 					continue
 				}
-				Expect(*tg.Name).To(Not(ContainElements(BeKeyOf(env.TestCasesCreatedServiceNames))))
+				g.Expect(*tg.Name).To(Not(ContainElements(BeKeyOf(env.TestCasesCreatedServiceNames))))
 			}
 		}
 	}).Should(Succeed())
@@ -175,14 +172,16 @@ func (env *Framework) CleanTestEnvironment(ctx context.Context) {
 	// Kubernetes API Objects
 	namespaces := &v1.NamespaceList{}
 	Expect(env.List(ctx, namespaces)).WithOffset(1).To(Succeed())
+	//TODO: Instead of using TestCasesCreatedK8sResource one []client.Object array, trace different kind of k8s resource by different slice,
+	// And in here to delete all httproutes first and then sleep for a while to delete k8sService to avoid draining targets
 	for _, object := range env.TestCasesCreatedK8sResource {
 		Logger(ctx).Infof("Deleting k8s resource %s %s/%s", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
 		env.Delete(ctx, object)
 		//Ignore resource-not-found error here, as the test case logic itself could already clear the resources
 	}
 
-	//Theoretically, Deleting all k8s resource by `env.ExpectDeleteAllToSucceed()`, will make controller delete all related VPC Lattice resource,
-	//but the controller is still developing in the progress and may leaking some vPCLattice resource, need to invoke vpcLattice api to double confirm and delete leaking resource.
+	//Theoretically, Deleting all k8s resource by above `env.Delete(ctx, object)`, will make controller delete all related VPC Lattice resource,
+	//but the controller is still developing in the progress and may leaking some VPCLattice resource, need to invoke vpcLattice api to double confirm and delete leaking resource.
 	env.DeleteAllFrameworkTracedServiceNetworks(ctx)
 	env.DeleteAllFrameworkTracedVpcLatticeServices(ctx)
 	env.DeleteAllFrameworkTracedTargetGroups(ctx)
@@ -234,6 +233,7 @@ func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList 
 	}).WithOffset(1).Should(Succeed())
 }
 
+// TODO: Change name to GetServiceNetworkByK8sGateway and remove Eventually() and Expect()
 func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *v1beta1.Gateway) *vpclattice.ServiceNetworkSummary {
 	var found *vpclattice.ServiceNetworkSummary
 	Eventually(func(g Gomega) {
@@ -250,6 +250,7 @@ func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *v1beta1.Ga
 	return found
 }
 
+// TODO: Change name to GetVpcLatticeServiceByHttproute and remove Eventually() and Expect()
 func (env *Framework) GetVpcLatticeService(ctx context.Context, httpRoute *v1beta1.HTTPRoute) *vpclattice.ServiceSummary {
 	var found *vpclattice.ServiceSummary
 	Eventually(func(g Gomega) {
@@ -268,6 +269,7 @@ func (env *Framework) GetVpcLatticeService(ctx context.Context, httpRoute *v1bet
 	return found
 }
 
+// TODO: Change name to GetVpcLatticeServiceByK8sService and remove Eventually() and Expect()
 func (env *Framework) GetTargetGroup(ctx context.Context, service *v1.Service) *vpclattice.TargetGroupSummary {
 	var found *vpclattice.TargetGroupSummary
 	Eventually(func(g Gomega) {
@@ -285,6 +287,7 @@ func (env *Framework) GetTargetGroup(ctx context.Context, service *v1.Service) *
 	return found
 }
 
+// TODO: Create a new function that only verifying deployment len(podList.Items)==*deployment.Spec.Replicas, and don't do lattice.ListTargets() api call
 func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment) []*vpclattice.TargetSummary {
 	var found []*vpclattice.TargetSummary
 	Eventually(func(g Gomega) {
@@ -302,7 +305,7 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 		retrievedTargets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroup.Id})
 		g.Expect(err).To(BeNil())
 		g.Expect(retrievedTargets).To(HaveLen(int(*deployment.Spec.Replicas)))
-
+		log.Println("retrievedTargets:", retrievedTargets)
 		podIps := lo.Map(podList.Items, func(pod v1.Pod, _ int) string { return pod.Status.PodIP })
 		targetIps := lo.Filter(retrievedTargets, func(target *vpclattice.TargetSummary, _ int) bool {
 			return lo.Contains(podIps, *target.Id) &&
@@ -313,6 +316,45 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 		found = retrievedTargets
 	}).Should(Succeed())
 	return found
+}
+
+func (env *Framework) IsVpcAssociateWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *vpclattice.ServiceNetworkSummary) (bool, error) {
+	log.Printf("IsVpcAssociateWithServiceNetwork vpcId:%v serviceNetwork: %v \n", vpcId, serviceNetwork)
+	vpcAssociations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
+		ServiceNetworkIdentifier: serviceNetwork.Id,
+		VpcIdentifier:            &vpcId,
+	})
+	if err != nil {
+		log.Println("Error in latticeClient.ListServiceNetworkVpcAssociationsAsList", err)
+		return false, err
+	}
+	if len(vpcAssociations) != 1 {
+		log.Println("Expect to have one VpcServiceNetworkAssociation len(vpcAssociations):", len(vpcAssociations))
+		return false, err
+	}
+	association := vpcAssociations[0]
+	if *association.Status != vpclattice.ServiceNetworkVpcAssociationStatusActive {
+		log.Println("Current cluster should have one Active status association *association.Status:", *association.Status)
+		return false, err
+	}
+	return true, nil
+}
+
+func (env *Framework) IsAllLatticeTargetsHealthy(ctx context.Context, tg *vpclattice.TargetGroupSummary) (bool, error) {
+	log.Printf("Checking whether IsAllLatticeTargetsHealthy for targetGroup: %+v\n", tg)
+	targets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: tg.Id})
+	if err != nil {
+		log.Println("Error in latticeClient.ListTargetsAsList", err)
+		return false, err
+	}
+	for _, target := range targets {
+		log.Println("Checking target:", target)
+		if *target.Status != vpclattice.TargetStatusHealthy {
+			log.Println("Target is not healthy yet")
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (env *Framework) DeleteAllFrameworkTracedServiceNetworks(ctx aws.Context) {
