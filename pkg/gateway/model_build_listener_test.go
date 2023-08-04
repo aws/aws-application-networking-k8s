@@ -51,7 +51,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 		name               string
 		gwListenerPort     gateway_api.PortNumber
 		gwListenerProtocol gateway_api.ProtocolType
-		httpRoute          *gateway_api.HTTPRoute
+		route              core.Route
 		wantErrIsNil       bool
 		k8sGetGatewayCall  bool
 		k8sGatewayReturnOK bool
@@ -66,7 +66,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -90,7 +90,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 		},
 		{
 			name:               "listener, tls with cert arn",
@@ -100,7 +100,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			k8sGatewayReturnOK: true,
 			tlsTerminate:       true,
 			certARN:            "test-cert-ARN",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -124,7 +124,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 		},
 		{
 			name:               "listener, tls mode is not terminate",
@@ -134,7 +134,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			k8sGatewayReturnOK: true,
 			tlsTerminate:       false,
 			certARN:            "test-cert-ARN",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -158,7 +158,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 		},
 		{
 			name:               "listener, with wrong annotation",
@@ -168,7 +168,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			k8sGatewayReturnOK: true,
 			tlsTerminate:       false,
 			certARN:            "test-cert-ARN",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -192,7 +192,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 		},
 		{
 			name:               "listener, default serviceimport action",
@@ -200,7 +200,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -224,14 +224,14 @@ func Test_ListenerModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 		},
 		{
 			name:              "no parentref ",
 			gwListenerPort:    *PortNumberPtr(80),
 			wantErrIsNil:      false,
 			k8sGetGatewayCall: false,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -250,7 +250,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 		},
 		{
 			name:               "No k8sgateway object",
@@ -258,7 +258,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       false,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: false,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -282,7 +282,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 		},
 		{
 			name:               "no section name ",
@@ -290,7 +290,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       false,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -314,7 +314,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 		},
 	}
 
@@ -335,7 +335,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 						listener := gateway_api.Listener{
 							Port:     tt.gwListenerPort,
 							Protocol: "HTTP",
-							Name:     *tt.httpRoute.Spec.ParentRefs[0].SectionName,
+							Name:     *tt.route.GetSpec().GetParentRefs()[0].SectionName,
 						}
 
 						if tt.tlsTerminate {
@@ -375,10 +375,10 @@ func Test_ListenerModelBuild(t *testing.T) {
 
 		ds := latticestore.NewLatticeDataStore()
 
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route)))
 
 		task := &latticeServiceModelBuildTask{
-			httpRoute:       tt.httpRoute,
+			route:           tt.route,
 			stack:           stack,
 			Client:          k8sClient,
 			listenerByResID: make(map[string]*latticemodel.Listener),
@@ -410,19 +410,19 @@ func Test_ListenerModelBuild(t *testing.T) {
 
 		fmt.Printf("resListener :%v \n", resListener)
 		assert.Equal(t, resListener[0].Spec.Port, int64(tt.gwListenerPort))
-		assert.Equal(t, resListener[0].Spec.Name, tt.httpRoute.ObjectMeta.Name)
-		assert.Equal(t, resListener[0].Spec.Namespace, tt.httpRoute.ObjectMeta.Namespace)
+		assert.Equal(t, resListener[0].Spec.Name, tt.route.GetName())
+		assert.Equal(t, resListener[0].Spec.Namespace, tt.route.GetNamespace())
 		assert.Equal(t, resListener[0].Spec.Protocol, "HTTP")
 
 		assert.Equal(t, resListener[0].Spec.DefaultAction.BackendServiceName,
-			string(tt.httpRoute.Spec.Rules[0].BackendRefs[0].BackendRef.Name))
-		if ns := tt.httpRoute.Spec.Rules[0].BackendRefs[0].BackendRef.Namespace; ns != nil {
+			string(tt.route.GetSpec().GetRules()[0].GetBackendRefs()[0].GetName()))
+		if ns := tt.route.GetSpec().GetRules()[0].GetBackendRefs()[0].GetNamespace(); ns != nil {
 			assert.Equal(t, resListener[0].Spec.DefaultAction.BackendServiceNamespace, *ns)
 		} else {
-			assert.Equal(t, resListener[0].Spec.DefaultAction.BackendServiceNamespace, tt.httpRoute.ObjectMeta.Namespace)
+			assert.Equal(t, resListener[0].Spec.DefaultAction.BackendServiceNamespace, tt.route.GetNamespace())
 		}
 
-		if *tt.httpRoute.Spec.Rules[0].BackendRefs[0].Kind == "Service" {
+		if *tt.route.GetSpec().GetRules()[0].GetBackendRefs()[0].GetKind() == "Service" {
 			assert.Equal(t, resListener[0].Spec.DefaultAction.Is_Import, false)
 		} else {
 			assert.Equal(t, resListener[0].Spec.DefaultAction.Is_Import, true)

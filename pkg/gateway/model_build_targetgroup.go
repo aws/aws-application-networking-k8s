@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -134,23 +133,23 @@ func (t *targetGroupModelBuildTask) BuildTargets(ctx context.Context) error {
 
 // Triggered from httproute/service/targetgroup
 func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
-	for _, httpRule := range t.httpRoute.Spec.Rules {
-		for _, httpBackendRef := range httpRule.BackendRefs {
-			if string(*httpBackendRef.Kind) == "serviceimport" {
+	for _, httpRule := range t.route.GetSpec().GetRules() {
+		for _, httpBackendRef := range httpRule.GetBackendRefs() {
+			if string(*httpBackendRef.GetKind()) == "serviceimport" {
 				glog.V(6).Infof("latticeServiceModelBuildTask: ignore service: %v \n", httpBackendRef)
 				continue
 			}
 
-			backendNamespace := t.httpRoute.Namespace
-			if httpBackendRef.Namespace != nil {
-				backendNamespace = string(*httpBackendRef.Namespace)
+			backendNamespace := t.route.GetNamespace()
+			if httpBackendRef.GetNamespace() != nil {
+				backendNamespace = string(*httpBackendRef.GetNamespace())
 			}
 
 			targetTask := &latticeTargetsModelBuildTask{
 				Client:      t.Client,
-				tgName:      string(httpBackendRef.Name),
+				tgName:      string(httpBackendRef.GetName()),
 				tgNamespace: backendNamespace,
-				routename:   t.httpRoute.Name,
+				routename:   t.route.GetName(),
 				stack:       t.stack,
 				datastore:   t.Datastore,
 			}
@@ -230,35 +229,35 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 // Build target group for backend service ref used in HTTPRoute
 func (t *latticeServiceModelBuildTask) buildTargetGroup(ctx context.Context, client client.Client) (*latticemodel.TargetGroup, error) {
 
-	for _, httpRule := range t.httpRoute.Spec.Rules {
+	for _, httpRule := range t.route.GetSpec().GetRules() {
 		glog.V(6).Infof("buildTargetGroup: %v\n", httpRule)
 
-		for _, httpBackendRef := range httpRule.BackendRefs {
+		for _, httpBackendRef := range httpRule.GetBackendRefs() {
 			glog.V(6).Infof("buildTargetGroup -- backendRef %v \n", httpBackendRef)
 
-			tgName := t.buildHTTPTargetGroupName(ctx, &httpBackendRef)
+			tgName := t.buildTargetGroupName(ctx, httpBackendRef)
 
-			tgSpec, err := t.buildHTTPTargetGroupSpec(ctx, client, &httpBackendRef)
+			tgSpec, err := t.buildTargetGroupSpec(ctx, client, httpBackendRef)
 			if err != nil {
-				glog.V(6).Infof("buildHTTPTargetGroupSpec err %v \n", err)
+				glog.V(6).Infof("buildTargetGroupSpec err %v \n", err)
 				return nil, err
 			}
 
 			// add targetgroup to localcache for service reconcile to reference
-			if *httpBackendRef.Kind == "Service" {
-				t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, t.httpRoute.Name)
+			if *httpBackendRef.GetKind() == "Service" {
+				t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, t.route.GetName())
 			} else {
 				// for serviceimport, the httproutename is ""
 				t.Datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, "")
 			}
 
-			if t.httpRoute.DeletionTimestamp.IsZero() {
+			if t.route.GetDeletionTimestamp().IsZero() {
 				// to add
-				t.Datastore.SetTargetGroupByBackendRef(tgName, t.httpRoute.Name, tgSpec.Config.IsServiceImport, true)
+				t.Datastore.SetTargetGroupByBackendRef(tgName, t.route.GetName(), tgSpec.Config.IsServiceImport, true)
 			} else {
 				// to delete
-				t.Datastore.SetTargetGroupByBackendRef(tgName, t.httpRoute.Name, tgSpec.Config.IsServiceImport, false)
-				dsTG, _ := t.Datastore.GetTargetGroup(tgName, t.httpRoute.Name, tgSpec.Config.IsServiceImport)
+				t.Datastore.SetTargetGroupByBackendRef(tgName, t.route.GetName(), tgSpec.Config.IsServiceImport, false)
+				dsTG, _ := t.Datastore.GetTargetGroup(tgName, t.route.GetName(), tgSpec.Config.IsServiceImport)
 				tgSpec.IsDeleted = true
 				tgSpec.LatticeID = dsTG.ID
 			}
@@ -276,24 +275,24 @@ func (t *latticeServiceModelBuildTask) buildTargetGroup(ctx context.Context, cli
 }
 
 // Now, Only k8sService and serviceImport creation deletion use this function to build TargetGroupSpec, serviceExport does not use this function to create TargetGroupSpec
-func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Context, client client.Client, httpBackendRef *gateway_api.HTTPBackendRef) (latticemodel.TargetGroupSpec, error) {
+func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(ctx context.Context, client client.Client, httpBackendRef core.BackendRef) (latticemodel.TargetGroupSpec, error) {
 	var namespace string
 
-	if httpBackendRef.BackendRef.BackendObjectReference.Namespace != nil {
-		namespace = string(*httpBackendRef.BackendRef.BackendObjectReference.Namespace)
+	if httpBackendRef.GetNamespace() != nil {
+		namespace = string(*httpBackendRef.GetNamespace())
 	} else {
-		namespace = t.httpRoute.Namespace
+		namespace = t.route.GetNamespace()
 	}
 
-	backendKind := string(*httpBackendRef.BackendRef.BackendObjectReference.Kind)
-	glog.V(6).Infof("buildHTTPTargetGroupSpec,  kind %s\n", backendKind)
+	backendKind := string(*httpBackendRef.GetKind())
+	glog.V(6).Infof("buildTargetGroupSpec,  kind %s\n", backendKind)
 
 	var vpc = config.VpcID
 	var ekscluster = ""
 	var isServiceImport bool
 	var isDeleted bool
 
-	if t.httpRoute.DeletionTimestamp.IsZero() {
+	if t.route.GetDeletionTimestamp().IsZero() {
 		isDeleted = false
 	} else {
 		isDeleted = true
@@ -302,17 +301,17 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 		isServiceImport = true
 		namespaceName := types.NamespacedName{
 			Namespace: namespace,
-			Name:      string(httpBackendRef.Name),
+			Name:      string(httpBackendRef.GetName()),
 		}
 		serviceImport := &mcs_api.ServiceImport{}
 
 		if err := client.Get(context.TODO(), namespaceName, serviceImport); err == nil {
-			glog.V(6).Infof("buildHTTPTargetGroupSpec, using service Import %v\n", namespaceName)
+			glog.V(6).Infof("buildTargetGroupSpec, using service Import %v\n", namespaceName)
 			vpc = serviceImport.Annotations["multicluster.x-k8s.io/aws-vpc"]
 			ekscluster = serviceImport.Annotations["multicluster.x-k8s.io/aws-eks-cluster-name"]
 
 		} else {
-			glog.V(6).Infof("buildHTTPTargetGroupSpec, using service Import %v, err :%v\n", namespaceName, err)
+			glog.V(6).Infof("buildTargetGroupSpec, using service Import %v, err :%v\n", namespaceName, err)
 			if !isDeleted {
 				//Return error for creation request only.
 				//For ServiceImport deletion request, we should go ahead to build TargetGroupSpec model,
@@ -322,15 +321,15 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 		}
 
 	} else {
-		var namespace = t.httpRoute.Namespace
+		var namespace = t.route.GetNamespace()
 
-		if httpBackendRef.Namespace != nil {
-			namespace = string(*httpBackendRef.Namespace)
+		if httpBackendRef.GetNamespace() != nil {
+			namespace = string(*httpBackendRef.GetNamespace())
 		}
 		// find out service target port
 		serviceNamespaceName := types.NamespacedName{
 			Namespace: namespace,
-			Name:      string(httpBackendRef.Name),
+			Name:      string(httpBackendRef.GetName()),
 		}
 
 		svc := &corev1.Service{}
@@ -344,7 +343,7 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 		}
 	}
 
-	tgName := latticestore.TargetGroupName(string(httpBackendRef.Name), namespace)
+	tgName := latticestore.TargetGroupName(string(httpBackendRef.GetName()), namespace)
 
 	return latticemodel.TargetGroupSpec{
 		Name: tgName,
@@ -354,10 +353,10 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 			EKSClusterName:        ekscluster,
 			IsServiceImport:       isServiceImport,
 			IsServiceExport:       false,
-			K8SServiceName:        string(httpBackendRef.Name),
+			K8SServiceName:        string(httpBackendRef.GetName()),
 			K8SServiceNamespace:   namespace,
-			K8SHTTPRouteName:      t.httpRoute.Name,
-			K8SHTTPRouteNamespace: t.httpRoute.Namespace,
+			K8SHTTPRouteName:      t.route.GetName(),
+			K8SHTTPRouteNamespace: t.route.GetNamespace(),
 			Protocol:              "HTTP",
 			ProtocolVersion:       vpclattice.TargetGroupProtocolVersionHttp1,
 			// Fill in default HTTP port as we are using target port anyway.
@@ -367,12 +366,12 @@ func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupSpec(ctx context.Cont
 	}, nil
 }
 
-func (t *latticeServiceModelBuildTask) buildHTTPTargetGroupName(_ context.Context, httpBackendRef *gateway_api.HTTPBackendRef) string {
-	if httpBackendRef.BackendRef.BackendObjectReference.Namespace != nil {
-		return latticestore.TargetGroupName(string(httpBackendRef.BackendRef.BackendObjectReference.Name),
-			string(*httpBackendRef.BackendRef.BackendObjectReference.Namespace))
+func (t *latticeServiceModelBuildTask) buildTargetGroupName(_ context.Context, backendRef core.BackendRef) string {
+	if backendRef.GetNamespace() != nil {
+		return latticestore.TargetGroupName(string(backendRef.GetName()),
+			string(*backendRef.GetNamespace()))
 	} else {
-		return latticestore.TargetGroupName(string(httpBackendRef.BackendRef.BackendObjectReference.Name),
-			t.httpRoute.Namespace)
+		return latticestore.TargetGroupName(string(backendRef.GetName()),
+			t.route.GetNamespace())
 	}
 }

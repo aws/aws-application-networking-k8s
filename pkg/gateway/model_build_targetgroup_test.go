@@ -189,7 +189,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		httpRoute     *gateway_api.HTTPRoute
+		route         core.Route
 		svcExist      bool
 		wantError     error
 		wantErrIsNil  bool
@@ -198,7 +198,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
@@ -225,7 +225,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			svcExist:      true,
 			wantError:     nil,
@@ -235,7 +235,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
@@ -264,7 +264,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			svcExist:      true,
 			wantError:     nil,
@@ -274,7 +274,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Create LatticeService where backend K8S service does NOT exist",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "service3",
 					Finalizers: []string{"gateway.k8s.aws/resources"},
@@ -302,7 +302,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			svcExist:      false,
 			wantError:     nil,
@@ -312,7 +312,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Create LatticeService where backend mcs serviceimport does NOT exist",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "service4",
 					Finalizers: []string{"gateway.k8s.aws/resources"},
@@ -340,7 +340,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			svcExist:      false,
 			wantError:     nil,
@@ -363,10 +363,10 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 
 			//builder := NewLatticeServiceBuilder(k8sClient, ds, nil)
 
-			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route)))
 
 			task := &latticeServiceModelBuildTask{
-				httpRoute: tt.httpRoute,
+				route:     tt.route,
 				stack:     stack,
 				Client:    k8sClient,
 				tgByResID: make(map[string]*latticemodel.TargetGroup),
@@ -375,13 +375,13 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 
 			if tt.svcExist {
 				// populate K8S service
-				for _, httpRules := range tt.httpRoute.Spec.Rules {
-					for _, httpBackendRef := range httpRules.BackendRefs {
+				for _, httpRules := range tt.route.GetSpec().GetRules() {
+					for _, httpBackendRef := range httpRules.GetBackendRefs() {
 						if tt.svcExist {
 							svc := corev1.Service{
 								ObjectMeta: metav1.ObjectMeta{
-									Name:      string(httpBackendRef.Name),
-									Namespace: string(*httpBackendRef.Namespace),
+									Name:      string(httpBackendRef.GetName()),
+									Namespace: string(*httpBackendRef.GetNamespace()),
 								},
 							}
 							fmt.Printf("create K8S service %v\n", svc)
@@ -402,18 +402,18 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 
 			if tt.wantErrIsNil {
 				// verify data store
-				for _, httpRules := range tt.httpRoute.Spec.Rules {
-					for _, httpBackendRef := range httpRules.BackendRefs {
-						tgName := latticestore.TargetGroupName(string(httpBackendRef.Name), string(*httpBackendRef.Namespace))
+				for _, httpRules := range tt.route.GetSpec().GetRules() {
+					for _, httpBackendRef := range httpRules.GetBackendRefs() {
+						tgName := latticestore.TargetGroupName(string(httpBackendRef.GetName()), string(*httpBackendRef.GetNamespace()))
 
-						fmt.Printf("httpBacndendRef %s\n", *httpBackendRef.BackendObjectReference.Kind)
-						if "Service" == *httpBackendRef.BackendObjectReference.Kind {
+						fmt.Printf("httpBacndendRef %s\n", *httpBackendRef.GetKind())
+						if "Service" == *httpBackendRef.GetKind() {
 							if tt.wantIsDeleted {
 								tg := task.tgByResID[tgName]
 								fmt.Printf("--task.tgByResID[tgName] %v \n", tg)
 								assert.Equal(t, true, tg.Spec.IsDeleted)
 							} else {
-								dsTG, err := ds.GetTargetGroup(tgName, tt.httpRoute.Name, false)
+								dsTG, err := ds.GetTargetGroup(tgName, tt.route.GetName(), false)
 								assert.Equal(t, true, dsTG.ByBackendRef)
 								fmt.Printf("--dsTG %v\n", dsTG)
 								assert.Nil(t, err)
@@ -448,7 +448,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		httpRoute      *gateway_api.HTTPRoute
+		route          core.Route
 		svcImportExist bool
 		wantError      error
 		wantErrIsNil   bool
@@ -457,7 +457,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "serviceimport1",
 				},
@@ -484,7 +484,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			svcImportExist: true,
 			wantError:      nil,
@@ -494,7 +494,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		},
 		{
 			name: "Add LatticeService, implicit namespace",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "serviceimport1",
 					Namespace: "tg1-ns2",
@@ -521,7 +521,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			svcImportExist: true,
 			wantError:      nil,
@@ -531,7 +531,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.HTTPRoute{gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "serviceimport2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
@@ -561,7 +561,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			svcImportExist: true,
 			wantError:      nil,
@@ -583,23 +583,23 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 
 		//builder := NewLatticeServiceBuilder(k8sClient, ds, nil)
 
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route)))
 
 		task := &latticeServiceModelBuildTask{
-			httpRoute: tt.httpRoute,
+			route:     tt.route,
 			stack:     stack,
 			Client:    k8sClient,
 			tgByResID: make(map[string]*latticemodel.TargetGroup),
 			Datastore: ds,
 		}
 
-		for _, httpRules := range tt.httpRoute.Spec.Rules {
-			for _, httpBackendRef := range httpRules.BackendRefs {
+		for _, httpRules := range tt.route.GetSpec().GetRules() {
+			for _, httpBackendRef := range httpRules.GetBackendRefs() {
 				if tt.svcImportExist {
 					k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 						func(ctx context.Context, name types.NamespacedName, svcImport *mcs_api.ServiceImport, arg3 ...interface{}) error {
 							//TODO add more
-							svcImport.ObjectMeta.Name = string(httpBackendRef.Name)
+							svcImport.ObjectMeta.Name = string(httpBackendRef.GetName())
 							return nil
 						},
 					)
@@ -620,22 +620,22 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 
 		if tt.wantErrIsNil {
 			// verify data store
-			for _, httpRules := range tt.httpRoute.Spec.Rules {
-				for _, httpBackendRef := range httpRules.BackendRefs {
-					ns := tt.httpRoute.Namespace
-					if httpBackendRef.Namespace != nil {
-						ns = string(*httpBackendRef.Namespace)
+			for _, httpRules := range tt.route.GetSpec().GetRules() {
+				for _, httpBackendRef := range httpRules.GetBackendRefs() {
+					ns := tt.route.GetNamespace()
+					if httpBackendRef.GetNamespace() != nil {
+						ns = string(*httpBackendRef.GetNamespace())
 					}
-					tgName := latticestore.TargetGroupName(string(httpBackendRef.Name), ns)
+					tgName := latticestore.TargetGroupName(string(httpBackendRef.GetName()), ns)
 
-					fmt.Printf("httpBacndendRef %s\n", *httpBackendRef.BackendObjectReference.Kind)
-					if "Service" == *httpBackendRef.BackendObjectReference.Kind {
+					fmt.Printf("httpBacndendRef %s\n", *httpBackendRef.GetKind())
+					if "Service" == *httpBackendRef.GetKind() {
 						if tt.wantIsDeleted {
 							tg := task.tgByResID[tgName]
 							fmt.Printf("--task.tgByResID[tgName] %v \n", tg)
 							assert.Equal(t, true, tg.Spec.IsDeleted)
 						} else {
-							dsTG, err := ds.GetTargetGroup(tgName, tt.httpRoute.Name, false)
+							dsTG, err := ds.GetTargetGroup(tgName, tt.route.GetName(), false)
 							assert.Equal(t, true, dsTG.ByBackendRef)
 							fmt.Printf("--dsTG %v\n", dsTG)
 							assert.Nil(t, err)

@@ -309,7 +309,7 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	return nil
 }
 
-func UpdateHTTPRouteListenerStatus(ctx context.Context, k8sclient client.Client, httproute *gateway_api.HTTPRoute) error {
+func UpdateHTTPRouteListenerStatus(ctx context.Context, k8sclient client.Client, httproute core.HTTPRoute) error {
 	gw := &gateway_api.Gateway{}
 
 	gwNamespace := httproute.Namespace

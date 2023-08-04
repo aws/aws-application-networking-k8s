@@ -19,24 +19,24 @@ const (
 	awsCustomCertARN = "application-networking.k8s.aws/certificate-arn"
 )
 
-func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, parentRef gateway_api.ParentReference) (int64, string, string, error) {
+func (t *latticeServiceModelBuildTask) extractListenerInfo(ctx context.Context, parentRef gateway_api.ParentReference) (int64, string, string, error) {
 
 	var protocol gateway_api.ProtocolType = gateway_api.HTTPProtocolType
 	if parentRef.SectionName != nil {
 		glog.V(6).Infof("HTTP SectionName %s \n", *parentRef.SectionName)
 	}
 
-	glog.V(6).Infof("Building Listener for HTTPRoute Name %s NameSpace %s\n", t.httpRoute.Name, t.httpRoute.Namespace)
-	var gwNamespace = t.httpRoute.Namespace
-	if t.httpRoute.Spec.ParentRefs[0].Namespace != nil {
-		gwNamespace = string(*t.httpRoute.Spec.ParentRefs[0].Namespace)
+	glog.V(6).Infof("Building Listener for HTTPRoute Name %s NameSpace %s\n", t.route.GetName(), t.route.GetNamespace())
+	var gwNamespace = t.route.GetNamespace()
+	if t.route.GetSpec().GetParentRefs()[0].Namespace != nil {
+		gwNamespace = string(*t.route.GetSpec().GetParentRefs()[0].Namespace)
 	}
-	glog.V(6).Infof("build Listener, Parent Name %s Namespace %s\n", t.httpRoute.Spec.ParentRefs[0].Name, gwNamespace)
+	glog.V(6).Infof("build Listener, Parent Name %s Namespace %s\n", t.route.GetSpec().GetParentRefs()[0].Name, gwNamespace)
 	var listenerPort = 0
 	gw := &gateway_api.Gateway{}
 	gwName := types.NamespacedName{
 		Namespace: gwNamespace,
-		Name:      string(t.httpRoute.Spec.ParentRefs[0].Name),
+		Name:      string(t.route.GetSpec().GetParentRefs()[0].Name),
 	}
 
 	if err := t.Client.Get(ctx, gwName, gw); err != nil {
@@ -93,8 +93,8 @@ func (t *latticeServiceModelBuildTask) extractListnerInfo(ctx context.Context, p
 
 func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error {
 
-	for _, parentRef := range t.httpRoute.Spec.ParentRefs {
-		if parentRef.Name != t.httpRoute.Spec.ParentRefs[0].Name {
+	for _, parentRef := range t.route.GetSpec().GetParentRefs() {
+		if parentRef.Name != t.route.GetSpec().GetParentRefs()[0].Name {
 			// when a service is associate to multiple service network(s), all listener config MUST be same
 			// so here we are only using the 1st gateway
 			glog.V(2).Infof("Ignore parentref of different gateway %v", parentRef.Name)
@@ -102,7 +102,7 @@ func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error 
 			continue
 		}
 
-		port, protocol, certARN, err := t.extractListnerInfo(ctx, parentRef)
+		port, protocol, certARN, err := t.extractListenerInfo(ctx, parentRef)
 
 		if err != nil {
 			glog.V(6).Infof("Error on buildListener %v\n", err)
@@ -114,38 +114,38 @@ func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error 
 
 		glog.V(6).Infof("Building Listener: found matching listner Port %v\n", port)
 
-		if len(t.httpRoute.Spec.Rules) == 0 {
-			glog.V(6).Infof("Error building listener, there is no rules for %v \n", t.httpRoute)
+		if len(t.route.GetSpec().GetRules()) == 0 {
+			glog.V(6).Infof("Error building listener, there is no rules for %v \n", t.route)
 			return errors.New("Error building listener, there are no rules")
 		}
 
-		rule := t.httpRoute.Spec.Rules[0]
+		rule := t.route.GetSpec().GetRules()[0]
 
-		if len(rule.BackendRefs) == 0 {
-			glog.V(6).Infof("Error building listener, there is no backend refs for %v \n", t.httpRoute)
+		if len(rule.GetBackendRefs()) == 0 {
+			glog.V(6).Infof("Error building listener, there is no backend refs for %v \n", t.route)
 			return errors.New("Error building listener, there are no backend refs")
 		}
 
-		httpBackendRef := rule.BackendRefs[0]
+		httpBackendRef := rule.GetBackendRefs()[0]
 
 		var is_import = false
 		var targetgroupName = ""
-		var targetgroupNamespace = t.httpRoute.Namespace
+		var targetgroupNamespace = t.route.GetNamespace()
 
-		if string(*httpBackendRef.Kind) == "Service" {
-			if httpBackendRef.BackendObjectReference.Namespace != nil {
-				targetgroupNamespace = string(*httpBackendRef.BackendObjectReference.Namespace)
+		if string(*httpBackendRef.GetKind()) == "Service" {
+			if httpBackendRef.GetNamespace() != nil {
+				targetgroupNamespace = string(*httpBackendRef.GetNamespace())
 			}
-			targetgroupName = string(httpBackendRef.BackendObjectReference.Name)
+			targetgroupName = string(httpBackendRef.GetName())
 			is_import = false
 		}
 
-		if string(*httpBackendRef.Kind) == "ServiceImport" {
+		if string(*httpBackendRef.GetKind()) == "ServiceImport" {
 			is_import = true
-			if httpBackendRef.BackendObjectReference.Namespace != nil {
-				targetgroupNamespace = string(*httpBackendRef.BackendObjectReference.Namespace)
+			if httpBackendRef.GetNamespace() != nil {
+				targetgroupNamespace = string(*httpBackendRef.GetNamespace())
 			}
-			targetgroupName = string(httpBackendRef.BackendObjectReference.Name)
+			targetgroupName = string(httpBackendRef.GetName())
 		}
 
 		action := latticemodel.DefaultAction{
@@ -154,10 +154,10 @@ func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error 
 			BackendServiceNamespace: targetgroupNamespace,
 		}
 
-		listenerResourceName := fmt.Sprintf("%s-%s-%d-%s", t.httpRoute.Name, t.httpRoute.Namespace, port, protocol)
+		listenerResourceName := fmt.Sprintf("%s-%s-%d-%s", t.route.GetName(), t.route.GetNamespace(), port, protocol)
 		glog.V(6).Infof("listenerResourceName : %v \n", listenerResourceName)
 
-		latticemodel.NewListener(t.stack, listenerResourceName, port, protocol, t.httpRoute.Name, t.httpRoute.Namespace, action)
+		latticemodel.NewListener(t.stack, listenerResourceName, port, protocol, t.route.GetName(), t.route.GetNamespace(), action)
 	}
 
 	return nil
