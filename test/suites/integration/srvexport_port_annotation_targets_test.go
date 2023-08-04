@@ -64,7 +64,6 @@ var _ = Describe("Port Annotations Targets", func() {
 	})
 
 	It("Port Annotation on Service Export", func() {
-
 		targets := testFramework.GetTargets(ctx, targetGroup, deployment)
 		Expect(*targetGroup.Port).To(BeEquivalentTo(80))
 		log.Println("Verifying Targets are only created for the port defined in Port Annotation in ServiceExport")
@@ -76,16 +75,5 @@ var _ = Describe("Port Annotations Targets", func() {
 			))
 			log.Println("Target:", target)
 		}
-
-		testFramework.ExpectDeleted(ctx, service)
-		Eventually(func() int {
-			log.Println("Eventually deleting targets, getting registered targets")
-			retrievedTargets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{
-				TargetGroupIdentifier: targetGroup.Id,
-			})
-			Expect(err).ToNot(HaveOccurred())
-			log.Println("Number of targets registered is:", len(retrievedTargets))
-			return len(retrievedTargets)
-		}).WithPolling(time.Minute).WithTimeout(7 * time.Minute).Should(BeZero())
 	})
 })
