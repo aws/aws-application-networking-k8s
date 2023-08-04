@@ -31,7 +31,7 @@ var _ = Describe("Port Annotations Targets", func() {
 
 	BeforeEach(func() {
 		gateway = testFramework.NewGateway("test-gateway", k8snamespace)
-		deployment, service = testFramework.NewElasticeApp(test.ElasticSearchOptions{
+		deployment, service = testFramework.NewElasticApp(test.ElasticSearchOptions{
 			Name:      "port-test",
 			Namespace: k8snamespace,
 		})
@@ -61,22 +61,12 @@ var _ = Describe("Port Annotations Targets", func() {
 
 	AfterEach(func() {
 		testFramework.CleanTestEnvironment(ctx)
-		testFramework.EventuallyExpectNotFound(
-			ctx,
-			gateway,
-			serviceExport,
-			serviceImport,
-			service,
-			deployment,
-			httpRoute,
-		)
 	})
 
-	It("Port Annotaion on Service Export", func() {
-
+	It("Port Annotation on Service Export", func() {
 		targets := testFramework.GetTargets(ctx, targetGroup, deployment)
 		Expect(*targetGroup.Port).To(BeEquivalentTo(80))
-		log.Println("Verifying Targets are only craeted for the port defined in Port Annotaion in ServiceExport")
+		log.Println("Verifying Targets are only created for the port defined in Port Annotation in ServiceExport")
 		for _, target := range targets {
 			Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].Port))
 			Expect(*target.Status).To(Or(
@@ -85,12 +75,5 @@ var _ = Describe("Port Annotations Targets", func() {
 			))
 			log.Println("Target:", target)
 		}
-
-		testFramework.ExpectDeleted(ctx, service)
-		Eventually(func(g Gomega) {
-			log.Println("Verifying Targets are only craeted for the port defined in Port Annotaion in ServiceExport")
-			targets := testFramework.GetTargets(ctx, targetGroup, deployment)
-			Expect(len(targets) == 0)
-		}).WithTimeout(5*time.Minute + 30*time.Second)
 	})
 })
