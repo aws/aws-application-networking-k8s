@@ -88,7 +88,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -120,7 +120,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -152,7 +152,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -187,7 +187,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -244,7 +244,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "non-default",
@@ -394,7 +394,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	var serviceKind gateway_api.Kind = "Service"
 
 	var namespace = gateway_api.Namespace("default")
-	var path1 = string("/ver1")
+	var path1 = "/ver1"
 	//var path2 = string("/ver2")
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var k8sPathMatchPrefixType = gateway_api.PathMatchPathPrefix
@@ -428,7 +428,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -474,7 +474,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -519,7 +519,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -583,7 +583,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -651,7 +651,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -726,7 +726,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -801,7 +801,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -869,7 +869,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -964,7 +964,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -1016,7 +1016,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",

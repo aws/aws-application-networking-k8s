@@ -198,7 +198,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService",
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
@@ -235,7 +235,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
@@ -274,7 +274,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Create LatticeService where backend K8S service does NOT exist",
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "service3",
 					Finalizers: []string{"gateway.k8s.aws/resources"},
@@ -312,7 +312,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Create LatticeService where backend mcs serviceimport does NOT exist",
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "service4",
 					Finalizers: []string{"gateway.k8s.aws/resources"},
@@ -457,7 +457,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService",
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "serviceimport1",
 				},
@@ -494,7 +494,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		},
 		{
 			name: "Add LatticeService, implicit namespace",
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "serviceimport1",
 					Namespace: "tg1-ns2",
@@ -531,7 +531,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			route: core.HTTPRoute{gateway_api.HTTPRoute{
+			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "serviceimport2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},

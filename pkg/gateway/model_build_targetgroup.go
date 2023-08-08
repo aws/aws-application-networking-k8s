@@ -60,7 +60,7 @@ type targetGroupModelBuildTask struct {
 
 // for serviceexport
 func (b *targetGroupBuilder) Build(ctx context.Context, srvExport *mcs_api.ServiceExport) (core.Stack, *latticemodel.TargetGroup, error) {
-	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName((srvExport))))
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(srvExport)))
 
 	task := &targetGroupModelBuildTask{
 		serviceExport: srvExport,
