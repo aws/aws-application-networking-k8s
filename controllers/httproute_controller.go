@@ -129,11 +129,11 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 		httpLog.Info("Deleting")
 		r.eventRecorder.Event(httpRoute.GetRuntimeObject(), corev1.EventTypeNormal,
 			k8s.HTTPRouteeventReasonReconcile, "Deleting Reconcile")
-		if err := r.cleanupHTTPRouteResources(ctx, httpRoute); err != nil {
+		if err := r.cleanupHTTPRouteResources(ctx, &httpRoute); err != nil {
 			glog.V(6).Infof("Failed to cleanup HTTPRoute %v err %v\n", httpRoute, err)
 			return err
 		}
-		UpdateHTTPRouteListenerStatus(ctx, r.Client, httpRoute)
+		UpdateHTTPRouteListenerStatus(ctx, r.Client, &httpRoute)
 		r.finalizerManager.RemoveFinalizers(ctx, &httpRoute.HTTPRoute, httpRouteFinalizer)
 
 		// TODO delete metrics
@@ -254,7 +254,7 @@ func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, ht
 		r.eventRecorder.Event(httpRoute.GetRuntimeObject(), corev1.EventTypeWarning, k8s.HTTPRouteventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 	}
 
-	_, _, err := r.buildAndDeployModel(ctx, httpRoute)
+	_, _, err := r.buildAndDeployModel(ctx, &httpRoute)
 
 	//TODO add metric
 
@@ -265,7 +265,7 @@ func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, ht
 		serviceStatus, err1 := r.latticeDataStore.GetLatticeService(httpRoute.Name, httpRoute.Namespace)
 
 		if err1 == nil {
-			r.updateHTTPRouteStatus(ctx, serviceStatus.DNS, httpRoute)
+			r.updateHTTPRouteStatus(ctx, serviceStatus.DNS, &httpRoute)
 		}
 	}
 
@@ -273,7 +273,7 @@ func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, ht
 
 }
 
-func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns string, httpRoute core.HTTPRoute) error {
+func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns string, httpRoute *core.HTTPRoute) error {
 	glog.V(6).Infof("updateHTTPRouteStatus: httpRoute %v, dns %v\n", httpRoute, dns)
 	httprouteOld := httpRoute.HTTPRoute.DeepCopy()
 
@@ -329,7 +329,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	return nil
 }
 
-func updateRouteCondition(httproute core.HTTPRoute, updated metav1.Condition) {
+func updateRouteCondition(httproute *core.HTTPRoute, updated metav1.Condition) {
 	httproute.Status.RouteStatus.Parents[0].Conditions = updateCondition(httproute.Status.RouteStatus.Parents[0].Conditions, updated)
 }
 

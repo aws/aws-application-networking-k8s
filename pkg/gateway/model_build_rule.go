@@ -25,6 +25,8 @@ const (
 
 	LATTICE_UNSUPPORTED_MATCH_TYPE = "LATTICE_UNSUPPORTED_MATCH_TYPE"
 
+	LATTICE_UNSUPPORTED_ROUTE_MATCH_TYPE = "LATTICE_UNSUPPORTED_ROUTE_MATCH_TYPE"
+
 	LATTICE_UNSUPPORTED_HEADER_MATCH_TYPE = "LATTICE_UNSUPPORTED_HEADER_MATCH_TYPE"
 
 	LATTICE_UNSUPPORTED_PATH_MATCH_TYPE = "LATTICE_UNSUPPORTED_PATH_MATCH_TYPE"
@@ -68,7 +70,8 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 			// only support 1 match today
 			match := rule.GetMatches()[0]
 
-			if httpMatch, ok := match.(core.HTTPRouteMatch); ok {
+			switch httpMatch := match.(type) {
+			case *core.HTTPRouteMatch:
 				if httpMatch.Path != nil && httpMatch.Path.Type != nil {
 					glog.V(6).Infof("Examing pathmatch type %v value %v for for httproute %s namespace %s ",
 						*httpMatch.Path.Type, *httpMatch.Path.Value, t.route.GetName(), t.route.GetNamespace())
@@ -97,6 +100,8 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 						httpMatch.Method, t.route.GetName(), t.route.GetNamespace())
 					return errors.New(LATTICE_UNSUPPORTED_MATCH_TYPE)
 				}
+			default:
+				return errors.New(LATTICE_UNSUPPORTED_ROUTE_MATCH_TYPE)
 			}
 
 			// header based match
@@ -139,8 +144,8 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 			tgList := []*latticemodel.RuleTargetGroup{}
 
 			for _, backendRef := range rule.GetBackendRefs() {
-				glog.V(6).Infof("buildRoutingPolicy - examining backendRef %v\n", backendRef)
-				glog.V(6).Infof("backendRef kind: %v\n", *backendRef.GetKind())
+				glog.V(6).Infof("buildRoutingPolicy - examining backendRef %v, backendRef kind: %v",
+					backendRef, *backendRef.GetKind())
 
 				ruleTG := latticemodel.RuleTargetGroup{}
 

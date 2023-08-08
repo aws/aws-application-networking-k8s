@@ -58,7 +58,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService with hostname",
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
@@ -84,7 +84,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Add LatticeService",
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
@@ -106,7 +106,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},

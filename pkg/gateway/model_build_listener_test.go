@@ -66,7 +66,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -100,7 +100,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			k8sGatewayReturnOK: true,
 			tlsTerminate:       true,
 			certARN:            "test-cert-ARN",
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -134,7 +134,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			k8sGatewayReturnOK: true,
 			tlsTerminate:       false,
 			certARN:            "test-cert-ARN",
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -168,7 +168,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			k8sGatewayReturnOK: true,
 			tlsTerminate:       false,
 			certARN:            "test-cert-ARN",
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -200,7 +200,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -231,7 +231,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			gwListenerPort:    *PortNumberPtr(80),
 			wantErrIsNil:      false,
 			k8sGetGatewayCall: false,
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -258,7 +258,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       false,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: false,
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -290,7 +290,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       false,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
