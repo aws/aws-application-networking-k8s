@@ -158,7 +158,7 @@ func (r *HTTPRouteReconciler) cleanupHTTPRouteResources(ctx context.Context, htt
 
 func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute *core.HTTPRoute) bool {
 	if len(httpRoute.Spec().ParentRefs()) == 0 {
-		glog.V(2).Infof("Ignore HTTPRoute which has no ParentRefs gateway %v \n ", httpRoute.Spec)
+		glog.V(2).Infof("Ignore HTTPRoute which has no ParentRefs gateway %v \n ", httpRoute.Spec())
 		return false
 	}
 
@@ -175,7 +175,7 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 
 	if err := r.gwReconciler.Client.Get(ctx, gwName, gw); err != nil {
 		glog.V(6).Infof("Could not find gateway %s: %s\n", gwName.String(), err.Error())
-		glog.V(6).Infof("Ignore HTTPRoute whose ParentRef gatway object has NOT defined yet for %v\n", httpRoute.Spec)
+		glog.V(6).Infof("Ignore HTTPRoute whose ParentRef gatway object has NOT defined yet for %v\n", httpRoute.Spec())
 		return false
 	}
 
@@ -187,16 +187,16 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 	}
 
 	if err := r.gwClassReconciler.Client.Get(ctx, gwClassName, gwClass); err != nil {
-		glog.V(6).Infof("Ignore HTTPRoute that NOT controlled by any GatewayClass for %v\n", httpRoute.Spec)
+		glog.V(6).Infof("Ignore HTTPRoute that NOT controlled by any GatewayClass for %v\n", httpRoute.Spec())
 		return false
 	}
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-		glog.V(6).Infof("Found aws-vpc-lattice for HTTPRoute for %v\n", httpRoute.Spec)
+		glog.V(6).Infof("Found aws-vpc-lattice for HTTPRoute for %v\n", httpRoute.Spec())
 
 		return true
 	} else {
-		glog.V(6).Infof("Ignore non aws-vpc-lattice HTTPRoute !!! %v\n", httpRoute.Spec)
+		glog.V(6).Infof("Ignore non aws-vpc-lattice HTTPRoute !!! %v\n", httpRoute.Spec())
 		return false
 	}
 }
