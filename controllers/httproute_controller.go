@@ -114,9 +114,9 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 	// TODO(user): your logic here
 	httpLog.Info("HTTPRouteReconciler")
 
-	httpRoute := core.HTTPRoute{}
+	httpRoute := &core.HTTPRoute{}
 
-	if err := r.Client.Get(ctx, req.NamespacedName, &httpRoute.HTTPRoute); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, httpRoute.K8sObject()); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 
@@ -125,22 +125,22 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 		return nil
 	}
 
-	if !httpRoute.DeletionTimestamp.IsZero() {
+	if !httpRoute.DeletionTimestamp().IsZero() {
 		httpLog.Info("Deleting")
-		r.eventRecorder.Event(httpRoute.GetRuntimeObject(), corev1.EventTypeNormal,
+		r.eventRecorder.Event(httpRoute.K8sObject(), corev1.EventTypeNormal,
 			k8s.HTTPRouteeventReasonReconcile, "Deleting Reconcile")
-		if err := r.cleanupHTTPRouteResources(ctx, &httpRoute); err != nil {
+		if err := r.cleanupHTTPRouteResources(ctx, httpRoute); err != nil {
 			glog.V(6).Infof("Failed to cleanup HTTPRoute %v err %v\n", httpRoute, err)
 			return err
 		}
-		UpdateHTTPRouteListenerStatus(ctx, r.Client, &httpRoute)
-		r.finalizerManager.RemoveFinalizers(ctx, &httpRoute.HTTPRoute, httpRouteFinalizer)
+		UpdateHTTPRouteListenerStatus(ctx, r.Client, httpRoute)
+		r.finalizerManager.RemoveFinalizers(ctx, httpRoute.K8sObject(), httpRouteFinalizer)
 
 		// TODO delete metrics
 		return nil
 	} else {
 		httpLog.Info("Adding/Updating")
-		r.eventRecorder.Event(httpRoute.GetRuntimeObject(), corev1.EventTypeNormal,
+		r.eventRecorder.Event(httpRoute.K8sObject(), corev1.EventTypeNormal,
 			k8s.HTTPRouteeventReasonReconcile, "Adding/Updating Reconcile")
 		err := r.reconcileHTTPRouteResource(ctx, httpRoute)
 		// TODO add/update metrics
@@ -156,22 +156,21 @@ func (r *HTTPRouteReconciler) cleanupHTTPRouteResources(ctx context.Context, htt
 	return err
 }
 
-func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute core.HTTPRoute) bool {
-
-	if len(httpRoute.Spec.ParentRefs) == 0 {
+func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute *core.HTTPRoute) bool {
+	if len(httpRoute.Spec().ParentRefs()) == 0 {
 		glog.V(2).Infof("Ignore HTTPRoute which has no ParentRefs gateway %v \n ", httpRoute.Spec)
 		return false
 	}
 
 	gw := &gateway_api.Gateway{}
 
-	gwNamespace := httpRoute.Namespace
-	if httpRoute.Spec.ParentRefs[0].Namespace != nil {
-		gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
+	gwNamespace := httpRoute.Namespace()
+	if httpRoute.Spec().ParentRefs()[0].Namespace != nil {
+		gwNamespace = string(*httpRoute.Spec().ParentRefs()[0].Namespace)
 	}
 	gwName := types.NamespacedName{
 		Namespace: gwNamespace,
-		Name:      string(httpRoute.Spec.ParentRefs[0].Name),
+		Name:      string(httpRoute.Spec().ParentRefs()[0].Name),
 	}
 
 	if err := r.gwReconciler.Client.Get(ctx, gwName, gw); err != nil {
@@ -209,9 +208,9 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 
 	if err != nil {
 
-		r.eventRecorder.Event(route.GetRuntimeObject(), corev1.EventTypeWarning,
+		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
 			k8s.HTTPRouteEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
-		glog.V(6).Infof("buildAndDeployModel, Failed build model for %v due to %v\n", route.GetName(), err)
+		glog.V(6).Infof("buildAndDeployModel, Failed build model for %v due to %v\n", route.Name(), err)
 
 		// Build failed
 		// TODO continue deploy to trigger reconsile of stale HTTProute and policy
@@ -227,16 +226,16 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 	httpLog.Info("Successfully built model:", stackJSON, "")
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
-		glog.V(6).Infof("HTTPRouteReconciler: Failed deploy %s due to err %v \n", route.GetName(), err)
+		glog.V(6).Infof("HTTPRouteReconciler: Failed deploy %s due to err %v \n", route.Name(), err)
 
 		var retryErr = errors.New(lattice.LATTICE_RETRY)
 
 		if errors.As(err, &retryErr) {
-			r.eventRecorder.Event(route.GetRuntimeObject(), corev1.EventTypeNormal,
+			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 				k8s.HTTPRouteEventReasonRetryReconcile, "retry reconcile...")
 
 		} else {
-			r.eventRecorder.Event(route.GetRuntimeObject(), corev1.EventTypeWarning,
+			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
 				k8s.HTTPRouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		}
 		return nil, nil, err
@@ -247,25 +246,25 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 	return stack, latticeService, err
 }
 
-func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, httpRoute core.HTTPRoute) error {
+func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, httpRoute *core.HTTPRoute) error {
 	glog.V(6).Infof("Beginning -- reconcileHTTPRouteResource, [%v]\n", httpRoute)
 
-	if err := r.finalizerManager.AddFinalizers(ctx, &httpRoute.HTTPRoute, httpRouteFinalizer); err != nil {
-		r.eventRecorder.Event(httpRoute.GetRuntimeObject(), corev1.EventTypeWarning, k8s.HTTPRouteventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
+	if err := r.finalizerManager.AddFinalizers(ctx, httpRoute.K8sObject(), httpRouteFinalizer); err != nil {
+		r.eventRecorder.Event(httpRoute.K8sObject(), corev1.EventTypeWarning, k8s.HTTPRouteventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 	}
 
-	_, _, err := r.buildAndDeployModel(ctx, &httpRoute)
+	_, _, err := r.buildAndDeployModel(ctx, httpRoute)
 
 	//TODO add metric
 
 	if err == nil {
-		r.eventRecorder.Event(httpRoute.GetRuntimeObject(), corev1.EventTypeNormal,
+		r.eventRecorder.Event(httpRoute.K8sObject(), corev1.EventTypeNormal,
 			k8s.HTTPRouteeventReasonDeploySucceed, "Adding/Updating reconcile Done!")
 
-		serviceStatus, err1 := r.latticeDataStore.GetLatticeService(httpRoute.Name, httpRoute.Namespace)
+		serviceStatus, err1 := r.latticeDataStore.GetLatticeService(httpRoute.Name(), httpRoute.Namespace())
 
 		if err1 == nil {
-			r.updateHTTPRouteStatus(ctx, serviceStatus.DNS, &httpRoute)
+			r.updateHTTPRouteStatus(ctx, serviceStatus.DNS, httpRoute)
 		}
 	}
 
@@ -273,20 +272,21 @@ func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, ht
 
 }
 
-func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns string, httpRoute *core.HTTPRoute) error {
-	glog.V(6).Infof("updateHTTPRouteStatus: httpRoute %v, dns %v\n", httpRoute, dns)
-	httprouteOld := httpRoute.HTTPRoute.DeepCopy()
+func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns string, coreRoute *core.HTTPRoute) error {
+	glog.V(6).Infof("updateHTTPRouteStatus: httpRoute %v, dns %v\n", coreRoute, dns)
+	httpRoute := coreRoute.Inner()
+	httprouteOld := httpRoute.DeepCopy()
 
 	if len(httpRoute.ObjectMeta.Annotations) == 0 {
 		httpRoute.ObjectMeta.Annotations = make(map[string]string)
 	}
 
 	httpRoute.ObjectMeta.Annotations[LatticeAssignedDomainName] = dns
-	if err := r.Client.Patch(ctx, &httpRoute.HTTPRoute, client.MergeFrom(httprouteOld)); err != nil {
+	if err := r.Client.Patch(ctx, httpRoute, client.MergeFrom(httprouteOld)); err != nil {
 		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
 		return errors.Wrapf(err, "failed to update httpRoute status")
 	}
-	httprouteOld = httpRoute.HTTPRoute.DeepCopy()
+	httprouteOld = httpRoute.DeepCopy()
 
 	if len(httpRoute.Status.RouteStatus.Parents) == 0 {
 		httpRoute.Status.RouteStatus.Parents = make([]gateway_api.RouteParentStatus, 1)
@@ -295,8 +295,8 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	httpRoute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
 	// Update listener Status
-	if err := UpdateHTTPRouteListenerStatus(ctx, r.Client, httpRoute); err != nil {
-		updateRouteCondition(httpRoute, metav1.Condition{
+	if err := UpdateHTTPRouteListenerStatus(ctx, r.Client, coreRoute); err != nil {
+		updateRouteCondition(coreRoute, metav1.Condition{
 			Type:               string(gateway_api.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: httpRoute.Generation,
@@ -304,14 +304,14 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 			Message:            fmt.Sprintf("Could not match gateway %s: %s", httpRoute.Spec.ParentRefs[0].Name, err.Error()),
 		})
 	} else {
-		updateRouteCondition(httpRoute, metav1.Condition{
+		updateRouteCondition(coreRoute, metav1.Condition{
 			Type:               string(gateway_api.RouteConditionAccepted),
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: httpRoute.Generation,
 			Reason:             string(gateway_api.RouteReasonAccepted),
 			Message:            fmt.Sprintf("DNS Name: %s", dns),
 		})
-		updateRouteCondition(httpRoute, metav1.Condition{
+		updateRouteCondition(coreRoute, metav1.Condition{
 			Type:               string(gateway_api.RouteConditionResolvedRefs),
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: httpRoute.Generation,
@@ -320,7 +320,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 		})
 	}
 
-	if err := r.Client.Status().Patch(ctx, &httpRoute.HTTPRoute, client.MergeFrom(httprouteOld)); err != nil {
+	if err := r.Client.Status().Patch(ctx, httpRoute, client.MergeFrom(httprouteOld)); err != nil {
 		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
 		return errors.Wrapf(err, "failed to update httpRoute status")
 	}
@@ -330,7 +330,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 }
 
 func updateRouteCondition(httproute *core.HTTPRoute, updated metav1.Condition) {
-	httproute.Status.RouteStatus.Parents[0].Conditions = updateCondition(httproute.Status.RouteStatus.Parents[0].Conditions, updated)
+	httproute.Status().Parents()[0].Conditions = updateCondition(httproute.Status().Parents()[0].Conditions, updated)
 }
 
 // SetupWithManager sets up the controller with the Manager.

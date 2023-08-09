@@ -41,7 +41,7 @@ func NewLatticeServiceBuilder(client client.Client, datastore *latticestore.Latt
 }
 
 func (b *latticeServiceModelBuilder) Build(ctx context.Context, route core.Route) (core.Stack, *latticemodel.Service, error) {
-	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route)))
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
 
 	task := &latticeServiceModelBuildTask{
 		route:     route,
@@ -80,7 +80,7 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 		return err
 	}
 
-	if !t.route.GetDeletionTimestamp().IsZero() {
+	if !t.route.DeletionTimestamp().IsZero() {
 		glog.V(2).Infof("latticeServiceModelBuildTask: for delete ignore Targets, policy %v\n", t.route)
 		return nil
 	}
@@ -112,13 +112,13 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	pro := "HTTP"
 	protocols := []*string{&pro}
 	spec := latticemodel.ServiceSpec{
-		Name:      t.route.GetName(),
-		Namespace: t.route.GetNamespace(),
+		Name:      t.route.Name(),
+		Namespace: t.route.Namespace(),
 		Protocols: protocols,
-		//ServiceNetworkNames: string(t.route.GetSpec().GetParentRefs()[0].Name),
+		//ServiceNetworkNames: string(t.route.Spec().ParentRefs()[0].Name),
 	}
 
-	for _, parentRef := range t.route.GetSpec().GetParentRefs() {
+	for _, parentRef := range t.route.Spec().ParentRefs() {
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
 	}
 	defaultGateway, err := config.GetClusterLocalGateway()
@@ -126,25 +126,25 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, defaultGateway)
 	}
 
-	if len(t.route.GetSpec().GetHostnames()) > 0 {
+	if len(t.route.Spec().Hostnames()) > 0 {
 		// The 1st hostname will be used as lattice customer-domain-name
-		spec.CustomerDomainName = string(t.route.GetSpec().GetHostnames()[0])
+		spec.CustomerDomainName = string(t.route.Spec().Hostnames()[0])
 
 		glog.V(2).Infof("Setting customer-domain-name: %v for httpRoute %v-%v",
-			spec.CustomerDomainName, t.route.GetName(), t.route.GetNamespace())
+			spec.CustomerDomainName, t.route.Name(), t.route.Namespace())
 	} else {
 		glog.V(2).Infof("No custom-domain-name for httproute :%v-%v",
-			t.route.GetName(), t.route.GetNamespace())
+			t.route.Name(), t.route.Namespace())
 		spec.CustomerDomainName = ""
 	}
 
-	if t.route.GetDeletionTimestamp().IsZero() {
+	if t.route.DeletionTimestamp().IsZero() {
 		spec.IsDeleted = false
 	} else {
 		spec.IsDeleted = true
 	}
 
-	serviceResourceName := fmt.Sprintf("%s-%s", t.route.GetName(), t.route.GetNamespace())
+	serviceResourceName := fmt.Sprintf("%s-%s", t.route.Name(), t.route.Namespace())
 
 	t.latticeService = latticemodel.NewLatticeService(t.stack, serviceResourceName, spec)
 

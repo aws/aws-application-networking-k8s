@@ -58,7 +58,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService with hostname",
-			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
@@ -75,7 +75,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 						"test2.test.com",
 					},
 				},
-			}},
+			}),
 
 			wantError:     nil,
 			wantName:      "service1",
@@ -84,7 +84,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Add LatticeService",
-			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
@@ -97,7 +97,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 						},
 					},
 				},
-			}},
+			}),
 
 			wantError:     nil,
 			wantName:      "service1",
@@ -106,7 +106,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			route: &core.HTTPRoute{HTTPRoute: gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
@@ -134,7 +134,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 						},
 					},
 				},
-			}},
+			}),
 
 			wantError:     nil,
 			wantName:      "service2",
@@ -156,7 +156,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 			//builder := NewLatticeServiceBuilder(k8sClient, ds, nil)
 
-			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route)))
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 			task := &latticeServiceModelBuildTask{
 				route:     tt.route,
@@ -183,11 +183,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 			} else {
 				assert.Equal(t, false, task.latticeService.Spec.IsDeleted)
-				assert.Equal(t, tt.route.GetName(), task.latticeService.Spec.Name)
-				assert.Equal(t, tt.route.GetNamespace(), task.latticeService.Spec.Namespace)
+				assert.Equal(t, tt.route.Name(), task.latticeService.Spec.Name)
+				assert.Equal(t, tt.route.Namespace(), task.latticeService.Spec.Namespace)
 
-				if len(tt.route.GetSpec().GetHostnames()) > 0 {
-					assert.Equal(t, string(tt.route.GetSpec().GetHostnames()[0]), task.latticeService.Spec.CustomerDomainName)
+				if len(tt.route.Spec().Hostnames()) > 0 {
+					assert.Equal(t, string(tt.route.Spec().Hostnames()[0]), task.latticeService.Spec.CustomerDomainName)
 				} else {
 					assert.Equal(t, "", task.latticeService.Spec.CustomerDomainName)
 				}
