@@ -1,8 +1,6 @@
 package integration
 
 import (
-	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -17,8 +15,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
-
-var resourceCreationWaitTime = 3 * time.Minute
 
 var _ = Describe("HTTPRoute Creation", func() {
 
@@ -35,22 +31,25 @@ var _ = Describe("HTTPRoute Creation", func() {
 
 	BeforeEach(func() {
 		gateway = testFramework.NewGateway("test-gateway", k8snamespace)
+		testFramework.ExpectCreated(ctx, gateway)
+
 		deployment, service = testFramework.NewElasticApp(test.ElasticSearchOptions{
 			Name:      "port-test",
 			Namespace: k8snamespace,
 		})
-		serviceExport = testFramework.CreateServiceExport(service)
-		serviceImport = testFramework.CreateServiceImport(service)
-		httpRoute = testFramework.NewHttpRoute(gateway, service)
-
-		testFramework.ExpectCreated(ctx, gateway)
 	})
 
 	Context("Order #1: serviceImport, httpRoute, serviceExport, & service", func() {
 		It("creates successfully", func() {
+			serviceImport = testFramework.CreateServiceImport(service)
 			testFramework.ExpectCreated(ctx, serviceImport)
+
+			httpRoute = testFramework.NewHttpRoute(gateway, service)
 			testFramework.ExpectCreated(ctx, httpRoute)
+
+			serviceExport = testFramework.CreateServiceExport(service)
 			testFramework.ExpectCreated(ctx, serviceExport)
+
 			testFramework.ExpectCreated(ctx, service, deployment)
 
 			verifyResourceCreation(vpcLatticeService, httpRoute, targetGroup, service)
@@ -59,9 +58,15 @@ var _ = Describe("HTTPRoute Creation", func() {
 
 	Context("Order #2: httpRoute, serviceImport, service, & serviceExport", func() {
 		It("creates successfully", func() {
+			httpRoute = testFramework.NewHttpRoute(gateway, service)
 			testFramework.ExpectCreated(ctx, httpRoute)
+
+			serviceImport = testFramework.CreateServiceImport(service)
 			testFramework.ExpectCreated(ctx, serviceImport)
+
 			testFramework.ExpectCreated(ctx, service, deployment)
+
+			serviceExport = testFramework.CreateServiceExport(service)
 			testFramework.ExpectCreated(ctx, serviceExport)
 
 			verifyResourceCreation(vpcLatticeService, httpRoute, targetGroup, service)
@@ -70,9 +75,15 @@ var _ = Describe("HTTPRoute Creation", func() {
 
 	Context("Order #3: serviceExport, httpRoute, serviceImport, & service", func() {
 		It("creates successfully", func() {
+			serviceExport = testFramework.CreateServiceExport(service)
 			testFramework.ExpectCreated(ctx, serviceExport)
+
+			httpRoute = testFramework.NewHttpRoute(gateway, service)
 			testFramework.ExpectCreated(ctx, httpRoute)
+
+			serviceImport = testFramework.CreateServiceImport(service)
 			testFramework.ExpectCreated(ctx, serviceImport)
+
 			testFramework.ExpectCreated(ctx, service, deployment)
 
 			verifyResourceCreation(vpcLatticeService, httpRoute, targetGroup, service)
@@ -90,8 +101,7 @@ func verifyResourceCreation(
 	targetGroup *vpclattice.TargetGroupSummary,
 	service *v1.Service,
 ) {
-	log.Println(fmt.Sprintf("Waiting %s for Amazon VPC Lattice resource creation.", resourceCreationWaitTime))
-	time.Sleep(resourceCreationWaitTime)
+	time.Sleep(3 * time.Minute) // Allow time for Lattice resources to be created
 
 	vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
 	Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
