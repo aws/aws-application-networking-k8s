@@ -146,15 +146,25 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-					if portAnnotations == undefinedPort || int64(target.Port) == portAnnotations {
+					if target.Port == portAnnotations {
+						// target port matches service export port
 						targetList = append(targetList, target)
 						glog.V(6).Infof("portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
+					} else if t.port == undefinedPort || target.Port == t.port {
+						targetList = append(targetList, target)
+						glog.V(6).Infof("t.port:%v, port.Port:%v\n", t.port, port.Port)
 					} else {
-						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
+						glog.V(6).Infof("Port does not match the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
 					}
 				}
 			}
 		}
+	}
+
+	if len(targetList) == 0 && t.port > 0 {
+		errmsg := fmt.Sprintf("Build Targets failed because service port did not match backendRef port")
+		glog.V(6).Infof("errmsg: %v\n", errmsg)
+		return errors.New(errmsg)
 	}
 
 	glog.V(6).Infof("Build Targets--- targetIPList [%v]\n", targetList)
@@ -176,6 +186,7 @@ type latticeTargetsModelBuildTask struct {
 	tgName      string
 	tgNamespace string
 	routename   string
+	port        int64
 
 	latticeTargets *latticemodel.Targets
 	stack          core.Stack
