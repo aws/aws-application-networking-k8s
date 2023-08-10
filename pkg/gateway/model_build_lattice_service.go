@@ -5,14 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/glog"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -23,7 +21,7 @@ const (
 )
 
 type LatticeServiceBuilder interface {
-	Build(ctx context.Context, httpRoute *gateway_api.HTTPRoute) (core.Stack, *latticemodel.Service, error)
+	Build(ctx context.Context, httpRoute core.Route) (core.Stack, *latticemodel.Service, error)
 }
 
 type latticeServiceModelBuilder struct {
@@ -42,12 +40,11 @@ func NewLatticeServiceBuilder(client client.Client, datastore *latticestore.Latt
 	}
 }
 
-// TODO  right now everything is around HTTPRoute,  future, this might need to refactor for TLSRoute
-func (b *latticeServiceModelBuilder) Build(ctx context.Context, httpRoute *gateway_api.HTTPRoute) (core.Stack, *latticemodel.Service, error) {
-	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(httpRoute)))
+func (b *latticeServiceModelBuilder) Build(ctx context.Context, route core.Route) (core.Stack, *latticemodel.Service, error) {
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
 
 	task := &latticeServiceModelBuildTask{
-		httpRoute: httpRoute,
+		route:     route,
 		stack:     stack,
 		Client:    b.Client,
 		tgByResID: make(map[string]*latticemodel.TargetGroup),
@@ -83,8 +80,8 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 		return err
 	}
 
-	if !t.httpRoute.DeletionTimestamp.IsZero() {
-		glog.V(2).Infof("latticeServiceModelBuildTask: for delete ignore Targets, policy %v\n", t.httpRoute)
+	if !t.route.DeletionTimestamp().IsZero() {
+		glog.V(2).Infof("latticeServiceModelBuildTask: for delete ignore Targets, policy %v\n", t.route)
 		return nil
 	}
 
@@ -115,40 +112,39 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	pro := "HTTP"
 	protocols := []*string{&pro}
 	spec := latticemodel.ServiceSpec{
-		Name:      t.httpRoute.Name,
-		Namespace: t.httpRoute.Namespace,
+		Name:      t.route.Name(),
+		Namespace: t.route.Namespace(),
 		Protocols: protocols,
-		//ServiceNetworkNames: string(t.httpRoute.Spec.ParentRefs[0].Name),
+		//ServiceNetworkNames: string(t.route.Spec().ParentRefs()[0].Name),
 	}
 
-	for _, parentRef := range t.httpRoute.Spec.ParentRefs {
+	for _, parentRef := range t.route.Spec().ParentRefs() {
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
-
 	}
 	defaultGateway, err := config.GetClusterLocalGateway()
 	if err == nil {
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, defaultGateway)
 	}
 
-	if len(t.httpRoute.Spec.Hostnames) > 0 {
+	if len(t.route.Spec().Hostnames()) > 0 {
 		// The 1st hostname will be used as lattice customer-domain-name
-		spec.CustomerDomainName = string(t.httpRoute.Spec.Hostnames[0])
+		spec.CustomerDomainName = string(t.route.Spec().Hostnames()[0])
 
 		glog.V(2).Infof("Setting customer-domain-name: %v for httpRoute %v-%v",
-			spec.CustomerDomainName, t.httpRoute.Name, t.httpRoute.Namespace)
+			spec.CustomerDomainName, t.route.Name(), t.route.Namespace())
 	} else {
 		glog.V(2).Infof("No custom-domain-name for httproute :%v-%v",
-			t.httpRoute.Name, t.httpRoute.Namespace)
+			t.route.Name(), t.route.Namespace())
 		spec.CustomerDomainName = ""
 	}
 
-	if t.httpRoute.DeletionTimestamp.IsZero() {
+	if t.route.DeletionTimestamp().IsZero() {
 		spec.IsDeleted = false
 	} else {
 		spec.IsDeleted = true
 	}
 
-	serviceResourceName := fmt.Sprintf("%s-%s", t.httpRoute.Name, t.httpRoute.Namespace)
+	serviceResourceName := fmt.Sprintf("%s-%s", t.route.Name(), t.route.Namespace())
 
 	t.latticeService = latticemodel.NewLatticeService(t.stack, serviceResourceName, spec)
 
@@ -156,7 +152,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 }
 
 type latticeServiceModelBuildTask struct {
-	httpRoute *gateway_api.HTTPRoute
+	route core.Route
 	client.Client
 
 	latticeService  *latticemodel.Service

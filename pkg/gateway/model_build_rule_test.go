@@ -33,9 +33,9 @@ func Test_RuleModelBuild(t *testing.T) {
 	var weight2 = int32(90)
 	var namespace = gateway_api.Namespace("testnamespace")
 	var namespace2 = gateway_api.Namespace("testnamespace2")
-	var path1 = string("/ver1")
-	var path2 = string("/ver2")
-	var path3 = string("/ver3")
+	var path1 = "/ver1"
+	var path2 = "/ver2"
+	var path3 = "/ver3"
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var backendRef1 = gateway_api.BackendRef{
 		BackendObjectReference: gateway_api.BackendObjectReference{
@@ -77,7 +77,7 @@ func Test_RuleModelBuild(t *testing.T) {
 	tests := []struct {
 		name               string
 		gwListenerPort     gateway_api.PortNumber
-		httpRoute          *gateway_api.HTTPRoute
+		route              core.Route
 		wantErrIsNil       bool
 		k8sGetGatewayCall  bool
 		k8sGatewayReturnOK bool
@@ -88,7 +88,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -112,7 +112,7 @@ func Test_RuleModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 		},
 		{
 			name:               "rule, default serviceimport action",
@@ -120,7 +120,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -144,7 +144,7 @@ func Test_RuleModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 		},
 		{
 			name:               "rule, weighted target group",
@@ -152,7 +152,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -179,7 +179,7 @@ func Test_RuleModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 		},
 		{
 			name:               "rule, path based target group",
@@ -187,7 +187,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -236,7 +236,7 @@ func Test_RuleModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 		},
 		{
 			name:               "rule, different namespace combination",
@@ -244,7 +244,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "non-default",
@@ -303,7 +303,7 @@ func Test_RuleModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 		},
 	}
 	for _, tt := range tests {
@@ -322,7 +322,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					if tt.k8sGatewayReturnOK {
 						gw.Spec.Listeners = append(gw.Spec.Listeners, gateway_api.Listener{
 							Port: tt.gwListenerPort,
-							Name: *tt.httpRoute.Spec.ParentRefs[0].SectionName,
+							Name: *tt.route.Spec().ParentRefs()[0].SectionName,
 						})
 						return nil
 					} else {
@@ -334,10 +334,10 @@ func Test_RuleModelBuild(t *testing.T) {
 
 		ds := latticestore.NewLatticeDataStore()
 
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 		task := &latticeServiceModelBuildTask{
-			httpRoute:       tt.httpRoute,
+			route:           tt.route,
 			stack:           stack,
 			Client:          k8sClient,
 			listenerByResID: make(map[string]*latticemodel.Listener),
@@ -362,21 +362,21 @@ func Test_RuleModelBuild(t *testing.T) {
 			fmt.Sscanf(resRule.Spec.RuleID, "rule-%d", &i)
 
 			assert.Equal(t, resRule.Spec.ListenerPort, int64(tt.gwListenerPort))
-			// Defer this to dedicate rule check			assert.Equal(t, resRule.Spec.PathMatchValue, tt.httpRoute.)
-			assert.Equal(t, resRule.Spec.ServiceName, tt.httpRoute.Name)
-			assert.Equal(t, resRule.Spec.ServiceNamespace, tt.httpRoute.Namespace)
+			// Defer this to dedicate rule check			assert.Equal(t, resRule.Spec.PathMatchValue, tt.route.)
+			assert.Equal(t, resRule.Spec.ServiceName, tt.route.Name())
+			assert.Equal(t, resRule.Spec.ServiceNamespace, tt.route.Namespace())
 
 			var j = 0
 			for _, tg := range resRule.Spec.Action.TargetGroups {
 
-				assert.Equal(t, gateway_api.ObjectName(tg.Name), tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Name)
-				if tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Namespace != nil {
-					assert.Equal(t, gateway_api.Namespace(tg.Namespace), *tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Namespace)
+				assert.Equal(t, gateway_api.ObjectName(tg.Name), tt.route.Spec().Rules()[i-1].BackendRefs()[j].Name())
+				if tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace() != nil {
+					assert.Equal(t, gateway_api.Namespace(tg.Namespace), *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace())
 				} else {
-					assert.Equal(t, tg.Namespace, tt.httpRoute.Namespace)
+					assert.Equal(t, tg.Namespace, tt.route.Namespace())
 				}
 
-				if *tt.httpRoute.Spec.Rules[i-1].BackendRefs[j].Kind == "ServiceImport" {
+				if *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Kind() == "ServiceImport" {
 					assert.Equal(t, tg.IsServiceImport, true)
 				} else {
 					assert.Equal(t, tg.IsServiceImport, false)
@@ -394,7 +394,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	var serviceKind gateway_api.Kind = "Service"
 
 	var namespace = gateway_api.Namespace("default")
-	var path1 = string("/ver1")
+	var path1 = "/ver1"
 	//var path2 = string("/ver2")
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var k8sPathMatchPrefixType = gateway_api.PathMatchPathPrefix
@@ -417,7 +417,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	tests := []struct {
 		name             string
 		gwListenerPort   gateway_api.PortNumber
-		httpRoute        *gateway_api.HTTPRoute
+		route            core.Route
 		expectedRuleSpec latticemodel.RuleSpec
 		wantErrIsNil     bool
 		samerule         bool
@@ -428,7 +428,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -461,7 +461,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchExact: true,
 				PathMatchValue: path1,
@@ -474,7 +474,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -507,7 +507,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchPrefix: true,
 				PathMatchValue:  path1,
@@ -519,7 +519,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -559,7 +559,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				NumOfHeaderMatches: 1,
 				MatchedHeaders: [5]vpclattice.HeaderMatch{
@@ -583,7 +583,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -623,7 +623,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				NumOfHeaderMatches: 2,
 				MatchedHeaders: [5]vpclattice.HeaderMatch{
@@ -651,7 +651,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -696,7 +696,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchExact:     true,
 				PathMatchValue:     path1,
@@ -726,7 +726,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -771,7 +771,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchPrefix:    true,
 				PathMatchValue:     path1,
@@ -801,7 +801,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -841,7 +841,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				NumOfHeaderMatches: 2,
 				MatchedHeaders: [5]vpclattice.HeaderMatch{
@@ -869,7 +869,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -934,7 +934,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchExact:     true,
 				PathMatchValue:     path1,
@@ -964,7 +964,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -1004,7 +1004,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchExact: true,
 				PathMatchValue: path1,
@@ -1016,7 +1016,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
@@ -1047,7 +1047,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchExact: true,
 				PathMatchValue: path1,
@@ -1069,7 +1069,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 				gw.Spec.Listeners = append(gw.Spec.Listeners, gateway_api.Listener{
 					Port: tt.gwListenerPort,
-					Name: *tt.httpRoute.Spec.ParentRefs[0].SectionName,
+					Name: *tt.route.Spec().ParentRefs()[0].SectionName,
 				})
 				return nil
 
@@ -1078,10 +1078,10 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 		ds := latticestore.NewLatticeDataStore()
 
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 		task := &latticeServiceModelBuildTask{
-			httpRoute:       tt.httpRoute,
+			route:           tt.route,
 			stack:           stack,
 			Client:          k8sClient,
 			listenerByResID: make(map[string]*latticemodel.Listener),

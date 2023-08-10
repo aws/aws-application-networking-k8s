@@ -309,21 +309,21 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	return nil
 }
 
-func UpdateHTTPRouteListenerStatus(ctx context.Context, k8sclient client.Client, httproute *gateway_api.HTTPRoute) error {
+func UpdateHTTPRouteListenerStatus(ctx context.Context, k8sclient client.Client, httproute *core.HTTPRoute) error {
 	gw := &gateway_api.Gateway{}
 
-	gwNamespace := httproute.Namespace
-	if httproute.Spec.ParentRefs[0].Namespace != nil {
-		gwNamespace = string(*httproute.Spec.ParentRefs[0].Namespace)
+	gwNamespace := httproute.Namespace()
+	if httproute.Spec().ParentRefs()[0].Namespace != nil {
+		gwNamespace = string(*httproute.Spec().ParentRefs()[0].Namespace)
 	}
 	gwName := types.NamespacedName{
 		Namespace: gwNamespace,
 		// TODO assume one parent for now and point to service network
-		Name: string(httproute.Spec.ParentRefs[0].Name),
+		Name: string(httproute.Spec().ParentRefs()[0].Name),
 	}
 
 	if err := k8sclient.Get(ctx, gwName, gw); err != nil {
-		glog.V(2).Infof("Failed to update gateway listener status due to gatewag not found for %v\n", httproute.Spec)
+		glog.V(2).Infof("Failed to update gateway listener status due to gatewag not found for %v\n", httproute.Spec())
 		return errors.New("gateway not found")
 	}
 
