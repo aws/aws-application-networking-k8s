@@ -145,7 +145,7 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
 		for _, tg := range retrievedTargetGroups {
 			Logger(ctx).Infof("Found TargetGroup: %s, checking it whether it's created by current EKS Cluster", *tg.Id)
-			if currentClusterVpcId != *tg.VpcIdentifier {
+			if tg.VpcIdentifier != nil && currentClusterVpcId != *tg.VpcIdentifier {
 				Logger(ctx).Infof("Target group VPC Id: %s, does not match current EKS Cluster VPC Id: %s", *tg.VpcIdentifier, currentClusterVpcId)
 				//This tg is not created by current EKS Cluster, skip it
 				continue
@@ -163,7 +163,7 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 					//so we temporarily skip to verify whether ServiceExport created TargetGroup is deleted or not
 					continue
 				}
-				Expect(*tg.Name).To(Not(ContainElements(BeKeyOf(env.TestCasesCreatedServiceNames))))
+				Expect(env.TestCasesCreatedServiceNames).To(Not(ContainElements(BeKeyOf(*tg.Name))))
 			}
 		}
 	}).Should(Succeed())

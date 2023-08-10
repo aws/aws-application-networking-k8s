@@ -50,7 +50,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		httpRoute     *gateway_api.HTTPRoute
+		route         core.Route
 		wantError     error
 		wantErrIsNil  bool
 		wantName      string
@@ -58,7 +58,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService with hostname",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
@@ -75,7 +75,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 						"test2.test.com",
 					},
 				},
-			},
+			}),
 
 			wantError:     nil,
 			wantName:      "service1",
@@ -84,7 +84,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Add LatticeService",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
@@ -97,7 +97,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 
 			wantError:     nil,
 			wantName:      "service1",
@@ -106,7 +106,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			httpRoute: &gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
@@ -134,7 +134,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 						},
 					},
 				},
-			},
+			}),
 
 			wantError:     nil,
 			wantName:      "service2",
@@ -156,10 +156,10 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 			//builder := NewLatticeServiceBuilder(k8sClient, ds, nil)
 
-			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 			task := &latticeServiceModelBuildTask{
-				httpRoute: tt.httpRoute,
+				route:     tt.route,
 				stack:     stack,
 				Client:    k8sClient,
 				tgByResID: make(map[string]*latticemodel.TargetGroup),
@@ -183,11 +183,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 			} else {
 				assert.Equal(t, false, task.latticeService.Spec.IsDeleted)
-				assert.Equal(t, tt.httpRoute.Name, task.latticeService.Spec.Name)
-				assert.Equal(t, tt.httpRoute.Namespace, task.latticeService.Spec.Namespace)
+				assert.Equal(t, tt.route.Name(), task.latticeService.Spec.Name)
+				assert.Equal(t, tt.route.Namespace(), task.latticeService.Spec.Namespace)
 
-				if len(tt.httpRoute.Spec.Hostnames) > 0 {
-					assert.Equal(t, string(tt.httpRoute.Spec.Hostnames[0]), task.latticeService.Spec.CustomerDomainName)
+				if len(tt.route.Spec().Hostnames()) > 0 {
+					assert.Equal(t, string(tt.route.Spec().Hostnames()[0]), task.latticeService.Spec.CustomerDomainName)
 				} else {
 					assert.Equal(t, "", task.latticeService.Spec.CustomerDomainName)
 				}
