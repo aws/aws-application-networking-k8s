@@ -7,6 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/eks/eksiface"
 )
 
+//go:generate mockgen -destination eks_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services EKS
+
 type EKS interface {
 	eksiface.EKSAPI
 }
