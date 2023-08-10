@@ -2,16 +2,19 @@ package services
 
 import (
 	"context"
+	"os"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice/vpclatticeiface"
 	"github.com/golang/glog"
-	"os"
 )
 
+//go:generate mockgen -destination vpclattice_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Lattice
+
 type Lattice interface {
-	vpclatticeiface.VpcLatticeAPI
+	vpclatticeiface.VPCLatticeAPI
 	ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error)
 	ListServicesAsList(ctx context.Context, input *vpclattice.ListServicesInput) ([]*vpclattice.ServiceSummary, error)
 	ListTargetGroupsAsList(ctx context.Context, input *vpclattice.ListTargetGroupsInput) ([]*vpclattice.TargetGroupSummary, error)
@@ -21,11 +24,11 @@ type Lattice interface {
 }
 
 type defaultLattice struct {
-	vpclatticeiface.VpcLatticeAPI
+	vpclatticeiface.VPCLatticeAPI
 }
 
 func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
-	var latticeSess vpclatticeiface.VpcLatticeAPI
+	var latticeSess vpclatticeiface.VPCLatticeAPI
 
 	latticeEndpoint := "https://vpc-lattice." + region + ".amazonaws.com"
 	endpoint := os.Getenv("LATTICE_ENDPOINT")
@@ -38,7 +41,7 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 
 	glog.V(2).Infoln("Lattice Service EndPoint:", endpoint)
 
-	return &defaultLattice{VpcLatticeAPI: latticeSess}
+	return &defaultLattice{latticeSess}
 }
 
 func (d *defaultLattice) ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error) {
