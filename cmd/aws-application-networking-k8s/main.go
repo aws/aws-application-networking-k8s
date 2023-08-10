@@ -21,6 +21,8 @@ import (
 	"os"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"github.com/go-logr/zapr"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -31,7 +33,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	//+kubebuilder:scaffold:imports
@@ -46,8 +47,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme = runtime.NewScheme()
 )
 
 func init() {
@@ -72,27 +72,37 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var debug bool
 
 	// setup glog level
 	flag.Lookup("logtostderr").Value.Set("true")
-	flag.Lookup("v").Value.Set(config.GetLogLevel())
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&debug, "debug", false, "enable debug mode")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	log := gwlog.NewLogger(debug)
+	ctrl.SetLogger(zapr.NewLogger(log.Desugar()).WithName("runtime"))
 
-	config.ConfigInit()
+	setupLog := log.Named("setup")
+	err := config.ConfigInit()
+	if err != nil {
+		setupLog.Error(err, "init config")
+		os.Exit(1)
+	}
+	setupLog.Infow("init config",
+		"VpcId", config.VpcID,
+		"Region", config.Region,
+		"AccoundId", config.AccountID,
+		"DefaultServiceNetwork", config.DefaultServiceNetwork,
+		"UseLongTgName", config.UseLongTGName,
+	)
 
-	cloud, err := aws.NewCloud()
+	cloud, err := aws.NewCloud(log.Named("cloud"))
 
 	if err != nil {
 		setupLog.Error(err, "unable to initialize AWS cloud")
@@ -111,10 +121,13 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient(), ctrl.Log)
-	latticeDataStore := latticestore.NewLatticeDataStore()
+	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient())
+	latticeDataStore := latticestore.NewLatticeDataStoreWithLog(log.Named("datastore"))
+
+	ctrlLog := log.Named("controller")
 
 	if err = (&controllers.PodReconciler{
+		Log:    ctrlLog.Named("pod"),
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
@@ -122,23 +135,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	serviceReconciler := controllers.NewServiceReconciler(mgr.GetClient(), mgr.GetScheme(),
-		mgr.GetEventRecorderFor("service"), finalizerManager, latticeDataStore, cloud)
-
+	serviceReconciler := controllers.NewServiceReconciler(
+		ctrlLog.Named("service"), mgr.GetClient(), mgr.GetScheme(), mgr.GetEventRecorderFor("service"),
+		finalizerManager, latticeDataStore, cloud)
 	if err = serviceReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Service")
 		os.Exit(1)
 	}
-	gwClassReconciler := controllers.NewGatewayGlassReconciler(mgr.GetClient(),
-		mgr.GetScheme())
 
+	gwClassReconciler := controllers.NewGatewayGlassReconciler(
+		ctrlLog.Named("gateway-class"), mgr.GetClient(), mgr.GetScheme())
 	if err = gwClassReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GatewayClass")
 		os.Exit(1)
 	}
 
-	gwReconciler := controllers.NewGatewayReconciler(mgr.GetClient(),
-		mgr.GetScheme(), mgr.GetEventRecorderFor("gateway"), gwClassReconciler, finalizerManager,
+	gwReconciler := controllers.NewGatewayReconciler(
+		ctrlLog.Named("gateway"), mgr.GetClient(), mgr.GetScheme(),
+		mgr.GetEventRecorderFor("gateway"), gwClassReconciler, finalizerManager,
 		latticeDataStore, cloud)
 
 	if err = gwReconciler.SetupWithManager(mgr); err != nil {

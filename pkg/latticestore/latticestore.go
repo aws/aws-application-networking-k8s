@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/golang/glog"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 // ERROR CODE
@@ -95,8 +94,8 @@ type Target struct {
 type TargetGroupPool map[TargetGroupKey]*TargetGroup
 
 type LatticeDataStore struct {
-	lock sync.Mutex
-
+	log             gwlog.Logger
+	lock            sync.Mutex
 	serviceNetworks ServiceNetworkPool
 	latticeServices LatticeServicePool
 	targetGroups    TargetGroupPool
@@ -112,15 +111,19 @@ type LatticeDataStoreInfo struct {
 
 var defaultLatticeDataStore *LatticeDataStore
 
-func NewLatticeDataStore() *LatticeDataStore {
+func NewLatticeDataStoreWithLog(log gwlog.Logger) *LatticeDataStore {
 	defaultLatticeDataStore = &LatticeDataStore{
+		log:             log,
 		serviceNetworks: make(ServiceNetworkPool),
 		latticeServices: make(LatticeServicePool),
 		targetGroups:    make(TargetGroupPool),
 		listeners:       make(ListenerPool),
 	}
-
 	return defaultLatticeDataStore
+}
+
+func NewLatticeDataStore() *LatticeDataStore {
+	return NewLatticeDataStoreWithLog(gwlog.FallbackLogger)
 }
 
 func dumpCurrentLatticeDataStore(ds *LatticeDataStore) *LatticeDataStoreInfo {
@@ -166,13 +169,13 @@ func (ds *LatticeDataStore) AddServiceNetwork(name string, account string, arn s
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("AddServiceNetwork name:[%s], account[%s] arn[%s], id[%s]\n", name, account, arn, id)
+	ds.log.Debugf("AddServiceNetwork name:[%s], account[%s] arn[%s], id[%s]", name, account, arn, id)
 
 	Key := ServiceNetworkKey{Name: name, AccountID: account}
 	_, ok := ds.serviceNetworks[Key]
 
 	if ok {
-		glog.V(6).Infof("UpdateServiceNetwork name:[%s], account[%s] arn[%s] id[%s]\n", name, account, arn, id)
+		ds.log.Debugf("UpdateServiceNetwork name:[%s], account[%s] arn[%s] id[%s]\n", name, account, arn, id)
 	}
 
 	ds.serviceNetworks[Key] = &ServiceNetwork{
@@ -189,13 +192,13 @@ func (ds *LatticeDataStore) DelServiceNetwork(name string, account string) error
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("DelServiceNetwork name:[%s], account[%s] \n", name, account)
+	ds.log.Debugf("DelServiceNetwork name:[%s], account[%s] \n", name, account)
 
 	key := ServiceNetworkKey{Name: name, AccountID: account}
 	_, ok := ds.serviceNetworks[key]
 
 	if !ok {
-		glog.V(6).Infof("Deleting unknown service network: name:[%s], account[%s] \n", name, account)
+		ds.log.Debugf("Deleting unknown service network: name:[%s], account[%s] \n", name, account)
 		return errors.New(DATASTORE_SERVICE_NETWORK_NOT_EXIST)
 	}
 
@@ -211,7 +214,7 @@ func (ds *LatticeDataStore) GetServiceNetworkStatus(name string, account string)
 	mesh, ok := ds.serviceNetworks[key]
 
 	if !ok {
-		glog.V(6).Infof("GetServiceNetworkStatus NOT found name:[%s], account[%s]\n", name, account)
+		ds.log.Debugf("GetServiceNetworkStatus NOT found name:[%s], account[%s]\n", name, account)
 		return ServiceNetwork{}, errors.New(DATASTORE_SERVICE_NETWORK_NOT_EXIST)
 	}
 
@@ -223,7 +226,7 @@ func (ds *LatticeDataStore) AddLatticeService(name string, namespace string, arn
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("AddLatticeService API, name[%s] namespace[%s] arn[%s] ds [%v]\n", name, namespace, arn, ds)
+	ds.log.Debugf("AddLatticeService API, name[%s] namespace[%s] arn[%s] ds [%v]\n", name, namespace, arn, ds)
 
 	serviceKey := LatticeServiceKey{
 		Name:      name,
@@ -233,7 +236,7 @@ func (ds *LatticeDataStore) AddLatticeService(name string, namespace string, arn
 	_, ok := ds.latticeServices[serviceKey]
 
 	if ok {
-		glog.V(6).Infof("UpdateLatticeService: name[%s] namespace[%s] arn[%s]\n", name, namespace, arn)
+		ds.log.Debugf("UpdateLatticeService: name[%s] namespace[%s] arn[%s]\n", name, namespace, arn)
 	}
 
 	ds.latticeServices[serviceKey] = &LatticeService{
@@ -250,7 +253,7 @@ func (ds *LatticeDataStore) DelLatticeService(name string, namespace string) err
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("DelLatticeService API, name[%s] namespace[%s] \n", name, namespace)
+	ds.log.Debugf("DelLatticeService API, name[%s] namespace[%s] \n", name, namespace)
 
 	serviceKey := LatticeServiceKey{
 		Name:      name,
@@ -260,7 +263,7 @@ func (ds *LatticeDataStore) DelLatticeService(name string, namespace string) err
 	_, ok := ds.latticeServices[serviceKey]
 
 	if !ok {
-		glog.V(6).Infof("Deleting unknown service: name[%s] namespace[%s] \n", name, namespace)
+		ds.log.Debugf("Deleting unknown service: name[%s] namespace[%s] \n", name, namespace)
 		return errors.New(DATASTORE_SERVICE_NOT_EXIST)
 	}
 	delete(ds.latticeServices, serviceKey)
@@ -272,7 +275,7 @@ func (ds *LatticeDataStore) GetLatticeService(name string, namespace string) (La
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("GetLatticeService API, name[%s] namespace[%s] ds [%v]\n", name, namespace, ds)
+	ds.log.Debugf("GetLatticeService API, name[%s] namespace[%s] ds [%v]\n", name, namespace, ds)
 	var svc = LatticeService{}
 
 	serviceKey := LatticeServiceKey{
@@ -312,7 +315,7 @@ func (ds *LatticeDataStore) AddTargetGroup(name string, vpc string, arn string, 
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("AddTargetGroup, name[%s]  isServiceImport[%v] vpc[%s] arn[%s] ds [%v]\n",
+	ds.log.Debugf("AddTargetGroup, name[%s]  isServiceImport[%v] vpc[%s] arn[%s] ds [%v]\n",
 		name, isServiceImport, vpc, arn, ds)
 
 	targetGroupKey := TargetGroupKey{
@@ -324,7 +327,7 @@ func (ds *LatticeDataStore) AddTargetGroup(name string, vpc string, arn string, 
 	tg, ok := ds.targetGroups[targetGroupKey]
 
 	if ok {
-		glog.V(6).Infof("UpdateTargetGroup, name[%s] vpc[%s] arn[%s]\n",
+		ds.log.Debugf("UpdateTargetGroup, name[%s] vpc[%s] arn[%s]\n",
 			name, vpc, arn)
 		if arn != "" {
 			tg.ARN = arn
@@ -396,7 +399,7 @@ func (ds *LatticeDataStore) DelTargetGroup(name string, routeName string, isServ
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
 
-	glog.V(6).Infof("DelTargetGroup, name[%s] isServiceImport[%v]\n",
+	ds.log.Debugf("DelTargetGroup, name[%s] isServiceImport[%v]\n",
 		name, isServiceImport)
 
 	targetGroupKey := TargetGroupKey{
@@ -408,7 +411,7 @@ func (ds *LatticeDataStore) DelTargetGroup(name string, routeName string, isServ
 	_, ok := ds.targetGroups[targetGroupKey]
 
 	if !ok {
-		glog.V(6).Infof("Deleting unknown TargetGroup, name[%s]  isServiceImport[%v]\n",
+		ds.log.Debugf("Deleting unknown TargetGroup, name[%s]  isServiceImport[%v]\n",
 			name, isServiceImport)
 		return errors.New(DATASTORE_TG_NOT_EXIST)
 	}
@@ -431,12 +434,12 @@ func (ds *LatticeDataStore) GetTargetGroup(name string, routeName string, isServ
 	tg, ok := ds.targetGroups[targetGroupKey]
 
 	if !ok {
-		//glog.V(6).Infof("GetTargetGroup name[%s]  isServiceImport[%v] ds [%v]does NOT exist\n",
+		//ds.log.Debugf("GetTargetGroup name[%s]  isServiceImport[%v] ds [%v]does NOT exist\n",
 		//	name, isServiceImport, ds)
 		return TargetGroup{}, errors.New(DATASTORE_TG_NOT_EXIST)
 	}
 
-	//glog.V(6).Infof("GetTargetGroup :%v\n", *tg)
+	//ds.log.Debugf("GetTargetGroup :%v\n", *tg)
 
 	return *tg, nil
 
@@ -468,7 +471,7 @@ func (ds *LatticeDataStore) UpdateTargetsForTargetGroup(name string, routeName s
 	tg, ok := ds.targetGroups[targetGroupKey]
 
 	if !ok {
-		glog.V(6).Infof("UpdateTargetGroup name does NOT exist[%s] ds [%v]\n",
+		ds.log.Debugf("UpdateTargetGroup name does NOT exist[%s] ds [%v]\n",
 			name, ds)
 		return errors.New(DATASTORE_TG_NOT_EXIST)
 	}
@@ -476,7 +479,7 @@ func (ds *LatticeDataStore) UpdateTargetsForTargetGroup(name string, routeName s
 	tg.EndPoints = make([]Target, len(targetList))
 	copy(tg.EndPoints, targetList)
 
-	glog.V(6).Infof("Success UpdateTarget Group name[%s]  targetIPList {%v}\n",
+	ds.log.Debugf("Success UpdateTarget Group name[%s]  targetIPList {%v}\n",
 		name, tg.EndPoints)
 
 	return nil
@@ -499,7 +502,7 @@ func (ds *LatticeDataStore) AddListener(name string, namespace string, port int6
 		ID:  id,
 	}
 
-	glog.V(6).Infof("AddListener :%v, ARN %s, ID %s\n", *ds.listeners[listenerKey], arn, id)
+	ds.log.Debugf("AddListener :%v, ARN %s, ID %s\n", *ds.listeners[listenerKey], arn, id)
 
 	return nil
 }
@@ -515,11 +518,11 @@ func (ds *LatticeDataStore) DelListener(name string, namespace string, port int6
 		Protocol:  protocol,
 	}
 
-	glog.V(6).Infof("DataStore: deleting listener %v \n", listenerKey)
+	ds.log.Debugf("DataStore: deleting listener %v \n", listenerKey)
 	_, ok := ds.listeners[listenerKey]
 
 	if !ok {
-		glog.V(6).Infof("Deleting unknown listener %v \n", listenerKey)
+		ds.log.Debugf("Deleting unknown listener %v \n", listenerKey)
 		return errors.New(DATASTORE_LISTENER_NOT_EXIST)
 	}
 
@@ -543,7 +546,7 @@ func (ds *LatticeDataStore) GetlListener(name string, namespace string, port int
 	listener, ok := ds.listeners[listenerKey]
 
 	if !ok {
-		glog.V(6).Infof("Deleting unknown listener %v \n", listenerKey)
+		ds.log.Debugf("Deleting unknown listener %v \n", listenerKey)
 		return Listener{}, errors.New(DATASTORE_LISTENER_NOT_EXIST)
 	}
 

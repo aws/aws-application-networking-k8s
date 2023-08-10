@@ -21,26 +21,28 @@ import (
 	"time"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/pkg/errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // GatewayClassReconciler reconciles a GatewayClass object
 type GatewayClassReconciler struct {
-	client.Client
+	log    gwlog.Logger
+	Client client.Client
 	Scheme *runtime.Scheme
 }
 
 var latticeControllerEnabled = false
 
-func NewGatewayGlassReconciler(client client.Client, scheme *runtime.Scheme) *GatewayClassReconciler {
+func NewGatewayGlassReconciler(log gwlog.Logger, client client.Client, scheme *runtime.Scheme) *GatewayClassReconciler {
 	return &GatewayClassReconciler{
+		log:    log,
 		Client: client,
 		Scheme: scheme,
 	}
@@ -61,22 +63,20 @@ func NewGatewayGlassReconciler(client client.Client, scheme *runtime.Scheme) *Ga
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	gwClassLog := log.FromContext(ctx)
-
 	gwClass := &gateway_api.GatewayClass{}
 
 	if err := r.Client.Get(ctx, req.NamespacedName, gwClass); err != nil {
-		gwClassLog.Info("NotFound")
+		r.log.Infow("gateway not found", "req", req)
 		return ctrl.Result{}, nil
 	}
-	gwClassLog.Info("ReconcileLoop")
+	r.log.Infow("reconcile", "req", req)
+
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
 		if !gwClass.DeletionTimestamp.IsZero() {
-			gwClassLog.Info("Deleting amazon-vpc-lattice GatewayClass\n")
+			r.log.Infow("deleting", "name", gwClass.Name, "namespace", gwClass.Namespace)
 			latticeControllerEnabled = false
 			return ctrl.Result{}, nil
 		}
-		gwClassLog.Info("Creating LatticeGatewayClass ")
 		latticeControllerEnabled = true
 
 		// Update Status
@@ -92,7 +92,7 @@ func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err := r.Client.Status().Patch(ctx, gwClass, client.MergeFrom(gwClassOld)); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "failed to update gatewayclass status")
 		}
-
+		r.log.Infow("created", "name", gwClass.Name, "namespace", gwClass.Namespace, "status", gwClass.Status)
 	}
 
 	return ctrl.Result{}, nil

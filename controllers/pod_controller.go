@@ -20,16 +20,17 @@ import (
 	"context"
 	//"fmt"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
-	client.Client
+	Log    gwlog.Logger
+	Client client.Client
 	Scheme *runtime.Scheme
 }
 
@@ -47,17 +48,12 @@ type PodReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	podLog := log.FromContext(ctx)
-
-	// TODO(user): your logic here
-	podLog.Info("PodReconcile")
-
 	pod := &corev1.Pod{}
-
 	if err := r.Client.Get(ctx, req.NamespacedName, pod); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
 
+	}
+	r.Log.Infow("reconcile", "req", req)
 	return ctrl.Result{}, nil
 }
 

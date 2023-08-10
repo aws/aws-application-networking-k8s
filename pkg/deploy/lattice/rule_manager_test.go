@@ -42,7 +42,7 @@ var rulelist = []struct {
 }
 
 var rules = []*latticemodel.Rule{
-	&latticemodel.Rule{
+	{
 		Spec: latticemodel.RuleSpec{
 			ServiceName:      "svc-1",
 			ServiceNamespace: "default",
@@ -57,7 +57,7 @@ var rules = []*latticemodel.Rule{
 		},
 	},
 
-	&latticemodel.Rule{
+	{
 		Spec: latticemodel.RuleSpec{
 			ServiceName:      "svc-1",
 			ServiceNamespace: "default",
@@ -817,12 +817,12 @@ func Test_List(t *testing.T) {
 	}
 	ruleOutput := vpclattice.ListRulesOutput{
 		Items: []*vpclattice.RuleSummary{
-			&vpclattice.RuleSummary{
+			{
 				Arn:       &rulelist[0].Arn,
 				Id:        &rulelist[0].Id,
 				IsDefault: &rulelist[0].IsDefault,
 			},
-			&vpclattice.RuleSummary{
+			{
 				Arn:       &rulelist[1].Arn,
 				Id:        &rulelist[1].Id,
 				IsDefault: &rulelist[1].IsDefault,

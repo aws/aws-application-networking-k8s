@@ -19,16 +19,15 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/golang/glog"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
@@ -48,32 +47,39 @@ const (
 
 // ServiceReconciler reconciles a Service object
 type ServiceReconciler struct {
-	client.Client
+	log              gwlog.Logger
+	Client           client.Client
 	Scheme           *runtime.Scheme
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
 	modelBuilder     gateway.LatticeTargetsBuilder
 	stackDeployer    deploy.StackDeployer
 
-	latticeDataStore *latticestore.LatticeDataStore
-	stackMashaller   deploy.StackMarshaller
+	ds             *latticestore.LatticeDataStore
+	stackMashaller deploy.StackMarshaller
 }
 
-func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, eventRecorder record.EventRecorder,
+func NewServiceReconciler(
+	log gwlog.Logger,
+	client client.Client,
+	scheme *runtime.Scheme,
+	eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager,
-	ds *latticestore.LatticeDataStore, cloud aws.Cloud) *ServiceReconciler {
+	ds *latticestore.LatticeDataStore,
+	cloud aws.Cloud) *ServiceReconciler {
 	modelBuild := gateway.NewTargetsBuilder(client, cloud, ds)
 	stackDeploy := deploy.NewTargetsStackDeploy(cloud, client, ds)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	return &ServiceReconciler{
+		log:              log,
 		Client:           client,
 		Scheme:           scheme,
 		finalizerManager: finalizerManager,
 		modelBuilder:     modelBuild,
 		stackDeployer:    stackDeploy,
 		eventRecorder:    eventRecorder,
-		latticeDataStore: ds,
+		ds:               ds,
 		stackMashaller:   stackMarshaller,
 	}
 
@@ -96,24 +102,17 @@ func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, eventRec
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	svcLog := log.FromContext(ctx)
-
-	// TODO(user): your logic here
-	svcLog.Info("ServiceReconciler")
-
 	svc := &corev1.Service{}
-	ds := r.latticeDataStore
-
 	if err := r.Client.Get(ctx, req.NamespacedName, svc); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	r.log.Infow("reconcile", "req", req)
 
 	if !svc.DeletionTimestamp.IsZero() {
 		tgNameD := latticestore.TargetGroupName(svc.Name, svc.Namespace)
-		TGDeleted := ds.GetTargetGroupsByTG(tgNameD)
+		TGDeleted := r.ds.GetTargetGroupsByTG(tgNameD)
 		for _, tg := range TGDeleted {
-			glog.V(6).Infof("service deletion trigger target IP list registration %v and tg %v\n",
-				tgNameD, tg)
+			r.log.Debugf("service deletion trigger target IP list registration %v and tg %v", tgNameD, tg)
 			r.reconcileTargetsResource(ctx, svc, tg.TargetGroupKey.RouteName)
 
 		}
@@ -124,14 +123,10 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// TODO also need to check serviceexport object to trigger building TargetGroup
 	tgName := latticestore.TargetGroupName(svc.Name, svc.Namespace)
-	TGs := ds.GetTargetGroupsByTG(tgName) // isServiceImport = false
+	TGs := r.ds.GetTargetGroupsByTG(tgName) // isServiceImport = false
 	for _, tg := range TGs {
-
-		glog.V(6).Infof("endpoints change trigger target IP list registration %v and tg %v\n",
-			tgName, tg)
-
+		r.log.Debugw("endpoints change trigger target IP list registration", "tg", tg)
 		r.reconcileTargetsResource(ctx, svc, tg.TargetGroupKey.RouteName)
-
 	}
 
 	return ctrl.Result{}, nil
@@ -146,7 +141,6 @@ func (r *ServiceReconciler) reconcileTargetsResource(ctx context.Context, svc *c
 }
 
 func (r *ServiceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error) {
-	svcLog := log.FromContext(ctx)
 	stack, latticeTargets, err := r.modelBuilder.Build(ctx, svc, routename)
 
 	if err != nil {
@@ -155,8 +149,8 @@ func (r *ServiceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1
 		return nil, nil, err
 	}
 
-	stackJSON, err := r.stackMashaller.Marshal(stack)
-	svcLog.Info("Successfully built model", stackJSON, "")
+	jsonStack, _ := r.stackMashaller.Marshal(stack)
+	r.log.Infow("successfully built model", "stack", jsonStack)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning,
@@ -164,7 +158,7 @@ func (r *ServiceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1
 		return nil, nil, err
 	}
 
-	svcLog.Info("Successfully deployed model")
+	r.log.Infow("successfully deployed model", "service", svc.Name)
 	return stack, latticeTargets, err
 }
 
