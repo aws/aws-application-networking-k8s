@@ -3,7 +3,7 @@ module github.com/aws/aws-application-networking-k8s
 go 1.20
 
 require (
-	github.com/aws/aws-sdk-go v1.44.136
+	github.com/aws/aws-sdk-go v1.44.321
 	github.com/go-logr/logr v1.2.3
 	github.com/golang/glog v1.0.0
 	github.com/golang/mock v1.6.0
@@ -84,5 +84,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/aws/aws-sdk-go => ./scripts/aws_sdk_model_override/aws-sdk-go

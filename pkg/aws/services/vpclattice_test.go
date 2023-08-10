@@ -2,10 +2,11 @@ package services
 
 import (
 	"context"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func Test_defaultLattice_ListServiceNetworksAsList(t *testing.T) {
@@ -31,10 +32,10 @@ func Test_defaultLattice_ListServiceNetworksAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockLatticeService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockLattice(c)
 
 		d := &defaultLattice{
-			VpcLatticeAPI: mockLatticeService,
+			VPCLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListServiceNetworksInput{
@@ -84,10 +85,10 @@ func Test_defaultLattice_ListServicesAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockLatticeService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockLattice(c)
 
 		d := &defaultLattice{
-			VpcLatticeAPI: mockLatticeService,
+			VPCLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListServicesInput{
@@ -130,10 +131,10 @@ func Test_defaultLattice_ListTGsAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockLatticeService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockLattice(c)
 
 		d := &defaultLattice{
-			VpcLatticeAPI: mockLatticeService,
+			VPCLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListTargetGroupsInput{
@@ -172,10 +173,10 @@ func Test_defaultLattice_ListTargetsAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockLatticeService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockLattice(c)
 
 		d := &defaultLattice{
-			VpcLatticeAPI: mockLatticeService,
+			VPCLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListTargetsInput{
@@ -214,10 +215,10 @@ func Test_defaultLattice_ListServiceNetworkVpcAssociationsAsList(t *testing.T) {
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockLatticeService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockLattice(c)
 
 		d := &defaultLattice{
-			VpcLatticeAPI: mockLatticeService,
+			VPCLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListServiceNetworkVpcAssociationsInput{
@@ -256,10 +257,10 @@ func Test_defaultLattice_ListServiceNetworkServiceAssociationsAsList(t *testing.
 	for _, tt := range tests {
 		c := gomock.NewController(t)
 		defer c.Finish()
-		mockLatticeService := NewMockVpcLatticeAPI(c)
+		mockLatticeService := NewMockLattice(c)
 
 		d := &defaultLattice{
-			VpcLatticeAPI: mockLatticeService,
+			VPCLatticeAPI: mockLatticeService,
 		}
 
 		input := &vpclattice.ListServiceNetworkServiceAssociationsInput{
