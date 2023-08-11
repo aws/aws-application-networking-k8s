@@ -3,11 +3,12 @@ package lattice
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"testing"
 
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -24,6 +25,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 
 	tg_types := [2]string{"by-backendref", "by-serviceexport"}
 
+	vpcId := config.GetVpcID()
 	for _, tg_type := range tg_types {
 		var tgSpec latticemodel.TargetGroupSpec
 
@@ -34,7 +36,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 				Config: latticemodel.TargetGroupConfig{
 					Port:                int32(8080),
 					Protocol:            "HTTP",
-					VpcID:               config.VpcID,
+					VpcID:               vpcId,
 					EKSClusterName:      "",
 					IsServiceImport:     false,
 					IsServiceExport:     true,
@@ -49,7 +51,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 				Config: latticemodel.TargetGroupConfig{
 					Port:                  int32(8080),
 					Protocol:              "HTTP",
-					VpcID:                 config.VpcID,
+					VpcID:                 vpcId,
 					EKSClusterName:        "",
 					IsServiceImport:       false,
 					IsServiceExport:       false,
@@ -81,7 +83,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		config := &vpclattice.TargetGroupConfig{
 			Port:            &p,
 			Protocol:        &prot,
-			VpcIdentifier:   &config.VpcID,
+			VpcIdentifier:   &vpcId,
 			ProtocolVersion: &emptystring,
 		}
 
@@ -874,8 +876,9 @@ func Test_ListTG_TGsExist(t *testing.T) {
 	}
 	listTGOutput := []*vpclattice.TargetGroupSummary{tg1, tg2}
 
+	cfgVpcId := config.GetVpcID()
 	config1 := &vpclattice.TargetGroupConfig{
-		VpcIdentifier: &config.VpcID,
+		VpcIdentifier: &cfgVpcId,
 	}
 	getTG1 := &vpclattice.GetTargetGroupOutput{
 		Config: config1,

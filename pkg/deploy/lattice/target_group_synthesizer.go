@@ -129,7 +129,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 				}
 
 			} else {
-				resTargetGroup.Spec.Config.VpcID = config.VpcID
+				resTargetGroup.Spec.Config.VpcID = config.GetVpcID()
 
 				tgStatus, err := t.targetGroupManager.Create(ctx, resTargetGroup)
 
@@ -175,7 +175,7 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 	for _, sdkTG := range sdkTGs {
 		tgRouteName := ""
 
-		if *sdkTG.getTargetGroupOutput.Config.VpcIdentifier != config.VpcID {
+		if *sdkTG.getTargetGroupOutput.Config.VpcIdentifier != config.GetVpcID() {
 			glog.V(6).Infof("Ignore target group ARN %v Name %v for other VPCs",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
@@ -383,7 +383,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsCreation(ctx con
 				resTargetGroup.Spec.Config.IsServiceImport, "")
 			glog.V(6).Infof("targetGroup Synthesized successfully for %s: %v\n", resTargetGroup.Spec.Name, tgStatus)
 		} else { // handle TargetGroup creation request that triggered by httproute with backendref k8sService creation or serviceExport creation
-			resTargetGroup.Spec.Config.VpcID = config.VpcID
+			resTargetGroup.Spec.Config.VpcID = config.GetVpcID()
 			tgStatus, err := t.targetGroupManager.Create(ctx, resTargetGroup)
 			if err != nil {
 				glog.V(6).Infof("Error on t.targetGroupManager.Create for %v err %v\n", resTargetGroup, err)

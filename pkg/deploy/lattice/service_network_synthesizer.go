@@ -3,11 +3,11 @@ package lattice
 import (
 	"context"
 	"errors"
-	"github.com/golang/glog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/golang/glog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -67,7 +67,7 @@ func (s *serviceNetworkSynthesizer) synthesizeTriggeredGateways(ctx context.Cont
 
 			// TODO need to check if servicenetwork is referenced by gateway in other namespace
 			gwList := &gateway_api.GatewayList{}
-			s.Client.List(context.TODO(), gwList)
+			s.Client.List(ctx, gwList)
 			snUsedByGateway := false
 			for _, gw := range gwList.Items {
 				if gw.Name == resServiceNetwork.Spec.Name &&
@@ -132,7 +132,7 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 	// handling delete those gateway in lattice DB, but not in K8S DB
 	// check local K8S cache
 	gwList := &gateway_api.GatewayList{}
-	s.Client.List(context.TODO(), gwList)
+	s.Client.List(ctx, gwList)
 
 	for _, sdkServiceNetwork := range sdkServiceNetworks {
 		glog.V(6).Infof("Synthersizing Gateway: checking if sdkServiceNetwork %v needed to be deleted \n", sdkServiceNetwork)

@@ -2,9 +2,8 @@ package aws
 
 import (
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -21,7 +20,7 @@ type Cloud interface {
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud() (Cloud, error) {
+func NewCloud(region string) (Cloud, error) {
 	// TODO: need to pass cfg CloudConfig later
 	sess, _ := session.NewSession()
 
@@ -42,8 +41,8 @@ func NewCloud() (Cloud, error) {
 
 	return &defaultCloud{
 		// TODO: service
-		vpcLatticeSess: services.NewDefaultLattice(sess, config.Region),
-		eksSess:        services.NewDefaultEKS(sess, config.Region),
+		vpcLatticeSess: services.NewDefaultLattice(sess, region),
+		eksSess:        services.NewDefaultEKS(sess, region),
 	}, nil
 }
 

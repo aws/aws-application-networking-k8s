@@ -190,7 +190,7 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		Name: tgName,
 		Type: latticemodel.TargetGroupTypeIP,
 		Config: latticemodel.TargetGroupConfig{
-			VpcID: config.VpcID,
+			VpcID: config.GetVpcID(),
 			// Fill in default HTTP port as we are using target port anyway.
 			Port:                80,
 			IsServiceImport:     false,
@@ -293,7 +293,7 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	backendKind := string(*httpBackendRef.Kind())
 	glog.V(6).Infof("buildTargetGroupSpec,  kind %s\n", backendKind)
 
-	var vpc = config.VpcID
+	var vpc = config.GetVpcID()
 	var ekscluster = ""
 	var isServiceImport bool
 	var isDeleted bool

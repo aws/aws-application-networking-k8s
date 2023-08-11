@@ -328,7 +328,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		return &p
 	}
 
-	config.VpcID = "current-vpc"
+	config.SetVpcID("current-vpc")
 	srvname := "test-svc1"
 	srvnamespace := "default"
 	routename := "test-route1"
@@ -457,10 +457,10 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 				id := sdkTG.id
 				vpc := ""
 				if sdkTG.isSameVPC {
-					vpc = config.VpcID
+					vpc = config.GetVpcID()
 
 				} else {
-					vpc = config.VpcID + "other VPC"
+					vpc = config.GetVpcID() + "other VPC"
 				}
 
 				var tagsOutput *vpclattice.ListTagsForResourceOutput

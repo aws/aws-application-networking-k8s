@@ -65,7 +65,7 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 	spec := latticemodel.ServiceNetworkSpec{
 		Name:           t.gateway.Name,
 		Namespace:      t.gateway.Namespace,
-		Account:        config.AccountID,
+		Account:        config.GetAccountID(),
 		AssociateToVPC: false,
 	}
 

@@ -25,15 +25,9 @@ const (
 	GATEWAY_API_CONTROLLER_LOGLEVEL = "GATEWAY_API_CONTROLLER_LOGLEVEL"
 )
 
-var VpcID = UnknownInput
-var AccountID = UnknownInput
-var Region = UnknownInput
-var logLevel = defaultLogLevel
-var DefaultServiceNetwork = UnknownInput
-var UseLongTGName = false
-
+// GATEWAY_API_CONTROLLER_LOGLEVEL
 func GetLogLevel() string {
-	logLevel = os.Getenv(GATEWAY_API_CONTROLLER_LOGLEVEL)
+	logLevel := os.Getenv(GATEWAY_API_CONTROLLER_LOGLEVEL)
 	switch strings.ToLower(logLevel) {
 	case "debug":
 		return "10"
@@ -43,75 +37,95 @@ func GetLogLevel() string {
 	return "2"
 }
 
-func GetClusterLocalGateway() (string, error) {
-	if DefaultServiceNetwork == UnknownInput {
-		return UnknownInput, errors.New(NO_DEFAULT_SERVICE_NETWORK)
-	}
-
-	return DefaultServiceNetwork, nil
+func SetLogLevel(logLevel string) {
+	os.Setenv(GATEWAY_API_CONTROLLER_LOGLEVEL, logLevel)
 }
 
-func ConfigInit() {
-
+// CLUSTER_VPC_ID
+func GetVpcID() string {
 	sess, _ := session.NewSession()
 	metadata := NewEC2Metadata(sess)
+
 	var err error
 
-	// CLUSTER_VPC_ID
-	VpcID = os.Getenv(CLUSTER_VPC_ID)
-	if VpcID != UnknownInput {
-		glog.V(2).Infoln("CLUSTER_VPC_ID passed as input:", VpcID)
+	vpcID := os.Getenv(CLUSTER_VPC_ID)
+	if vpcID != UnknownInput {
+		glog.V(2).Infoln("CLUSTER_VPC_ID passed as input:", vpcID)
 	} else {
-		VpcID, err = metadata.VpcID()
-		glog.V(2).Infoln("CLUSTER_VPC_ID from IMDS config discovery :", VpcID)
+		vpcID, err = metadata.VpcID()
+		glog.V(2).Infoln("CLUSTER_VPC_ID from IMDS config discovery :", vpcID)
 		if err != nil {
 			glog.V(2).Infoln("IMDS config discovery for CLUSTER_VPC_ID is NOT AVAILABLE :", err)
 		}
 	}
+	return vpcID
+}
 
-	// REGION
-	Region = os.Getenv(REGION)
-	if Region != UnknownInput {
-		glog.V(2).Infoln("REGION passed as input:", Region)
+func SetVpcID(vpcId string) {
+	os.Setenv(CLUSTER_VPC_ID, vpcId)
+}
+
+// REGION
+func GetRegion() string {
+	var err error
+
+	sess, _ := session.NewSession()
+	metadata := NewEC2Metadata(sess)
+
+	awsRegion := os.Getenv(REGION)
+	if awsRegion != UnknownInput {
+		glog.V(2).Infoln("REGION passed as input:", awsRegion)
 	} else {
-		Region, err = metadata.Region()
-		glog.V(2).Infoln("REGION from IMDS config discovery :", Region)
+		awsRegion, err = metadata.Region()
+		glog.V(2).Infoln("REGION from IMDS config discovery :", awsRegion)
 		if err != nil {
 			glog.V(2).Infoln("IMDS config discovery for REGION is NOT AVAILABLE :", err)
 		}
 	}
+	return awsRegion
+}
 
-	// AWS_ACCOUNT_ID
-	AccountID = os.Getenv(AWS_ACCOUNT_ID)
-	if AccountID != UnknownInput {
-		glog.V(2).Infoln("AWS_ACCOUNT_ID passed as input:", AccountID)
+// AWS_ACCOUNT_ID
+func GetAccountID() string {
+	var err error
+
+	sess, _ := session.NewSession()
+	metadata := NewEC2Metadata(sess)
+
+	accountID := os.Getenv(AWS_ACCOUNT_ID)
+	if accountID != UnknownInput {
+		glog.V(2).Infoln("AWS_ACCOUNT_ID passed as input:", accountID)
 	} else {
-		AccountID, err = metadata.AccountId()
-		glog.V(2).Infoln("AWS_ACCOUNT_ID from IMDS config discovery :", AccountID)
+		accountID, err = metadata.AccountId()
+		glog.V(2).Infoln("AWS_ACCOUNT_ID from IMDS config discovery :", accountID)
 		if err != nil {
 			glog.V(2).Infoln("IMDS config discovery for AWS_ACCOUNT_ID is NOT AVAILABLE :", err)
 		}
 	}
+	return accountID
+}
 
-	// GATEWAY_API_CONTROLLER_LOGLEVEL
-	logLevel = os.Getenv(GATEWAY_API_CONTROLLER_LOGLEVEL)
-	glog.V(2).Infoln("Logging Level:", os.Getenv(GATEWAY_API_CONTROLLER_LOGLEVEL))
+// CLUSTER_LOCAL_GATEWAY
+func GetClusterLocalGateway() (string, error) {
+	defaultServiceNetwork := os.Getenv(CLUSTER_LOCAL_GATEWAY)
 
-	// CLUSTER_LOCAL_GATEWAY
-	DefaultServiceNetwork = os.Getenv(CLUSTER_LOCAL_GATEWAY)
-	if DefaultServiceNetwork == UnknownInput {
+	if defaultServiceNetwork == UnknownInput {
 		glog.V(2).Infoln("No CLUSTER_LOCAL_GATEWAY")
+		return UnknownInput, errors.New(NO_DEFAULT_SERVICE_NETWORK)
 	} else {
-		glog.V(2).Infoln("CLUSTER_LOCAL_GATEWAY", DefaultServiceNetwork)
+		glog.V(2).Infoln("CLUSTER_LOCAL_GATEWAY", defaultServiceNetwork)
 	}
+	return defaultServiceNetwork, nil
+}
 
-	// TARGET_GROUP_NAME_LEN_MODE
+// TARGET_GROUP_NAME_LEN_MODE
+func UseLongTGName() bool {
 	tgNameLengthMode := os.Getenv(TARGET_GROUP_NAME_LEN_MODE)
 	glog.V(2).Infoln("TARGET_GROUP_NAME_LEN_MODE", tgNameLengthMode)
 
 	if tgNameLengthMode == "long" {
-		UseLongTGName = true
+		return true
 	} else {
-		UseLongTGName = false
+		return false
 	}
 }

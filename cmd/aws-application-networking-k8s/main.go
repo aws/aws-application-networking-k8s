@@ -90,9 +90,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	config.ConfigInit()
-
-	cloud, err := aws.NewCloud()
+	cloud, err := aws.NewCloud(config.GetRegion())
 
 	if err != nil {
 		setupLog.Error(err, "unable to initialize AWS cloud")

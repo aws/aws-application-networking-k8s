@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/glog"
 
@@ -34,9 +35,9 @@ func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 
 func getLatticeTGName(targetGroup *latticemodel.TargetGroup) string {
 	var tgName string
-	if config.UseLongTGName {
+	if config.UseLongTGName() {
 		tgName = latticestore.TargetGroupLongName(targetGroup.Spec.Name,
-			targetGroup.Spec.Config.K8SHTTPRouteName, config.VpcID)
+			targetGroup.Spec.Config.K8SHTTPRouteName, config.GetVpcID())
 	} else {
 		tgName = targetGroup.Spec.Name
 	}
@@ -251,7 +252,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 
 		//glog.V(6).Infof("Manager-List: tg-vpc %v , config.vpc %v\n", aws.StringValue(tgOutput.Config.VpcId), config.VpcID)
 
-		if tgOutput.Config != nil && aws.StringValue(tgOutput.Config.VpcIdentifier) == config.VpcID {
+		if tgOutput.Config != nil && aws.StringValue(tgOutput.Config.VpcIdentifier) == config.GetVpcID() {
 			// retrieve target group tags
 			//ListTagsForResourceWithContext
 			tagsInput := vpclattice.ListTagsForResourceInput{

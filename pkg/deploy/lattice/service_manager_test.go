@@ -58,7 +58,7 @@ func Test_Create_ValidateService(t *testing.T) {
 		ctx := context.TODO()
 		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+		latticeDataStore.AddServiceNetwork(tt.meshName, config.GetAccountID(), tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
 		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
@@ -90,7 +90,8 @@ func Test_Create_ValidateService(t *testing.T) {
 			Name: &SVCName,
 			Tags: make(map[string]*string),
 		}
-		createServiceInput.Tags[latticemodel.K8SServiceOwnedByVPC] = &config.VpcID
+		vpcId := config.GetVpcID()
+		createServiceInput.Tags[latticemodel.K8SServiceOwnedByVPC] = &vpcId
 		associateMeshService := &vpclattice.CreateServiceNetworkServiceAssociationInput{
 			ServiceNetworkIdentifier: &tt.meshId,
 			ServiceIdentifier:        &tt.wantServiceId,
@@ -209,7 +210,7 @@ func Test_Create_CreateService_MeshServiceAssociation(t *testing.T) {
 		ctx := context.TODO()
 		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+		latticeDataStore.AddServiceNetwork(tt.meshName, config.GetAccountID(), tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
 		createServiceOutput := &vpclattice.CreateServiceOutput{
@@ -344,7 +345,7 @@ func Test_Create_MeshServiceAssociation(t *testing.T) {
 		ctx := context.TODO()
 		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+		latticeDataStore.AddServiceNetwork(tt.meshName, config.GetAccountID(), tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
 		createServiceNetworkServiceAssociationOutput := &vpclattice.CreateServiceNetworkServiceAssociationOutput{
@@ -433,7 +434,7 @@ func Test_Create_Check(t *testing.T) {
 		ctx := context.TODO()
 		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+		latticeDataStore.AddServiceNetwork(tt.meshName, config.GetAccountID(), tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
 		input := &latticemodel.Service{
@@ -508,7 +509,7 @@ func Test_Delete_ValidateInput(t *testing.T) {
 		ctx := context.TODO()
 		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+		latticeDataStore.AddServiceNetwork(tt.meshName, config.GetAccountID(), tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
 		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
@@ -623,7 +624,7 @@ func Test_Delete_Disassociation_DeleteService(t *testing.T) {
 		ctx := context.TODO()
 		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+		latticeDataStore.AddServiceNetwork(tt.meshName, config.GetAccountID(), tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 		mockCloud := mocks_aws.NewMockCloud(c)
 
 		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
@@ -960,7 +961,7 @@ func Test_serviceNetworkAssociationMgr(t *testing.T) {
 
 		if tt.desiredSNInCache {
 			for _, sn := range tt.desiredSNs {
-				latticeDataStore.AddServiceNetwork(sn.snName, config.AccountID, "snARN", sn.snID, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+				latticeDataStore.AddServiceNetwork(sn.snName, config.GetAccountID(), "snARN", sn.snID, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 			}
 		}
 		mockCloud := mocks_aws.NewMockCloud(c)

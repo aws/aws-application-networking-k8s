@@ -1,9 +1,10 @@
 package config
 
 import (
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_config_init_with_partial_env_var(t *testing.T) {
@@ -17,12 +18,12 @@ func Test_config_init_with_partial_env_var(t *testing.T) {
 	os.Setenv(CLUSTER_LOCAL_GATEWAY, testClusterLocalGateway)
 	os.Unsetenv(AWS_ACCOUNT_ID)
 	os.Unsetenv(TARGET_GROUP_NAME_LEN_MODE)
-	ConfigInit()
-	assert.Equal(t, Region, testRegion)
-	assert.Equal(t, VpcID, testClusterVpcId)
-	assert.Equal(t, AccountID, UnknownInput)
-	assert.Equal(t, DefaultServiceNetwork, testClusterLocalGateway)
-	assert.Equal(t, UseLongTGName, false)
+	clusterLocalGateway, _ := GetClusterLocalGateway()
+	assert.Equal(t, GetRegion(), testRegion)
+	assert.Equal(t, GetVpcID(), testClusterVpcId)
+	assert.Equal(t, GetAccountID(), UnknownInput)
+	assert.Equal(t, clusterLocalGateway, testClusterLocalGateway)
+	assert.Equal(t, UseLongTGName(), false)
 }
 
 func Test_config_init_no_env_var(t *testing.T) {
@@ -31,12 +32,12 @@ func Test_config_init_no_env_var(t *testing.T) {
 	os.Unsetenv(CLUSTER_LOCAL_GATEWAY)
 	os.Unsetenv(AWS_ACCOUNT_ID)
 	os.Unsetenv(TARGET_GROUP_NAME_LEN_MODE)
-	ConfigInit()
-	assert.Equal(t, Region, UnknownInput)
-	assert.Equal(t, VpcID, UnknownInput)
-	assert.Equal(t, AccountID, UnknownInput)
-	assert.Equal(t, DefaultServiceNetwork, UnknownInput)
-	assert.Equal(t, UseLongTGName, false)
+	clusterLocalGateway, _ := GetClusterLocalGateway()
+	assert.Equal(t, GetRegion(), UnknownInput)
+	assert.Equal(t, GetVpcID(), UnknownInput)
+	assert.Equal(t, GetAccountID(), UnknownInput)
+	assert.Equal(t, clusterLocalGateway, UnknownInput)
+	assert.Equal(t, UseLongTGName(), false)
 }
 
 func Test_config_init_with_all_env_var(t *testing.T) {
@@ -52,10 +53,10 @@ func Test_config_init_with_all_env_var(t *testing.T) {
 	os.Setenv(CLUSTER_LOCAL_GATEWAY, testClusterLocalGateway)
 	os.Setenv(AWS_ACCOUNT_ID, testAwsAccountId)
 	os.Setenv(TARGET_GROUP_NAME_LEN_MODE, testTargetGroupNameLenMode)
-	ConfigInit()
-	assert.Equal(t, Region, testRegion)
-	assert.Equal(t, VpcID, testClusterVpcId)
-	assert.Equal(t, AccountID, testAwsAccountId)
-	assert.Equal(t, DefaultServiceNetwork, testClusterLocalGateway)
-	assert.Equal(t, UseLongTGName, true)
+	clusterLocalGateway, _ := GetClusterLocalGateway()
+	assert.Equal(t, GetRegion(), testRegion)
+	assert.Equal(t, GetVpcID(), testClusterVpcId)
+	assert.Equal(t, GetAccountID(), testAwsAccountId)
+	assert.Equal(t, clusterLocalGateway, testClusterLocalGateway)
+	assert.Equal(t, UseLongTGName(), true)
 }

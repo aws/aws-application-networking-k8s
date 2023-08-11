@@ -126,7 +126,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		if !tt.gw.DeletionTimestamp.IsZero() {
 			// testing delete
 			// insert the record in cache and verify it will be deleted later
-			ds.AddServiceNetwork(tt.gw.Name, config.AccountID, "ARN", "id", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+			ds.AddServiceNetwork(tt.gw.Name, config.GetAccountID(), "ARN", "id", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 
 			gwList := &gateway_api.GatewayList{}
 
@@ -172,7 +172,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		assert.Equal(t, tt.wantSynthesizerErr, err)
 
 		// verify the local cache for triggered gateway add or delete
-		output, err := ds.GetServiceNetworkStatus(tt.gw.Name, config.AccountID)
+		output, err := ds.GetServiceNetworkStatus(tt.gw.Name, config.GetAccountID())
 
 		fmt.Printf("GetMeshStatus:%v, err %v\n", output, err)
 		if tt.gw.DeletionTimestamp.IsZero() {
@@ -253,7 +253,7 @@ func Test_SythesizeSDKMeshs(t *testing.T) {
 				fmt.Printf("sdkMesh %v\n", sdkMesh)
 				sdkMeshsReturned = append(sdkMeshsReturned, sdkMesh.name)
 				fmt.Printf("sdkMeshsReturned --loop %v\n", sdkMeshsReturned)
-				ds.AddServiceNetwork(sdkMesh.name, config.AccountID, "staleMeshARN", "staleMeshId", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+				ds.AddServiceNetwork(sdkMesh.name, config.GetAccountID(), "staleMeshARN", "staleMeshId", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 				if !sdkMesh.isStale {
 					gwList.Items = append(gwList.Items,
 						gateway_api.Gateway{

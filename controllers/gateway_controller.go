@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
@@ -236,7 +237,7 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 	}
 
 	var serviceNetworkStatus latticestore.ServiceNetwork
-	serviceNetworkStatus, err = r.latticeDataStore.GetServiceNetworkStatus(gw.Name, config.AccountID)
+	serviceNetworkStatus, err = r.latticeDataStore.GetServiceNetworkStatus(gw.Name, config.GetAccountID())
 
 	glog.V(6).Infof("serviceNetworkStatus : %v for %s  error %v \n", serviceNetworkStatus, gw.Name, err)
 

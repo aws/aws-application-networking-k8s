@@ -73,7 +73,8 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 		if len(service.Spec.CustomerDomainName) > 0 {
 			serviceInput.CustomDomainName = &service.Spec.CustomerDomainName
 		}
-		serviceInput.Tags[latticemodel.K8SServiceOwnedByVPC] = &config.VpcID
+		vpcId := config.GetVpcID()
+		serviceInput.Tags[latticemodel.K8SServiceOwnedByVPC] = &vpcId
 
 		if len(service.Spec.CustomerCertARN) > 0 {
 			serviceInput.SetCertificateArn(service.Spec.CustomerCertARN)
@@ -229,7 +230,7 @@ func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context
 	// check if SN is in association list,
 	// if NOT, create svc-> SN association
 	for _, snName := range snNames {
-		serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(snName, config.AccountID)
+		serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(snName, config.GetAccountID())
 		if err != nil {
 			glog.V(2).Infof("Unable find service network[%v] in cache to associate sservice %v to",
 				snName, svcID)
