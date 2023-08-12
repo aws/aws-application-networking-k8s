@@ -304,6 +304,14 @@ func (m *GRPCRouteMatch) Method() *gateway_api_v1alpha2.GRPCMethodMatch {
 	return m.m.Method
 }
 
+/*
+Service = Foo
+Method = bar
+
+:path
+/Foo/bar
+*/
+
 type HeaderMatch interface {
 	Type() *gateway_api_v1beta1.HeaderMatchType
 	Name() string

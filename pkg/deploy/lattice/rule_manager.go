@@ -308,6 +308,8 @@ func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *latticemodel.Rule
 
 	}
 
+	httpMatch.Method = &rule.Spec.Method
+
 }
 
 func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRuleOutput) bool {

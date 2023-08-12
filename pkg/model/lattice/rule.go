@@ -32,9 +32,11 @@ type RuleSpec struct {
 	PathMatchValue  string `json:"pathmatchvalue"`
 	PathMatchExact  bool   `json:"pathmatchexact"`
 	PathMatchPrefix bool   `json:"pathmatchprefix"`
-	// Header
+	// HeaderMatch
 	NumOfHeaderMatches int `json:"numofheadermatches"`
 	MatchedHeaders     [MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch
+	// MethodMatch
+	Method string
 
 	RuleID     string     `json:"id"`
 	Action     RuleAction `json:"action"`
