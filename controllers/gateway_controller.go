@@ -20,9 +20,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/golang/glog"
-	"github.com/pkg/errors"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
+	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,19 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-
-	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
-	"github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
-	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 )
 
 const (
@@ -54,44 +51,53 @@ const (
 
 // GatewayReconciler reconciles a Gateway object
 type GatewayReconciler struct {
-	log                 gwlog.Logger
-	Client              client.Client
-	Scheme              *runtime.Scheme
-	gwClassReconciler   *GatewayClassReconciler
-	httpRouteReconciler *HTTPRouteReconciler
-	finalizerManager    k8s.FinalizerManager
-	eventRecorder       record.EventRecorder
-	modelBuilder        gateway.ServiceNetworkModelBuilder
-	stackDeployer       deploy.StackDeployer
-	cloud               aws.Cloud
-	latticeDataStore    *latticestore.LatticeDataStore
-	stackMarshaller     deploy.StackMarshaller
+	log              gwlog.Logger
+	client           client.Client
+	scheme           *runtime.Scheme
+	finalizerManager k8s.FinalizerManager
+	eventRecorder    record.EventRecorder
+	modelBuilder     gateway.ServiceNetworkModelBuilder
+	stackDeployer    deploy.StackDeployer
+	cloud            aws.Cloud
+	datastore        *latticestore.LatticeDataStore
+	stackMarshaller  deploy.StackMarshaller
 }
 
-func NewGatewayReconciler(log gwlog.Logger, client client.Client, scheme *runtime.Scheme, eventRecorder record.EventRecorder,
-	gwClassReconciler *GatewayClassReconciler, finalizerManager k8s.FinalizerManager,
-	ds *latticestore.LatticeDataStore, cloud aws.Cloud) *GatewayReconciler {
+func RegisterGatewayController(
+	log gwlog.Logger,
+	cloud aws.Cloud,
+	datastore *latticestore.LatticeDataStore,
+	finalizerManager k8s.FinalizerManager,
+	mgr ctrl.Manager,
+) error {
+	client := mgr.GetClient()
+	scheme := mgr.GetScheme()
+	evtRec := mgr.GetEventRecorderFor("gateway")
 
 	modelBuilder := gateway.NewServiceNetworkModelBuilder()
-	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, client, ds)
+	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, client, datastore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	return &GatewayReconciler{
-		log:               log,
-		Client:            client,
-		Scheme:            scheme,
-		gwClassReconciler: gwClassReconciler,
-		finalizerManager:  finalizerManager,
-		eventRecorder:     eventRecorder,
-		modelBuilder:      modelBuilder,
-		stackDeployer:     stackDeployer,
-		cloud:             cloud,
-		latticeDataStore:  ds,
-		stackMarshaller:   stackMarshaller,
-	}
-}
 
-func (r *GatewayReconciler) UpdateGatewayReconciler(httpRoute *HTTPRouteReconciler) {
-	r.httpRouteReconciler = httpRoute
+	r := &GatewayReconciler{
+		log:              log,
+		client:           client,
+		scheme:           scheme,
+		finalizerManager: finalizerManager,
+		eventRecorder:    evtRec,
+		modelBuilder:     modelBuilder,
+		stackDeployer:    stackDeployer,
+		cloud:            cloud,
+		datastore:        datastore,
+		stackMarshaller:  stackMarshaller,
+	}
+
+	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(client)
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&gateway_api.Gateway{}).
+		Watches(
+			&source.Kind{Type: &gateway_api.GatewayClass{}},
+			gwClassEventHandler).
+		Complete(r)
 }
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways,verbs=get;list;watch;create;update;patch;delete
@@ -108,7 +114,17 @@ func (r *GatewayReconciler) UpdateGatewayReconciler(httpRoute *HTTPRouteReconcil
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *GatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
+	r.log.Infow("reconcile", "name", req.Name)
+	recErr := r.reconcile(ctx, req)
+	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
+	if res.RequeueAfter != 0 {
+		r.log.Infow("requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
+	} else if res.Requeue {
+		r.log.Infow("requeue request", "name", req.Name)
+	} else if retryErr == nil {
+		r.log.Infow("reconciled", "name", req.Name)
+	}
+	return res, retryErr
 }
 
 func (r *GatewayReconciler) isDefaultNameSpace(n string) bool {
@@ -116,12 +132,11 @@ func (r *GatewayReconciler) isDefaultNameSpace(n string) bool {
 }
 
 func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
-	gw := &gateway_api.Gateway{}
 
-	if err := r.Client.Get(ctx, req.NamespacedName, gw); err != nil {
+	gw := &gateway_api.Gateway{}
+	if err := r.client.Get(ctx, req.NamespacedName, gw); err != nil {
 		return client.IgnoreNotFound(err)
 	}
-	r.log.Infow("reconcile", "req", req)
 
 	gwClass := &gateway_api.GatewayClass{}
 	gwClassName := types.NamespacedName{
@@ -129,16 +144,15 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		Name:      string(gw.Spec.GatewayClassName),
 	}
 
-	if err := r.gwClassReconciler.Client.Get(ctx, gwClassName, gwClass); err != nil {
-		r.log.Infow("Ignore it since not link to any gatewayclass", "req", req, "gwclass", gwClassName)
+	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
+		r.log.Infow("ignore, not linked to any gateway-class", "name", req.Name, "gwclass", gwClassName)
 		return client.IgnoreNotFound(err)
 	}
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
 		if !gw.DeletionTimestamp.IsZero() {
-			r.log.Debugf("Checking if gateway can be deleted %v", gw.Name)
 			httpRouteList := &gateway_api.HTTPRouteList{}
-			r.Client.List(context.TODO(), httpRouteList)
+			r.client.List(context.TODO(), httpRouteList)
 			for _, httpRoute := range httpRouteList.Items {
 
 				if len(httpRoute.Spec.ParentRefs) <= 0 {
@@ -155,48 +169,48 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 
 				httpGW := &gateway_api.Gateway{}
 
-				if err := r.Client.Get(context.TODO(), gwName, httpGW); err != nil {
+				if err := r.client.Get(context.TODO(), gwName, httpGW); err != nil {
 					continue
 				}
 
 				if httpGW.Name == gw.Name && httpGW.Namespace == gw.Namespace {
-					r.log.Infow("can not delete because it is referenced by some HTTPRoutes",
-						"httpGW", httpGW.Name+":"+httpGW.Namespace,
-						"gw", gw.Name+":"+gw.Namespace,
-					)
-					return errors.New("retry later, since it is referenced by some HTTPRoutes")
+					return fmt.Errorf("cannot delete gw, there is reference to httpGw, gw: %s, httpGw: %s", gw.Name, httpGW.Name)
 				}
 
 			}
 
 			if err := r.cleanupGatewayResources(ctx, gw); err != nil {
-				return errors.Wrapf(err, "failed to cleanup gw: %v", gw)
+				return errors.Wrapf(err, "failed to cleanup gw: %s", gw.Name)
 
 			}
-			r.log.Infow("Successfully removed finalizer",
-				"gw", gw.Name+":"+gw.Namespace,
-			)
-			r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
+
+			err := r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
+			if err != nil {
+				return err
+			}
+
 			return nil
 		}
-
 		return r.reconcileGatewayResources(ctx, gw)
 	} else {
-		r.log.Infow("ignore non aws gateways!!!", "req", req)
+		r.log.Infow("ignore non aws gateways", "name", req.Name, "gwClass controller name", gwClass.Spec.ControllerName)
 	}
 	return nil
 }
 
 func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
 	stack, serviceNetwork, err := r.modelBuilder.Build(ctx, gw)
-
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning,
 			k8s.GatewayEventReasonFailedBuildModel,
-			fmt.Sprintf("Failed BuildModel due to %v", err))
+			fmt.Sprintf("failed build model: %s", err))
+		return nil, nil, err
 	}
-	jsonStack, _ := r.stackMarshaller.Marshal(stack)
-	r.log.Infow("successfully built model", "stack", jsonStack)
+	jsonStack, err := r.stackMarshaller.Marshal(stack)
+	if err != nil {
+		return nil, nil, err
+	}
+	r.log.Debugw("successfully built model", "stack", jsonStack)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		/*
@@ -205,7 +219,7 @@ func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *gateway
 		*/
 		return nil, nil, err
 	}
-	r.log.Infow("successfully deployed model",
+	r.log.Debugw("successfully deployed model",
 		"stack", stack.StackID().Name+":"+stack.StackID().Namespace,
 	)
 
@@ -213,29 +227,33 @@ func (r *GatewayReconciler) buildAndDeployModel(ctx context.Context, gw *gateway
 }
 func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *gateway_api.Gateway) error {
 	if err := r.finalizerManager.AddFinalizers(ctx, gw, gatewayFinalizer); err != nil {
-		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
-		return errors.New("TODO ")
-	}
-	if UpdateGWListenerStatus(ctx, r.Client, gw) == nil {
-		r.updateGatewayAcceptStatus(ctx, gw, true)
-	} else {
-		r.updateGatewayAcceptStatus(ctx, gw, false)
-		return errors.New("failed to update gateway listener status")
+		r.eventRecorder.Event(gw, corev1.EventTypeWarning,
+			k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("failed add finalizer: %s", err))
+		return err
 	}
 
-	_, _, err := r.buildAndDeployModel(ctx, gw)
+	err := UpdateGWListenerStatus(ctx, r.client, gw)
+	if err != nil {
+		err2 := r.updateGatewayAcceptStatus(ctx, gw, false)
+		if err2 != nil {
+			return errors.Wrap(err2, err.Error())
+		}
+	}
 
+	err = r.updateGatewayAcceptStatus(ctx, gw, true)
 	if err != nil {
 		return err
 	}
 
-	var serviceNetworkStatus latticestore.ServiceNetwork
-	serviceNetworkStatus, err = r.latticeDataStore.GetServiceNetworkStatus(gw.Name, config.AccountID)
-
-	if err = r.updateGatewayStatus(ctx, &serviceNetworkStatus, gw); err != nil {
-		return errors.Wrapf(err, "failed to update gateway status %v", gw)
+	_, _, err = r.buildAndDeployModel(ctx, gw)
+	if err != nil {
+		return err
 	}
-	r.log.Debugf("serviceNetworkStatus : %v for %s", serviceNetworkStatus, gw.Name)
+
+	serviceNetworkStatus, err := r.datastore.GetServiceNetworkStatus(gw.Name, config.AccountID)
+	if err = r.updateGatewayStatus(ctx, &serviceNetworkStatus, gw); err != nil {
+		return err
+	}
 
 	return nil
 
@@ -244,7 +262,6 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *gateway_api.Gateway) error {
 	_, _, err := r.buildAndDeployModel(ctx, gw)
 	return err
-
 }
 
 func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetworkStatus *latticestore.ServiceNetwork, gw *gateway_api.Gateway) error {
@@ -262,15 +279,14 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetw
 	// TODO following is causing crash on some platform, see https://t.corp.amazon.com/b7c9ea6c-5168-4616-b718-c1bdf78dbdf1/communication
 	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
 
-	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		return errors.Wrapf(err, "failed to update gateway status %v", gw)
+	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
+		return fmt.Errorf("update gw status error, gw: %s, status: %s, err: %s",
+			gw.Name, serviceNetworkStatus.Status, err)
 	}
-
 	return nil
 }
 
 func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *gateway_api.Gateway, accepted bool) error {
-
 	gwOld := gw.DeepCopy()
 
 	var cond metav1.Condition
@@ -293,8 +309,8 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	}
 	gw.Status.Conditions = updateCondition(gw.Status.Conditions, cond)
 
-	if err := r.Client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		return errors.Wrapf(err, "failed to update gateway status %v", gw)
+	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
+		return fmt.Errorf("update gateway status error, gw: %s, accepted: %t, err: %s", gw.Name, accepted, err)
 	}
 
 	return nil
@@ -314,7 +330,7 @@ func UpdateHTTPRouteListenerStatus(ctx context.Context, k8sclient client.Client,
 	}
 
 	if err := k8sclient.Get(ctx, gwName, gw); err != nil {
-		return errors.Wrapf(err, "failed to update gateway listener status due to gatewag not found for %v", httproute.Spec())
+		return errors.Wrapf(err, "update route listener: gw not found, gw: %s", gwName)
 	}
 
 	return UpdateGWListenerStatus(ctx, k8sclient, gw)
@@ -375,7 +391,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 	}
 
 	if len(gw.Spec.Listeners) == 0 {
-		return fmt.Errorf("Failed to find gateway listener for gw %v ", gw)
+		return fmt.Errorf("failed to find gateway listener")
 	}
 
 	defaultListener := gw.Spec.Listeners[0]
@@ -471,28 +487,14 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 		}
 	}
 
-	glog.V(6).Infof("After update, the snapshot of listener status %v", gw.Status.Listeners)
-
 	if err := k8sclient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		return errors.Wrapf(err, "failed to update gateway listener err: %v, status: %v", err, gw.Status.Listeners)
+		return errors.Wrapf(err, "listener update failed")
 	}
 
 	if hasValidListener {
 		return nil
 	} else {
-		return fmt.Errorf("no valid listeners for %v\n", gw.Name)
+		return fmt.Errorf("no valid listeners for %s", gw.Name)
 	}
 
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *GatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(r.Client)
-	return ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&gateway_api.Gateway{}).
-		Watches(
-			&source.Kind{Type: &gateway_api.GatewayClass{}},
-			gwClassEventHandler).
-		Complete(r)
 }

@@ -91,8 +91,7 @@ func main() {
 	setupLog := log.Named("setup")
 	err := config.ConfigInit()
 	if err != nil {
-		setupLog.Error(err, "init config")
-		os.Exit(1)
+		setupLog.Fatalf("init config failed: %s", err)
 	}
 	setupLog.Infow("init config",
 		"VpcId", config.VpcID,
@@ -103,10 +102,8 @@ func main() {
 	)
 
 	cloud, err := aws.NewCloud(log.Named("cloud"))
-
 	if err != nil {
-		setupLog.Error(err, "unable to initialize AWS cloud")
-		os.Exit(1)
+		setupLog.Fatal("cloud client setup failed: %s", err)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -118,58 +115,41 @@ func main() {
 		LeaderElectionID:       "amazon-vpc-lattice.io",
 	})
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		setupLog.Fatal("manager setup failed:", err)
 	}
+
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient())
 	latticeDataStore := latticestore.NewLatticeDataStoreWithLog(log.Named("datastore"))
 
+	// parent logging scope for all controllers
 	ctrlLog := log.Named("controller")
 
-	if err = (&controllers.PodReconciler{
-		Log:    ctrlLog.Named("pod"),
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Pod")
-		os.Exit(1)
+	err = controllers.RegisterPodController(ctrlLog.Named("pod"), mgr)
+	if err != nil {
+		setupLog.Fatalf("pod controller setup failed: %s", err)
 	}
 
-	serviceReconciler := controllers.NewServiceReconciler(
-		ctrlLog.Named("service"), mgr.GetClient(), mgr.GetScheme(), mgr.GetEventRecorderFor("service"),
-		finalizerManager, latticeDataStore, cloud)
-	if err = serviceReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Service")
-		os.Exit(1)
+	err = controllers.RegisterServiceController(ctrlLog.Named("service"), cloud, latticeDataStore, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("service controller setup failed: %s", err)
 	}
 
-	gwClassReconciler := controllers.NewGatewayGlassReconciler(
-		ctrlLog.Named("gateway-class"), mgr.GetClient(), mgr.GetScheme())
-	if err = gwClassReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GatewayClass")
-		os.Exit(1)
+	err = controllers.RegisterGatewayClassController(ctrlLog.Named("gateway-class"), mgr)
+	if err != nil {
+		setupLog.Fatalf("gateway-class controller setup failed: %s", err)
 	}
 
-	gwReconciler := controllers.NewGatewayReconciler(
-		ctrlLog.Named("gateway"), mgr.GetClient(), mgr.GetScheme(),
-		mgr.GetEventRecorderFor("gateway"), gwClassReconciler, finalizerManager,
-		latticeDataStore, cloud)
-
-	if err = gwReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Gateway")
-		os.Exit(1)
+	err = controllers.RegisterGatewayController(ctrlLog.Named("gateway"), cloud, latticeDataStore, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("gateway controller setup failed: %s", err)
 	}
 
-	httpRouteReconciler := controllers.NewHttpRouteReconciler(cloud, mgr.GetClient(),
-		mgr.GetScheme(), mgr.GetEventRecorderFor("httproute"), gwReconciler, gwClassReconciler, finalizerManager,
-		latticeDataStore)
+	httpRouteReconciler := controllers.NewHttpRouteReconciler(cloud, mgr.GetClient(), mgr.GetScheme(), mgr.GetEventRecorderFor("httproute"), finalizerManager, latticeDataStore)
 
 	if err = httpRouteReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HTTPRoute")
 		os.Exit(1)
 	}
-
-	gwReconciler.UpdateGatewayReconciler(httpRouteReconciler)
 
 	serviceImportReconciler := controllers.NewServceImportReconciler(mgr.GetClient(), mgr.GetScheme(),
 		mgr.GetEventRecorderFor("ServiceImport"), finalizerManager, latticeDataStore)

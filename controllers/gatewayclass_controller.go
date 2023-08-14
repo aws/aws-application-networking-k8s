@@ -33,20 +33,22 @@ import (
 
 // GatewayClassReconciler reconciles a GatewayClass object
 type GatewayClassReconciler struct {
-	log    gwlog.Logger
-	Client client.Client
-	Scheme *runtime.Scheme
+	log                      gwlog.Logger
+	client                   client.Client
+	scheme                   *runtime.Scheme
+	latticeControllerEnabled bool
 }
 
-var latticeControllerEnabled = false
-
-func NewGatewayGlassReconciler(log gwlog.Logger, client client.Client, scheme *runtime.Scheme) *GatewayClassReconciler {
-	return &GatewayClassReconciler{
-		log:    log,
-		Client: client,
-		Scheme: scheme,
+func RegisterGatewayClassController(log gwlog.Logger, mgr ctrl.Manager) error {
+	r := &GatewayClassReconciler{
+		log:                      log,
+		client:                   mgr.GetClient(),
+		scheme:                   mgr.GetScheme(),
+		latticeControllerEnabled: false,
 	}
-
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&gateway_api.GatewayClass{}).
+		Complete(r)
 }
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses,verbs=get;list;watch;create;update;patch;delete
@@ -63,45 +65,36 @@ func NewGatewayGlassReconciler(log gwlog.Logger, client client.Client, scheme *r
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	gwClass := &gateway_api.GatewayClass{}
+	r.log.Infow("reconcile", "name", req.Name)
 
-	if err := r.Client.Get(ctx, req.NamespacedName, gwClass); err != nil {
-		r.log.Infow("gateway not found", "req", req)
+	gwClass := &gateway_api.GatewayClass{}
+	if err := r.client.Get(ctx, req.NamespacedName, gwClass); err != nil {
+		r.log.Debugw("gateway not found", "name", req.Name)
 		return ctrl.Result{}, nil
 	}
-	r.log.Infow("reconcile", "req", req)
 
-	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-		if !gwClass.DeletionTimestamp.IsZero() {
-			r.log.Infow("deleting", "name", gwClass.Name, "namespace", gwClass.Namespace)
-			latticeControllerEnabled = false
-			return ctrl.Result{}, nil
-		}
-		latticeControllerEnabled = true
+	if gwClass.Spec.ControllerName != config.LatticeGatewayControllerName {
+		return ctrl.Result{}, nil
+	}
+	if !gwClass.DeletionTimestamp.IsZero() {
+		r.latticeControllerEnabled = false
+		r.log.Infow("deleted", "name", gwClass.Name)
+		return ctrl.Result{}, nil
+	}
+	r.latticeControllerEnabled = true
 
-		// Update Status
-		gwClassOld := gwClass.DeepCopy()
+	// Update Status
+	gwClassOld := gwClass.DeepCopy()
+	gwClass.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+	gwClass.Status.Conditions[0].ObservedGeneration = gwClass.Generation
+	gwClass.Status.Conditions[0].Status = "True"
+	gwClass.Status.Conditions[0].Message = string(gateway_api.GatewayClassReasonAccepted)
+	gwClass.Status.Conditions[0].Reason = string(gateway_api.GatewayClassReasonAccepted)
 
-		gwClass.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
-		gwClass.Status.Conditions[0].ObservedGeneration = gwClass.Generation
-
-		gwClass.Status.Conditions[0].Status = "True"
-		gwClass.Status.Conditions[0].Message = string(gateway_api.GatewayClassReasonAccepted)
-		gwClass.Status.Conditions[0].Reason = string(gateway_api.GatewayClassReasonAccepted)
-
-		if err := r.Client.Status().Patch(ctx, gwClass, client.MergeFrom(gwClassOld)); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "failed to update gatewayclass status")
-		}
-		r.log.Infow("created", "name", gwClass.Name, "namespace", gwClass.Namespace, "status", gwClass.Status)
+	if err := r.client.Status().Patch(ctx, gwClass, client.MergeFrom(gwClassOld)); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to update gatewayclass status")
 	}
 
+	r.log.Infow("reconciled", "name", gwClass.Name, "status", gwClass.Status)
 	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *GatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&gateway_api.GatewayClass{}).
-		Complete(r)
 }

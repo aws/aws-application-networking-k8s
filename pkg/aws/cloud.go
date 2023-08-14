@@ -1,8 +1,6 @@
 package aws
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -22,22 +20,19 @@ func NewCloud(log gwlog.Logger) (Cloud, error) {
 	// TODO: need to pass cfg CloudConfig later
 	sess, _ := session.NewSession()
 
-	sess.Handlers.Send.PushFront(func(r *request.Request) {
-		log.Debugw("request",
-			"serviceName", r.ClientInfo.ServiceName,
-			"operation", r.Operation.Name,
-			"params", r.Params)
-	})
-
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		if r.Error != nil {
-			log.Errorw(r.Error.Error(),
+			log.Debugw("error",
+				"error", r.Error.Error(),
 				"serviceName", r.ClientInfo.ServiceName,
-				"operation", r.Operation.Name, "params", r.Params)
+				"operation", r.Operation.Name,
+				"params", r.Params,
+			)
 		} else {
 			log.Debugw("response",
 				"serviceName", r.ClientInfo.ServiceName,
 				"operation", r.Operation.Name,
+				"params", r.Params,
 			)
 		}
 	})
@@ -72,8 +67,7 @@ func (d *defaultCloud) GetEKSClusterVPC(name string) string {
 	result, err := d.eksSess.DescribeCluster(input)
 
 	if err != nil {
-		fmt.Printf("Erron eks DescridbeCluster %v\n", err)
 		return ""
 	}
-	return (result.String())
+	return result.String()
 }

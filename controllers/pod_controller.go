@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	//"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	corev1 "k8s.io/api/core/v1"
@@ -27,11 +26,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// PodReconciler reconciles a Pod object
-type PodReconciler struct {
-	Log    gwlog.Logger
-	Client client.Client
-	Scheme *runtime.Scheme
+// podReconciler reconciles a Pod object
+type podReconciler struct {
+	log    gwlog.Logger
+	client client.Client
+	scheme *runtime.Scheme
+}
+
+func RegisterPodController(log gwlog.Logger, mgr ctrl.Manager) error {
+	pr := &podReconciler{
+		log:    log,
+		client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+	}
+	err := ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.Pod{}).
+		Complete(pr)
+	return err
 }
 
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
@@ -47,19 +58,11 @@ type PodReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
-func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *podReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	pod := &corev1.Pod{}
-	if err := r.Client.Get(ctx, req.NamespacedName, pod); err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, pod); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 
 	}
-	r.Log.Infow("reconcile", "req", req)
 	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Pod{}).
-		Complete(r)
 }
