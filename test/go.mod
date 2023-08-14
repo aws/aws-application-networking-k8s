@@ -4,13 +4,12 @@ go 1.20
 
 replace (
 	github.com/aws/aws-application-networking-k8s => ../
-	github.com/aws/aws-sdk-go => ../scripts/aws_sdk_model_override/aws-sdk-go
 )
 
 require (
 	github.com/Pallinder/go-randomdata v1.2.0
 	github.com/aws/aws-application-networking-k8s v0.3.0
-	github.com/aws/aws-sdk-go v1.44.136
+	github.com/aws/aws-sdk-go v1.44.321
 	github.com/imdario/mergo v0.3.13
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.4
