@@ -1205,15 +1205,9 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				Method:             "POST",
-				NumOfHeaderMatches: 1,
-				MatchedHeaders: [latticemodel.MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch{
-					{
-						Name: pointer.String(":path"),
-						Match: &vpclattice.HeaderMatchType{
-							Exact: pointer.String("/service/method"),
-						},
-					},
-				},
+				NumOfHeaderMatches: 0,
+				PathMatchExact:     true,
+				PathMatchValue:     "/service/method",
 			},
 		},
 		{
@@ -1258,19 +1252,13 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			}),
 			expectedRuleSpec: latticemodel.RuleSpec{
 				Method:             "POST",
-				NumOfHeaderMatches: 1,
-				MatchedHeaders: [latticemodel.MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch{
-					{
-						Name: pointer.String(":path"),
-						Match: &vpclattice.HeaderMatchType{
-							Prefix: pointer.String("/service/"),
-						},
-					},
-				},
+				NumOfHeaderMatches: 0,
+				PathMatchPrefix:    true,
+				PathMatchValue:     "/service/",
 			},
 		},
 		{
-			name:           "GRPC match with 4 headers",
+			name:           "GRPC match with 5 headers",
 			gwListenerPort: *PortNumberPtr(80),
 			wantErrIsNil:   false,
 			samerule:       true,
@@ -1318,6 +1306,11 @@ func Test_HeadersRuleBuild(t *testing.T) {
 											Value: "bar4",
 											Type:  &k8sHeaderExactType,
 										},
+										{
+											Name:  "foo5",
+											Value: "bar5",
+											Type:  &k8sHeaderExactType,
+										},
 									},
 								},
 							},
@@ -1333,13 +1326,9 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			expectedRuleSpec: latticemodel.RuleSpec{
 				Method:             "POST",
 				NumOfHeaderMatches: 5,
+				PathMatchPrefix:    true,
+				PathMatchValue:     "/service/",
 				MatchedHeaders: [latticemodel.MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch{
-					{
-						Name: pointer.String(":path"),
-						Match: &vpclattice.HeaderMatchType{
-							Prefix: pointer.String("/service/"),
-						},
-					},
 					{
 						Name: pointer.String("foo1"),
 						Match: &vpclattice.HeaderMatchType{
@@ -1362,6 +1351,12 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						Name: pointer.String("foo4"),
 						Match: &vpclattice.HeaderMatchType{
 							Exact: pointer.String("bar4"),
+						},
+					},
+					{
+						Name: pointer.String("foo5"),
+						Match: &vpclattice.HeaderMatchType{
+							Exact: pointer.String("bar5"),
 						},
 					},
 				},

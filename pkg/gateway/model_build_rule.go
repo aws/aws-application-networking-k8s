@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"k8s.io/utils/pointer"
-
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -66,8 +64,6 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 				continue
 			}
 
-			headersUsedByMethodMatch := 0
-
 			// only support 1 match today
 			match := rule.Matches()[0]
 
@@ -113,22 +109,13 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 				case gateway_api_v1alpha2.GRPCMethodMatchExact:
 					if method.Method != nil {
 						glog.V(6).Infof("Match by specific gRPC service %s and method %s", *method.Service, *method.Method)
-						ruleSpec.MatchedHeaders[0] = vpclattice.HeaderMatch{
-							Name: pointer.String(":path"),
-							Match: &vpclattice.HeaderMatchType{
-								Exact: pointer.String(fmt.Sprintf("/%s/%s", *method.Service, *method.Method)),
-							},
-						}
+						ruleSpec.PathMatchExact = true
+						ruleSpec.PathMatchValue = fmt.Sprintf("/%s/%s", *method.Service, *method.Method)
 					} else {
 						glog.V(6).Infof("Match by specific gRPC service %s, regardless of method", *method.Service)
-						ruleSpec.MatchedHeaders[0] = vpclattice.HeaderMatch{
-							Name: pointer.String(":path"),
-							Match: &vpclattice.HeaderMatchType{
-								Prefix: pointer.String(fmt.Sprintf("/%s/", *method.Service)),
-							},
-						}
+						ruleSpec.PathMatchPrefix = true
+						ruleSpec.PathMatchValue = fmt.Sprintf("/%s/", *method.Service)
 					}
-					headersUsedByMethodMatch = 1
 				default:
 					return fmt.Errorf("unsupported gRPC method match type %v", *method.Type)
 				}
@@ -136,20 +123,16 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 				return fmt.Errorf("unsupported rule match: %T", m)
 			}
 
-			ruleSpec.NumOfHeaderMatches = len(match.Headers()) + headersUsedByMethodMatch
-
 			// header based match
 			// today, only support EXACT match
 			if match.Headers() != nil {
 				if len(match.Headers()) > LATTICE_MAX_HEADER_MATCHES {
 					return errors.New(LATTICE_EXCEED_MAX_HEADER_MATCHES)
 				}
-				if len(match.Headers())+headersUsedByMethodMatch > LATTICE_MAX_HEADER_MATCHES {
-					return fmt.Errorf("expected max of %d header matches when using gRPC method match, but was actually %d",
-						LATTICE_MAX_HEADER_MATCHES-1, LATTICE_MAX_HEADER_MATCHES)
-				}
 
-				glog.V(6).Infof("Examining match.Headers %v for httproute %s namespace %s",
+				ruleSpec.NumOfHeaderMatches = len(match.Headers())
+
+				glog.V(6).Infof("Examining match.Headers %v for route %s, namespace %s",
 					match.Headers(), t.route.Name(), t.route.Namespace())
 
 				for i, header := range match.Headers() {
@@ -166,12 +149,12 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					matchType := vpclattice.HeaderMatchType{
 						Exact: aws.String(header.Value()),
 					}
-					ruleSpec.MatchedHeaders[i+headersUsedByMethodMatch].Match = &matchType
+					ruleSpec.MatchedHeaders[i].Match = &matchType
 					headerName := header.Name()
 
 					glog.V(6).Infof("Found matching i = %d headerName %v", i, &headerName)
 
-					ruleSpec.MatchedHeaders[i+headersUsedByMethodMatch].Name = &headerName
+					ruleSpec.MatchedHeaders[i].Name = &headerName
 				}
 			}
 
