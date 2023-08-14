@@ -126,7 +126,7 @@ func main() {
 		mgr.GetEventRecorderFor("service"), finalizerManager, latticeDataStore, cloud)
 
 	if err = serviceReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create creater", "controller", "service")
+		setupLog.Error(err, "unable to create controller", "controller", "Service")
 		os.Exit(1)
 	}
 	gwClassReconciler := controllers.NewGatewayGlassReconciler(mgr.GetClient(),

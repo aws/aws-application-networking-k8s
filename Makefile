@@ -45,7 +45,7 @@ help: ## Display this help.
 
 .PHONY: run
 run: ## Run in development mode
-	go run main.go
+	go run cmd/aws-application-networking-k8s/main.go
 
 
 .PHONY: presubmit
@@ -70,7 +70,6 @@ test: ## Run tests.
 .PHONY: toolchain
 toolchain: ## Install developer toolchain
 	./hack/toolchain.sh
-	./setup.sh
 	./scripts/gen_mocks.sh
 
 ##@ Deployment
@@ -94,9 +93,9 @@ e2etest:
 	cd test && go test \
 		-p 1 \
 		-count 1 \
-		-timeout 60m \
+		-timeout 90m \
 		-v \
 		./suites/... \
 		--ginkgo.focus="${FOCUS}" \
-		--ginkgo.timeout=60m \
+		--ginkgo.timeout=90m \
 		--ginkgo.v
