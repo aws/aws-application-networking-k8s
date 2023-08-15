@@ -2,9 +2,7 @@ module github.com/aws/aws-application-networking-k8s/test
 
 go 1.20
 
-replace (
-	github.com/aws/aws-application-networking-k8s => ../
-)
+replace github.com/aws/aws-application-networking-k8s => ../
 
 require (
 	github.com/Pallinder/go-randomdata v1.2.0
