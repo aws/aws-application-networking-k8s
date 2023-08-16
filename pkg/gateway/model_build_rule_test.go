@@ -1258,6 +1258,52 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			},
 		},
 		{
+			name:           "GRPC match on all",
+			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil:   false,
+			samerule:       true,
+
+			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.GRPCRouteRule{
+						{
+							Matches: []v1alpha2.GRPCRouteMatch{
+								{
+									Method: &v1alpha2.GRPCMethodMatch{
+										Type: &k8sMethodMatchExactType,
+									},
+								},
+							},
+
+							BackendRefs: []v1alpha2.GRPCBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedRuleSpec: latticemodel.RuleSpec{
+				Method:             "POST",
+				NumOfHeaderMatches: 0,
+				PathMatchPrefix:    true,
+				PathMatchValue:     "/",
+			},
+		},
+		{
 			name:           "GRPC match with 5 headers",
 			gwListenerPort: *PortNumberPtr(80),
 			wantErrIsNil:   false,
