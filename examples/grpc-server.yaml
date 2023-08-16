@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: grpc-server
-        image: 694065802095.dkr.ecr.us-west-2.amazonaws.com/route-guide:latest
+        image: https://hub.docker.com/r/tobegit3hub/grpc-helloworld:latest
 
 
 ---
@@ -29,5 +29,5 @@ spec:
     app: grpc-server
   ports:
     - protocol: TCP
-      port: 80
-      targetPort: 8090
+      port: 443
+      targetPort: 50051

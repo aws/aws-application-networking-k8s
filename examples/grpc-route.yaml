@@ -1,5 +1,5 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GRPCRoute
 metadata:
   name: grpc
 spec:
@@ -10,5 +10,8 @@ spec:
   - backendRefs:
     - name: grpc-server
       kind: Service
-      port: 50051
       weight: 10
+    matches:
+        - method:
+            service: foo
+            method: bar
