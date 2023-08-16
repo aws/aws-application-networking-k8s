@@ -84,6 +84,10 @@ func (r *GRPCRoute) K8sObject() client.Object {
 	return &r.r
 }
 
+func (r *GRPCRoute) Inner() *gateway_api_v1alpha2.GRPCRoute {
+	return &r.r
+}
+
 type RouteSpec interface {
 	ParentRefs() []gateway_api_v1beta1.ParentReference
 	Hostnames() []gateway_api_v1beta1.Hostname

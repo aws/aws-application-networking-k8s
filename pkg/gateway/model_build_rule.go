@@ -103,19 +103,23 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 				ruleSpec.Method = string(gateway_api_v1beta1.HTTPMethodPost)
 				method := m.Method()
 				// VPC Lattice doesn't support suffix/regex matching, so we can't support method match without service
-				if method.Service == nil {
-					return fmt.Errorf("expected gRPC method match to include a service, but was nil")
+				if method.Service == nil && method.Method != nil {
+					return fmt.Errorf("cannot create GRPCRouteMatch for nil service and non-nil method")
 				}
 				switch *method.Type {
 				case gateway_api_v1alpha2.GRPCMethodMatchExact:
-					if method.Method != nil {
-						glog.V(6).Infof("Match by specific gRPC service %s and method %s", *method.Service, *method.Method)
-						ruleSpec.PathMatchExact = true
-						ruleSpec.PathMatchValue = fmt.Sprintf("/%s/%s", *method.Service, *method.Method)
-					} else {
+					if method.Service == nil {
+						glog.V(6).Infof("Match all paths due to nil service and nil method")
+						ruleSpec.PathMatchPrefix = true
+						ruleSpec.PathMatchValue = "/"
+					} else if method.Method == nil {
 						glog.V(6).Infof("Match by specific gRPC service %s, regardless of method", *method.Service)
 						ruleSpec.PathMatchPrefix = true
 						ruleSpec.PathMatchValue = fmt.Sprintf("/%s/", *method.Service)
+					} else {
+						glog.V(6).Infof("Match by specific gRPC service %s and method %s", *method.Service, *method.Method)
+						ruleSpec.PathMatchExact = true
+						ruleSpec.PathMatchValue = fmt.Sprintf("/%s/%s", *method.Service, *method.Method)
 					}
 				default:
 					return fmt.Errorf("unsupported gRPC method match type %v", *method.Type)

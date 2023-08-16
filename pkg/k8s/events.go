@@ -14,6 +14,14 @@ const (
 	HTTPRouteEventReasonFailedDeployModel = "FailedDeployModel"
 	HTTPRouteEventReasonRetryReconcile    = "Retry-Reconcile"
 
+	// GRPCRoute events
+	GRPCRouteEventReasonReconcile          = "Reconcile"
+	GRPCRouteEventReasonDeploySucceed      = "DeploySucceed"
+	GRPCRouteEventReasonFailedAddFinalizer = "FailedAddFinalizer"
+	GRPCRouteEventReasonFailedBuildModel   = "FailedBuildModel"
+	GRPCRouteEventReasonFailedDeployModel  = "FailedDeployModel"
+	GRPCRouteEventReasonRetryReconcile     = "Retry-Reconcile"
+
 	// Service events
 	ServiceEventReasonFailedAddFinalizer = "FailedAddFinalizer"
 	ServiceEventReasonFailedBuildModel   = "FailedBuildModel"
