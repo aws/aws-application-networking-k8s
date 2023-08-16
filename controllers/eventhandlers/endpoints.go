@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -36,8 +37,6 @@ func (h *enqueueRequestsForEndpointsEvent) Update(e event.UpdateEvent, queue wor
 	glog.V(6).Info("Event: endpoints update")
 	epOld := e.ObjectOld.(*corev1.Endpoints)
 	epNew := e.ObjectNew.(*corev1.Endpoints)
-	// fmt.Printf("endpoints update epOld [%v]  epNew[%v]\n", epOld, epNew)
-
 	if !equality.Semantic.DeepEqual(epOld.Subsets, epNew.Subsets) {
 		h.enqueueImpactedService(queue, epNew)
 	}
@@ -66,8 +65,6 @@ func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedService(queue workqueu
 		}
 
 	}
-
-	//fmt.Printf("--- targetIPList [%v]\n", targetIPList)
 
 	svc := &corev1.Service{}
 	namespaceName := types.NamespacedName{

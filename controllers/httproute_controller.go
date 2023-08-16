@@ -53,16 +53,14 @@ import (
 
 // HTTPRouteReconciler reconciles a HTTPRoute object
 type HTTPRouteReconciler struct {
-	client.Client
-	Scheme            *runtime.Scheme
-	gwReconciler      *GatewayReconciler
-	gwClassReconciler *GatewayClassReconciler
-	finalizerManager  k8s.FinalizerManager
-	eventRecorder     record.EventRecorder
-	modelBuilder      gateway.LatticeServiceBuilder
-	stackDeployer     deploy.StackDeployer
-	latticeDataStore  *latticestore.LatticeDataStore
-	stackMashaller    deploy.StackMarshaller
+	client           client.Client
+	scheme           *runtime.Scheme
+	finalizerManager k8s.FinalizerManager
+	eventRecorder    record.EventRecorder
+	modelBuilder     gateway.LatticeServiceBuilder
+	stackDeployer    deploy.StackDeployer
+	latticeDataStore *latticestore.LatticeDataStore
+	stackMashaller   deploy.StackMarshaller
 }
 
 const (
@@ -70,24 +68,27 @@ const (
 	LatticeAssignedDomainName = "application-networking.k8s.aws/lattice-assigned-domain-name"
 )
 
-func NewHttpRouteReconciler(cloud aws.Cloud, client client.Client, scheme *runtime.Scheme, eventRecorder record.EventRecorder,
-	gwReconciler *GatewayReconciler, gwClassReconciler *GatewayClassReconciler, finalizerManager k8s.FinalizerManager,
-	latticeDataStore *latticestore.LatticeDataStore) *HTTPRouteReconciler {
+func NewHttpRouteReconciler(
+	cloud aws.Cloud,
+	client client.Client,
+	scheme *runtime.Scheme,
+	eventRecorder record.EventRecorder,
+	finalizerManager k8s.FinalizerManager,
+	latticeDataStore *latticestore.LatticeDataStore,
+) *HTTPRouteReconciler {
 	modelBuilder := gateway.NewLatticeServiceBuilder(client, latticeDataStore, cloud)
 	stackDeployer := deploy.NewLatticeServiceStackDeploy(cloud, client, latticeDataStore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	return &HTTPRouteReconciler{
-		Client:            client,
-		Scheme:            scheme,
-		gwReconciler:      gwReconciler,
-		gwClassReconciler: gwClassReconciler,
-		finalizerManager:  finalizerManager,
-		modelBuilder:      modelBuilder,
-		stackDeployer:     stackDeployer,
-		eventRecorder:     eventRecorder,
-		latticeDataStore:  latticeDataStore,
-		stackMashaller:    stackMarshaller,
+		client:           client,
+		scheme:           scheme,
+		finalizerManager: finalizerManager,
+		modelBuilder:     modelBuilder,
+		stackDeployer:    stackDeployer,
+		eventRecorder:    eventRecorder,
+		latticeDataStore: latticeDataStore,
+		stackMashaller:   stackMarshaller,
 	}
 }
 
@@ -116,7 +117,7 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 
 	httpRoute := &core.HTTPRoute{}
 
-	if err := r.Client.Get(ctx, req.NamespacedName, httpRoute.K8sObject()); err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, httpRoute.K8sObject()); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 
@@ -133,7 +134,7 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 			glog.V(6).Infof("Failed to cleanup HTTPRoute %v err %v\n", httpRoute, err)
 			return err
 		}
-		UpdateHTTPRouteListenerStatus(ctx, r.Client, httpRoute)
+		UpdateHTTPRouteListenerStatus(ctx, r.client, httpRoute)
 		r.finalizerManager.RemoveFinalizers(ctx, httpRoute.K8sObject(), httpRouteFinalizer)
 
 		// TODO delete metrics
@@ -173,7 +174,7 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 		Name:      string(httpRoute.Spec().ParentRefs()[0].Name),
 	}
 
-	if err := r.gwReconciler.Client.Get(ctx, gwName, gw); err != nil {
+	if err := r.client.Get(ctx, gwName, gw); err != nil {
 		glog.V(6).Infof("Could not find gateway %s: %s\n", gwName.String(), err.Error())
 		glog.V(6).Infof("Ignore HTTPRoute whose ParentRef gatway object has NOT defined yet for %v\n", httpRoute.Spec())
 		return false
@@ -182,11 +183,11 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 	// make sure gateway is a aws-vpc-lattice
 	gwClass := &gateway_api.GatewayClass{}
 	gwClassName := types.NamespacedName{
-		Namespace: "default",
+		Namespace: defaultNameSpace,
 		Name:      string(gw.Spec.GatewayClassName),
 	}
 
-	if err := r.gwClassReconciler.Client.Get(ctx, gwClassName, gwClass); err != nil {
+	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
 		glog.V(6).Infof("Ignore HTTPRoute that NOT controlled by any GatewayClass for %v\n", httpRoute.Spec())
 		return false
 	}
@@ -282,7 +283,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	}
 
 	httpRoute.ObjectMeta.Annotations[LatticeAssignedDomainName] = dns
-	if err := r.Client.Patch(ctx, httpRoute, client.MergeFrom(httprouteOld)); err != nil {
+	if err := r.client.Patch(ctx, httpRoute, client.MergeFrom(httprouteOld)); err != nil {
 		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
 		return errors.Wrapf(err, "failed to update httpRoute status")
 	}
@@ -295,7 +296,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	httpRoute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
 	// Update listener Status
-	if err := UpdateHTTPRouteListenerStatus(ctx, r.Client, coreRoute); err != nil {
+	if err := UpdateHTTPRouteListenerStatus(ctx, r.client, coreRoute); err != nil {
 		updateRouteCondition(coreRoute, metav1.Condition{
 			Type:               string(gateway_api.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
@@ -320,7 +321,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 		})
 	}
 
-	if err := r.Client.Status().Patch(ctx, httpRoute, client.MergeFrom(httprouteOld)); err != nil {
+	if err := r.client.Status().Patch(ctx, httpRoute, client.MergeFrom(httprouteOld)); err != nil {
 		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
 		return errors.Wrapf(err, "failed to update httpRoute status")
 	}
@@ -335,9 +336,9 @@ func updateRouteCondition(httproute *core.HTTPRoute, updated metav1.Condition) {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HTTPRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(r.Client)
-	svcEventHandler := eventhandlers.NewEqueueHTTPRequestServiceEvent(r.Client)
-	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(r.Client)
+	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(r.client)
+	svcEventHandler := eventhandlers.NewEqueueHTTPRequestServiceEvent(r.client)
+	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(r.client)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&gateway_api.HTTPRoute{}).

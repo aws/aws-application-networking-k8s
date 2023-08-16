@@ -3,11 +3,12 @@ package lattice
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"testing"
 
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -1051,14 +1052,14 @@ func Test_Get(t *testing.T) {
 
 		listTGinput := &vpclattice.ListTargetGroupsInput{}
 		listTGOutput := []*vpclattice.TargetGroupSummary{
-			&vpclattice.TargetGroupSummary{
+			{
 				Arn:    &tt.randomArn,
 				Id:     &tt.randomId,
 				Name:   &tt.randomName,
 				Status: &tt.tgStatusFailed,
 				Type:   nil,
 			},
-			&vpclattice.TargetGroupSummary{
+			{
 				Arn:    &tt.tgArn,
 				Id:     &tt.tgId,
 				Name:   &tt.tgName,

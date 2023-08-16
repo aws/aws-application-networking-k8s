@@ -368,7 +368,7 @@ func Test_Create_MeshServiceAssociation(t *testing.T) {
 			Id:   &tt.wantServiceId,
 			Name: &SVCName,
 		})
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{&vpclattice.ServiceNetworkServiceAssociationSummary{
+		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{{
 			Status: &tt.existingAssociationStatus,
 		}}
 
@@ -451,7 +451,7 @@ func Test_Create_Check(t *testing.T) {
 			Id:   &tt.wantServiceId,
 			Name: &SVCName,
 		})
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{&vpclattice.ServiceNetworkServiceAssociationSummary{
+		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{{
 			ServiceNetworkName: &tt.meshName,
 			Status:             &tt.existingAssociationStatus,
 		}}
@@ -524,7 +524,7 @@ func Test_Delete_ValidateInput(t *testing.T) {
 				ServiceNetworkNames: []string{tt.meshName},
 			},
 		}
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{&vpclattice.ServiceNetworkServiceAssociationSummary{
+		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{{
 			Status: &tt.wantMeshServiceAssociationStatus,
 			Id:     &tt.meshServiceAssociationId,
 		}}
@@ -639,7 +639,7 @@ func Test_Delete_Disassociation_DeleteService(t *testing.T) {
 				ServiceNetworkNames: []string{tt.meshName},
 			},
 		}
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{&vpclattice.ServiceNetworkServiceAssociationSummary{
+		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{{
 			Status: &tt.wantMeshServiceAssociationStatus,
 		}}
 
