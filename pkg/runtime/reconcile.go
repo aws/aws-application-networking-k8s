@@ -14,17 +14,13 @@ func HandleReconcileError(err error) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	fmt.Printf("HandleReconcileError handle Error %v \n", err)
-
 	retryErr := NewRetryError()
 	if errors.As(err, &retryErr) {
-		fmt.Printf(">>>>>> Retrying Reconcile after 20 seconds ...\n")
 		return ctrl.Result{RequeueAfter: time.Second * 20}, nil
 	}
 
 	var requeueNeededAfter *RequeueNeededAfter
 	if errors.As(err, &requeueNeededAfter) {
-		fmt.Print("requeue after", "duration", requeueNeededAfter.Duration(), "reason", requeueNeededAfter.Reason())
 		return ctrl.Result{RequeueAfter: requeueNeededAfter.Duration()}, nil
 	}
 

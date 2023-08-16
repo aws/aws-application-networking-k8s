@@ -1,18 +1,13 @@
 package aws
 
 import (
-	"fmt"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/eks"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/log"
-
-	"github.com/golang/glog"
 )
 
 type Cloud interface {
@@ -21,22 +16,24 @@ type Cloud interface {
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud() (Cloud, error) {
+func NewCloud(log gwlog.Logger) (Cloud, error) {
 	// TODO: need to pass cfg CloudConfig later
 	sess, _ := session.NewSession()
 
-	sess.Handlers.Send.PushFront(func(r *request.Request) {
-
-		glog.V(4).Info(fmt.Sprintf("Request: %s/%s, Payload: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Params)))
-	})
-
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		if r.Error != nil {
-
-			glog.ErrorDepth(2, fmt.Sprintf("Failed request: %s/%s, Payload: %s, Error: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Params), r.Error))
+			log.Debugw("error",
+				"error", r.Error.Error(),
+				"serviceName", r.ClientInfo.ServiceName,
+				"operation", r.Operation.Name,
+				"params", r.Params,
+			)
 		} else {
-			glog.V(4).Info(fmt.Sprintf("Response: %s/%s, Body: %s", r.ClientInfo.ServiceName, r.Operation.Name, log.Prettify(r.Data)))
-
+			log.Debugw("response",
+				"serviceName", r.ClientInfo.ServiceName,
+				"operation", r.Operation.Name,
+				"params", r.Params,
+			)
 		}
 	})
 
@@ -70,8 +67,7 @@ func (d *defaultCloud) GetEKSClusterVPC(name string) string {
 	result, err := d.eksSess.DescribeCluster(input)
 
 	if err != nil {
-		fmt.Printf("Erron eks DescridbeCluster %v\n", err)
 		return ""
 	}
-	return (result.String())
+	return result.String()
 }
