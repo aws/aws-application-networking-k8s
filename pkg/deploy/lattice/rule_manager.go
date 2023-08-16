@@ -295,6 +295,8 @@ func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *latticemodel.Rule
 		}
 	}
 
+	httpMatch.Method = &rule.Spec.Method
+
 	if rule.Spec.NumOfHeaderMatches > 0 {
 
 		for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
@@ -303,11 +305,8 @@ func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *latticemodel.Rule
 				Name:  rule.Spec.MatchedHeaders[i].Name,
 			}
 			httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
-
 		}
-
 	}
-
 }
 
 func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRuleOutput) bool {
@@ -360,8 +359,13 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 		}
 	}
 
-	// Header Match
+	// Method match
+	if aws.StringValue(sdkRuleDetail.Match.HttpMatch.Method) != modelRule.Spec.Method {
+		glog.V(6).Infof("Method mismatch '%v' != '%v'\n", modelRule.Spec.Method, sdkRuleDetail.Match.HttpMatch.Method)
+		return false
+	}
 
+	// Header Match
 	if modelRule.Spec.NumOfHeaderMatches > 0 {
 		glog.V(6).Infof("Checking Header Match, numofheader matches %v \n", modelRule.Spec.NumOfHeaderMatches)
 		if len(sdkRuleDetail.Match.HttpMatch.HeaderMatches) != modelRule.Spec.NumOfHeaderMatches {
