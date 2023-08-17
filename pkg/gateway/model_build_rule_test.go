@@ -38,6 +38,8 @@ func Test_RuleModelBuild(t *testing.T) {
 	var path1 = "/ver1"
 	var path2 = "/ver2"
 	var path3 = "/ver3"
+	var httpGet = v1beta1.HTTPMethodGet
+	var httpPost = v1beta1.HTTPMethodPost
 	var k8sPathMatchExactType = v1beta1.PathMatchExact
 	var k8sMethodMatchExactType = v1alpha2.GRPCMethodMatchExact
 	var backendRef1 = v1beta1.BackendRef{
@@ -229,6 +231,55 @@ func Test_RuleModelBuild(t *testing.T) {
 
 										Value: &path2,
 									},
+								},
+							},
+							BackendRefs: []v1beta1.HTTPBackendRef{
+								{
+									BackendRef: backendRef2,
+								},
+							},
+						},
+					},
+				},
+			}),
+		},
+		{
+			name:               "rule, method based",
+			gwListenerPort:     *PortNumberPtr(80),
+			wantErrIsNil:       true,
+			k8sGetGatewayCall:  true,
+			k8sGatewayReturnOK: true,
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1beta1.HTTPRouteRule{
+						{
+							Matches: []v1beta1.HTTPRouteMatch{
+								{
+									Method: &httpGet,
+								},
+							},
+							BackendRefs: []v1beta1.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+						{
+							Matches: []v1beta1.HTTPRouteMatch{
+								{
+									Method: &httpPost,
 								},
 							},
 							BackendRefs: []v1beta1.HTTPBackendRef{
@@ -503,7 +554,6 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 	var namespace = v1beta1.Namespace("default")
 	var path1 = "/ver1"
-	//var path2 = string("/ver2")
 	var k8sPathMatchExactType = v1beta1.PathMatchExact
 	var k8sPathMatchPrefixType = v1beta1.PathMatchPathPrefix
 	var k8sMethod = v1beta1.HTTPMethodGet
@@ -1501,6 +1551,11 @@ func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) 
 		if rule1.PathMatchValue != rule2.PathMatchValue {
 			return false
 		}
+	}
+
+	// Method match
+	if rule1.Method != rule2.Method {
+		return false
 	}
 
 	// Header Match

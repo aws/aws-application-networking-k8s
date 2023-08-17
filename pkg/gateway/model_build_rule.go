@@ -71,7 +71,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 			switch m := match.(type) {
 			case *core.HTTPRouteMatch:
 				if m.Path() != nil && m.Path().Type != nil {
-					glog.V(6).Infof("Examing pathmatch type %v value %v for for httproute %s namespace %s ",
+					glog.V(6).Infof("Examining pathmatch type %v value %v for for httproute %s namespace %s ",
 						*m.Path().Type, *m.Path().Value, t.route.Name(), t.route.Namespace())
 
 					switch *m.Path().Type {
@@ -92,10 +92,18 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					ruleSpec.PathMatchValue = *m.Path().Value
 				}
 
-				// controller do not support these match type today
-				if m.Method() != nil || m.QueryParams() != nil {
-					glog.V(2).Infof("Unsupported Match Method %v for httproute %v, namespace %v",
-						m.Method(), t.route.Name(), t.route.Namespace())
+				// method based match
+				if m.Method() != nil {
+					glog.V(6).Infof("Examining http method %v for httproute %v namespace %v",
+						*m.Method(), t.route.Name(), t.route.Namespace())
+
+					ruleSpec.Method = string(*m.Method())
+				}
+
+				// controller does not support query matcher type today
+				if m.QueryParams() != nil {
+					glog.V(2).Infof("Unsupported match type for httproute %v, namespace %v",
+						t.route.Name(), t.route.Namespace())
 					return errors.New(LATTICE_UNSUPPORTED_MATCH_TYPE)
 				}
 			case *core.GRPCRouteMatch:
