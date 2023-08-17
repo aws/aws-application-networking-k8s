@@ -10,5 +10,5 @@ spec:
   - backendRefs:
     - name: grpc-server
       kind: Service
-      port: 50051
+      port: 80
       weight: 10
