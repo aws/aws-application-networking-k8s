@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/golang/glog"
 
@@ -113,16 +114,26 @@ func (t *targetGroupModelBuildTask) buildModel(ctx context.Context) error {
 
 // triggered from service exports/targetgroups
 func (t *targetGroupModelBuildTask) BuildTargets(ctx context.Context) error {
+	var err error
+
+	portAnnotations := undefinedPort
+	portAnnotations, err = strconv.ParseInt(t.serviceExport.ObjectMeta.Annotations[portAnnotationsKey], 10, 64)
+	if err != nil {
+		glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", t.serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+	} else {
+		glog.V(6).Infof("Build Targets - portAnnotations: %v \n", portAnnotations)
+	}
 
 	targetTask := &latticeTargetsModelBuildTask{
 		Client:      t.Client,
 		tgName:      t.serviceExport.Name,
 		tgNamespace: t.serviceExport.Namespace,
+		port:        portAnnotations,
 		stack:       t.stack,
 		datastore:   t.Datastore,
 	}
 
-	err := targetTask.buildLatticeTargets(ctx)
+	err = targetTask.buildLatticeTargets(ctx)
 
 	if err != nil {
 		glog.V(6).Infof("Error buildTargets for serviceExport name %v, namespace %v \n", t.serviceExport.Name, t.serviceExport.Namespace)
@@ -135,7 +146,7 @@ func (t *targetGroupModelBuildTask) BuildTargets(ctx context.Context) error {
 func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 	for _, httpRule := range t.route.Spec().Rules() {
 		for _, httpBackendRef := range httpRule.BackendRefs() {
-			if string(*httpBackendRef.Kind()) == "serviceimport" {
+			if string(*httpBackendRef.Kind()) == "ServiceImport" {
 				glog.V(6).Infof("latticeServiceModelBuildTask: ignore service: %v \n", httpBackendRef)
 				continue
 			}
@@ -145,7 +156,7 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 				backendNamespace = string(*httpBackendRef.Namespace())
 			}
 
-			port := int64(0)
+			port := undefinedPort
 			if httpBackendRef.Port() != nil {
 				port = int64(*httpBackendRef.Port())
 			}

@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
@@ -111,21 +109,6 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		return errors.New(errmsg)
 	}
 
-	portAnnotations := undefinedPort
-	serviceExport := &mcs_api.ServiceExport{}
-	err = t.Client.Get(ctx, namespacedName, serviceExport)
-	if err != nil {
-		glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
-	} else {
-		// TODO: Change the code to support multiple comma separated ports instead of a single port
-		//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
-		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], 10, 64)
-		if err != nil {
-			glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
-		}
-		glog.V(6).Infof("Build Targets - portAnnotations: %v \n", portAnnotations)
-	}
-
 	var targetList []latticemodel.Target
 	endPoints := &corev1.Endpoints{}
 
@@ -146,15 +129,11 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-					if target.Port == portAnnotations {
-						// target port matches service export port
-						targetList = append(targetList, target)
-						glog.V(6).Infof("portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
-					} else if t.port == undefinedPort || target.Port == t.port {
+					if t.port == undefinedPort || target.Port == t.port {
 						targetList = append(targetList, target)
 						glog.V(6).Infof("t.port:%v, port.Port:%v\n", t.port, port.Port)
 					} else {
-						glog.V(6).Infof("Port does not match the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
+						glog.V(6).Infof("Port does not match the target - port:%v, target:%v ***\n", int64(target.Port), target)
 					}
 				}
 			}

@@ -82,7 +82,7 @@ func (h *enqueueRequestsForServiceImportEvent) enqueueImpactedService(queue work
 func isServiceImportUsedByHTTPRoute(httpRoute gateway_api.HTTPRoute, serviceImport *mcs_api.ServiceImport) bool {
 	for _, httpRule := range httpRoute.Spec.Rules {
 		for _, httpBackendRef := range httpRule.BackendRefs {
-			if string(*httpBackendRef.BackendObjectReference.Kind) != "serviceimport" {
+			if string(*httpBackendRef.BackendObjectReference.Kind) != "ServiceImport" {
 				continue
 			}
 
