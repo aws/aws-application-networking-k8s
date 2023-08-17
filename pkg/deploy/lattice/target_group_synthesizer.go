@@ -412,14 +412,17 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsDeletion(ctx con
 	var resTargetGroups []*latticemodel.TargetGroup
 	var returnErr = false
 	t.stack.ListResources(&resTargetGroups)
-	glog.V(2).Infof("SynthesizeTriggeredTargetGroupsDeletion: TargetGroups ==[%v]\n", resTargetGroups)
+
 	for _, resTargetGroup := range resTargetGroups {
+		glog.V(2).Infof("SynthesizeTriggeredTargetGroupsDeletion: TargetGroup ==[%v]\n", *resTargetGroup)
+
 		if !resTargetGroup.Spec.IsDeleted {
-			glog.V(6).Infof("SynthesizeTriggeredTargetGroupsDeletion should ignore target group creation request for tg: [%v]\n", resTargetGroup)
+			glog.V(6).Infof("SynthesizeTriggeredTargetGroupsDeletion ignoring target group deletion request for tg: [%v]\n", resTargetGroup)
 			continue
 		}
+
 		if resTargetGroup.Spec.Config.IsServiceImport {
-			// For delete TargetGroup request triggered by service import, we just delete the tg in the datastore
+			glog.V(2).Infof("Deleting service import target group from local datastore %v", resTargetGroup.Spec.LatticeID)
 			t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, resTargetGroup.Spec.Config.IsServiceImport)
 		} else {
 			// For delete TargetGroup request triggered by k8s service, invoke vpc lattice api to delete it, if success, delete the tg in the datastore as well

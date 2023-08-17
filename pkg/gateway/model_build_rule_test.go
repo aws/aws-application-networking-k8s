@@ -36,6 +36,8 @@ func Test_RuleModelBuild(t *testing.T) {
 	var path1 = "/ver1"
 	var path2 = "/ver2"
 	var path3 = "/ver3"
+	var httpGet = gateway_api.HTTPMethodGet
+	var httpPost = gateway_api.HTTPMethodPost
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var backendRef1 = gateway_api.BackendRef{
 		BackendObjectReference: gateway_api.BackendObjectReference{
@@ -239,6 +241,55 @@ func Test_RuleModelBuild(t *testing.T) {
 			}),
 		},
 		{
+			name:               "rule, method based",
+			gwListenerPort:     *PortNumberPtr(80),
+			wantErrIsNil:       true,
+			k8sGetGatewayCall:  true,
+			k8sGatewayReturnOK: true,
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+									Method: &httpGet,
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+						{
+							Matches: []gateway_api.HTTPRouteMatch{
+								{
+									Method: &httpPost,
+								},
+							},
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: backendRef2,
+								},
+							},
+						},
+					},
+				},
+			}),
+		},
+		{
 			name:               "rule, different namespace combination",
 			gwListenerPort:     *PortNumberPtr(80),
 			wantErrIsNil:       true,
@@ -395,10 +446,8 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 	var namespace = gateway_api.Namespace("default")
 	var path1 = "/ver1"
-	//var path2 = string("/ver2")
 	var k8sPathMatchExactType = gateway_api.PathMatchExact
 	var k8sPathMatchPrefixType = gateway_api.PathMatchPathPrefix
-	var k8sMethod = gateway_api.HTTPMethodGet
 
 	var k8sHeaderExactType = gateway_api.HeaderMatchExact
 	var hdr1 = "env1"
@@ -1010,49 +1059,6 @@ func Test_HeadersRuleBuild(t *testing.T) {
 				PathMatchValue: path1,
 			},
 		},
-		{
-			name:           "Negative, reject method based",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   true,
-			samerule:       true,
-
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
-							{
-								Name:        "mesh1",
-								SectionName: &httpSectionName,
-							},
-						},
-					},
-					Rules: []gateway_api.HTTPRouteRule{
-						{
-							Matches: []gateway_api.HTTPRouteMatch{
-								{
-
-									Method: &k8sMethod,
-								},
-							},
-
-							BackendRefs: []gateway_api.HTTPBackendRef{
-								{
-									BackendRef: backendRef1,
-								},
-							},
-						},
-					},
-				},
-			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
-				PathMatchExact: true,
-				PathMatchValue: path1,
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -1146,6 +1152,11 @@ func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) 
 		if rule1.PathMatchValue != rule2.PathMatchValue {
 			return false
 		}
+	}
+
+	// Method match
+	if rule1.Method != rule2.Method {
+		return false
 	}
 
 	// Header Match

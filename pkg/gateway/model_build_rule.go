@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 
 	"github.com/golang/glog"
@@ -71,7 +72,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 			switch httpMatch := match.(type) {
 			case *core.HTTPRouteMatch:
 				if httpMatch.Path() != nil && httpMatch.Path().Type != nil {
-					glog.V(6).Infof("Examing pathmatch type %v value %v for for httproute %s namespace %s ",
+					glog.V(6).Infof("Examining pathmatch type %v value %v for for httproute %s namespace %s ",
 						*httpMatch.Path().Type, *httpMatch.Path().Value, t.route.Name(), t.route.Namespace())
 
 					switch *httpMatch.Path().Type {
@@ -92,10 +93,18 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					ruleSpec.PathMatchValue = *httpMatch.Path().Value
 				}
 
-				// controller do not support these match type today
-				if httpMatch.Method() != nil || httpMatch.QueryParams() != nil {
-					glog.V(2).Infof("Unsupported Match Method %v for httproute %v, namespace %v",
-						httpMatch.Method(), t.route.Name(), t.route.Namespace())
+				// method based match
+				if httpMatch.Method() != nil {
+					glog.V(6).Infof("Examining http method %v for httproute %v namespace %v",
+						*httpMatch.Method(), t.route.Name(), t.route.Namespace())
+
+					ruleSpec.Method = string(*httpMatch.Method())
+				}
+
+				// controller does not support query matcher type today
+				if httpMatch.QueryParams() != nil {
+					glog.V(2).Infof("Unsupported match type for httproute %v, namespace %v",
+						t.route.Name(), t.route.Namespace())
 					return errors.New(LATTICE_UNSUPPORTED_MATCH_TYPE)
 				}
 			default:

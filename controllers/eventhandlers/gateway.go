@@ -2,7 +2,6 @@ package eventhandlers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/golang/glog"
@@ -58,7 +57,7 @@ func (h *enqueueRequestsForGatewayEvent) Update(e event.UpdateEvent, queue workq
 }
 
 func (h *enqueueRequestsForGatewayEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	fmt.Printf("TODO Gatway Delete")
+	// TODO: delete gateway
 }
 
 func (h *enqueueRequestsForGatewayEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {

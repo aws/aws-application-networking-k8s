@@ -2,7 +2,7 @@ package k8s
 
 import (
 	"context"
-	"github.com/go-logr/logr"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -14,17 +14,14 @@ type FinalizerManager interface {
 	RemoveFinalizers(ctx context.Context, object client.Object, finalizers ...string) error
 }
 
-func NewDefaultFinalizerManager(k8sClient client.Client, log logr.Logger) FinalizerManager {
+func NewDefaultFinalizerManager(k8sClient client.Client) FinalizerManager {
 	return &defaultFinalizerManager{
 		k8sClient: k8sClient,
-		log:       log,
 	}
 }
 
 type defaultFinalizerManager struct {
 	k8sClient client.Client
-
-	log logr.Logger
 }
 
 func (m *defaultFinalizerManager) AddFinalizers(ctx context.Context, obj client.Object, finalizers ...string) error {

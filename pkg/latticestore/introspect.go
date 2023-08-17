@@ -107,7 +107,7 @@ func latticecacheHandler(c *LatticeDataStore) func(http.ResponseWriter, *http.Re
 		responseJSON, err := json.Marshal(store)
 
 		if err != nil {
-			glog.V(6).Infof("Failed to marshal mecurycache %v\n", err)
+			glog.V(6).Infof("Failed to marshal latticecache %v\n", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
