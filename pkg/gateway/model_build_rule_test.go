@@ -556,7 +556,6 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	var path1 = "/ver1"
 	var k8sPathMatchExactType = v1beta1.PathMatchExact
 	var k8sPathMatchPrefixType = v1beta1.PathMatchPathPrefix
-	var k8sMethod = v1beta1.HTTPMethodGet
 	var k8sMethodMatchExactType = v1alpha2.GRPCMethodMatchExact
 
 	var k8sHeaderExactType = v1beta1.HeaderMatchExact
@@ -1155,49 +1154,6 @@ func Test_HeadersRuleBuild(t *testing.T) {
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
-								{
-									BackendRef: backendRef1,
-								},
-							},
-						},
-					},
-				},
-			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
-				PathMatchExact: true,
-				PathMatchValue: path1,
-			},
-		},
-		{
-			name:           "Negative, reject method based",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   true,
-			samerule:       true,
-
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
-							{
-								Name:        "mesh1",
-								SectionName: &httpSectionName,
-							},
-						},
-					},
-					Rules: []v1beta1.HTTPRouteRule{
-						{
-							Matches: []v1beta1.HTTPRouteMatch{
-								{
-
-									Method: &k8sMethod,
-								},
-							},
-
 							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,

@@ -36,7 +36,7 @@ type RuleSpec struct {
 	NumOfHeaderMatches int `json:"numofheadermatches"`
 	MatchedHeaders     [MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch
 	// MethodMatch
-	Method     string     `json:"method"`
+	Method string `json:"method"`
 
 	RuleID     string     `json:"id"`
 	Action     RuleAction `json:"action"`
