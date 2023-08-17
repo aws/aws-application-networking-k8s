@@ -19,7 +19,7 @@ type ElasticSearchOptions struct {
 	MergeFromService    []*v1.Service
 }
 
-func (env *Framework) NewElasticApp(options ElasticSearchOptions) (*appsv1.Deployment, *v1.Service) {
+func (env *Framework) NewNginxApp(options ElasticSearchOptions) (*appsv1.Deployment, *v1.Service) {
 	if options.Port == 0 {
 		options.Port = 80
 	}
@@ -56,7 +56,7 @@ func (env *Framework) NewElasticApp(options ElasticSearchOptions) (*appsv1.Deplo
 							Ports: []v1.ContainerPort{
 								{
 									Name:          options.Name,
-									ContainerPort: int32(80),
+									ContainerPort: int32(options.Port),
 									Protocol:      "TCP",
 								},
 							},
@@ -71,7 +71,7 @@ func (env *Framework) NewElasticApp(options ElasticSearchOptions) (*appsv1.Deplo
 							Ports: []v1.ContainerPort{
 								{
 									Name:          "http-prometheus",
-									ContainerPort: int32(9114),
+									ContainerPort: int32(options.Port2),
 									Protocol:      "TCP",
 								},
 							},
@@ -116,7 +116,7 @@ func (env *Framework) NewElasticApp(options ElasticSearchOptions) (*appsv1.Deplo
 
 }
 
-func (env *Framework) NewHttpRoute(parentRefsGateway *v1beta1.Gateway, service *v1.Service) *v1beta1.HTTPRoute {
+func (env *Framework) NewHttpRoute(parentRefsGateway *v1beta1.Gateway, service *v1.Service, kind string) *v1beta1.HTTPRoute {
 	var rules []v1beta1.HTTPRouteRule
 	rule := v1beta1.HTTPRouteRule{
 		BackendRefs: []v1beta1.HTTPBackendRef{{
@@ -124,7 +124,7 @@ func (env *Framework) NewHttpRoute(parentRefsGateway *v1beta1.Gateway, service *
 				BackendObjectReference: v1beta1.BackendObjectReference{
 					Name:      v1beta1.ObjectName(service.Name),
 					Namespace: (*v1beta1.Namespace)(&service.Namespace),
-					Kind:      lo.ToPtr(v1beta1.Kind("ServiceImport")),
+					Kind:      lo.ToPtr(v1beta1.Kind(kind)),
 					Port:      (*v1beta1.PortNumber)(&service.Spec.Ports[0].Port),
 				},
 			},

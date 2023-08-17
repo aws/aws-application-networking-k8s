@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 
@@ -111,19 +112,38 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		return errors.New(errmsg)
 	}
 
-	portAnnotations := undefinedPort
-	serviceExport := &mcs_api.ServiceExport{}
-	err = t.Client.Get(ctx, namespacedName, serviceExport)
-	if err != nil {
-		glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
-	} else {
-		// TODO: Change the code to support multiple comma separated ports instead of a single port
-		//portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations["multicluster.x-k8s.io/Ports"], ",")
-		portAnnotations, err = strconv.ParseInt(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], 10, 64)
+	definedPorts := make([]int64, undefinedPort)
+	if tg.ByServiceExport {
+		serviceExport := &mcs_api.ServiceExport{}
+		err = t.Client.Get(ctx, namespacedName, serviceExport)
 		if err != nil {
-			glog.V(6).Infof("Failed to read Annotaions/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+			glog.V(6).Infof("Failed to find Service export in the DS. Name:%v, Namespace:%v - err:%s\n ", t.tgName, t.tgNamespace, err)
+		} else {
+			portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], ",")
+
+			for _, portAnnotation := range portsAnnotations {
+				definedPort, err := strconv.ParseInt(portAnnotation, 10, 64)
+				if err != nil {
+					glog.V(6).Infof("Failed to read Annotations/Port:%v, err:%s\n ", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+				}
+				definedPorts = append(definedPorts, definedPort)
+			}
+			glog.V(6).Infof("Build Targets - portAnnotations: %v \n", definedPorts)
 		}
-		glog.V(6).Infof("Build Targets - portAnnotations: %v \n", portAnnotations)
+	} else if tg.ByBackendRef {
+		if t.route != nil && t.route.Spec().Rules() != nil && 0 < len(t.route.Spec().Rules()) {
+			definedPorts = []int64{}
+			for _, rule := range t.route.Spec().Rules() {
+				for _, ref := range rule.BackendRefs() {
+					if ref.Port() != nil && string(ref.Name()) == t.tgName && string(*ref.Namespace()) == t.tgNamespace {
+						definedPorts = append(definedPorts, int64(*ref.Port()))
+					}
+				}
+			}
+		}
+	}
+	if len(definedPorts) == 0 {
+		definedPorts = []int64{undefinedPort}
 	}
 
 	var targetList []latticemodel.Target
@@ -146,11 +166,18 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-					if portAnnotations == undefinedPort || int64(target.Port) == portAnnotations {
-						targetList = append(targetList, target)
-						glog.V(6).Infof("portAnnotations:%v, target.Port:%v\n", portAnnotations, target.Port)
-					} else {
-						glog.V(6).Infof("Found a port match, registering the target - port:%v, containerPort:%v, taerget:%v ***\n", int64(target.Port), portAnnotations, target)
+
+					for _, definedPort := range definedPorts {
+						if target.Port == definedPort {
+							// target port matches service export port
+							targetList = append(targetList, target)
+							glog.V(6).Infof("portAnnotations:%v, target.Port:%v\n", definedPort, target.Port)
+						} else if t.port == undefinedPort || target.Port == t.port {
+							targetList = append(targetList, target)
+							glog.V(6).Infof("t.port:%v, port.Port:%v\n", t.port, port.Port)
+						} else {
+							glog.V(6).Infof("Port does not match the target - port:%v, containerPort:%v, target:%v ***\n", target.Port, definedPort, target)
+						}
 					}
 				}
 			}
@@ -173,12 +200,12 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 
 type latticeTargetsModelBuildTask struct {
 	client.Client
-	tgName      string
-	tgNamespace string
-	routename   string
-
+	tgName         string
+	tgNamespace    string
+	routename      string
+	port           int64
 	latticeTargets *latticemodel.Targets
 	stack          core.Stack
-
-	datastore *latticestore.LatticeDataStore
+	datastore      *latticestore.LatticeDataStore
+	route          core.Route
 }

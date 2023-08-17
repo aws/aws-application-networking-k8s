@@ -93,9 +93,9 @@ e2etest:
 	cd test && go test \
 		-p 1 \
 		-count 1 \
-		-timeout 90m \
+		-timeout 110m \
 		-v \
 		./suites/... \
 		--ginkgo.focus="${FOCUS}" \
-		--ginkgo.timeout=90m \
+		--ginkgo.timeout=110m \
 		--ginkgo.v

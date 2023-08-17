@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -406,7 +407,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 					for _, httpBackendRef := range httpRules.BackendRefs() {
 						tgName := latticestore.TargetGroupName(string(httpBackendRef.Name()), string(*httpBackendRef.Namespace()))
 
-						fmt.Printf("httpBacndendRef %s\n", *httpBackendRef.Kind())
+						fmt.Printf("httpBackendRef %s\n", *httpBackendRef.Kind())
 						if "Service" == *httpBackendRef.Kind() {
 							if tt.wantIsDeleted {
 								tg := task.tgByResID[tgName]
@@ -628,7 +629,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 					}
 					tgName := latticestore.TargetGroupName(string(httpBackendRef.Name()), ns)
 
-					fmt.Printf("httpBacndendRef %s\n", *httpBackendRef.Kind())
+					fmt.Printf("httpBackendRef %s\n", *httpBackendRef.Kind())
 					if "Service" == *httpBackendRef.Kind() {
 						if tt.wantIsDeleted {
 							tg := task.tgByResID[tgName]

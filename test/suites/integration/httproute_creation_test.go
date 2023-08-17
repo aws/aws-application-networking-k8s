@@ -33,7 +33,7 @@ var _ = Describe("HTTPRoute Creation", func() {
 		gateway = testFramework.NewGateway("test-gateway", k8snamespace)
 		testFramework.ExpectCreated(ctx, gateway)
 
-		deployment, service = testFramework.NewElasticApp(test.ElasticSearchOptions{
+		deployment, service = testFramework.NewNginxApp(test.ElasticSearchOptions{
 			Name:      "port-test",
 			Namespace: k8snamespace,
 		})
@@ -44,7 +44,7 @@ var _ = Describe("HTTPRoute Creation", func() {
 			serviceImport = testFramework.CreateServiceImport(service)
 			testFramework.ExpectCreated(ctx, serviceImport)
 
-			httpRoute = testFramework.NewHttpRoute(gateway, service)
+			httpRoute = testFramework.NewHttpRoute(gateway, service, "ServiceImport")
 			testFramework.ExpectCreated(ctx, httpRoute)
 
 			serviceExport = testFramework.CreateServiceExport(service)
@@ -58,7 +58,7 @@ var _ = Describe("HTTPRoute Creation", func() {
 
 	Context("Order #2: httpRoute, serviceImport, service, & serviceExport", func() {
 		It("creates successfully", func() {
-			httpRoute = testFramework.NewHttpRoute(gateway, service)
+			httpRoute = testFramework.NewHttpRoute(gateway, service, "ServiceImport")
 			testFramework.ExpectCreated(ctx, httpRoute)
 
 			serviceImport = testFramework.CreateServiceImport(service)
@@ -78,7 +78,7 @@ var _ = Describe("HTTPRoute Creation", func() {
 			serviceExport = testFramework.CreateServiceExport(service)
 			testFramework.ExpectCreated(ctx, serviceExport)
 
-			httpRoute = testFramework.NewHttpRoute(gateway, service)
+			httpRoute = testFramework.NewHttpRoute(gateway, service, "ServiceImport")
 			testFramework.ExpectCreated(ctx, httpRoute)
 
 			serviceImport = testFramework.CreateServiceImport(service)

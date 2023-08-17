@@ -288,31 +288,41 @@ func (env *Framework) GetTargetGroup(ctx context.Context, service *v1.Service) *
 func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment) []*vpclattice.TargetSummary {
 	var found []*vpclattice.TargetSummary
 	Eventually(func(g Gomega) {
-		log.Println("Trying to retrieve registered targets for targetGroup", targetGroup)
-		log.Println("deployment.Spec.Selector.MatchLabels:", deployment.Spec.Selector.MatchLabels)
-		podList := &v1.PodList{}
-		expectedMatchingLabels := make(map[string]string, len(deployment.Spec.Selector.MatchLabels))
-		for k, v := range deployment.Spec.Selector.MatchLabels {
-			expectedMatchingLabels[k] = v
-		}
-		expectedMatchingLabels[DiscoveryLabel] = "true"
-		log.Println("Expected matching labels:", expectedMatchingLabels)
-		g.Expect(env.List(ctx, podList, client.MatchingLabels(expectedMatchingLabels))).To(Succeed())
-		g.Expect(podList.Items).To(HaveLen(int(*deployment.Spec.Replicas)))
-		retrievedTargets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroup.Id})
-		g.Expect(err).To(BeNil())
-		g.Expect(retrievedTargets).To(HaveLen(int(*deployment.Spec.Replicas)))
+		podIps, retrievedTargets := GetTargets(targetGroup, deployment, env, ctx)
 
-		podIps := lo.Map(podList.Items, func(pod v1.Pod, _ int) string { return pod.Status.PodIP })
 		targetIps := lo.Filter(retrievedTargets, func(target *vpclattice.TargetSummary, _ int) bool {
 			return lo.Contains(podIps, *target.Id) &&
 				(*target.Status == vpclattice.TargetStatusInitial ||
 					*target.Status == vpclattice.TargetStatusHealthy)
 		})
-		g.Expect(targetIps).To(HaveLen(int(*deployment.Spec.Replicas)))
+
+		g.Expect(retrievedTargets).Should(HaveLen(len(targetIps)))
 		found = retrievedTargets
-	}).Should(Succeed())
+	}).WithPolling(time.Minute).WithTimeout(7 * time.Minute).Should(Succeed())
 	return found
+}
+
+func (env *Framework) GetAllTargets(ctx context.Context, targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment) ([]string, []*vpclattice.TargetSummary) {
+	return GetTargets(targetGroup, deployment, env, ctx)
+}
+
+func GetTargets(targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment, env *Framework, ctx context.Context) ([]string, []*vpclattice.TargetSummary) {
+	log.Println("Trying to retrieve registered targets for targetGroup", targetGroup.Name)
+	log.Println("deployment.Spec.Selector.MatchLabels:", deployment.Spec.Selector.MatchLabels)
+	podList := &v1.PodList{}
+	expectedMatchingLabels := make(map[string]string, len(deployment.Spec.Selector.MatchLabels))
+	for k, v := range deployment.Spec.Selector.MatchLabels {
+		expectedMatchingLabels[k] = v
+	}
+	expectedMatchingLabels[DiscoveryLabel] = "true"
+	log.Println("Expected matching labels:", expectedMatchingLabels)
+	Expect(env.List(ctx, podList, client.MatchingLabels(expectedMatchingLabels))).To(Succeed())
+	Expect(podList.Items).To(HaveLen(int(*deployment.Spec.Replicas)))
+	retrievedTargets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroup.Id})
+	Expect(err).To(BeNil())
+
+	podIps := lo.Map(podList.Items, func(pod v1.Pod, _ int) string { return pod.Status.PodIP })
+	return podIps, retrievedTargets
 }
 
 func (env *Framework) DeleteAllFrameworkTracedServiceNetworks(ctx aws.Context) {

@@ -18,6 +18,11 @@ import (
 )
 
 var _ = Describe("HTTPRoute header matches", func() {
+
+	AfterEach(func() {
+		testFramework.CleanTestEnvironment(ctx)
+	})
+
 	It("Create a HttpRoute with a header match rule, http traffic should work if pass the correct headers", func() {
 		gateway := testFramework.NewGateway("", "")
 
