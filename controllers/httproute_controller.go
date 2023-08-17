@@ -112,7 +112,6 @@ func (r *HTTPRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	httpLog := log.FromContext(ctx)
 
-	// TODO(user): your logic here
 	httpLog.Info("HTTPRouteReconciler")
 
 	httpRoute := &core.HTTPRoute{}
@@ -122,7 +121,7 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 	}
 
 	if !r.isHTTPRouteRelevant(ctx, httpRoute) {
-		// not relevalnt
+		// not relevant
 		return nil
 	}
 
@@ -214,7 +213,7 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 		glog.V(6).Infof("buildAndDeployModel, Failed build model for %v due to %v\n", route.Name(), err)
 
 		// Build failed
-		// TODO continue deploy to trigger reconsile of stale HTTProute and policy
+		// TODO continue deploy to trigger reconcile of stale HTTPRoute and policy
 		return nil, nil, err
 	}
 

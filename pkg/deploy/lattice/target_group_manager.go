@@ -163,54 +163,64 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 	listResp, err := vpcLatticeSess.ListTargetsAsList(ctx, &listTargetsInput)
 	glog.V(6).Infof("TG manager delete,  listResp %v, err: %v \n", listResp, err)
 	if err != nil {
-		return err
-	}
-
-	var targets []*vpclattice.Target
-	for _, t := range listResp {
-		if t.Status != nil && *t.Status != vpclattice.TargetStatusUnused {
-			glog.V(6).Infof("TargetGroupManager: The targetGroup [%v] has non-Unused status target(s), which means this targetGroup is still in use by latticeService, it cannot be deleted now\n", targetGroup.Spec.LatticeID)
-			// Before call the defaultTargetGroupManager.Delete(), we always call the latticeServiceManager.Delete() first,
-			//  *t.Status != vpclattice.TargetStatusUnused means previous delete latticeService still in the progress, we could wait for 20 seconds and then retry
-			return errors.New(LATTICE_RETRY)
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == vpclattice.ErrCodeResourceNotFoundException {
+				// already deleted in lattice, this is OK
+				glog.V(6).Infof("Target group already deleted %v \n", targetGroup.Spec.LatticeID)
+				err = nil
+			}
 		}
-		targets = append(targets, &vpclattice.Target{
-			Id:   t.Id,
-			Port: t.Port,
-		})
-	}
 
-	iftargetsRegistered := len(targets) > 0
-	if iftargetsRegistered {
-
-		deRegisterInput := vpclattice.DeregisterTargetsInput{
-			TargetGroupIdentifier: &targetGroup.Spec.LatticeID,
-			Targets:               targets,
-		}
-		glog.V(6).Infof("TG manager deregister: Input : %v\n", deRegisterInput)
-		deRegResp, err := vpcLatticeSess.DeregisterTargetsWithContext(ctx, &deRegisterInput)
-		glog.V(6).Infof("manager deregister resp %v err %v \n", deRegResp, err)
 		if err != nil {
 			return err
 		}
-
-		isDeRegRespUnsuccessful := len(deRegResp.Unsuccessful) > 0
-		if isDeRegRespUnsuccessful {
-			glog.V(6).Infof("Targets deregister unsuccessfully, will retry later \n")
-			return errors.New(LATTICE_RETRY)
+	} else {
+		// deregister targets
+		var targets []*vpclattice.Target
+		for _, t := range listResp {
+			if t.Status != nil && *t.Status != vpclattice.TargetStatusUnused {
+				glog.V(6).Infof("TargetGroupManager: The targetGroup [%v] has non-Unused status target(s), which means this targetGroup is still in use by latticeService, it cannot be deleted now\n", targetGroup.Spec.LatticeID)
+				// Before call the defaultTargetGroupManager.Delete(), we always call the latticeServiceManager.Delete() first,
+				//  *t.Status != vpclattice.TargetStatusUnused means previous delete latticeService still in the progress, we could wait for 20 seconds and then retry
+				return errors.New(LATTICE_RETRY)
+			}
+			targets = append(targets, &vpclattice.Target{
+				Id:   t.Id,
+				Port: t.Port,
+			})
 		}
 
+		iftargetsRegistered := len(targets) > 0
+		if iftargetsRegistered {
+
+			deRegisterInput := vpclattice.DeregisterTargetsInput{
+				TargetGroupIdentifier: &targetGroup.Spec.LatticeID,
+				Targets:               targets,
+			}
+			glog.V(6).Infof("TG manager deregister: Input : %v\n", deRegisterInput)
+			deRegResp, err := vpcLatticeSess.DeregisterTargetsWithContext(ctx, &deRegisterInput)
+			glog.V(6).Infof("manager deregister resp %v err %v \n", deRegResp, err)
+			if err != nil {
+				return err
+			}
+
+			isDeRegRespUnsuccessful := len(deRegResp.Unsuccessful) > 0
+			if isDeRegRespUnsuccessful {
+				glog.V(6).Infof("Targets deregister unsuccessfully, will retry later \n")
+				return errors.New(LATTICE_RETRY)
+			}
+		}
 	}
 
 	deleteTGInput := vpclattice.DeleteTargetGroupInput{
 		TargetGroupIdentifier: &targetGroup.Spec.LatticeID,
 	}
-
 	delResp, err := vpcLatticeSess.DeleteTargetGroupWithContext(ctx, &deleteTGInput)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case vpclattice.ErrCodeResourceNotFoundException:
+				glog.V(6).Infof("Target group already deleted %v \n", targetGroup.Spec.LatticeID)
 				err = nil
 				break
 			default:
