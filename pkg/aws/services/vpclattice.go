@@ -11,7 +11,6 @@ import (
 	"github.com/golang/glog"
 )
 
-//go:generate mockgen -destination vpclattice_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Lattice
 
 type Lattice interface {
 	vpclatticeiface.VPCLatticeAPI
