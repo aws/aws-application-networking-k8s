@@ -1,15 +1,14 @@
 package integration
 
 import (
-	"os"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"os"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"time"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -91,7 +90,10 @@ var _ = Describe("HTTPRoute Creation", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.CleanTestEnvironment(ctx)
+		testFramework.ExpectDeleted(ctx, gateway, httpRoute)
+		time.Sleep(30 * time.Second) // Use a trick to delete httpRoute first and then delete the service and deployment to avoid draining lattice targets
+		testFramework.ExpectDeleted(ctx, deployment, service, serviceExport, serviceImport)
+		testFramework.EventuallyExpectNotFound(ctx, gateway, httpRoute, deployment, service, serviceExport, serviceImport)
 	})
 })
 
@@ -101,11 +103,11 @@ func verifyResourceCreation(
 	targetGroup *vpclattice.TargetGroupSummary,
 	service *v1.Service,
 ) {
-	time.Sleep(3 * time.Minute) // Allow time for Lattice resources to be created
-
-	vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
-	Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
-
+	Eventually(func(g Gomega) {
+		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, httpRoute)
+		g.Expect(vpcLatticeService).NotTo(BeNil())
+		g.Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
+	}).Should(Succeed())
 	targetGroup = testFramework.GetTargetGroup(ctx, service)
 	Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 	Expect(*targetGroup.Protocol).To(Equal("HTTP"))

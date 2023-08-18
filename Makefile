@@ -49,7 +49,7 @@ run: ## Run in development mode
 
 
 .PHONY: presubmit
-presubmit: vet test ## Run all commands before submitting code
+presubmit: manifest vet test ## Run all commands before submitting code
 
 .PHONY: vet
 vet: ## Vet the code and dependencies
@@ -86,6 +86,11 @@ docker-push: ## Push docker image with the manager.
 build-deploy: ## Create a deployment file that can be applied with `kubectl apply -f deploy.yaml`
 	cd config/manager && kustomize edit set image controller=${ECRIMAGES}
 	kustomize build config/default > deploy.yaml
+
+.PHONY: manifest
+manifest: ## Generate CRD manifest
+	go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.13.0 crd paths=./pkg/apis/... output:crd:artifacts:config=config/crds/bases
+	cp config/crds/bases/application-networking.k8s.aws* helm/crds
 
 ## Run e2e tests against cluster pointed to by ~/.kube/config
 .PHONY: e2etest
