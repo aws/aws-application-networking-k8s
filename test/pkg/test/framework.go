@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
@@ -321,7 +322,8 @@ func GetTargets(targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.D
 	retrievedTargets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroup.Id})
 	Expect(err).To(BeNil())
 
-	podIps := lo.Map(podList.Items, func(pod v1.Pod, _ int) string { return pod.Status.PodIP })
+	podIps := utils.SliceMap(podList.Items, func(pod v1.Pod) string { return pod.Status.PodIP })
+
 	return podIps, retrievedTargets
 }
 
