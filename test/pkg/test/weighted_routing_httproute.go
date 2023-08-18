@@ -2,6 +2,7 @@ package test
 
 import (
 	"github.com/samber/lo"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -36,6 +37,9 @@ func (env *Framework) NewWeightedRoutingHttpRoute(parentRefsGateway *v1beta1.Gat
 		})
 	}
 	httpRoute := New(&v1beta1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: parentRefsGateway.Namespace,
+		},
 		Spec: v1beta1.HTTPRouteSpec{
 			CommonRouteSpec: v1beta1.CommonRouteSpec{
 				ParentRefs: parentRefs,
