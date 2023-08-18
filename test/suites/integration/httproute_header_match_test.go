@@ -85,11 +85,9 @@ var _ = Describe("HTTPRoute header matches", func() {
 		Expect(err2).To(BeNil())
 		Expect(stdout2).To(ContainSubstring("Not Found"))
 
-		testFramework.ExpectDeleted(ctx,
-			gateway,
-			headerMatchHttpRoute,
-			deployment3,
-			service3)
+		testFramework.ExpectDeleted(ctx, gateway, headerMatchHttpRoute)
+		time.Sleep(30 * time.Second) // Use a trick to delete httpRoute first and then delete the service and deployment to avoid draining lattice targets
+		testFramework.ExpectDeleted(ctx, deployment3, service3)
 		testFramework.EventuallyExpectNotFound(ctx,
 			gateway,
 			headerMatchHttpRoute,

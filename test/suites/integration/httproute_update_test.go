@@ -19,18 +19,17 @@ import (
 )
 
 var _ = Describe("HTTPRoute Update", func() {
+	var (
+		gateway               *v1beta1.Gateway
+		pathMatchHttpRouteOne *v1beta1.HTTPRoute
+		pathMatchHttpRouteTwo *v1beta1.HTTPRoute
+		deployment1           *appsv1.Deployment
+		service1              *corev1.Service
+		deployment2           *appsv1.Deployment
+		service2              *corev1.Service
+	)
 	Context("Create a HTTPRoute with backendref to service1, then update the HTTPRoute with backendref to service1 "+
 		"and service2, then update the HTTPRoute with backendref to just service2", func() {
-
-		var (
-			gateway               *v1beta1.Gateway
-			pathMatchHttpRouteOne *v1beta1.HTTPRoute
-			pathMatchHttpRouteTwo *v1beta1.HTTPRoute
-			deployment1           *appsv1.Deployment
-			service1              *corev1.Service
-			deployment2           *appsv1.Deployment
-			service2              *corev1.Service
-		)
 
 		It("Updates rules correctly with corresponding target groups after each update", func() {
 			gateway = testFramework.NewGateway("", "default")
@@ -77,7 +76,10 @@ var _ = Describe("HTTPRoute Update", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.CleanTestEnvironment(ctx)
+		testFramework.ExpectDeleted(ctx, gateway, pathMatchHttpRouteOne)
+		time.Sleep(30 * time.Second) // Use a trick to delete httpRoute first and then delete the service and deployment to avoid draining lattice targets
+		testFramework.ExpectDeleted(ctx, deployment1, service1, deployment2, service2)
+		testFramework.EventuallyExpectNotFound(ctx, gateway, pathMatchHttpRouteOne, deployment1, service1, deployment2, service2)
 	})
 })
 

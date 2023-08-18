@@ -107,11 +107,15 @@ var _ = Describe("HTTPRoute method matches", func() {
 		testFramework.ExpectDeleted(ctx,
 			gateway,
 			methodMatchHttpRoute,
+		)
+		time.Sleep(30 * time.Second) // Use a trick to delete httpRoute first and then delete the service and deployment to avoid draining lattice targets
+		testFramework.ExpectDeleted(ctx,
 			getService,
 			deployment1,
 			postService,
 			deployment2,
 		)
+
 		testFramework.EventuallyExpectNotFound(ctx,
 			gateway,
 			methodMatchHttpRoute,
