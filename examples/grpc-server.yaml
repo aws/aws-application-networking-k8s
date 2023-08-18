@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: grpc-server
-        image: https://hub.docker.com/r/tobegit3hub/grpc-helloworld:latest
+        image: tobegit3hub/grpc-helloworld:latest
 
 
 ---

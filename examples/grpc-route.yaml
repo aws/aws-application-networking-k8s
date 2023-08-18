@@ -5,7 +5,7 @@ metadata:
 spec:
   parentRefs:
   - name: my-hotel
-    sectionName: https
+    sectionName: http
   rules:
   - backendRefs:
     - name: grpc-server

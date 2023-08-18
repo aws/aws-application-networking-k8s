@@ -133,7 +133,7 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 			glog.V(6).Infof("Failed to cleanup HTTPRoute %v err %v\n", httpRoute, err)
 			return err
 		}
-		UpdateHTTPRouteListenerStatus(ctx, r.client, httpRoute)
+		updateHTTPRouteListenerStatus(ctx, r.client, httpRoute)
 		r.finalizerManager.RemoveFinalizers(ctx, httpRoute.K8sObject(), httpRouteFinalizer)
 
 		// TODO delete metrics
@@ -295,7 +295,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	httpRoute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
 
 	// Update listener Status
-	if err := UpdateHTTPRouteListenerStatus(ctx, r.client, coreRoute); err != nil {
+	if err := updateHTTPRouteListenerStatus(ctx, r.client, coreRoute); err != nil {
 		updateRouteCondition(coreRoute, metav1.Condition{
 			Type:               string(gateway_api.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
@@ -327,6 +327,26 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 	glog.V(6).Infof("updateHTTPRouteStatus patched dns %v \n", dns)
 
 	return nil
+}
+
+func updateHTTPRouteListenerStatus(ctx context.Context, k8sclient client.Client, httproute *core.HTTPRoute) error {
+	gw := &gateway_api.Gateway{}
+
+	gwNamespace := httproute.Namespace()
+	if httproute.Spec().ParentRefs()[0].Namespace != nil {
+		gwNamespace = string(*httproute.Spec().ParentRefs()[0].Namespace)
+	}
+	gwName := types.NamespacedName{
+		Namespace: gwNamespace,
+		// TODO assume one parent for now and point to service network
+		Name: string(httproute.Spec().ParentRefs()[0].Name),
+	}
+
+	if err := k8sclient.Get(ctx, gwName, gw); err != nil {
+		return errors.Wrapf(err, "update route listener: gw not found, gw: %s", gwName)
+	}
+
+	return UpdateGWListenerStatus(ctx, k8sclient, gw)
 }
 
 func updateRouteCondition(httproute *core.HTTPRoute, updated metav1.Condition) {
