@@ -18,12 +18,6 @@ import (
 )
 
 var _ = Describe("Test 2 listeners gateway with weighted httproute rules and service export import", func() {
-	// Clean up resources in case an assertion failed before cleaning up
-	// at the end
-	AfterEach(func() {
-		testFramework.CleanTestEnvironment(ctx)
-	})
-
 	It("Create a gateway with 2 listeners(http and https), create a weightedRoutingHttpRoute that parentRef to both http and https listeners,"+
 		" and this httpRoute BackendRef to one service and one serviceImport, weighted traffic should work for both http and https listeners",
 		func() {
@@ -149,16 +143,10 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 				Expect(hitTg0).To(BeNumerically("<", hitTg1))
 			}
 
-			testFramework.ExpectDeleted(ctx,
-				gateway,
-				httpRoute,
-				deployment0,
-				service0,
-				deployment1,
-				service1,
-				serviceExport1,
-				serviceImport1,
-			)
+			testFramework.ExpectDeleted(ctx, gateway, httpRoute)
+			time.Sleep(30 * time.Second) // Use a trick to delete httpRoute first and then delete the service and deployment to avoid draining lattice targets
+			testFramework.ExpectDeleted(ctx, deployment0, service0, deployment1, service1, serviceExport1, serviceImport1)
+
 			testFramework.EventuallyExpectNotFound(ctx,
 				gateway,
 				httpRoute,

@@ -117,15 +117,11 @@ var _ = Describe("HTTPRoute Mutation", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.ExpectDeleted(ctx,
-			gateway,
-			pathMatchHttpRoute,
-			deployment1,
-			service1,
-			deployment2,
-			service2,
-			deployment3,
-			service3)
+
+		testFramework.ExpectDeleted(ctx, gateway, pathMatchHttpRoute)
+		time.Sleep(30 * time.Second) // Use a trick to delete httpRoute first and then delete the service and deployment to avoid draining lattice targets
+		testFramework.ExpectDeleted(ctx, deployment1, service1, deployment2, service2, deployment3, service3)
+
 		testFramework.EventuallyExpectNotFound(ctx,
 			gateway,
 			pathMatchHttpRoute,

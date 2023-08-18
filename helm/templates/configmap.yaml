@@ -3,6 +3,6 @@ kind: ConfigMap
 metadata:
     name: env-config
 data:
-    awsRegion: {{ .Values.awsRegion }}
-    awsAccountId: {{ .Values.awsAccountId }}
-    clusterVpcId: {{ .Values.clusterVpcId }}
+    awsRegion: {{ .Values.awsRegion | quote }}
+    awsAccountId: {{ .Values.awsAccountId | quote }}
+    clusterVpcId: {{ .Values.clusterVpcId | quote }}

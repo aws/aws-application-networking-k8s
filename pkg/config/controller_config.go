@@ -41,6 +41,10 @@ func GetClusterLocalGateway() (string, error) {
 func ConfigInit() error {
 	sess, _ := session.NewSession()
 	metadata := NewEC2Metadata(sess)
+	return configInit(metadata)
+}
+
+func configInit(metadata EC2Metadata) error {
 	var err error
 
 	// CLUSTER_VPC_ID
