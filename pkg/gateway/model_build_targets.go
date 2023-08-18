@@ -129,7 +129,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 					definedPorts = append(definedPorts, definedPort)
 				}
 			}
-			glog.V(6).Infof("Build Targets - portAnnotations: %s", definedPorts)
+			glog.V(6).Infof("Build Targets - portAnnotations: %v", definedPorts)
 		}
 	} else if tg.ByBackendRef {
 		definedPorts = getDefinedPortsFromK8sRouteRules(t, definedPorts)
@@ -153,7 +153,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		for _, endPoint := range endPoints.Subsets {
 			for _, address := range endPoint.Addresses {
 				for _, port := range endPoint.Ports {
-					glog.V(6).Infof("serviceReconcile-endpoints: address %s, port %s", address, port)
+					glog.V(6).Infof("serviceReconcile-endpoints: address %v, port %v", address, port)
 					target := latticemodel.Target{
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
@@ -163,12 +163,12 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						if target.Port == definedPort {
 							// target port matches service export port
 							targetList = append(targetList, target)
-							glog.V(6).Infof("portAnnotations:%s, target.Port:%s", definedPort, target.Port)
+							glog.V(6).Infof("portAnnotations:%d, target.Port:%d", definedPort, target.Port)
 						} else if definedPort == undefinedPort || definedPort == target.Port {
 							targetList = append(targetList, target)
-							glog.V(6).Infof("Found a port match, registering = definedPort:%s, port.Port:%s", definedPort, port.Port)
+							glog.V(6).Infof("Found a port match, registering = definedPort:%d, port.Port:%d", definedPort, port.Port)
 						} else {
-							glog.V(6).Infof("Port does not match the target - port:%s, definedPort:%s, target:%s ***", target.Port, definedPort, target)
+							glog.V(6).Infof("Port does not match the target - port:%d, definedPort:%d, target:%v ***", target.Port, definedPort, target)
 						}
 					}
 				}
@@ -176,7 +176,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		}
 	}
 
-	glog.V(6).Infof("Build Targets--- targetIPList [%s]", targetList)
+	glog.V(6).Infof("Build Targets--- targetIPList [%v]", targetList)
 
 	spec := latticemodel.TargetsSpec{
 		Name:         t.tgName,

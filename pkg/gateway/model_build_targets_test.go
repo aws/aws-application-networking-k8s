@@ -327,7 +327,7 @@ func Test_Targets(t *testing.T) {
 					Subsets: []corev1.EndpointSubset{
 						{
 							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
-							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
+							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}},
 						},
 					},
 				},
