@@ -91,13 +91,11 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Build Targets failed because target group (name=%s, namespace=%s found not in datastore)", t.tgName, t.tgNamespace)
-		glog.V(6).Infof("errmsg %s", errmsg)
 		return errors.New(errmsg)
 	}
 
 	if !tg.ByBackendRef && !tg.ByServiceExport {
 		errmsg := fmt.Sprintf("Build Targets failed because its target Group name=%s, namespace=%s is no longer referenced", t.tgName, t.tgNamespace)
-		glog.V(6).Infof("errmsg %s", errmsg)
 		return errors.New(errmsg)
 	}
 
@@ -132,7 +130,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 			glog.V(6).Infof("Build Targets - portAnnotations: %v", definedPorts)
 		}
 	} else if tg.ByBackendRef {
-		definedPorts = getDefinedPortsFromK8sRouteRules(t, definedPorts)
+		definedPorts = []int64{t.port}
 	}
 	if len(definedPorts) == 0 {
 		definedPorts = []int64{undefinedPort}
@@ -160,15 +158,11 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 					}
 
 					for _, definedPort := range definedPorts {
-						if target.Port == definedPort {
-							// target port matches service export port
+						if target.Port == definedPort || definedPort == undefinedPort {
+							// target port matches httproute
 							targetList = append(targetList, target)
-							glog.V(6).Infof("portAnnotations:%d, target.Port:%d", definedPort, target.Port)
-						} else if definedPort == undefinedPort || definedPort == target.Port {
-							targetList = append(targetList, target)
-							glog.V(6).Infof("Found a port match, registering = definedPort:%d, port.Port:%d", definedPort, port.Port)
 						} else {
-							glog.V(6).Infof("Port does not match the target - port:%d, definedPort:%d, target:%v ***", target.Port, definedPort, target)
+							glog.V(6).Infof("Port does not match the target - port:%d, definedPort:%d, target:%v", target.Port, definedPort, target)
 						}
 					}
 				}
@@ -188,20 +182,6 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	t.latticeTargets = latticemodel.NewTargets(t.stack, tgName, spec)
 
 	return nil
-}
-
-func getDefinedPortsFromK8sRouteRules(t *latticeTargetsModelBuildTask, definedPorts []int64) []int64 {
-	if t.route != nil && t.route.Spec().Rules() != nil {
-		definedPorts = []int64{}
-		for _, rule := range t.route.Spec().Rules() {
-			for _, ref := range rule.BackendRefs() {
-				if ref.Port() != nil && string(ref.Name()) == t.tgName && string(*ref.Namespace()) == t.tgNamespace {
-					definedPorts = append(definedPorts, int64(*ref.Port()))
-				}
-			}
-		}
-	}
-	return definedPorts
 }
 
 type latticeTargetsModelBuildTask struct {

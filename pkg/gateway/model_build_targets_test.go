@@ -406,14 +406,14 @@ func Test_Targets(t *testing.T) {
 			svc: corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:         "ns1",
-					Name:              "export7",
+					Name:              "export8",
 					DeletionTimestamp: nil,
 				},
 			},
 			serviceExport: mcs_api.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:         "ns1",
-					Name:              "export7",
+					Name:              "export8",
 					DeletionTimestamp: nil,
 					Annotations:       map[string]string{"multicluster.x-k8s.io/port": "309"},
 				},
