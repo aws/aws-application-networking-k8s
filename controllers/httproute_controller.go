@@ -128,7 +128,7 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 	if !httpRoute.DeletionTimestamp().IsZero() {
 		httpLog.Info("Deleting")
 		r.eventRecorder.Event(httpRoute.K8sObject(), corev1.EventTypeNormal,
-			k8s.HTTPRouteeventReasonReconcile, "Deleting Reconcile")
+			k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 		if err := r.cleanupHTTPRouteResources(ctx, httpRoute); err != nil {
 			glog.V(6).Infof("Failed to cleanup HTTPRoute %v err %v\n", httpRoute, err)
 			return err
@@ -141,7 +141,7 @@ func (r *HTTPRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 	} else {
 		httpLog.Info("Adding/Updating")
 		r.eventRecorder.Event(httpRoute.K8sObject(), corev1.EventTypeNormal,
-			k8s.HTTPRouteeventReasonReconcile, "Adding/Updating Reconcile")
+			k8s.RouteEventReasonReconcile, "Adding/Updating Reconcile")
 		err := r.reconcileHTTPRouteResource(ctx, httpRoute)
 		// TODO add/update metrics
 		return err
@@ -209,7 +209,7 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 	if err != nil {
 
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
-			k8s.HTTPRouteEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
+			k8s.RouteEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		glog.V(6).Infof("buildAndDeployModel, Failed build model for %v due to %v\n", route.Name(), err)
 
 		// Build failed
@@ -220,7 +220,7 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 	stackJSON, err := r.stackMashaller.Marshal(stack)
 	if err != nil {
 		//TODO
-		glog.V(6).Infof("error on r.stackMashaller.Marshal error %v \n", err)
+		glog.V(6).Infof("error on r.stackMarshaller.Marshal error %v \n", err)
 	}
 
 	httpLog.Info("Successfully built model:", stackJSON, "")
@@ -232,11 +232,11 @@ func (r *HTTPRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 
 		if errors.As(err, &retryErr) {
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
-				k8s.HTTPRouteEventReasonRetryReconcile, "retry reconcile...")
+				k8s.RouteEventReasonRetryReconcile, "retry reconcile...")
 
 		} else {
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
-				k8s.HTTPRouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
+				k8s.RouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		}
 		return nil, nil, err
 	}
@@ -250,7 +250,7 @@ func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, ht
 	glog.V(6).Infof("Beginning -- reconcileHTTPRouteResource, [%v]\n", httpRoute)
 
 	if err := r.finalizerManager.AddFinalizers(ctx, httpRoute.K8sObject(), httpRouteFinalizer); err != nil {
-		r.eventRecorder.Event(httpRoute.K8sObject(), corev1.EventTypeWarning, k8s.HTTPRouteventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
+		r.eventRecorder.Event(httpRoute.K8sObject(), corev1.EventTypeWarning, k8s.RouteEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 	}
 
 	_, _, err := r.buildAndDeployModel(ctx, httpRoute)
@@ -259,7 +259,7 @@ func (r *HTTPRouteReconciler) reconcileHTTPRouteResource(ctx context.Context, ht
 
 	if err == nil {
 		r.eventRecorder.Event(httpRoute.K8sObject(), corev1.EventTypeNormal,
-			k8s.HTTPRouteeventReasonDeploySucceed, "Adding/Updating reconcile Done!")
+			k8s.RouteEventReasonDeploySucceed, "Adding/Updating reconcile Done!")
 
 		serviceStatus, err1 := r.latticeDataStore.GetLatticeService(httpRoute.Name(), httpRoute.Namespace())
 

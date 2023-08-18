@@ -59,7 +59,7 @@ type GRPCRouteReconciler struct {
 	modelBuilder     gateway.LatticeServiceBuilder
 	stackDeployer    deploy.StackDeployer
 	latticeDataStore *latticestore.LatticeDataStore
-	stackMashaller   deploy.StackMarshaller
+	stackMarshaller  deploy.StackMarshaller
 }
 
 const (
@@ -86,7 +86,7 @@ func NewGrpcRouteReconciler(
 		stackDeployer:    stackDeployer,
 		eventRecorder:    eventRecorder,
 		latticeDataStore: latticeDataStore,
-		stackMashaller:   stackMarshaller,
+		stackMarshaller:  stackMarshaller,
 	}
 }
 
@@ -126,7 +126,7 @@ func (r *GRPCRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 	if !grpcRoute.DeletionTimestamp().IsZero() {
 		httpLog.Info("Deleting")
 		r.eventRecorder.Event(grpcRoute.K8sObject(), corev1.EventTypeNormal,
-			k8s.GRPCRouteEventReasonReconcile, "Deleting Reconcile")
+			k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 		if err := r.cleanupGRPCRouteResources(ctx, grpcRoute); err != nil {
 			glog.V(6).Infof("Failed to cleanup GRPCRoute %v err %v\n", grpcRoute, err)
 			return err
@@ -139,7 +139,7 @@ func (r *GRPCRouteReconciler) reconcile(ctx context.Context, req ctrl.Request) e
 	} else {
 		httpLog.Info("Adding/Updating")
 		r.eventRecorder.Event(grpcRoute.K8sObject(), corev1.EventTypeNormal,
-			k8s.GRPCRouteEventReasonReconcile, "Adding/Updating Reconcile")
+			k8s.RouteEventReasonReconcile, "Adding/Updating Reconcile")
 		err := r.reconcileGRPCRouteResource(ctx, grpcRoute)
 		// TODO add/update metrics
 		return err
@@ -227,7 +227,7 @@ func (r *GRPCRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 	if err != nil {
 
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
-			k8s.GRPCRouteEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %+v", err))
+			k8s.RouteEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %+v", err))
 		glog.V(6).Infof("buildAndDeployModel, Failed build model for %v due to %+v\n", route.Name(), err)
 
 		// Build failed
@@ -235,10 +235,10 @@ func (r *GRPCRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 		return nil, nil, err
 	}
 
-	stackJSON, err := r.stackMashaller.Marshal(stack)
+	stackJSON, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
 		//TODO
-		glog.V(6).Infof("error on r.stackMashaller.Marshal error %v \n", err)
+		glog.V(6).Infof("error on r.stackMarshaller.Marshal error %v \n", err)
 	}
 
 	httpLog.Info("Successfully built model:", stackJSON, "")
@@ -250,11 +250,11 @@ func (r *GRPCRouteReconciler) buildAndDeployModel(ctx context.Context, route cor
 
 		if errors.As(err, &retryErr) {
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
-				k8s.GRPCRouteEventReasonRetryReconcile, "retry reconcile...")
+				k8s.RouteEventReasonRetryReconcile, "retry reconcile...")
 
 		} else {
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
-				k8s.GRPCRouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
+				k8s.RouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		}
 		return nil, nil, err
 	}
@@ -268,7 +268,7 @@ func (r *GRPCRouteReconciler) reconcileGRPCRouteResource(ctx context.Context, gr
 	glog.V(6).Infof("Beginning -- reconcileGRPCRouteResource, [%v]\n", grpcRoute)
 
 	if err := r.finalizerManager.AddFinalizers(ctx, grpcRoute.K8sObject(), grpcRouteFinalizer); err != nil {
-		r.eventRecorder.Event(grpcRoute.K8sObject(), corev1.EventTypeWarning, k8s.GRPCRouteEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
+		r.eventRecorder.Event(grpcRoute.K8sObject(), corev1.EventTypeWarning, k8s.RouteEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 	}
 
 	_, _, err := r.buildAndDeployModel(ctx, grpcRoute)
@@ -277,7 +277,7 @@ func (r *GRPCRouteReconciler) reconcileGRPCRouteResource(ctx context.Context, gr
 
 	if err == nil {
 		r.eventRecorder.Event(grpcRoute.K8sObject(), corev1.EventTypeNormal,
-			k8s.GRPCRouteEventReasonDeploySucceed, "Adding/Updating reconcile Done!")
+			k8s.RouteEventReasonDeploySucceed, "Adding/Updating reconcile Done!")
 
 		serviceStatus, err1 := r.latticeDataStore.GetLatticeService(grpcRoute.Name(), grpcRoute.Namespace())
 
