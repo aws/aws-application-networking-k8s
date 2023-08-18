@@ -250,3 +250,21 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+    - externaldns.k8s.io
+  resources:
+    - targetgrouppolicies
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - externaldns.k8s.io
+  resources:
+    - targetgrouppolicies/finalizers
+  verbs:
+    - update
