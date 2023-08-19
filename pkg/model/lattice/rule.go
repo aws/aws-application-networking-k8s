@@ -24,23 +24,19 @@ const (
 )
 
 type RuleSpec struct {
-	ServiceName      string `json:"name"`
-	ServiceNamespace string `json:"namespace"`
-	ListenerPort     int64  `json:"port"`
-	ListenerProtocol string `json:"protocol"`
-	// PathMatch
-	PathMatchValue  string `json:"pathmatchvalue"`
-	PathMatchExact  bool   `json:"pathmatchexact"`
-	PathMatchPrefix bool   `json:"pathmatchprefix"`
-	// HeaderMatch
-	NumOfHeaderMatches int `json:"numofheadermatches"`
+	ServiceName        string `json:"name"`
+	ServiceNamespace   string `json:"namespace"`
+	ListenerPort       int64  `json:"port"`
+	ListenerProtocol   string `json:"protocol"`
+	PathMatchValue     string `json:"pathmatchvalue"`
+	PathMatchExact     bool   `json:"pathmatchexact"`
+	PathMatchPrefix    bool   `json:"pathmatchprefix"`
+	NumOfHeaderMatches int    `json:"numofheadermatches"`
 	MatchedHeaders     [MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch
-	// MethodMatch
-	Method string `json:"method"`
-
-	RuleID     string     `json:"id"`
-	Action     RuleAction `json:"action"`
-	CreateTime time.Time  `json:"time"`
+	Method             string     `json:"method"`
+	RuleID             string     `json:"id"`
+	Action             RuleAction `json:"action"`
+	CreateTime         time.Time  `json:"time"`
 }
 
 type RuleAction struct {

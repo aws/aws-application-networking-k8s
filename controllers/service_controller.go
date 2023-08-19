@@ -84,14 +84,13 @@ func RegisterServiceController(
 		stackMashaller:   stackMarshaller,
 	}
 	epsEventsHandler := eventhandlers.NewEnqueueRequestEndpointEvent(client)
-	httpRouteEventHandler := eventhandlers.NewEnqueueRequestHTTPRouteEvent(client)
-	grpcRouteEventHandler := eventhandlers.NewEnqueueRequestGRPCRouteEvent(client)
+	routeEventHandler := eventhandlers.NewEnqueueRequestRouteEvent(log, client)
 	serviceExportHandler := eventhandlers.NewEqueueRequestServiceExportEvent(client)
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Service{}).
 		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epsEventsHandler).
-		Watches(&source.Kind{Type: &gateway_api_v1beta1.HTTPRoute{}}, httpRouteEventHandler).
-		Watches(&source.Kind{Type: &gateway_api_v1alpha2.GRPCRoute{}}, grpcRouteEventHandler).
+		Watches(&source.Kind{Type: &gateway_api_v1beta1.HTTPRoute{}}, routeEventHandler).
+		Watches(&source.Kind{Type: &gateway_api_v1alpha2.GRPCRoute{}}, routeEventHandler).
 		Watches(&source.Kind{Type: &mcs_api.ServiceExport{}}, serviceExportHandler).
 		Complete(sr)
 	return err

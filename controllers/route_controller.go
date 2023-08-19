@@ -164,7 +164,7 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 		r.log.Info("Deleting")
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 			k8s.RouteEventReasonReconcile, "Deleting Reconcile")
-		if err := r.cleanupGRPCRouteResources(ctx, route); err != nil {
+		if err := r.cleanupRouteResources(ctx, route); err != nil {
 			return fmt.Errorf("failed to cleanup GRPCRoute %+v: %w", route, err)
 		}
 		updateRouteListenerStatus(ctx, r.client, route)
@@ -217,16 +217,14 @@ func updateRouteListenerStatus(ctx context.Context, k8sClient client.Client, rou
 	return UpdateGWListenerStatus(ctx, k8sClient, gw)
 }
 
-func (r *RouteReconciler) cleanupGRPCRouteResources(ctx context.Context, grpcRoute core.Route) error {
-
-	_, _, err := r.buildAndDeployModel(ctx, grpcRoute)
-
+func (r *RouteReconciler) cleanupRouteResources(ctx context.Context, route core.Route) error {
+	_, _, err := r.buildAndDeployModel(ctx, route)
 	return err
 }
 
 func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route) bool {
 	if len(route.Spec().ParentRefs()) == 0 {
-		r.log.Infof("Ignore GRPCRoute which has no ParentRefs gateway %+v ", route.Spec())
+		r.log.Infof("Ignore Route which has no ParentRefs gateway %+v ", route.Spec())
 		return false
 	}
 
@@ -260,11 +258,11 @@ func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	}
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-		r.log.Infof("Found aws-vpc-lattice for GRPCRoute for %+v", route.Spec())
+		r.log.Infof("Found aws-vpc-lattice for Route for %+v", route.Spec())
 		return true
 	}
 
-	r.log.Infof("Ignore non aws-vpc-lattice GRPCRoute %+v", route.Spec())
+	r.log.Infof("Ignore non aws-vpc-lattice Route %+v", route.Spec())
 	return false
 }
 
@@ -280,7 +278,7 @@ func (r *RouteReconciler) buildAndDeployModel(
 		r.log.Infof("buildAndDeployModel, Failed build model for %s due to %s", route.Name(), err)
 
 		// Build failed
-		// TODO continue deploy to trigger reconcile of stale GRPCRoute and policy
+		// TODO continue deploy to trigger reconcile of stale Route and policy
 		return nil, nil, err
 	}
 
@@ -331,74 +329,64 @@ func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core
 		serviceStatus, err1 := r.latticeDataStore.GetLatticeService(route.Name(), route.Namespace())
 
 		if err1 == nil {
-			switch coreRoute := route.(type) {
-			case *core.HTTPRoute:
-				r.updateHTTPRouteStatus(ctx, serviceStatus.DNS, coreRoute)
-			case *core.GRPCRoute:
-				r.updateGRPCRouteStatus(ctx, serviceStatus.DNS, coreRoute)
-			default:
-				return fmt.Errorf("unsupported route type for route %+v, routeType %s", coreRoute, r.routeType)
-			}
+			r.updateRouteStatus(ctx, serviceStatus.DNS, route)
 		}
 	}
 
 	return err
 }
 
-func (r *RouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns string, coreRoute *core.HTTPRoute) error {
-	glog.V(6).Infof("updateHTTPRouteStatus: httpRoute %v, dns %v\n", coreRoute, dns)
-	httpRoute := coreRoute.Inner()
-	httprouteOld := httpRoute.DeepCopy()
+func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, route core.Route) error {
+	r.log.Infof("updateRouteStatus: route %v, dns %v", route, dns)
+	routeOld := route.DeepCopy()
 
-	if len(httpRoute.ObjectMeta.Annotations) == 0 {
-		httpRoute.ObjectMeta.Annotations = make(map[string]string)
+	if len(route.K8sObject().GetAnnotations()) == 0 {
+		route.K8sObject().SetAnnotations(make(map[string]string))
 	}
 
-	httpRoute.ObjectMeta.Annotations[LatticeAssignedDomainName] = dns
-	if err := r.client.Patch(ctx, httpRoute, client.MergeFrom(httprouteOld)); err != nil {
-		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
-		return errors.Wrapf(err, "failed to update httpRoute status")
+	route.K8sObject().GetAnnotations()[LatticeAssignedDomainName] = dns
+	if err := r.client.Patch(ctx, route.K8sObject(), client.MergeFrom(routeOld.K8sObject())); err != nil {
+		return fmt.Errorf("failed to update route status due to err %w", err)
 	}
-	httprouteOld = httpRoute.DeepCopy()
+	routeOld = route.DeepCopy()
 
-	if len(httpRoute.Status.RouteStatus.Parents) == 0 {
-		httpRoute.Status.RouteStatus.Parents = make([]gateway_api_v1beta1.RouteParentStatus, 1)
+	if len(route.Status().Parents()) == 0 {
+		route.Status().SetParents(make([]gateway_api_v1beta1.RouteParentStatus, 1))
 	}
-	httpRoute.Status.RouteStatus.Parents[0].ParentRef = httpRoute.Spec.ParentRefs[0]
-	httpRoute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
+	route.Status().Parents()[0].ParentRef = route.Spec().ParentRefs()[0]
+	route.Status().Parents()[0].ControllerName = config.LatticeGatewayControllerName
 
 	// Update listener Status
-	if err := updateRouteListenerStatus(ctx, r.client, coreRoute); err != nil {
-		updateRouteCondition(coreRoute, metav1.Condition{
+	if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
+		updateRouteCondition(route, metav1.Condition{
 			Type:               string(gateway_api_v1beta1.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
-			ObservedGeneration: httpRoute.Generation,
+			ObservedGeneration: route.K8sObject().GetGeneration(),
 			Reason:             string(gateway_api_v1beta1.RouteReasonNoMatchingParent),
-			Message:            fmt.Sprintf("Could not match gateway %s: %s", httpRoute.Spec.ParentRefs[0].Name, err.Error()),
+			Message:            fmt.Sprintf("Could not match gateway %s: %s", route.Spec().ParentRefs()[0].Name, err.Error()),
 		})
 	} else {
-		updateRouteCondition(coreRoute, metav1.Condition{
+		updateRouteCondition(route, metav1.Condition{
 			Type:               string(gateway_api_v1beta1.RouteConditionAccepted),
 			Status:             metav1.ConditionTrue,
-			ObservedGeneration: httpRoute.Generation,
+			ObservedGeneration: route.K8sObject().GetGeneration(),
 			Reason:             string(gateway_api_v1beta1.RouteReasonAccepted),
 			Message:            fmt.Sprintf("DNS Name: %s", dns),
 		})
-		updateRouteCondition(coreRoute, metav1.Condition{
+		updateRouteCondition(route, metav1.Condition{
 			Type:               string(gateway_api_v1beta1.RouteConditionResolvedRefs),
 			Status:             metav1.ConditionTrue,
-			ObservedGeneration: httpRoute.Generation,
+			ObservedGeneration: route.K8sObject().GetGeneration(),
 			Reason:             string(gateway_api_v1beta1.RouteReasonResolvedRefs),
 			Message:            fmt.Sprintf("DNS Name: %s", dns),
 		})
 	}
 
-	if err := r.client.Status().Patch(ctx, httpRoute, client.MergeFrom(httprouteOld)); err != nil {
-		glog.V(2).Infof("updateHTTPRouteStatus: Patch() received err %v \n", err)
-		return errors.Wrapf(err, "failed to update httpRoute status")
+	if err := r.client.Status().Patch(ctx, route.K8sObject(), client.MergeFrom(routeOld.K8sObject())); err != nil {
+		return fmt.Errorf("failed to update route status due to err %w", err)
 	}
-	glog.V(6).Infof("updateHTTPRouteStatus patched dns %v \n", dns)
 
+	r.log.Infof("updateRouteStatus patched dns %v", dns)
 	return nil
 }
 

@@ -69,7 +69,7 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	err := t.buildLatticeService(ctx)
 
 	if err != nil {
-		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildLatticeService %+v", err)
+		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildLatticeService %s", err)
 	}
 
 	_, err = t.buildTargetGroup(ctx, t.Client)
