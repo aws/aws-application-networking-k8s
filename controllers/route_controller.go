@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -166,8 +165,7 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 			k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 		if err := r.cleanupGRPCRouteResources(ctx, route); err != nil {
-			glog.V(6).Infof("Failed to cleanup GRPCRoute %v err %v\n", route, err)
-			return err
+			return fmt.Errorf("failed to cleanup GRPCRoute %+v: %w", route, err)
 		}
 		updateRouteListenerStatus(ctx, r.client, route)
 		r.finalizerManager.RemoveFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType])
@@ -175,7 +173,7 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 		// TODO delete metrics
 		return nil
 	} else {
-		r.log.Info("Adding/Updating")
+		r.log.Info("Adding/Updating route")
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 			k8s.RouteEventReasonReconcile, "Adding/Updating Reconcile")
 		err := r.reconcileRouteResource(ctx, route)
@@ -213,7 +211,7 @@ func updateRouteListenerStatus(ctx context.Context, k8sClient client.Client, rou
 	}
 
 	if err := k8sClient.Get(ctx, gwName, gw); err != nil {
-		return errors.Wrapf(err, "update route listener: gw not found, gw: %s", gwName)
+		return fmt.Errorf("update route listener: gw not found, gw: %s, err: %w", gwName, err)
 	}
 
 	return UpdateGWListenerStatus(ctx, k8sClient, gw)
@@ -228,7 +226,7 @@ func (r *RouteReconciler) cleanupGRPCRouteResources(ctx context.Context, grpcRou
 
 func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route) bool {
 	if len(route.Spec().ParentRefs()) == 0 {
-		glog.V(2).Infof("Ignore GRPCRoute which has no ParentRefs gateway %v \n ", route.Spec())
+		r.log.Infof("Ignore GRPCRoute which has no ParentRefs gateway %+v ", route.Spec())
 		return false
 	}
 
@@ -244,8 +242,8 @@ func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	}
 
 	if err := r.client.Get(ctx, gwName, gw); err != nil {
-		glog.V(6).Infof("Could not find gateway %s: %s\n", gwName.String(), err.Error())
-		glog.V(6).Infof("Ignore GRPCRoute whose ParentRef gateway object has NOT defined yet for %v\n", route.Spec())
+		r.log.Infof("Could not find gateway %s with err %s. Ignoring route %+v whose ParentRef gateway object"+
+			" is not defined.", gwName.String(), err.Error(), route.Spec())
 		return false
 	}
 
@@ -257,30 +255,29 @@ func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	}
 
 	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
-		glog.V(6).Infof("Ignore GRPCRoute that NOT controlled by any GatewayClass for %v\n", route.Spec())
+		r.log.Infof("Ignore Route not controlled by any GatewayClass %+v", route.Spec())
 		return false
 	}
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-		glog.V(6).Infof("Found aws-vpc-lattice for GRPCRoute for %v\n", route.Spec())
-
+		r.log.Infof("Found aws-vpc-lattice for GRPCRoute for %+v", route.Spec())
 		return true
-	} else {
-		glog.V(6).Infof("Ignore non aws-vpc-lattice GRPCRoute !!! %v\n", route.Spec())
-		return false
 	}
+
+	r.log.Infof("Ignore non aws-vpc-lattice GRPCRoute %+v", route.Spec())
+	return false
 }
 
-func (r *RouteReconciler) buildAndDeployModel(ctx context.Context, route core.Route) (core.Stack, *latticemodel.Service, error) {
-	httpLog := log.FromContext(ctx)
-
+func (r *RouteReconciler) buildAndDeployModel(
+	ctx context.Context,
+	route core.Route,
+) (core.Stack, *latticemodel.Service, error) {
 	stack, latticeService, err := r.modelBuilder.Build(ctx, route)
 
 	if err != nil {
-
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
 			k8s.RouteEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %+v", err))
-		glog.V(6).Infof("buildAndDeployModel, Failed build model for %v due to %+v\n", route.Name(), err)
+		r.log.Infof("buildAndDeployModel, Failed build model for %s due to %s", route.Name(), err)
 
 		// Build failed
 		// TODO continue deploy to trigger reconcile of stale GRPCRoute and policy
@@ -290,13 +287,13 @@ func (r *RouteReconciler) buildAndDeployModel(ctx context.Context, route core.Ro
 	stackJSON, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
 		//TODO
-		glog.V(6).Infof("error on r.stackMarshaller.Marshal error %v \n", err)
+		r.log.Infof("error on r.stackMarshaller.Marshal error %s", err.Error())
 	}
 
-	httpLog.Info("Successfully built model:", stackJSON, "")
+	r.log.Info("Successfully built model:", stackJSON, "")
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
-		glog.V(6).Infof("RouteReconciler: Failed deploy %s due to err %v \n", route.Name(), err)
+		r.log.Infof("RouteReconciler: Failed deploy %s due to err %s", route.Name(), err.Error())
 
 		var retryErr = errors.New(lattice.LATTICE_RETRY)
 
@@ -311,13 +308,13 @@ func (r *RouteReconciler) buildAndDeployModel(ctx context.Context, route core.Ro
 		return nil, nil, err
 	}
 
-	httpLog.Info("Successfully deployed model")
+	r.log.Info("Successfully deployed model")
 
 	return stack, latticeService, err
 }
 
 func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core.Route) error {
-	glog.V(6).Infof("Beginning -- reconcileRouteResource, [%v]\n", route)
+	r.log.Infof("Beginning -- reconcileRouteResource, [%v]", route)
 
 	if err := r.finalizerManager.AddFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType]); err != nil {
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning, k8s.RouteEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
