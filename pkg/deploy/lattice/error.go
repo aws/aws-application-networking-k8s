@@ -1,5 +1,7 @@
 package lattice
 
+import "errors"
+
 const (
 	LATTICE_CREATE_IN_PROGRESS = "LATTICE_CREATE_IN_PROGRESS"
 	LATTICE_DELETE_IN_PROGRESS = "LATTICE_DELETE_IN_PROGRESS"
@@ -7,3 +9,5 @@ const (
 	LATTICE_ALREADY_EXIST      = "LATTICE_ALREADY_EXIST"
 	LATTICE_RETRY              = "LATTICE_RETRY"
 )
+
+var RetryErr = errors.New(LATTICE_RETRY)

@@ -34,6 +34,20 @@ func (m *MockCloud) EXPECT() *MockCloudMockRecorder {
 	return m.recorder
 }
 
+// Config mocks base method.
+func (m *MockCloud) Config() CloudConfig {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Config")
+	ret0, _ := ret[0].(CloudConfig)
+	return ret0
+}
+
+// Config indicates an expected call of Config.
+func (mr *MockCloudMockRecorder) Config() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCloud)(nil).Config))
+}
+
 // EKS mocks base method.
 func (m *MockCloud) EKS() services.EKS {
 	m.ctrl.T.Helper()
@@ -48,6 +62,35 @@ func (mr *MockCloudMockRecorder) EKS() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EKS", reflect.TypeOf((*MockCloud)(nil).EKS))
 }
 
+// IsArnManaged mocks base method.
+func (m *MockCloud) IsArnManaged(arn *string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsArnManaged", arn)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsArnManaged indicates an expected call of IsArnManaged.
+func (mr *MockCloudMockRecorder) IsArnManaged(arn interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsArnManaged", reflect.TypeOf((*MockCloud)(nil).IsArnManaged), arn)
+}
+
+// IsTagManagedBy mocks base method.
+func (m *MockCloud) IsTagManagedBy(arg0 Tags) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsTagManagedBy", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsTagManagedBy indicates an expected call of IsTagManagedBy.
+func (mr *MockCloudMockRecorder) IsTagManagedBy(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsTagManagedBy", reflect.TypeOf((*MockCloud)(nil).IsTagManagedBy), arg0)
+}
+
 // Lattice mocks base method.
 func (m *MockCloud) Lattice() services.Lattice {
 	m.ctrl.T.Helper()
@@ -60,4 +103,32 @@ func (m *MockCloud) Lattice() services.Lattice {
 func (mr *MockCloudMockRecorder) Lattice() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lattice", reflect.TypeOf((*MockCloud)(nil).Lattice))
+}
+
+// NewTags mocks base method.
+func (m *MockCloud) NewTags() Tags {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewTags")
+	ret0, _ := ret[0].(Tags)
+	return ret0
+}
+
+// NewTags indicates an expected call of NewTags.
+func (mr *MockCloudMockRecorder) NewTags() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTags", reflect.TypeOf((*MockCloud)(nil).NewTags))
+}
+
+// NewTagsWithManagedBy mocks base method.
+func (m *MockCloud) NewTagsWithManagedBy() Tags {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewTagsWithManagedBy")
+	ret0, _ := ret[0].(Tags)
+	return ret0
+}
+
+// NewTagsWithManagedBy indicates an expected call of NewTagsWithManagedBy.
+func (mr *MockCloudMockRecorder) NewTagsWithManagedBy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTagsWithManagedBy", reflect.TypeOf((*MockCloud)(nil).NewTagsWithManagedBy))
 }

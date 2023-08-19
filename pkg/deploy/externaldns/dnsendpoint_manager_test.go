@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"testing"
+
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/golang/mock/gomock"
@@ -14,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/external-dns/endpoint"
-	"testing"
 )
 
 func TestCreateDnsEndpoint(t *testing.T) {
@@ -42,7 +43,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "lattice-internal-domain",
+					Dns: "lattice-internal-domain",
 				},
 			},
 			errIsNil: true,
@@ -56,7 +57,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "",
+					Dns: "",
 				},
 			},
 			errIsNil: true,
@@ -70,7 +71,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "lattice-internal-domain",
+					Dns: "lattice-internal-domain",
 				},
 			},
 			routeGetErr: errors.New("No HTTPRoute found"),
@@ -85,7 +86,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "lattice-internal-domain",
+					Dns: "lattice-internal-domain",
 				},
 			},
 			dnsGetErr: apierrors.NewNotFound(schema.GroupResource{}, ""),
@@ -101,7 +102,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "lattice-internal-domain",
+					Dns: "lattice-internal-domain",
 				},
 			},
 			dnsGetErr:    apierrors.NewNotFound(schema.GroupResource{}, ""),
@@ -118,7 +119,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "lattice-internal-domain",
+					Dns: "lattice-internal-domain",
 				},
 			},
 			existingEndpoint: endpoint.DNSEndpoint{
@@ -145,7 +146,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "lattice-internal-domain",
+					Dns: "lattice-internal-domain",
 				},
 			},
 			existingEndpoint: endpoint.DNSEndpoint{
@@ -172,7 +173,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "lattice-internal-domain",
+					Dns: "lattice-internal-domain",
 				},
 			},
 			existingEndpoint: endpoint.DNSEndpoint{
@@ -200,7 +201,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "lattice-internal-domain",
+					Dns: "lattice-internal-domain",
 				},
 			},
 			dnsGetErr: &meta.NoKindMatchError{
@@ -218,7 +219,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &latticemodel.ServiceStatus{
-					ServiceDNS: "lattice-internal-domain",
+					Dns: "lattice-internal-domain",
 				},
 			},
 			dnsGetErr: errors.New("Unhandled exception"),
