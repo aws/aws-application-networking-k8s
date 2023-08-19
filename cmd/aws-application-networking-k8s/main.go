@@ -146,18 +146,9 @@ func main() {
 		setupLog.Fatalf("gateway controller setup failed: %s", err)
 	}
 
-	httpRouteReconciler := controllers.NewHttpRouteReconciler(cloud, mgr.GetClient(), mgr.GetScheme(), mgr.GetEventRecorderFor("httproute"), finalizerManager, latticeDataStore)
-
-	if err = httpRouteReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HTTPRoute")
-		os.Exit(1)
-	}
-
-	grpcRouteReconciler := controllers.NewGrpcRouteReconciler(cloud, mgr.GetClient(), mgr.GetScheme(), mgr.GetEventRecorderFor("grpcroute"), finalizerManager, latticeDataStore)
-
-	if err = grpcRouteReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GRPCRoute")
-		os.Exit(1)
+	err = controllers.RegisterAllRouteControllers(ctrlLog.Named("route"), cloud, latticeDataStore, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("route controller setup failed: %s", err)
 	}
 
 	serviceImportReconciler := controllers.NewServceImportReconciler(mgr.GetClient(), mgr.GetScheme(),
