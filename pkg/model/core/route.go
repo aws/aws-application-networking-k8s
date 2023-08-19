@@ -157,7 +157,6 @@ func (s *HTTPRouteSpec) Equals(routeSpec RouteSpec) bool {
 
 	for i, rule := range s.Rules() {
 		otherRule := routeSpec.Rules()[i]
-		// Assuming RouteRule also has an Equals method
 		if !rule.Equals(otherRule) {
 			return false
 		}
@@ -206,7 +205,6 @@ func (s *GRPCRouteSpec) Equals(routeSpec RouteSpec) bool {
 
 	for i, rule := range s.Rules() {
 		otherRule := routeSpec.Rules()[i]
-		// Assuming RouteRule also has an Equals method
 		if !rule.Equals(otherRule) {
 			return false
 		}
@@ -286,7 +284,6 @@ func (r *HTTPRouteRule) Equals(routeRule RouteRule) bool {
 		}
 	}
 
-	// Compare Matches
 	if len(r.Matches()) != len(other.Matches()) {
 		return false
 	}
@@ -336,7 +333,6 @@ func (r *GRPCRouteRule) Equals(routeRule RouteRule) bool {
 		}
 	}
 
-	// Compare Matches
 	if len(r.Matches()) != len(other.Matches()) {
 		return false
 	}
