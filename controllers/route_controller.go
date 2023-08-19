@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
 	corev1 "k8s.io/api/core/v1"
@@ -387,63 +386,6 @@ func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, rou
 	}
 
 	r.log.Infof("updateRouteStatus patched dns %v", dns)
-	return nil
-}
-
-func (r *RouteReconciler) updateGRPCRouteStatus(ctx context.Context, dns string, coreRoute *core.GRPCRoute) error {
-	glog.V(6).Infof("updateGRPCRouteStatus: grpcRoute %v, dns %v\n", coreRoute, dns)
-	grpcRoute := coreRoute.Inner()
-	grpcrouteOld := grpcRoute.DeepCopy()
-
-	if len(grpcRoute.ObjectMeta.Annotations) == 0 {
-		grpcRoute.ObjectMeta.Annotations = make(map[string]string)
-	}
-
-	grpcRoute.ObjectMeta.Annotations[LatticeAssignedDomainName] = dns
-	if err := r.client.Patch(ctx, grpcRoute, client.MergeFrom(grpcrouteOld)); err != nil {
-		glog.V(2).Infof("updateGRPCRouteStatus: Patch() received err %v \n", err)
-		return errors.Wrapf(err, "failed to update grpcRoute status")
-	}
-	grpcrouteOld = grpcRoute.DeepCopy()
-
-	if len(grpcRoute.Status.RouteStatus.Parents) == 0 {
-		grpcRoute.Status.RouteStatus.Parents = make([]gateway_api_v1beta1.RouteParentStatus, 1)
-	}
-	grpcRoute.Status.RouteStatus.Parents[0].ParentRef = grpcRoute.Spec.ParentRefs[0]
-	grpcRoute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
-
-	// Update listener Status
-	if err := updateRouteListenerStatus(ctx, r.client, coreRoute); err != nil {
-		updateRouteCondition(coreRoute, metav1.Condition{
-			Type:               string(gateway_api_v1beta1.RouteConditionAccepted),
-			Status:             metav1.ConditionFalse,
-			ObservedGeneration: grpcRoute.Generation,
-			Reason:             string(gateway_api_v1beta1.RouteReasonNoMatchingParent),
-			Message:            fmt.Sprintf("Could not match gateway %s: %s", grpcRoute.Spec.ParentRefs[0].Name, err.Error()),
-		})
-	} else {
-		updateRouteCondition(coreRoute, metav1.Condition{
-			Type:               string(gateway_api_v1beta1.RouteConditionAccepted),
-			Status:             metav1.ConditionTrue,
-			ObservedGeneration: grpcRoute.Generation,
-			Reason:             string(gateway_api_v1beta1.RouteReasonAccepted),
-			Message:            fmt.Sprintf("DNS Name: %s", dns),
-		})
-		updateRouteCondition(coreRoute, metav1.Condition{
-			Type:               string(gateway_api_v1beta1.RouteConditionResolvedRefs),
-			Status:             metav1.ConditionTrue,
-			ObservedGeneration: grpcRoute.Generation,
-			Reason:             string(gateway_api_v1beta1.RouteReasonResolvedRefs),
-			Message:            fmt.Sprintf("DNS Name: %s", dns),
-		})
-	}
-
-	if err := r.client.Status().Patch(ctx, grpcRoute, client.MergeFrom(grpcrouteOld)); err != nil {
-		glog.V(2).Infof("updateGRPCRouteStatus: Patch() received err %v \n", err)
-		return errors.Wrapf(err, "failed to update grpcRoute status")
-	}
-	glog.V(6).Infof("updateGRPCRouteStatus patched dns %v \n", dns)
-
 	return nil
 }
 
