@@ -10,7 +10,7 @@ spec:
   - backendRefs:
     - name: parking
       kind: Service
-      port: 8090
+      port: 80
     matches:
     - path:
         type: PathPrefix
@@ -18,7 +18,7 @@ spec:
   - backendRefs:
     - name: review
       kind: Service
-      port: 8090
+      port: 80
     matches:
     - path:
         type: PathPrefix

@@ -28,6 +28,7 @@ func Test_Targets(t *testing.T) {
 		name               string
 		srvExportName      string
 		srvExportNamespace string
+		port               int64
 		endPoints          []corev1.Endpoints
 		svc                corev1.Service
 		serviceExport      mcs_api.ServiceExport
@@ -36,11 +37,13 @@ func Test_Targets(t *testing.T) {
 		refByService       bool
 		wantErrIsNil       bool
 		expectedTargetList []latticemodel.Target
+		route              core.Route
 	}{
 		{
 			name:               "Add all endpoints to build spec",
 			srvExportName:      "export1",
 			srvExportNamespace: "ns1",
+			port:               0,
 			endPoints: []corev1.Endpoints{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -88,6 +91,7 @@ func Test_Targets(t *testing.T) {
 			name:               "Add all endpoints to build spec with port annotation",
 			srvExportName:      "export1",
 			srvExportNamespace: "ns1",
+			port:               3090,
 			endPoints: []corev1.Endpoints{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -135,6 +139,7 @@ func Test_Targets(t *testing.T) {
 			name:               "Delete svc and all endpoints to build spec",
 			srvExportName:      "export1",
 			srvExportNamespace: "ns1",
+			port:               0,
 			endPoints: []corev1.Endpoints{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -167,6 +172,7 @@ func Test_Targets(t *testing.T) {
 			name:               "Delete svc and no endpoints to build spec",
 			srvExportName:      "export1",
 			srvExportNamespace: "ns1",
+			port:               0,
 			endPoints:          []corev1.Endpoints{},
 			svc: corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -186,6 +192,7 @@ func Test_Targets(t *testing.T) {
 			name:               "Endpoints without TargetGroup",
 			srvExportName:      "export2",
 			srvExportNamespace: "ns1",
+			port:               0,
 			endPoints: []corev1.Endpoints{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -215,6 +222,7 @@ func Test_Targets(t *testing.T) {
 			name:               "Endpoints's TargetGroup is NOT referenced by serviceexport",
 			srvExportName:      "export3",
 			srvExportNamespace: "ns1",
+			port:               0,
 			endPoints: []corev1.Endpoints{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -245,6 +253,7 @@ func Test_Targets(t *testing.T) {
 			name:               "Endpoints does NOT exists",
 			srvExportName:      "export4",
 			srvExportNamespace: "ns1",
+			port:               0,
 			inDataStore:        false,
 			refByServiceExport: true,
 			wantErrIsNil:       false,
@@ -260,6 +269,7 @@ func Test_Targets(t *testing.T) {
 			name:               "Add all endpoints to build spec",
 			srvExportName:      "export5",
 			srvExportNamespace: "ns1",
+			port:               0,
 			endPoints: []corev1.Endpoints{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -302,6 +312,77 @@ func Test_Targets(t *testing.T) {
 					Port:     309,
 				},
 			},
+		},
+		{
+			name:               "Only add endpoints for port 8675 to build spec",
+			srvExportName:      "export6",
+			srvExportNamespace: "ns1",
+			port:               8675,
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "export6",
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
+							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}},
+						},
+					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export6",
+					DeletionTimestamp: nil,
+				},
+			},
+			inDataStore:        true,
+			refByServiceExport: true,
+			wantErrIsNil:       true,
+			expectedTargetList: []latticemodel.Target{
+				{
+					TargetIP: "10.10.1.1",
+					Port:     8675,
+				},
+				{
+					TargetIP: "10.10.2.2",
+					Port:     8675,
+				},
+			},
+		},
+		{
+			name:               "BackendRef port does not match service port",
+			srvExportName:      "export7",
+			srvExportNamespace: "ns1",
+			port:               8750,
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "export7",
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
+							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
+						},
+					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export7",
+					DeletionTimestamp: nil,
+				},
+			},
+			inDataStore:        false,
+			refByService:       true,
+			refByServiceExport: true,
+			wantErrIsNil:       false,
 		},
 	}
 
@@ -349,10 +430,11 @@ func Test_Targets(t *testing.T) {
 			tgName:      tt.srvExportName,
 			tgNamespace: tt.srvExportNamespace,
 			datastore:   ds,
+			port:        tt.port,
 			stack:       core.NewDefaultStack(core.StackID(srvName)),
+			route:       tt.route,
 		}
 		err := targetTask.buildLatticeTargets(ctx)
-
 		if tt.wantErrIsNil {
 			fmt.Printf("t.latticeTargets %v \n", targetTask.latticeTargets)
 			assert.Equal(t, tt.srvExportName, targetTask.latticeTargets.Spec.Name)

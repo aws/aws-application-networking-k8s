@@ -13,5 +13,5 @@ spec:
     - name: inventory-v1
       namespace: gw-infra-1
       kind: Service
-      port: 8090
+      port: 80
       weight: 10
