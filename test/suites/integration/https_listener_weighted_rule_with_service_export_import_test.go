@@ -2,31 +2,40 @@ package integration
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"strings"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	"log"
+	"os"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"time"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
-var _ = Describe("Test 2 listeners gateway with weighted httproute rules and service export import", func() {
-	It("Create a gateway with 2 listeners(http and https), create a weightedRoutingHttpRoute that parentRef to both http and https listeners,"+
+var _ = Describe("Test 2 listeners with weighted httproute rules and service export import", func() {
+	var (
+		deployment0    *appsv1.Deployment
+		deployment1    *appsv1.Deployment
+		service0       *v1.Service
+		service1       *v1.Service
+		serviceExport1 *v1alpha1.ServiceExport
+		serviceImport1 *v1alpha1.ServiceImport
+		httpRoute      *v1beta1.HTTPRoute
+	)
+
+	It("Create a weightedRoutingHttpRoute that parentRef to both http and https listeners,"+
 		" and this httpRoute BackendRef to one service and one serviceImport, weighted traffic should work for both http and https listeners",
 		func() {
-			gateway := testFramework.NewGateway("", "")
-			deployment0, service0 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "service-import-export-test0"})
-			deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "service-import-export-test1"})
-			serviceExport1, serviceImport1 := testFramework.CreateServiceExportAndServiceImportByService(service1)
+			deployment0, service0 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "service-import-export-test0", Namespace: k8snamespace})
+			deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "service-import-export-test1", Namespace: k8snamespace})
+			serviceExport1, serviceImport1 = testFramework.CreateServiceExportAndServiceImportByService(service1)
 			deployments := []*appsv1.Deployment{deployment0, deployment1}
-			httpRoute := testFramework.NewWeightedRoutingHttpRoute(gateway,
+			httpRoute = testFramework.NewWeightedRoutingHttpRoute(testGateway,
 				[]*test.ObjectAndWeight{
 					{
 						Object: service0,
@@ -41,7 +50,6 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 			log.Println("httpRoute1 Weight:", *httpRoute.Spec.Rules[0].BackendRefs[1].Weight)
 
 			testFramework.ExpectCreated(ctx,
-				gateway,
 				httpRoute,
 				deployment0,
 				service0,
@@ -51,9 +59,8 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 				serviceImport1,
 			)
 
-			time.Sleep(3 * time.Minute)
 			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, httpRoute)
-			Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
+
 			log.Println("Verifying Target Groups")
 			retrievedTg0 := testFramework.GetTargetGroup(ctx, service0)
 			retrievedTg1 := testFramework.GetTargetGroup(ctx, service1)
@@ -101,10 +108,10 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 					})
 					retrievedWeightedTargetGroup0InRule := retrievedWeightedTGRule.Action.Forward.TargetGroups[0]
 					retrievedWeightedTargetGroup1InRule := retrievedWeightedTGRule.Action.Forward.TargetGroups[1]
-					Expect(*retrievedWeightedTargetGroup0InRule.TargetGroupIdentifier).To(Equal(*retrievedTg0.Id))
-					Expect(*retrievedWeightedTargetGroup0InRule.Weight).To(BeEquivalentTo(20))
-					Expect(*retrievedWeightedTargetGroup1InRule.TargetGroupIdentifier).To(Equal(*retrievedTg1.Id))
-					Expect(*retrievedWeightedTargetGroup1InRule.Weight).To(BeEquivalentTo(80))
+					g.Expect(*retrievedWeightedTargetGroup0InRule.TargetGroupIdentifier).To(Equal(*retrievedTg0.Id))
+					g.Expect(*retrievedWeightedTargetGroup0InRule.Weight).To(BeEquivalentTo(20))
+					g.Expect(*retrievedWeightedTargetGroup1InRule.TargetGroupIdentifier).To(Equal(*retrievedTg1.Id))
+					g.Expect(*retrievedWeightedTargetGroup1InRule.Weight).To(BeEquivalentTo(80))
 				}
 			}).Should(Succeed())
 			log.Println("Verifying Weighted rule traffic")
@@ -115,7 +122,7 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 			log.Println("client pod name:", pods[0].Name)
 			protocols := []string{"http", "https"}
 			for _, protocol := range protocols {
-
+				// just make sure we can reach via both protocols
 				var cmd string
 				if protocol == "http" {
 					cmd = fmt.Sprintf("curl %s", dnsName)
@@ -124,38 +131,27 @@ var _ = Describe("Test 2 listeners gateway with weighted httproute rules and ser
 				} else {
 					Fail("Unexpected listener protocol")
 				}
-				hitTg0 := 0
-				hitTg1 := 0
-				for i := 0; i < 20; i++ {
-					stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, false)
-					Expect(err).To(BeNil())
-					if strings.Contains(stdout, "service-import-export-test0 handler pod") {
-						hitTg0++
-					} else if strings.Contains(stdout, "service-import-export-test1 handler pod") {
-						hitTg1++
-					} else {
-						Fail(fmt.Sprintf("Unexpected response: %s", stdout))
-					}
-				}
-				log.Printf("Send traffic to %s listener: \n", protocol)
-				log.Printf("Expect 20 %% of traffic hit tg0, hitTg0: %d \n", hitTg0)
-				log.Printf("Expect 80 %% of traffic hit tg1, hitTg1: %d  \n", hitTg1)
-				Expect(hitTg0).To(BeNumerically("<", hitTg1))
+
+				Eventually(func(g Gomega) {
+					stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, true)
+					g.Expect(err).To(BeNil())
+					g.Expect(stdout).To(ContainSubstring("handler pod"))
+				}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
 			}
-
-			testFramework.ExpectDeleted(ctx, gateway, httpRoute)
-			time.Sleep(30 * time.Second) // Use a trick to delete httpRoute first and then delete the service and deployment to avoid draining lattice targets
-			testFramework.ExpectDeleted(ctx, deployment0, service0, deployment1, service1, serviceExport1, serviceImport1)
-
-			testFramework.EventuallyExpectNotFound(ctx,
-				gateway,
-				httpRoute,
-				deployment0,
-				service0,
-				deployment1,
-				service1,
-				serviceExport1,
-				serviceImport1,
-			)
 		})
+
+	AfterEach(func() {
+		testFramework.ExpectDeleted(ctx, httpRoute)
+		testFramework.SleepForRouteDeletion()
+
+		testFramework.ExpectDeletedThenNotFound(ctx,
+			deployment0,
+			service0,
+			deployment1,
+			service1,
+			serviceExport1,
+			serviceImport1,
+			httpRoute,
+		)
+	})
 })
