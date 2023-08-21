@@ -22,7 +22,9 @@ import (
 	"os"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/go-logr/zapr"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -33,7 +35,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	//+kubebuilder:scaffold:imports
@@ -85,6 +86,23 @@ func main() {
 	var probeAddr string
 	var lgcConfig controllerConfig
 
+	// setup glog level
+	var debug bool
+
+	// setup glog level
+	flag.Lookup("logtostderr").Value.Set("true")
+
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	flag.Parse()
+
+	log := gwlog.NewLogger(debug)
+	ctrl.SetLogger(zapr.NewLogger(log.Desugar()).WithName("runtime"))
+
+	setupLog := log.Named("setup")
 	errs := initConfig(&lgcConfig)
 	if len(errs) > 0 {
 		for _, err := range errs {
@@ -93,25 +111,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	// setup glog level
-	flag.Lookup("logtostderr").Value.Set("true")
-	flag.Lookup("v").Value.Set(lgcConfig.logLevel)
+	setupLog.Infow("init config",
+		"VpcId", lgcConfig.vpcID,
+		"Region", lgcConfig.region,
+		"AccoundId", lgcConfig.accountID,
+		"DefaultServiceNetwork", lgcConfig.defaultServiceNetwork,
+		"UseLongTgName", lgcConfig.useLongTGName,
+	)
 
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
-	cloud, err := aws.NewCloud(lgcConfig.region, lgcConfig.accountID, lgcConfig.defaultServiceNetwork, lgcConfig.vpcID, lgcConfig.useLongTGName)
-
+	cloud, err := aws.NewCloud(log.Named("cloud"),
+		lgcConfig.region,
+		lgcConfig.accountID,
+		lgcConfig.defaultServiceNetwork,
+		lgcConfig.vpcID,
+		lgcConfig.useLongTGName)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize AWS cloud")
 		os.Exit(1)
@@ -140,6 +153,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// parent logging scope for all controllers
+	ctrlLog := log.Named("controller")
+
 	serviceReconciler := controllers.NewServiceReconciler(mgr.GetClient(), mgr.GetScheme(),
 		mgr.GetEventRecorderFor("service"), finalizerManager, latticeDataStore, cloud)
 
@@ -147,33 +163,22 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Service")
 		os.Exit(1)
 	}
-	gwClassReconciler := controllers.NewGatewayGlassReconciler(mgr.GetClient(),
-		mgr.GetScheme())
-
-	if err = gwClassReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GatewayClass")
-		os.Exit(1)
+	err = controllers.RegisterGatewayClassController(ctrlLog.Named("gateway-class"), mgr)
+	if err != nil {
+		setupLog.Fatalf("gateway-class controller setup failed: %s", err)
 	}
 
-	gwReconciler := controllers.NewGatewayReconciler(mgr.GetClient(),
-		mgr.GetScheme(), mgr.GetEventRecorderFor("gateway"), gwClassReconciler, finalizerManager,
-		latticeDataStore, cloud, lgcConfig.accountID, lgcConfig.defaultServiceNetwork)
-
-	if err = gwReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Gateway")
-		os.Exit(1)
+	err = controllers.RegisterGatewayController(ctrlLog.Named("gateway"), cloud, latticeDataStore, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("gateway controller setup failed: %s", err)
 	}
 
-	httpRouteReconciler := controllers.NewHttpRouteReconciler(cloud, mgr.GetClient(),
-		mgr.GetScheme(), mgr.GetEventRecorderFor("httproute"), gwReconciler, gwClassReconciler, finalizerManager,
-		latticeDataStore, lgcConfig.defaultServiceNetwork)
+	httpRouteReconciler := controllers.NewHttpRouteReconciler(cloud, mgr.GetClient(), mgr.GetScheme(), mgr.GetEventRecorderFor("httproute"), finalizerManager, latticeDataStore, lgcConfig.defaultServiceNetwork)
 
 	if err = httpRouteReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HTTPRoute")
 		os.Exit(1)
 	}
-
-	gwReconciler.UpdateGatewayReconciler(httpRouteReconciler)
 
 	serviceImportReconciler := controllers.NewServceImportReconciler(mgr.GetClient(), mgr.GetScheme(),
 		mgr.GetEventRecorderFor("ServiceImport"), finalizerManager, latticeDataStore)
