@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
-var _ = Describe("Defined Target Ports", Focus, func() {
+var _ = Describe("Defined Target Ports", func() {
 	var (
 		deployment        *appsv1.Deployment
 		service           *v1.Service
