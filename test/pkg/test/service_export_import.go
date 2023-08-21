@@ -15,7 +15,8 @@ func (env *Framework) CreateServiceExportAndServiceImportByService(service *v1.S
 			Kind:       "ServiceExport",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: service.Name,
+			Name:      service.Name,
+			Namespace: service.Namespace,
 			Annotations: map[string]string{
 				"multicluster.x-k8s.io/federation": "amazon-vpc-lattice",
 			},
@@ -27,7 +28,8 @@ func (env *Framework) CreateServiceExportAndServiceImportByService(service *v1.S
 			Kind:       "ServiceImport",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: service.Name,
+			Name:      service.Name,
+			Namespace: service.Namespace,
 		},
 		Spec: v1alpha1.ServiceImportSpec{
 			Type: v1alpha1.ClusterSetIP,
