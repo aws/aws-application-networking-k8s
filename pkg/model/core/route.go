@@ -1,7 +1,9 @@
 package core
 
 import (
+	"fmt"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -13,7 +15,19 @@ type Route interface {
 	Name() string
 	Namespace() string
 	DeletionTimestamp() *v1.Time
+	DeepCopy() Route
 	K8sObject() client.Object
+}
+
+func NewRoute(object client.Object) (Route, error) {
+	switch obj := object.(type) {
+	case *gateway_api_v1beta1.HTTPRoute:
+		return NewHTTPRoute(*obj), nil
+	case *gateway_api_v1alpha2.GRPCRoute:
+		return NewGRPCRoute(*obj), nil
+	default:
+		return nil, fmt.Errorf("unexpected route type for object %+v", object)
+	}
 }
 
 type HTTPRoute struct {
@@ -29,7 +43,7 @@ func (r *HTTPRoute) Spec() RouteSpec {
 }
 
 func (r *HTTPRoute) Status() RouteStatus {
-	return &HTTPRouteStatus{r.r.Status}
+	return &HTTPRouteStatus{&r.r.Status}
 }
 
 func (r *HTTPRoute) Name() string {
@@ -42,6 +56,10 @@ func (r *HTTPRoute) Namespace() string {
 
 func (r *HTTPRoute) DeletionTimestamp() *v1.Time {
 	return r.r.DeletionTimestamp
+}
+
+func (r *HTTPRoute) DeepCopy() Route {
+	return &HTTPRoute{r: *r.r.DeepCopy()}
 }
 
 func (r *HTTPRoute) K8sObject() client.Object {
@@ -65,7 +83,7 @@ func (r *GRPCRoute) Spec() RouteSpec {
 }
 
 func (r *GRPCRoute) Status() RouteStatus {
-	return &GRPCRouteStatus{r.r.Status}
+	return &GRPCRouteStatus{&r.r.Status}
 }
 
 func (r *GRPCRoute) Name() string {
@@ -80,7 +98,15 @@ func (r *GRPCRoute) DeletionTimestamp() *v1.Time {
 	return r.r.DeletionTimestamp
 }
 
+func (r *GRPCRoute) DeepCopy() Route {
+	return &GRPCRoute{r: *r.r.DeepCopy()}
+}
+
 func (r *GRPCRoute) K8sObject() client.Object {
+	return &r.r
+}
+
+func (r *GRPCRoute) Inner() *gateway_api_v1alpha2.GRPCRoute {
 	return &r.r
 }
 
@@ -88,6 +114,7 @@ type RouteSpec interface {
 	ParentRefs() []gateway_api_v1beta1.ParentReference
 	Hostnames() []gateway_api_v1beta1.Hostname
 	Rules() []RouteRule
+	Equals(routeSpec RouteSpec) bool
 }
 
 type HTTPRouteSpec struct {
@@ -110,6 +137,34 @@ func (s *HTTPRouteSpec) Rules() []RouteRule {
 	return rules
 }
 
+func (s *HTTPRouteSpec) Equals(routeSpec RouteSpec) bool {
+	_, ok := routeSpec.(*HTTPRouteSpec)
+	if !ok {
+		return false
+	}
+
+	if !reflect.DeepEqual(s.ParentRefs(), routeSpec.ParentRefs()) {
+		return false
+	}
+
+	if !reflect.DeepEqual(s.Hostnames(), routeSpec.Hostnames()) {
+		return false
+	}
+
+	if len(s.Rules()) != len(routeSpec.Rules()) {
+		return false
+	}
+
+	for i, rule := range s.Rules() {
+		otherRule := routeSpec.Rules()[i]
+		if !rule.Equals(otherRule) {
+			return false
+		}
+	}
+
+	return true
+}
+
 type GRPCRouteSpec struct {
 	s gateway_api_v1alpha2.GRPCRouteSpec
 }
@@ -130,29 +185,67 @@ func (s *GRPCRouteSpec) Rules() []RouteRule {
 	return rules
 }
 
+func (s *GRPCRouteSpec) Equals(routeSpec RouteSpec) bool {
+	_, ok := routeSpec.(*GRPCRouteSpec)
+	if !ok {
+		return false
+	}
+
+	if !reflect.DeepEqual(s.ParentRefs(), routeSpec.ParentRefs()) {
+		return false
+	}
+
+	if !reflect.DeepEqual(s.Hostnames(), routeSpec.Hostnames()) {
+		return false
+	}
+
+	if len(s.Rules()) != len(routeSpec.Rules()) {
+		return false
+	}
+
+	for i, rule := range s.Rules() {
+		otherRule := routeSpec.Rules()[i]
+		if !rule.Equals(otherRule) {
+			return false
+		}
+	}
+
+	return true
+}
+
 type RouteStatus interface {
 	Parents() []gateway_api_v1beta1.RouteParentStatus
+	SetParents(parents []gateway_api_v1beta1.RouteParentStatus)
 }
 
 type HTTPRouteStatus struct {
-	s gateway_api_v1beta1.HTTPRouteStatus
+	s *gateway_api_v1beta1.HTTPRouteStatus
 }
 
 func (s *HTTPRouteStatus) Parents() []gateway_api_v1beta1.RouteParentStatus {
 	return s.s.Parents
 }
 
+func (s *HTTPRouteStatus) SetParents(parents []gateway_api_v1beta1.RouteParentStatus) {
+	s.s.Parents = parents
+}
+
 type GRPCRouteStatus struct {
-	s gateway_api_v1alpha2.GRPCRouteStatus
+	s *gateway_api_v1alpha2.GRPCRouteStatus
 }
 
 func (s *GRPCRouteStatus) Parents() []gateway_api_v1beta1.RouteParentStatus {
 	return s.s.Parents
 }
 
+func (s *GRPCRouteStatus) SetParents(parents []gateway_api_v1beta1.RouteParentStatus) {
+	s.s.Parents = parents
+}
+
 type RouteRule interface {
 	BackendRefs() []BackendRef
 	Matches() []RouteMatch
+	Equals(routeRule RouteRule) bool
 }
 
 type HTTPRouteRule struct {
@@ -175,6 +268,35 @@ func (r *HTTPRouteRule) Matches() []RouteMatch {
 	return routeMatches
 }
 
+func (r *HTTPRouteRule) Equals(routeRule RouteRule) bool {
+	other, ok := routeRule.(*HTTPRouteRule)
+	if !ok {
+		return false
+	}
+
+	if len(r.BackendRefs()) != len(other.BackendRefs()) {
+		return false
+	}
+	for i, backendRef := range r.BackendRefs() {
+		otherBackendRef := other.BackendRefs()[i]
+		if !backendRef.Equals(otherBackendRef) {
+			return false
+		}
+	}
+
+	if len(r.Matches()) != len(other.Matches()) {
+		return false
+	}
+	for i, match := range r.Matches() {
+		otherMatch := other.Matches()[i]
+		if !match.Equals(otherMatch) {
+			return false
+		}
+	}
+
+	return true
+}
+
 type GRPCRouteRule struct {
 	r gateway_api_v1alpha2.GRPCRouteRule
 }
@@ -195,6 +317,35 @@ func (r *GRPCRouteRule) Matches() []RouteMatch {
 	return routeMatches
 }
 
+func (r *GRPCRouteRule) Equals(routeRule RouteRule) bool {
+	other, ok := routeRule.(*GRPCRouteRule)
+	if !ok {
+		return false
+	}
+
+	if len(r.BackendRefs()) != len(other.BackendRefs()) {
+		return false
+	}
+	for i, backendRef := range r.BackendRefs() {
+		otherBackendRef := other.BackendRefs()[i]
+		if !backendRef.Equals(otherBackendRef) {
+			return false
+		}
+	}
+
+	if len(r.Matches()) != len(other.Matches()) {
+		return false
+	}
+	for i, match := range r.Matches() {
+		otherMatch := other.Matches()[i]
+		if !match.Equals(otherMatch) {
+			return false
+		}
+	}
+
+	return true
+}
+
 type BackendRef interface {
 	Weight() *int32
 	Group() *gateway_api_v1beta1.Group
@@ -202,6 +353,7 @@ type BackendRef interface {
 	Name() gateway_api_v1beta1.ObjectName
 	Namespace() *gateway_api_v1beta1.Namespace
 	Port() *gateway_api_v1beta1.PortNumber
+	Equals(backendRef BackendRef) bool
 }
 
 type HTTPBackendRef struct {
@@ -232,6 +384,31 @@ func (r *HTTPBackendRef) Port() *gateway_api_v1beta1.PortNumber {
 	return r.r.Port
 }
 
+func (r *HTTPBackendRef) Equals(backendRef BackendRef) bool {
+	other, ok := backendRef.(*HTTPBackendRef)
+	if !ok {
+		return false
+	}
+
+	if (r.Weight() == nil && other.Weight() != nil) || (r.Weight() != nil && other.Weight() == nil) {
+		return false
+	}
+
+	if r.Weight() != nil && other.Weight() != nil && *r.Weight() != *other.Weight() {
+		return false
+	}
+
+	if !reflect.DeepEqual(r.Group(), other.Group()) ||
+		!reflect.DeepEqual(r.Kind(), other.Kind()) ||
+		!reflect.DeepEqual(r.Name(), other.Name()) ||
+		!reflect.DeepEqual(r.Namespace(), other.Namespace()) ||
+		!reflect.DeepEqual(r.Port(), other.Port()) {
+		return false
+	}
+
+	return true
+}
+
 type GRPCBackendRef struct {
 	r gateway_api_v1alpha2.GRPCBackendRef
 }
@@ -260,8 +437,34 @@ func (r *GRPCBackendRef) Port() *gateway_api_v1beta1.PortNumber {
 	return r.r.Port
 }
 
+func (r *GRPCBackendRef) Equals(backendRef BackendRef) bool {
+	other, ok := backendRef.(*GRPCBackendRef)
+	if !ok {
+		return false
+	}
+
+	if (r.Weight() == nil && other.Weight() != nil) || (r.Weight() != nil && other.Weight() == nil) {
+		return false
+	}
+
+	if r.Weight() != nil && other.Weight() != nil && *r.Weight() != *other.Weight() {
+		return false
+	}
+
+	if !reflect.DeepEqual(r.Group(), other.Group()) ||
+		!reflect.DeepEqual(r.Kind(), other.Kind()) ||
+		!reflect.DeepEqual(r.Name(), other.Name()) ||
+		!reflect.DeepEqual(r.Namespace(), other.Namespace()) ||
+		!reflect.DeepEqual(r.Port(), other.Port()) {
+		return false
+	}
+
+	return true
+}
+
 type RouteMatch interface {
 	Headers() []HeaderMatch
+	Equals(routeMatch RouteMatch) bool
 }
 
 type HTTPRouteMatch struct {
@@ -288,6 +491,37 @@ func (m *HTTPRouteMatch) Method() *gateway_api_v1beta1.HTTPMethod {
 	return m.m.Method
 }
 
+func (m *HTTPRouteMatch) Equals(routeMatch RouteMatch) bool {
+	other, ok := routeMatch.(*HTTPRouteMatch)
+	if !ok {
+		return false
+	}
+
+	if len(m.Headers()) != len(other.Headers()) {
+		return false
+	}
+
+	for i, header := range m.Headers() {
+		if !header.Equals(other.Headers()[i]) {
+			return false
+		}
+	}
+
+	if !reflect.DeepEqual(m.Path(), other.Path()) {
+		return false
+	}
+
+	if !reflect.DeepEqual(m.QueryParams(), other.QueryParams()) {
+		return false
+	}
+
+	if !reflect.DeepEqual(m.Method(), other.Method()) {
+		return false
+	}
+
+	return true
+}
+
 type GRPCRouteMatch struct {
 	m gateway_api_v1alpha2.GRPCRouteMatch
 }
@@ -304,10 +538,34 @@ func (m *GRPCRouteMatch) Method() *gateway_api_v1alpha2.GRPCMethodMatch {
 	return m.m.Method
 }
 
+func (m *GRPCRouteMatch) Equals(routeMatch RouteMatch) bool {
+	other, ok := routeMatch.(*GRPCRouteMatch)
+	if !ok {
+		return false
+	}
+
+	if len(m.Headers()) != len(other.Headers()) {
+		return false
+	}
+
+	for i, header := range m.Headers() {
+		if !header.Equals(other.Headers()[i]) {
+			return false
+		}
+	}
+
+	if !reflect.DeepEqual(m.Method(), other.Method()) {
+		return false
+	}
+
+	return true
+}
+
 type HeaderMatch interface {
 	Type() *gateway_api_v1beta1.HeaderMatchType
 	Name() string
 	Value() string
+	Equals(headerMatch HeaderMatch) bool
 }
 
 type HTTPHeaderMatch struct {
@@ -326,6 +584,17 @@ func (m *HTTPHeaderMatch) Value() string {
 	return m.m.Value
 }
 
+func (m *HTTPHeaderMatch) Equals(headerMatch HeaderMatch) bool {
+	other, ok := headerMatch.(*HTTPHeaderMatch)
+	if !ok {
+		return false
+	}
+
+	return m.Type() == other.Type() &&
+		m.Name() == other.Name() &&
+		m.Value() == other.Value()
+}
+
 type GRPCHeaderMatch struct {
 	m gateway_api_v1alpha2.GRPCHeaderMatch
 }
@@ -340,4 +609,15 @@ func (m *GRPCHeaderMatch) Name() string {
 
 func (m *GRPCHeaderMatch) Value() string {
 	return m.m.Value
+}
+
+func (m *GRPCHeaderMatch) Equals(headerMatch HeaderMatch) bool {
+	other, ok := headerMatch.(*GRPCHeaderMatch)
+	if !ok {
+		return false
+	}
+
+	return m.Type() == other.Type() &&
+		m.Name() == other.Name() &&
+		m.Value() == other.Value()
 }

@@ -6,12 +6,12 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
 
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -34,7 +34,6 @@ const (
 )
 
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
-
 	var ruleID = 1
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
@@ -69,46 +68,72 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 			// only support 1 match today
 			match := rule.Matches()[0]
 
-			switch httpMatch := match.(type) {
+			switch m := match.(type) {
 			case *core.HTTPRouteMatch:
-				if httpMatch.Path() != nil && httpMatch.Path().Type != nil {
+				if m.Path() != nil && m.Path().Type != nil {
 					glog.V(6).Infof("Examining pathmatch type %v value %v for for httproute %s namespace %s ",
-						*httpMatch.Path().Type, *httpMatch.Path().Value, t.route.Name(), t.route.Namespace())
+						*m.Path().Type, *m.Path().Value, t.route.Name(), t.route.Namespace())
 
-					switch *httpMatch.Path().Type {
-					case gateway_api.PathMatchExact:
+					switch *m.Path().Type {
+					case gateway_api_v1beta1.PathMatchExact:
 						glog.V(6).Infof("Using PathMatchExact for httproute %s namespace %s ",
 							t.route.Name(), t.route.Namespace())
 						ruleSpec.PathMatchExact = true
 
-					case gateway_api.PathMatchPathPrefix:
+					case gateway_api_v1beta1.PathMatchPathPrefix:
 						glog.V(6).Infof("Using PathMatchPathPrefix for httproute %s namespace %s ",
 							t.route.Name(), t.route.Namespace())
 						ruleSpec.PathMatchPrefix = true
 					default:
 						glog.V(2).Infof("Unsupported path match type %v for httproute %s namespace %s",
-							*httpMatch.Path().Type, t.route.Name(), t.route.Namespace())
+							*m.Path().Type, t.route.Name(), t.route.Namespace())
 						return errors.New(LATTICE_UNSUPPORTED_PATH_MATCH_TYPE)
 					}
-					ruleSpec.PathMatchValue = *httpMatch.Path().Value
+					ruleSpec.PathMatchValue = *m.Path().Value
 				}
 
 				// method based match
-				if httpMatch.Method() != nil {
+				if m.Method() != nil {
 					glog.V(6).Infof("Examining http method %v for httproute %v namespace %v",
-						*httpMatch.Method(), t.route.Name(), t.route.Namespace())
+						*m.Method(), t.route.Name(), t.route.Namespace())
 
-					ruleSpec.Method = string(*httpMatch.Method())
+					ruleSpec.Method = string(*m.Method())
 				}
 
 				// controller does not support query matcher type today
-				if httpMatch.QueryParams() != nil {
+				if m.QueryParams() != nil {
 					glog.V(2).Infof("Unsupported match type for httproute %v, namespace %v",
 						t.route.Name(), t.route.Namespace())
 					return errors.New(LATTICE_UNSUPPORTED_MATCH_TYPE)
 				}
+			case *core.GRPCRouteMatch:
+				glog.V(6).Infof("Building rule with GRPCRouteMatch, %v", *m)
+				ruleSpec.Method = string(gateway_api_v1beta1.HTTPMethodPost)
+				method := m.Method()
+				// VPC Lattice doesn't support suffix/regex matching, so we can't support method match without service
+				if method.Service == nil && method.Method != nil {
+					return fmt.Errorf("cannot create GRPCRouteMatch for nil service and non-nil method")
+				}
+				switch *method.Type {
+				case gateway_api_v1alpha2.GRPCMethodMatchExact:
+					if method.Service == nil {
+						glog.V(6).Infof("Match all paths due to nil service and nil method")
+						ruleSpec.PathMatchPrefix = true
+						ruleSpec.PathMatchValue = "/"
+					} else if method.Method == nil {
+						glog.V(6).Infof("Match by specific gRPC service %s, regardless of method", *method.Service)
+						ruleSpec.PathMatchPrefix = true
+						ruleSpec.PathMatchValue = fmt.Sprintf("/%s/", *method.Service)
+					} else {
+						glog.V(6).Infof("Match by specific gRPC service %s and method %s", *method.Service, *method.Method)
+						ruleSpec.PathMatchExact = true
+						ruleSpec.PathMatchValue = fmt.Sprintf("/%s/%s", *method.Service, *method.Method)
+					}
+				default:
+					return fmt.Errorf("unsupported gRPC method match type %v", *method.Type)
+				}
 			default:
-				return fmt.Errorf("unsupported rule match: %T", httpMatch)
+				return fmt.Errorf("unsupported rule match: %T", m)
 			}
 
 			// header based match
@@ -120,12 +145,12 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 
 				ruleSpec.NumOfHeaderMatches = len(match.Headers())
 
-				glog.V(6).Infof("Examing match.Headers %v for httproute %s namespace %s",
+				glog.V(6).Infof("Examining match.Headers %v for route %s, namespace %s",
 					match.Headers(), t.route.Name(), t.route.Namespace())
 
 				for i, header := range match.Headers() {
-					glog.V(6).Infof("Examing match.Header: i = %d header.Type %v", i, *header.Type())
-					if header.Type() != nil && *header.Type() != gateway_api.HeaderMatchExact {
+					glog.V(6).Infof("Examining match.Header: i = %d header.Type %v", i, *header.Type())
+					if header.Type() != nil && *header.Type() != gateway_api_v1beta1.HeaderMatchExact {
 						glog.V(2).Infof("Unsupported header matchtype %v for httproute %v namespace %s",
 							*header.Type(), t.route.Name(), t.route.Namespace())
 						return errors.New(LATTICE_UNSUPPORTED_HEADER_MATCH_TYPE)
@@ -138,11 +163,11 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 						Exact: aws.String(header.Value()),
 					}
 					ruleSpec.MatchedHeaders[i].Match = &matchType
-					header_name := header.Name()
+					headerName := header.Name()
 
-					glog.V(6).Infof("Found matching i = %d header_name %v", i, &header_name)
+					glog.V(6).Infof("Found matching i = %d headerName %v", i, &headerName)
 
-					ruleSpec.MatchedHeaders[i].Name = &header_name
+					ruleSpec.MatchedHeaders[i].Name = &headerName
 				}
 			}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/utils/pointer"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -12,7 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -26,51 +28,52 @@ import (
 )
 
 func Test_RuleModelBuild(t *testing.T) {
-	var httpSectionName gateway_api.SectionName = "http"
-	var serviceKind gateway_api.Kind = "Service"
-	var serviceimportKind gateway_api.Kind = "ServiceImport"
+	var httpSectionName v1beta1.SectionName = "http"
+	var serviceKind v1beta1.Kind = "Service"
+	var serviceimportKind v1beta1.Kind = "ServiceImport"
 	var weight1 = int32(10)
 	var weight2 = int32(90)
-	var namespace = gateway_api.Namespace("testnamespace")
-	var namespace2 = gateway_api.Namespace("testnamespace2")
+	var namespace = v1beta1.Namespace("testnamespace")
+	var namespace2 = v1beta1.Namespace("testnamespace2")
 	var path1 = "/ver1"
 	var path2 = "/ver2"
 	var path3 = "/ver3"
-	var httpGet = gateway_api.HTTPMethodGet
-	var httpPost = gateway_api.HTTPMethodPost
-	var k8sPathMatchExactType = gateway_api.PathMatchExact
-	var backendRef1 = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var httpGet = v1beta1.HTTPMethodGet
+	var httpPost = v1beta1.HTTPMethodPost
+	var k8sPathMatchExactType = v1beta1.PathMatchExact
+	var k8sMethodMatchExactType = v1alpha2.GRPCMethodMatchExact
+	var backendRef1 = v1beta1.BackendRef{
+		BackendObjectReference: v1beta1.BackendObjectReference{
 			Name: "targetgroup1",
 			Kind: &serviceKind,
 		},
 		Weight: &weight1,
 	}
-	var backendRef2 = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var backendRef2 = v1beta1.BackendRef{
+		BackendObjectReference: v1beta1.BackendObjectReference{
 			Name: "targetgroup2",
 			Kind: &serviceimportKind,
 		},
 		Weight: &weight2,
 	}
-	var backendRef1Namespace1 = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var backendRef1Namespace1 = v1beta1.BackendRef{
+		BackendObjectReference: v1beta1.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace,
 			Kind:      &serviceimportKind,
 		},
 		Weight: &weight2,
 	}
-	var backendRef1Namespace2 = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var backendRef1Namespace2 = v1beta1.BackendRef{
+		BackendObjectReference: v1beta1.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace2,
 			Kind:      &serviceimportKind,
 		},
 		Weight: &weight2,
 	}
-	var backendServiceImportRef = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var backendServiceImportRef = v1beta1.BackendRef{
+		BackendObjectReference: v1beta1.BackendObjectReference{
 			Name: "targetgroup1",
 			Kind: &serviceimportKind,
 		},
@@ -78,7 +81,7 @@ func Test_RuleModelBuild(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		gwListenerPort     gateway_api.PortNumber
+		gwListenerPort     v1beta1.PortNumber
 		route              core.Route
 		wantErrIsNil       bool
 		k8sGetGatewayCall  bool
@@ -90,23 +93,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -122,23 +125,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendServiceImportRef,
 								},
@@ -154,23 +157,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -189,48 +192,48 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 
 										Value: &path2,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef2,
 								},
@@ -246,40 +249,40 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 									Method: &httpGet,
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 									Method: &httpPost,
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef2,
 								},
@@ -295,58 +298,163 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "non-default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Value: &path2,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1Namespace1,
 								},
 							},
 						},
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Value: &path3,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
+								{
+									BackendRef: backendRef1Namespace2,
+								},
+							},
+						},
+					},
+				},
+			}),
+		},
+		{
+			name:               "rule, default service import action for GRPCRoute",
+			gwListenerPort:     *PortNumberPtr(80),
+			wantErrIsNil:       true,
+			k8sGetGatewayCall:  true,
+			k8sGatewayReturnOK: true,
+			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: v1alpha2.CommonRouteSpec{
+						ParentRefs: []v1alpha2.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.GRPCRouteRule{
+						{
+							BackendRefs: []v1alpha2.GRPCBackendRef{
+								{
+									BackendRef: backendServiceImportRef,
+								},
+							},
+						},
+					},
+				},
+			}),
+		},
+		{
+			name:               "rule, gRPC routes with methods and multiple namespaces",
+			gwListenerPort:     *PortNumberPtr(80),
+			wantErrIsNil:       true,
+			k8sGetGatewayCall:  true,
+			k8sGatewayReturnOK: true,
+			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "non-default",
+				},
+				Spec: v1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.GRPCRouteRule{
+						{
+							Matches: []v1alpha2.GRPCRouteMatch{
+								{
+									Method: &v1alpha2.GRPCMethodMatch{
+										Type:    &k8sMethodMatchExactType,
+										Service: pointer.String("service"),
+										Method:  pointer.String("method1"),
+									},
+								},
+							},
+							BackendRefs: []v1alpha2.GRPCBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+						{
+							Matches: []v1alpha2.GRPCRouteMatch{
+								{
+									Method: &v1alpha2.GRPCMethodMatch{
+										Type:    &k8sMethodMatchExactType,
+										Service: pointer.String("service"),
+										Method:  pointer.String("method2"),
+									},
+								},
+							},
+							BackendRefs: []v1alpha2.GRPCBackendRef{
+								{
+									BackendRef: backendRef1Namespace1,
+								},
+							},
+						},
+						{
+							Matches: []v1alpha2.GRPCRouteMatch{
+								{
+									Method: &v1alpha2.GRPCMethodMatch{
+										Type:    &k8sMethodMatchExactType,
+										Service: pointer.String("service"),
+										Method:  pointer.String("method3"),
+									},
+								},
+							},
+							BackendRefs: []v1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1Namespace2,
 								},
@@ -368,10 +476,10 @@ func Test_RuleModelBuild(t *testing.T) {
 		if tt.k8sGetGatewayCall {
 
 			k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, gwName types.NamespacedName, gw *gateway_api.Gateway, arg3 ...interface{}) error {
+				func(ctx context.Context, gwName types.NamespacedName, gw *v1beta1.Gateway, arg3 ...interface{}) error {
 
 					if tt.k8sGatewayReturnOK {
-						gw.Spec.Listeners = append(gw.Spec.Listeners, gateway_api.Listener{
+						gw.Spec.Listeners = append(gw.Spec.Listeners, v1beta1.Listener{
 							Port: tt.gwListenerPort,
 							Name: *tt.route.Spec().ParentRefs()[0].SectionName,
 						})
@@ -420,9 +528,9 @@ func Test_RuleModelBuild(t *testing.T) {
 			var j = 0
 			for _, tg := range resRule.Spec.Action.TargetGroups {
 
-				assert.Equal(t, gateway_api.ObjectName(tg.Name), tt.route.Spec().Rules()[i-1].BackendRefs()[j].Name())
+				assert.Equal(t, v1beta1.ObjectName(tg.Name), tt.route.Spec().Rules()[i-1].BackendRefs()[j].Name())
 				if tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace() != nil {
-					assert.Equal(t, gateway_api.Namespace(tg.Namespace), *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace())
+					assert.Equal(t, v1beta1.Namespace(tg.Namespace), *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace())
 				} else {
 					assert.Equal(t, tg.Namespace, tt.route.Namespace())
 				}
@@ -441,22 +549,23 @@ func Test_RuleModelBuild(t *testing.T) {
 }
 
 func Test_HeadersRuleBuild(t *testing.T) {
-	var httpSectionName gateway_api.SectionName = "http"
-	var serviceKind gateway_api.Kind = "Service"
+	var httpSectionName v1beta1.SectionName = "http"
+	var serviceKind v1beta1.Kind = "Service"
 
-	var namespace = gateway_api.Namespace("default")
+	var namespace = v1beta1.Namespace("default")
 	var path1 = "/ver1"
-	var k8sPathMatchExactType = gateway_api.PathMatchExact
-	var k8sPathMatchPrefixType = gateway_api.PathMatchPathPrefix
+	var k8sPathMatchExactType = v1beta1.PathMatchExact
+	var k8sPathMatchPrefixType = v1beta1.PathMatchPathPrefix
+	var k8sMethodMatchExactType = v1alpha2.GRPCMethodMatchExact
 
-	var k8sHeaderExactType = gateway_api.HeaderMatchExact
+	var k8sHeaderExactType = v1beta1.HeaderMatchExact
 	var hdr1 = "env1"
 	var hdr1Value = "test1"
 	var hdr2 = "env2"
 	var hdr2Value = "test2"
 
-	var backendRef1 = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var backendRef1 = v1beta1.BackendRef{
+		BackendObjectReference: v1beta1.BackendObjectReference{
 			Name:      "targetgroup1",
 			Namespace: &namespace,
 			Kind:      &serviceKind,
@@ -465,7 +574,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		gwListenerPort   gateway_api.PortNumber
+		gwListenerPort   v1beta1.PortNumber
 		route            core.Route
 		expectedRuleSpec latticemodel.RuleSpec
 		wantErrIsNil     bool
@@ -477,32 +586,32 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -523,32 +632,32 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchPrefixType,
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -568,39 +677,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 
-									//	Path: &gateway_api.HTTPPathMatch{
+									//	Path: &v1beta1.HTTPPathMatch{
 									//		Type:  &k8sPathMatchPrefixType,
 									//		Value: &path1,
 									//	},
-									Headers: []gateway_api.HTTPHeaderMatch{
+									Headers: []v1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Name:  v1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -632,39 +741,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
-									Headers: []gateway_api.HTTPHeaderMatch{
+									Headers: []v1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Name:  v1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Name:  v1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -700,44 +809,44 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
-									Headers: []gateway_api.HTTPHeaderMatch{
+									Headers: []v1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Name:  v1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Name:  v1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -775,44 +884,44 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchPrefixType,
 										Value: &path1,
 									},
-									Headers: []gateway_api.HTTPHeaderMatch{
+									Headers: []v1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Name:  v1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Name:  v1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -850,39 +959,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
-									Headers: []gateway_api.HTTPHeaderMatch{
+									Headers: []v1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Name:  v1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Name:  v1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -918,64 +1027,64 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
-									Headers: []gateway_api.HTTPHeaderMatch{
+									Headers: []v1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Name:  v1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Name:  v1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Name:  v1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Name:  v1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr1),
+											Name:  v1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gateway_api.HTTPHeaderName(hdr2),
+											Name:  v1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -1013,39 +1122,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: v1beta1.HTTPRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
 							{
 								Name:        "mesh1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []v1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []v1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
 								},
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &v1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []v1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -1057,6 +1166,252 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			expectedRuleSpec: latticemodel.RuleSpec{
 				PathMatchExact: true,
 				PathMatchValue: path1,
+			},
+		},
+		{
+			name:           "GRPC match on service and method",
+			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil:   false,
+			samerule:       true,
+
+			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.GRPCRouteRule{
+						{
+							Matches: []v1alpha2.GRPCRouteMatch{
+								{
+									Method: &v1alpha2.GRPCMethodMatch{
+										Type:    &k8sMethodMatchExactType,
+										Service: pointer.String("service"),
+										Method:  pointer.String("method"),
+									},
+								},
+							},
+
+							BackendRefs: []v1alpha2.GRPCBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedRuleSpec: latticemodel.RuleSpec{
+				Method:             "POST",
+				NumOfHeaderMatches: 0,
+				PathMatchExact:     true,
+				PathMatchValue:     "/service/method",
+			},
+		},
+		{
+			name:           "GRPC match on service",
+			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil:   false,
+			samerule:       true,
+
+			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.GRPCRouteRule{
+						{
+							Matches: []v1alpha2.GRPCRouteMatch{
+								{
+									Method: &v1alpha2.GRPCMethodMatch{
+										Type:    &k8sMethodMatchExactType,
+										Service: pointer.String("service"),
+									},
+								},
+							},
+
+							BackendRefs: []v1alpha2.GRPCBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedRuleSpec: latticemodel.RuleSpec{
+				Method:             "POST",
+				NumOfHeaderMatches: 0,
+				PathMatchPrefix:    true,
+				PathMatchValue:     "/service/",
+			},
+		},
+		{
+			name:           "GRPC match on all",
+			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil:   false,
+			samerule:       true,
+
+			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.GRPCRouteRule{
+						{
+							Matches: []v1alpha2.GRPCRouteMatch{
+								{
+									Method: &v1alpha2.GRPCMethodMatch{
+										Type: &k8sMethodMatchExactType,
+									},
+								},
+							},
+
+							BackendRefs: []v1alpha2.GRPCBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedRuleSpec: latticemodel.RuleSpec{
+				Method:             "POST",
+				NumOfHeaderMatches: 0,
+				PathMatchPrefix:    true,
+				PathMatchValue:     "/",
+			},
+		},
+		{
+			name:           "GRPC match with 5 headers",
+			gwListenerPort: *PortNumberPtr(80),
+			wantErrIsNil:   false,
+			samerule:       true,
+
+			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: v1beta1.CommonRouteSpec{
+						ParentRefs: []v1beta1.ParentReference{
+							{
+								Name:        "mesh1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []v1alpha2.GRPCRouteRule{
+						{
+							Matches: []v1alpha2.GRPCRouteMatch{
+								{
+									Method: &v1alpha2.GRPCMethodMatch{
+										Type:    &k8sMethodMatchExactType,
+										Service: pointer.String("service"),
+									},
+									Headers: []v1alpha2.GRPCHeaderMatch{
+										{
+											Name:  "foo1",
+											Value: "bar1",
+											Type:  &k8sHeaderExactType,
+										},
+										{
+											Name:  "foo2",
+											Value: "bar2",
+											Type:  &k8sHeaderExactType,
+										},
+										{
+											Name:  "foo3",
+											Value: "bar3",
+											Type:  &k8sHeaderExactType,
+										},
+										{
+											Name:  "foo4",
+											Value: "bar4",
+											Type:  &k8sHeaderExactType,
+										},
+										{
+											Name:  "foo5",
+											Value: "bar5",
+											Type:  &k8sHeaderExactType,
+										},
+									},
+								},
+							},
+							BackendRefs: []v1alpha2.GRPCBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedRuleSpec: latticemodel.RuleSpec{
+				Method:             "POST",
+				NumOfHeaderMatches: 5,
+				PathMatchPrefix:    true,
+				PathMatchValue:     "/service/",
+				MatchedHeaders: [latticemodel.MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch{
+					{
+						Name: pointer.String("foo1"),
+						Match: &vpclattice.HeaderMatchType{
+							Exact: pointer.String("bar1"),
+						},
+					},
+					{
+						Name: pointer.String("foo2"),
+						Match: &vpclattice.HeaderMatchType{
+							Exact: pointer.String("bar2"),
+						},
+					},
+					{
+						Name: pointer.String("foo3"),
+						Match: &vpclattice.HeaderMatchType{
+							Exact: pointer.String("bar3"),
+						},
+					},
+					{
+						Name: pointer.String("foo4"),
+						Match: &vpclattice.HeaderMatchType{
+							Exact: pointer.String("bar4"),
+						},
+					},
+					{
+						Name: pointer.String("foo5"),
+						Match: &vpclattice.HeaderMatchType{
+							Exact: pointer.String("bar5"),
+						},
+					},
+				},
 			},
 		},
 	}
@@ -1071,9 +1426,9 @@ func Test_HeadersRuleBuild(t *testing.T) {
 		k8sClient := mock_client.NewMockClient(c)
 
 		k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, gwName types.NamespacedName, gw *gateway_api.Gateway, arg3 ...interface{}) error {
+			func(ctx context.Context, gwName types.NamespacedName, gw *v1beta1.Gateway, arg3 ...interface{}) error {
 
-				gw.Spec.Listeners = append(gw.Spec.Listeners, gateway_api.Listener{
+				gw.Spec.Listeners = append(gw.Spec.Listeners, v1beta1.Listener{
 					Port: tt.gwListenerPort,
 					Name: *tt.route.Spec().ParentRefs()[0].SectionName,
 				})
@@ -1176,10 +1531,18 @@ func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) 
 			rule2Hdr := rule2.MatchedHeaders[j]
 			// fmt.Printf("rule2 match: %v\n", rule2Hdr)
 
-			if *rule1Hdr.Match.Exact == *rule2Hdr.Match.Exact &&
-				*rule1Hdr.Name == *rule2Hdr.Name {
-				found = true
-				break
+			if *rule1Hdr.Name == *rule2Hdr.Name {
+				if rule1Hdr.Match.Exact != nil && rule2Hdr.Match.Exact != nil {
+					if *rule1Hdr.Match.Exact == *rule2Hdr.Match.Exact {
+						found = true
+						break
+					}
+				} else if rule1Hdr.Match.Prefix != nil && rule2Hdr.Match.Prefix != nil {
+					if *rule1Hdr.Match.Prefix == *rule2Hdr.Match.Prefix {
+						found = true
+						break
+					}
+				}
 			}
 
 		}

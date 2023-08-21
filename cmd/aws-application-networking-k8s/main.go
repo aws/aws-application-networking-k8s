@@ -42,7 +42,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/external-dns/endpoint"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
@@ -54,7 +55,8 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	//+kubebuilder:scaffold:scheme
-	utilruntime.Must(gateway_api.AddToScheme(scheme))
+	utilruntime.Must(gateway_api_v1alpha2.AddToScheme(scheme))
+	utilruntime.Must(gateway_api_v1beta1.AddToScheme(scheme))
 	utilruntime.Must(mcs_api.AddToScheme(scheme))
 	addEndpointToScheme(scheme)
 }
@@ -144,11 +146,9 @@ func main() {
 		setupLog.Fatalf("gateway controller setup failed: %s", err)
 	}
 
-	httpRouteReconciler := controllers.NewHttpRouteReconciler(cloud, mgr.GetClient(), mgr.GetScheme(), mgr.GetEventRecorderFor("httproute"), finalizerManager, latticeDataStore)
-
-	if err = httpRouteReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "HTTPRoute")
-		os.Exit(1)
+	err = controllers.RegisterAllRouteControllers(ctrlLog.Named("route"), cloud, latticeDataStore, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("route controller setup failed: %s", err)
 	}
 
 	serviceImportReconciler := controllers.NewServceImportReconciler(mgr.GetClient(), mgr.GetScheme(),
