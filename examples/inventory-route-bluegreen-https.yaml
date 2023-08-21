@@ -12,7 +12,7 @@ spec:
   - backendRefs:
     - name: inventory-ver1
       kind: Service
-      port: 8090
+      port: 80
       weight: 10
     - name: inventory-ver2
       kind: ServiceImport
