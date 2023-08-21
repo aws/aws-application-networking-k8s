@@ -1,4 +1,4 @@
-package config
+package aws
 
 import (
 	"encoding/json"

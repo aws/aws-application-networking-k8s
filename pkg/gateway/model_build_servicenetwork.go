@@ -6,7 +6,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -26,17 +26,20 @@ type ServiceNetworkModelBuilder interface {
 
 type serviceNetworkModelBuilder struct {
 	defaultTags map[string]string
+	cloud       aws.Cloud
 }
 
-func NewServiceNetworkModelBuilder() *serviceNetworkModelBuilder {
-	return &serviceNetworkModelBuilder{}
+func NewServiceNetworkModelBuilder(cloud aws.Cloud) *serviceNetworkModelBuilder {
+	return &serviceNetworkModelBuilder{cloud: cloud}
 }
 func (b *serviceNetworkModelBuilder) Build(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 
 	task := &serviceNetworkModelBuildTask{
-		gateway: gw,
-		stack:   stack,
+		gateway:      gw,
+		stack:        stack,
+		accountID:    b.cloud.GetAccountID(),
+		localGateway: b.cloud.GetServiceNetworkName(),
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -65,7 +68,7 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 	spec := latticemodel.ServiceNetworkSpec{
 		Name:           t.gateway.Name,
 		Namespace:      t.gateway.Namespace,
-		Account:        config.GetAccountID(),
+		Account:        t.accountID,
 		AssociateToVPC: false,
 	}
 
@@ -82,9 +85,8 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 		}
 
 	}
-	defaultSN, err := config.GetClusterLocalGateway()
 
-	if err == nil && defaultSN != t.gateway.Name {
+	if t.localGateway != "" && t.localGateway != t.gateway.Name {
 		// there is a default gateway for local cluster, all other gateways are not associate to VPC
 		spec.AssociateToVPC = false
 	}
@@ -105,5 +107,7 @@ type serviceNetworkModelBuildTask struct {
 
 	mesh *latticemodel.ServiceNetwork
 
-	stack core.Stack
+	stack        core.Stack
+	accountID    string
+	localGateway string
 }

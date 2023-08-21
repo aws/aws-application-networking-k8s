@@ -17,8 +17,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+)
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
+const (
+	LatticeGatewayControllerName = "application-networking.k8s.aws/gateway-api-controller"
 )
 
 type enqueueRequestsForGatewayEvent struct {
@@ -106,7 +108,7 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedHTTPRoute(queue workqueu
 			continue
 		}
 
-		if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
+		if gwClass.Spec.ControllerName == LatticeGatewayControllerName {
 			glog.V(2).Infof("Trigger HTTPRoute from Gateway event , httpRoute %s", httpRoute.Name)
 			queue.Add(reconcile.Request{
 				NamespacedName: types.NamespacedName{

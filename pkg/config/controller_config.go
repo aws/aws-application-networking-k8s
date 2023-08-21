@@ -1,12 +1,12 @@
 package config
 
+/*
 import (
 	"errors"
+	"fmt"
 	"os"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/golang/glog"
 )
 
 const (
@@ -25,107 +25,117 @@ const (
 	GATEWAY_API_CONTROLLER_LOGLEVEL = "GATEWAY_API_CONTROLLER_LOGLEVEL"
 )
 
-// GATEWAY_API_CONTROLLER_LOGLEVEL
-func GetLogLevel() string {
-	logLevel := os.Getenv(GATEWAY_API_CONTROLLER_LOGLEVEL)
-	switch strings.ToLower(logLevel) {
-	case "debug":
-		return "10"
-	case "info":
-		return "2"
-	}
-	return "2"
+type ControllerConfig struct {
+	vpcID                 string
+	region                string
+	accountID             string
+	defaultServiceNetwork string
+	logLevel              string
+	useLongTGName         bool
 }
 
-func SetLogLevel(logLevel string) {
-	os.Setenv(GATEWAY_API_CONTROLLER_LOGLEVEL, logLevel)
+func NewControllerConfig() *ControllerConfig {
+	var config ControllerConfig
+
+	config.ConfigInit()
+
+	return &config
 }
 
-// CLUSTER_VPC_ID
-func GetVpcID() string {
-	sess, _ := session.NewSession()
-	metadata := NewEC2Metadata(sess)
-
-	var err error
-
-	vpcID := os.Getenv(CLUSTER_VPC_ID)
-	if vpcID != UnknownInput {
-		glog.V(2).Infoln("CLUSTER_VPC_ID passed as input:", vpcID)
-	} else {
-		vpcID, err = metadata.VpcID()
-		glog.V(2).Infoln("CLUSTER_VPC_ID from IMDS config discovery :", vpcID)
-		if err != nil {
-			glog.V(2).Infoln("IMDS config discovery for CLUSTER_VPC_ID is NOT AVAILABLE :", err)
-		}
-	}
-	return vpcID
+func (lgc *ControllerConfig) GetLogLevel() string {
+	return lgc.logLevel
 }
 
-func SetVpcID(vpcId string) {
-	os.Setenv(CLUSTER_VPC_ID, vpcId)
+func (lgc *ControllerConfig) SetLogLevel(logLevel string) {
+	lgc.logLevel = logLevel
 }
 
-// REGION
-func GetRegion() string {
-	var err error
-
-	sess, _ := session.NewSession()
-	metadata := NewEC2Metadata(sess)
-
-	awsRegion := os.Getenv(REGION)
-	if awsRegion != UnknownInput {
-		glog.V(2).Infoln("REGION passed as input:", awsRegion)
-	} else {
-		awsRegion, err = metadata.Region()
-		glog.V(2).Infoln("REGION from IMDS config discovery :", awsRegion)
-		if err != nil {
-			glog.V(2).Infoln("IMDS config discovery for REGION is NOT AVAILABLE :", err)
-		}
-	}
-	return awsRegion
+func (lgc *ControllerConfig) GetVpcID() string {
+	return lgc.vpcID
 }
 
-// AWS_ACCOUNT_ID
-func GetAccountID() string {
-	var err error
-
-	sess, _ := session.NewSession()
-	metadata := NewEC2Metadata(sess)
-
-	accountID := os.Getenv(AWS_ACCOUNT_ID)
-	if accountID != UnknownInput {
-		glog.V(2).Infoln("AWS_ACCOUNT_ID passed as input:", accountID)
-	} else {
-		accountID, err = metadata.AccountId()
-		glog.V(2).Infoln("AWS_ACCOUNT_ID from IMDS config discovery :", accountID)
-		if err != nil {
-			glog.V(2).Infoln("IMDS config discovery for AWS_ACCOUNT_ID is NOT AVAILABLE :", err)
-		}
-	}
-	return accountID
+func (lgc *ControllerConfig) SetVpcID(vpcID string) {
+	lgc.vpcID = vpcID
 }
 
-// CLUSTER_LOCAL_GATEWAY
-func GetClusterLocalGateway() (string, error) {
-	defaultServiceNetwork := os.Getenv(CLUSTER_LOCAL_GATEWAY)
+func (lgc *ControllerConfig) GetRegion() string {
+	return lgc.region
+}
 
-	if defaultServiceNetwork == UnknownInput {
-		glog.V(2).Infoln("No CLUSTER_LOCAL_GATEWAY")
+func (lgc *ControllerConfig) GetAccountID() string {
+	return lgc.accountID
+}
+
+func (lgc *ControllerConfig) GetClusterLocalGateway() (string, error) {
+	if lgc.defaultServiceNetwork == UnknownInput {
 		return UnknownInput, errors.New(NO_DEFAULT_SERVICE_NETWORK)
-	} else {
-		glog.V(2).Infoln("CLUSTER_LOCAL_GATEWAY", defaultServiceNetwork)
 	}
-	return defaultServiceNetwork, nil
+	return lgc.defaultServiceNetwork, nil
 }
 
-// TARGET_GROUP_NAME_LEN_MODE
-func UseLongTGName() bool {
+func (lgc *ControllerConfig) UseLongTGName() bool {
+	return lgc.useLongTGName
+}
+
+var VpcID = ""
+var AccountID = ""
+var Region = ""
+var logLevel = defaultLogLevel
+var DefaultServiceNetwork = ""
+var UseLongTGName = false
+
+	func GetClusterLocalGateway() (string, error) {
+		if DefaultServiceNetwork == UnknownInput {
+			return UnknownInput, errors.New(NO_DEFAULT_SERVICE_NETWORK)
+		}
+		return DefaultServiceNetwork, nil
+	}
+
+func (lgc *ControllerConfig) ConfigInit() []error {
+	sess, _ := session.NewSession()
+	metadata := NewEC2Metadata(sess)
+	errs := make([]error, 0)
+	var err error
+
+	// CLUSTER_VPC_ID
+	lgc.vpcID = os.Getenv(CLUSTER_VPC_ID)
+	if lgc.vpcID == "" {
+		lgc.vpcID, err = metadata.VpcID()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("vpcId is not specified: %s", err))
+		}
+	}
+
+	// REGION
+	lgc.region = os.Getenv(REGION)
+	if lgc.region == "" {
+		lgc.region, err = metadata.Region()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("region is not specified: %s", err))
+		}
+	}
+
+	// AWS_ACCOUNT_ID
+	lgc.accountID = os.Getenv(AWS_ACCOUNT_ID)
+	if lgc.accountID == "" {
+		lgc.accountID, err = metadata.AccountId()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("account is not specified: %s", err))
+		}
+	}
+
+	// CLUSTER_LOCAL_GATEWAY
+	lgc.defaultServiceNetwork = os.Getenv(CLUSTER_LOCAL_GATEWAY)
+
+	// TARGET_GROUP_NAME_LEN_MODE
 	tgNameLengthMode := os.Getenv(TARGET_GROUP_NAME_LEN_MODE)
-	glog.V(2).Infoln("TARGET_GROUP_NAME_LEN_MODE", tgNameLengthMode)
 
 	if tgNameLengthMode == "long" {
-		return true
+		lgc.useLongTGName = true
 	} else {
-		return false
+		lgc.useLongTGName = false
 	}
+
+	return errs
 }
+*/

@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 
@@ -108,8 +108,11 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
+		mockCloud := mocks_aws.NewMockCloud(c)
+		mockCloud.EXPECT().GetServiceNetworkName().Return(tt.gw.ObjectMeta.Name).AnyTimes()
+		mockCloud.EXPECT().GetAccountID().Return("123456789012").AnyTimes()
 
-		builder := gateway.NewServiceNetworkModelBuilder()
+		builder := gateway.NewServiceNetworkModelBuilder(mockCloud)
 
 		stack, mesh, _ := builder.Build(context.Background(), tt.gw)
 
@@ -126,7 +129,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		if !tt.gw.DeletionTimestamp.IsZero() {
 			// testing delete
 			// insert the record in cache and verify it will be deleted later
-			ds.AddServiceNetwork(tt.gw.Name, config.GetAccountID(), "ARN", "id", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+			ds.AddServiceNetwork(tt.gw.Name, mockCloud.GetAccountID(), "ARN", "id", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 
 			gwList := &gateway_api.GatewayList{}
 
@@ -172,7 +175,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		assert.Equal(t, tt.wantSynthesizerErr, err)
 
 		// verify the local cache for triggered gateway add or delete
-		output, err := ds.GetServiceNetworkStatus(tt.gw.Name, config.GetAccountID())
+		output, err := ds.GetServiceNetworkStatus(tt.gw.Name, mockCloud.GetAccountID())
 
 		fmt.Printf("GetMeshStatus:%v, err %v\n", output, err)
 		if tt.gw.DeletionTimestamp.IsZero() {
@@ -235,6 +238,8 @@ func Test_SythesizeSDKMeshs(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
+		mockCloud := mocks_aws.NewMockCloud(c)
+		mockCloud.EXPECT().GetAccountID().Return("123456789012").AnyTimes()
 
 		ds := latticestore.NewLatticeDataStore()
 
@@ -253,7 +258,7 @@ func Test_SythesizeSDKMeshs(t *testing.T) {
 				fmt.Printf("sdkMesh %v\n", sdkMesh)
 				sdkMeshsReturned = append(sdkMeshsReturned, sdkMesh.name)
 				fmt.Printf("sdkMeshsReturned --loop %v\n", sdkMeshsReturned)
-				ds.AddServiceNetwork(sdkMesh.name, config.GetAccountID(), "staleMeshARN", "staleMeshId", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+				ds.AddServiceNetwork(sdkMesh.name, mockCloud.GetAccountID(), "staleMeshARN", "staleMeshId", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 				if !sdkMesh.isStale {
 					gwList.Items = append(gwList.Items,
 						gateway_api.Gateway{

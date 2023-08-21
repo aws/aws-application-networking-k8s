@@ -19,6 +19,7 @@ import (
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -130,6 +131,8 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 			c := gomock.NewController(t)
 			defer c.Finish()
 			ctx := context.TODO()
+			mockCloud := mocks_aws.NewMockCloud(c)
+			mockCloud.EXPECT().GetVpcID().Return("vpc-1234567890").AnyTimes()
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
@@ -146,7 +149,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 
 			ds := latticestore.NewLatticeDataStore()
 
-			builder := NewTargetGroupBuilder(k8sClient, ds, nil)
+			builder := NewTargetGroupBuilder(k8sClient, ds, mockCloud)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 
@@ -356,6 +359,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 			c := gomock.NewController(t)
 			defer c.Finish()
 			ctx := context.TODO()
+			mockCloud := mocks_aws.NewMockCloud(c)
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
@@ -372,8 +376,10 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 				Client:    k8sClient,
 				tgByResID: make(map[string]*latticemodel.TargetGroup),
 				Datastore: ds,
+				cloud:     mockCloud,
 			}
 
+			mockCloud.EXPECT().GetVpcID().Return("vpc-1234567890").AnyTimes()
 			if tt.svcExist {
 				// populate K8S service
 				for _, httpRules := range tt.route.Spec().Rules() {
@@ -577,6 +583,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.Background()
+		mockCloud := mocks_aws.NewMockCloud(c)
 
 		k8sClient := mock_client.NewMockClient(c)
 
@@ -592,7 +599,10 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 			Client:    k8sClient,
 			tgByResID: make(map[string]*latticemodel.TargetGroup),
 			Datastore: ds,
+			cloud:     mockCloud,
 		}
+
+		mockCloud.EXPECT().GetVpcID().Return("vpc-1234567890").AnyTimes()
 
 		for _, httpRules := range tt.route.Spec().Rules() {
 			for _, httpBackendRef := range httpRules.BackendRefs() {

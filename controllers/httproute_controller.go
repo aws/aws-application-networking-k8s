@@ -37,7 +37,6 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
@@ -72,8 +71,8 @@ const (
 
 func NewHttpRouteReconciler(cloud aws.Cloud, client client.Client, scheme *runtime.Scheme, eventRecorder record.EventRecorder,
 	gwReconciler *GatewayReconciler, gwClassReconciler *GatewayClassReconciler, finalizerManager k8s.FinalizerManager,
-	latticeDataStore *latticestore.LatticeDataStore) *HTTPRouteReconciler {
-	modelBuilder := gateway.NewLatticeServiceBuilder(client, latticeDataStore, cloud)
+	latticeDataStore *latticestore.LatticeDataStore, localGateway string) *HTTPRouteReconciler {
+	modelBuilder := gateway.NewLatticeServiceBuilder(client, latticeDataStore, cloud, localGateway)
 	stackDeployer := deploy.NewLatticeServiceStackDeploy(cloud, client, latticeDataStore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
@@ -191,7 +190,7 @@ func (r *HTTPRouteReconciler) isHTTPRouteRelevant(ctx context.Context, httpRoute
 		return false
 	}
 
-	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
+	if gwClass.Spec.ControllerName == eventhandlers.LatticeGatewayControllerName {
 		glog.V(6).Infof("Found aws-vpc-lattice for HTTPRoute for %v\n", httpRoute.Spec())
 
 		return true
@@ -292,7 +291,7 @@ func (r *HTTPRouteReconciler) updateHTTPRouteStatus(ctx context.Context, dns str
 		httpRoute.Status.RouteStatus.Parents = make([]gateway_api.RouteParentStatus, 1)
 	}
 	httpRoute.Status.RouteStatus.Parents[0].ParentRef = httpRoute.Spec.ParentRefs[0]
-	httpRoute.Status.RouteStatus.Parents[0].ControllerName = config.LatticeGatewayControllerName
+	httpRoute.Status.RouteStatus.Parents[0].ControllerName = eventhandlers.LatticeGatewayControllerName
 
 	// Update listener Status
 	if err := UpdateHTTPRouteListenerStatus(ctx, r.Client, coreRoute); err != nil {

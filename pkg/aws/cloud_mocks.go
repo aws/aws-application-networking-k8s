@@ -48,6 +48,48 @@ func (mr *MockCloudMockRecorder) EKS() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EKS", reflect.TypeOf((*MockCloud)(nil).EKS))
 }
 
+// GetAccountID mocks base method.
+func (m *MockCloud) GetAccountID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAccountID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetAccountID indicates an expected call of GetAccountID.
+func (mr *MockCloudMockRecorder) GetAccountID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountID", reflect.TypeOf((*MockCloud)(nil).GetAccountID))
+}
+
+// GetServiceNetworkName mocks base method.
+func (m *MockCloud) GetServiceNetworkName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetServiceNetworkName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetServiceNetworkName indicates an expected call of GetServiceNetworkName.
+func (mr *MockCloudMockRecorder) GetServiceNetworkName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServiceNetworkName", reflect.TypeOf((*MockCloud)(nil).GetServiceNetworkName))
+}
+
+// GetVpcID mocks base method.
+func (m *MockCloud) GetVpcID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetVpcID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetVpcID indicates an expected call of GetVpcID.
+func (mr *MockCloudMockRecorder) GetVpcID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVpcID", reflect.TypeOf((*MockCloud)(nil).GetVpcID))
+}
+
 // Lattice mocks base method.
 func (m *MockCloud) Lattice() services.Lattice {
 	m.ctrl.T.Helper()
@@ -60,4 +102,30 @@ func (m *MockCloud) Lattice() services.Lattice {
 func (mr *MockCloudMockRecorder) Lattice() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lattice", reflect.TypeOf((*MockCloud)(nil).Lattice))
+}
+
+// SetVpcID mocks base method.
+func (m *MockCloud) SetVpcID(vpcID string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetVpcID", vpcID)
+}
+
+// SetVpcID indicates an expected call of SetVpcID.
+func (mr *MockCloudMockRecorder) SetVpcID(vpcID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVpcID", reflect.TypeOf((*MockCloud)(nil).SetVpcID), vpcID)
+}
+
+// UseLongTGName mocks base method.
+func (m *MockCloud) UseLongTGName() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UseLongTGName")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// UseLongTGName indicates an expected call of UseLongTGName.
+func (mr *MockCloudMockRecorder) UseLongTGName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseLongTGName", reflect.TypeOf((*MockCloud)(nil).UseLongTGName))
 }

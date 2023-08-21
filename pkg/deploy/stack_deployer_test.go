@@ -49,6 +49,7 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 	latticemodel.NewListener(s, "fake-listener", 8080, "HTTP", "service1", "default", latticemodel.DefaultAction{})
 	latticemodel.NewRule(s, "fake-rule", "fake-rule", "default", 80, "HTTP", latticemodel.RuleAction{}, latticemodel.RuleSpec{})
 
+	mockCloud.EXPECT().GetVpcID().Return("fake-vpc").AnyTimes()
 	mockTargetGroupManager.EXPECT().List(gomock.Any()).AnyTimes()
 	mockListenerManager.EXPECT().List(gomock.Any(), gomock.Any()).AnyTimes()
 

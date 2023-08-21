@@ -24,7 +24,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -94,6 +94,8 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 			c := gomock.NewController(t)
 			defer c.Finish()
 			ctx := context.TODO()
+			mockCloud := mocks_aws.NewMockCloud(c)
+			mockCloud.EXPECT().GetVpcID().Return("current-vpc").AnyTimes()
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
@@ -117,12 +119,12 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 
 			ds := latticestore.NewLatticeDataStore()
 
-			builder := gateway.NewTargetGroupBuilder(k8sClient, ds, nil)
+			builder := gateway.NewTargetGroupBuilder(k8sClient, ds, mockCloud)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 			assert.Nil(t, err)
 
-			synthersizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+			synthersizer := NewTargetGroupSynthesizer(mockCloud, nil, mockTGManager, stack, ds)
 
 			tgStatus := latticemodel.TargetGroupStatus{
 				TargetGroupARN: "arn123",
@@ -245,6 +247,7 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
+		mockCloud := mocks_aws.NewMockCloud(c)
 
 		mockTGManager := NewMockTargetGroupManager(c)
 
@@ -276,7 +279,7 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 				mockTGManager.EXPECT().Get(ctx, tg).Return(latticemodel.TargetGroupStatus{TargetGroupARN: tgImport.tgARN, TargetGroupID: tgImport.tgID}, nil)
 			}
 		}
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(mockCloud, nil, mockTGManager, stack, ds)
 		err := synthesizer.SynthesizeTriggeredTargetGroup(ctx)
 		fmt.Printf("err:%v \n", err)
 
@@ -328,7 +331,13 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		return &p
 	}
 
-	config.SetVpcID("current-vpc")
+	c1 := gomock.NewController(t)
+	defer c1.Finish()
+	mockCloud := mocks_aws.NewMockCloud(c1)
+	mockCloud.EXPECT().SetVpcID("current-vpc")
+	mockCloud.EXPECT().GetVpcID().Return("current-vpc").AnyTimes()
+	mockCloud.SetVpcID("current-vpc")
+
 	srvname := "test-svc1"
 	srvnamespace := "default"
 	routename := "test-route1"
@@ -453,14 +462,15 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 		if len(tt.sdkTargetGroups) > 0 {
 			for _, sdkTG := range tt.sdkTargetGroups {
+
 				name := sdkTG.name
 				id := sdkTG.id
 				vpc := ""
 				if sdkTG.isSameVPC {
-					vpc = config.GetVpcID()
+					vpc = mockCloud.GetVpcID()
 
 				} else {
-					vpc = config.GetVpcID() + "other VPC"
+					vpc = mockCloud.GetVpcID() + "other VPC"
 				}
 
 				var tagsOutput *vpclattice.ListTagsForResourceOutput
@@ -599,7 +609,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 		mockTGManager.EXPECT().List(ctx).Return(sdkTGReturned, nil)
 
-		tgSynthesizer := NewTargetGroupSynthesizer(nil, k8sClient, mockTGManager, nil, ds)
+		tgSynthesizer := NewTargetGroupSynthesizer(mockCloud, k8sClient, mockTGManager, nil, ds)
 
 		err := tgSynthesizer.SynthesizeSDKTargetGroups(ctx)
 
@@ -684,6 +694,8 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
+		mockCloud := mocks_aws.NewMockCloud(c)
+		mockCloud.EXPECT().GetVpcID().Return("current-vpc").AnyTimes()
 
 		mockTGManager := NewMockTargetGroupManager(c)
 
@@ -720,7 +732,7 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 			}
 		}
 
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(mockCloud, nil, mockTGManager, stack, ds)
 		err := synthesizer.SynthesizeTriggeredTargetGroup(ctx)
 		fmt.Printf("err:%v \n", err)
 
@@ -802,6 +814,8 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *te
 			c := gomock.NewController(t)
 			defer c.Finish()
 			ctx := context.TODO()
+			mockCloud := mocks_aws.NewMockCloud(c)
+			mockCloud.EXPECT().GetVpcID().Return("current-vpc").AnyTimes()
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
@@ -825,12 +839,12 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *te
 
 			ds := latticestore.NewLatticeDataStore()
 
-			builder := gateway.NewTargetGroupBuilder(k8sClient, ds, nil)
+			builder := gateway.NewTargetGroupBuilder(k8sClient, ds, mockCloud)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 			assert.Nil(t, err)
 
-			synthersizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+			synthersizer := NewTargetGroupSynthesizer(mockCloud, nil, mockTGManager, stack, ds)
 
 			tgStatus := latticemodel.TargetGroupStatus{
 				TargetGroupARN: "arn123",
@@ -892,6 +906,7 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByServiceImport(t *te
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
+		mockCloud := mocks_aws.NewMockCloud(c)
 
 		mockTGManager := NewMockTargetGroupManager(c)
 		ds := latticestore.NewLatticeDataStore()
@@ -903,7 +918,7 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByServiceImport(t *te
 		}
 		stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
 
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(mockCloud, nil, mockTGManager, stack, ds)
 
 		err := synthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx)
 		assert.Nil(t, err)
@@ -992,6 +1007,8 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testi
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
+		mockCloud := mocks_aws.NewMockCloud(c)
+		mockCloud.EXPECT().GetVpcID().Return("current-vpc").AnyTimes()
 
 		mockTGManager := NewMockTargetGroupManager(c)
 
@@ -1022,7 +1039,7 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testi
 			}
 		}
 
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(mockCloud, nil, mockTGManager, stack, ds)
 		var err error
 
 		err = synthesizer.SynthesizeTriggeredTargetGroupsCreation(ctx)
@@ -1128,6 +1145,7 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByK8sService(t *testi
 		c := gomock.NewController(t)
 		defer c.Finish()
 		ctx := context.TODO()
+		mockCloud := mocks_aws.NewMockCloud(c)
 
 		mockTGManager := NewMockTargetGroupManager(c)
 
@@ -1160,7 +1178,7 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByK8sService(t *testi
 			}
 		}
 
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(mockCloud, nil, mockTGManager, stack, ds)
 		var err error
 		err = synthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx)
 		if tt.wantErrIsNil {

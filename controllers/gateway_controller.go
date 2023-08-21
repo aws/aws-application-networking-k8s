@@ -38,7 +38,6 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
@@ -65,13 +64,14 @@ type GatewayReconciler struct {
 	cloud               aws.Cloud
 	latticeDataStore    *latticestore.LatticeDataStore
 	stackMarshaller     deploy.StackMarshaller
+	accountID           string
 }
 
 func NewGatewayReconciler(client client.Client, scheme *runtime.Scheme, eventRecorder record.EventRecorder,
 	gwClassReconciler *GatewayClassReconciler, finalizerManager k8s.FinalizerManager,
-	ds *latticestore.LatticeDataStore, cloud aws.Cloud) *GatewayReconciler {
+	ds *latticestore.LatticeDataStore, cloud aws.Cloud, accountID string, localGateway string) *GatewayReconciler {
 
-	modelBuilder := gateway.NewServiceNetworkModelBuilder()
+	modelBuilder := gateway.NewServiceNetworkModelBuilder(cloud)
 	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, client, ds)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	return &GatewayReconciler{
@@ -85,6 +85,7 @@ func NewGatewayReconciler(client client.Client, scheme *runtime.Scheme, eventRec
 		cloud:             cloud,
 		latticeDataStore:  ds,
 		stackMarshaller:   stackMarshaller,
+		accountID:         accountID,
 	}
 }
 
@@ -134,7 +135,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		return client.IgnoreNotFound(err)
 	}
 
-	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
+	if gwClass.Spec.ControllerName == eventhandlers.LatticeGatewayControllerName {
 
 		if !gw.DeletionTimestamp.IsZero() {
 
@@ -237,7 +238,7 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 	}
 
 	var serviceNetworkStatus latticestore.ServiceNetwork
-	serviceNetworkStatus, err = r.latticeDataStore.GetServiceNetworkStatus(gw.Name, config.GetAccountID())
+	serviceNetworkStatus, err = r.latticeDataStore.GetServiceNetworkStatus(gw.Name, r.accountID)
 
 	glog.V(6).Infof("serviceNetworkStatus : %v for %s  error %v \n", serviceNetworkStatus, gw.Name, err)
 
@@ -287,7 +288,7 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 		cond = metav1.Condition{
 			Type:               string(gateway_api.GatewayConditionAccepted),
 			ObservedGeneration: gw.Generation,
-			Message:            config.LatticeGatewayControllerName,
+			Message:            eventhandlers.LatticeGatewayControllerName,
 			Status:             metav1.ConditionTrue,
 			Reason:             string(gateway_api.GatewayReasonAccepted),
 		}
@@ -295,7 +296,7 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 		cond = metav1.Condition{
 			Type:               string(gateway_api.GatewayConditionAccepted),
 			ObservedGeneration: gw.Generation,
-			Message:            config.LatticeGatewayControllerName,
+			Message:            eventhandlers.LatticeGatewayControllerName,
 			Status:             metav1.ConditionFalse,
 			Reason:             string(gateway_api.GatewayReasonInvalid),
 		}

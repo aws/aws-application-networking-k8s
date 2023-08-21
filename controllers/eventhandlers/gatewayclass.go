@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -11,8 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 )
 
 func NewEnqueueRequestsForGatewayClassEvent(client client.Client) handler.EventHandler {
@@ -51,7 +50,7 @@ func (h *enqueueRequestsForGatewayClassEvent) enqueueImpactedGateway(queue workq
 
 		if string(gw.Spec.GatewayClassName) == string(gwclass.Name) {
 
-			if gwclass.Spec.ControllerName == config.LatticeGatewayControllerName {
+			if gwclass.Spec.ControllerName == LatticeGatewayControllerName {
 				glog.V(6).Infof("Found matching gateway, %s\n", gw.Name)
 
 				queue.Add(reconcile.Request{

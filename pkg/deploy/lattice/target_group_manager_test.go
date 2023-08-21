@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -22,10 +21,13 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().GetVpcID().Return("fake-vpc").AnyTimes()
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
 
 	tg_types := [2]string{"by-backendref", "by-serviceexport"}
 
-	vpcId := config.GetVpcID()
+	vpcId := "fake-vpc"
 	for _, tg_type := range tg_types {
 		var tgSpec latticemodel.TargetGroupSpec
 
@@ -109,6 +111,9 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 		mockCloud := mocks_aws.NewMockCloud(c)
+		mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+		mockCloud.EXPECT().GetVpcID().Return(tgSpec.Config.VpcID).AnyTimes()
+
 		mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 		mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, &createTargetGroupInput).Return(tgCreateOutput, nil)
 		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
@@ -157,6 +162,8 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
@@ -196,6 +203,8 @@ func Test_CreateTargetGroup_TGActive_ACTIVE(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
@@ -234,6 +243,8 @@ func Test_CreateTargetGroup_TGCreateInProgress_Retry(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New(LATTICE_RETRY))
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
@@ -273,6 +284,8 @@ func Test_CreateTargetGroup_TGDeleteInProgress_Retry(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New(LATTICE_RETRY))
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
@@ -354,6 +367,8 @@ func Test_CreateTargetGroup_TGNotExist_CreateInProgress(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
@@ -394,6 +409,8 @@ func Test_CreateTargetGroup_TGNotExist_DeleteInProgress(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
@@ -434,6 +451,8 @@ func Test_CreateTargetGroup_TGNotExist_Failed(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
@@ -463,6 +482,8 @@ func Test_CreateTargetGroup_ListTGError(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New("test"))
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 	tgManager := NewTargetGroupManager(mockCloud)
@@ -502,6 +523,8 @@ func Test_CreateTargetGroup_CreateTGFailed(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, errors.New("test"))
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
@@ -560,6 +583,8 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
@@ -599,6 +624,8 @@ func Test_DeleteTG_NoRegisteredTargets_DeleteTargetGroup(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
@@ -637,6 +664,8 @@ func Test_DeleteTG_DeRegisteredTargetsFailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, errors.New("Deregister_failed"))
@@ -675,6 +704,8 @@ func Test_DeleteTG_ListTargetsFailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, errors.New("Listregister_failed"))
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
@@ -721,6 +752,8 @@ func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
@@ -768,6 +801,8 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroupFailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
@@ -809,6 +844,8 @@ func Test_DeleteTG_TargetsNonUnused(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
@@ -847,6 +884,8 @@ func Test_DeleteTG_vpcLatticeSessReturnResourceNotFound_DeleteTargetGroupSuccess
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
+
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
@@ -876,7 +915,14 @@ func Test_ListTG_TGsExist(t *testing.T) {
 	}
 	listTGOutput := []*vpclattice.TargetGroupSummary{tg1, tg2}
 
-	cfgVpcId := config.GetVpcID()
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud.EXPECT().GetVpcID().Return("my-vpc").AnyTimes()
+
+	cfgVpcId := mockCloud.GetVpcID()
 	config1 := &vpclattice.TargetGroupConfig{
 		VpcIdentifier: &cfgVpcId,
 	}
@@ -892,11 +938,6 @@ func Test_ListTG_TGsExist(t *testing.T) {
 		Config: config2,
 	}
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
 	mockVpcLatticeSess.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG1, nil)
 	// assume no tags
@@ -1051,6 +1092,7 @@ func Test_Get(t *testing.T) {
 		ctx := context.TODO()
 		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		mockCloud := mocks_aws.NewMockCloud(c)
+		mockCloud.EXPECT().UseLongTGName().Return(false).AnyTimes()
 
 		listTGinput := &vpclattice.ListTargetGroupsInput{}
 		listTGOutput := []*vpclattice.TargetGroupSummary{

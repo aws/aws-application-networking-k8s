@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -95,9 +97,15 @@ func Test_MeshModelBuild(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		cloudMock := mocks_aws.NewMockCloud(c)
+
+		cloudMock.EXPECT().GetAccountID().Return("123456789012").AnyTimes()
+		cloudMock.EXPECT().GetServiceNetworkName().Return("mesh1").AnyTimes()
 		fmt.Printf("Testing >>> %v\n", tt.name)
 		t.Run(tt.name, func(t *testing.T) {
-			builder := NewServiceNetworkModelBuilder()
+			builder := NewServiceNetworkModelBuilder(cloudMock)
 
 			_, got, err := builder.Build(context.Background(), tt.gw)
 

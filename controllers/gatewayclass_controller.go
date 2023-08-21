@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/pkg/errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +70,7 @@ func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 	gwClassLog.Info("ReconcileLoop")
-	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
+	if gwClass.Spec.ControllerName == eventhandlers.LatticeGatewayControllerName {
 		if !gwClass.DeletionTimestamp.IsZero() {
 			gwClassLog.Info("Deleting amazon-vpc-lattice GatewayClass\n")
 			latticeControllerEnabled = false

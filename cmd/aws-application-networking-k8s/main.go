@@ -18,9 +18,11 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -35,7 +37,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	//+kubebuilder:scaffold:imports
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,6 +51,15 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+type controllerConfig struct {
+	region                string
+	vpcID                 string
+	accountID             string
+	defaultServiceNetwork string
+	logLevel              string
+	useLongTGName         bool
+}
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -72,10 +83,19 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var lgcConfig controllerConfig
+
+	errs := initConfig(&lgcConfig)
+	if len(errs) > 0 {
+		for _, err := range errs {
+			setupLog.Error(err, "unable to initialize config")
+		}
+		os.Exit(1)
+	}
 
 	// setup glog level
 	flag.Lookup("logtostderr").Value.Set("true")
-	flag.Lookup("v").Value.Set(config.GetLogLevel())
+	flag.Lookup("v").Value.Set(lgcConfig.logLevel)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -90,7 +110,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	cloud, err := aws.NewCloud(config.GetRegion())
+	cloud, err := aws.NewCloud(lgcConfig.region, lgcConfig.accountID, lgcConfig.defaultServiceNetwork, lgcConfig.vpcID, lgcConfig.useLongTGName)
 
 	if err != nil {
 		setupLog.Error(err, "unable to initialize AWS cloud")
@@ -137,7 +157,7 @@ func main() {
 
 	gwReconciler := controllers.NewGatewayReconciler(mgr.GetClient(),
 		mgr.GetScheme(), mgr.GetEventRecorderFor("gateway"), gwClassReconciler, finalizerManager,
-		latticeDataStore, cloud)
+		latticeDataStore, cloud, lgcConfig.accountID, lgcConfig.defaultServiceNetwork)
 
 	if err = gwReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Gateway")
@@ -146,7 +166,7 @@ func main() {
 
 	httpRouteReconciler := controllers.NewHttpRouteReconciler(cloud, mgr.GetClient(),
 		mgr.GetScheme(), mgr.GetEventRecorderFor("httproute"), gwReconciler, gwClassReconciler, finalizerManager,
-		latticeDataStore)
+		latticeDataStore, lgcConfig.defaultServiceNetwork)
 
 	if err = httpRouteReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HTTPRoute")
@@ -190,4 +210,64 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+const (
+	defaultLogLevel                 = "Info"
+	UnknownInput                    = ""
+	NO_DEFAULT_SERVICE_NETWORK      = "NO_DEFAULT_SERVICE_NETWORK"
+	REGION                          = "REGION"
+	CLUSTER_VPC_ID                  = "CLUSTER_VPC_ID"
+	CLUSTER_LOCAL_GATEWAY           = "CLUSTER_LOCAL_GATEWAY"
+	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
+	TARGET_GROUP_NAME_LEN_MODE      = "TARGET_GROUP_NAME_LEN_MODE"
+	GATEWAY_API_CONTROLLER_LOGLEVEL = "GATEWAY_API_CONTROLLER_LOGLEVEL"
+)
+
+func initConfig(lgc *controllerConfig) []error {
+	sess, _ := session.NewSession()
+	metadata := aws.NewEC2Metadata(sess)
+	errs := make([]error, 0)
+	var err error
+
+	// CLUSTER_VPC_ID
+	lgc.vpcID = os.Getenv(CLUSTER_VPC_ID)
+	if lgc.vpcID == "" {
+		lgc.vpcID, err = metadata.VpcID()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("vpcId is not specified: %s", err))
+		}
+	}
+
+	// REGION
+	lgc.region = os.Getenv(REGION)
+	if lgc.region == "" {
+		lgc.region, err = metadata.Region()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("region is not specified: %s", err))
+		}
+	}
+
+	// AWS_ACCOUNT_ID
+	lgc.accountID = os.Getenv(AWS_ACCOUNT_ID)
+	if lgc.accountID == "" {
+		lgc.accountID, err = metadata.AccountId()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("account is not specified: %s", err))
+		}
+	}
+
+	// CLUSTER_LOCAL_GATEWAY
+	lgc.defaultServiceNetwork = os.Getenv(CLUSTER_LOCAL_GATEWAY)
+
+	// TARGET_GROUP_NAME_LEN_MODE
+	tgNameLengthMode := os.Getenv(TARGET_GROUP_NAME_LEN_MODE)
+
+	if tgNameLengthMode == "long" {
+		lgc.useLongTGName = true
+	} else {
+		lgc.useLongTGName = false
+	}
+
+	return errs
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
@@ -58,14 +57,13 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 		return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
 	}
 
-	vpcId := config.GetVpcID()
-
 	// pre declaration
 	var service_networkID string
 	var service_networkArn string
 	var isServiceNetworkAssociatedWithVPC bool
 	var service_networkAssociatedWithCurrentVPCId *string
 	vpcLatticeSess := m.cloud.Lattice()
+	vpcId := m.cloud.GetVpcID()
 	if service_networkSummary == nil {
 		glog.V(2).Infof("Create ServiceNetwork, service_network[%v] and tag it with vpciID[%s]\n", service_network, vpcId)
 		// Add tag to show this is the VPC create this servicenetwork
@@ -214,7 +212,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 	if service_networkSummary.snTags != nil && service_networkSummary.snTags.Tags != nil {
 		snTags := service_networkSummary.snTags
 		vpcOwner, ok := snTags.Tags[latticemodel.K8SServiceNetworkOwnedByVPC]
-		if ok && *vpcOwner == config.GetVpcID() {
+		if ok && *vpcOwner == m.cloud.GetVpcID() {
 			needToDelete = true
 		} else {
 			if ok {
@@ -303,7 +301,7 @@ func (m *defaultServiceNetworkManager) isServiceNetworkAssociatedWithVPC(ctx con
 	}
 
 	for _, r := range resp {
-		if aws.StringValue(r.VpcId) == config.GetVpcID() {
+		if aws.StringValue(r.VpcId) == m.cloud.GetVpcID() {
 			associationStatus := aws.StringValue(r.Status)
 			if err == nil {
 				switch associationStatus {

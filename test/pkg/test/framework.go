@@ -12,7 +12,6 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/aws/aws-application-networking-k8s/controllers"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -75,9 +74,10 @@ func NewFramework(ctx context.Context) *Framework {
 	lo.Must0(v1beta1.Install(scheme))
 	lo.Must0(v1alpha1.Install(scheme))
 	controllerRuntimeConfig := controllerruntime.GetConfigOrDie()
+
 	framework := &Framework{
 		Client:                              lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: scheme})),
-		LatticeClient:                       services.NewDefaultLattice(session.Must(session.NewSession()), config.GetRegion()), // region is currently hardcoded
+		LatticeClient:                       services.NewDefaultLattice(session.Must(session.NewSession()), os.Getenv("REGION")), // region is currently hardcoded
 		ctx:                                 ctx,
 		k8sScheme:                           scheme,
 		controllerRuntimeConfig:             controllerRuntimeConfig,

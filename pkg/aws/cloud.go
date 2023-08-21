@@ -17,10 +17,15 @@ import (
 type Cloud interface {
 	Lattice() services.Lattice
 	EKS() services.EKS
+	SetVpcID(vpcID string)
+	GetAccountID() string
+	GetServiceNetworkName() string
+	GetVpcID() string
+	UseLongTGName() bool
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud(region string) (Cloud, error) {
+func NewCloud(region string, accountID string, svcNetwork string, vpcID string, useTGLongName bool) (Cloud, error) {
 	// TODO: need to pass cfg CloudConfig later
 	sess, _ := session.NewSession()
 
@@ -43,6 +48,10 @@ func NewCloud(region string) (Cloud, error) {
 		// TODO: service
 		vpcLatticeSess: services.NewDefaultLattice(sess, region),
 		eksSess:        services.NewDefaultEKS(sess, region),
+		accountID:      accountID,
+		svcNetwork:     svcNetwork,
+		vpcID:          vpcID,
+		useTGLongName:  useTGLongName,
 	}, nil
 }
 
@@ -51,6 +60,10 @@ var _ Cloud = &defaultCloud{}
 type defaultCloud struct {
 	vpcLatticeSess services.Lattice
 	eksSess        services.EKS
+	accountID      string
+	svcNetwork     string
+	vpcID          string
+	useTGLongName  bool
 }
 
 func (d *defaultCloud) Lattice() services.Lattice {
@@ -73,4 +86,24 @@ func (d *defaultCloud) GetEKSClusterVPC(name string) string {
 		return ""
 	}
 	return (result.String())
+}
+
+func (d *defaultCloud) SetVpcID(vpcID string) {
+	d.vpcID = vpcID
+}
+
+func (d *defaultCloud) GetAccountID() string {
+	return d.accountID
+}
+
+func (d *defaultCloud) GetServiceNetworkName() string {
+	return d.svcNetwork
+}
+
+func (d *defaultCloud) GetVpcID() string {
+	return d.vpcID
+}
+
+func (d *defaultCloud) UseLongTGName() bool {
+	return d.useTGLongName
 }

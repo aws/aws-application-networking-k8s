@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/golang/glog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -29,14 +29,16 @@ type latticeServiceModelBuilder struct {
 	defaultTags map[string]string
 	Datastore   *latticestore.LatticeDataStore
 
-	cloud lattice_aws.Cloud
+	cloud        lattice_aws.Cloud
+	localGateway string
 }
 
-func NewLatticeServiceBuilder(client client.Client, datastore *latticestore.LatticeDataStore, cloud lattice_aws.Cloud) *latticeServiceModelBuilder {
+func NewLatticeServiceBuilder(client client.Client, datastore *latticestore.LatticeDataStore, cloud lattice_aws.Cloud, localGateway string) *latticeServiceModelBuilder {
 	return &latticeServiceModelBuilder{
-		Client:    client,
-		Datastore: datastore,
-		cloud:     cloud,
+		Client:       client,
+		Datastore:    datastore,
+		cloud:        cloud,
+		localGateway: localGateway,
 	}
 }
 
@@ -44,11 +46,13 @@ func (b *latticeServiceModelBuilder) Build(ctx context.Context, route core.Route
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
 
 	task := &latticeServiceModelBuildTask{
-		route:     route,
-		stack:     stack,
-		Client:    b.Client,
-		tgByResID: make(map[string]*latticemodel.TargetGroup),
-		Datastore: b.Datastore,
+		route:        route,
+		stack:        stack,
+		Client:       b.Client,
+		tgByResID:    make(map[string]*latticemodel.TargetGroup),
+		Datastore:    b.Datastore,
+		localGateway: b.localGateway,
+		cloud:        b.cloud,
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -121,8 +125,8 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
 	}
-	defaultGateway, err := config.GetClusterLocalGateway()
-	if err == nil {
+	defaultGateway := t.localGateway
+	if defaultGateway != "" {
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, defaultGateway)
 	}
 
@@ -156,6 +160,7 @@ type latticeServiceModelBuildTask struct {
 	client.Client
 
 	latticeService  *latticemodel.Service
+	localGateway    string
 	tgByResID       map[string]*latticemodel.TargetGroup
 	listenerByResID map[string]*latticemodel.Listener
 	rulesByResID    map[string]*latticemodel.Rule

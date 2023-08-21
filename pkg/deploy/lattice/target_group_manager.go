@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -33,11 +32,11 @@ func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 	}
 }
 
-func getLatticeTGName(targetGroup *latticemodel.TargetGroup) string {
+func (s *defaultTargetGroupManager) getLatticeTGName(targetGroup *latticemodel.TargetGroup) string {
 	var tgName string
-	if config.UseLongTGName() {
+	if s.cloud.UseLongTGName() {
 		tgName = latticestore.TargetGroupLongName(targetGroup.Spec.Name,
-			targetGroup.Spec.Config.K8SHTTPRouteName, config.GetVpcID())
+			targetGroup.Spec.Config.K8SHTTPRouteName, s.cloud.GetVpcID())
 	} else {
 		tgName = targetGroup.Spec.Name
 	}
@@ -66,7 +65,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 
 	glog.V(6).Infof("Create Target Group API call for name %s \n", targetGroup.Spec.Name)
 
-	latticeTGName := getLatticeTGName(targetGroup)
+	latticeTGName := s.getLatticeTGName(targetGroup)
 	// check if exists
 	tgSummary, err := s.findTGByName(ctx, latticeTGName)
 	if err != nil {
@@ -136,7 +135,7 @@ func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *lattic
 	glog.V(6).Infof("Create Lattice Target Group API call for name %s \n", targetGroup.Spec.Name)
 
 	// check if exists
-	tgSummary, err := s.findTGByName(ctx, getLatticeTGName(targetGroup))
+	tgSummary, err := s.findTGByName(ctx, s.getLatticeTGName(targetGroup))
 	if err != nil {
 		return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
 	}
@@ -252,7 +251,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 
 		//glog.V(6).Infof("Manager-List: tg-vpc %v , config.vpc %v\n", aws.StringValue(tgOutput.Config.VpcId), config.VpcID)
 
-		if tgOutput.Config != nil && aws.StringValue(tgOutput.Config.VpcIdentifier) == config.GetVpcID() {
+		if tgOutput.Config != nil && aws.StringValue(tgOutput.Config.VpcIdentifier) == s.cloud.GetVpcID() {
 			// retrieve target group tags
 			//ListTagsForResourceWithContext
 			tagsInput := vpclattice.ListTagsForResourceInput{

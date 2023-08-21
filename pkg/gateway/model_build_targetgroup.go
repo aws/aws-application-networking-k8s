@@ -12,7 +12,6 @@ import (
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -135,7 +134,7 @@ func (t *targetGroupModelBuildTask) BuildTargets(ctx context.Context) error {
 func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 	for _, httpRule := range t.route.Spec().Rules() {
 		for _, httpBackendRef := range httpRule.BackendRefs() {
-			if string(*httpBackendRef.Kind()) == "serviceimport" {
+			if string(*httpBackendRef.Kind()) == "ServiceImport" {
 				glog.V(6).Infof("latticeServiceModelBuildTask: ignore service: %v \n", httpBackendRef)
 				continue
 			}
@@ -190,7 +189,7 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		Name: tgName,
 		Type: latticemodel.TargetGroupTypeIP,
 		Config: latticemodel.TargetGroupConfig{
-			VpcID: config.GetVpcID(),
+			VpcID: t.cloud.GetVpcID(),
 			// Fill in default HTTP port as we are using target port anyway.
 			Port:                80,
 			IsServiceImport:     false,
@@ -293,7 +292,7 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	backendKind := string(*httpBackendRef.Kind())
 	glog.V(6).Infof("buildTargetGroupSpec,  kind %s\n", backendKind)
 
-	var vpc = config.GetVpcID()
+	var vpc = t.cloud.GetVpcID()
 	var ekscluster = ""
 	var isServiceImport bool
 	var isDeleted bool

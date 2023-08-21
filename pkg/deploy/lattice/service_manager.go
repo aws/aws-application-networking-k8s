@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -73,7 +72,7 @@ func (s *defaultServiceManager) Create(ctx context.Context, service *latticemode
 		if len(service.Spec.CustomerDomainName) > 0 {
 			serviceInput.CustomDomainName = &service.Spec.CustomerDomainName
 		}
-		vpcId := config.GetVpcID()
+		vpcId := s.cloud.GetVpcID()
 		serviceInput.Tags[latticemodel.K8SServiceOwnedByVPC] = &vpcId
 
 		if len(service.Spec.CustomerCertARN) > 0 {
@@ -230,7 +229,7 @@ func (s *defaultServiceManager) serviceNetworkAssociationMgr(ctx context.Context
 	// check if SN is in association list,
 	// if NOT, create svc-> SN association
 	for _, snName := range snNames {
-		serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(snName, config.GetAccountID())
+		serviceNetwork, err := s.latticeDataStore.GetServiceNetworkStatus(snName, s.cloud.GetAccountID())
 		if err != nil {
 			glog.V(2).Infof("Unable find service network[%v] in cache to associate sservice %v to",
 				snName, svcID)
