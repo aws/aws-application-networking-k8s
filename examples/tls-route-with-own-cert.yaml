@@ -12,7 +12,7 @@ spec:
   - backendRefs:
     - name: parking-ver3
       kind: Service
-      port: 8090
+      port: 80
     matches:
     - path:
         type: Exact
