@@ -69,13 +69,13 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	err := t.buildLatticeService(ctx)
 
 	if err != nil {
-		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildLatticeService %s", err)
+		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildLatticeService %w", err)
 	}
 
 	_, err = t.buildTargetGroup(ctx, t.Client)
 
 	if err != nil {
-		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildTargetGroup %+v", err)
+		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildTargetGroup %w", err)
 	}
 
 	if !t.route.DeletionTimestamp().IsZero() {
@@ -92,13 +92,13 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	err = t.buildListener(ctx)
 
 	if err != nil {
-		return fmt.Errorf("latticeServiceModelBuildTask: Failed on building listener %+v", err)
+		return fmt.Errorf("latticeServiceModelBuildTask: Failed on building listener %w", err)
 	}
 
 	err = t.buildRules(ctx)
 
 	if err != nil {
-		return fmt.Errorf("latticeServiceModelBuildTask: Failed on building rule %+v", err)
+		return fmt.Errorf("latticeServiceModelBuildTask: Failed on building rule %w", err)
 	}
 
 	return nil

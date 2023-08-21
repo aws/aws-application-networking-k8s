@@ -27,7 +27,8 @@ func NewEnqueueRequestRouteEvent(log gwlog.Logger, client client.Client) handler
 }
 
 func (h *enqueueRequestsForRouteEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	h.log.Infof("Received CreateRoute event %+v", e)
+	h.log.Infof("Received CreateRoute event for %s", e.Object.GetName())
+	h.log.Debugf("CreateRoute event %+v", e)
 
 	newRoute, err := core.NewRoute(e.Object)
 	if err != nil {
@@ -38,6 +39,9 @@ func (h *enqueueRequestsForRouteEvent) Create(e event.CreateEvent, queue workque
 }
 
 func (h *enqueueRequestsForRouteEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+	h.log.Infof("Received UpdateRoute event for %s", e.ObjectOld.GetName())
+	h.log.Debugf("UpdateRoute event %+v", e)
+
 	oldRoute, err := core.NewRoute(e.ObjectOld)
 	if err != nil {
 		h.log.Errorf("Error while reading old route in UpdateRouteEvent %s", err)
@@ -49,7 +53,7 @@ func (h *enqueueRequestsForRouteEvent) Update(e event.UpdateEvent, queue workque
 	}
 
 	if !oldRoute.Spec().Equals(newRoute.Spec()) {
-		h.log.Infof("New and old route are different. Old: %+v, New: %+v", oldRoute.Spec(), newRoute.Spec())
+		h.log.Debugf("New and old route are different. Old: %+v, New: %+v", oldRoute.Spec(), newRoute.Spec())
 		parents := newRoute.Status().Parents()
 		if parents != nil && parents[0].Conditions[0].LastTransitionTime != ZeroTransitionTime {
 			h.log.Info("Update Gateway Event, reset LastTransitionTime for gateway")
