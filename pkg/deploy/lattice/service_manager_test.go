@@ -111,7 +111,7 @@ func TestIntegCreateService(t *testing.T) {
 
 		lat.EXPECT().
 			ListTagsForResource(gomock.Any()).
-			Return(&GetTagsResp{
+			Return(&GetResourcesTagsResp{
 				Tags: cl.NewTagsWithManagedBy(),
 			}, nil)
 
@@ -171,14 +171,14 @@ func TestIntegCreateService(t *testing.T) {
 		lat.EXPECT().
 			ListTagsForResource(gomock.Any()).
 			DoAndReturn(
-				func(req *GetTagsReq) (*GetTagsResp, error) {
+				func(req *GetResourcesTagsReq) (*GetResourcesTagsResp, error) {
 					var tags mocks_aws.Tags
 					if *req.ResourceArn == "foreign-assoc-arn" {
 						tags = cl.NewTags()
 					} else {
 						tags = cl.NewTagsWithManagedBy()
 					}
-					return &GetTagsResp{Tags: tags}, nil
+					return &GetResourcesTagsResp{Tags: tags}, nil
 				})
 
 		status, err := m.Create(ctx, svc)

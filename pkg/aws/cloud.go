@@ -147,10 +147,6 @@ func (c *defaultCloud) IsArnManaged(arn *string) (bool, error) {
 }
 
 // a unique identifier for ManagedBy tag that controller uses
-// assumptions:
-// - single controller per 1 EKS cluster
-// - EKS cluster has 1:1 relationship with VPC
-// so unique id can be VPC ID, with a prefix
 func gatewayApiUniqTag(vpcid string) string {
-	return fmt.Sprintf("eks-gwapi-%s", vpcid)
+	return fmt.Sprintf("k8s-gwapi-%s", vpcid)
 }

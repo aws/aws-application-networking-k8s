@@ -26,9 +26,9 @@ type DelSnSvcAssocReq = vpclattice.DeleteServiceNetworkServiceAssociationInput
 type DelSnSvcAssocResp = vpclattice.DeleteServiceNetworkServiceAssociationOutput
 type GetSvcReq = vpclattice.GetServiceInput
 type SvcSummary = vpclattice.ServiceSummary
-type GetTagsReq = vpclattice.ListTagsForResourceInput
-type GetTagsResp = vpclattice.ListTagsForResourceOutput
-type ListAssocsReq = vpclattice.ListServiceNetworkServiceAssociationsInput
+type GetResourcesTagsReq = vpclattice.ListTagsForResourceInput
+type GetResourcesTagsResp = vpclattice.ListTagsForResourceOutput
+type ListSnSvcAssocsReq = vpclattice.ListServiceNetworkServiceAssociationsInput
 type SnSvcAssocSummary = vpclattice.ServiceNetworkServiceAssociationSummary
 
 type ServiceManager interface {
@@ -63,20 +63,22 @@ func (m *defaultServiceManager) getService(ctx context.Context, svcName string) 
 	return nil, nil
 }
 
-func (m *defaultServiceManager) createServiceAndSnAssoc(ctx context.Context, svc *Service) (status ServiceStatus, err error) {
+func (m *defaultServiceManager) createServiceAndSnAssoc(ctx context.Context, svc *Service) (ServiceStatus, error) {
+	emtpyStatus := ServiceStatus{}
+
 	createSvcReq := m.newCreateSvcReq(svc)
 	createSvcResp, err := m.cloud.Lattice().CreateServiceWithContext(ctx, createSvcReq)
 	if err != nil {
-		return
+		return emtpyStatus, err
 	}
 
 	for _, snName := range svc.Spec.ServiceNetworkNames {
 		err = m.createSnSvcAssoc(ctx, createSvcResp.Id, snName)
 		if err != nil {
-			return
+			return emtpyStatus, err
 		}
 	}
-	status = svcStatusFromCreateSvcResp(createSvcResp)
+	status := svcStatusFromCreateSvcResp(createSvcResp)
 	return status, nil
 }
 
@@ -110,40 +112,41 @@ func (m *defaultServiceManager) deleteSnSvcAssoc(ctx context.Context, assocArn *
 	return nil
 }
 
-func (m *defaultServiceManager) updateServiceAndSnAssoc(ctx context.Context, svc *Service, svcSum *SvcSummary) (status ServiceStatus, err error) {
+func (m *defaultServiceManager) updateServiceAndSnAssoc(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceStatus, error) {
+	emptyStatus := ServiceStatus{}
+
 	if svc.Spec.CustomerCertARN != "" {
 		updReq := &UpdateSvcReq{
 			CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
 			ServiceIdentifier: svcSum.Id,
 		}
 		if updReq != nil {
-			_, err = m.cloud.Lattice().UpdateService(updReq)
+			_, err := m.cloud.Lattice().UpdateService(updReq)
 			if err != nil {
-				return
+				return emptyStatus, err
 			}
 		}
 	}
 
-	err = m.updateSnSvcAssocs(ctx, svc, svcSum)
+	err := m.updateSnSvcAssocs(ctx, svc, svcSum)
 	if err != nil {
-		return
+		return emptyStatus, err
 	}
 
-	status = ServiceStatus{
+	status := ServiceStatus{
 		Arn: aws.StringValue(svcSum.Arn),
 		Id:  aws.StringValue(svcSum.Id),
 	}
 	if svcSum.DnsEntry != nil {
 		status.Dns = aws.StringValue(svcSum.DnsEntry.DomainName)
 	}
-	return
+	return status, nil
 }
 
 // update SN-Svc associations, if svc has no SN associations will delete all of them
 // does not delete associations that are not tagged by controller
-// TODO: need to loop over all parent SN's
 func (m *defaultServiceManager) updateSnSvcAssocs(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
-	assocsReq := &ListAssocsReq{
+	assocsReq := &ListSnSvcAssocsReq{
 		ServiceIdentifier: svcSum.Id,
 	}
 	assocs, err := m.cloud.Lattice().ListServiceNetworkServiceAssociationsAsList(ctx, assocsReq)
@@ -151,6 +154,9 @@ func (m *defaultServiceManager) updateSnSvcAssocs(ctx context.Context, svc *Serv
 		return err
 	}
 	toCreate, toDelete, err := snSvcAssocsDiff(svc, assocs)
+	if err != nil {
+		return err
+	}
 	for _, snName := range toCreate {
 		err := m.createSnSvcAssoc(ctx, svcSum.Id, snName)
 		if err != nil {
@@ -202,7 +208,10 @@ func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 // compare current sn-svc associations with new ones,
 // returns 2 slices: toCreate with SN names and toDelete with current associations
 // if assoc should be created but current state is in deletion we should retry
-func snSvcAssocsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) (toCreate []string, toDelete []SnSvcAssocSummary, err error) {
+func snSvcAssocsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, []SnSvcAssocSummary, error) {
+	toCreate := []string{}
+	toDelete := []SnSvcAssocSummary{}
+
 	// create two Sets and find Difference New-Old->toCreate and Old-New->toDelete
 	newSet := map[string]bool{}
 	for _, sn := range svc.Spec.ServiceNetworkNames {
@@ -235,7 +244,7 @@ func snSvcAssocsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) (toCreate []s
 		}
 	}
 
-	return
+	return toCreate, toDelete, nil
 }
 
 func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceStatus {
@@ -250,17 +259,24 @@ func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceStatus {
 }
 
 // Create or update Service and ServiceNetwork-Service associations
-func (m *defaultServiceManager) Create(ctx context.Context, svc *Service) (status ServiceStatus, err error) {
+func (m *defaultServiceManager) Create(ctx context.Context, svc *Service) (ServiceStatus, error) {
+	emptyStatus := ServiceStatus{}
+
 	svcSum, err := m.getService(ctx, svc.LatticeName())
 	if err != nil {
-		return
+		return emptyStatus, err
 	}
+
+	var status ServiceStatus
 	if svcSum == nil {
 		status, err = m.createServiceAndSnAssoc(ctx, svc)
 	} else {
 		status, err = m.updateServiceAndSnAssoc(ctx, svc, svcSum)
 	}
-	return
+	if err != nil {
+		return emptyStatus, err
+	}
+	return status, nil
 }
 
 func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error {
