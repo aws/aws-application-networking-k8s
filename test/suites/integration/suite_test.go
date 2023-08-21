@@ -27,9 +27,16 @@ var _ = BeforeSuite(func() {
 
 	testFramework.ExpectToBeClean(ctx)
 
-	// would be good to simply wait here until service network has been provisioned and associated
+	// provision gateway, wait for service network association
 	testGateway = testFramework.NewGateway("test-gateway", k8snamespace)
 	testFramework.ExpectCreated(ctx, testGateway)
+
+	sn := testFramework.GetServiceNetwork(ctx, testGateway)
+
+	test.Logger(ctx).Infof("Expecting VPC %s and service network %s association", vpcid, *sn.Id)
+	Eventually(func(g Gomega) {
+		g.Expect(testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcid, sn)).To(BeTrue())
+	})
 })
 
 func TestIntegration(t *testing.T) {
