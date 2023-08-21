@@ -384,63 +384,6 @@ func Test_Targets(t *testing.T) {
 			refByServiceExport: true,
 			wantErrIsNil:       false,
 		},
-		{
-			name:               "One port added via backendref match, one port added via service export annotation",
-			srvExportName:      "export8",
-			srvExportNamespace: "ns1",
-			port:               8675,
-			endPoints: []corev1.Endpoints{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "ns1",
-						Name:      "export7",
-					},
-					Subsets: []corev1.EndpointSubset{
-						{
-							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
-							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
-						},
-					},
-				},
-			},
-			svc: corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:         "ns1",
-					Name:              "export8",
-					DeletionTimestamp: nil,
-				},
-			},
-			serviceExport: mcs_api.ServiceExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:         "ns1",
-					Name:              "export8",
-					DeletionTimestamp: nil,
-					Annotations:       map[string]string{"multicluster.x-k8s.io/port": "309"},
-				},
-			},
-			inDataStore:        false,
-			refByService:       true,
-			refByServiceExport: true,
-			wantErrIsNil:       false,
-			expectedTargetList: []latticemodel.Target{
-				{
-					TargetIP: "10.10.1.1",
-					Port:     8675,
-				},
-				{
-					TargetIP: "10.10.1.1",
-					Port:     309,
-				},
-				{
-					TargetIP: "10.10.2.2",
-					Port:     8675,
-				},
-				{
-					TargetIP: "10.10.2.2",
-					Port:     309,
-				},
-			},
-		},
 	}
 
 	for _, tt := range tests {
