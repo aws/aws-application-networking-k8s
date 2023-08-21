@@ -10,8 +10,8 @@ spec:
   - backendRefs:
     - name: grpc-server
       kind: Service
+      port: 50051
       weight: 10
     matches:
         - method:
-            service: foo
-            method: bar
+            service: Greeter

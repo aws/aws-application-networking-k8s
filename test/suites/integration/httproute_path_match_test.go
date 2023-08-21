@@ -2,47 +2,47 @@ package integration
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"log"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	"time"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
-const (
-	k8snamespace = "non-default"
-)
-
 var _ = Describe("HTTPRoute path matches", func() {
+	var (
+		deployment1        *appsv1.Deployment
+		deployment2        *appsv1.Deployment
+		service1           *v1.Service
+		service2           *v1.Service
+		pathMatchHttpRoute *v1beta1.HTTPRoute
+	)
+
 	It("HTTPRoute should support multiple path matches", func() {
-		gateway := testFramework.NewGateway("", k8snamespace)
-		deployment1, service1 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
-		deployment2, service2 := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2", Namespace: k8snamespace})
-		pathMatchHttpRoute := testFramework.NewPathMatchHttpRoute(gateway, []client.Object{service1, service2}, "http",
+		deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
+		deployment2, service2 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2", Namespace: k8snamespace})
+		pathMatchHttpRoute = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1, service2}, "http",
 			"", k8snamespace)
 
 		// Create Kubernetes API Objects
 		testFramework.ExpectCreated(ctx,
-			gateway,
 			pathMatchHttpRoute,
 			service1,
 			deployment1,
 			service2,
 			deployment2,
 		)
-		time.Sleep(3 * time.Minute) //Need some time to wait for VPCLattice resources to be created
 
-		// Verify VPC Lattice Resource
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)))
 
 		targetGroupV1 := testFramework.GetTargetGroup(ctx, service1)
 		Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
@@ -70,15 +70,15 @@ var _ = Describe("HTTPRoute path matches", func() {
 			))
 		}
 
+		log.Println("Verifying VPC lattice service listeners and rules")
 		Eventually(func(g Gomega) {
-			log.Println("Verifying VPC lattice service listeners and rules")
 			listListenerResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listListenerResp.Items)).To(BeEquivalentTo(1))
 			listener := listListenerResp.Items[0]
-			g.Expect(*listener.Port).To(BeEquivalentTo(gateway.Spec.Listeners[0].Port))
+			g.Expect(*listener.Port).To(BeEquivalentTo(testGateway.Spec.Listeners[0].Port))
 			listenerId := listener.Id
 			listRulesResp, err := testFramework.LatticeClient.ListRulesWithContext(ctx, &vpclattice.ListRulesInput{
 				ListenerIdentifier: listenerId,
@@ -90,6 +90,8 @@ var _ = Describe("HTTPRoute path matches", func() {
 			ruleIds := lo.Map(nonDefaultRules, func(rule *vpclattice.RuleSummary, _ int) *string {
 				return rule.Id
 			})
+
+			g.Expect(len(ruleIds)).To(Equal(2))
 
 			rule0, err := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
 				ServiceIdentifier:  vpcLatticeService.Id,
@@ -128,34 +130,30 @@ var _ = Describe("HTTPRoute path matches", func() {
 		Expect(len(pods)).To(BeEquivalentTo(1))
 		log.Println("pods[0].Name:", pods[0].Name)
 
-		cmd1 := fmt.Sprintf("curl %s/pathmatch0", dnsName)
-		stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd1, true)
-		Expect(err).To(BeNil())
-		Expect(stdout).To(ContainSubstring("test-v1 handler pod"))
+		Eventually(func(g Gomega) {
+			cmd := fmt.Sprintf("curl %s/pathmatch0", dnsName)
+			stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, true)
+			g.Expect(err).To(BeNil())
+			g.Expect(stdout).To(ContainSubstring("test-v1 handler pod"))
+		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
 
-		cmd2 := fmt.Sprintf("curl %s/pathmatch1", dnsName)
-		stdout, _, err = testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd2, true)
-		Expect(err).To(BeNil())
-		Expect(stdout).To(ContainSubstring("test-v2 handler pod"))
+		Eventually(func(g Gomega) {
+			cmd := fmt.Sprintf("curl %s/pathmatch1", dnsName)
+			stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, true)
+			g.Expect(err).To(BeNil())
+			g.Expect(stdout).To(ContainSubstring("test-v2 handler pod"))
+		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+	})
 
-		testFramework.ExpectDeleted(ctx,
-			gateway,
-			pathMatchHttpRoute,
-		)
-		time.Sleep(30 * time.Second) // Use a trick to delete httpRoute first and then delete the service and deployment to avoid draining lattice targets
-		testFramework.ExpectDeleted(ctx,
-			service1,
+	AfterEach(func() {
+		testFramework.ExpectDeleted(ctx, pathMatchHttpRoute)
+		testFramework.SleepForRouteDeletion()
+		testFramework.ExpectDeletedThenNotFound(ctx,
 			deployment1,
-			service2,
 			deployment2,
-		)
-		testFramework.EventuallyExpectNotFound(ctx,
-			gateway,
-			pathMatchHttpRoute,
 			service1,
-			deployment1,
 			service2,
-			deployment2)
-
+			pathMatchHttpRoute,
+		)
 	})
 })

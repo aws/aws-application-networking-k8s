@@ -10,7 +10,7 @@ spec:
   - backendRefs:
     - name: rate-canary
       kind: Service
-      port: 8090
+      port: 80
     matches:
     - headers:
       - type: Exact
@@ -19,7 +19,7 @@ spec:
   - backendRefs:
     - name: rate-preprod
       kind: Service
-      port: 8090
+      port: 80
     matches:
     - headers:
       - type: Exact
