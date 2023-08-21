@@ -36,7 +36,7 @@ var _ = BeforeSuite(func() {
 	test.Logger(ctx).Infof("Expecting VPC %s and service network %s association", vpcid, *sn.Id)
 	Eventually(func(g Gomega) {
 		g.Expect(testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcid, sn)).To(BeTrue())
-	})
+	}).Should(Succeed())
 })
 
 func TestIntegration(t *testing.T) {
