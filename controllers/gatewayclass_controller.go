@@ -21,30 +21,34 @@ import (
 	"time"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/pkg/errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // GatewayClassReconciler reconciles a GatewayClass object
 type GatewayClassReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
+	log                      gwlog.Logger
+	client                   client.Client
+	scheme                   *runtime.Scheme
+	latticeControllerEnabled bool
 }
 
-var latticeControllerEnabled = false
-
-func NewGatewayGlassReconciler(client client.Client, scheme *runtime.Scheme) *GatewayClassReconciler {
-	return &GatewayClassReconciler{
-		Client: client,
-		Scheme: scheme,
+func RegisterGatewayClassController(log gwlog.Logger, mgr ctrl.Manager) error {
+	r := &GatewayClassReconciler{
+		log:                      log,
+		client:                   mgr.GetClient(),
+		scheme:                   mgr.GetScheme(),
+		latticeControllerEnabled: false,
 	}
-
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&gateway_api.GatewayClass{}).
+		Complete(r)
 }
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses,verbs=get;list;watch;create;update;patch;delete
@@ -61,47 +65,36 @@ func NewGatewayGlassReconciler(client client.Client, scheme *runtime.Scheme) *Ga
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	gwClassLog := log.FromContext(ctx)
+	r.log.Infow("reconcile", "name", req.Name)
 
 	gwClass := &gateway_api.GatewayClass{}
-
-	if err := r.Client.Get(ctx, req.NamespacedName, gwClass); err != nil {
-		gwClassLog.Info("NotFound")
+	if err := r.client.Get(ctx, req.NamespacedName, gwClass); err != nil {
+		r.log.Debugw("gateway not found", "name", req.Name)
 		return ctrl.Result{}, nil
 	}
-	gwClassLog.Info("ReconcileLoop")
-	if gwClass.Spec.ControllerName == eventhandlers.LatticeGatewayControllerName {
-		if !gwClass.DeletionTimestamp.IsZero() {
-			gwClassLog.Info("Deleting amazon-vpc-lattice GatewayClass\n")
-			latticeControllerEnabled = false
-			return ctrl.Result{}, nil
-		}
-		gwClassLog.Info("Creating LatticeGatewayClass ")
-		latticeControllerEnabled = true
 
-		// Update Status
-		gwClassOld := gwClass.DeepCopy()
+	if gwClass.Spec.ControllerName != eventhandlers.LatticeGatewayControllerName {
+		return ctrl.Result{}, nil
+	}
+	if !gwClass.DeletionTimestamp.IsZero() {
+		r.latticeControllerEnabled = false
+		r.log.Infow("deleted", "name", gwClass.Name)
+		return ctrl.Result{}, nil
+	}
+	r.latticeControllerEnabled = true
 
-		gwClass.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
-		gwClass.Status.Conditions[0].ObservedGeneration = gwClass.Generation
+	// Update Status
+	gwClassOld := gwClass.DeepCopy()
+	gwClass.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
+	gwClass.Status.Conditions[0].ObservedGeneration = gwClass.Generation
+	gwClass.Status.Conditions[0].Status = "True"
+	gwClass.Status.Conditions[0].Message = string(gateway_api.GatewayClassReasonAccepted)
+	gwClass.Status.Conditions[0].Reason = string(gateway_api.GatewayClassReasonAccepted)
 
-		gwClass.Status.Conditions[0].Status = "True"
-		gwClass.Status.Conditions[0].Message = string(gateway_api.GatewayClassReasonAccepted)
-		gwClass.Status.Conditions[0].Reason = string(gateway_api.GatewayClassReasonAccepted)
-
-		if err := r.Client.Status().Patch(ctx, gwClass, client.MergeFrom(gwClassOld)); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "failed to update gatewayclass status")
-		}
-
+	if err := r.client.Status().Patch(ctx, gwClass, client.MergeFrom(gwClassOld)); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to update gatewayclass status")
 	}
 
+	r.log.Infow("reconciled", "name", gwClass.Name, "status", gwClass.Status)
 	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *GatewayClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&gateway_api.GatewayClass{}).
-		Complete(r)
 }
