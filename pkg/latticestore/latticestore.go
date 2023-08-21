@@ -351,6 +351,11 @@ func (ds *LatticeDataStore) AddTargetGroup(name string, vpc string, arn string, 
 	return nil
 }
 
+// TODO: make this SetTargetGroupByBackendRef() method to be private, create seperate methods:
+//
+//	SetTargetGroupByBackendRefForK8sService(k8sServiceName string, routeName string, byServiceExport bool)
+//	SetTargetGroupByBackendRefForServiceImport(serviceImportName string, byServiceExport bool)
+//	SetTargetGroupByBackendRefForServiceExport(serviceExportName string, byServiceExport bool)
 func (ds *LatticeDataStore) SetTargetGroupByServiceExport(name string, isServiceImport bool, byServiceExport bool) error {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
@@ -371,6 +376,11 @@ func (ds *LatticeDataStore) SetTargetGroupByServiceExport(name string, isService
 
 }
 
+// TODO: make this SetTargetGroupByBackendRef() method to be private, create seperate methods:
+//
+//	SetTargetGroupByBackendRefForK8sService(name string, routeName string, byBackendRef bool),
+//	SetTargetGroupByBackendRefForServiceExport(name string, byBackendRef bool),
+//	SetTargetGroupByBackendRefForServiceImport(name string, byBackendRef bool)
 func (ds *LatticeDataStore) SetTargetGroupByBackendRef(name string, routeName string, isServiceImport bool, byBackendRef bool) error {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()
@@ -392,6 +402,11 @@ func (ds *LatticeDataStore) SetTargetGroupByBackendRef(name string, routeName st
 
 }
 
+// TODO: make this DelTargetGroup() method to be private, create seperate methods:
+//
+//	DelTargetGroupForK8sService(name string,routeName string)
+//	DelTargetGroupForServiceImport(name string)
+//	DelTargetGroupForServiceExport(name string)
 func (ds *LatticeDataStore) DelTargetGroup(name string, routeName string, isServiceImport bool) error {
 	ds.lock.Lock()
 	defer ds.lock.Unlock()

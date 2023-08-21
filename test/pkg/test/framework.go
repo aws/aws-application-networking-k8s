@@ -158,14 +158,6 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 			})
 			if err == nil {
 				Logger(ctx).Infof("Found Tags for tg %v tags: %v", *tg.Name, retrievedTags)
-				tagValue, ok := retrievedTags.Tags[lattice.K8SParentRefTypeKey]
-				if ok && *tagValue == lattice.K8SServiceExportType {
-					Logger(ctx).Infof("TargetGroup: %s was created by k8s controller, by a ServiceExport", *tg.Id)
-					//This tg is created by k8s controller, by a ServiceExport,
-					//ServiceExport still have a known targetGroup leaking issue,
-					//so we temporarily skip to verify whether ServiceExport created TargetGroup is deleted or not
-					continue
-				}
 				g.Expect(env.TestCasesCreatedServiceNames).To(Not(ContainElements(BeKeyOf(*tg.Name))))
 			}
 		}

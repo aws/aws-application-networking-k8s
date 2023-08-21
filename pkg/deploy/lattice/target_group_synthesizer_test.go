@@ -116,6 +116,10 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 			mockTGManager := NewMockTargetGroupManager(c)
 
 			ds := latticestore.NewLatticeDataStore()
+			if !tt.svcExport.DeletionTimestamp.IsZero() {
+				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
+				ds.AddTargetGroup(tgName, "vpc-123456789", "123456789", "tg-123", false, "")
+			}
 
 			builder := gateway.NewTargetGroupBuilder(k8sClient, ds, nil)
 
@@ -824,9 +828,11 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *te
 			mockTGManager := NewMockTargetGroupManager(c)
 
 			ds := latticestore.NewLatticeDataStore()
-
 			builder := gateway.NewTargetGroupBuilder(k8sClient, ds, nil)
-
+			if !tt.svcExport.DeletionTimestamp.IsZero() {
+				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
+				ds.AddTargetGroup(tgName, "vpc-123456789", "arn123", "4567", false, "")
+			}
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 			assert.Nil(t, err)
 

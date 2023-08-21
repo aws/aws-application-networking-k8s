@@ -286,7 +286,6 @@ func (t *targetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 			}
 
 		}
-
 		// the routename for serviceimport is ""
 		if tg, err := t.latticeDataStore.GetTargetGroup(*sdkTG.getTargetGroupOutput.Name, "", true); err == nil {
 			glog.V(6).Infof("Ignore target group created by service import %v\n", tg)
@@ -423,7 +422,7 @@ func (t *targetGroupSynthesizer) SynthesizeTriggeredTargetGroupsDeletion(ctx con
 
 		if resTargetGroup.Spec.Config.IsServiceImport {
 			glog.V(2).Infof("Deleting service import target group from local datastore %v", resTargetGroup.Spec.LatticeID)
-			t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, resTargetGroup.Spec.Config.IsServiceImport)
+			t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, "", resTargetGroup.Spec.Config.IsServiceImport)
 		} else {
 			// For delete TargetGroup request triggered by k8s service, invoke vpc lattice api to delete it, if success, delete the tg in the datastore as well
 			err := t.targetGroupManager.Delete(ctx, resTargetGroup)

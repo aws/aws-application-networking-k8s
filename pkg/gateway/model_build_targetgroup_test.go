@@ -78,7 +78,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 			wantIsDeleted: false,
 		},
 		{
-			name: "Deleting ServiceExport where service object does NOT exist",
+			name: "Deleting ServiceExport where service object does NOT exist, should build targetGroup model successfully",
 			svcExport: &mcs_api.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "export3",
@@ -88,7 +88,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 				},
 			},
 
-			wantErrIsNil:  false,
+			wantErrIsNil:  true,
 			wantIsDeleted: true,
 		},
 		{
@@ -145,7 +145,10 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 			}
 
 			ds := latticestore.NewLatticeDataStore()
-
+			if !tt.svcExport.DeletionTimestamp.IsZero() {
+				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
+				ds.AddTargetGroup(tgName, "vpc-123456789", "123456789", "tg-123", false, "")
+			}
 			builder := NewTargetGroupBuilder(k8sClient, ds, nil)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
@@ -167,8 +170,11 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 			if tt.wantIsDeleted {
 				assert.Equal(t, false, dsTG.ByServiceExport)
 				assert.Equal(t, true, tg.Spec.IsDeleted)
+				assert.Equal(t, "tg-123", tg.Spec.LatticeID)
 			} else {
 				assert.Equal(t, true, dsTG.ByServiceExport)
+				assert.Equal(t, "", tg.Spec.LatticeID)
+
 			}
 
 		})
@@ -648,7 +654,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 							tg := task.tgByResID[tgName]
 							assert.Equal(t, true, tg.Spec.IsDeleted)
 						} else {
-							assert.Equal(t, false, dsTG.ByBackendRef)
+							assert.Equal(t, true, dsTG.ByBackendRef)
 							assert.Equal(t, false, dsTG.ByServiceExport)
 							assert.Nil(t, err)
 						}
