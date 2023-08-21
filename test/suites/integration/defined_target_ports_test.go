@@ -18,9 +18,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
-var _ = Describe("Defined Target Ports", func() {
+var _ = Describe("Defined Target Ports", Focus, func() {
 	var (
-		gateway           *v1beta1.Gateway
 		deployment        *appsv1.Deployment
 		service           *v1.Service
 		serviceExport     *v1alpha1.ServiceExport
@@ -34,7 +33,6 @@ var _ = Describe("Defined Target Ports", func() {
 	const definedPort = 82
 
 	BeforeEach(func() {
-		gateway = testFramework.NewGateway("test-gateway", k8snamespace)
 		deployment, service = testFramework.NewNginxApp(test.ElasticSearchOptions{
 			Name:      "e2e-ports-test",
 			Namespace: k8snamespace,
@@ -42,17 +40,24 @@ var _ = Describe("Defined Target Ports", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.CleanTestEnvironment(ctx)
+		testFramework.ExpectDeleted(ctx, httpRoute)
+		testFramework.SleepForRouteDeletion()
+		testFramework.ExpectDeletedThenNotFound(ctx,
+			deployment,
+			service,
+			serviceImport,
+			serviceExport,
+			httpRoute,
+		)
 	})
 
 	It("Port Annotation on Service Export", func() {
 
 		serviceExport = testFramework.CreateServiceExport(service)
 		serviceImport = testFramework.CreateServiceImport(service)
-		httpRoute = testFramework.NewHttpRoute(gateway, service, "ServiceImport")
+		httpRoute = testFramework.NewHttpRoute(testGateway, service, "ServiceImport")
 		testFramework.ExpectCreated(
 			ctx,
-			gateway,
 			serviceExport,
 			serviceImport,
 			service,
@@ -71,10 +76,9 @@ var _ = Describe("Defined Target Ports", func() {
 
 		serviceExport = testFramework.CreateServiceExport(service)
 		serviceImport = testFramework.CreateServiceImport(service)
-		httpRoute = testFramework.NewHttpRoute(gateway, service, "Service")
+		httpRoute = testFramework.NewHttpRoute(testGateway, service, "Service")
 		testFramework.ExpectCreated(
 			ctx,
-			gateway,
 			service,
 			deployment,
 			httpRoute,
@@ -124,10 +128,9 @@ var _ = Describe("Defined Target Ports", func() {
 
 		serviceExport = testFramework.CreateServiceExport(service)
 		serviceImport = testFramework.CreateServiceImport(service)
-		httpRoute = testFramework.NewHttpRoute(gateway, service, "Service")
+		httpRoute = testFramework.NewHttpRoute(testGateway, service, "Service")
 		testFramework.ExpectCreated(
 			ctx,
-			gateway,
 			service,
 			deployment,
 			httpRoute,
