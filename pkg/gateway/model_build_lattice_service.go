@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/golang/glog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -23,29 +24,39 @@ type LatticeServiceBuilder interface {
 	Build(ctx context.Context, httpRoute core.Route) (core.Stack, *latticemodel.Service, error)
 }
 
-type latticeServiceModelBuilder struct {
-	client.Client
+type LatticeServiceModelBuilder struct {
+	log         gwlog.Logger
+	client      client.Client
 	defaultTags map[string]string
 	Datastore   *latticestore.LatticeDataStore
-
-	cloud lattice_aws.Cloud
+	cloud       lattice_aws.Cloud
 }
 
-func NewLatticeServiceBuilder(client client.Client, datastore *latticestore.LatticeDataStore, cloud lattice_aws.Cloud) *latticeServiceModelBuilder {
-	return &latticeServiceModelBuilder{
-		Client:    client,
+func NewLatticeServiceBuilder(
+	log gwlog.Logger,
+	client client.Client,
+	datastore *latticestore.LatticeDataStore,
+	cloud lattice_aws.Cloud,
+) *LatticeServiceModelBuilder {
+	return &LatticeServiceModelBuilder{
+		log:       log,
+		client:    client,
 		Datastore: datastore,
 		cloud:     cloud,
 	}
 }
 
-func (b *latticeServiceModelBuilder) Build(ctx context.Context, route core.Route) (core.Stack, *latticemodel.Service, error) {
+func (b *LatticeServiceModelBuilder) Build(
+	ctx context.Context,
+	route core.Route,
+) (core.Stack, *latticemodel.Service, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
 
 	task := &latticeServiceModelBuildTask{
+		log:       b.log,
 		route:     route,
 		stack:     stack,
-		Client:    b.Client,
+		client:    b.client,
 		tgByResID: make(map[string]*latticemodel.TargetGroup),
 		Datastore: b.Datastore,
 	}
@@ -58,9 +69,7 @@ func (b *latticeServiceModelBuilder) Build(ctx context.Context, route core.Route
 }
 
 func (t *latticeServiceModelBuildTask) run(ctx context.Context) error {
-
 	err := t.buildModel(ctx)
-
 	return err
 }
 
@@ -71,21 +80,21 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildLatticeService %w", err)
 	}
 
-	_, err = t.buildTargetGroup(ctx, t.Client)
+	_, err = t.buildTargetGroup(ctx, t.client)
 
 	if err != nil {
 		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildTargetGroup %w", err)
 	}
 
 	if !t.route.DeletionTimestamp().IsZero() {
-		glog.V(2).Infof("latticeServiceModelBuildTask: for delete ignore Targets, policy %v\n", t.route)
+		t.log.Infof("latticeServiceModelBuildTask: for delete ignore Targets, policy %v\n", t.route)
 		return nil
 	}
 
 	err = t.buildTargets(ctx)
 
 	if err != nil {
-		glog.V(6).Infof("latticeServiceModelBuildTask: Failed on building targets, error = %v\n ", err)
+		t.log.Infof("latticeServiceModelBuildTask: Failed on building targets, error = %v\n ", err)
 	}
 	// only build listener when it is NOT delete case
 	err = t.buildListener(ctx)
@@ -125,10 +134,10 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		// The 1st hostname will be used as lattice customer-domain-name
 		spec.CustomerDomainName = string(t.route.Spec().Hostnames()[0])
 
-		glog.V(2).Infof("Setting customer-domain-name: %v for httpRoute %v-%v",
+		t.log.Infof("Setting customer-domain-name: %v for route %v-%v",
 			spec.CustomerDomainName, t.route.Name(), t.route.Namespace())
 	} else {
-		glog.V(2).Infof("No custom-domain-name for httproute :%v-%v",
+		t.log.Infof("No custom-domain-name for route :%v-%v",
 			t.route.Name(), t.route.Namespace())
 		spec.CustomerDomainName = ""
 	}
@@ -147,15 +156,14 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 }
 
 type latticeServiceModelBuildTask struct {
-	route core.Route
-	client.Client
-
+	log             gwlog.Logger
+	route           core.Route
+	client          client.Client
 	latticeService  *latticemodel.Service
 	tgByResID       map[string]*latticemodel.TargetGroup
 	listenerByResID map[string]*latticemodel.Listener
 	rulesByResID    map[string]*latticemodel.Rule
 	stack           core.Stack
-
-	Datastore *latticestore.LatticeDataStore
-	cloud     lattice_aws.Cloud
+	Datastore       *latticestore.LatticeDataStore
+	cloud           lattice_aws.Cloud
 }

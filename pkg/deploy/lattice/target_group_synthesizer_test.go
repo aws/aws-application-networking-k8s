@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -117,12 +118,12 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 
 			ds := latticestore.NewLatticeDataStore()
 
-			builder := gateway.NewTargetGroupBuilder(k8sClient, ds, nil)
+			builder := gateway.NewTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 			assert.Nil(t, err)
 
-			synthersizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+			synthersizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
 
 			tgStatus := latticemodel.TargetGroupStatus{
 				TargetGroupARN: "arn123",
@@ -276,7 +277,7 @@ func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
 				mockTGManager.EXPECT().Get(ctx, tg).Return(latticemodel.TargetGroupStatus{TargetGroupARN: tgImport.tgARN, TargetGroupID: tgImport.tgID}, nil)
 			}
 		}
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
 		err := synthesizer.SynthesizeTriggeredTargetGroup(ctx)
 		fmt.Printf("err:%v \n", err)
 
@@ -344,11 +345,16 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 		{
 			name: "Delete SDK TargetGroup Successfully(due to not refed by any HTTPRoutes) ",
 			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
-					isSameVPC: true,
-					hasTags:   true, hasServiceExportTypeTag: false,
-					hasHTTPRouteTypeTag: true, HTTPRouteExist: false,
-					expectDelete: true},
+				{
+					name:                     "sdkTG1",
+					id:                       "sdkTG1-id",
+					serviceNetworkManagerErr: nil,
+					isSameVPC:                true,
+					hasTags:                  true,
+					hasServiceExportTypeTag:  false,
+					hasHTTPRouteTypeTag:      true,
+					HTTPRouteExist:           false,
+					expectDelete:             true},
 			},
 			wantSynthesizerError: nil,
 			wantDataStoreError:   nil,
@@ -499,7 +505,8 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 							Id:   &id,
 							Arn:  aws.String("tg-ARN"),
 							Config: &vpclattice.TargetGroupConfig{
-								VpcIdentifier: &vpc,
+								VpcIdentifier:   &vpc,
+								ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
 							}},
 						targetGroupTags: tagsOutput,
 					},
@@ -524,6 +531,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 							func(ctx context.Context, name types.NamespacedName, httpRoute *gateway_api.HTTPRoute, arg3 ...interface{}) error {
 								httpRoute.Name = routename
 								httpRoute.Namespace = routenamespace
+								backendNamespace := gateway_api.Namespace(routenamespace)
 
 								httpRoute.Spec.Rules = []gateway_api.HTTPRouteRule{
 									{
@@ -531,8 +539,9 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 											{
 												BackendRef: gateway_api.BackendRef{
 													BackendObjectReference: gateway_api.BackendObjectReference{
-														Kind: kindPtr("Service"),
-														Name: gateway_api.ObjectName(srvname),
+														Kind:      kindPtr("Service"),
+														Name:      gateway_api.ObjectName(srvname),
+														Namespace: &backendNamespace,
 													},
 												},
 											},
@@ -599,7 +608,7 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 
 		mockTGManager.EXPECT().List(ctx).Return(sdkTGReturned, nil)
 
-		tgSynthesizer := NewTargetGroupSynthesizer(nil, k8sClient, mockTGManager, nil, ds)
+		tgSynthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, k8sClient, mockTGManager, nil, ds)
 
 		err := tgSynthesizer.SynthesizeSDKTargetGroups(ctx)
 
@@ -720,7 +729,7 @@ func Test_SynthesizeTriggeredService(t *testing.T) {
 			}
 		}
 
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
 		err := synthesizer.SynthesizeTriggeredTargetGroup(ctx)
 		fmt.Printf("err:%v \n", err)
 
@@ -825,12 +834,12 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *te
 
 			ds := latticestore.NewLatticeDataStore()
 
-			builder := gateway.NewTargetGroupBuilder(k8sClient, ds, nil)
+			builder := gateway.NewTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 			assert.Nil(t, err)
 
-			synthersizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+			synthersizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
 
 			tgStatus := latticemodel.TargetGroupStatus{
 				TargetGroupARN: "arn123",
@@ -903,7 +912,7 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByServiceImport(t *te
 		}
 		stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
 
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
 
 		err := synthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx)
 		assert.Nil(t, err)
@@ -1022,7 +1031,7 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testi
 			}
 		}
 
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
 		var err error
 
 		err = synthesizer.SynthesizeTriggeredTargetGroupsCreation(ctx)
@@ -1160,7 +1169,7 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByK8sService(t *testi
 			}
 		}
 
-		synthesizer := NewTargetGroupSynthesizer(nil, nil, mockTGManager, stack, ds)
+		synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
 		var err error
 		err = synthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx)
 		if tt.wantErrIsNil {

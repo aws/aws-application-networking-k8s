@@ -159,12 +159,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	serviceExportReconciler := controllers.NewServiceExportReconciler(cloud, mgr.GetClient(),
-		mgr.GetScheme(), mgr.GetEventRecorderFor("serviceExport"), finalizerManager, latticeDataStore)
-
-	if err = serviceExportReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "serviceExport")
-		os.Exit(1)
+	err = controllers.RegisterServiceExportReconciler(ctrlLog.Named("serviceexport"), cloud, latticeDataStore, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("serviceexport controller setup failed: %s", err)
 	}
 
 	go latticestore.GetDefaultLatticeDataStore().ServeIntrospection()

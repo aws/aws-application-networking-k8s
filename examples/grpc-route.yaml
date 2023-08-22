@@ -5,13 +5,10 @@ metadata:
 spec:
   parentRefs:
   - name: my-hotel
-    sectionName: http
+    sectionName: https
   rules:
   - backendRefs:
     - name: grpc-server
       kind: Service
       port: 50051
       weight: 10
-    matches:
-        - method:
-            service: Greeter

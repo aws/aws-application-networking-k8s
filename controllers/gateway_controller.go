@@ -70,17 +70,17 @@ func RegisterGatewayController(
 	finalizerManager k8s.FinalizerManager,
 	mgr ctrl.Manager,
 ) error {
-	client := mgr.GetClient()
+	mgrClient := mgr.GetClient()
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("gateway")
 
 	modelBuilder := gateway.NewServiceNetworkModelBuilder()
-	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, client, datastore)
+	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, mgrClient, datastore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	r := &GatewayReconciler{
 		log:              log,
-		client:           client,
+		client:           mgrClient,
 		scheme:           scheme,
 		finalizerManager: finalizerManager,
 		eventRecorder:    evtRec,
@@ -91,7 +91,7 @@ func RegisterGatewayController(
 		stackMarshaller:  stackMarshaller,
 	}
 
-	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(client)
+	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(mgrClient)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gateway_api.Gateway{}).
 		Watches(

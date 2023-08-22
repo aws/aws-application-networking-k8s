@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -159,9 +160,10 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 			task := &latticeServiceModelBuildTask{
+				log:       gwlog.FallbackLogger,
 				route:     tt.route,
 				stack:     stack,
-				Client:    k8sClient,
+				client:    k8sClient,
 				tgByResID: make(map[string]*latticemodel.TargetGroup),
 				Datastore: ds,
 			}

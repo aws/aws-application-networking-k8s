@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -378,9 +379,10 @@ func Test_ListenerModelBuild(t *testing.T) {
 		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 		task := &latticeServiceModelBuildTask{
+			log:             gwlog.FallbackLogger,
 			route:           tt.route,
 			stack:           stack,
-			Client:          k8sClient,
+			client:          k8sClient,
 			listenerByResID: make(map[string]*latticemodel.Listener),
 			Datastore:       ds,
 		}

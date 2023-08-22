@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -146,7 +147,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 
 			ds := latticestore.NewLatticeDataStore()
 
-			builder := NewTargetGroupBuilder(k8sClient, ds, nil)
+			builder := NewTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 
@@ -367,9 +368,10 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 			task := &latticeServiceModelBuildTask{
+				log:       gwlog.FallbackLogger,
 				route:     tt.route,
 				stack:     stack,
-				Client:    k8sClient,
+				client:    k8sClient,
 				tgByResID: make(map[string]*latticemodel.TargetGroup),
 				Datastore: ds,
 			}
@@ -587,9 +589,10 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 		task := &latticeServiceModelBuildTask{
+			log:       gwlog.FallbackLogger,
 			route:     tt.route,
 			stack:     stack,
-			Client:    k8sClient,
+			client:    k8sClient,
 			tgByResID: make(map[string]*latticemodel.TargetGroup),
 			Datastore: ds,
 		}

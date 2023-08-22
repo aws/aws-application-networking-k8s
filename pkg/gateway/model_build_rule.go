@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -39,29 +38,29 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
 			// when a service is associate to multiple service network(s), all listener config MUST be same
 			// so here we are only using the 1st gateway
-			glog.V(2).Infof("Ignore parentref of different gateway %v", parentRef.Name)
+			t.log.Infof("Ignore parentref of different gateway %v", parentRef.Name)
 
 			continue
 		}
 		port, protocol, _, err := t.extractListenerInfo(ctx, parentRef)
 
 		if err != nil {
-			glog.V(2).Infof("Error on buildRules %v \n", err)
+			t.log.Infof("Error on buildRules %v \n", err)
 			return err
 		}
 
 		for _, rule := range t.route.Spec().Rules() {
-			glog.V(6).Infof("Parsing http rule spec: %v\n", rule)
+			t.log.Infof("Parsing http rule spec: %v\n", rule)
 			var ruleSpec latticemodel.RuleSpec
 
 			if len(rule.Matches()) > 1 {
 				// only support 1 match today
-				glog.V(2).Infof("Do not support multiple matches: matches == %v ", len(rule.Matches()))
+				t.log.Infof("Do not support multiple matches: matches == %v ", len(rule.Matches()))
 				return errors.New(LATTICE_NO_SUPPORT_FOR_MULTIPLE_MATCHES)
 			}
 
 			if len(rule.Matches()) == 0 {
-				glog.V(6).Infof("Continue next rule, no matches specified in current rule")
+				t.log.Infof("Continue next rule, no matches specified in current rule")
 				continue
 			}
 
@@ -71,21 +70,21 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 			switch m := match.(type) {
 			case *core.HTTPRouteMatch:
 				if m.Path() != nil && m.Path().Type != nil {
-					glog.V(6).Infof("Examining pathmatch type %v value %v for for httproute %s namespace %s ",
+					t.log.Infof("Examining pathmatch type %v value %v for for httproute %s namespace %s ",
 						*m.Path().Type, *m.Path().Value, t.route.Name(), t.route.Namespace())
 
 					switch *m.Path().Type {
 					case gateway_api_v1beta1.PathMatchExact:
-						glog.V(6).Infof("Using PathMatchExact for httproute %s namespace %s ",
+						t.log.Infof("Using PathMatchExact for httproute %s namespace %s ",
 							t.route.Name(), t.route.Namespace())
 						ruleSpec.PathMatchExact = true
 
 					case gateway_api_v1beta1.PathMatchPathPrefix:
-						glog.V(6).Infof("Using PathMatchPathPrefix for httproute %s namespace %s ",
+						t.log.Infof("Using PathMatchPathPrefix for httproute %s namespace %s ",
 							t.route.Name(), t.route.Namespace())
 						ruleSpec.PathMatchPrefix = true
 					default:
-						glog.V(2).Infof("Unsupported path match type %v for httproute %s namespace %s",
+						t.log.Infof("Unsupported path match type %v for httproute %s namespace %s",
 							*m.Path().Type, t.route.Name(), t.route.Namespace())
 						return errors.New(LATTICE_UNSUPPORTED_PATH_MATCH_TYPE)
 					}
@@ -94,7 +93,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 
 				// method based match
 				if m.Method() != nil {
-					glog.V(6).Infof("Examining http method %v for httproute %v namespace %v",
+					t.log.Infof("Examining http method %v for httproute %v namespace %v",
 						*m.Method(), t.route.Name(), t.route.Namespace())
 
 					ruleSpec.Method = string(*m.Method())
@@ -102,12 +101,12 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 
 				// controller does not support query matcher type today
 				if m.QueryParams() != nil {
-					glog.V(2).Infof("Unsupported match type for httproute %v, namespace %v",
+					t.log.Infof("Unsupported match type for httproute %v, namespace %v",
 						t.route.Name(), t.route.Namespace())
 					return errors.New(LATTICE_UNSUPPORTED_MATCH_TYPE)
 				}
 			case *core.GRPCRouteMatch:
-				glog.V(6).Infof("Building rule with GRPCRouteMatch, %v", *m)
+				t.log.Infof("Building rule with GRPCRouteMatch, %v", *m)
 				ruleSpec.Method = string(gateway_api_v1beta1.HTTPMethodPost)
 				method := m.Method()
 				// VPC Lattice doesn't support suffix/regex matching, so we can't support method match without service
@@ -117,15 +116,15 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 				switch *method.Type {
 				case gateway_api_v1alpha2.GRPCMethodMatchExact:
 					if method.Service == nil {
-						glog.V(6).Infof("Match all paths due to nil service and nil method")
+						t.log.Infof("Match all paths due to nil service and nil method")
 						ruleSpec.PathMatchPrefix = true
 						ruleSpec.PathMatchValue = "/"
 					} else if method.Method == nil {
-						glog.V(6).Infof("Match by specific gRPC service %s, regardless of method", *method.Service)
+						t.log.Infof("Match by specific gRPC service %s, regardless of method", *method.Service)
 						ruleSpec.PathMatchPrefix = true
 						ruleSpec.PathMatchValue = fmt.Sprintf("/%s/", *method.Service)
 					} else {
-						glog.V(6).Infof("Match by specific gRPC service %s and method %s", *method.Service, *method.Method)
+						t.log.Infof("Match by specific gRPC service %s and method %s", *method.Service, *method.Method)
 						ruleSpec.PathMatchExact = true
 						ruleSpec.PathMatchValue = fmt.Sprintf("/%s/%s", *method.Service, *method.Method)
 					}
@@ -145,18 +144,18 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 
 				ruleSpec.NumOfHeaderMatches = len(match.Headers())
 
-				glog.V(6).Infof("Examining match.Headers %v for route %s, namespace %s",
+				t.log.Infof("Examining match.Headers %v for route %s, namespace %s",
 					match.Headers(), t.route.Name(), t.route.Namespace())
 
 				for i, header := range match.Headers() {
-					glog.V(6).Infof("Examining match.Header: i = %d header.Type %v", i, *header.Type())
+					t.log.Infof("Examining match.Header: i = %d header.Type %v", i, *header.Type())
 					if header.Type() != nil && *header.Type() != gateway_api_v1beta1.HeaderMatchExact {
-						glog.V(2).Infof("Unsupported header matchtype %v for httproute %v namespace %s",
+						t.log.Infof("Unsupported header matchtype %v for httproute %v namespace %s",
 							*header.Type(), t.route.Name(), t.route.Namespace())
 						return errors.New(LATTICE_UNSUPPORTED_HEADER_MATCH_TYPE)
 					}
 
-					glog.V(6).Infof("Found HeaderExactMatch==%v for HTTPRoute %v, namespace %v",
+					t.log.Infof("Found HeaderExactMatch==%v for HTTPRoute %v, namespace %v",
 						header.Value(), t.route.Name(), t.route.Namespace())
 
 					matchType := vpclattice.HeaderMatchType{
@@ -165,18 +164,18 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					ruleSpec.MatchedHeaders[i].Match = &matchType
 					headerName := header.Name()
 
-					glog.V(6).Infof("Found matching i = %d headerName %v", i, &headerName)
+					t.log.Infof("Found matching i = %d headerName %v", i, &headerName)
 
 					ruleSpec.MatchedHeaders[i].Name = &headerName
 				}
 			}
 
-			glog.V(6).Infof("Generated ruleSpec is: %v", ruleSpec)
+			t.log.Infof("Generated ruleSpec is: %v", ruleSpec)
 
 			tgList := []*latticemodel.RuleTargetGroup{}
 
 			for _, backendRef := range rule.BackendRefs() {
-				glog.V(6).Infof("buildRoutingPolicy - examining backendRef %v, backendRef kind: %v",
+				t.log.Infof("buildRoutingPolicy - examining backendRef %v, backendRef kind: %v",
 					backendRef, *backendRef.Kind())
 
 				ruleTG := latticemodel.RuleTargetGroup{}
@@ -198,12 +197,12 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 
 				if string(*backendRef.Kind()) == "ServiceImport" {
 					// TODO
-					glog.V(6).Infof("Handle ServiceImport Routing Policy\n")
+					t.log.Infof("Handle ServiceImport Routing Policy\n")
 					/* I think this need to be done at policy manager API call
 					tg, err := t.Datastore.GetTargetGroup(string(backendRef.Name()),
 						"default", true) // isServiceImport==true
 					if err != nil {
-						glog.V(6).Infof("ServiceImport %s Not found, continue \n",
+						t.log.Infof("ServiceImport %s Not found, continue \n",
 							string(backendRef.Name()))
 						continue
 

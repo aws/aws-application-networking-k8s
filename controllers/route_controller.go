@@ -87,7 +87,7 @@ func RegisterAllRouteControllers(
 ) error {
 	mgrClient := mgr.GetClient()
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(mgrClient)
-	svcEventHandler := eventhandlers.NewEqueueHTTPRequestServiceEvent(mgrClient)
+	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceWithRoutesEvent(log, mgrClient)
 	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(mgrClient)
 
 	routeInfos := []struct {
@@ -107,8 +107,8 @@ func RegisterAllRouteControllers(
 			finalizerManager: finalizerManager,
 			eventRecorder:    mgr.GetEventRecorderFor(string(routeInfo.routeType) + "route"),
 			latticeDataStore: datastore,
-			modelBuilder:     gateway.NewLatticeServiceBuilder(mgrClient, datastore, cloud),
-			stackDeployer:    deploy.NewLatticeServiceStackDeploy(cloud, mgrClient, datastore),
+			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, datastore, cloud),
+			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient, datastore),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		}
 
@@ -189,19 +189,9 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 func (r *RouteReconciler) getRoute(ctx context.Context, req ctrl.Request) (core.Route, error) {
 	switch r.routeType {
 	case HTTP:
-		httpRoute := &core.HTTPRoute{}
-		err := r.client.Get(ctx, req.NamespacedName, httpRoute.K8sObject())
-		if err != nil {
-			return nil, err
-		}
-		return httpRoute, nil
+		return core.GetHTTPRoute(r.client, ctx, req.NamespacedName)
 	case GRPC:
-		grpcRoute := &core.GRPCRoute{}
-		err := r.client.Get(ctx, req.NamespacedName, grpcRoute.K8sObject())
-		if err != nil {
-			return nil, err
-		}
-		return grpcRoute, nil
+		return core.GetGRPCRoute(r.client, ctx, req.NamespacedName)
 	default:
 		return nil, fmt.Errorf("unknown route type for type %s", string(r.routeType))
 	}
@@ -347,7 +337,7 @@ func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core
 }
 
 func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, route core.Route) error {
-	r.log.Infof("updateRouteStatus: route %v, dns %v", route, dns)
+	r.log.Infof("updateRouteStatus: route name %s, namespace %s, dns %s", route.Name(), route.Namespace(), dns)
 	routeOld := route.DeepCopy()
 
 	if len(route.K8sObject().GetAnnotations()) == 0 {

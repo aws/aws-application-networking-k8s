@@ -1,8 +1,10 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -36,6 +38,15 @@ type HTTPRoute struct {
 
 func NewHTTPRoute(route gateway_api_v1beta1.HTTPRoute) *HTTPRoute {
 	return &HTTPRoute{r: route}
+}
+
+func GetHTTPRoute(client client.Client, ctx context.Context, routeNamespacedName types.NamespacedName) (Route, error) {
+	httpRoute := &gateway_api_v1beta1.HTTPRoute{}
+	err := client.Get(ctx, routeNamespacedName, httpRoute)
+	if err != nil {
+		return nil, err
+	}
+	return NewHTTPRoute(*httpRoute), nil
 }
 
 func (r *HTTPRoute) Spec() RouteSpec {
@@ -76,6 +87,15 @@ type GRPCRoute struct {
 
 func NewGRPCRoute(route gateway_api_v1alpha2.GRPCRoute) *GRPCRoute {
 	return &GRPCRoute{r: route}
+}
+
+func GetGRPCRoute(client client.Client, ctx context.Context, routeNamespacedName types.NamespacedName) (Route, error) {
+	grpcRoute := &gateway_api_v1alpha2.GRPCRoute{}
+	err := client.Get(ctx, routeNamespacedName, grpcRoute)
+	if err != nil {
+		return nil, err
+	}
+	return NewGRPCRoute(*grpcRoute), nil
 }
 
 func (r *GRPCRoute) Spec() RouteSpec {
