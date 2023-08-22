@@ -316,26 +316,6 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	return nil
 }
 
-func UpdateHTTPRouteListenerStatus(ctx context.Context, k8sclient client.Client, httproute *core.HTTPRoute) error {
-	gw := &gateway_api.Gateway{}
-
-	gwNamespace := httproute.Namespace()
-	if httproute.Spec().ParentRefs()[0].Namespace != nil {
-		gwNamespace = string(*httproute.Spec().ParentRefs()[0].Namespace)
-	}
-	gwName := types.NamespacedName{
-		Namespace: gwNamespace,
-		// TODO assume one parent for now and point to service network
-		Name: string(httproute.Spec().ParentRefs()[0].Name),
-	}
-
-	if err := k8sclient.Get(ctx, gwName, gw); err != nil {
-		return errors.Wrapf(err, "update route listener: gw not found, gw: %s", gwName)
-	}
-
-	return UpdateGWListenerStatus(ctx, k8sclient, gw)
-}
-
 func listenerRouteGroupKindSupported(listener gateway_api.Listener) (bool, []gateway_api.RouteGroupKind) {
 	defaultSupportedKind := []gateway_api.RouteGroupKind{{Kind: "HTTPRoute"}}
 

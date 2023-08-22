@@ -6,13 +6,13 @@ const (
 	GatewayEventReasonFailedBuildModel   = "FailedBuildModel"
 	GatewayEventReasonFailedDeployModel  = "FailedDeployModel"
 
-	// HTTPRoute events
-	HTTPRouteeventReasonReconcile         = "Reconcile"
-	HTTPRouteeventReasonDeploySucceed     = "DeploySucceed"
-	HTTPRouteventReasonFailedAddFinalizer = "FailedAddFinalizer"
-	HTTPRouteEventReasonFailedBuildModel  = "FailedBuildModel"
-	HTTPRouteEventReasonFailedDeployModel = "FailedDeployModel"
-	HTTPRouteEventReasonRetryReconcile    = "Retry-Reconcile"
+	// Route events
+	RouteEventReasonReconcile          = "Reconcile"
+	RouteEventReasonDeploySucceed      = "DeploySucceed"
+	RouteEventReasonFailedAddFinalizer = "FailedAddFinalizer"
+	RouteEventReasonFailedBuildModel   = "FailedBuildModel"
+	RouteEventReasonFailedDeployModel  = "FailedDeployModel"
+	RouteEventReasonRetryReconcile     = "Retry-Reconcile"
 
 	// Service events
 	ServiceEventReasonFailedAddFinalizer = "FailedAddFinalizer"

@@ -29,7 +29,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -83,12 +84,13 @@ func RegisterServiceController(
 		stackMashaller:   stackMarshaller,
 	}
 	epsEventsHandler := eventhandlers.NewEnqueueRequestEndpointEvent(client)
-	httpRouteEventHandler := eventhandlers.NewEnqueueRequestHTTPRouteEvent(client)
+	routeEventHandler := eventhandlers.NewEnqueueRequestRouteEvent(log, client)
 	serviceExportHandler := eventhandlers.NewEqueueRequestServiceExportEvent(client)
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Service{}).
 		Watches(&source.Kind{Type: &corev1.Endpoints{}}, epsEventsHandler).
-		Watches(&source.Kind{Type: &gateway_api.HTTPRoute{}}, httpRouteEventHandler).
+		Watches(&source.Kind{Type: &gateway_api_v1beta1.HTTPRoute{}}, routeEventHandler).
+		Watches(&source.Kind{Type: &gateway_api_v1alpha2.GRPCRoute{}}, routeEventHandler).
 		Watches(&source.Kind{Type: &mcs_api.ServiceExport{}}, serviceExportHandler).
 		Complete(sr)
 	return err

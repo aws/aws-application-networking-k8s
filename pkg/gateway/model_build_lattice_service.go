@@ -68,15 +68,13 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	err := t.buildLatticeService(ctx)
 
 	if err != nil {
-		glog.V(2).Infof("latticeServiceModelBuildTask: Failed on buildLatticeService %v\n ", err)
-		return err
+		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildLatticeService %w", err)
 	}
 
 	_, err = t.buildTargetGroup(ctx, t.Client)
 
 	if err != nil {
-		glog.V(2).Infof("latticeServiceModelBuildTask: Failed on buildTargetGroup, error=%v\n", err)
-		return err
+		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildTargetGroup %w", err)
 	}
 
 	if !t.route.DeletionTimestamp().IsZero() {
@@ -87,21 +85,19 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	err = t.buildTargets(ctx)
 
 	if err != nil {
-		glog.V(6).Infof("latticeServiceModelBuildTask: Faild on building targets, error = %v\n ", err)
+		glog.V(6).Infof("latticeServiceModelBuildTask: Failed on building targets, error = %v\n ", err)
 	}
 	// only build listener when it is NOT delete case
 	err = t.buildListener(ctx)
 
 	if err != nil {
-		glog.V(6).Infof("latticeServiceModelBuildTask: Faild on building listener, error = %v \n", err)
-		return err
+		return fmt.Errorf("latticeServiceModelBuildTask: Failed on building listener %w", err)
 	}
 
 	err = t.buildRules(ctx)
 
 	if err != nil {
-		glog.V(2).Infof("latticeServiceModelBuildTask: Failed on building rule, error = %v \n", err)
-		return err
+		return fmt.Errorf("latticeServiceModelBuildTask: Failed on building rule %w", err)
 	}
 
 	return nil
