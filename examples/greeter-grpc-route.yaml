@@ -5,7 +5,7 @@ metadata:
 spec:
   parentRefs:
   - name: my-hotel
-    sectionName: http
+    sectionName: https
   rules:
   - backendRefs:
     - name: grpc-server
@@ -14,4 +14,5 @@ spec:
       weight: 10
     matches:
         - method:
-            service: Greeter
+            service: helloworld.Greeter
+            method: SayHello

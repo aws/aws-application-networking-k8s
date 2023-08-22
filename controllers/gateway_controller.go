@@ -259,8 +259,11 @@ func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *gat
 	return err
 }
 
-func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetworkStatus *latticestore.ServiceNetwork, gw *gateway_api.Gateway) error {
-
+func (r *GatewayReconciler) updateGatewayStatus(
+	ctx context.Context,
+	serviceNetworkStatus *latticestore.ServiceNetwork,
+	gw *gateway_api.Gateway,
+) error {
 	gwOld := gw.DeepCopy()
 
 	gw.Status.Conditions = updateCondition(gw.Status.Conditions, metav1.Condition{
@@ -275,7 +278,7 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetw
 	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
 
 	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		return fmt.Errorf("update gw status error, gw: %s, status: %s, err: %s",
+		return fmt.Errorf("update gw status error, gw: %s, status: %s, err: %w",
 			gw.Name, serviceNetworkStatus.Status, err)
 	}
 	return nil
@@ -305,7 +308,7 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	gw.Status.Conditions = updateCondition(gw.Status.Conditions, cond)
 
 	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		return fmt.Errorf("update gateway status error, gw: %s, accepted: %t, err: %s", gw.Name, accepted, err)
+		return fmt.Errorf("update gateway status error, gw: %s, accepted: %t, err: %w", gw.Name, accepted, err)
 	}
 
 	return nil
@@ -367,9 +370,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 			}
 			listenerStatus.SupportedKinds = supportedKind
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
-
 		} else {
-
 			hasValidListener = true
 
 			condition := metav1.Condition{
@@ -413,12 +414,13 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 
 				}
 			}
+
 			httpKind := gateway_api.RouteGroupKind{
 				Kind: "HTTPRoute",
 			}
+
 			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, httpKind)
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
-
 		}
 
 		found := false
