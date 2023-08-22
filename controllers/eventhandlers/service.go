@@ -4,8 +4,6 @@ import (
 	"context"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -15,7 +13,6 @@ import (
 
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
@@ -123,7 +120,7 @@ func (h *enqueueRequestForServiceWithRoutesEvent) Generic(e event.GenericEvent, 
 func (h *enqueueRequestForServiceWithRoutesEvent) enqueueImpactedRoutes(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
 	h.log.Infof("Event: enqueueImpactedRoutes: %v", ep)
 
-	routes := h.listAllRoutes()
+	routes := core.ListAllRoutes(h.client, context.TODO())
 	for _, route := range routes {
 		if !isServiceUsedByRoute(route, ep) {
 			continue
@@ -137,24 +134,6 @@ func (h *enqueueRequestForServiceWithRoutesEvent) enqueueImpactedRoutes(queue wo
 			NamespacedName: namespacedName,
 		})
 	}
-}
-
-func (h *enqueueRequestForServiceWithRoutesEvent) listAllRoutes() []core.Route {
-	httpRouteList := &gateway_api_v1beta1.HTTPRouteList{}
-	grpcRouteList := &gateway_api_v1alpha2.GRPCRouteList{}
-
-	h.client.List(context.TODO(), httpRouteList)
-	h.client.List(context.TODO(), grpcRouteList)
-
-	var routes []core.Route
-	for _, route := range httpRouteList.Items {
-		routes = append(routes, core.NewHTTPRoute(route))
-	}
-	for _, route := range grpcRouteList.Items {
-		routes = append(routes, core.NewGRPCRoute(route))
-	}
-
-	return routes
 }
 
 func isServiceUsedByRoute(route core.Route, ep *corev1.Service) bool {
