@@ -5,7 +5,6 @@ import (
 )
 
 const (
-	TagManagedBy                = "ManagedBy"
 	K8SServiceNetworkOwnedByVPC = "K8SServiceNetworkOwnedByVPC"
 	K8SServiceOwnedByVPC        = "K8SServiceOwnedByVPC"
 )

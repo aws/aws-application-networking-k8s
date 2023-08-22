@@ -26,8 +26,6 @@ type DelSnSvcAssocReq = vpclattice.DeleteServiceNetworkServiceAssociationInput
 type DelSnSvcAssocResp = vpclattice.DeleteServiceNetworkServiceAssociationOutput
 type GetSvcReq = vpclattice.GetServiceInput
 type SvcSummary = vpclattice.ServiceSummary
-type GetResourcesTagsReq = vpclattice.ListTagsForResourceInput
-type GetResourcesTagsResp = vpclattice.ListTagsForResourceOutput
 type ListSnSvcAssocsReq = vpclattice.ListServiceNetworkServiceAssociationsInput
 type SnSvcAssocSummary = vpclattice.ServiceNetworkServiceAssociationSummary
 
@@ -63,7 +61,7 @@ func (m *defaultServiceManager) getService(ctx context.Context, svcName string) 
 	return nil, nil
 }
 
-func (m *defaultServiceManager) createServiceAndSnAssoc(ctx context.Context, svc *Service) (ServiceStatus, error) {
+func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, svc *Service) (ServiceStatus, error) {
 	emtpyStatus := ServiceStatus{}
 
 	createSvcReq := m.newCreateSvcReq(svc)
@@ -73,7 +71,7 @@ func (m *defaultServiceManager) createServiceAndSnAssoc(ctx context.Context, svc
 	}
 
 	for _, snName := range svc.Spec.ServiceNetworkNames {
-		err = m.createSnSvcAssoc(ctx, createSvcResp.Id, snName)
+		err = m.createAssociation(ctx, createSvcResp.Id, snName)
 		if err != nil {
 			return emtpyStatus, err
 		}
@@ -82,7 +80,7 @@ func (m *defaultServiceManager) createServiceAndSnAssoc(ctx context.Context, svc
 	return status, nil
 }
 
-func (m *defaultServiceManager) createSnSvcAssoc(ctx context.Context, svcId *string, snName string) error {
+func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *string, snName string) error {
 	sn, err := m.datastore.GetServiceNetworkStatus(snName, m.cloud.Config().AccountId)
 	if err != nil {
 		return err
@@ -90,29 +88,48 @@ func (m *defaultServiceManager) createSnSvcAssoc(ctx context.Context, svcId *str
 	assocReq := &CreateSnSvcAssocReq{
 		ServiceIdentifier:        svcId,
 		ServiceNetworkIdentifier: aws.String(sn.ID),
-		Tags:                     m.cloud.NewTagsWithManagedBy(),
 	}
 	assocResp, err := m.cloud.Lattice().CreateServiceNetworkServiceAssociationWithContext(ctx, assocReq)
 	if err != nil {
 		return err
 	}
-	err = handleSnSvcAssocResp(assocResp)
+	err = handleCreateAssociationResp(assocResp)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *defaultServiceManager) deleteSnSvcAssoc(ctx context.Context, assocArn *string) error {
-	delReq := &DelSnSvcAssocReq{ServiceNetworkServiceAssociationIdentifier: assocArn}
-	_, err := m.cloud.Lattice().DeleteServiceNetworkServiceAssociationWithContext(ctx, delReq)
-	if err != nil {
-		return err
+func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
+	svcName := svc.LatticeName()
+	req := &vpclattice.CreateServiceInput{
+		Name: &svcName,
 	}
-	return nil
+
+	if svc.Spec.CustomerDomainName != "" {
+		req.CustomDomainName = &svc.Spec.CustomerDomainName
+	}
+	if svc.Spec.CustomerCertARN != "" {
+		req.SetCertificateArn(svc.Spec.CustomerCertARN)
+	}
+
+	return req
 }
 
-func (m *defaultServiceManager) updateServiceAndSnAssoc(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceStatus, error) {
+func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceStatus {
+	status := ServiceStatus{}
+	if resp == nil {
+		return status
+	}
+	status.Arn = aws.StringValue(resp.Arn)
+	status.Id = aws.StringValue(resp.Id)
+	if resp.DnsEntry != nil {
+		status.Dns = aws.StringValue(resp.DnsEntry.DomainName)
+	}
+	return status
+}
+
+func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceStatus, error) {
 	emptyStatus := ServiceStatus{}
 
 	if svc.Spec.CustomerCertARN != "" {
@@ -128,7 +145,7 @@ func (m *defaultServiceManager) updateServiceAndSnAssoc(ctx context.Context, svc
 		}
 	}
 
-	err := m.updateSnSvcAssocs(ctx, svc, svcSum)
+	err := m.updateAssociations(ctx, svc, svcSum)
 	if err != nil {
 		return emptyStatus, err
 	}
@@ -143,43 +160,45 @@ func (m *defaultServiceManager) updateServiceAndSnAssoc(ctx context.Context, svc
 	return status, nil
 }
 
-// update SN-Svc associations, if svc has no SN associations will delete all of them
-// does not delete associations that are not tagged by controller
-func (m *defaultServiceManager) updateSnSvcAssocs(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
+func (m *defaultServiceManager) getAllAssociations(ctx context.Context, svcSum *SvcSummary) ([]*SnSvcAssocSummary, error) {
 	assocsReq := &ListSnSvcAssocsReq{
 		ServiceIdentifier: svcSum.Id,
 	}
 	assocs, err := m.cloud.Lattice().ListServiceNetworkServiceAssociationsAsList(ctx, assocsReq)
 	if err != nil {
+		return nil, err
+	}
+	return assocs, err
+}
+
+// update SN-Svc associations, if svc has no SN associations will delete all of them
+// does not delete associations that are not tagged by controller
+func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
+	assocs, err := m.getAllAssociations(ctx, svcSum)
+	if err != nil {
 		return err
 	}
-	toCreate, toDelete, err := snSvcAssocsDiff(svc, assocs)
+
+	toCreate, toDelete, err := associationsDiff(svc, assocs)
 	if err != nil {
 		return err
 	}
 	for _, snName := range toCreate {
-		err := m.createSnSvcAssoc(ctx, svcSum.Id, snName)
+		err := m.createAssociation(ctx, svcSum.Id, snName)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, assoc := range toDelete {
-		isManaged, err := m.cloud.IsArnManaged(assoc.Arn)
-		if err != nil {
-			return err
-		}
-		if !isManaged {
-			continue
-		}
-		m.deleteSnSvcAssoc(ctx, assoc.Arn)
+		m.deleteAssociation(ctx, assoc.Arn)
 	}
 
 	return nil
 }
 
 // returns RetryErr on all non-active Sn-Svc association responses
-func handleSnSvcAssocResp(resp *CreateSnSvcAssocResp) error {
+func handleCreateAssociationResp(resp *CreateSnSvcAssocResp) error {
 	status := aws.StringValue(resp.Status)
 	if status != vpclattice.ServiceNetworkServiceAssociationStatusActive {
 		return fmt.Errorf("%w: sn-service-association-id: %s, non-active status: %s",
@@ -188,27 +207,10 @@ func handleSnSvcAssocResp(resp *CreateSnSvcAssocResp) error {
 	return nil
 }
 
-func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
-	svcName := svc.LatticeName()
-	req := &vpclattice.CreateServiceInput{
-		Name: &svcName,
-		Tags: m.cloud.NewTagsWithManagedBy(),
-	}
-
-	if svc.Spec.CustomerDomainName != "" {
-		req.CustomDomainName = &svc.Spec.CustomerDomainName
-	}
-	if svc.Spec.CustomerCertARN != "" {
-		req.SetCertificateArn(svc.Spec.CustomerCertARN)
-	}
-
-	return req
-}
-
 // compare current sn-svc associations with new ones,
 // returns 2 slices: toCreate with SN names and toDelete with current associations
 // if assoc should be created but current state is in deletion we should retry
-func snSvcAssocsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, []SnSvcAssocSummary, error) {
+func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, []SnSvcAssocSummary, error) {
 	toCreate := []string{}
 	toDelete := []SnSvcAssocSummary{}
 
@@ -247,15 +249,35 @@ func snSvcAssocsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, []
 	return toCreate, toDelete, nil
 }
 
-func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceStatus {
-	status := ServiceStatus{
-		Arn: aws.StringValue(resp.Arn),
-		Id:  aws.StringValue(resp.Id),
+func (m *defaultServiceManager) deleteAllAssociations(ctx context.Context, svc *SvcSummary) error {
+	assocs, err := m.getAllAssociations(ctx, svc)
+	if err != nil {
+		return err
 	}
-	if resp.DnsEntry != nil {
-		status.Dns = aws.StringValue(resp.DnsEntry.DomainName)
+	for _, assoc := range assocs {
+		err = m.deleteAssociation(ctx, assoc.Arn)
+		if err != nil {
+			return err
+		}
 	}
-	return status
+	return nil
+}
+
+func (m *defaultServiceManager) deleteAssociation(ctx context.Context, assocArn *string) error {
+	delReq := &DelSnSvcAssocReq{ServiceNetworkServiceAssociationIdentifier: assocArn}
+	_, err := m.cloud.Lattice().DeleteServiceNetworkServiceAssociationWithContext(ctx, delReq)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *defaultServiceManager) deleteService(ctx context.Context, svc *SvcSummary) error {
+	delInput := vpclattice.DeleteServiceInput{
+		ServiceIdentifier: svc.Id,
+	}
+	_, err := m.cloud.Lattice().DeleteServiceWithContext(ctx, &delInput)
+	return err
 }
 
 // Create or update Service and ServiceNetwork-Service associations
@@ -269,9 +291,9 @@ func (m *defaultServiceManager) Create(ctx context.Context, svc *Service) (Servi
 
 	var status ServiceStatus
 	if svcSum == nil {
-		status, err = m.createServiceAndSnAssoc(ctx, svc)
+		status, err = m.createServiceAndAssociate(ctx, svc)
 	} else {
-		status, err = m.updateServiceAndSnAssoc(ctx, svc, svcSum)
+		status, err = m.updateServiceAndAssociations(ctx, svc, svcSum)
 	}
 	if err != nil {
 		return emptyStatus, err
@@ -285,18 +307,17 @@ func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error 
 		return err
 	}
 	if svcSum == nil {
-		return nil
+		return nil // already deleted
 	}
 
-	svc.Spec.ServiceNetworkNames = []string{}
-	err = m.updateSnSvcAssocs(ctx, svc, svcSum)
+	err = m.deleteAllAssociations(ctx, svcSum)
 	if err != nil {
 		return err
 	}
 
-	delInput := vpclattice.DeleteServiceInput{
-		ServiceIdentifier: svcSum.Id,
+	err = m.deleteService(ctx, svcSum)
+	if err != nil {
+		return err
 	}
-	_, err = m.cloud.Lattice().DeleteServiceWithContext(ctx, &delInput)
-	return err
+	return nil
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIntegCreateService(t *testing.T) {
+func TestServiceManagerInteg(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 
@@ -28,16 +28,18 @@ func TestIntegCreateService(t *testing.T) {
 
 	// Case for single service and single sn-svc association
 	// Make sure that we send requests to Lattice for create Service and create Sn-Svc
-	t.Run("create new service and sn assoc", func(t *testing.T) {
+	t.Run("create new service and association", func(t *testing.T) {
 		ds.AddServiceNetwork("sn", cfg.AccountId, "sn-arn", "sn-id", "sn-status")
 		lat.EXPECT().
-			ListServicesAsList(gomock.Any(), gomock.Any()).Return([]*SvcSummary{}, nil)
+			ListServicesAsList(gomock.Any(), gomock.Any()).
+			Return([]*SvcSummary{}, nil)
 		lat.EXPECT().
-			CreateServiceWithContext(gomock.Any(), gomock.Any()).Return(&CreateSvcResp{
-			Arn:      aws.String("arn"),
-			DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
-			Id:       aws.String("svc-id"),
-		}, nil)
+			CreateServiceWithContext(gomock.Any(), gomock.Any()).
+			Return(&CreateSvcResp{
+				Arn:      aws.String("arn"),
+				DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
+				Id:       aws.String("svc-id"),
+			}, nil)
 		lat.EXPECT().
 			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&CreateSnSvcAssocResp{
@@ -62,7 +64,7 @@ func TestIntegCreateService(t *testing.T) {
 	// This test covers creation/deletion for multiple SN's
 	// Service is associated with sn-keep and sn-delete,
 	// for update we need to delete sn-delete and add sn-add
-	t.Run("update sn-svc assocs", func(t *testing.T) {
+	t.Run("update service's associations", func(t *testing.T) {
 		snNames := []string{"sn-keep", "sn-delete", "sn-add"}
 		svc := &Service{
 			Spec: latticemodel.ServiceSpec{
@@ -110,12 +112,6 @@ func TestIntegCreateService(t *testing.T) {
 				})
 
 		lat.EXPECT().
-			ListTagsForResource(gomock.Any()).
-			Return(&GetResourcesTagsResp{
-				Tags: cl.NewTagsWithManagedBy(),
-			}, nil)
-
-		lat.EXPECT().
 			DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(
 				func(_ context.Context, req *DelSnSvcAssocReq, _ ...interface{}) (*DelSnSvcAssocResp, error) {
@@ -128,11 +124,7 @@ func TestIntegCreateService(t *testing.T) {
 		assert.Equal(t, "svc-arn", status.Arn)
 	})
 
-	// We should not delete resources that were created outside of Gateway-API
-	// For example when service is shared with another account / SN
-	// Check for  DeleteServiceNetworkServiceAssociationWithContext happens implicitly
-	// if deletion happens gomock will throw exception unexpected call
-	t.Run("dont delete sn-svc assoc not managed by gateway-api", func(t *testing.T) {
+	t.Run("delete service and association", func(t *testing.T) {
 		svc := &Service{
 			Spec: latticemodel.ServiceSpec{
 				Name:                "svc",
@@ -140,8 +132,6 @@ func TestIntegCreateService(t *testing.T) {
 				ServiceNetworkNames: []string{"sn"},
 			},
 		}
-
-		ds.AddServiceNetwork("sn", cfg.AccountId, "sn-arn", "sn-id", "sn-status")
 
 		lat.EXPECT().
 			ListServicesAsList(gomock.Any(), gomock.Any()).
@@ -160,31 +150,19 @@ func TestIntegCreateService(t *testing.T) {
 					ServiceNetworkName: aws.String("sn"),
 					Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
 				},
-				{
-					Arn:                aws.String("foreign-assoc-arn"),
-					Id:                 aws.String("foreign-assoc-id"),
-					ServiceNetworkName: aws.String("foreign-sn"),
-					Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
-				},
 			}, nil)
 
 		lat.EXPECT().
-			ListTagsForResource(gomock.Any()).
-			DoAndReturn(
-				func(req *GetResourcesTagsReq) (*GetResourcesTagsResp, error) {
-					var tags mocks_aws.Tags
-					if *req.ResourceArn == "foreign-assoc-arn" {
-						tags = cl.NewTags()
-					} else {
-						tags = cl.NewTagsWithManagedBy()
-					}
-					return &GetResourcesTagsResp{Tags: tags}, nil
-				})
+			DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, nil)
 
-		status, err := m.Create(ctx, svc)
+		lat.EXPECT().
+			DeleteServiceWithContext(gomock.Any(), gomock.Any()).Return(nil, nil)
+
+		err := m.Delete(ctx, svc)
 		assert.Nil(t, err)
-		assert.Equal(t, "svc-arn", status.Arn)
 	})
+
 }
 
 func TestCreateSvcReq(t *testing.T) {
@@ -209,7 +187,6 @@ func TestCreateSvcReq(t *testing.T) {
 	assert.Equal(t, *req.Name, svcModel.LatticeName())
 	assert.Equal(t, *req.CustomDomainName, spec.CustomerDomainName)
 	assert.Equal(t, *req.CertificateArn, spec.CustomerCertARN)
-	assert.True(t, cl.IsTagManagedBy(req.Tags))
 
 }
 
@@ -235,7 +212,7 @@ func TestHandleSnSvcAssocResp(t *testing.T) {
 		resp := &CreateSnSvcAssocResp{
 			Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
 		}
-		err := handleSnSvcAssocResp(resp)
+		err := handleCreateAssociationResp(resp)
 		assert.Nil(t, err)
 	})
 
@@ -243,7 +220,7 @@ func TestHandleSnSvcAssocResp(t *testing.T) {
 		resp := &CreateSnSvcAssocResp{
 			Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress),
 		}
-		err := handleSnSvcAssocResp(resp)
+		err := handleCreateAssociationResp(resp)
 		assert.True(t, errors.Is(err, RetryErr))
 	})
 
@@ -256,7 +233,7 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 			ServiceNetworkNames: []string{"sn"},
 		}}
 		assocs := []*SnSvcAssocSummary{{ServiceNetworkName: aws.String("sn")}}
-		c, d, err := snSvcAssocsDiff(svc, assocs)
+		c, d, err := associationsDiff(svc, assocs)
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(c))
 		assert.Equal(t, 0, len(d))
@@ -267,7 +244,7 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 			ServiceNetworkNames: []string{"sn1", "sn2"},
 		}}
 		assocs := []*SnSvcAssocSummary{}
-		c, d, _ := snSvcAssocsDiff(svc, assocs)
+		c, d, _ := associationsDiff(svc, assocs)
 		assert.Equal(t, 2, len(c))
 		assert.Equal(t, 0, len(d))
 	})
@@ -278,7 +255,7 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 			{ServiceNetworkName: aws.String("sn1")},
 			{ServiceNetworkName: aws.String("sn2")},
 		}
-		c, d, _ := snSvcAssocsDiff(svc, assocs)
+		c, d, _ := associationsDiff(svc, assocs)
 		assert.Equal(t, 0, len(c))
 		assert.Equal(t, 2, len(d))
 	})
@@ -291,7 +268,7 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 			{ServiceNetworkName: aws.String("sn1")},
 			{ServiceNetworkName: aws.String("sn4")},
 		}
-		c, d, _ := snSvcAssocsDiff(svc, assocs)
+		c, d, _ := associationsDiff(svc, assocs)
 		assert.Equal(t, 2, len(c))
 		assert.Equal(t, 1, len(d))
 	})
@@ -304,7 +281,8 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 			ServiceNetworkName: aws.String("sn"),
 			Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress),
 		}}
-		_, _, err := snSvcAssocsDiff(svc, assocs)
+		_, _, err := associationsDiff(svc, assocs)
 		assert.True(t, errors.Is(err, RetryErr))
 	})
+
 }
