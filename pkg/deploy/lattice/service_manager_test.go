@@ -30,9 +30,13 @@ func TestServiceManagerInteg(t *testing.T) {
 	// Make sure that we send requests to Lattice for create Service and create Sn-Svc
 	t.Run("create new service and association", func(t *testing.T) {
 		ds.AddServiceNetwork("sn", cfg.AccountId, "sn-arn", "sn-id", "sn-status")
+
+		// service does not exists in lattice
 		lat.EXPECT().
 			ListServicesAsList(gomock.Any(), gomock.Any()).
 			Return([]*SvcSummary{}, nil)
+
+		// assert that we call create service
 		lat.EXPECT().
 			CreateServiceWithContext(gomock.Any(), gomock.Any()).
 			Return(&CreateSvcResp{
@@ -40,6 +44,8 @@ func TestServiceManagerInteg(t *testing.T) {
 				DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
 				Id:       aws.String("svc-id"),
 			}, nil)
+
+		// assert that we call create association
 		lat.EXPECT().
 			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&CreateSnSvcAssocResp{
@@ -78,6 +84,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			ds.AddServiceNetwork(sn, cfg.AccountId, sn+"-arn", sn+"-id", sn+"-status")
 		}
 
+		// service exists in lattice
 		lat.EXPECT().
 			ListServicesAsList(gomock.Any(), gomock.Any()).
 			Return([]*SvcSummary{{
@@ -86,6 +93,7 @@ func TestServiceManagerInteg(t *testing.T) {
 				Name: aws.String(svc.LatticeName()),
 			}}, nil)
 
+		// 2 associations exists, keep and delete
 		lat.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 			Return([]*SnSvcAssocSummary{
@@ -103,6 +111,7 @@ func TestServiceManagerInteg(t *testing.T) {
 				},
 			}, nil)
 
+		// assert we call create and delete associations
 		lat.EXPECT().
 			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
 			DoAndReturn(
@@ -133,6 +142,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			},
 		}
 
+		// service exists
 		lat.EXPECT().
 			ListServicesAsList(gomock.Any(), gomock.Any()).
 			Return([]*SvcSummary{{
@@ -140,7 +150,6 @@ func TestServiceManagerInteg(t *testing.T) {
 				Id:   aws.String("svc-id"),
 				Name: aws.String(svc.LatticeName()),
 			}}, nil)
-
 		lat.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 			Return([]*SnSvcAssocSummary{
@@ -152,6 +161,7 @@ func TestServiceManagerInteg(t *testing.T) {
 				},
 			}, nil)
 
+		// assert we delete association and service
 		lat.EXPECT().
 			DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, nil)
