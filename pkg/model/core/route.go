@@ -9,6 +9,8 @@ import (
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
+type RouteType string
+
 type Route interface {
 	Spec() RouteSpec
 	Status() RouteStatus

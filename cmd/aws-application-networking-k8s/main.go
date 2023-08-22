@@ -151,12 +151,9 @@ func main() {
 		setupLog.Fatalf("route controller setup failed: %s", err)
 	}
 
-	serviceImportReconciler := controllers.NewServceImportReconciler(mgr.GetClient(), mgr.GetScheme(),
-		mgr.GetEventRecorderFor("ServiceImport"), finalizerManager, latticeDataStore)
-
-	if err = serviceImportReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceImport")
-		os.Exit(1)
+	err = controllers.RegisterServiceImportReconciler(ctrlLog.Named("serviceimport"), mgr, latticeDataStore, finalizerManager)
+	if err != nil {
+		setupLog.Fatalf("serviceimport controller setup failed: %s", err)
 	}
 
 	err = controllers.RegisterServiceExportReconciler(ctrlLog.Named("serviceexport"), cloud, latticeDataStore, finalizerManager, mgr)

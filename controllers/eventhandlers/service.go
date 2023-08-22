@@ -50,7 +50,7 @@ func (h *enqueueRequestForServiceWithExportEvent) Generic(e event.GenericEvent, 
 }
 
 func (h *enqueueRequestForServiceWithExportEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
-	h.log.Infof("Event: enqueueImpactedService: %v\n", ep)
+	h.log.Infof("Event: enqueueImpactedService: service name: %s, service namespace: %s", ep.Name, ep.Namespace)
 
 	srv := &corev1.Service{}
 	namespacedName := types.NamespacedName{
@@ -118,7 +118,7 @@ func (h *enqueueRequestForServiceWithRoutesEvent) Generic(e event.GenericEvent, 
 }
 
 func (h *enqueueRequestForServiceWithRoutesEvent) enqueueImpactedRoutes(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
-	h.log.Infof("Event: enqueueImpactedRoutes: %v", ep)
+	h.log.Infof("Event: enqueueImpactedRoutes for service name %s, namespace %s", ep.Name, ep.Namespace)
 
 	routes := core.ListAllRoutes(h.client, context.TODO())
 	for _, route := range routes {

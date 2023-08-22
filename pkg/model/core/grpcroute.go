@@ -10,6 +10,10 @@ import (
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
+const (
+	GrpcRouteType RouteType = "grpc"
+)
+
 type GRPCRoute struct {
 	r gateway_api_v1alpha2.GRPCRoute
 }

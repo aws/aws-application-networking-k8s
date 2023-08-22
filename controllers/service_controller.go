@@ -83,7 +83,7 @@ func RegisterServiceController(
 		datastore:        datastore,
 		stackMashaller:   stackMarshaller,
 	}
-	epsEventsHandler := eventhandlers.NewEnqueueRequestEndpointEvent(client)
+	epsEventsHandler := eventhandlers.NewEnqueueRequestEndpointEvent(log, client)
 	routeEventHandler := eventhandlers.NewEnqueueRequestRouteEvent(log, client)
 	serviceExportHandler := eventhandlers.NewEqueueRequestServiceExportEvent(client)
 	err := ctrl.NewControllerManagedBy(mgr).

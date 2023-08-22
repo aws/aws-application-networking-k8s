@@ -9,6 +9,10 @@ import (
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
+const (
+	HttpRouteType RouteType = "http"
+)
+
 type HTTPRoute struct {
 	r gateway_api_v1beta1.HTTPRoute
 }

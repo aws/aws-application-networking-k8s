@@ -48,21 +48,14 @@ import (
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 )
 
-type RouteType string
-
-const (
-	HTTP RouteType = "http"
-	GRPC RouteType = "grpc"
-)
-
-var routeTypeToFinalizer = map[RouteType]string{
-	HTTP: "httproute.k8s.aws/resources",
-	GRPC: "grpcroute.k8s.aws/resources",
+var routeTypeToFinalizer = map[core.RouteType]string{
+	core.HttpRouteType: "httproute.k8s.aws/resources",
+	core.GrpcRouteType: "grpcroute.k8s.aws/resources",
 }
 
 // RouteReconciler reconciles a HTTPRoute and GRPCRoute objects
 type RouteReconciler struct {
-	routeType        RouteType
+	routeType        core.RouteType
 	log              gwlog.Logger
 	client           client.Client
 	scheme           *runtime.Scheme
@@ -88,14 +81,13 @@ func RegisterAllRouteControllers(
 	mgrClient := mgr.GetClient()
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(mgrClient)
 	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceWithRoutesEvent(log, mgrClient)
-	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(mgrClient)
 
 	routeInfos := []struct {
-		routeType      RouteType
+		routeType      core.RouteType
 		gatewayApiType client.Object
 	}{
-		{HTTP, &gateway_api_v1beta1.HTTPRoute{}},
-		{GRPC, &gateway_api_v1alpha2.GRPCRoute{}},
+		{core.HttpRouteType, &gateway_api_v1beta1.HTTPRoute{}},
+		{core.GrpcRouteType, &gateway_api_v1alpha2.GRPCRoute{}},
 	}
 
 	for _, routeInfo := range routeInfos {
@@ -111,6 +103,8 @@ func RegisterAllRouteControllers(
 			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient, datastore),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		}
+
+		svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(log, mgrClient, routeInfo.routeType)
 
 		err := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType).
@@ -188,9 +182,9 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 
 func (r *RouteReconciler) getRoute(ctx context.Context, req ctrl.Request) (core.Route, error) {
 	switch r.routeType {
-	case HTTP:
+	case core.HttpRouteType:
 		return core.GetHTTPRoute(r.client, ctx, req.NamespacedName)
-	case GRPC:
+	case core.GrpcRouteType:
 		return core.GetGRPCRoute(r.client, ctx, req.NamespacedName)
 	default:
 		return nil, fmt.Errorf("unknown route type for type %s", string(r.routeType))
