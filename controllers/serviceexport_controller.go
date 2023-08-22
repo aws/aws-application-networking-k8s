@@ -85,11 +85,11 @@ func RegisterServiceExportReconciler(
 		stackMarshaller:  stackMarshaller,
 	}
 
-	svcEventsHandler := eventhandlers.NewEqueueRequestServiceWithExportEvent(log, r.client)
+	svcExportEventsHandler := eventhandlers.NewEqueueRequestServiceWithExportEvent(log, r.client)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&mcs_api.ServiceExport{}).
-		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventsHandler).
+		Watches(&source.Kind{Type: &corev1.Service{}}, svcExportEventsHandler).
 		Complete(r)
 }
 

@@ -73,7 +73,7 @@ func (h *enqueueRequestForServiceWithExportEvent) enqueueImpactedService(queue w
 }
 
 func (h *enqueueRequestForServiceWithExportEvent) enqueueImpactedServiceExport(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
-	h.log.Infof("Event: enqueueImpactedServiceExport: %v\n", ep)
+	h.log.Infof("Event: enqueueImpactedServiceExport: service name %s, service namespace %s", ep.Name, ep.Namespace)
 
 	srvExport := &mcs_api.ServiceExport{}
 	namespacedName := types.NamespacedName{
