@@ -319,20 +319,16 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 
 	gwOld := gw.DeepCopy()
 
-	httpRouteList := &gateway_api.HTTPRouteList{}
-
-	k8sClient.List(context.TODO(), httpRouteList)
+	routes := core.ListAllRoutes(k8sClient, ctx)
 
 	// Add one of lattice domains as GW address. This can represent incorrect value in some cases (e.g. cross-account)
 	// TODO: support multiple endpoint addresses across services.
-	if len(httpRouteList.Items) > 0 {
-
+	if len(routes) > 0 {
 		gw.Status.Addresses = []gateway_api.GatewayAddress{}
-
 		addressType := gateway_api.HostnameAddressType
-		for _, route := range httpRouteList.Items {
-			if route.DeletionTimestamp.IsZero() && len(route.Annotations) > 0 {
-				if domain, exists := route.Annotations[LatticeAssignedDomainName]; exists {
+		for _, route := range routes {
+			if route.DeletionTimestamp().IsZero() && len(route.K8sObject().GetAnnotations()) > 0 {
+				if domain, exists := route.K8sObject().GetAnnotations()[LatticeAssignedDomainName]; exists {
 					gw.Status.Addresses = append(gw.Status.Addresses, gateway_api.GatewayAddress{
 						Type:  &addressType,
 						Value: domain,
@@ -350,7 +346,6 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 
 	// go through each section of gw
 	for _, listener := range gw.Spec.Listeners {
-
 		listenerStatus := gateway_api.ListenerStatus{
 			Name: listener.Name,
 		}
@@ -359,7 +354,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 		listenerStatus.Conditions = make([]metav1.Condition, 0)
 
 		//Check if RouteGroupKind in listener spec is supported
-		validListener, supportedKind := listenerRouteGroupKindSupported(listener)
+		validListener, supportedKinds := listenerRouteGroupKindSupported(listener)
 		if !validListener {
 			condition := metav1.Condition{
 				Type:               string(gateway_api.ListenerConditionResolvedRefs),
@@ -368,7 +363,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 				ObservedGeneration: gw.Generation,
 				LastTransitionTime: metav1.Now(),
 			}
-			listenerStatus.SupportedKinds = supportedKind
+			listenerStatus.SupportedKinds = supportedKinds
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
 		} else {
 			hasValidListener = true
@@ -381,12 +376,13 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 				LastTransitionTime: metav1.Now(),
 			}
 
-			for _, httpRoute := range httpRouteList.Items {
-				if !httpRoute.DeletionTimestamp.IsZero() {
-					// Ignore the delete httproute
+			for _, route := range routes {
+				if !route.DeletionTimestamp().IsZero() {
+					// Ignore the deleted route
 					continue
 				}
-				for _, parentRef := range httpRoute.Spec.ParentRefs {
+
+				for _, parentRef := range route.Spec().ParentRefs() {
 					if parentRef.Name != gateway_api.ObjectName(gw.Name) {
 						continue
 					}
@@ -396,30 +392,34 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 						continue
 					}
 
-					var httpSectionName string
+					var sectionName string
 					if parentRef.SectionName == nil {
-						httpSectionName = string(defaultListener.Name)
-
+						sectionName = string(defaultListener.Name)
 					} else {
-						httpSectionName = string(*parentRef.SectionName)
+						sectionName = string(*parentRef.SectionName)
 					}
 
-					if httpSectionName != string(listener.Name) {
+					if sectionName != string(listener.Name) {
 						continue
 					}
+
 					if parentRef.Port != nil && *parentRef.Port != listener.Port {
 						continue
 					}
-					listenerStatus.AttachedRoutes++
 
+					listenerStatus.AttachedRoutes++
 				}
 			}
 
-			httpKind := gateway_api.RouteGroupKind{
-				Kind: "HTTPRoute",
+			if listener.Protocol == gateway_api.HTTPSProtocolType {
+				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gateway_api.RouteGroupKind{
+					Kind: "GRPCRoute",
+				})
 			}
 
-			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, httpKind)
+			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gateway_api.RouteGroupKind{
+				Kind: "HTTPRoute",
+			})
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
 		}
 
@@ -450,26 +450,30 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 }
 
 func listenerRouteGroupKindSupported(listener gateway_api.Listener) (bool, []gateway_api.RouteGroupKind) {
-	defaultSupportedKind := []gateway_api.RouteGroupKind{{Kind: "HTTPRoute"}}
-
 	validRoute := true
-	supportedKind := make([]gateway_api.RouteGroupKind, 0)
+	supportedKinds := make([]gateway_api.RouteGroupKind, 0)
 
 	for _, routeGroupKind := range listener.AllowedRoutes.Kinds {
-		// today, controller only support HTTPRoute
-		if routeGroupKind.Kind != "HTTPRoute" {
-			validRoute = false
-		} else {
-			supportedKind = append(supportedKind, gateway_api.RouteGroupKind{
+		if routeGroupKind.Kind == "HTTPRoute" {
+			supportedKinds = append(supportedKinds, gateway_api.RouteGroupKind{
 				Kind: "HTTPRoute",
 			})
+		} else if routeGroupKind.Kind == "GRPCRoute" {
+			if listener.Protocol == gateway_api.HTTPSProtocolType {
+				supportedKinds = append(supportedKinds, gateway_api.RouteGroupKind{
+					Kind: "GRPCRoute",
+				})
+			} else {
+				validRoute = false
+			}
+		} else {
+			validRoute = false
 		}
-
 	}
 
 	if validRoute {
-		return true, defaultSupportedKind
+		return true, supportedKinds
 	} else {
-		return false, supportedKind
+		return false, supportedKinds
 	}
 }
