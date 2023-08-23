@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: greeter-grpc-server
-        image: tobegit3hub/grpc-helloworld:latest
+        image: aguilbau/hello-world-grpc:latest
 
 
 ---
