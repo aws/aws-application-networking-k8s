@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
@@ -40,6 +41,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // ServiceExportReconciler reconciles a ServiceExport object
@@ -179,12 +182,24 @@ func (r *ServiceExportReconciler) buildAndDeployModel(ctx context.Context, srvEx
 }
 
 // SetupWithManager sets up the controller with the Manager.
-// TODO need to watch service event too
-func (r *ServiceExportReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ServiceExportReconciler) SetupWithManager(log gwlog.Logger, mgr ctrl.Manager) error {
 	svcEventsHandler := eventhandlers.NewEqueueRequestServiceEvent(r.Client)
-	return ctrl.NewControllerManagedBy(mgr).
+	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, r.Client)
+	builder := ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
 		For(&mcs_api.ServiceExport{}).
 		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventsHandler).
-		Complete(r)
+		Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(tgpEventHandler.MapToServiceExport))
+
+	if ok, err := k8s.IsGVKSupported(mgr, "application-networking.k8s.aws/v1alpha1", "TargetGroupPolicy"); ok {
+		builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(tgpEventHandler.MapToServiceExport))
+	} else {
+		if err != nil {
+			log.Infof("TargetGroupPolicy CRD is not found due to error: %s", err.Error())
+		} else {
+			log.Infof("TargetGroupPolicy CRD is not found.")
+		}
+	}
+
+	return builder.Complete(r)
 }
