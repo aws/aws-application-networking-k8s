@@ -29,6 +29,16 @@ func TestServiceManagerInteg(t *testing.T) {
 	// Case for single service and single sn-svc association
 	// Make sure that we send requests to Lattice for create Service and create Sn-Svc
 	t.Run("create new service and association", func(t *testing.T) {
+		svc := &Service{
+			Spec: latticemodel.ServiceSpec{
+				Name:                "svc",
+				Namespace:           "ns",
+				ServiceNetworkNames: []string{"sn"},
+				CustomerDomainName:  "dns",
+				CustomerCertARN:     "cert-arn",
+			},
+		}
+
 		ds.AddServiceNetwork("sn", cfg.AccountId, "sn-arn", "sn-id", "sn-status")
 
 		// service does not exists in lattice
@@ -39,28 +49,27 @@ func TestServiceManagerInteg(t *testing.T) {
 		// assert that we call create service
 		lat.EXPECT().
 			CreateServiceWithContext(gomock.Any(), gomock.Any()).
-			Return(&CreateSvcResp{
-				Arn:      aws.String("arn"),
-				DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
-				Id:       aws.String("svc-id"),
-			}, nil)
+			DoAndReturn(
+				func(_ context.Context, req *CreateSvcReq, _ ...interface{}) (*CreateSvcResp, error) {
+					assert.Equal(t, svc.LatticeName(), *req.Name)
+					return &CreateSvcResp{
+						Arn:      aws.String("arn"),
+						DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
+						Id:       aws.String("svc-id"),
+					}, nil
+				})
 
 		// assert that we call create association
 		lat.EXPECT().
-			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(&CreateSnSvcAssocResp{
-				Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
-			}, nil)
+			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(
+				func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
+					assert.Equal(t, "sn-id", *req.ServiceNetworkIdentifier)
+					return &CreateSnSvcAssocResp{
+						Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+					}, nil
+				})
 
-		svc := &Service{
-			Spec: latticemodel.ServiceSpec{
-				Name:                "svc",
-				Namespace:           "ns",
-				ServiceNetworkNames: []string{"sn"},
-				CustomerDomainName:  "dns",
-				CustomerCertARN:     "cert-arn",
-			},
-		}
 		status, err := m.Create(ctx, svc)
 		assert.Nil(t, err)
 		assert.Equal(t, "arn", status.Arn)

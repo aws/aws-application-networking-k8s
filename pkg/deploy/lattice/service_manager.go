@@ -15,7 +15,7 @@ import (
 //go:generate mockgen -destination service_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ServiceManager
 
 type Service = latticemodel.Service
-type ServiceStatus = latticemodel.ServiceStatus
+type ServiceInfo = latticemodel.ServiceStatus
 type CreateSvcReq = vpclattice.CreateServiceInput
 type CreateSvcResp = vpclattice.CreateServiceOutput
 type UpdateSvcReq = vpclattice.UpdateServiceInput
@@ -61,23 +61,21 @@ func (m *defaultServiceManager) getService(ctx context.Context, svcName string) 
 	return nil, nil
 }
 
-func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, svc *Service) (ServiceStatus, error) {
-	emtpyStatus := ServiceStatus{}
-
+func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, svc *Service) (ServiceInfo, error) {
 	createSvcReq := m.newCreateSvcReq(svc)
 	createSvcResp, err := m.cloud.Lattice().CreateServiceWithContext(ctx, createSvcReq)
 	if err != nil {
-		return emtpyStatus, err
+		return ServiceInfo{}, err
 	}
 
 	for _, snName := range svc.Spec.ServiceNetworkNames {
 		err = m.createAssociation(ctx, createSvcResp.Id, snName)
 		if err != nil {
-			return emtpyStatus, err
+			return ServiceInfo{}, err
 		}
 	}
-	status := svcStatusFromCreateSvcResp(createSvcResp)
-	return status, nil
+	svcInfo := svcStatusFromCreateSvcResp(createSvcResp)
+	return svcInfo, nil
 }
 
 func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *string, snName string) error {
@@ -116,22 +114,20 @@ func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 	return req
 }
 
-func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceStatus {
-	status := ServiceStatus{}
+func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceInfo {
+	svcInfo := ServiceInfo{}
 	if resp == nil {
-		return status
+		return svcInfo
 	}
-	status.Arn = aws.StringValue(resp.Arn)
-	status.Id = aws.StringValue(resp.Id)
+	svcInfo.Arn = aws.StringValue(resp.Arn)
+	svcInfo.Id = aws.StringValue(resp.Id)
 	if resp.DnsEntry != nil {
-		status.Dns = aws.StringValue(resp.DnsEntry.DomainName)
+		svcInfo.Dns = aws.StringValue(resp.DnsEntry.DomainName)
 	}
-	return status
+	return svcInfo
 }
 
-func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceStatus, error) {
-	emptyStatus := ServiceStatus{}
-
+func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceInfo, error) {
 	if svc.Spec.CustomerCertARN != "" {
 		updReq := &UpdateSvcReq{
 			CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
@@ -140,24 +136,24 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 		if updReq != nil {
 			_, err := m.cloud.Lattice().UpdateService(updReq)
 			if err != nil {
-				return emptyStatus, err
+				return ServiceInfo{}, err
 			}
 		}
 	}
 
 	err := m.updateAssociations(ctx, svc, svcSum)
 	if err != nil {
-		return emptyStatus, err
+		return ServiceInfo{}, err
 	}
 
-	status := ServiceStatus{
+	svcInfo := ServiceInfo{
 		Arn: aws.StringValue(svcSum.Arn),
 		Id:  aws.StringValue(svcSum.Id),
 	}
 	if svcSum.DnsEntry != nil {
-		status.Dns = aws.StringValue(svcSum.DnsEntry.DomainName)
+		svcInfo.Dns = aws.StringValue(svcSum.DnsEntry.DomainName)
 	}
-	return status, nil
+	return svcInfo, nil
 }
 
 func (m *defaultServiceManager) getAllAssociations(ctx context.Context, svcSum *SvcSummary) ([]*SnSvcAssocSummary, error) {
@@ -281,24 +277,22 @@ func (m *defaultServiceManager) deleteService(ctx context.Context, svc *SvcSumma
 }
 
 // Create or update Service and ServiceNetwork-Service associations
-func (m *defaultServiceManager) Create(ctx context.Context, svc *Service) (ServiceStatus, error) {
-	emptyStatus := ServiceStatus{}
-
+func (m *defaultServiceManager) Create(ctx context.Context, svc *Service) (ServiceInfo, error) {
 	svcSum, err := m.getService(ctx, svc.LatticeName())
 	if err != nil {
-		return emptyStatus, err
+		return ServiceInfo{}, err
 	}
 
-	var status ServiceStatus
+	var svcInfo ServiceInfo
 	if svcSum == nil {
-		status, err = m.createServiceAndAssociate(ctx, svc)
+		svcInfo, err = m.createServiceAndAssociate(ctx, svc)
 	} else {
-		status, err = m.updateServiceAndAssociations(ctx, svc, svcSum)
+		svcInfo, err = m.updateServiceAndAssociations(ctx, svc, svcSum)
 	}
 	if err != nil {
-		return emptyStatus, err
+		return ServiceInfo{}, err
 	}
-	return status, nil
+	return svcInfo, nil
 }
 
 func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error {
