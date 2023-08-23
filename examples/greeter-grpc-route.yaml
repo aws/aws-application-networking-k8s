@@ -8,7 +8,7 @@ spec:
     sectionName: https
   rules:
   - backendRefs:
-    - name: grpc-server
+    - name: greeter-grpc-server
       kind: Service
       port: 50051
       weight: 10
