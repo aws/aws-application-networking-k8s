@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"time"
 
 	"github.com/golang/glog"
@@ -38,7 +39,7 @@ func (h *enqueueRequestsForGatewayEvent) Create(e event.CreateEvent, queue workq
 
 	// initialize transition time
 	gwNew.Status.Conditions[0].LastTransitionTime = ZeroTransitionTime
-	h.enqueueImpactedHTTPRoute(queue, gwNew)
+	h.enqueueImpactedRoutes(queue)
 }
 
 func (h *enqueueRequestsForGatewayEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
@@ -52,7 +53,7 @@ func (h *enqueueRequestsForGatewayEvent) Update(e event.UpdateEvent, queue workq
 			gwOld.Spec, gwNew.Spec)
 		// initialize transition time
 		gwNew.Status.Conditions[0].LastTransitionTime = ZeroTransitionTime
-		h.enqueueImpactedHTTPRoute(queue, gwNew)
+		h.enqueueImpactedRoutes(queue)
 	}
 }
 
@@ -64,32 +65,29 @@ func (h *enqueueRequestsForGatewayEvent) Generic(e event.GenericEvent, queue wor
 
 }
 
-func (h *enqueueRequestsForGatewayEvent) enqueueImpactedHTTPRoute(queue workqueue.RateLimitingInterface, gw *gateway_api.Gateway) {
-	httpRouteList := &gateway_api.HTTPRouteList{}
+func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(queue workqueue.RateLimitingInterface) {
+	routes := core.ListAllRoutes(h.client, context.TODO())
+	for _, route := range routes {
 
-	h.client.List(context.TODO(), httpRouteList)
-
-	for _, httpRoute := range httpRouteList.Items {
-
-		if len(httpRoute.Spec.ParentRefs) <= 0 {
-			glog.V(6).Infof("Ignore httpRoute no parentRefs %s", httpRoute.Name)
+		if len(route.Spec().ParentRefs()) <= 0 {
+			glog.V(6).Infof("Ignore route no parentRefs %s", route.Name())
 			continue
 		}
 
 		// find the parent gw object
-		var gwNamespace = httpRoute.Namespace
-		if httpRoute.Spec.ParentRefs[0].Namespace != nil {
-			gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
+		var gwNamespace = route.Namespace()
+		if route.Spec().ParentRefs()[0].Namespace != nil {
+			gwNamespace = string(*route.Spec().ParentRefs()[0].Namespace)
 		}
+
 		gwName := types.NamespacedName{
 			Namespace: gwNamespace,
-			Name:      string(httpRoute.Spec.ParentRefs[0].Name),
+			Name:      string(route.Spec().ParentRefs()[0].Name),
 		}
 
 		gw := &gateway_api.Gateway{}
-
 		if err := h.client.Get(context.TODO(), gwName, gw); err != nil {
-			glog.V(6).Infof("Ignore HTTPRoute with unknown parentRef %s\n", httpRoute.Name)
+			glog.V(6).Infof("Ignore Route with unknown parentRef %s", route.Name())
 			continue
 		}
 
@@ -101,16 +99,16 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedHTTPRoute(queue workqueu
 		}
 
 		if err := h.client.Get(context.TODO(), gwClassName, gwClass); err != nil {
-			glog.V(6).Infof("Ignore HTTPRoute with unknown Gateway %s \n", httpRoute.Name)
+			glog.V(6).Infof("Ignore Route with unknown Gateway %s", route.Name())
 			continue
 		}
 
 		if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-			glog.V(2).Infof("Trigger HTTPRoute from Gateway event , httpRoute %s", httpRoute.Name)
+			glog.V(2).Infof("Trigger Route from Gateway event, route %s", route.Name())
 			queue.Add(reconcile.Request{
 				NamespacedName: types.NamespacedName{
-					Namespace: httpRoute.Namespace,
-					Name:      httpRoute.Name,
+					Namespace: route.Namespace(),
+					Name:      route.Name(),
 				},
 			})
 		}
