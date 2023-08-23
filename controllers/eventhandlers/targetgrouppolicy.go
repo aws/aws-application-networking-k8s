@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -29,13 +30,13 @@ func (h *targetGroupPolicyEventHandler) getTargetRef(obj client.Object) *corev1.
 
 	targetRef := tgp.Spec.TargetRef
 	if targetRef.Group != "" || targetRef.Kind != "Service" {
-		h.log.Warnw("Detected non-Service TargetGroupPolicy attachment, skipping",
+		h.log.Infow("Detected non-Service TargetGroupPolicy attachment, skipping",
 			"policyName", policyName, "targetRef", targetRef)
 		return nil
 	}
 	namespace := tgp.Namespace
 	if targetRef.Namespace != nil && namespace != string(*targetRef.Namespace) {
-		h.log.Warnw("Detected cross namespace TargetGroupPolicy attachment, skipping",
+		h.log.Infow("Detected cross namespace TargetGroupPolicy attachment, skipping",
 			"policyName", policyName, "targetRef", targetRef)
 		return nil
 	}
@@ -46,6 +47,14 @@ func (h *targetGroupPolicyEventHandler) getTargetRef(obj client.Object) *corev1.
 	}
 	svc := &corev1.Service{}
 	if err := h.client.Get(context.TODO(), svcName, svc); err != nil {
+		if errors.IsNotFound(err) {
+			h.log.Debugw("TargetGroupPolicy is referring to non-existent service, skipping",
+				"policyName", policyName, "serviceName", svcName.String())
+		} else {
+			// Still gracefully skipping the event but errors other than NotFound are bad sign.
+			h.log.Warnw("Failed to query targetRef of TargetGroupPolicy",
+				"policyName", policyName, "serviceName", svcName.String(), "reason", err.Error())
+		}
 		return nil
 	}
 	h.log.Debugw("TargetGroupPolicy change on Service detected",

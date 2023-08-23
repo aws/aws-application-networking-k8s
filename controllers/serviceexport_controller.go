@@ -195,10 +195,9 @@ func (r *ServiceExportReconciler) SetupWithManager(log gwlog.Logger, mgr ctrl.Ma
 		builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(tgpEventHandler.MapToServiceExport))
 	} else {
 		if err != nil {
-			log.Infof("TargetGroupPolicy CRD is not found due to error: %s", err.Error())
-		} else {
-			log.Infof("TargetGroupPolicy CRD is not found.")
+			return err
 		}
+		log.Infof("TargetGroupPolicy CRD is not installed, skipping watch")
 	}
 
 	return builder.Complete(r)

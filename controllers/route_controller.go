@@ -126,13 +126,19 @@ func RegisterAllRouteControllers(
 		if ok, err := k8s.IsGVKSupported(mgr, "application-networking.k8s.aws/v1alpha1", "TargetGroupPolicy"); ok {
 			builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(routeInfo.eventMapFunc))
 		} else {
-			log.Infow("TargetGroupPolicy CRD is not installed.", "reason", err)
+			if err != nil {
+				return err
+			}
+			log.Infof("TargetGroupPolicy CRD is not installed, skipping watch")
 		}
 
 		if ok, err := k8s.IsGVKSupported(mgr, "externaldns.k8s.io/v1alpha1", "DNSEndpoint"); ok {
 			builder.Owns(&endpoint.DNSEndpoint{})
 		} else {
-			log.Infow("DNSEndpoint CRD is not installed.", "reason", err)
+			if err != nil {
+				return err
+			}
+			log.Infof("DNSEndpoint CRD is not installed, skipping watch")
 		}
 
 		err := builder.Complete(&reconciler)
