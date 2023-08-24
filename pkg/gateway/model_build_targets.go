@@ -24,7 +24,7 @@ import (
 const (
 	resourceIDLatticeTargets = "LatticeTargets"
 	portAnnotationsKey       = "multicluster.x-k8s.io/port"
-	undefinedPort            = int64(0)
+	undefinedPort            = int32(0)
 )
 
 type LatticeTargetsBuilder interface {
@@ -110,7 +110,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		return errors.New(errmsg)
 	}
 
-	definedPorts := make([]int64, 0)
+	definedPorts := make(map[int32]struct{})
 	if tg.ByServiceExport {
 		serviceExport := &mcs_api.ServiceExport{}
 		err = t.Client.Get(ctx, namespacedName, serviceExport)
@@ -120,35 +120,58 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 			portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], ",")
 
 			for _, portAnnotation := range portsAnnotations {
-				definedPort, err := strconv.ParseInt(portAnnotation, 10, 64)
+				definedPort, err := strconv.ParseInt(portAnnotation, 10, 32)
 				if err != nil {
 					glog.V(6).Infof("Failed to read Annotations/Port:%s, err:%s", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
 				} else {
-					definedPorts = append(definedPorts, definedPort)
+					definedPorts[int32(definedPort)] = struct{}{}
 				}
 			}
 			glog.V(6).Infof("Build Targets - portAnnotations: %v", definedPorts)
 		}
-	} else if tg.ByBackendRef {
-		definedPorts = []int64{t.port}
+	} else if tg.ByBackendRef && t.backendRefPort != undefinedPort {
+		definedPorts[t.backendRefPort] = struct{}{}
 	}
+
+	// A service port MUST have a name if there are multiple ports exposed from a service.
+	// Therefore, if a port is named, endpoint port is only relevant if it has the same name.
+	//
+	// If a service port is unnamed, it MUST be the only port that is exposed from a service.
+	// In this case, as long as the service port is matching with backendRef/annotations,
+	// we can consider all endpoints valid.
+
+	servicePortNames := make(map[string]struct{})
+	skipMatch := false
+
+	for _, port := range svc.Spec.Ports {
+		if _, ok := definedPorts[port.Port]; ok {
+			if port.Name != "" {
+				servicePortNames[port.Name] = struct{}{}
+			} else {
+				// Unnamed, consider all endpoints valid
+				skipMatch = true
+			}
+		}
+	}
+
+	// Having no backendRef port makes all endpoints valid - this is mainly for backwards compatibility.
 	if len(definedPorts) == 0 {
-		definedPorts = []int64{undefinedPort}
+		skipMatch = true
 	}
 
 	var targetList []latticemodel.Target
-	endPoints := &corev1.Endpoints{}
+	endpoints := &corev1.Endpoints{}
 
 	if svc.DeletionTimestamp.IsZero() {
-		if err := t.Client.Get(ctx, namespacedName, endPoints); err != nil {
+		if err := t.Client.Get(ctx, namespacedName, endpoints); err != nil {
 			errmsg := fmt.Sprintf("Build Targets failed because K8S service %s does not exist", namespacedName)
 			glog.V(6).Infof("errmsg: %s", errmsg)
 			return errors.New(errmsg)
 		}
 
-		glog.V(6).Infof("Build Targets:  endPoints %s", endPoints)
+		glog.V(6).Infof("Build Targets:  endpoints %s", endpoints)
 
-		for _, endPoint := range endPoints.Subsets {
+		for _, endPoint := range endpoints.Subsets {
 			for _, address := range endPoint.Addresses {
 				for _, port := range endPoint.Ports {
 					glog.V(6).Infof("serviceReconcile-endpoints: address %v, port %v", address, port)
@@ -156,14 +179,10 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-
-					for _, definedPort := range definedPorts {
-						if target.Port == definedPort || definedPort == undefinedPort {
-							// target port matches httproute
-							targetList = append(targetList, target)
-						} else {
-							glog.V(6).Infof("Port does not match the target - port:%d, definedPort:%d, target:%v", target.Port, definedPort, target)
-						}
+					// Note that the Endpoint's port name is from ServicePort, but the actual registered port
+					// is from Pods(targets).
+					if _, ok := servicePortNames[port.Name]; ok || skipMatch {
+						targetList = append(targetList, target)
 					}
 				}
 			}
@@ -189,7 +208,7 @@ type latticeTargetsModelBuildTask struct {
 	tgName         string
 	tgNamespace    string
 	routename      string
-	port           int64
+	backendRefPort int32
 	latticeTargets *latticemodel.Targets
 	stack          core.Stack
 	datastore      *latticestore.LatticeDataStore

@@ -6,6 +6,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -13,8 +14,9 @@ type ElasticSearchOptions struct {
 	Name                string
 	Namespace           string // the object will be created in this namespace
 	Port                int
-	Port2               int
 	TargetPort          int
+	Port2               int
+	TargetPort2         int
 	MergeFromDeployment []*appsv1.Deployment
 	MergeFromService    []*v1.Service
 }
@@ -28,6 +30,9 @@ func (env *Framework) NewNginxApp(options ElasticSearchOptions) (*appsv1.Deploym
 	}
 	if options.TargetPort == 0 {
 		options.TargetPort = 80
+	}
+	if options.TargetPort2 == 0 {
+		options.TargetPort2 = 9114
 	}
 	deployment := New(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -55,8 +60,8 @@ func (env *Framework) NewNginxApp(options ElasticSearchOptions) (*appsv1.Deploym
 							Image: "nginx",
 							Ports: []v1.ContainerPort{
 								{
-									Name:          options.Name,
-									ContainerPort: int32(options.Port),
+									Name:          "http",
+									ContainerPort: int32(options.TargetPort),
 									Protocol:      "TCP",
 								},
 							},
@@ -71,7 +76,7 @@ func (env *Framework) NewNginxApp(options ElasticSearchOptions) (*appsv1.Deploym
 							Ports: []v1.ContainerPort{
 								{
 									Name:          "http-prometheus",
-									ContainerPort: int32(options.Port2),
+									ContainerPort: int32(options.TargetPort2),
 									Protocol:      "TCP",
 								},
 							},
@@ -99,14 +104,16 @@ func (env *Framework) NewNginxApp(options ElasticSearchOptions) (*appsv1.Deploym
 			},
 			Ports: []v1.ServicePort{
 				{
-					Name:     options.Name,
-					Protocol: v1.ProtocolTCP,
-					Port:     int32(options.Port),
+					Name:       options.Name,
+					Protocol:   v1.ProtocolTCP,
+					Port:       int32(options.Port),
+					TargetPort: intstr.FromInt(options.TargetPort),
 				},
 				{
-					Name:     "http-prometheus",
-					Protocol: v1.ProtocolTCP,
-					Port:     int32(options.Port2),
+					Name:       "prometheus",
+					Protocol:   v1.ProtocolTCP,
+					Port:       int32(options.Port2),
+					TargetPort: intstr.FromInt(options.TargetPort2),
 				}},
 		},
 	}, options.MergeFromService...)
