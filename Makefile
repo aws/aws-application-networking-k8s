@@ -91,6 +91,7 @@ build-deploy: ## Create a deployment file that can be applied with `kubectl appl
 manifest: ## Generate CRD manifest
 	go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.13.0 object paths=./pkg/apis/...
 	go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.13.0 crd paths=./pkg/apis/... output:crd:artifacts:config=config/crds/bases
+	go run k8s.io/code-generator/cmd/register-gen@v0.28.0 --input-dirs ./pkg/apis/applicationnetworking/v1alpha1 --output-base ./ --go-header-file hack/boilerplate.go.txt
 	cp config/crds/bases/application-networking.k8s.aws* helm/crds
 
 ## Run e2e tests against cluster pointed to by ~/.kube/config

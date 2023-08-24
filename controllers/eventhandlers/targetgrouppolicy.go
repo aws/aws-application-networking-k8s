@@ -29,6 +29,11 @@ func (h *targetGroupPolicyEventHandler) getTargetRef(obj client.Object) *corev1.
 	policyName := tgp.Namespace + "/" + tgp.Name
 
 	targetRef := tgp.Spec.TargetRef
+	if targetRef == nil {
+		h.log.Infow("TargetGroupPolicy does not have targetRef, skipping",
+			"policyName", policyName)
+		return nil
+	}
 	if targetRef.Group != "" || targetRef.Kind != "Service" {
 		h.log.Infow("Detected non-Service TargetGroupPolicy attachment, skipping",
 			"policyName", policyName, "targetRef", targetRef)
@@ -52,7 +57,7 @@ func (h *targetGroupPolicyEventHandler) getTargetRef(obj client.Object) *corev1.
 				"policyName", policyName, "serviceName", svcName.String())
 		} else {
 			// Still gracefully skipping the event but errors other than NotFound are bad sign.
-			h.log.Warnw("Failed to query targetRef of TargetGroupPolicy",
+			h.log.Errorw("Failed to query targetRef of TargetGroupPolicy",
 				"policyName", policyName, "serviceName", svcName.String(), "reason", err.Error())
 		}
 		return nil
@@ -126,6 +131,13 @@ func (h *targetGroupPolicyEventHandler) MapToServiceExport(obj client.Object) []
 	}
 	svcExport := &mcs_api.ServiceExport{}
 	if err := h.client.Get(context.TODO(), svcName, svcExport); err != nil {
+		if errors.IsNotFound(err) {
+			h.log.Debugw("Service does not have its ServiceExport, skipping",
+				"serviceName", svcName.String())
+		} else {
+			h.log.Errorw("Failed to query matching ServiceExport",
+				"serviceName", svcName.String(), "reason", err.Error())
+		}
 		return nil
 	}
 	requests = append(requests, reconcile.Request{
@@ -137,21 +149,18 @@ func (h *targetGroupPolicyEventHandler) MapToServiceExport(obj client.Object) []
 func isServiceUsedByRoute(route core.Route, svc *corev1.Service) bool {
 	for _, rule := range route.Spec().Rules() {
 		for _, backendRef := range rule.BackendRefs() {
-			if backendRef.Kind() != nil && string(*backendRef.Kind()) != "Service" {
-				continue
-			}
-			if string(backendRef.Name()) != svc.Name {
-				continue
-			}
+			isKindEqual := backendRef.Kind() != nil && string(*backendRef.Kind()) == "Service"
+			isNameEqual := string(backendRef.Name()) == svc.Name
 
 			namespace := route.Namespace()
 			if backendRef.Namespace() != nil {
 				namespace = string(*backendRef.Namespace())
 			}
-			if namespace != svc.Namespace {
-				continue
+			isNamespaceEqual := namespace == svc.Namespace
+
+			if isKindEqual && isNameEqual && isNamespaceEqual {
+				return true
 			}
-			return true
 		}
 	}
 	return false

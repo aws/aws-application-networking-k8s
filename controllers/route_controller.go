@@ -123,7 +123,7 @@ func RegisterAllRouteControllers(
 			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
 			Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler)
 
-		if ok, err := k8s.IsGVKSupported(mgr, "application-networking.k8s.aws/v1alpha1", "TargetGroupPolicy"); ok {
+		if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
 			builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(routeInfo.eventMapFunc))
 		} else {
 			if err != nil {

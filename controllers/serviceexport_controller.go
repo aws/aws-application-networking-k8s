@@ -188,10 +188,9 @@ func (r *ServiceExportReconciler) SetupWithManager(log gwlog.Logger, mgr ctrl.Ma
 	builder := ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
 		For(&mcs_api.ServiceExport{}).
-		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventsHandler).
-		Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(tgpEventHandler.MapToServiceExport))
+		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventsHandler)
 
-	if ok, err := k8s.IsGVKSupported(mgr, "application-networking.k8s.aws/v1alpha1", "TargetGroupPolicy"); ok {
+	if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
 		builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(tgpEventHandler.MapToServiceExport))
 	} else {
 		if err != nil {

@@ -128,7 +128,7 @@ func TestMapToHTTPRoute(t *testing.T) {
 			Kind: (*gateway_api.Kind)(pointer.String("NotService")),
 			Name: "test-service",
 		}),
-		createHTTPRoute("valid-inferred-kind-and-namespace", "ns1", gateway_api.BackendObjectReference{
+		createHTTPRoute("invalid-nil-kind", "ns1", gateway_api.BackendObjectReference{
 			Kind:      nil,
 			Namespace: nil,
 			Name:      "test-service",
@@ -155,7 +155,6 @@ func TestMapToHTTPRoute(t *testing.T) {
 		}),
 	}
 	validRoutes := []string{
-		"valid-inferred-kind-and-namespace",
 		"valid-inferred-namespace",
 		"valid-explicit-namespace",
 	}
