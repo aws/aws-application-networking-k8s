@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/glog"
 
@@ -77,11 +78,20 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 
 	glog.V(6).Infof("create targetgroup API here %v\n", targetGroup)
 	port := int64(targetGroup.Spec.Config.Port)
+
+	ipAddressType := &targetGroup.Spec.Config.IpAddressType
+
+	// if IpAddressTypeIpv4 is not set, then default to nil
+	if targetGroup.Spec.Config.IpAddressType == "" {
+		ipAddressType = nil
+	}
+
 	tgConfig := &vpclattice.TargetGroupConfig{
 		Port:            &port,
 		Protocol:        &targetGroup.Spec.Config.Protocol,
 		ProtocolVersion: &targetGroup.Spec.Config.ProtocolVersion,
 		VpcIdentifier:   &targetGroup.Spec.Config.VpcID,
+		IpAddressType:   ipAddressType,
 	}
 
 	targetGroupType := string(targetGroup.Spec.Type)

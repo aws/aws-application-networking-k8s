@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/golang/glog"
 
@@ -186,6 +188,12 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		return err
 	}
 
+	ipAddressType, err := buildTargetGroupIpAdressType(svc)
+
+	if err != nil {
+		return err
+	}
+
 	//if t.serviceExport.
 	tgSpec := latticemodel.TargetGroupSpec{
 		Name: tgName,
@@ -200,6 +208,7 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 			K8SServiceNamespace: t.serviceExport.Namespace,
 			Protocol:            "HTTP",
 			ProtocolVersion:     vpclattice.TargetGroupProtocolVersionHttp1,
+			IpAddressType:       ipAddressType,
 		},
 	}
 
@@ -235,7 +244,6 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 
 // Build target group for backend service ref used in HTTPRoute
 func (t *latticeServiceModelBuildTask) buildTargetGroup(ctx context.Context, client client.Client) (*latticemodel.TargetGroup, error) {
-
 	for _, httpRule := range t.route.Spec().Rules() {
 		glog.V(6).Infof("buildTargetGroup: %v\n", httpRule)
 
@@ -304,6 +312,9 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	} else {
 		isDeleted = true
 	}
+
+	ipAddressType := vpclattice.IpAddressTypeIpv4
+
 	if backendKind == "ServiceImport" {
 		isServiceImport = true
 		namespaceName := types.NamespacedName{
@@ -348,6 +359,15 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 				return latticemodel.TargetGroupSpec{}, err
 			}
 		}
+
+		var err error
+
+		ipAddressType, err = buildTargetGroupIpAdressType(svc)
+
+		// Ignore error for creation request
+		if !isDeleted && err != nil {
+			return latticemodel.TargetGroupSpec{}, err
+		}
 	}
 
 	tgName := latticestore.TargetGroupName(string(httpBackendRef.Name()), namespace)
@@ -367,7 +387,8 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 			Protocol:              "HTTP",
 			ProtocolVersion:       vpclattice.TargetGroupProtocolVersionHttp1,
 			// Fill in default HTTP port as we are using target port anyway.
-			Port: 80,
+			Port:          80,
+			IpAddressType: ipAddressType,
 		},
 		IsDeleted: isDeleted,
 	}, nil
@@ -380,5 +401,27 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupName(_ context.Context, b
 	} else {
 		return latticestore.TargetGroupName(string(backendRef.Name()),
 			t.route.Namespace())
+	}
+}
+
+func buildTargetGroupIpAdressType(svc *corev1.Service) (string, error) {
+	ipFamilies := svc.Spec.IPFamilies
+
+	glog.V(6).Infof("buildTargetGroupIpAddressType ipFamilies: %v\n", ipFamilies)
+
+	if len(ipFamilies) != 1 {
+		return "", errors.New("Lattice Target Group only support single stack ip addresses")
+	}
+
+	// IpFamilies will always have at least 1 element
+	ipFamily := ipFamilies[0]
+
+	switch ipFamily {
+	case corev1.IPv4Protocol:
+		return vpclattice.IpAddressTypeIpv4, nil
+	case corev1.IPv6Protocol:
+		return vpclattice.IpAddressTypeIpv6, nil
+	default:
+		return "", fmt.Errorf("unknown ipFamily: %v", ipFamily)
 	}
 }
