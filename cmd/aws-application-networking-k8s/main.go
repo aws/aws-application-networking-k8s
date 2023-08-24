@@ -103,7 +103,10 @@ func main() {
 		"UseLongTgName", config.UseLongTGName,
 	)
 
-	cloud, err := aws.NewCloud(log.Named("cloud"))
+	cloud, err := aws.NewCloud(log.Named("cloud"), aws.CloudConfig{
+		VpcId:     config.VpcID,
+		AccountId: config.AccountID,
+	})
 	if err != nil {
 		setupLog.Fatal("cloud client setup failed: %s", err)
 	}
