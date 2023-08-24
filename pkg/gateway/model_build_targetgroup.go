@@ -151,14 +151,14 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 			}
 
 			targetTask := &latticeTargetsModelBuildTask{
-				Client:      t.Client,
-				tgName:      string(httpBackendRef.Name()),
-				tgNamespace: backendNamespace,
-				routename:   t.route.Name(),
-				port:        port,
-				stack:       t.stack,
-				datastore:   t.Datastore,
-				route:       t.route,
+				Client:         t.Client,
+				tgName:         string(httpBackendRef.Name()),
+				tgNamespace:    backendNamespace,
+				routename:      t.route.Name(),
+				backendRefPort: port,
+				stack:          t.stack,
+				datastore:      t.Datastore,
+				route:          t.route,
 			}
 
 			err := targetTask.buildLatticeTargets(ctx)

@@ -487,13 +487,13 @@ func Test_Targets(t *testing.T) {
 			Namespace: tt.srvExportNamespace,
 		}
 		targetTask := &latticeTargetsModelBuildTask{
-			Client:      k8sClient,
-			tgName:      tt.srvExportName,
-			tgNamespace: tt.srvExportNamespace,
-			datastore:   ds,
-			port:        tt.port,
-			stack:       core.NewDefaultStack(core.StackID(srvName)),
-			route:       tt.route,
+			Client:         k8sClient,
+			tgName:         tt.srvExportName,
+			tgNamespace:    tt.srvExportNamespace,
+			datastore:      ds,
+			backendRefPort: tt.port,
+			stack:          core.NewDefaultStack(core.StackID(srvName)),
+			route:          tt.route,
 		}
 		err := targetTask.buildLatticeTargets(ctx)
 		if tt.wantErrIsNil {

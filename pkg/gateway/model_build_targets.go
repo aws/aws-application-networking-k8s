@@ -129,8 +129,8 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 			}
 			glog.V(6).Infof("Build Targets - portAnnotations: %v", definedPorts)
 		}
-	} else if tg.ByBackendRef && t.port != undefinedPort {
-		definedPorts[t.port] = struct{}{}
+	} else if tg.ByBackendRef && t.backendRefPort != undefinedPort {
+		definedPorts[t.backendRefPort] = struct{}{}
 	}
 
 	// A service port MUST have a name if there are multiple ports exposed from a service.
@@ -160,18 +160,18 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	}
 
 	var targetList []latticemodel.Target
-	endPoints := &corev1.Endpoints{}
+	endpoints := &corev1.Endpoints{}
 
 	if svc.DeletionTimestamp.IsZero() {
-		if err := t.Client.Get(ctx, namespacedName, endPoints); err != nil {
+		if err := t.Client.Get(ctx, namespacedName, endpoints); err != nil {
 			errmsg := fmt.Sprintf("Build Targets failed because K8S service %s does not exist", namespacedName)
 			glog.V(6).Infof("errmsg: %s", errmsg)
 			return errors.New(errmsg)
 		}
 
-		glog.V(6).Infof("Build Targets:  endPoints %s", endPoints)
+		glog.V(6).Infof("Build Targets:  endpoints %s", endpoints)
 
-		for _, endPoint := range endPoints.Subsets {
+		for _, endPoint := range endpoints.Subsets {
 			for _, address := range endPoint.Addresses {
 				for _, port := range endPoint.Ports {
 					glog.V(6).Infof("serviceReconcile-endpoints: address %v, port %v", address, port)
@@ -179,6 +179,8 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
+					// Note that the Endpoint's port name is from ServicePort, but the actual registered port
+					// is from Pods(targets).
 					if _, ok := servicePortNames[port.Name]; ok || skipMatch {
 						targetList = append(targetList, target)
 					}
@@ -206,7 +208,7 @@ type latticeTargetsModelBuildTask struct {
 	tgName         string
 	tgNamespace    string
 	routename      string
-	port           int32
+	backendRefPort int32
 	latticeTargets *latticemodel.Targets
 	stack          core.Stack
 	datastore      *latticestore.LatticeDataStore
