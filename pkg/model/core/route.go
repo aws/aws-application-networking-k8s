@@ -2,8 +2,10 @@ package core
 
 import (
 	"fmt"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -216,6 +218,8 @@ func (s *GRPCRouteSpec) Equals(routeSpec RouteSpec) bool {
 type RouteStatus interface {
 	Parents() []gateway_api_v1beta1.RouteParentStatus
 	SetParents(parents []gateway_api_v1beta1.RouteParentStatus)
+	UpdateParentRefs(parent gateway_api_v1beta1.ParentReference, controllerName gateway_api_v1beta1.GatewayController)
+	UpdateRouteCondition(condition v1.Condition)
 }
 
 type HTTPRouteStatus struct {
@@ -230,6 +234,19 @@ func (s *HTTPRouteStatus) SetParents(parents []gateway_api_v1beta1.RouteParentSt
 	s.s.Parents = parents
 }
 
+func (s *HTTPRouteStatus) UpdateParentRefs(parent gateway_api_v1beta1.ParentReference, controllerName gateway_api_v1beta1.GatewayController) {
+	if len(s.Parents()) == 0 {
+		s.SetParents(make([]gateway_api_v1beta1.RouteParentStatus, 1))
+	}
+
+	s.Parents()[0].ParentRef = parent
+	s.Parents()[0].ControllerName = controllerName
+}
+
+func (s *HTTPRouteStatus) UpdateRouteCondition(condition v1.Condition) {
+	s.Parents()[0].Conditions = utils.GetNewConditions(s.Parents()[0].Conditions, condition)
+}
+
 type GRPCRouteStatus struct {
 	s *gateway_api_v1alpha2.GRPCRouteStatus
 }
@@ -240,6 +257,19 @@ func (s *GRPCRouteStatus) Parents() []gateway_api_v1beta1.RouteParentStatus {
 
 func (s *GRPCRouteStatus) SetParents(parents []gateway_api_v1beta1.RouteParentStatus) {
 	s.s.Parents = parents
+}
+
+func (s *GRPCRouteStatus) UpdateParentRefs(parent gateway_api_v1beta1.ParentReference, controllerName gateway_api_v1beta1.GatewayController) {
+	if len(s.Parents()) == 0 {
+		s.SetParents(make([]gateway_api_v1beta1.RouteParentStatus, 1))
+	}
+
+	s.Parents()[0].ParentRef = parent
+	s.Parents()[0].ControllerName = controllerName
+}
+
+func (s *GRPCRouteStatus) UpdateRouteCondition(condition v1.Condition) {
+	s.Parents()[0].Conditions = utils.GetNewConditions(s.Parents()[0].Conditions, condition)
 }
 
 type RouteRule interface {

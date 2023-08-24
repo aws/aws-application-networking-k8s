@@ -2,6 +2,7 @@ package lattice
 
 import (
 	"context"
+
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
@@ -68,7 +69,7 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 			}
 
 			s.latticeDataStore.AddLatticeService(resService.Spec.Name, resService.Spec.Namespace,
-				serviceStatus.ServiceARN, serviceStatus.ServiceID, serviceStatus.ServiceDNS)
+				serviceStatus.Arn, serviceStatus.Id, serviceStatus.Dns)
 
 			glog.V(6).Infof("Creating Service DNS")
 			resService.Status = &serviceStatus

@@ -182,7 +182,7 @@ func Test_SynthesizeService(t *testing.T) {
 		fmt.Printf("latticeService :%v\n", latticeService)
 
 		if tt.httpRoute.DeletionTimestamp.IsZero() {
-			mockSvcManager.EXPECT().Create(ctx, latticeService).Return(latticemodel.ServiceStatus{ServiceARN: tt.serviceARN, ServiceID: tt.serviceID}, tt.mgrErr)
+			mockSvcManager.EXPECT().Create(ctx, latticeService).Return(latticemodel.ServiceStatus{Arn: tt.serviceARN, Id: tt.serviceID}, tt.mgrErr)
 		} else {
 			mockSvcManager.EXPECT().Delete(ctx, latticeService).Return(tt.mgrErr)
 		}

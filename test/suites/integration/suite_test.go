@@ -2,13 +2,15 @@ package integration
 
 import (
 	"context"
-	"os"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	"testing"
-
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	"testing"
 )
 
 const (
@@ -18,7 +20,6 @@ const (
 var testFramework *test.Framework
 var ctx context.Context
 var testGateway *v1beta1.Gateway
-
 var _ = BeforeSuite(func() {
 	vpcid := os.Getenv("CLUSTER_VPC_ID")
 	if vpcid == "" {
@@ -26,6 +27,13 @@ var _ = BeforeSuite(func() {
 	}
 
 	testFramework.ExpectToBeClean(ctx)
+	grpcurlRunnerPod := test.NewGrpcurlRunnerPod()
+	if err := testFramework.Get(ctx, client.ObjectKeyFromObject(grpcurlRunnerPod), testFramework.GrpcurlRunner); err != nil {
+		if apierrors.IsNotFound(err) {
+			testFramework.ExpectCreated(ctx, grpcurlRunnerPod)
+			testFramework.GrpcurlRunner = grpcurlRunnerPod
+		}
+	}
 
 	// provision gateway, wait for service network association
 	testGateway = testFramework.NewGateway("test-gateway", k8snamespace)
@@ -47,5 +55,5 @@ func TestIntegration(t *testing.T) {
 }
 
 var _ = AfterSuite(func() {
-	testFramework.ExpectDeletedThenNotFound(ctx, testGateway)
+	testFramework.ExpectDeletedThenNotFound(ctx, testGateway, testFramework.GrpcurlRunner)
 })

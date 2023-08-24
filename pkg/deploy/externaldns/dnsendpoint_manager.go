@@ -2,13 +2,14 @@ package externaldns
 
 import (
 	"context"
+	"reflect"
+
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/golang/glog"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/external-dns/endpoint"
@@ -38,7 +39,7 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 		glog.V(2).Infof("Skipping creation of %s: detected no custom domain", namespacedName.String())
 		return nil
 	}
-	if service.Status == nil || service.Status.ServiceDNS == "" {
+	if service.Status == nil || service.Status.Dns == "" {
 		glog.V(2).Infof("Skipping creation of %s: DNS target not ready in svc status", namespacedName.String())
 		return nil
 	}
@@ -57,7 +58,7 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 	if err := s.k8sClient.Get(ctx, namespacedName, ep); err != nil {
 		if apierrors.IsNotFound(err) {
 			glog.V(2).Infof("Attempting creation of DNSEndpoint for %s - %s -> %s",
-				namespacedName.String(), service.Spec.CustomerDomainName, service.Status.ServiceDNS)
+				namespacedName.String(), service.Spec.CustomerDomainName, service.Status.Dns)
 			ep = &endpoint.DNSEndpoint{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedName.Name,
@@ -68,7 +69,7 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 						{
 							DNSName: service.Spec.CustomerDomainName,
 							Targets: []string{
-								service.Status.ServiceDNS,
+								service.Status.Dns,
 							},
 							RecordType: "CNAME",
 							RecordTTL:  300,
@@ -90,13 +91,13 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 		}
 	} else {
 		glog.V(2).Infof("Attempting update of DNSEndpoint for %s - %s -> %s",
-			namespacedName.String(), service.Spec.CustomerDomainName, service.Status.ServiceDNS)
+			namespacedName.String(), service.Spec.CustomerDomainName, service.Status.Dns)
 		old := ep.DeepCopy()
 		ep.Spec.Endpoints = []*endpoint.Endpoint{
 			{
 				DNSName: service.Spec.CustomerDomainName,
 				Targets: []string{
-					service.Status.ServiceDNS,
+					service.Status.Dns,
 				},
 				RecordType: "CNAME",
 				RecordTTL:  300,

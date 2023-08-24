@@ -33,6 +33,7 @@ type TargetGroupConfig struct {
 	Protocol        string `json:"protocol"`
 	ProtocolVersion string `json:"protocolversion"`
 	VpcID           string `json:"vpcid"`
+	IpAddressType   string `json:"ipaddresstype"`
 	EKSClusterName  string `json:"eksclustername"`
 	IsServiceImport bool   `json:"serviceimport"`
 	// the following fields are used for AWS resource tagging
