@@ -38,6 +38,7 @@ import (
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
@@ -48,6 +49,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 type RouteType string
@@ -91,13 +94,15 @@ func RegisterAllRouteControllers(
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(mgrClient)
 	svcEventHandler := eventhandlers.NewEqueueHTTPRequestServiceEvent(mgrClient)
 	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(mgrClient)
+	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, mgrClient)
 
 	routeInfos := []struct {
 		routeType      RouteType
 		gatewayApiType client.Object
+		eventMapFunc   handler.MapFunc
 	}{
-		{HTTP, &gateway_api_v1beta1.HTTPRoute{}},
-		{GRPC, &gateway_api_v1alpha2.GRPCRoute{}},
+		{HTTP, &gateway_api_v1beta1.HTTPRoute{}, tgpEventHandler.MapToHTTPRoute},
+		{GRPC, &gateway_api_v1alpha2.GRPCRoute{}, tgpEventHandler.MapToGRPCRoute},
 	}
 
 	for _, routeInfo := range routeInfos {
@@ -114,13 +119,31 @@ func RegisterAllRouteControllers(
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		}
 
-		err := ctrl.NewControllerManagedBy(mgr).
+		builder := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType).
 			Watches(&source.Kind{Type: &gateway_api_v1beta1.Gateway{}}, gwEventHandler).
 			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
-			Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler).
-			Complete(&reconciler)
+			Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler)
 
+		if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
+			builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(routeInfo.eventMapFunc))
+		} else {
+			if err != nil {
+				return err
+			}
+			log.Infof("TargetGroupPolicy CRD is not installed, skipping watch")
+		}
+
+		if ok, err := k8s.IsGVKSupported(mgr, "externaldns.k8s.io/v1alpha1", "DNSEndpoint"); ok {
+			builder.Owns(&endpoint.DNSEndpoint{})
+		} else {
+			if err != nil {
+				return err
+			}
+			log.Infof("DNSEndpoint CRD is not installed, skipping watch")
+		}
+
+		err := builder.Complete(&reconciler)
 		if err != nil {
 			return err
 		}

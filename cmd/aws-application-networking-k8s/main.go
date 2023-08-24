@@ -36,6 +36,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	//+kubebuilder:scaffold:imports
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -58,16 +59,23 @@ func init() {
 	utilruntime.Must(gateway_api_v1alpha2.AddToScheme(scheme))
 	utilruntime.Must(gateway_api_v1beta1.AddToScheme(scheme))
 	utilruntime.Must(mcs_api.AddToScheme(scheme))
-	addEndpointToScheme(scheme)
+	addOptionalCRDs(scheme)
 }
 
-func addEndpointToScheme(scheme *runtime.Scheme) {
-	dnsEndpointGV := schema.GroupVersion{
+func addOptionalCRDs(scheme *runtime.Scheme) {
+	dnsEndpoint := schema.GroupVersion{
 		Group:   "externaldns.k8s.io",
 		Version: "v1alpha1",
 	}
-	scheme.AddKnownTypes(dnsEndpointGV, &endpoint.DNSEndpoint{}, &endpoint.DNSEndpointList{})
-	metav1.AddToGroupVersion(scheme, dnsEndpointGV)
+	scheme.AddKnownTypes(dnsEndpoint, &endpoint.DNSEndpoint{}, &endpoint.DNSEndpointList{})
+	metav1.AddToGroupVersion(scheme, dnsEndpoint)
+
+	targetGroupPolicy := schema.GroupVersion{
+		Group:   "application-networking.k8s.aws",
+		Version: "v1alpha1",
+	}
+	scheme.AddKnownTypes(targetGroupPolicy, &v1alpha1.TargetGroupPolicy{}, &v1alpha1.TargetGroupPolicyList{})
+	metav1.AddToGroupVersion(scheme, targetGroupPolicy)
 }
 
 func main() {
@@ -165,7 +173,7 @@ func main() {
 	serviceExportReconciler := controllers.NewServiceExportReconciler(cloud, mgr.GetClient(),
 		mgr.GetScheme(), mgr.GetEventRecorderFor("serviceExport"), finalizerManager, latticeDataStore)
 
-	if err = serviceExportReconciler.SetupWithManager(mgr); err != nil {
+	if err = serviceExportReconciler.SetupWithManager(ctrlLog.Named("service-export"), mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "serviceExport")
 		os.Exit(1)
 	}
