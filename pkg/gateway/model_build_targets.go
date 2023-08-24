@@ -24,7 +24,7 @@ import (
 const (
 	resourceIDLatticeTargets = "LatticeTargets"
 	portAnnotationsKey       = "multicluster.x-k8s.io/port"
-	undefinedPort            = int64(0)
+	undefinedPort            = int32(0)
 )
 
 type LatticeTargetsBuilder interface {
@@ -110,7 +110,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		return errors.New(errmsg)
 	}
 
-	definedPorts := make([]int64, 0)
+	definedPorts := make(map[int32]struct{})
 	if tg.ByServiceExport {
 		serviceExport := &mcs_api.ServiceExport{}
 		err = t.Client.Get(ctx, namespacedName, serviceExport)
@@ -120,20 +120,43 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 			portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], ",")
 
 			for _, portAnnotation := range portsAnnotations {
-				definedPort, err := strconv.ParseInt(portAnnotation, 10, 64)
+				definedPort, err := strconv.ParseInt(portAnnotation, 10, 32)
 				if err != nil {
 					glog.V(6).Infof("Failed to read Annotations/Port:%s, err:%s", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
 				} else {
-					definedPorts = append(definedPorts, definedPort)
+					definedPorts[int32(definedPort)] = struct{}{}
 				}
 			}
 			glog.V(6).Infof("Build Targets - portAnnotations: %v", definedPorts)
 		}
-	} else if tg.ByBackendRef {
-		definedPorts = []int64{t.port}
+	} else if tg.ByBackendRef && t.port != undefinedPort {
+		definedPorts[t.port] = struct{}{}
 	}
+
+	// A service port MUST have a name if there are multiple ports exposed from a service.
+	// Therefore, if a port is named, endpoint port is only relevant if it has the same name.
+	//
+	// If a service port is unnamed, it MUST be the only port that is exposed from a service.
+	// In this case, as long as the service port is matching with backendRef/annotations,
+	// we can consider all endpoints valid.
+
+	servicePortNames := make(map[string]struct{})
+	skipMatch := false
+
+	for _, port := range svc.Spec.Ports {
+		if _, ok := definedPorts[port.Port]; ok {
+			if port.Name != "" {
+				servicePortNames[port.Name] = struct{}{}
+			} else {
+				// Unnamed, consider all endpoints valid
+				skipMatch = true
+			}
+		}
+	}
+
+	// Having no backendRef port makes all endpoints valid - this is mainly for backwards compatibility.
 	if len(definedPorts) == 0 {
-		definedPorts = []int64{undefinedPort}
+		skipMatch = true
 	}
 
 	var targetList []latticemodel.Target
@@ -156,14 +179,8 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
-
-					for _, definedPort := range definedPorts {
-						if target.Port == definedPort || definedPort == undefinedPort {
-							// target port matches httproute
-							targetList = append(targetList, target)
-						} else {
-							glog.V(6).Infof("Port does not match the target - port:%d, definedPort:%d, target:%v", target.Port, definedPort, target)
-						}
+					if _, ok := servicePortNames[port.Name]; ok || skipMatch {
+						targetList = append(targetList, target)
 					}
 				}
 			}
@@ -189,7 +206,7 @@ type latticeTargetsModelBuildTask struct {
 	tgName         string
 	tgNamespace    string
 	routename      string
-	port           int64
+	port           int32
 	latticeTargets *latticemodel.Targets
 	stack          core.Stack
 	datastore      *latticestore.LatticeDataStore
