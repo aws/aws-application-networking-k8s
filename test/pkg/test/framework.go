@@ -68,7 +68,6 @@ type Framework struct {
 	namespace                           string
 	controllerRuntimeConfig             *rest.Config
 	LatticeClient                       services.Lattice
-	GrpcurlRunner                       *v1.Pod
 	TestCasesCreatedServiceNetworkNames map[string]bool //key: ServiceNetworkName; value: not in use, meaningless
 	TestCasesCreatedServiceNames        map[string]bool //key: ServiceName; value not in use, meaningless
 	TestCasesCreatedTargetGroupNames    map[string]bool //key: TargetGroupName; value: not in use, meaningless
@@ -86,7 +85,6 @@ func NewFramework(ctx context.Context, testNamespace string) *Framework {
 	framework := &Framework{
 		Client:                              lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: scheme})),
 		LatticeClient:                       services.NewDefaultLattice(session.Must(session.NewSession()), config.Region), // region is currently hardcoded
-		GrpcurlRunner:                       &v1.Pod{},
 		ctx:                                 ctx,
 		k8sScheme:                           scheme,
 		namespace:                           testNamespace,
@@ -635,42 +633,6 @@ func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNam
 	env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
 	vpcLatticeServiceDns := httproute.Annotations[controllers.LatticeAssignedDomainName]
 	return vpcLatticeServiceDns
-}
-
-type RunGrpcurlCmdOptions struct {
-	GrpcServerHostName  string
-	GrpcServerPort      string
-	Service             string
-	Method              string
-	ReqParamsJsonString string
-	UseTLS              bool
-}
-
-// https://github.com/fullstorydev/grpcurl
-func (env *Framework) RunGrpcurlCmd(opts RunGrpcurlCmdOptions) (string, string, error) {
-	log.Println("CreateGrpcurlRunnerPod: ")
-	Expect(env.GrpcurlRunner).To(Not(BeNil()))
-
-	tlsOption := "-plaintext"
-	if opts.UseTLS {
-		tlsOption = "-insecure"
-	}
-	reqParams := ""
-	if opts.ReqParamsJsonString != "" {
-		reqParams = fmt.Sprintf("-d '%s'", opts.ReqParamsJsonString)
-	}
-
-	cmd := fmt.Sprintf("/grpcurl %s %s %s:%s %s/%s",
-		tlsOption,
-		reqParams,
-		opts.GrpcServerHostName,
-		opts.GrpcServerPort,
-		opts.Service,
-		opts.Method)
-
-	stdoutStr, stderrStr, err := env.PodExec(env.GrpcurlRunner.Namespace, env.GrpcurlRunner.Name, cmd, false)
-	return stdoutStr, stderrStr, err
-
 }
 
 func (env *Framework) SleepForRouteDeletion() {
