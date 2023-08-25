@@ -10,7 +10,7 @@ spec:
   - backendRefs:
     - name: greeter-grpc-server
       kind: Service
-      port: 50051
+      port: 443
       weight: 10
     matches:
         - method:
