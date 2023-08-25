@@ -109,11 +109,14 @@ func main() {
 		"AccoundId", config.AccountID,
 		"DefaultServiceNetwork", config.DefaultServiceNetwork,
 		"UseLongTgName", config.UseLongTGName,
+		"ClusterName", config.ClusterName,
 	)
 
 	cloud, err := aws.NewCloud(log.Named("cloud"), aws.CloudConfig{
-		VpcId:     config.VpcID,
-		AccountId: config.AccountID,
+		VpcId:       config.VpcID,
+		AccountId:   config.AccountID,
+		Region:      config.Region,
+		ClusterName: config.ClusterName,
 	})
 	if err != nil {
 		setupLog.Fatal("cloud client setup failed: %s", err)
