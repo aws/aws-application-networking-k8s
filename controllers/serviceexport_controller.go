@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -91,7 +90,7 @@ func RegisterServiceExportReconciler(
 	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, r.client)
 	svcExportEventsHandler := eventhandlers.NewEqueueRequestServiceWithExportEvent(log, r.client)
 
-	builder :=  ctrl.NewControllerManagedBy(mgr).
+	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&mcs_api.ServiceExport{}).
 		Watches(&source.Kind{Type: &corev1.Service{}}, svcExportEventsHandler)
 

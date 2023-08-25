@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"reflect"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"

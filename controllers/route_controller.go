@@ -85,8 +85,7 @@ func RegisterAllRouteControllers(
 ) error {
 	mgrClient := mgr.GetClient()
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(mgrClient)
-	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceWithRoutesEvent(mgrClient)
-	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(mgrClient)
+	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceWithRoutesEvent(log, mgrClient)
 	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, mgrClient)
 
 	routeInfos := []struct {
@@ -94,8 +93,8 @@ func RegisterAllRouteControllers(
 		gatewayApiType client.Object
 		eventMapFunc   handler.MapFunc
 	}{
-		{core.HTTP, &gateway_api_v1beta1.HTTPRoute{}, tgpEventHandler.MapToHTTPRoute},
-		{core.GRPC, &gateway_api_v1alpha2.GRPCRoute{}, tgpEventHandler.MapToGRPCRoute},
+		{core.HttpRouteType, &gateway_api_v1beta1.HTTPRoute{}, tgpEventHandler.MapToHTTPRoute},
+		{core.GrpcRouteType, &gateway_api_v1alpha2.GRPCRoute{}, tgpEventHandler.MapToGRPCRoute},
 	}
 
 	for _, routeInfo := range routeInfos {
@@ -111,6 +110,8 @@ func RegisterAllRouteControllers(
 			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient, datastore),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		}
+
+		svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(log, mgrClient, routeInfo.routeType)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType).

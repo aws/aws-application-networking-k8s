@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"reflect"
@@ -130,6 +131,19 @@ func (s *HTTPRouteStatus) Parents() []gateway_api_v1beta1.RouteParentStatus {
 
 func (s *HTTPRouteStatus) SetParents(parents []gateway_api_v1beta1.RouteParentStatus) {
 	s.s.Parents = parents
+}
+
+func (s *HTTPRouteStatus) UpdateParentRefs(parent gateway_api_v1beta1.ParentReference, controllerName gateway_api_v1beta1.GatewayController) {
+	if len(s.Parents()) == 0 {
+		s.SetParents(make([]gateway_api_v1beta1.RouteParentStatus, 1))
+	}
+
+	s.Parents()[0].ParentRef = parent
+	s.Parents()[0].ControllerName = controllerName
+}
+
+func (s *HTTPRouteStatus) UpdateRouteCondition(condition v1.Condition) {
+	s.Parents()[0].Conditions = utils.GetNewConditions(s.Parents()[0].Conditions, condition)
 }
 
 type HTTPRouteRule struct {
