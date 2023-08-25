@@ -12,15 +12,6 @@ import (
 
 func TestGetManagedByTag(t *testing.T) {
 
-	t.Run("account and vpc", func(t *testing.T) {
-		cfg := CloudConfig{
-			AccountId: "account",
-			VpcId:     "vpc",
-		}
-		tag := getManagedByTag(cfg)
-		assert.Equal(t, "account-vpc", tag)
-	})
-
 	t.Run("account, cluster name, and vpc", func(t *testing.T) {
 		cfg := CloudConfig{
 			AccountId:   "acc",
@@ -28,7 +19,7 @@ func TestGetManagedByTag(t *testing.T) {
 			ClusterName: "cluster",
 		}
 		tag := getManagedByTag(cfg)
-		assert.Equal(t, "acc-cluster-vpc", tag)
+		assert.Equal(t, "acc/cluster/vpc", tag)
 	})
 
 }

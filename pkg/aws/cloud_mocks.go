@@ -48,6 +48,20 @@ func (mr *MockCloudMockRecorder) Config() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCloud)(nil).Config))
 }
 
+// ContainsManagedBy mocks base method.
+func (m *MockCloud) ContainsManagedBy(arg0 map[string]*string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainsManagedBy", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ContainsManagedBy indicates an expected call of ContainsManagedBy.
+func (mr *MockCloudMockRecorder) ContainsManagedBy(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsManagedBy", reflect.TypeOf((*MockCloud)(nil).ContainsManagedBy), arg0)
+}
+
 // DefaultTags mocks base method.
 func (m *MockCloud) DefaultTags() map[string]*string {
 	m.ctrl.T.Helper()
@@ -75,20 +89,6 @@ func (m *MockCloud) IsArnManaged(arg0 string) (bool, error) {
 func (mr *MockCloudMockRecorder) IsArnManaged(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsArnManaged", reflect.TypeOf((*MockCloud)(nil).IsArnManaged), arg0)
-}
-
-// IsManagedByTagSet mocks base method.
-func (m *MockCloud) IsManagedByTagSet(arg0 map[string]*string) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsManagedByTagSet", arg0)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsManagedByTagSet indicates an expected call of IsManagedByTagSet.
-func (mr *MockCloudMockRecorder) IsManagedByTagSet(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManagedByTagSet", reflect.TypeOf((*MockCloud)(nil).IsManagedByTagSet), arg0)
 }
 
 // Lattice mocks base method.

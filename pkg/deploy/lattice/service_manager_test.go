@@ -53,7 +53,6 @@ func TestServiceManagerInteg(t *testing.T) {
 			DoAndReturn(
 				func(_ context.Context, req *CreateSvcReq, _ ...interface{}) (*CreateSvcResp, error) {
 					assert.Equal(t, svc.LatticeName(), *req.Name)
-					assert.True(t, cl.IsManagedByTagSet(req.Tags))
 					return &CreateSvcResp{
 						Arn:      aws.String("arn"),
 						DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
@@ -68,7 +67,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			DoAndReturn(
 				func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
 					assert.Equal(t, "sn-id", *req.ServiceNetworkIdentifier)
-					assert.True(t, cl.IsManagedByTagSet(req.Tags))
+					assert.True(t, cl.ContainsManagedBy(req.Tags))
 					return &CreateSnSvcAssocResp{
 						Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
 					}, nil

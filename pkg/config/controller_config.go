@@ -101,7 +101,6 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 }
 
 // try to find cluster name, search in env then in ec2 instance tags
-// returns empty string if not found
 func getClusterName(sess *session.Session) (string, error) {
 	cn := os.Getenv(CLUSTER_NAME)
 	if cn != "" {
@@ -132,5 +131,5 @@ func getClusterName(sess *session.Session) (string, error) {
 			return *tag.Value, nil
 		}
 	}
-	return "", nil
+	return "", errors.New("not found in env and metadata")
 }

@@ -103,7 +103,6 @@ func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 	svcName := svc.LatticeName()
 	req := &vpclattice.CreateServiceInput{
 		Name: &svcName,
-		Tags: m.cloud.DefaultTags(),
 	}
 
 	if svc.Spec.CustomerDomainName != "" {

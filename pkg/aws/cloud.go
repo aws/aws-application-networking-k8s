@@ -1,7 +1,7 @@
 package aws
 
 import (
-	"strings"
+	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	TagManagedBy = "ManagedBy"
+	TagBase      = "application-networking.k8s.aws/"
+	TagManagedBy = TagBase + "ManagedBy"
 )
 
 type Tags = map[string]*string
@@ -36,7 +37,7 @@ type Cloud interface {
 	IsArnManaged(arn string) (bool, error)
 
 	// check if tags map has managedBy tag
-	IsManagedByTagSet(tags Tags) bool
+	ContainsManagedBy(tags Tags) bool
 }
 
 // NewCloud constructs new Cloud implementation.
@@ -97,7 +98,7 @@ func (c *defaultCloud) DefaultTags() Tags {
 	return tags
 }
 
-func (c *defaultCloud) IsManagedByTagSet(tags Tags) bool {
+func (c *defaultCloud) ContainsManagedBy(tags Tags) bool {
 	tag, ok := tags[TagManagedBy]
 	if !ok || tag == nil {
 		return false
@@ -111,20 +112,10 @@ func (c *defaultCloud) IsArnManaged(arn string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	isManaged := c.IsManagedByTagSet(resp.Tags)
+	isManaged := c.ContainsManagedBy(resp.Tags)
 	return isManaged, nil
 }
 
 func getManagedByTag(cfg CloudConfig) string {
-	tagKeys := []string{}
-	if cfg.AccountId != "" {
-		tagKeys = append(tagKeys, cfg.AccountId)
-	}
-	if cfg.ClusterName != "" {
-		tagKeys = append(tagKeys, cfg.ClusterName)
-	}
-	if cfg.VpcId != "" {
-		tagKeys = append(tagKeys, cfg.VpcId)
-	}
-	return strings.Join(tagKeys, "-")
+	return fmt.Sprintf("%s/%s/%s", cfg.AccountId, cfg.ClusterName, cfg.VpcId)
 }
