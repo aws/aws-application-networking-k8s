@@ -109,6 +109,9 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 					Ports: []corev1.ServicePort{
 						{},
 					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
 				},
 			}
 
@@ -824,6 +827,9 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *te
 				Spec: corev1.ServiceSpec{
 					Ports: []corev1.ServicePort{
 						{},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
 					},
 				},
 			}

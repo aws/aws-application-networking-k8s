@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func Test_Targets(t *testing.T) {
@@ -28,7 +29,7 @@ func Test_Targets(t *testing.T) {
 		name               string
 		srvExportName      string
 		srvExportNamespace string
-		port               int64
+		port               int32
 		endPoints          []corev1.Endpoints
 		svc                corev1.Service
 		serviceExport      mcs_api.ServiceExport
@@ -53,7 +54,7 @@ func Test_Targets(t *testing.T) {
 					Subsets: []corev1.EndpointSubset{
 						{
 							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
-							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
+							Ports:     []corev1.EndpointPort{{Port: 8675}},
 						},
 					},
 				},
@@ -65,25 +66,71 @@ func Test_Targets(t *testing.T) {
 					DeletionTimestamp: nil,
 				},
 			},
-			inDataStore:        true,
-			refByServiceExport: true,
-			wantErrIsNil:       true,
+			inDataStore:  true,
+			refByService: true,
+			wantErrIsNil: true,
 			expectedTargetList: []latticemodel.Target{
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
 				},
 				{
-					TargetIP: "10.10.1.1",
-					Port:     309,
-				},
-				{
 					TargetIP: "10.10.2.2",
+					Port:     8675,
+				},
+			},
+		},
+		{
+			name:               "Add endpoints with matching service port to build spec",
+			srvExportName:      "export1",
+			srvExportNamespace: "ns1",
+			port:               80,
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "export1",
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
+							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
+						},
+					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns1",
+					Name:              "export1",
+					DeletionTimestamp: nil,
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "a",
+							Port:       80,
+							TargetPort: intstr.FromInt(8675),
+						},
+						{
+							Name:       "b",
+							Port:       81,
+							TargetPort: intstr.FromInt(309),
+						},
+					},
+				},
+			},
+			inDataStore:  true,
+			refByService: true,
+			wantErrIsNil: true,
+			expectedTargetList: []latticemodel.Target{
+				{
+					TargetIP: "10.10.1.1",
 					Port:     8675,
 				},
 				{
 					TargetIP: "10.10.2.2",
-					Port:     309,
+					Port:     8675,
 				},
 			},
 		},
@@ -112,13 +159,27 @@ func Test_Targets(t *testing.T) {
 					Name:              "export1",
 					DeletionTimestamp: nil,
 				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "a",
+							Port:       80,
+							TargetPort: intstr.FromInt(8675),
+						},
+						{
+							Name:       "b",
+							Port:       81,
+							TargetPort: intstr.FromInt(3090),
+						},
+					},
+				},
 			},
 			serviceExport: mcs_api.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:         "ns1",
 					Name:              "export1",
 					DeletionTimestamp: nil,
-					Annotations:       map[string]string{"multicluster.x-k8s.io/port": "3090"},
+					Annotations:       map[string]string{"multicluster.x-k8s.io/port": "81"},
 				},
 			},
 			inDataStore:        true,
@@ -426,23 +487,24 @@ func Test_Targets(t *testing.T) {
 			Namespace: tt.srvExportNamespace,
 		}
 		targetTask := &latticeTargetsModelBuildTask{
-			Client:      k8sClient,
-			tgName:      tt.srvExportName,
-			tgNamespace: tt.srvExportNamespace,
-			datastore:   ds,
-			port:        tt.port,
-			stack:       core.NewDefaultStack(core.StackID(srvName)),
-			route:       tt.route,
+			Client:         k8sClient,
+			tgName:         tt.srvExportName,
+			tgNamespace:    tt.srvExportNamespace,
+			datastore:      ds,
+			backendRefPort: tt.port,
+			stack:          core.NewDefaultStack(core.StackID(srvName)),
+			route:          tt.route,
 		}
 		err := targetTask.buildLatticeTargets(ctx)
 		if tt.wantErrIsNil {
+			assert.Nil(t, err)
+
 			fmt.Printf("t.latticeTargets %v \n", targetTask.latticeTargets)
 			assert.Equal(t, tt.srvExportName, targetTask.latticeTargets.Spec.Name)
 			assert.Equal(t, tt.srvExportNamespace, targetTask.latticeTargets.Spec.Namespace)
 
 			// verify targets, ports are built correctly
 			assert.Equal(t, tt.expectedTargetList, targetTask.latticeTargets.Spec.TargetIPList)
-			assert.Nil(t, err)
 
 		} else {
 			assert.NotNil(t, err)

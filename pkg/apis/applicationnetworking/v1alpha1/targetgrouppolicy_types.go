@@ -1,11 +1,12 @@
-// +k8s:deepcopy-gen=package
-// +groupName=application-networking.k8s.aws
-
 package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+)
+
+const (
+	TargetGroupPolicyKind = "TargetGroupPolicy"
 )
 
 // +genclient

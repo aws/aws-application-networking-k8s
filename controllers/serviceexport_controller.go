@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
@@ -39,6 +40,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // ServiceExportReconciler reconciles a ServiceExport object
@@ -85,12 +88,23 @@ func RegisterServiceExportReconciler(
 		stackMarshaller:  stackMarshaller,
 	}
 
+	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, r.client)
 	svcExportEventsHandler := eventhandlers.NewEqueueRequestServiceWithExportEvent(log, r.client)
 
-	return ctrl.NewControllerManagedBy(mgr).
+	builder :=  ctrl.NewControllerManagedBy(mgr).
 		For(&mcs_api.ServiceExport{}).
-		Watches(&source.Kind{Type: &corev1.Service{}}, svcExportEventsHandler).
-		Complete(r)
+		Watches(&source.Kind{Type: &corev1.Service{}}, svcExportEventsHandler)
+
+	if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
+		builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(tgpEventHandler.MapToServiceExport))
+	} else {
+		if err != nil {
+			return err
+		}
+		log.Infof("TargetGroupPolicy CRD is not installed, skipping watch")
+	}
+
+	return builder.Complete(r)
 }
 
 //+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceexports,verbs=get;list;watch;create;update;patch;delete

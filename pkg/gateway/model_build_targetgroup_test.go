@@ -7,9 +7,14 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
 
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,23 +23,18 @@ import (
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_TGModelByServicexportBuild(t *testing.T) {
 	now := metav1.Now()
 	tests := []struct {
-		name          string
-		svcExport     *mcs_api.ServiceExport
-		svc           *corev1.Service
-		endPoints     []corev1.Endpoints
-		wantErrIsNil  bool
-		wantIsDeleted bool
+		name                string
+		svcExport           *mcs_api.ServiceExport
+		svc                 *corev1.Service
+		endPoints           []corev1.Endpoints
+		wantErrIsNil        bool
+		wantIsDeleted       bool
+		wantIPv6TargetGroup bool
 	}{
 		{
 			name: "Adding ServieExport where service object exist",
@@ -53,6 +53,9 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 					Ports: []corev1.ServicePort{
 						{},
 					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
 				},
 			},
 			endPoints: []corev1.Endpoints{
@@ -63,8 +66,9 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 					},
 				},
 			},
-			wantErrIsNil:  true,
-			wantIsDeleted: false,
+			wantErrIsNil:        true,
+			wantIsDeleted:       false,
+			wantIPv6TargetGroup: false,
 		},
 		{
 			name: "Adding ServieExport where service object does NOT exist",
@@ -75,8 +79,9 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 				},
 			},
 
-			wantErrIsNil:  false,
-			wantIsDeleted: false,
+			wantErrIsNil:        false,
+			wantIsDeleted:       false,
+			wantIPv6TargetGroup: false,
 		},
 		{
 			name: "Deleting ServiceExport where service object does NOT exist",
@@ -89,8 +94,9 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 				},
 			},
 
-			wantErrIsNil:  false,
-			wantIsDeleted: true,
+			wantErrIsNil:        false,
+			wantIsDeleted:       true,
+			wantIPv6TargetGroup: false,
 		},
 		{
 			name: "Deleting ServieExport where service object exist",
@@ -111,6 +117,9 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 					Ports: []corev1.ServicePort{
 						{},
 					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
 				},
 			},
 			endPoints: []corev1.Endpoints{
@@ -121,8 +130,74 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 					},
 				},
 			},
-			wantErrIsNil:  true,
-			wantIsDeleted: true,
+			wantErrIsNil:        true,
+			wantIsDeleted:       true,
+			wantIPv6TargetGroup: false,
+		},
+		{
+			name: "Creating IPv6 ServiceExport where service object with IpFamilies IPv6 exists",
+			svcExport: &mcs_api.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "export5",
+					Namespace:  "ns1",
+					Finalizers: []string{"gateway.k8s.aws/resources"},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export5",
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					IPFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+					Ports: []corev1.ServicePort{
+						{},
+					},
+				},
+			},
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "export5",
+					},
+				},
+			},
+			wantErrIsNil:        true,
+			wantIsDeleted:       false,
+			wantIPv6TargetGroup: true,
+		},
+		{
+			name: "Failed to create IPv6 ServiceExport where service object with dual stack IpFamilies exists",
+			svcExport: &mcs_api.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "export6",
+					Namespace:  "ns1",
+					Finalizers: []string{"gateway.k8s.aws/resources"},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export6",
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+					Ports: []corev1.ServicePort{
+						{},
+					},
+				},
+			},
+			endPoints: []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "export6",
+					},
+				},
+			},
+			wantErrIsNil:  false,
+			wantIsDeleted: false,
 		},
 	}
 
@@ -164,12 +239,19 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 
 			// for serviceexport, the routename is ""
 			dsTG, err := ds.GetTargetGroup(tgName, "", false)
+
 			assert.Nil(t, err)
 			if tt.wantIsDeleted {
 				assert.Equal(t, false, dsTG.ByServiceExport)
 				assert.Equal(t, true, tg.Spec.IsDeleted)
 			} else {
 				assert.Equal(t, true, dsTG.ByServiceExport)
+
+				if tt.wantIPv6TargetGroup {
+					assert.Equal(t, vpclattice.IpAddressTypeIpv6, tg.Spec.Config.IpAddressType)
+				} else {
+					assert.Equal(t, vpclattice.IpAddressTypeIpv4, tg.Spec.Config.IpAddressType)
+				}
 			}
 
 		})
@@ -190,13 +272,14 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		route         core.Route
-		svcExist      bool
-		wantError     error
-		wantErrIsNil  bool
-		wantName      string
-		wantIsDeleted bool
+		name                string
+		route               core.Route
+		svcExist            bool
+		wantError           error
+		wantErrIsNil        bool
+		wantName            string
+		wantIsDeleted       bool
+		wantIPv6TargetGroup bool
 	}{
 		{
 			name: "Add LatticeService",
@@ -229,11 +312,12 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 					},
 				},
 			}),
-			svcExist:      true,
-			wantError:     nil,
-			wantName:      "service1",
-			wantIsDeleted: false,
-			wantErrIsNil:  true,
+			svcExist:            true,
+			wantError:           nil,
+			wantName:            "service1",
+			wantIsDeleted:       false,
+			wantErrIsNil:        true,
+			wantIPv6TargetGroup: false,
 		},
 		{
 			name: "Delete LatticeService",
@@ -268,11 +352,12 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 					},
 				},
 			}),
-			svcExist:      true,
-			wantError:     nil,
-			wantName:      "service1",
-			wantIsDeleted: true,
-			wantErrIsNil:  true,
+			svcExist:            true,
+			wantError:           nil,
+			wantName:            "service1",
+			wantIsDeleted:       true,
+			wantErrIsNil:        true,
+			wantIPv6TargetGroup: false,
 		},
 		{
 			name: "Create LatticeService where backend K8S service does NOT exist",
@@ -306,11 +391,12 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 					},
 				},
 			}),
-			svcExist:      false,
-			wantError:     nil,
-			wantName:      "service1",
-			wantIsDeleted: false,
-			wantErrIsNil:  false,
+			svcExist:            false,
+			wantError:           nil,
+			wantName:            "service1",
+			wantIsDeleted:       false,
+			wantErrIsNil:        false,
+			wantIPv6TargetGroup: false,
 		},
 		{
 			name: "Create LatticeService where backend mcs serviceimport does NOT exist",
@@ -344,11 +430,50 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 					},
 				},
 			}),
-			svcExist:      false,
-			wantError:     nil,
-			wantName:      "service1",
-			wantIsDeleted: false,
-			wantErrIsNil:  false,
+			svcExist:            false,
+			wantError:           nil,
+			wantName:            "service1",
+			wantIsDeleted:       false,
+			wantErrIsNil:        false,
+			wantIPv6TargetGroup: false,
+		},
+		{
+			name: "Lattice Service with IPv6 Target Group",
+			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "service5",
+					Finalizers: []string{"gateway.k8s.aws/resources"},
+				},
+				Spec: gateway_api.HTTPRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name: "gateway1",
+							},
+						},
+					},
+					Rules: []gateway_api.HTTPRouteRule{
+						{
+							BackendRefs: []gateway_api.HTTPBackendRef{
+								{
+									BackendRef: gateway_api.BackendRef{
+										BackendObjectReference: gateway_api.BackendObjectReference{
+											Name:      "service5-tg1",
+											Namespace: namespacePtr("ns31"),
+											Kind:      kindPtr("Service"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+			svcExist:            true,
+			wantError:           nil,
+			wantIsDeleted:       false,
+			wantErrIsNil:        true,
+			wantIPv6TargetGroup: true,
 		},
 	}
 
@@ -387,7 +512,15 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 									Namespace: string(*httpBackendRef.Namespace()),
 								},
 							}
+
+							if tt.wantIPv6TargetGroup {
+								svc.Spec.IPFamilies = []corev1.IPFamily{corev1.IPv6Protocol}
+							} else {
+								svc.Spec.IPFamilies = []corev1.IPFamily{corev1.IPv4Protocol}
+							}
+
 							fmt.Printf("create K8S service %v\n", svc)
+
 							assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 						}
 
@@ -421,6 +554,17 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 								fmt.Printf("--dsTG %v\n", dsTG)
 								assert.Nil(t, err)
 							}
+
+							// Verify IpAddressType of Target Group
+							tg := task.tgByResID[tgName]
+
+							ipAddressType := tg.Spec.Config.IpAddressType
+
+							if tt.wantIPv6TargetGroup {
+								assert.Equal(t, vpclattice.IpAddressTypeIpv6, ipAddressType)
+							} else {
+								assert.Equal(t, vpclattice.IpAddressTypeIpv4, ipAddressType)
+							}
 						} else {
 							// the routename for serviceimport is ""
 							dsTG, err := ds.GetTargetGroup(tgName, "", true)
@@ -428,6 +572,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 							assert.Nil(t, err)
 						}
 						assert.Nil(t, err)
+
 					}
 				}
 
@@ -661,5 +806,78 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 			}
 
 		}
+	}
+}
+
+func Test_buildTargetGroupIpAdressType(t *testing.T) {
+	type args struct {
+		svc *corev1.Service
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "IpFamilies [IPv4] get corev1.IPv4Protocol",
+			args: args{
+				svc: &corev1.Service{
+					Spec: corev1.ServiceSpec{
+						IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+					},
+				},
+			},
+			want:    vpclattice.IpAddressTypeIpv4,
+			wantErr: false,
+		},
+		{
+			name: "IpFamilies [IPv4] get corev1.IPv6Protocol",
+			args: args{
+				svc: &corev1.Service{
+					Spec: corev1.ServiceSpec{
+						IPFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+					},
+				},
+			},
+			want:    vpclattice.IpAddressTypeIpv6,
+			wantErr: false,
+		},
+		{
+			name: "IpFamilies empty get error",
+			args: args{
+				svc: &corev1.Service{
+					Spec: corev1.ServiceSpec{
+						IPFamilies: []corev1.IPFamily{},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "IpFamilies contain invalid value get error",
+			args: args{
+				svc: &corev1.Service{
+					Spec: corev1.ServiceSpec{
+						IPFamilies: []corev1.IPFamily{"IPv5"},
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildTargetGroupIpAdressType(tt.args.svc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("buildTargetGroupIpAdressType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("buildTargetGroupIpAdressType() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

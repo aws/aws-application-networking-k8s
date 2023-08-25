@@ -3,1035 +3,305 @@ package lattice
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
-func Test_Create_ValidateService(t *testing.T) {
-	tests := []struct {
-		name                             string
-		tags                             map[string]*string
-		meshName                         string
-		meshId                           string
-		meshArn                          string
-		wantServiceName                  string
-		wantServiceId                    string
-		wantServiceArn                   string
-		wantMeshServiceAssociationStatus string
-		wantErr                          error
-		wantListServiceOutput            []*vpclattice.ServiceSummary
-		listServiceInput                 *vpclattice.ListServicesInput
-	}{
-		{
-			name:                             "Test_Create_ValidateService",
-			tags:                             nil,
-			meshName:                         "test-mesh-1",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-1",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          nil,
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			listServiceInput:                 &vpclattice.ListServicesInput{},
-		},
-	}
+func TestServiceManagerInteg(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
 
-	for _, tt := range tests {
-		fmt.Printf("Testing >>>>> %v\n", tt.name)
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
-		mockCloud := mocks_aws.NewMockCloud(c)
+	lat := services.NewMockLattice(c)
+	cfg := mocks_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+	cl := mocks_aws.NewDefaultCloud(lat, nil, cfg)
+	ds := latticestore.NewLatticeDataStore()
+	ctx := context.Background()
+	m := NewServiceManager(cl, ds)
 
-		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
-		createServiceOutput := &vpclattice.CreateServiceOutput{
-			Arn:    &tt.wantServiceArn,
-			Id:     &tt.wantServiceId,
-			Name:   &SVCName,
-			Status: aws.String(vpclattice.ServiceStatusActive),
-		}
-
-		createServiceNetworkServiceAssociationOutput := &vpclattice.CreateServiceNetworkServiceAssociationOutput{
-			Arn:      nil,
-			DnsEntry: nil,
-			Id:       nil,
-			Status:   &tt.wantMeshServiceAssociationStatus,
-		}
-
-		input := &latticemodel.Service{
+	// Case for single service and single sn-svc association
+	// Make sure that we send requests to Lattice for create Service and create Sn-Svc
+	t.Run("create new service and association", func(t *testing.T) {
+		svc := &Service{
 			Spec: latticemodel.ServiceSpec{
-				Name:                tt.wantServiceName,
-				Namespace:           "default",
-				Protocols:           []*string{aws.String("http")},
-				ServiceNetworkNames: []string{tt.meshName},
+				Name:                "svc",
+				Namespace:           "ns",
+				ServiceNetworkNames: []string{"sn"},
+				CustomerDomainName:  "dns",
+				CustomerCertARN:     "cert-arn",
 			},
-			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
 		}
 
-		createServiceInput := &vpclattice.CreateServiceInput{
-			Name: &SVCName,
-			Tags: make(map[string]*string),
-		}
-		createServiceInput.Tags[latticemodel.K8SServiceOwnedByVPC] = &config.VpcID
-		associateMeshService := &vpclattice.CreateServiceNetworkServiceAssociationInput{
-			ServiceNetworkIdentifier: &tt.meshId,
-			ServiceIdentifier:        &tt.wantServiceId,
-		}
+		ds.AddServiceNetwork("sn", cfg.AccountId, "sn-arn", "sn-id", "sn-status")
 
-		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, tt.listServiceInput).Return(tt.wantListServiceOutput, nil)
-		mockVpcLatticeSess.EXPECT().CreateServiceWithContext(ctx, createServiceInput).Return(createServiceOutput, nil)
+		// service does not exists in lattice
+		lat.EXPECT().
+			ListServicesAsList(gomock.Any(), gomock.Any()).
+			Return([]*SvcSummary{}, nil)
 
-		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any())
-		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any())
-		mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, associateMeshService).Return(createServiceNetworkServiceAssociationOutput, tt.wantErr)
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+		// assert that we call create service
+		lat.EXPECT().
+			CreateServiceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(
+				func(_ context.Context, req *CreateSvcReq, _ ...interface{}) (*CreateSvcResp, error) {
+					assert.Equal(t, svc.LatticeName(), *req.Name)
+					return &CreateSvcResp{
+						Arn:      aws.String("arn"),
+						DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
+						Id:       aws.String("svc-id"),
+					}, nil
+				})
 
-		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
-		resp, err := serviceManager.Create(ctx, input)
+		// assert that we call create association
+		lat.EXPECT().
+			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(
+				func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
+					assert.Equal(t, "sn-id", *req.ServiceNetworkIdentifier)
+					return &CreateSnSvcAssocResp{
+						Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+					}, nil
+				})
 
-		if tt.wantErr != nil {
-			assert.NotNil(t, err)
-			assert.Equal(t, err, errors.New(LATTICE_RETRY))
-			assert.Equal(t, resp.ServiceARN, "")
-			assert.Equal(t, resp.ServiceID, "")
-		} else {
-			assert.Nil(t, err)
-			assert.Equal(t, resp.ServiceARN, tt.wantServiceArn)
-			assert.Equal(t, resp.ServiceID, tt.wantServiceId)
-		}
-	}
-}
-
-func Test_Create_CreateService_MeshServiceAssociation(t *testing.T) {
-	tests := []struct {
-		name                             string
-		tags                             map[string]*string
-		meshName                         string
-		meshId                           string
-		meshArn                          string
-		wantServiceName                  string
-		wantServiceId                    string
-		wantServiceArn                   string
-		wantMeshServiceAssociationStatus string
-		wantErr                          error
-		wantListServiceOutput            []*vpclattice.ServiceSummary
-	}{
-		{
-			name:                             "test-1",
-			tags:                             nil,
-			meshName:                         "test-mesh-1",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-1",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          nil,
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-		},
-
-		{
-			name:                             "test-2",
-			tags:                             nil,
-			meshName:                         "test-mesh-2",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-2",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress,
-			wantErr:                          errors.New(LATTICE_RETRY),
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-		},
-		{
-			name:                             "test-3",
-			tags:                             nil,
-			meshName:                         "test-mesh-3",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-3",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          errors.New(LATTICE_RETRY),
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-		},
-		{
-			name:                             "test-4",
-			tags:                             nil,
-			meshName:                         "test-mesh-4",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-4",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress,
-			wantErr:                          errors.New(LATTICE_RETRY),
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-		},
-		{
-			name:                             "test-5",
-			tags:                             nil,
-			meshName:                         "test-mesh-5",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-5",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusDeleteFailed,
-			wantErr:                          errors.New(LATTICE_RETRY),
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-		},
-	}
-
-	for _, tt := range tests {
-		fmt.Printf("testing >>> %v \n", tt.name)
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
-		mockCloud := mocks_aws.NewMockCloud(c)
-
-		createServiceOutput := &vpclattice.CreateServiceOutput{
-			Arn:    &tt.wantServiceArn,
-			Id:     &tt.wantServiceId,
-			Name:   &tt.wantServiceName,
-			Status: aws.String(vpclattice.ServiceStatusActive),
-		}
-		createServiceNetworkServiceAssociationOutput := &vpclattice.CreateServiceNetworkServiceAssociationOutput{
-			Arn:      nil,
-			DnsEntry: nil,
-			Id:       nil,
-			Status:   &tt.wantMeshServiceAssociationStatus,
-		}
-		input := &latticemodel.Service{
-			Spec: latticemodel.ServiceSpec{
-				Name:                tt.wantServiceName,
-				Protocols:           []*string{aws.String("http")},
-				ServiceNetworkNames: []string{tt.meshName},
-			},
-			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
-		}
-
-		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, gomock.Any()).Return(tt.wantListServiceOutput, nil)
-		mockVpcLatticeSess.EXPECT().CreateServiceWithContext(ctx, gomock.Any()).Return(createServiceOutput, nil)
-
-		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any())
-		if tt.wantErr == nil {
-			mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any())
-		}
-		mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Return(createServiceNetworkServiceAssociationOutput, tt.wantErr)
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
-
-		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
-		resp, err := serviceManager.Create(ctx, input)
-
-		if tt.wantErr != nil {
-			assert.NotNil(t, err)
-			assert.Equal(t, err, errors.New(LATTICE_RETRY))
-			assert.Equal(t, resp.ServiceARN, "")
-			assert.Equal(t, resp.ServiceID, "")
-		} else {
-			assert.Nil(t, err)
-			assert.Equal(t, resp.ServiceARN, tt.wantServiceArn)
-			assert.Equal(t, resp.ServiceID, tt.wantServiceId)
-		}
-	}
-}
-
-func Test_Create_MeshServiceAssociation(t *testing.T) {
-	tests := []struct {
-		name                             string
-		tags                             map[string]*string
-		meshName                         string
-		meshId                           string
-		meshArn                          string
-		wantServiceName                  string
-		wantServiceId                    string
-		wantServiceArn                   string
-		wantMeshServiceAssociationStatus string
-		wantErr                          error
-		wantListServiceOutput            []*vpclattice.ServiceSummary
-		existingAssociationStatus        string
-		existingAssociationErr           error
-	}{
-		{
-			name:                             "test-1",
-			tags:                             nil,
-			meshName:                         "test-mesh-1",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-1",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			existingAssociationStatus:        vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress,
-			existingAssociationErr:           errors.New(LATTICE_RETRY),
-			wantMeshServiceAssociationStatus: "",
-			wantErr:                          errors.New(LATTICE_RETRY),
-		},
-		{
-			name:                             "test-2",
-			tags:                             nil,
-			meshName:                         "test-mesh-2",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-2",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			existingAssociationStatus:        vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress,
-			existingAssociationErr:           errors.New(LATTICE_RETRY),
-			wantMeshServiceAssociationStatus: "",
-			wantErr:                          errors.New(LATTICE_RETRY),
-		},
-		{
-			name:                             "test-3",
-			tags:                             nil,
-			meshName:                         "test-mesh-3",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-3",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			existingAssociationStatus:        vpclattice.ServiceNetworkServiceAssociationStatusDeleteFailed,
-			existingAssociationErr:           nil,
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          nil,
-		},
-		{
-			name:                             "test-4",
-			tags:                             nil,
-			meshName:                         "test-mesh-4",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-4",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			existingAssociationStatus:        vpclattice.ServiceNetworkServiceAssociationStatusCreateFailed,
-			existingAssociationErr:           nil,
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          nil,
-		},
-	}
-
-	for _, tt := range tests {
-		fmt.Printf("testing >>> %v \n", tt.name)
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
-		mockCloud := mocks_aws.NewMockCloud(c)
-
-		createServiceNetworkServiceAssociationOutput := &vpclattice.CreateServiceNetworkServiceAssociationOutput{
-			Arn:      nil,
-			DnsEntry: nil,
-			Id:       nil,
-			Status:   &tt.wantMeshServiceAssociationStatus,
-		}
-		input := &latticemodel.Service{
-			Spec: latticemodel.ServiceSpec{
-				Name:                tt.wantServiceName,
-				Namespace:           "default",
-				Protocols:           []*string{aws.String("http")},
-				ServiceNetworkNames: []string{tt.meshName},
-			},
-			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
-		}
-		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
-		tt.wantListServiceOutput = append(tt.wantListServiceOutput, &vpclattice.ServiceSummary{
-			Arn:  &tt.wantServiceArn,
-			Id:   &tt.wantServiceId,
-			Name: &SVCName,
-		})
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{{
-			Status: &tt.existingAssociationStatus,
-		}}
-
-		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, gomock.Any()).Return(tt.wantListServiceOutput, nil)
-		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, tt.existingAssociationErr)
-		if tt.wantErr == nil {
-			mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any())
-		}
-		mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Return(createServiceNetworkServiceAssociationOutput, tt.wantErr)
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
-
-		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
-		resp, err := serviceManager.Create(ctx, input)
-
-		if tt.existingAssociationErr != nil {
-			assert.NotNil(t, err)
-			assert.Equal(t, err, errors.New(LATTICE_RETRY))
-			assert.Equal(t, resp.ServiceARN, "")
-			assert.Equal(t, resp.ServiceID, "")
-		} else {
-			assert.Nil(t, err)
-			assert.Equal(t, resp.ServiceARN, tt.wantServiceArn)
-			assert.Equal(t, resp.ServiceID, tt.wantServiceId)
-		}
-	}
-}
-
-func Test_Create_Check(t *testing.T) {
-	tests := []struct {
-		tags                             map[string]*string
-		meshName                         string
-		meshId                           string
-		meshArn                          string
-		wantServiceName                  string
-		wantServiceId                    string
-		wantServiceArn                   string
-		wantMeshServiceAssociationStatus string
-		wantErr                          error
-		wantListServiceOutput            []*vpclattice.ServiceSummary
-		existingAssociationStatus        string
-		existingAssociationErr           error
-	}{
-		{
-			tags:                             nil,
-			meshName:                         "test-mesh-1",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-1",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			existingAssociationStatus:        vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			existingAssociationErr:           nil,
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          nil,
-		},
-	}
-
-	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
-		mockCloud := mocks_aws.NewMockCloud(c)
-
-		input := &latticemodel.Service{
-			Spec: latticemodel.ServiceSpec{
-				Name:                tt.wantServiceName,
-				Namespace:           "default",
-				Protocols:           []*string{aws.String("http")},
-				ServiceNetworkNames: []string{tt.meshName},
-			},
-			Status: &latticemodel.ServiceStatus{ServiceARN: "", ServiceID: ""},
-		}
-		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
-		tt.wantListServiceOutput = append(tt.wantListServiceOutput, &vpclattice.ServiceSummary{
-			Arn:  &tt.wantServiceArn,
-			Id:   &tt.wantServiceId,
-			Name: &SVCName,
-		})
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{{
-			ServiceNetworkName: &tt.meshName,
-			Status:             &tt.existingAssociationStatus,
-		}}
-
-		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, gomock.Any()).Return(tt.wantListServiceOutput, nil)
-		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, tt.existingAssociationErr)
-		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, tt.existingAssociationErr)
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
-
-		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
-		resp, err := serviceManager.Create(ctx, input)
-
+		status, err := m.Create(ctx, svc)
 		assert.Nil(t, err)
-		assert.Equal(t, resp.ServiceARN, tt.wantServiceArn)
-		assert.Equal(t, resp.ServiceID, tt.wantServiceId)
-	}
-}
-func Test_Delete_ValidateInput(t *testing.T) {
-	tests := []struct {
-		meshName                                     string
-		meshId                                       string
-		meshArn                                      string
-		wantServiceName                              string
-		wantServiceId                                string
-		wantServiceArn                               string
-		wantMeshServiceAssociationStatus             string
-		wantErr                                      error
-		wantListServiceOutput                        []*vpclattice.ServiceSummary
-		deleteServiceNetworkServiceAssociationOutput *vpclattice.DeleteServiceNetworkServiceAssociationOutput
-		deleteServiceOutput                          *vpclattice.DeleteServiceOutput
-		wantListMeshServiceAssociationsErr           error
-		meshServiceAssociationId                     string
-	}{
-		{
-			meshName:                         "test-mesh-1",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-1",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          nil,
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			deleteServiceNetworkServiceAssociationOutput: &vpclattice.DeleteServiceNetworkServiceAssociationOutput{},
-			deleteServiceOutput:                          &vpclattice.DeleteServiceOutput{},
-			wantListMeshServiceAssociationsErr:           nil,
-			meshServiceAssociationId:                     "mesh-svc-id-123456789",
-		},
-	}
+		assert.Equal(t, "arn", status.Arn)
+	})
 
-	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
-		mockCloud := mocks_aws.NewMockCloud(c)
-
-		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
-		tt.wantListServiceOutput = append(tt.wantListServiceOutput, &vpclattice.ServiceSummary{
-			Arn:  &tt.wantServiceArn,
-			Id:   &tt.wantServiceId,
-			Name: &SVCName,
-		})
-		input := &latticemodel.Service{
+	// Update is more complex than create, we need to apply diff for Sn-Svc associations
+	// This test covers creation/deletion for multiple SN's
+	// Service is associated with sn-keep and sn-delete,
+	// for update we need to delete sn-delete and add sn-add
+	t.Run("update service's associations", func(t *testing.T) {
+		snNames := []string{"sn-keep", "sn-delete", "sn-add"}
+		svc := &Service{
 			Spec: latticemodel.ServiceSpec{
-				Name:                tt.wantServiceName,
-				Namespace:           "default",
-				ServiceNetworkNames: []string{tt.meshName},
+				Name:                "svc",
+				Namespace:           "ns",
+				ServiceNetworkNames: []string{snNames[0], snNames[2]},
 			},
 		}
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{{
-			Status: &tt.wantMeshServiceAssociationStatus,
-			Id:     &tt.meshServiceAssociationId,
-		}}
 
-		listServicesInput := &vpclattice.ListServicesInput{}
-		listMeshServiceAssociationsInput := &vpclattice.ListServiceNetworkServiceAssociationsInput{
-			ServiceIdentifier: &tt.wantServiceId,
+		for _, sn := range snNames {
+			ds.AddServiceNetwork(sn, cfg.AccountId, sn+"-arn", sn+"-id", sn+"-status")
 		}
-		deleteMeshServiceAssociationInput := &vpclattice.DeleteServiceNetworkServiceAssociationInput{ServiceNetworkServiceAssociationIdentifier: &tt.meshServiceAssociationId}
 
-		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, listServicesInput).Return(tt.wantListServiceOutput, nil)
-		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, listMeshServiceAssociationsInput).Return(listMeshServiceAssociationsOutput, tt.wantListMeshServiceAssociationsErr)
+		// service exists in lattice
+		lat.EXPECT().
+			ListServicesAsList(gomock.Any(), gomock.Any()).
+			Return([]*SvcSummary{{
+				Arn:  aws.String("svc-arn"),
+				Id:   aws.String("svc-id"),
+				Name: aws.String(svc.LatticeName()),
+			}}, nil)
 
-		mockVpcLatticeSess.EXPECT().DeleteServiceNetworkServiceAssociationWithContext(ctx, deleteMeshServiceAssociationInput).Return(tt.deleteServiceNetworkServiceAssociationOutput, tt.wantErr)
+		// 2 associations exists, keep and delete
+		lat.EXPECT().
+			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
+			Return([]*SnSvcAssocSummary{
+				{
+					Arn:                aws.String(snNames[0] + "-arn"),
+					Id:                 aws.String(snNames[0] + "-id"),
+					ServiceNetworkName: &snNames[0],
+					Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+				},
+				{
+					Arn:                aws.String(snNames[1] + "-arn"),
+					Id:                 aws.String(snNames[1] + "-id"),
+					ServiceNetworkName: &snNames[1],
+					Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+				},
+			}, nil)
 
-		mockVpcLatticeSess.EXPECT().DeleteServiceWithContext(ctx, gomock.Any()).Return(tt.deleteServiceOutput, tt.wantErr)
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+		// assert we call create and delete associations
+		lat.EXPECT().
+			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(
+				func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
+					assert.Equal(t, "sn-add-id", *req.ServiceNetworkIdentifier)
+					return &CreateSnSvcAssocResp{Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive)}, nil
+				})
 
-		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
-		err := serviceManager.Delete(ctx, input)
+		lat.EXPECT().
+			DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(
+				func(_ context.Context, req *DelSnSvcAssocReq, _ ...interface{}) (*DelSnSvcAssocResp, error) {
+					assert.Equal(t, "sn-delete-arn", *req.ServiceNetworkServiceAssociationIdentifier)
+					return &DelSnSvcAssocResp{}, nil
+				})
 
+		status, err := m.Create(ctx, svc)
 		assert.Nil(t, err)
+		assert.Equal(t, "svc-arn", status.Arn)
+	})
 
-	}
-}
-
-func Test_Delete_Disassociation_DeleteService(t *testing.T) {
-	tests := []struct {
-		name                                         string
-		meshName                                     string
-		meshId                                       string
-		meshArn                                      string
-		wantServiceName                              string
-		wantServiceId                                string
-		wantServiceArn                               string
-		wantMeshServiceAssociationStatus             string
-		wantErr                                      error
-		wantListServiceOutput                        []*vpclattice.ServiceSummary
-		deleteServiceNetworkServiceAssociationOutput *vpclattice.DeleteServiceNetworkServiceAssociationOutput
-		deleteServiceOutput                          *vpclattice.DeleteServiceOutput
-		wantListMeshServiceAssociationsErr           error
-	}{
-		{
-			name:                             "test-1",
-			meshName:                         "test-mesh-1",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-1",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          nil,
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			deleteServiceNetworkServiceAssociationOutput: &vpclattice.DeleteServiceNetworkServiceAssociationOutput{},
-			deleteServiceOutput:                          &vpclattice.DeleteServiceOutput{},
-			wantListMeshServiceAssociationsErr:           nil,
-		},
-
-		{
-			name:                             "test-2",
-			meshName:                         "test-mesh-1",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-1",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          errors.New(LATTICE_RETRY),
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			deleteServiceNetworkServiceAssociationOutput: &vpclattice.DeleteServiceNetworkServiceAssociationOutput{},
-			deleteServiceOutput:                          &vpclattice.DeleteServiceOutput{},
-			wantListMeshServiceAssociationsErr:           nil,
-		},
-
-		{
-			name:                             "test-3",
-			meshName:                         "test-mesh-1",
-			meshId:                           "id-234567890",
-			meshArn:                          "arn-234567890",
-			wantServiceName:                  "svc-test-1",
-			wantServiceId:                    "id-123456789",
-			wantServiceArn:                   "arn-123456789",
-			wantMeshServiceAssociationStatus: vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                          errors.New(LATTICE_RETRY),
-			wantListServiceOutput:            []*vpclattice.ServiceSummary{},
-			deleteServiceNetworkServiceAssociationOutput: &vpclattice.DeleteServiceNetworkServiceAssociationOutput{},
-			deleteServiceOutput:                          &vpclattice.DeleteServiceOutput{},
-			wantListMeshServiceAssociationsErr:           errors.New(LATTICE_RETRY),
-		},
-	}
-
-	for _, tt := range tests {
-		fmt.Printf("testing >>>>> %v \n", tt.name)
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
-		mockCloud := mocks_aws.NewMockCloud(c)
-
-		SVCName := latticestore.LatticeServiceName(tt.wantServiceName, "default")
-		tt.wantListServiceOutput = append(tt.wantListServiceOutput, &vpclattice.ServiceSummary{
-			Arn:  &tt.wantServiceArn,
-			Id:   &tt.wantServiceId,
-			Name: &SVCName,
-		})
-		input := &latticemodel.Service{
+	t.Run("delete service and association", func(t *testing.T) {
+		svc := &Service{
 			Spec: latticemodel.ServiceSpec{
-				Name:                tt.wantServiceName,
-				Namespace:           "default",
-				ServiceNetworkNames: []string{tt.meshName},
+				Name:                "svc",
+				Namespace:           "ns",
+				ServiceNetworkNames: []string{"sn"},
 			},
 		}
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{{
-			Status: &tt.wantMeshServiceAssociationStatus,
-		}}
 
-		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, gomock.Any()).Return(tt.wantListServiceOutput, nil)
-		mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, tt.wantListMeshServiceAssociationsErr)
-		//if tt.wantListMeshServiceAssociationsErr == nil {
-		mockVpcLatticeSess.EXPECT().DeleteServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Return(tt.deleteServiceNetworkServiceAssociationOutput, tt.wantErr)
-		//}
-		fmt.Printf("tt.wantListMeshServiceAssociationsErr : %v \n", tt.wantListMeshServiceAssociationsErr)
-		if tt.wantErr == nil && tt.wantListMeshServiceAssociationsErr == nil {
-			mockVpcLatticeSess.EXPECT().DeleteServiceWithContext(ctx, gomock.Any()).Return(tt.deleteServiceOutput, tt.wantErr)
-		}
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+		// service exists
+		lat.EXPECT().
+			ListServicesAsList(gomock.Any(), gomock.Any()).
+			Return([]*SvcSummary{{
+				Arn:  aws.String("svc-arn"),
+				Id:   aws.String("svc-id"),
+				Name: aws.String(svc.LatticeName()),
+			}}, nil)
+		lat.EXPECT().
+			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
+			Return([]*SnSvcAssocSummary{
+				{
+					Arn:                aws.String("assoc-arn"),
+					Id:                 aws.String("assoc-id"),
+					ServiceNetworkName: aws.String("sn"),
+					Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+				},
+			}, nil)
 
-		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
-		err := serviceManager.Delete(ctx, input)
+		// assert we delete association and service
+		lat.EXPECT().
+			DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, nil)
 
-		if tt.wantErr != nil {
-			assert.NotNil(t, err)
-			assert.Equal(t, err, errors.New(LATTICE_RETRY))
-		} else {
-			assert.Nil(t, err)
-		}
-	}
+		lat.EXPECT().
+			DeleteServiceWithContext(gomock.Any(), gomock.Any()).Return(nil, nil)
+
+		err := m.Delete(ctx, svc)
+		assert.Nil(t, err)
+	})
+
 }
 
-/* TODO do we still need this test?
-func Test_Delete_ReturnErrorFail(t *testing.T) {
-	tests := []struct {
-		meshName                           string
-		meshId                             string
-		meshArn                            string
-		wantServiceName                    string
-		wantServiceId                      string
-		wantServiceArn                     string
-		wantMeshServiceAssociationStatus   string
-		wantErr                            error
-		wantListServiceOutput              []*vpclattice.ServiceSummary
-		deleteServiceNetworkServiceAssociationOutput *vpclattice.DeleteServiceNetworkServiceAssociationOutput
-		deleteServiceOutput                *vpclattice.DeleteServiceOutput
-		wantListServiceErr                 error
-		wantListMeshServiceAssociationsErr error
-	}{
-		{
-			meshName:                           "test-mesh-2",
-			meshId:                             "id-234567890",
-			meshArn:                            "arn-234567890",
-			wantServiceName:                    "svc-test-2",
-			wantServiceId:                      "id-123456789",
-			wantServiceArn:                     "arn-123456789",
-			wantMeshServiceAssociationStatus:   vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                            errors.New(LATTICE_RETRY),
-			wantListServiceOutput:              []*vpclattice.ServiceSummary{},
-			deleteServiceNetworkServiceAssociationOutput: &vpclattice.DeleteServiceNetworkServiceAssociationOutput{},
-			deleteServiceOutput:                &vpclattice.DeleteServiceOutput{},
-			wantListServiceErr:                 nil,
-			wantListMeshServiceAssociationsErr: nil,
-		},
-		{
-			meshName:                           "test-mesh-1",
-			meshId:                             "id-234567890",
-			meshArn:                            "arn-234567890",
-			wantServiceName:                    "svc-test-1",
-			wantServiceId:                      "id-123456789",
-			wantServiceArn:                     "arn-123456789",
-			wantMeshServiceAssociationStatus:   vpclattice.ServiceNetworkServiceAssociationStatusActive,
-			wantErr:                            nil,
-			wantListServiceOutput:              []*vpclattice.ServiceSummary{},
-			deleteServiceNetworkServiceAssociationOutput: &vpclattice.DeleteServiceNetworkServiceAssociationOutput{},
-			deleteServiceOutput:                &vpclattice.DeleteServiceOutput{},
-			wantListServiceErr:                 errors.New(LATTICE_RETRY),
-			wantListMeshServiceAssociationsErr: nil,
-		},
+func TestCreateSvcReq(t *testing.T) {
+	cfg := mocks_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+	cl := mocks_aws.NewDefaultCloud(nil, nil, cfg)
+	ds := latticestore.NewLatticeDataStore()
+	m := NewServiceManager(cl, ds)
+
+	spec := latticemodel.ServiceSpec{
+		Name:               "name",
+		Namespace:          "ns",
+		CustomerDomainName: "dns",
+		CustomerCertARN:    "cert-arn",
 	}
 
-	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-		latticeDataStore := latticestore.NewLatticeDataStore()
-		latticeDataStore.AddServiceNetwork(tt.meshName, config.AccountID, tt.meshArn, tt.meshId, latticestore.DATASTORE_MESH_CREATED)
-		mockCloud := mocks_aws.NewMockCloud(c)
-
-		tt.wantListServiceOutput = append(tt.wantListServiceOutput, &vpclattice.ServiceSummary{
-			Arn:  &tt.wantServiceArn,
-			Id:   &tt.wantServiceId,
-			Name: &tt.wantServiceName,
-		})
-		input := &latticemodel.Service{
-			Spec: latticemodel.ServiceSpec{
-				Name:     tt.wantServiceName,
-				ServiceNetworkName: tt.meshName,
-			},
-		}
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{&vpclattice.ServiceNetworkServiceAssociationSummary{
-			Status: &tt.wantMeshServiceAssociationStatus,
-		}}
-
-		mockVpcLatticeSess.EXPECT().ListServicesAsList(ctx, gomock.Any()).Return(tt.wantListServiceOutput, tt.wantListServiceErr)
-		if tt.wantListServiceErr == nil {
-			mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, tt.wantListMeshServiceAssociationsErr)
-		}
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
-
-		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
-		err := serviceManager.Delete(ctx, input)
-
-		assert.Equal(t, err, tt.wantErr)
+	svcModel := &latticemodel.Service{
+		Spec: spec,
 	}
+
+	req := m.newCreateSvcReq(svcModel)
+
+	assert.Equal(t, *req.Name, svcModel.LatticeName())
+	assert.Equal(t, *req.CustomDomainName, spec.CustomerDomainName)
+	assert.Equal(t, *req.CertificateArn, spec.CustomerCertARN)
+
 }
-*/
 
-func Test_serviceNetworkAssociationMgr(t *testing.T) {
-	type SNDisAssocStatus struct {
-		snName       string
-		needDisassoc bool
-		status       string
-	}
-	type SNAssocStatus struct {
-		snName            string
-		snID              string
-		associatedAlready bool
-		status            string
-	}
-	tests := []struct {
-		name             string
-		serviceName      string
-		serviceID        string
-		serviceNapespace string
-		desiredSNs       []SNAssocStatus
-		desiredSNInCache bool
-		existingSNs      []SNDisAssocStatus
-		errOnAssociating bool
-		wantErr          bool
-	}{
-		{
-			name:             "testing () --> (sn1, sn2) happy path",
-			serviceName:      "svc-123",
-			serviceID:        "svc-123-id",
-			serviceNapespace: "default",
-			desiredSNs: []SNAssocStatus{
-				{snName: "sn1", snID: "sn1-id", associatedAlready: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn2", snID: "sn2-id", associatedAlready: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-			},
-			desiredSNInCache: true,
-			existingSNs:      []SNDisAssocStatus{},
-			errOnAssociating: false,
-			wantErr:          false,
+func TestSvcStatusFromCreateSvcResp(t *testing.T) {
+	resp := &CreateSvcResp{
+		Arn: aws.String("arn"),
+		DnsEntry: &vpclattice.DnsEntry{
+			DomainName: aws.String("dns"),
 		},
-		{
-			name:             "testing () --> (sn1, sn2), sn1 association-in-progress",
-			serviceName:      "svc-123",
-			serviceID:        "svc-123-id",
-			serviceNapespace: "default",
-			desiredSNs: []SNAssocStatus{
-				{snName: "sn1", snID: "sn1-id", associatedAlready: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn2", snID: "sn2-id", associatedAlready: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress},
-			},
-			desiredSNInCache: true,
-			existingSNs:      []SNDisAssocStatus{},
-			errOnAssociating: true,
-			wantErr:          true,
-		},
-
-		{
-			name:             "testing (sn1, sn2) --> (sn1, sn2, sn3) happy path",
-			serviceName:      "svc-123",
-			serviceID:        "svc-123-id",
-			serviceNapespace: "default",
-			desiredSNs: []SNAssocStatus{
-				{snName: "sn1", snID: "sn1-id", associatedAlready: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn2", snID: "sn2-id", associatedAlready: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn3", snID: "sn3-id", associatedAlready: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-			},
-			desiredSNInCache: true,
-			existingSNs: []SNDisAssocStatus{
-				{snName: "sn1", needDisassoc: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn2", needDisassoc: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-			},
-			errOnAssociating: false,
-			wantErr:          false,
-		},
-
-		{
-			name:             "testing (sn1, sn2) --> (sn1, sn2, sn3) sn3 work-in-progress",
-			serviceName:      "svc-123",
-			serviceID:        "svc-123-id",
-			serviceNapespace: "default",
-			desiredSNs: []SNAssocStatus{
-				{snName: "sn1", snID: "sn1-id", associatedAlready: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn2", snID: "sn2-id", associatedAlready: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn3", snID: "sn3-id", associatedAlready: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress},
-			},
-			desiredSNInCache: true,
-			existingSNs: []SNDisAssocStatus{
-				{snName: "sn1", needDisassoc: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn2", needDisassoc: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress},
-			},
-			errOnAssociating: true,
-			wantErr:          true,
-		},
-
-		{
-			name:             "testing (sn1, sn2, sn3) --> ( sn2, sn3), happy path",
-			serviceName:      "svc-123",
-			serviceID:        "svc-123-id",
-			serviceNapespace: "default",
-			desiredSNs: []SNAssocStatus{
-
-				{snName: "sn2", snID: "sn2-id", associatedAlready: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn3", snID: "sn3-id", associatedAlready: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-			},
-
-			desiredSNInCache: true,
-			existingSNs: []SNDisAssocStatus{
-				{snName: "sn1", needDisassoc: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn2", needDisassoc: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn3", needDisassoc: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-			},
-			errOnAssociating: false,
-			wantErr:          false,
-		},
-		{
-			name:             "testing (sn1, sn2, sn3) --> ( sn2, sn3), sn1 disassoc-in-progress",
-			serviceName:      "svc-123",
-			serviceID:        "svc-123-id",
-			serviceNapespace: "default",
-			desiredSNs: []SNAssocStatus{
-
-				{snName: "sn2", snID: "sn2-id", associatedAlready: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn3", snID: "sn3-id", associatedAlready: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-			},
-
-			desiredSNInCache: true,
-			existingSNs: []SNDisAssocStatus{
-				{snName: "sn1", needDisassoc: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress},
-				{snName: "sn2", needDisassoc: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn3", needDisassoc: false,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-			},
-			errOnAssociating: false,
-			wantErr:          true,
-		},
-		{
-			name:             "testing (sn1, sn2, sn3) --> ( ), happy path",
-			serviceName:      "svc-123",
-			serviceID:        "svc-123-id",
-			serviceNapespace: "default",
-			desiredSNs:       []SNAssocStatus{},
-
-			desiredSNInCache: true,
-			existingSNs: []SNDisAssocStatus{
-				{snName: "sn1", needDisassoc: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn2", needDisassoc: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn3", needDisassoc: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-			},
-			errOnAssociating: false,
-			wantErr:          false,
-		},
-
-		{
-			name:             "testing (sn1, sn2, sn3) --> ( ), sn2 delete-progress",
-			serviceName:      "svc-123",
-			serviceID:        "svc-123-id",
-			serviceNapespace: "default",
-			desiredSNs:       []SNAssocStatus{},
-
-			desiredSNInCache: true,
-			existingSNs: []SNDisAssocStatus{
-				{snName: "sn1", needDisassoc: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-				{snName: "sn2", needDisassoc: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress},
-				{snName: "sn3", needDisassoc: true,
-					status: vpclattice.ServiceNetworkServiceAssociationStatusActive},
-			},
-			errOnAssociating: false,
-			wantErr:          true,
-		},
+		Id: aws.String("id"),
 	}
 
-	for _, tt := range tests {
-		fmt.Printf("Testing >>>>>  %v \n", tt.name)
+	status := svcStatusFromCreateSvcResp(resp)
 
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
+	assert.Equal(t, *resp.Arn, status.Arn)
+	assert.Equal(t, *resp.Id, status.Id)
+	assert.Equal(t, *resp.DnsEntry.DomainName, status.Dns)
+}
 
-		latticeDataStore := latticestore.NewLatticeDataStore()
+func TestHandleSnSvcAssocResp(t *testing.T) {
 
-		if tt.desiredSNInCache {
-			for _, sn := range tt.desiredSNs {
-				latticeDataStore.AddServiceNetwork(sn.snName, config.AccountID, "snARN", sn.snID, latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
-			}
+	t.Run("assoc status active", func(t *testing.T) {
+		resp := &CreateSnSvcAssocResp{
+			Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
 		}
-		mockCloud := mocks_aws.NewMockCloud(c)
+		err := handleCreateAssociationResp(resp)
+		assert.Nil(t, err)
+	})
 
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
-
-		serviceManager := NewServiceManager(mockCloud, latticeDataStore)
-
-		desiredSNNames := []string{}
-		for _, sn := range tt.desiredSNs {
-			desiredSNNames = append(desiredSNNames, sn.snName)
-
+	t.Run("assoc status non active", func(t *testing.T) {
+		resp := &CreateSnSvcAssocResp{
+			Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress),
 		}
+		err := handleCreateAssociationResp(resp)
+		assert.True(t, errors.Is(err, RetryErr))
+	})
 
-		// test adding more association path
+}
 
-		listMeshServiceAssociationsOutput := []*vpclattice.ServiceNetworkServiceAssociationSummary{}
+func TestSnSvcAssocsDiff(t *testing.T) {
 
-		for i := 0; i < len(tt.desiredSNs); i++ {
-			if tt.desiredSNs[i].associatedAlready {
-				activeStatus := vpclattice.ServiceNetworkServiceAssociationStatusActive
-				listMeshServiceAssociationsOutput = []*vpclattice.ServiceNetworkServiceAssociationSummary{
-					{Status: &activeStatus},
-				}
+	t.Run("no diff", func(t *testing.T) {
+		svc := &Service{Spec: latticemodel.ServiceSpec{
+			ServiceNetworkNames: []string{"sn"},
+		}}
+		assocs := []*SnSvcAssocSummary{{ServiceNetworkName: aws.String("sn")}}
+		c, d, err := associationsDiff(svc, assocs)
+		assert.Nil(t, err)
+		assert.Equal(t, 0, len(c))
+		assert.Equal(t, 0, len(d))
+	})
 
-			} else {
-				listMeshServiceAssociationsOutput = []*vpclattice.ServiceNetworkServiceAssociationSummary{}
-			}
-			mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, nil)
+	t.Run("only create", func(t *testing.T) {
+		svc := &Service{Spec: latticemodel.ServiceSpec{
+			ServiceNetworkNames: []string{"sn1", "sn2"},
+		}}
+		assocs := []*SnSvcAssocSummary{}
+		c, d, _ := associationsDiff(svc, assocs)
+		assert.Equal(t, 2, len(c))
+		assert.Equal(t, 0, len(d))
+	})
 
-			if !tt.desiredSNs[i].associatedAlready {
-				snAssocOutput := vpclattice.CreateServiceNetworkServiceAssociationOutput{
-					Status: &tt.desiredSNs[i].status,
-				}
-				mockVpcLatticeSess.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx,
-					gomock.Any()).Return(&snAssocOutput, nil)
-			}
-
-			if tt.desiredSNs[i].status != vpclattice.ServiceNetworkServiceAssociationStatusActive {
-				break
-			}
+	t.Run("only delete", func(t *testing.T) {
+		svc := &Service{}
+		assocs := []*SnSvcAssocSummary{
+			{ServiceNetworkName: aws.String("sn1")},
+			{ServiceNetworkName: aws.String("sn2")},
 		}
+		c, d, _ := associationsDiff(svc, assocs)
+		assert.Equal(t, 0, len(c))
+		assert.Equal(t, 2, len(d))
+	})
 
-		// testing delete association path
-		if !tt.errOnAssociating {
-			listMeshServiceAssociationsOutput = []*vpclattice.ServiceNetworkServiceAssociationSummary{}
-			for i := 0; i < len(tt.existingSNs); i++ {
-				listMeshServiceAssociationsOutput = append(listMeshServiceAssociationsOutput,
-					&vpclattice.ServiceNetworkServiceAssociationSummary{ServiceNetworkName: &tt.existingSNs[i].snName})
-
-			}
-			mockVpcLatticeSess.EXPECT().ListServiceNetworkServiceAssociationsAsList(ctx, gomock.Any()).Return(listMeshServiceAssociationsOutput, nil)
-
-			for i := 0; i < len(tt.existingSNs); i++ {
-				if tt.existingSNs[i].needDisassoc {
-					deleteAssocOutput := &vpclattice.DeleteServiceNetworkServiceAssociationOutput{
-						Status: &tt.existingSNs[i].status,
-					}
-					mockVpcLatticeSess.EXPECT().DeleteServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Return(deleteAssocOutput, nil)
-					if tt.existingSNs[i].status == vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress {
-						break
-					}
-				}
-			}
-
+	t.Run("create and delete", func(t *testing.T) {
+		svc := &Service{Spec: latticemodel.ServiceSpec{
+			ServiceNetworkNames: []string{"sn1", "sn2", "sn3"},
+		}}
+		assocs := []*SnSvcAssocSummary{
+			{ServiceNetworkName: aws.String("sn1")},
+			{ServiceNetworkName: aws.String("sn4")},
 		}
-		err := serviceManager.serviceNetworkAssociationMgr(ctx, desiredSNNames, tt.serviceID)
-		if !tt.wantErr {
+		c, d, _ := associationsDiff(svc, assocs)
+		assert.Equal(t, 2, len(c))
+		assert.Equal(t, 1, len(d))
+	})
 
-			assert.Nil(t, err)
-		}
+	t.Run("retry error on create assoc that in deletion state", func(t *testing.T) {
+		svc := &Service{Spec: latticemodel.ServiceSpec{
+			ServiceNetworkNames: []string{"sn"},
+		}}
+		assocs := []*SnSvcAssocSummary{{
+			ServiceNetworkName: aws.String("sn"),
+			Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress),
+		}}
+		_, _, err := associationsDiff(svc, assocs)
+		assert.True(t, errors.Is(err, RetryErr))
+	})
 
-	}
 }

@@ -10,15 +10,25 @@ import (
 	"github.com/aws/aws-sdk-go/service/eks"
 )
 
+//go:generate mockgen -destination cloud_mocks.go -package aws github.com/aws/aws-application-networking-k8s/pkg/aws Cloud
+
+type CloudConfig struct {
+	VpcId     string
+	AccountId string
+}
+
 type Cloud interface {
+	Config() CloudConfig
 	Lattice() services.Lattice
 	EKS() services.EKS
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud(log gwlog.Logger) (Cloud, error) {
-	// TODO: need to pass cfg CloudConfig later
-	sess, _ := session.NewSession()
+func NewCloud(log gwlog.Logger, cfg CloudConfig) (Cloud, error) {
+	sess, err := session.NewSession()
+	if err != nil {
+		return nil, err
+	}
 
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		if r.Error != nil {
@@ -37,26 +47,33 @@ func NewCloud(log gwlog.Logger) (Cloud, error) {
 		}
 	})
 
-	return &defaultCloud{
-		// TODO: service
-		vpcLatticeSess: services.NewDefaultLattice(sess, config.Region),
-		eksSess:        services.NewDefaultEKS(sess, config.Region),
-	}, nil
+	lattice := services.NewDefaultLattice(sess, config.Region)
+	eks := services.NewDefaultEKS(sess, config.Region)
+	cl := NewDefaultCloud(lattice, eks, cfg)
+	return cl, nil
 }
 
-var _ Cloud = &defaultCloud{}
+// Used in testing and mocks
+func NewDefaultCloud(lattice services.Lattice, eks services.EKS, cfg CloudConfig) Cloud {
+	return &defaultCloud{cfg, lattice, eks}
+}
 
 type defaultCloud struct {
-	vpcLatticeSess services.Lattice
-	eksSess        services.EKS
+	cfg     CloudConfig
+	lattice services.Lattice
+	eks     services.EKS
 }
 
-func (d *defaultCloud) Lattice() services.Lattice {
-	return d.vpcLatticeSess
+func (c *defaultCloud) Lattice() services.Lattice {
+	return c.lattice
 }
 
-func (d *defaultCloud) EKS() services.EKS {
-	return d.eksSess
+func (c *defaultCloud) EKS() services.EKS {
+	return c.eks
+}
+
+func (c *defaultCloud) Config() CloudConfig {
+	return c.cfg
 }
 
 func (d *defaultCloud) GetEKSClusterVPC(name string) string {
@@ -64,7 +81,7 @@ func (d *defaultCloud) GetEKSClusterVPC(name string) string {
 		Name: aws.String(name),
 	}
 
-	result, err := d.eksSess.DescribeCluster(input)
+	result, err := d.eks.DescribeCluster(input)
 
 	if err != nil {
 		return ""

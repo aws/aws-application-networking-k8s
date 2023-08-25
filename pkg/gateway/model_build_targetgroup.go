@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"errors"
+
+	"github.com/golang/glog"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -153,20 +157,20 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 				backendNamespace = string(*backendRef.Namespace())
 			}
 
-			port := int64(0)
+			var port int32
 			if backendRef.Port() != nil {
-				port = int64(*backendRef.Port())
+				port = int32(*backendRef.Port())
 			}
 
 			targetTask := &latticeTargetsModelBuildTask{
-				Client:      t.client,
-				tgName:      string(backendRef.Name()),
-				tgNamespace: backendNamespace,
-				routename:   t.route.Name(),
-				port:        port,
-				stack:       t.stack,
-				datastore:   t.Datastore,
-				route:       t.route,
+				Client:      	t.client,
+				tgName:      	string(backendRef.Name()),
+				tgNamespace: 	backendNamespace,
+				routename:   	t.route.Name(),
+				backendRefPort: port,
+				stack:       	t.stack,
+				datastore:   	t.Datastore,
+				route:       	t.route,
 			}
 
 			err := targetTask.buildLatticeTargets(ctx)
@@ -192,6 +196,12 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		return fmt.Errorf("error finding corresponding service %v error :%w", k8s.NamespacedName(t.serviceExport), err)
 	}
 
+	ipAddressType, err := buildTargetGroupIpAdressType(svc)
+
+	if err != nil {
+		return err
+	}
+
 	//if t.serviceExport.
 	tgSpec := latticemodel.TargetGroupSpec{
 		Name: tgName,
@@ -206,6 +216,7 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 			K8SServiceNamespace: t.serviceExport.Namespace,
 			Protocol:            "HTTP",
 			ProtocolVersion:     vpclattice.TargetGroupProtocolVersionHttp1,
+			IpAddressType:       ipAddressType,
 		},
 	}
 
@@ -312,6 +323,9 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 	} else {
 		isDeleted = true
 	}
+
+	ipAddressType := vpclattice.IpAddressTypeIpv4
+
 	if backendKind == "ServiceImport" {
 		isServiceImport = true
 		namespaceName := types.NamespacedName{
@@ -356,6 +370,15 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 				return latticemodel.TargetGroupSpec{}, err
 			}
 		}
+
+		var err error
+
+		ipAddressType, err = buildTargetGroupIpAdressType(svc)
+
+		// Ignore error for creation request
+		if !isDeleted && err != nil {
+			return latticemodel.TargetGroupSpec{}, err
+		}
 	}
 
 	tgName := latticestore.TargetGroupName(string(backendRef.Name()), namespace)
@@ -380,7 +403,8 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 			Protocol:              "HTTP",
 			ProtocolVersion:       protocolVersion,
 			// Fill in default HTTP port as we are using target port anyway.
-			Port: 80,
+			Port:          80,
+			IpAddressType: ipAddressType,
 		},
 		IsDeleted: isDeleted,
 	}, nil
@@ -391,5 +415,27 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupName(_ context.Context, b
 		return latticestore.TargetGroupName(string(backendRef.Name()), string(*backendRef.Namespace()))
 	} else {
 		return latticestore.TargetGroupName(string(backendRef.Name()), t.route.Namespace())
+	}
+}
+
+func buildTargetGroupIpAdressType(svc *corev1.Service) (string, error) {
+	ipFamilies := svc.Spec.IPFamilies
+
+	glog.V(6).Infof("buildTargetGroupIpAddressType ipFamilies: %v\n", ipFamilies)
+
+	if len(ipFamilies) != 1 {
+		return "", errors.New("Lattice Target Group only support single stack ip addresses")
+	}
+
+	// IpFamilies will always have at least 1 element
+	ipFamily := ipFamilies[0]
+
+	switch ipFamily {
+	case corev1.IPv4Protocol:
+		return vpclattice.IpAddressTypeIpv4, nil
+	case corev1.IPv6Protocol:
+		return vpclattice.IpAddressTypeIpv6, nil
+	default:
+		return "", fmt.Errorf("unknown ipFamily: %v", ipFamily)
 	}
 }

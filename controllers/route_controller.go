@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/pkg/errors"
@@ -32,10 +33,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
@@ -46,6 +49,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 var routeTypeToFinalizer = map[core.RouteType]string{
@@ -80,14 +85,17 @@ func RegisterAllRouteControllers(
 ) error {
 	mgrClient := mgr.GetClient()
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(mgrClient)
-	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceWithRoutesEvent(log, mgrClient)
+	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceWithRoutesEvent(mgrClient)
+	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(mgrClient)
+	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, mgrClient)
 
 	routeInfos := []struct {
 		routeType      core.RouteType
 		gatewayApiType client.Object
+		eventMapFunc   handler.MapFunc
 	}{
-		{core.HttpRouteType, &gateway_api_v1beta1.HTTPRoute{}},
-		{core.GrpcRouteType, &gateway_api_v1alpha2.GRPCRoute{}},
+		{core.HTTP, &gateway_api_v1beta1.HTTPRoute{}, tgpEventHandler.MapToHTTPRoute},
+		{core.GRPC, &gateway_api_v1alpha2.GRPCRoute{}, tgpEventHandler.MapToGRPCRoute},
 	}
 
 	for _, routeInfo := range routeInfos {
@@ -104,15 +112,31 @@ func RegisterAllRouteControllers(
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		}
 
-		svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(log, mgrClient, routeInfo.routeType)
-
-		err := ctrl.NewControllerManagedBy(mgr).
+		builder := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType).
 			Watches(&source.Kind{Type: &gateway_api_v1beta1.Gateway{}}, gwEventHandler).
 			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
-			Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler).
-			Complete(&reconciler)
+			Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler)
 
+		if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
+			builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(routeInfo.eventMapFunc))
+		} else {
+			if err != nil {
+				return err
+			}
+			log.Infof("TargetGroupPolicy CRD is not installed, skipping watch")
+		}
+
+		if ok, err := k8s.IsGVKSupported(mgr, "externaldns.k8s.io/v1alpha1", "DNSEndpoint"); ok {
+			builder.Owns(&endpoint.DNSEndpoint{})
+		} else {
+			if err != nil {
+				return err
+			}
+			log.Infof("DNSEndpoint CRD is not installed, skipping watch")
+		}
+
+		err := builder.Complete(&reconciler)
 		if err != nil {
 			return err
 		}
@@ -312,6 +336,28 @@ func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning, k8s.RouteEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 	}
 
+	backendRefIPFamiliesErr := r.validateBackendRefsIpFamilies(ctx, route)
+
+	if backendRefIPFamiliesErr != nil {
+		httpRouteOld := route.DeepCopy()
+
+		route.Status().UpdateParentRefs(route.Spec().ParentRefs()[0], config.LatticeGatewayControllerName)
+
+		route.Status().UpdateRouteCondition(metav1.Condition{
+			Type:               string(gateway_api.RouteConditionAccepted),
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: route.K8sObject().GetGeneration(),
+			Reason:             string(gateway_api.RouteReasonUnsupportedValue),
+			Message:            fmt.Sprintf("Dual stack Service is not supported"),
+		})
+
+		if err := r.client.Status().Patch(ctx, route.K8sObject(), client.MergeFrom(httpRouteOld.K8sObject())); err != nil {
+			return errors.Wrapf(err, "failed to update httproute status")
+		}
+
+		return backendRefIPFamiliesErr
+	}
+
 	_, _, err := r.buildAndDeployModel(ctx, route)
 
 	//TODO add metric
@@ -344,15 +390,11 @@ func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, rou
 	}
 	routeOld = route.DeepCopy()
 
-	if len(route.Status().Parents()) == 0 {
-		route.Status().SetParents(make([]gateway_api_v1beta1.RouteParentStatus, 1))
-	}
-	route.Status().Parents()[0].ParentRef = route.Spec().ParentRefs()[0]
-	route.Status().Parents()[0].ControllerName = config.LatticeGatewayControllerName
+	route.Status().UpdateParentRefs(route.Spec().ParentRefs()[0], config.LatticeGatewayControllerName)
 
 	// Update listener Status
 	if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
-		updateRouteCondition(route, metav1.Condition{
+		route.Status().UpdateRouteCondition(metav1.Condition{
 			Type:               string(gateway_api_v1beta1.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
@@ -360,14 +402,14 @@ func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, rou
 			Message:            fmt.Sprintf("Could not match gateway %s: %s", route.Spec().ParentRefs()[0].Name, err),
 		})
 	} else {
-		updateRouteCondition(route, metav1.Condition{
+		route.Status().UpdateRouteCondition(metav1.Condition{
 			Type:               string(gateway_api_v1beta1.RouteConditionAccepted),
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
 			Reason:             string(gateway_api_v1beta1.RouteReasonAccepted),
 			Message:            fmt.Sprintf("DNS Name: %s", dns),
 		})
-		updateRouteCondition(route, metav1.Condition{
+		route.Status().UpdateRouteCondition(metav1.Condition{
 			Type:               string(gateway_api_v1beta1.RouteConditionResolvedRefs),
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
@@ -384,6 +426,40 @@ func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, rou
 	return nil
 }
 
-func updateRouteCondition(route core.Route, updated metav1.Condition) {
-	route.Status().Parents()[0].Conditions = updateCondition(route.Status().Parents()[0].Conditions, updated)
+func (r *RouteReconciler) validateBackendRefsIpFamilies(ctx context.Context, route core.Route) error {
+	rules := route.Spec().Rules()
+
+	for _, rule := range rules {
+		backendRefs := rule.BackendRefs()
+
+		for _, backendRef := range backendRefs {
+			// For now we skip checking service import
+			if *backendRef.Kind() == "ServiceImport" {
+				continue
+			}
+
+			svc := &corev1.Service{}
+
+			key := types.NamespacedName{
+				Name: string(backendRef.Name()),
+			}
+
+			if backendRef.Namespace() != nil {
+				key.Namespace = string(*backendRef.Namespace())
+			} else {
+				key.Namespace = route.Namespace()
+			}
+
+			if err := r.client.Get(ctx, key, svc); err != nil {
+				// Ignore error since Service might not be created yet
+				continue
+			}
+
+			if len(svc.Spec.IPFamilies) > 1 {
+				return errors.New("Invalid IpFamilies, Lattice Target Group doesn't support dual stack ip addresses")
+			}
+		}
+	}
+
+	return nil
 }

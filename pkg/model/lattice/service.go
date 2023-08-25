@@ -1,6 +1,7 @@
 package lattice
 
 import (
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
@@ -23,9 +24,9 @@ type ServiceSpec struct {
 }
 
 type ServiceStatus struct {
-	ServiceARN string `json:"latticeServiceARN"`
-	ServiceID  string `json:"latticeServiceID"`
-	ServiceDNS string `json:"latticeServiceDNS"`
+	Arn string `json:"latticeServiceARN"`
+	Id  string `json:"latticeServiceID"`
+	Dns string `json:"latticeServiceDNS"`
 }
 
 func NewLatticeService(stack core.Stack, id string, spec ServiceSpec) *Service {
@@ -38,4 +39,8 @@ func NewLatticeService(stack core.Stack, id string, spec ServiceSpec) *Service {
 	stack.AddResource(service)
 
 	return service
+}
+
+func (s *Service) LatticeName() string {
+	return latticestore.LatticeServiceName(s.Spec.Name, s.Spec.Namespace)
 }

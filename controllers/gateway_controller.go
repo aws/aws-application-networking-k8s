@@ -29,6 +29,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
@@ -266,7 +267,7 @@ func (r *GatewayReconciler) updateGatewayStatus(
 ) error {
 	gwOld := gw.DeepCopy()
 
-	gw.Status.Conditions = updateCondition(gw.Status.Conditions, metav1.Condition{
+	gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, metav1.Condition{
 		Type:               string(gateway_api.GatewayConditionProgrammed),
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: gw.Generation,
@@ -305,7 +306,7 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 			Reason:             string(gateway_api.GatewayReasonInvalid),
 		}
 	}
-	gw.Status.Conditions = updateCondition(gw.Status.Conditions, cond)
+	gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, cond)
 
 	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 		return fmt.Errorf("update gateway status error, gw: %s, accepted: %t, err: %w", gw.Name, accepted, err)
@@ -429,7 +430,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 				gw.Status.Listeners[i].AttachedRoutes = listenerStatus.AttachedRoutes
 				gw.Status.Listeners[i].SupportedKinds = listenerStatus.SupportedKinds
 				// Only have one condition in the logic
-				gw.Status.Listeners[i].Conditions = updateCondition(gw.Status.Listeners[i].Conditions, listenerStatus.Conditions[0])
+				gw.Status.Listeners[i].Conditions = utils.GetNewConditions(gw.Status.Listeners[i].Conditions, listenerStatus.Conditions[0])
 				found = true
 			}
 		}
