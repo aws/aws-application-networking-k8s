@@ -86,6 +86,7 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 	assocReq := &CreateSnSvcAssocReq{
 		ServiceIdentifier:        svcId,
 		ServiceNetworkIdentifier: aws.String(sn.ID),
+		Tags:                     m.cloud.DefaultTags(),
 	}
 	assocResp, err := m.cloud.Lattice().CreateServiceNetworkServiceAssociationWithContext(ctx, assocReq)
 	if err != nil {
@@ -102,6 +103,7 @@ func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 	svcName := svc.LatticeName()
 	req := &vpclattice.CreateServiceInput{
 		Name: &svcName,
+		Tags: m.cloud.DefaultTags(),
 	}
 
 	if svc.Spec.CustomerDomainName != "" {
@@ -187,7 +189,16 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 	}
 
 	for _, assoc := range toDelete {
-		m.deleteAssociation(ctx, assoc.Arn)
+		isManaged, err := m.cloud.IsArnManaged(*assoc.Arn)
+		if err != nil {
+			return err
+		}
+		if isManaged {
+			err = m.deleteAssociation(ctx, assoc.Arn)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

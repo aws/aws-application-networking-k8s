@@ -48,18 +48,47 @@ func (mr *MockCloudMockRecorder) Config() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCloud)(nil).Config))
 }
 
-// EKS mocks base method.
-func (m *MockCloud) EKS() services.EKS {
+// DefaultTags mocks base method.
+func (m *MockCloud) DefaultTags() map[string]*string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EKS")
-	ret0, _ := ret[0].(services.EKS)
+	ret := m.ctrl.Call(m, "DefaultTags")
+	ret0, _ := ret[0].(map[string]*string)
 	return ret0
 }
 
-// EKS indicates an expected call of EKS.
-func (mr *MockCloudMockRecorder) EKS() *gomock.Call {
+// DefaultTags indicates an expected call of DefaultTags.
+func (mr *MockCloudMockRecorder) DefaultTags() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EKS", reflect.TypeOf((*MockCloud)(nil).EKS))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultTags", reflect.TypeOf((*MockCloud)(nil).DefaultTags))
+}
+
+// IsArnManaged mocks base method.
+func (m *MockCloud) IsArnManaged(arg0 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsArnManaged", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsArnManaged indicates an expected call of IsArnManaged.
+func (mr *MockCloudMockRecorder) IsArnManaged(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsArnManaged", reflect.TypeOf((*MockCloud)(nil).IsArnManaged), arg0)
+}
+
+// IsManagedByTagSet mocks base method.
+func (m *MockCloud) IsManagedByTagSet(arg0 map[string]*string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsManagedByTagSet", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsManagedByTagSet indicates an expected call of IsManagedByTagSet.
+func (mr *MockCloudMockRecorder) IsManagedByTagSet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManagedByTagSet", reflect.TypeOf((*MockCloud)(nil).IsManagedByTagSet), arg0)
 }
 
 // Lattice mocks base method.
