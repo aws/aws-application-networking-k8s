@@ -37,6 +37,9 @@ import (
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/external-dns/endpoint"
+
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -49,8 +52,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/external-dns/endpoint"
 )
 
 var routeTypeToFinalizer = map[core.RouteType]string{
@@ -84,7 +85,7 @@ func RegisterAllRouteControllers(
 	mgr ctrl.Manager,
 ) error {
 	mgrClient := mgr.GetClient()
-	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(mgrClient)
+	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(log, mgrClient)
 	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceWithRoutesEvent(log, mgrClient)
 	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, mgrClient)
 
@@ -208,9 +209,9 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 func (r *RouteReconciler) getRoute(ctx context.Context, req ctrl.Request) (core.Route, error) {
 	switch r.routeType {
 	case core.HttpRouteType:
-		return core.GetHTTPRoute(r.client, ctx, req.NamespacedName)
+		return core.GetHTTPRoute(ctx, r.client, req.NamespacedName)
 	case core.GrpcRouteType:
-		return core.GetGRPCRoute(r.client, ctx, req.NamespacedName)
+		return core.GetGRPCRoute(ctx, r.client, req.NamespacedName)
 	default:
 		return nil, fmt.Errorf("unknown route type for type %s", string(r.routeType))
 	}

@@ -2,12 +2,14 @@ package core
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+	"reflect"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
 const (
@@ -22,7 +24,7 @@ func NewHTTPRoute(route gateway_api_v1beta1.HTTPRoute) *HTTPRoute {
 	return &HTTPRoute{r: route}
 }
 
-func GetHTTPRoute(client client.Client, ctx context.Context, routeNamespacedName types.NamespacedName) (Route, error) {
+func GetHTTPRoute(ctx context.Context, client client.Client, routeNamespacedName types.NamespacedName) (Route, error) {
 	httpRoute := &gateway_api_v1beta1.HTTPRoute{}
 	err := client.Get(ctx, routeNamespacedName, httpRoute)
 	if err != nil {
@@ -31,14 +33,17 @@ func GetHTTPRoute(client client.Client, ctx context.Context, routeNamespacedName
 	return NewHTTPRoute(*httpRoute), nil
 }
 
-func ListHTTPRoutes(client client.Client, context context.Context) []Route {
+func ListHTTPRoutes(context context.Context, client client.Client) ([]Route, error) {
 	routeList := &gateway_api_v1beta1.HTTPRouteList{}
-	client.List(context, routeList)
+	if err := client.List(context, routeList); err != nil {
+		return nil, err
+	}
+
 	var routes []Route
 	for _, route := range routeList.Items {
 		routes = append(routes, NewHTTPRoute(route))
 	}
-	return routes
+	return routes, nil
 }
 
 func (r *HTTPRoute) Spec() RouteSpec {

@@ -60,7 +60,7 @@ const (
 	serviceExportFinalizer = "serviceexport.k8s.aws/resources"
 )
 
-func RegisterServiceExportReconciler(
+func RegisterServiceExportController(
 	log gwlog.Logger,
 	cloud aws.Cloud,
 	latticeDataStore *latticestore.LatticeDataStore,

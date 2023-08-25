@@ -384,7 +384,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 			stack:           stack,
 			client:          k8sClient,
 			listenerByResID: make(map[string]*latticemodel.Listener),
-			Datastore:       ds,
+			datastore:       ds,
 		}
 
 		service := latticemodel.Service{}

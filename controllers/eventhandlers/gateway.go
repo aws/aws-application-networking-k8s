@@ -2,8 +2,10 @@ package eventhandlers
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"time"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/golang/glog"
 
@@ -22,11 +24,13 @@ import (
 )
 
 type enqueueRequestsForGatewayEvent struct {
+	log    gwlog.Logger
 	client client.Client
 }
 
-func NewEnqueueRequestGatewayEvent(client client.Client) handler.EventHandler {
+func NewEnqueueRequestGatewayEvent(log gwlog.Logger, client client.Client) handler.EventHandler {
 	return &enqueueRequestsForGatewayEvent{
+		log:    log,
 		client: client,
 	}
 }
@@ -43,7 +47,7 @@ func (h *enqueueRequestsForGatewayEvent) Create(e event.CreateEvent, queue workq
 }
 
 func (h *enqueueRequestsForGatewayEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("Gateway Update ")
+	h.log.Info("Gateway Update ")
 
 	gwOld := e.ObjectOld.(*gateway_api.Gateway)
 	gwNew := e.ObjectNew.(*gateway_api.Gateway)
@@ -66,11 +70,15 @@ func (h *enqueueRequestsForGatewayEvent) Generic(e event.GenericEvent, queue wor
 }
 
 func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(queue workqueue.RateLimitingInterface) {
-	routes := core.ListAllRoutes(h.client, context.TODO())
+	routes, err := core.ListAllRoutes(context.TODO(), h.client)
+	if err != nil {
+		h.log.Errorf("Failed to list all routes, %s", err)
+		return
+	}
 	for _, route := range routes {
 
 		if len(route.Spec().ParentRefs()) <= 0 {
-			glog.V(6).Infof("Ignore route no parentRefs %s", route.Name())
+			h.log.Infof("Ignore route no parentRefs %s", route.Name())
 			continue
 		}
 
@@ -87,7 +95,7 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(queue workqueue.R
 
 		gw := &gateway_api.Gateway{}
 		if err := h.client.Get(context.TODO(), gwName, gw); err != nil {
-			glog.V(6).Infof("Ignore Route with unknown parentRef %s", route.Name())
+			h.log.Infof("Ignore Route with unknown parentRef %s", route.Name())
 			continue
 		}
 
@@ -99,7 +107,7 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(queue workqueue.R
 		}
 
 		if err := h.client.Get(context.TODO(), gwClassName, gwClass); err != nil {
-			glog.V(6).Infof("Ignore Route with unknown Gateway %s", route.Name())
+			h.log.Infof("Ignore Route with unknown Gateway %s", route.Name())
 			continue
 		}
 

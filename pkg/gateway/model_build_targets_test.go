@@ -487,7 +487,7 @@ func Test_Targets(t *testing.T) {
 			Namespace: tt.srvExportNamespace,
 		}
 		targetTask := &latticeTargetsModelBuildTask{
-			Client:         k8sClient,
+			client:         k8sClient,
 			tgName:         tt.srvExportName,
 			tgNamespace:    tt.srvExportNamespace,
 			datastore:      ds,

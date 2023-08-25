@@ -32,7 +32,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +42,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 )
 
 const (
@@ -152,7 +153,11 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
 		if !gw.DeletionTimestamp.IsZero() {
-			routes := core.ListAllRoutes(r.client, context.TODO())
+			routes, err := core.ListAllRoutes(context.TODO(), r.client)
+			if err != nil {
+				return err
+			}
+
 			for _, route := range routes {
 				if len(route.Spec().ParentRefs()) <= 0 {
 					continue
@@ -180,7 +185,7 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 				return errors.Wrapf(err, "failed to cleanup gw: %s", gw.Name)
 			}
 
-			err := r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
+			err = r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
 			if err != nil {
 				return err
 			}
@@ -320,7 +325,10 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *ga
 
 	gwOld := gw.DeepCopy()
 
-	routes := core.ListAllRoutes(k8sClient, ctx)
+	routes, err := core.ListAllRoutes(ctx, k8sClient)
+	if err != nil {
+		return err
+	}
 
 	// Add one of lattice domains as GW address. This can represent incorrect value in some cases (e.g. cross-account)
 	// TODO: support multiple endpoint addresses across services.

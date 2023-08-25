@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
@@ -28,7 +30,7 @@ type LatticeServiceModelBuilder struct {
 	log         gwlog.Logger
 	client      client.Client
 	defaultTags map[string]string
-	Datastore   *latticestore.LatticeDataStore
+	datastore   *latticestore.LatticeDataStore
 	cloud       lattice_aws.Cloud
 }
 
@@ -41,7 +43,7 @@ func NewLatticeServiceBuilder(
 	return &LatticeServiceModelBuilder{
 		log:       log,
 		client:    client,
-		Datastore: datastore,
+		datastore: datastore,
 		cloud:     cloud,
 	}
 }
@@ -58,7 +60,7 @@ func (b *LatticeServiceModelBuilder) Build(
 		stack:     stack,
 		client:    b.client,
 		tgByResID: make(map[string]*latticemodel.TargetGroup),
-		Datastore: b.Datastore,
+		datastore: b.datastore,
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -164,6 +166,6 @@ type latticeServiceModelBuildTask struct {
 	listenerByResID map[string]*latticemodel.Listener
 	rulesByResID    map[string]*latticemodel.Rule
 	stack           core.Stack
-	Datastore       *latticestore.LatticeDataStore
+	datastore       *latticestore.LatticeDataStore
 	cloud           lattice_aws.Cloud
 }

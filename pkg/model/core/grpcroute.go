@@ -2,13 +2,15 @@ package core
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+	"reflect"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
 const (
@@ -23,7 +25,7 @@ func NewGRPCRoute(route gateway_api_v1alpha2.GRPCRoute) *GRPCRoute {
 	return &GRPCRoute{r: route}
 }
 
-func GetGRPCRoute(client client.Client, ctx context.Context, routeNamespacedName types.NamespacedName) (Route, error) {
+func GetGRPCRoute(ctx context.Context, client client.Client, routeNamespacedName types.NamespacedName) (Route, error) {
 	grpcRoute := &gateway_api_v1alpha2.GRPCRoute{}
 	err := client.Get(ctx, routeNamespacedName, grpcRoute)
 	if err != nil {
@@ -32,14 +34,17 @@ func GetGRPCRoute(client client.Client, ctx context.Context, routeNamespacedName
 	return NewGRPCRoute(*grpcRoute), nil
 }
 
-func ListGRPCRoutes(client client.Client, context context.Context) []Route {
+func ListGRPCRoutes(context context.Context, client client.Client) ([]Route, error) {
 	routeList := &gateway_api_v1alpha2.GRPCRouteList{}
-	client.List(context, routeList)
+	if err := client.List(context, routeList); err != nil {
+		return nil, err
+	}
+
 	var routes []Route
 	for _, route := range routeList.Items {
 		routes = append(routes, NewGRPCRoute(route))
 	}
-	return routes
+	return routes, nil
 }
 
 func (r *GRPCRoute) Spec() RouteSpec {

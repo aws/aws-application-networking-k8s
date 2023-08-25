@@ -502,7 +502,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			stack:           stack,
 			client:          k8sClient,
 			listenerByResID: make(map[string]*latticemodel.Listener),
-			Datastore:       ds,
+			datastore:       ds,
 		}
 
 		err := task.buildRules(ctx)
@@ -1449,7 +1449,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			stack:           stack,
 			client:          k8sClient,
 			listenerByResID: make(map[string]*latticemodel.Listener),
-			Datastore:       ds,
+			datastore:       ds,
 		}
 
 		err := task.buildRules(ctx)

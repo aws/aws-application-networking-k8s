@@ -4,17 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
 
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,6 +16,16 @@ import (
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_TGModelByServicexportBuild(t *testing.T) {
@@ -237,7 +240,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 			tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
 			assert.Equal(t, tgName, tg.Spec.Name)
 
-			// for serviceexport, the routename is ""
+			// for serviceexport, the routeName is ""
 			dsTG, err := ds.GetTargetGroup(tgName, "", false)
 
 			assert.Nil(t, err)
@@ -498,7 +501,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 				stack:     stack,
 				client:    k8sClient,
 				tgByResID: make(map[string]*latticemodel.TargetGroup),
-				Datastore: ds,
+				datastore: ds,
 			}
 
 			if tt.svcExist {
@@ -566,7 +569,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 								assert.Equal(t, vpclattice.IpAddressTypeIpv4, ipAddressType)
 							}
 						} else {
-							// the routename for serviceimport is ""
+							// the routeName for serviceimport is ""
 							dsTG, err := ds.GetTargetGroup(tgName, "", true)
 							fmt.Printf("dsTG %v\n", dsTG)
 							assert.Nil(t, err)
@@ -739,7 +742,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 			stack:     stack,
 			client:    k8sClient,
 			tgByResID: make(map[string]*latticemodel.TargetGroup),
-			Datastore: ds,
+			datastore: ds,
 		}
 
 		for _, httpRules := range tt.route.Spec().Rules() {

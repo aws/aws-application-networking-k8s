@@ -199,7 +199,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					// TODO
 					t.log.Infof("Handle ServiceImport Routing Policy\n")
 					/* I think this need to be done at policy manager API call
-					tg, err := t.Datastore.GetTargetGroup(string(backendRef.Name()),
+					tg, err := t.datastore.GetTargetGroup(string(backendRef.Name()),
 						"default", true) // isServiceImport==true
 					if err != nil {
 						t.log.Infof("ServiceImport %s Not found, continue \n",
@@ -213,7 +213,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 					if backendRef.Namespace() != nil {
 						ruleTG.Namespace = string(*backendRef.Namespace())
 					}
-					// the routename for serviceimport is always ""
+					// the routeName for serviceimport is always ""
 					ruleTG.RouteName = ""
 					ruleTG.IsServiceImport = true
 

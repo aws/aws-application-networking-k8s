@@ -28,34 +28,32 @@ const (
 )
 
 type LatticeTargetsBuilder interface {
-	Build(ctx context.Context, service *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error)
+	Build(ctx context.Context, service *corev1.Service, routeName string) (core.Stack, *latticemodel.Targets, error)
 }
 
-type latticeTargetsModelBuilder struct {
-	client.Client
+type LatticeTargetsModelBuilder struct {
+	client      client.Client
 	defaultTags map[string]string
-
-	datastore *latticestore.LatticeDataStore
-
-	cloud lattice_aws.Cloud
+	datastore   *latticestore.LatticeDataStore
+	cloud       lattice_aws.Cloud
 }
 
-func NewTargetsBuilder(client client.Client, cloud lattice_aws.Cloud, datastore *latticestore.LatticeDataStore) *latticeTargetsModelBuilder {
-	return &latticeTargetsModelBuilder{
-		Client:    client,
+func NewTargetsBuilder(client client.Client, cloud lattice_aws.Cloud, datastore *latticestore.LatticeDataStore) *LatticeTargetsModelBuilder {
+	return &LatticeTargetsModelBuilder{
+		client:    client,
 		cloud:     cloud,
 		datastore: datastore,
 	}
 }
 
-func (b *latticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error) {
-	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName((service))))
+func (b *LatticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error) {
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(service)))
 
 	task := &latticeTargetsModelBuildTask{
-		Client:      b.Client,
+		client:      b.client,
 		tgName:      service.Name,
 		tgNamespace: service.Namespace,
-		routename:   routename,
+		routeName:   routename,
 		stack:       stack,
 		datastore:   b.datastore,
 	}
@@ -87,7 +85,7 @@ func (t *latticeTargetsModelBuildTask) buildModel(ctx context.Context) error {
 func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) error {
 	ds := t.datastore
 	tgName := latticestore.TargetGroupName(t.tgName, t.tgNamespace)
-	tg, err := ds.GetTargetGroup(tgName, t.routename, false) // isServiceImport= false
+	tg, err := ds.GetTargetGroup(tgName, t.routeName, false) // isServiceImport= false
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Build Targets failed because target group (name=%s, namespace=%s found not in datastore)", t.tgName, t.tgNamespace)
@@ -105,7 +103,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		Name:      t.tgName,
 	}
 
-	if err := t.Client.Get(ctx, namespacedName, svc); err != nil {
+	if err := t.client.Get(ctx, namespacedName, svc); err != nil {
 		errmsg := fmt.Sprintf("Build Targets failed because K8S service %s does not exist", namespacedName)
 		return errors.New(errmsg)
 	}
@@ -113,7 +111,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	definedPorts := make(map[int32]struct{})
 	if tg.ByServiceExport {
 		serviceExport := &mcs_api.ServiceExport{}
-		err = t.Client.Get(ctx, namespacedName, serviceExport)
+		err = t.client.Get(ctx, namespacedName, serviceExport)
 		if err != nil {
 			glog.V(6).Infof("Failed to find Service export in the DS. Name:%s, Namespace:%s - err:%s", t.tgName, t.tgNamespace, err)
 		} else {
@@ -163,7 +161,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	endpoints := &corev1.Endpoints{}
 
 	if svc.DeletionTimestamp.IsZero() {
-		if err := t.Client.Get(ctx, namespacedName, endpoints); err != nil {
+		if err := t.client.Get(ctx, namespacedName, endpoints); err != nil {
 			errmsg := fmt.Sprintf("Build Targets failed because K8S service %s does not exist", namespacedName)
 			glog.V(6).Infof("errmsg: %s", errmsg)
 			return errors.New(errmsg)
@@ -194,7 +192,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	spec := latticemodel.TargetsSpec{
 		Name:         t.tgName,
 		Namespace:    t.tgNamespace,
-		RouteName:    t.routename,
+		RouteName:    t.routeName,
 		TargetIPList: targetList,
 	}
 
@@ -204,10 +202,10 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 }
 
 type latticeTargetsModelBuildTask struct {
-	client.Client
+	client         client.Client
 	tgName         string
 	tgNamespace    string
-	routename      string
+	routeName      string
 	backendRefPort int32
 	latticeTargets *latticemodel.Targets
 	stack          core.Stack

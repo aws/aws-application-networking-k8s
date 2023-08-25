@@ -2,10 +2,12 @@ package eventhandlers
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -120,7 +122,11 @@ func (h *enqueueRequestForServiceWithRoutesEvent) Generic(e event.GenericEvent, 
 func (h *enqueueRequestForServiceWithRoutesEvent) enqueueImpactedRoutes(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
 	h.log.Infof("Event: enqueueImpactedRoutes for service name %s, namespace %s", ep.Name, ep.Namespace)
 
-	routes := core.ListAllRoutes(h.client, context.TODO())
+	routes, err := core.ListAllRoutes(context.TODO(), h.client)
+	if err != nil {
+		h.log.Errorf("Failed to list all routes, %s", err)
+		return
+	}
 	for _, route := range routes {
 		if !isServiceUsedByRoute(route, ep) {
 			continue

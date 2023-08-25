@@ -46,7 +46,7 @@ const (
 	serviceImportFinalizer = "serviceimport.k8s.aws/resource"
 )
 
-func RegisterServiceImportReconciler(
+func RegisterServiceImportController(
 	log gwlog.Logger,
 	mgr ctrl.Manager,
 	dataStore *latticestore.LatticeDataStore,

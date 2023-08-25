@@ -162,12 +162,12 @@ func main() {
 		setupLog.Fatalf("route controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterServiceImportReconciler(ctrlLog.Named("serviceimport"), mgr, latticeDataStore, finalizerManager)
+	err = controllers.RegisterServiceImportController(ctrlLog.Named("service-import"), mgr, latticeDataStore, finalizerManager)
 	if err != nil {
 		setupLog.Fatalf("serviceimport controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterServiceExportReconciler(ctrlLog.Named("service-export"), cloud, latticeDataStore, finalizerManager, mgr)
+	err = controllers.RegisterServiceExportController(ctrlLog.Named("service-export"), cloud, latticeDataStore, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("serviceexport controller setup failed: %s", err)
 	}

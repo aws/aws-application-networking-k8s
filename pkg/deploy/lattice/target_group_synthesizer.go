@@ -273,11 +273,11 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 			var route core.Route
 			if *sdkTG.getTargetGroupOutput.Config.ProtocolVersion == vpclattice.TargetGroupProtocolVersionGrpc {
-				if route, err = core.GetGRPCRoute(t.client, ctx, routeName); err != nil {
+				if route, err = core.GetGRPCRoute(ctx, t.client, routeName); err != nil {
 					t.log.Infof("Could not find GRPCRoute for target group %s", err)
 				}
 			} else {
-				if route, err = core.GetHTTPRoute(t.client, ctx, routeName); err != nil {
+				if route, err = core.GetHTTPRoute(ctx, t.client, routeName); err != nil {
 					t.log.Infof("Could not find HTTPRoute for target group %s", err)
 				}
 			}

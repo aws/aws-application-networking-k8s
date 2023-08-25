@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,15 +34,26 @@ func NewRoute(object client.Object) (Route, error) {
 	}
 }
 
-func ListAllRoutes(client client.Client, context context.Context) []Route {
+func ListAllRoutes(context context.Context, client client.Client) ([]Route, error) {
+	httpRoutes, err := ListHTTPRoutes(context, client)
+	if err != nil {
+		return nil, err
+	}
+
+	grpcRoutes, err := ListGRPCRoutes(context, client)
+	if err != nil {
+		return nil, err
+	}
+
 	var routes []Route
-	for _, route := range ListHTTPRoutes(client, context) {
+	for _, route := range httpRoutes {
 		routes = append(routes, route)
 	}
-	for _, route := range ListGRPCRoutes(client, context) {
+	for _, route := range grpcRoutes {
 		routes = append(routes, route)
 	}
-	return routes
+
+	return routes, nil
 }
 
 type RouteSpec interface {

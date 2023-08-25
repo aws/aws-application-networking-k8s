@@ -165,7 +165,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				stack:     stack,
 				client:    k8sClient,
 				tgByResID: make(map[string]*latticemodel.TargetGroup),
-				Datastore: ds,
+				datastore: ds,
 			}
 
 			err := task.buildLatticeService(ctx)

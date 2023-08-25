@@ -2,10 +2,12 @@ package eventhandlers
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -59,14 +61,20 @@ func (h *enqueueRequestsForServiceImportEvent) enqueueImpactedService(queue work
 	h.log.Infof("enqueueImpactedRoute, serviceImport[%v]", serviceImport)
 
 	var routes []core.Route
+	var err error
 
 	switch h.routeType {
 	case core.HttpRouteType:
-		routes = core.ListHTTPRoutes(h.client, context.TODO())
+		routes, err = core.ListHTTPRoutes(context.TODO(), h.client)
 	case core.GrpcRouteType:
-		routes = core.ListGRPCRoutes(h.client, context.TODO())
+		routes, err = core.ListGRPCRoutes(context.TODO(), h.client)
 	default:
 		h.log.Errorf("Invalid routeType %s", h.routeType)
+		return
+	}
+
+	if err != nil {
+		h.log.Errorf("Error while listing routes, %s", err)
 	}
 
 	for _, route := range routes {
@@ -91,7 +99,7 @@ func (h *enqueueRequestsForServiceImportEvent) enqueueImpactedService(queue work
 func isServiceImportUsedByRoute(route core.Route, serviceImport *mcs_api.ServiceImport) bool {
 	for _, rule := range route.Spec().Rules() {
 		for _, backendRef := range rule.BackendRefs() {
-			if string(*backendRef.Kind()) != "serviceimport" {
+			if string(*backendRef.Kind()) != "ServiceImport" {
 				continue
 			}
 
