@@ -284,7 +284,11 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 			if route != nil {
 				tgName := latticestore.TargetGroupName(*srvName, *srvNamespace)
-				isUsed := t.isTargetGroupUsedByRoute(ctx, tgName, route)
+
+				// We have finished rule reconciliation at this point.
+				// If a target group under HTTPRoute does not have any service, it is stale.
+				isUsed := t.isTargetGroupUsedByRoute(ctx, tgName, route) &&
+					len(sdkTG.getTargetGroupOutput.ServiceArns) > 0
 				if isUsed {
 					t.log.Infof("Ignore TargetGroup(triggered by route) %v, %v since route object is found",
 						*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)

@@ -10,10 +10,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
+	"fmt"
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"strings"
 )
 
 type TargetGroupManager interface {
@@ -33,16 +35,18 @@ func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 	}
 }
 
+// Determines the "actual" target group name used in VPC Lattice.
 func getLatticeTGName(targetGroup *latticemodel.TargetGroup) string {
-	var tgName string
+	var (
+		namePrefix      = targetGroup.Spec.Name
+		protocol        = strings.ToLower(targetGroup.Spec.Config.Protocol)
+		protocolVersion = strings.ToLower(targetGroup.Spec.Config.ProtocolVersion)
+	)
 	if config.UseLongTGName {
-		tgName = latticestore.TargetGroupLongName(targetGroup.Spec.Name,
+		namePrefix = latticestore.TargetGroupLongName(namePrefix,
 			targetGroup.Spec.Config.K8SHTTPRouteName, config.VpcID)
-	} else {
-		tgName = targetGroup.Spec.Name
 	}
-
-	return tgName
+	return fmt.Sprintf("%s-%s-%s", namePrefix, protocol, protocolVersion)
 }
 
 // Create will try to create a target group
@@ -68,12 +72,23 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 
 	latticeTGName := getLatticeTGName(targetGroup)
 	// check if exists
-	tgSummary, err := s.findTGByName(ctx, latticeTGName)
+	tgSummary, err := s.findTargetGroup(ctx, targetGroup)
 	if err != nil {
 		return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
 	}
+
+	vpcLatticeSess := s.cloud.Lattice()
 	if tgSummary != nil {
-		return latticemodel.TargetGroupStatus{TargetGroupARN: aws.StringValue(tgSummary.Arn), TargetGroupID: aws.StringValue(tgSummary.Id)}, err
+		if targetGroup.Spec.Config.HealthCheckConfig != nil {
+			_, err := vpcLatticeSess.UpdateTargetGroupWithContext(ctx, &vpclattice.UpdateTargetGroupInput{
+				HealthCheck:           targetGroup.Spec.Config.HealthCheckConfig,
+				TargetGroupIdentifier: tgSummary.Id,
+			})
+			if err != nil {
+				return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
+			}
+		}
+		return latticemodel.TargetGroupStatus{TargetGroupARN: aws.StringValue(tgSummary.Arn), TargetGroupID: aws.StringValue(tgSummary.Id)}, nil
 	}
 
 	glog.V(6).Infof("create targetgroup API here %v\n", targetGroup)
@@ -92,6 +107,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 		ProtocolVersion: &targetGroup.Spec.Config.ProtocolVersion,
 		VpcIdentifier:   &targetGroup.Spec.Config.VpcID,
 		IpAddressType:   ipAddressType,
+		HealthCheck:     targetGroup.Spec.Config.HealthCheckConfig,
 	}
 
 	targetGroupType := string(targetGroup.Spec.Type)
@@ -114,7 +130,6 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 		createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNamespaceKey] = &targetGroup.Spec.Config.K8SHTTPRouteNamespace
 	}
 
-	vpcLatticeSess := s.cloud.Lattice()
 	resp, err := vpcLatticeSess.CreateTargetGroupWithContext(ctx, &createTargetGroupInput)
 	glog.V(2).Infof("create target group >>>> req [%v], resp[%v] err[%v]\n", createTargetGroupInput, resp, err)
 
@@ -145,7 +160,7 @@ func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *lattic
 	glog.V(6).Infof("Create Lattice Target Group API call for name %s \n", targetGroup.Spec.Name)
 
 	// check if exists
-	tgSummary, err := s.findTGByName(ctx, getLatticeTGName(targetGroup))
+	tgSummary, err := s.findTargetGroup(ctx, targetGroup)
 	if err != nil {
 		return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
 	}
@@ -296,16 +311,32 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 	return tgList, err
 }
 
-func (s *defaultTargetGroupManager) findTGByName(ctx context.Context, targetGroup string) (*vpclattice.TargetGroupSummary, error) {
+func isNameOfTargetGroup(targetGroup *latticemodel.TargetGroup, name string) bool {
+	// We are missing protocol info for ServiceImport, but we do know if it is GRPCRoute or not.
+	// We have two choices (GRPC/non-GRPC) anyway, so just do prefix matching and pick GRPC when it is.
+	if targetGroup.Spec.Config.IsServiceImport {
+		match := strings.HasPrefix(name, targetGroup.Spec.Name)
+		if targetGroup.Spec.Config.ProtocolVersion == vpclattice.TargetGroupProtocolVersionGrpc {
+			return match && strings.HasSuffix(name, vpclattice.TargetGroupProtocolVersionGrpc)
+		}
+		return match
+	} else {
+		tgName := getLatticeTGName(targetGroup)
+		return name == tgName
+	}
+}
+
+func (s *defaultTargetGroupManager) findTargetGroup(ctx context.Context, targetGroup *latticemodel.TargetGroup) (*vpclattice.TargetGroupSummary, error) {
+
 	vpcLatticeSess := s.cloud.Lattice()
 	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
 	resp, err := vpcLatticeSess.ListTargetGroupsAsList(ctx, &targetGroupListInput)
 
 	if err == nil {
-		glog.V(6).Infof("findTGByName: resp %v \n", resp)
+		glog.V(6).Infof("findTargetGroup: resp %v \n", resp)
 		for _, r := range resp {
-			if aws.StringValue(r.Name) == targetGroup {
-				glog.V(6).Info("targetgroup ", targetGroup, " already exists with arn ", *r.Arn, "\n")
+			if isNameOfTargetGroup(targetGroup, *r.Name) {
+				glog.V(6).Info("targetgroup ", *r.Name, " already exists with arn ", *r.Arn, "\n")
 				status := aws.StringValue(r.Status)
 				switch status {
 				case vpclattice.TargetGroupStatusCreateInProgress:
@@ -322,7 +353,7 @@ func (s *defaultTargetGroupManager) findTGByName(ctx context.Context, targetGrou
 			}
 		}
 	} else {
-		glog.V(6).Infof("findTGByName, listTargetGroupsAsList failed err %v\n", err)
+		glog.V(6).Infof("findTargetGroup, listTargetGroupsAsList failed err %v\n", err)
 		return nil, err
 	}
 	return nil, nil

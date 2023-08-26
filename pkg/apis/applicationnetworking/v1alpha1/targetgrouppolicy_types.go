@@ -67,25 +67,25 @@ type HealthCheckConfig struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=5
 	// +kubebuilder:validation:Maximum=300
-	IntervalSeconds *int32 `json:"intervalSeconds,omitempty"`
+	IntervalSeconds *int64 `json:"intervalSeconds,omitempty"`
 
 	// The amount of time, in seconds, to wait before reporting a target as unhealthy.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=120
-	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
+	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
 
 	// The number of consecutive successful health checks required before considering an unhealthy target healthy.
 	// +optional
 	// +kubebuilder:validation:Minimum=2
 	// +kubebuilder:validation:Maximum=10
-	HealthyThresholdCount *int32 `json:"healthyThresholdCount,omitempty"`
+	HealthyThresholdCount *int64 `json:"healthyThresholdCount,omitempty"`
 
 	// The number of consecutive failed health checks required before considering a target unhealthy.
 	// +optional
 	// +kubebuilder:validation:Minimum=2
 	// +kubebuilder:validation:Maximum=10
-	UnhealthyThresholdCount *int32 `json:"unhealthyThresholdCount,omitempty"`
+	UnhealthyThresholdCount *int64 `json:"unhealthyThresholdCount,omitempty"`
 
 	// A regular expression to match HTTP status codes when checking for successful response from a target.
 	// +optional
@@ -99,7 +99,7 @@ type HealthCheckConfig struct {
 	// port that a target receives traffic on.
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	Port *int32 `json:"port,omitempty"`
+	Port *int64 `json:"port,omitempty"`
 
 	// The protocol used when performing health checks on targets.
 	// +optional

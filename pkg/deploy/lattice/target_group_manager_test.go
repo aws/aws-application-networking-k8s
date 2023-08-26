@@ -13,6 +13,7 @@ import (
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -35,6 +36,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 				Config: latticemodel.TargetGroupConfig{
 					Port:                int32(8080),
 					Protocol:            "HTTP",
+					ProtocolVersion:     vpclattice.TargetGroupProtocolVersionHttp1,
 					VpcID:               config.VpcID,
 					EKSClusterName:      "",
 					IsServiceImport:     false,
@@ -44,12 +46,13 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 				},
 			}
 		} else if tg_type == "by-backendref" {
-			// testing targetgroup for serviceexport
+			// testing targetgroup for backendref
 			tgSpec = latticemodel.TargetGroupSpec{
 				Name: "test",
 				Config: latticemodel.TargetGroupConfig{
 					Port:                  int32(8080),
 					Protocol:              "HTTP",
+					ProtocolVersion:       vpclattice.TargetGroupProtocolVersionHttp1,
 					VpcID:                 config.VpcID,
 					EKSClusterName:        "",
 					IsServiceImport:       false,
@@ -68,7 +71,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		mockVpcLatticeSess := mocks.NewMockLattice(c)
 		arn := "12345678912345678912"
 		id := "12345678912345678912"
-		name := "test"
+		name := "test-http-http1"
 		tgStatus := vpclattice.TargetGroupStatusActive
 		tgCreateOutput := &vpclattice.CreateTargetGroupOutput{
 			Arn:    &arn,
@@ -77,13 +80,12 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			Status: &tgStatus,
 		}
 		p := int64(8080)
-		prot := "HTTP"
 		emptystring := ""
 		config := &vpclattice.TargetGroupConfig{
 			Port:            &p,
-			Protocol:        &prot,
+			Protocol:        &tgSpec.Config.Protocol,
 			VpcIdentifier:   &config.VpcID,
-			ProtocolVersion: &emptystring,
+			ProtocolVersion: &tgSpec.Config.ProtocolVersion,
 		}
 
 		createTargetGroupInput := vpclattice.CreateTargetGroupInput{
@@ -173,8 +175,14 @@ func Test_CreateTargetGroup_TGActive_ACTIVE(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	tgSpec := latticemodel.TargetGroupSpec{
-		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Name: "test",
+		Config: latticemodel.TargetGroupConfig{
+			Protocol:        vpclattice.TargetGroupProtocolHttps,
+			ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+			HealthCheckConfig: &vpclattice.HealthCheckConfig{
+				Enabled: aws.Bool(true),
+			},
+		},
 	}
 	tgCreateInput := latticemodel.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
@@ -183,7 +191,7 @@ func Test_CreateTargetGroup_TGActive_ACTIVE(t *testing.T) {
 	mockVpcLatticeSess := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
-	name := "test"
+	name := "test-https-http1"
 
 	beforeCreateStatus := vpclattice.TargetGroupStatusActive
 	tgSummary := vpclattice.TargetGroupSummary{
@@ -196,6 +204,7 @@ func Test_CreateTargetGroup_TGActive_ACTIVE(t *testing.T) {
 
 	mockCloud := mocks_aws.NewMockCloud(c)
 	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockVpcLatticeSess.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 	tgManager := NewTargetGroupManager(mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
@@ -953,12 +962,15 @@ func Test_Get(t *testing.T) {
 			wantErr: nil,
 			tgId:    "tg-id-012345",
 			tgArn:   "tg-arn-123456",
-			tgName:  "tg-test-1",
+			tgName:  "tg-test-1-https-http1",
 			input: &latticemodel.TargetGroup{
 				ResourceMeta: core.ResourceMeta{},
 				Spec: latticemodel.TargetGroupSpec{
-					Name:      "tg-test-1",
-					Config:    latticemodel.TargetGroupConfig{},
+					Name: "tg-test-1",
+					Config: latticemodel.TargetGroupConfig{
+						Protocol:        vpclattice.TargetGroupProtocolHttps,
+						ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+					},
 					Type:      "",
 					IsDeleted: false,
 					LatticeID: "",
@@ -976,12 +988,15 @@ func Test_Get(t *testing.T) {
 			wantErr: errors.New("Non existing Target Group"),
 			tgId:    "tg-id-012345",
 			tgArn:   "tg-arn-123456",
-			tgName:  "tg-test-1",
+			tgName:  "tg-test-1-https-http1",
 			input: &latticemodel.TargetGroup{
 				ResourceMeta: core.ResourceMeta{},
 				Spec: latticemodel.TargetGroupSpec{
-					Name:      "tg-test-1",
-					Config:    latticemodel.TargetGroupConfig{},
+					Name: "tg-test-1",
+					Config: latticemodel.TargetGroupConfig{
+						Protocol:        vpclattice.TargetGroupProtocolHttps,
+						ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+					},
 					Type:      "",
 					IsDeleted: false,
 					LatticeID: "",
@@ -999,12 +1014,15 @@ func Test_Get(t *testing.T) {
 			wantErr: errors.New(LATTICE_RETRY),
 			tgId:    "tg-id-012345",
 			tgArn:   "tg-arn-123456",
-			tgName:  "tg-test-1",
+			tgName:  "tg-test-1-https-http1",
 			input: &latticemodel.TargetGroup{
 				ResourceMeta: core.ResourceMeta{},
 				Spec: latticemodel.TargetGroupSpec{
-					Name:      "tg-test-1",
-					Config:    latticemodel.TargetGroupConfig{},
+					Name: "tg-test-1",
+					Config: latticemodel.TargetGroupConfig{
+						Protocol:        vpclattice.TargetGroupProtocolHttps,
+						ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+					},
 					Type:      "",
 					IsDeleted: false,
 					LatticeID: "",
@@ -1022,12 +1040,15 @@ func Test_Get(t *testing.T) {
 			wantErr: errors.New("Non existing Target Group"),
 			tgId:    "tg-id-012345",
 			tgArn:   "tg-arn-123456",
-			tgName:  "tg-test-not-exist",
+			tgName:  "tg-test-not-exist-https-http1",
 			input: &latticemodel.TargetGroup{
 				ResourceMeta: core.ResourceMeta{},
 				Spec: latticemodel.TargetGroupSpec{
-					Name:      "tg-test-2",
-					Config:    latticemodel.TargetGroupConfig{},
+					Name: "tg-test-2",
+					Config: latticemodel.TargetGroupConfig{
+						Protocol:        vpclattice.TargetGroupProtocolHttps,
+						ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+					},
 					Type:      "",
 					IsDeleted: false,
 					LatticeID: "",

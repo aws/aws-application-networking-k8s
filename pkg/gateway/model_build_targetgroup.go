@@ -17,6 +17,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
@@ -86,7 +87,7 @@ func (b *TargetGroupBuilder) Build(
 	}
 
 	if err := task.run(ctx); err != nil {
-		return task.stack, task.targetGroup, corev1.ErrIntOverflowGenerated
+		return task.stack, task.targetGroup, err
 	}
 
 	return task.stack, task.targetGroup, nil
@@ -204,6 +205,23 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		return err
 	}
 
+	tgp, err := getAttachedTargetGroupPolicy(ctx, t.client, t.serviceExport.Name, t.serviceExport.Namespace)
+	if err != nil {
+		return err
+	}
+	protocol := "HTTP"
+	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
+	var healthCheckConfig *vpclattice.HealthCheckConfig
+	if tgp != nil {
+		if tgp.Spec.Protocol != nil {
+			protocol = *tgp.Spec.Protocol
+		}
+		if tgp.Spec.ProtocolVersion != nil {
+			protocolVersion = *tgp.Spec.ProtocolVersion
+		}
+		healthCheckConfig = parseHealthCheckConfig(tgp)
+	}
+
 	//if t.serviceExport.
 	tgSpec := latticemodel.TargetGroupSpec{
 		Name: tgName,
@@ -216,8 +234,9 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 			IsServiceExport:     true,
 			K8SServiceName:      t.serviceExport.Name,
 			K8SServiceNamespace: t.serviceExport.Namespace,
-			Protocol:            "HTTP",
-			ProtocolVersion:     vpclattice.TargetGroupProtocolVersionHttp1,
+			Protocol:            protocol,
+			ProtocolVersion:     protocolVersion,
+			HealthCheckConfig:   healthCheckConfig,
 			IpAddressType:       ipAddressType,
 		},
 	}
@@ -385,7 +404,25 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 
 	tgName := latticestore.TargetGroupName(string(backendRef.Name()), namespace)
 
+	tgp, err := getAttachedTargetGroupPolicy(ctx, client, string(backendRef.Name()), namespace)
+	if err != nil {
+		return latticemodel.TargetGroupSpec{}, err
+	}
+	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
+	var healthCheckConfig *vpclattice.HealthCheckConfig
+	if tgp != nil {
+		if tgp.Spec.Protocol != nil {
+			protocol = *tgp.Spec.Protocol
+		}
+
+		if tgp.Spec.ProtocolVersion != nil {
+			protocolVersion = *tgp.Spec.ProtocolVersion
+		}
+		healthCheckConfig = parseHealthCheckConfig(tgp)
+	}
+
+	// GRPC takes precedence over other protocolVersions.
 	if _, ok := t.route.(*core.GRPCRoute); ok {
 		protocolVersion = vpclattice.TargetGroupProtocolVersionGrpc
 	}
@@ -402,8 +439,9 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 			K8SServiceNamespace:   namespace,
 			K8SHTTPRouteName:      t.route.Name(),
 			K8SHTTPRouteNamespace: t.route.Namespace(),
-			Protocol:              "HTTP",
+			Protocol:              protocol,
 			ProtocolVersion:       protocolVersion,
+			HealthCheckConfig:     healthCheckConfig,
 			// Fill in default HTTP port as we are using target port anyway.
 			Port:          80,
 			IpAddressType: ipAddressType,
@@ -417,6 +455,57 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupName(_ context.Context, b
 		return latticestore.TargetGroupName(string(backendRef.Name()), string(*backendRef.Namespace()))
 	} else {
 		return latticestore.TargetGroupName(string(backendRef.Name()), t.route.Namespace())
+	}
+}
+
+func getAttachedTargetGroupPolicy(ctx context.Context, k8sClient client.Client, svcName, svcNamespace string) (*v1alpha1.TargetGroupPolicy, error) {
+	policyList := &v1alpha1.TargetGroupPolicyList{}
+	err := k8sClient.List(ctx, policyList)
+	if err != nil {
+		return nil, err
+	}
+	for _, policy := range policyList.Items {
+		targetRef := policy.Spec.TargetRef
+		if targetRef == nil {
+			continue
+		}
+
+		groupKindMatch := targetRef.Group == "" && targetRef.Kind == "Service"
+		nameMatch := string(targetRef.Name) == svcName
+
+		namespace := policy.Namespace
+		if targetRef.Namespace != nil {
+			namespace = string(*targetRef.Namespace)
+		}
+		namespaceMatch := namespace == svcNamespace
+
+		if groupKindMatch && nameMatch && namespaceMatch {
+			return &policy, nil
+		}
+	}
+	return nil, nil
+}
+
+func parseHealthCheckConfig(tgp *v1alpha1.TargetGroupPolicy) *vpclattice.HealthCheckConfig {
+	hc := tgp.Spec.HealthCheck
+	if hc == nil {
+		return nil
+	}
+	var matcher *vpclattice.Matcher
+	if hc.StatusMatch != nil {
+		matcher = &vpclattice.Matcher{HttpCode: hc.StatusMatch}
+	}
+	return &vpclattice.HealthCheckConfig{
+		Enabled:                    hc.Enabled,
+		HealthCheckIntervalSeconds: hc.IntervalSeconds,
+		HealthCheckTimeoutSeconds:  hc.TimeoutSeconds,
+		HealthyThresholdCount:      hc.HealthyThresholdCount,
+		UnhealthyThresholdCount:    hc.UnhealthyThresholdCount,
+		Matcher:                    matcher,
+		Path:                       hc.Path,
+		Port:                       hc.Port,
+		Protocol:                   (*string)(hc.Protocol),
+		ProtocolVersion:            (*string)(hc.ProtocolVersion),
 	}
 }
 

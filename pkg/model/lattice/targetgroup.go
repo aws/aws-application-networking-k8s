@@ -2,6 +2,7 @@ package lattice
 
 import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
 const (
@@ -29,13 +30,15 @@ type TargetGroupSpec struct {
 }
 
 type TargetGroupConfig struct {
-	Port            int32  `json:"port"`
-	Protocol        string `json:"protocol"`
-	ProtocolVersion string `json:"protocolversion"`
-	VpcID           string `json:"vpcid"`
-	IpAddressType   string `json:"ipaddresstype"`
-	EKSClusterName  string `json:"eksclustername"`
-	IsServiceImport bool   `json:"serviceimport"`
+	Port              int32                         `json:"port"`
+	Protocol          string                        `json:"protocol"`
+	ProtocolVersion   string                        `json:"protocolversion"`
+	VpcID             string                        `json:"vpcid"`
+	IpAddressType     string                        `json:"ipaddresstype"`
+	EKSClusterName    string                        `json:"eksclustername"`
+	IsServiceImport   bool                          `json:"serviceimport"`
+	HealthCheckConfig *vpclattice.HealthCheckConfig `json:"healthCheckConfig"`
+
 	// the following fields are used for AWS resource tagging
 	IsServiceExport       bool   `json:"serviceexport"`
 	K8SServiceName        string `json:"k8sservice"`
