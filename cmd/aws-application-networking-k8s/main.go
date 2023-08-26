@@ -109,11 +109,14 @@ func main() {
 		"AccoundId", config.AccountID,
 		"DefaultServiceNetwork", config.DefaultServiceNetwork,
 		"UseLongTgName", config.UseLongTGName,
+		"ClusterName", config.ClusterName,
 	)
 
 	cloud, err := aws.NewCloud(log.Named("cloud"), aws.CloudConfig{
-		VpcId:     config.VpcID,
-		AccountId: config.AccountID,
+		VpcId:       config.VpcID,
+		AccountId:   config.AccountID,
+		Region:      config.Region,
+		ClusterName: config.ClusterName,
 	})
 	if err != nil {
 		setupLog.Fatal("cloud client setup failed: %s", err)
@@ -162,20 +165,14 @@ func main() {
 		setupLog.Fatalf("route controller setup failed: %s", err)
 	}
 
-	serviceImportReconciler := controllers.NewServceImportReconciler(mgr.GetClient(), mgr.GetScheme(),
-		mgr.GetEventRecorderFor("ServiceImport"), finalizerManager, latticeDataStore)
-
-	if err = serviceImportReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceImport")
-		os.Exit(1)
+	err = controllers.RegisterServiceImportController(ctrlLog.Named("service-import"), mgr, latticeDataStore, finalizerManager)
+	if err != nil {
+		setupLog.Fatalf("serviceimport controller setup failed: %s", err)
 	}
 
-	serviceExportReconciler := controllers.NewServiceExportReconciler(cloud, mgr.GetClient(),
-		mgr.GetScheme(), mgr.GetEventRecorderFor("serviceExport"), finalizerManager, latticeDataStore)
-
-	if err = serviceExportReconciler.SetupWithManager(ctrlLog.Named("service-export"), mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "serviceExport")
-		os.Exit(1)
+	err = controllers.RegisterServiceExportController(ctrlLog.Named("service-export"), cloud, latticeDataStore, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("serviceexport controller setup failed: %s", err)
 	}
 
 	go latticestore.GetDefaultLatticeDataStore().ServeIntrospection()

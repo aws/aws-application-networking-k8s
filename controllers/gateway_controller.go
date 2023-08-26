@@ -32,7 +32,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +42,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 )
 
 const (
@@ -71,17 +72,17 @@ func RegisterGatewayController(
 	finalizerManager k8s.FinalizerManager,
 	mgr ctrl.Manager,
 ) error {
-	client := mgr.GetClient()
+	mgrClient := mgr.GetClient()
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("gateway")
 
 	modelBuilder := gateway.NewServiceNetworkModelBuilder()
-	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, client, datastore)
+	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, mgrClient, datastore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	r := &GatewayReconciler{
 		log:              log,
-		client:           client,
+		client:           mgrClient,
 		scheme:           scheme,
 		finalizerManager: finalizerManager,
 		eventRecorder:    evtRec,
@@ -92,7 +93,7 @@ func RegisterGatewayController(
 		stackMarshaller:  stackMarshaller,
 	}
 
-	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(client)
+	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(mgrClient)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gateway_api.Gateway{}).
 		Watches(
@@ -152,40 +153,39 @@ func (r *GatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
 		if !gw.DeletionTimestamp.IsZero() {
-			httpRouteList := &gateway_api.HTTPRouteList{}
-			r.client.List(context.TODO(), httpRouteList)
-			for _, httpRoute := range httpRouteList.Items {
+			routes, err := core.ListAllRoutes(context.TODO(), r.client)
+			if err != nil {
+				return err
+			}
 
-				if len(httpRoute.Spec.ParentRefs) <= 0 {
+			for _, route := range routes {
+				if len(route.Spec().ParentRefs()) <= 0 {
 					continue
 				}
-				gwNamespace := httpRoute.Namespace
-				if httpRoute.Spec.ParentRefs[0].Namespace != nil {
-					gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
+				gwNamespace := route.Namespace()
+				if route.Spec().ParentRefs()[0].Namespace != nil {
+					gwNamespace = string(*route.Spec().ParentRefs()[0].Namespace)
 				}
 				gwName := types.NamespacedName{
 					Namespace: gwNamespace,
-					Name:      string(httpRoute.Spec.ParentRefs[0].Name),
+					Name:      string(route.Spec().ParentRefs()[0].Name),
 				}
 
-				httpGW := &gateway_api.Gateway{}
-
-				if err := r.client.Get(context.TODO(), gwName, httpGW); err != nil {
+				httpGw := &gateway_api.Gateway{}
+				if err := r.client.Get(context.TODO(), gwName, httpGw); err != nil {
 					continue
 				}
 
-				if httpGW.Name == gw.Name && httpGW.Namespace == gw.Namespace {
-					return fmt.Errorf("cannot delete gw, there is reference to httpGw, gw: %s, httpGw: %s", gw.Name, httpGW.Name)
+				if httpGw.Name == gw.Name && httpGw.Namespace == gw.Namespace {
+					return fmt.Errorf("cannot delete gw, there is reference to httpGw, gw: %s, httpGw: %s", gw.Name, httpGw.Name)
 				}
-
 			}
 
 			if err := r.cleanupGatewayResources(ctx, gw); err != nil {
 				return errors.Wrapf(err, "failed to cleanup gw: %s", gw.Name)
-
 			}
 
-			err := r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
+			err = r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
 			if err != nil {
 				return err
 			}
@@ -265,8 +265,11 @@ func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *gat
 	return err
 }
 
-func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetworkStatus *latticestore.ServiceNetwork, gw *gateway_api.Gateway) error {
-
+func (r *GatewayReconciler) updateGatewayStatus(
+	ctx context.Context,
+	serviceNetworkStatus *latticestore.ServiceNetwork,
+	gw *gateway_api.Gateway,
+) error {
 	gwOld := gw.DeepCopy()
 
 	gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, metav1.Condition{
@@ -281,7 +284,7 @@ func (r *GatewayReconciler) updateGatewayStatus(ctx context.Context, serviceNetw
 	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
 
 	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		return fmt.Errorf("update gw status error, gw: %s, status: %s, err: %s",
+		return fmt.Errorf("update gw status error, gw: %s, status: %s, err: %w",
 			gw.Name, serviceNetworkStatus.Status, err)
 	}
 	return nil
@@ -311,57 +314,30 @@ func (r *GatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, cond)
 
 	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		return fmt.Errorf("update gateway status error, gw: %s, accepted: %t, err: %s", gw.Name, accepted, err)
+		return fmt.Errorf("update gateway status error, gw: %s, accepted: %t, err: %w", gw.Name, accepted, err)
 	}
 
 	return nil
 }
 
-func listenerRouteGroupKindSupported(listener gateway_api.Listener) (bool, []gateway_api.RouteGroupKind) {
-	defaultSupportedKind := []gateway_api.RouteGroupKind{{Kind: "HTTPRoute"}}
-
-	validRoute := true
-	supportedKind := make([]gateway_api.RouteGroupKind, 0)
-
-	for _, routeGroupKind := range listener.AllowedRoutes.Kinds {
-		// today, controller only support HTTPRoute
-		if routeGroupKind.Kind != "HTTPRoute" {
-			validRoute = false
-		} else {
-			supportedKind = append(supportedKind, gateway_api.RouteGroupKind{
-				Kind: "HTTPRoute",
-			})
-		}
-
-	}
-
-	if validRoute {
-		return true, defaultSupportedKind
-	} else {
-		return false, supportedKind
-	}
-
-}
-
-func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *gateway_api.Gateway) error {
+func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gateway_api.Gateway) error {
 	hasValidListener := false
 
 	gwOld := gw.DeepCopy()
 
-	httpRouteList := &gateway_api.HTTPRouteList{}
-
-	k8sclient.List(context.TODO(), httpRouteList)
+	routes, err := core.ListAllRoutes(ctx, k8sClient)
+	if err != nil {
+		return err
+	}
 
 	// Add one of lattice domains as GW address. This can represent incorrect value in some cases (e.g. cross-account)
 	// TODO: support multiple endpoint addresses across services.
-	if len(httpRouteList.Items) > 0 {
-
+	if len(routes) > 0 {
 		gw.Status.Addresses = []gateway_api.GatewayAddress{}
-
 		addressType := gateway_api.HostnameAddressType
-		for _, route := range httpRouteList.Items {
-			if route.DeletionTimestamp.IsZero() && len(route.Annotations) > 0 {
-				if domain, exists := route.Annotations[LatticeAssignedDomainName]; exists {
+		for _, route := range routes {
+			if route.DeletionTimestamp().IsZero() && len(route.K8sObject().GetAnnotations()) > 0 {
+				if domain, exists := route.K8sObject().GetAnnotations()[LatticeAssignedDomainName]; exists {
 					gw.Status.Addresses = append(gw.Status.Addresses, gateway_api.GatewayAddress{
 						Type:  &addressType,
 						Value: domain,
@@ -379,7 +355,6 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 
 	// go through each section of gw
 	for _, listener := range gw.Spec.Listeners {
-
 		listenerStatus := gateway_api.ListenerStatus{
 			Name: listener.Name,
 		}
@@ -388,7 +363,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 		listenerStatus.Conditions = make([]metav1.Condition, 0)
 
 		//Check if RouteGroupKind in listener spec is supported
-		validListener, supportedkind := listenerRouteGroupKindSupported(listener)
+		validListener, supportedKinds := listenerRouteGroupKindSupported(listener)
 		if !validListener {
 			condition := metav1.Condition{
 				Type:               string(gateway_api.ListenerConditionResolvedRefs),
@@ -397,11 +372,9 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 				ObservedGeneration: gw.Generation,
 				LastTransitionTime: metav1.Now(),
 			}
-			listenerStatus.SupportedKinds = supportedkind
+			listenerStatus.SupportedKinds = supportedKinds
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
-
 		} else {
-
 			hasValidListener = true
 
 			condition := metav1.Condition{
@@ -412,12 +385,13 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 				LastTransitionTime: metav1.Now(),
 			}
 
-			for _, httpRoute := range httpRouteList.Items {
-				if !httpRoute.DeletionTimestamp.IsZero() {
-					// Ignore the delete httproute
+			for _, route := range routes {
+				if !route.DeletionTimestamp().IsZero() {
+					// Ignore the deleted route
 					continue
 				}
-				for _, parentRef := range httpRoute.Spec.ParentRefs {
+
+				for _, parentRef := range route.Spec().ParentRefs() {
 					if parentRef.Name != gateway_api.ObjectName(gw.Name) {
 						continue
 					}
@@ -427,30 +401,35 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 						continue
 					}
 
-					var httpSectionName string
+					var sectionName string
 					if parentRef.SectionName == nil {
-						httpSectionName = string(defaultListener.Name)
-
+						sectionName = string(defaultListener.Name)
 					} else {
-						httpSectionName = string(*parentRef.SectionName)
+						sectionName = string(*parentRef.SectionName)
 					}
 
-					if httpSectionName != string(listener.Name) {
+					if sectionName != string(listener.Name) {
 						continue
 					}
+
 					if parentRef.Port != nil && *parentRef.Port != listener.Port {
 						continue
 					}
-					listenerStatus.AttachedRoutes++
 
+					listenerStatus.AttachedRoutes++
 				}
 			}
-			httpKind := gateway_api.RouteGroupKind{
-				Kind: "HTTPRoute",
-			}
-			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, httpKind)
-			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
 
+			if listener.Protocol == gateway_api.HTTPSProtocolType {
+				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gateway_api.RouteGroupKind{
+					Kind: "GRPCRoute",
+				})
+			}
+
+			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gateway_api.RouteGroupKind{
+				Kind: "HTTPRoute",
+			})
+			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
 		}
 
 		found := false
@@ -468,7 +447,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 		}
 	}
 
-	if err := k8sclient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
+	if err := k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 		return errors.Wrapf(err, "listener update failed")
 	}
 
@@ -477,5 +456,33 @@ func UpdateGWListenerStatus(ctx context.Context, k8sclient client.Client, gw *ga
 	} else {
 		return fmt.Errorf("no valid listeners for %s", gw.Name)
 	}
+}
 
+func listenerRouteGroupKindSupported(listener gateway_api.Listener) (bool, []gateway_api.RouteGroupKind) {
+	validRoute := true
+	supportedKinds := make([]gateway_api.RouteGroupKind, 0)
+
+	for _, routeGroupKind := range listener.AllowedRoutes.Kinds {
+		if routeGroupKind.Kind == "HTTPRoute" {
+			supportedKinds = append(supportedKinds, gateway_api.RouteGroupKind{
+				Kind: "HTTPRoute",
+			})
+		} else if routeGroupKind.Kind == "GRPCRoute" {
+			if listener.Protocol == gateway_api.HTTPSProtocolType {
+				supportedKinds = append(supportedKinds, gateway_api.RouteGroupKind{
+					Kind: "GRPCRoute",
+				})
+			} else {
+				validRoute = false
+			}
+		} else {
+			validRoute = false
+		}
+	}
+
+	if validRoute {
+		return true, supportedKinds
+	} else {
+		return false, supportedKinds
+	}
 }

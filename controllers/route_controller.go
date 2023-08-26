@@ -37,6 +37,9 @@ import (
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/external-dns/endpoint"
+
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -49,25 +52,16 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/external-dns/endpoint"
 )
 
-type RouteType string
-
-const (
-	HTTP RouteType = "http"
-	GRPC RouteType = "grpc"
-)
-
-var routeTypeToFinalizer = map[RouteType]string{
-	HTTP: "httproute.k8s.aws/resources",
-	GRPC: "grpcroute.k8s.aws/resources",
+var routeTypeToFinalizer = map[core.RouteType]string{
+	core.HttpRouteType: "httproute.k8s.aws/resources",
+	core.GrpcRouteType: "grpcroute.k8s.aws/resources",
 }
 
 // RouteReconciler reconciles a HTTPRoute and GRPCRoute objects
 type RouteReconciler struct {
-	routeType        RouteType
+	routeType        core.RouteType
 	log              gwlog.Logger
 	client           client.Client
 	scheme           *runtime.Scheme
@@ -91,18 +85,17 @@ func RegisterAllRouteControllers(
 	mgr ctrl.Manager,
 ) error {
 	mgrClient := mgr.GetClient()
-	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(mgrClient)
-	svcEventHandler := eventhandlers.NewEqueueHTTPRequestServiceEvent(mgrClient)
-	svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(mgrClient)
+	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(log, mgrClient)
+	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceWithRoutesEvent(log, mgrClient)
 	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, mgrClient)
 
 	routeInfos := []struct {
-		routeType      RouteType
+		routeType      core.RouteType
 		gatewayApiType client.Object
 		eventMapFunc   handler.MapFunc
 	}{
-		{HTTP, &gateway_api_v1beta1.HTTPRoute{}, tgpEventHandler.MapToHTTPRoute},
-		{GRPC, &gateway_api_v1alpha2.GRPCRoute{}, tgpEventHandler.MapToGRPCRoute},
+		{core.HttpRouteType, &gateway_api_v1beta1.HTTPRoute{}, tgpEventHandler.MapToHTTPRoute},
+		{core.GrpcRouteType, &gateway_api_v1alpha2.GRPCRoute{}, tgpEventHandler.MapToGRPCRoute},
 	}
 
 	for _, routeInfo := range routeInfos {
@@ -114,10 +107,12 @@ func RegisterAllRouteControllers(
 			finalizerManager: finalizerManager,
 			eventRecorder:    mgr.GetEventRecorderFor(string(routeInfo.routeType) + "route"),
 			latticeDataStore: datastore,
-			modelBuilder:     gateway.NewLatticeServiceBuilder(mgrClient, datastore, cloud),
-			stackDeployer:    deploy.NewLatticeServiceStackDeploy(cloud, mgrClient, datastore),
+			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, datastore, cloud),
+			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient, datastore),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		}
+
+		svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(log, mgrClient, routeInfo.routeType)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType).
@@ -213,20 +208,10 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 
 func (r *RouteReconciler) getRoute(ctx context.Context, req ctrl.Request) (core.Route, error) {
 	switch r.routeType {
-	case HTTP:
-		httpRoute := &core.HTTPRoute{}
-		err := r.client.Get(ctx, req.NamespacedName, httpRoute.K8sObject())
-		if err != nil {
-			return nil, err
-		}
-		return httpRoute, nil
-	case GRPC:
-		grpcRoute := &core.GRPCRoute{}
-		err := r.client.Get(ctx, req.NamespacedName, grpcRoute.K8sObject())
-		if err != nil {
-			return nil, err
-		}
-		return grpcRoute, nil
+	case core.HttpRouteType:
+		return core.GetHTTPRoute(ctx, r.client, req.NamespacedName)
+	case core.GrpcRouteType:
+		return core.GetGRPCRoute(ctx, r.client, req.NamespacedName)
 	default:
 		return nil, fmt.Errorf("unknown route type for type %s", string(r.routeType))
 	}
@@ -394,7 +379,7 @@ func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core
 }
 
 func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, route core.Route) error {
-	r.log.Infof("updateRouteStatus: route %v, dns %v", route, dns)
+	r.log.Infof("updateRouteStatus: route name %s, namespace %s, dns %s", route.Name(), route.Namespace(), dns)
 	routeOld := route.DeepCopy()
 
 	if len(route.K8sObject().GetAnnotations()) == 0 {

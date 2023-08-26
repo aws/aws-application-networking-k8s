@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
@@ -71,7 +72,8 @@ func (d *serviceNetworkStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	return deploy(ctx, stack, synthesizers)
 }
 
-type latticeServiceStackDeployer struct {
+type LatticeServiceStackDeployer struct {
+	log                   gwlog.Logger
 	cloud                 aws.Cloud
 	k8sclient             client.Client
 	latticeServiceManager lattice.ServiceManager
@@ -83,8 +85,14 @@ type latticeServiceStackDeployer struct {
 	latticeDataStore      *latticestore.LatticeDataStore
 }
 
-func NewLatticeServiceStackDeploy(cloud aws.Cloud, k8sClient client.Client, latticeDataStore *latticestore.LatticeDataStore) *latticeServiceStackDeployer {
-	return &latticeServiceStackDeployer{
+func NewLatticeServiceStackDeploy(
+	log gwlog.Logger,
+	cloud aws.Cloud,
+	k8sClient client.Client,
+	latticeDataStore *latticestore.LatticeDataStore,
+) *LatticeServiceStackDeployer {
+	return &LatticeServiceStackDeployer{
+		log:                   log,
 		cloud:                 cloud,
 		k8sclient:             k8sClient,
 		latticeServiceManager: lattice.NewServiceManager(cloud, latticeDataStore),
@@ -97,8 +105,8 @@ func NewLatticeServiceStackDeploy(cloud aws.Cloud, k8sClient client.Client, latt
 	}
 }
 
-func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
-	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore)
+func (d *LatticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
+	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore)
 	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.cloud, d.targetsManager, stack, d.latticeDataStore)
 	serviceSynthesizer := lattice.NewServiceSynthesizer(d.latticeServiceManager, d.dnsEndpointManager, stack, d.latticeDataStore)
 	listenerSynthesizer := lattice.NewListenerSynthesizer(d.listenerManager, stack, d.latticeDataStore)
@@ -143,7 +151,8 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	return nil
 }
 
-type latticeTargetGroupStackDeployer struct {
+type LatticeTargetGroupStackDeployer struct {
+	log                gwlog.Logger
 	cloud              aws.Cloud
 	k8sclient          client.Client
 	targetGroupManager lattice.TargetGroupManager
@@ -151,8 +160,14 @@ type latticeTargetGroupStackDeployer struct {
 }
 
 // triggered by service export
-func NewTargetGroupStackDeploy(cloud aws.Cloud, k8sClient client.Client, latticeDataStore *latticestore.LatticeDataStore) *latticeTargetGroupStackDeployer {
-	return &latticeTargetGroupStackDeployer{
+func NewTargetGroupStackDeploy(
+	log gwlog.Logger,
+	cloud aws.Cloud,
+	k8sClient client.Client,
+	latticeDataStore *latticestore.LatticeDataStore,
+) *LatticeTargetGroupStackDeployer {
+	return &LatticeTargetGroupStackDeployer{
+		log:                log,
 		cloud:              cloud,
 		k8sclient:          k8sClient,
 		targetGroupManager: lattice.NewTargetGroupManager(cloud),
@@ -160,9 +175,9 @@ func NewTargetGroupStackDeploy(cloud aws.Cloud, k8sClient client.Client, lattice
 	}
 }
 
-func (d *latticeTargetGroupStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
+func (d *LatticeTargetGroupStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	synthesizers := []ResourceSynthesizer{
-		lattice.NewTargetGroupSynthesizer(d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDatastore),
+		lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDatastore),
 		lattice.NewTargetsSynthesizer(d.cloud, lattice.NewTargetsManager(d.cloud, d.latticeDatastore), stack, d.latticeDatastore),
 	}
 	return deploy(ctx, stack, synthesizers)

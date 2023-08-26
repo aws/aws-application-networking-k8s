@@ -2,8 +2,7 @@ package eventhandlers
 
 import (
 	"context"
-
-	"github.com/golang/glog"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -17,24 +16,26 @@ import (
 )
 
 type enqueueRequestsForEndpointsEvent struct {
+	log    gwlog.Logger
 	client client.Client
 }
 
-func NewEnqueueRequestEndpointEvent(client client.Client) handler.EventHandler {
+func NewEnqueueRequestEndpointEvent(log gwlog.Logger, client client.Client) handler.EventHandler {
 	return &enqueueRequestsForEndpointsEvent{
+		log:    log,
 		client: client,
 	}
 }
 
 func (h *enqueueRequestsForEndpointsEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("Event: endpoint create")
+	h.log.Info("Event: endpoint create")
 
 	epNew := e.Object.(*corev1.Endpoints)
 	h.enqueueImpactedService(queue, epNew)
 }
 
 func (h *enqueueRequestsForEndpointsEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("Event: endpoints update")
+	h.log.Info("Event: endpoints update")
 	epOld := e.ObjectOld.(*corev1.Endpoints)
 	epNew := e.ObjectNew.(*corev1.Endpoints)
 	if !equality.Semantic.DeepEqual(epOld.Subsets, epNew.Subsets) {
@@ -43,7 +44,7 @@ func (h *enqueueRequestsForEndpointsEvent) Update(e event.UpdateEvent, queue wor
 }
 
 func (h *enqueueRequestsForEndpointsEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Infof("Event: endpoints delete")
+	h.log.Infof("Event: endpoints delete")
 	// service event handler handles this event here
 }
 
@@ -52,18 +53,13 @@ func (h *enqueueRequestsForEndpointsEvent) Generic(e event.GenericEvent, queue w
 }
 
 func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, ep *corev1.Endpoints) {
-	glog.V(6).Infof("Event: enqueueImpactedService [%v]", ep)
+	h.log.Infof("Event: enqueueImpactedService for service name %s, namespace %s", ep.Name, ep.Namespace)
 
 	var targetIPList []string
-
-	// building a IP list
 	for _, endPoint := range ep.Subsets {
-
 		for _, address := range endPoint.Addresses {
-
 			targetIPList = append(targetIPList, address.IP)
 		}
-
 	}
 
 	svc := &corev1.Service{}
@@ -73,7 +69,7 @@ func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedService(queue workqueu
 	}
 
 	if err := h.client.Get(context.TODO(), namespaceName, svc); err != nil {
-		glog.V(6).Infof("Event: enqueueImpactedService, service not found %v\n", err)
+		h.log.Infof("Event: enqueueImpactedService, service not found %v\n", err)
 		return
 	}
 
@@ -81,6 +77,6 @@ func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedService(queue workqueu
 		NamespacedName: namespaceName,
 	})
 
-	glog.V(6).Infof("Finished enqueueImpactedService [%v] targetIPLIST[%v]\n", ep, targetIPList)
-
+	h.log.Infof("Finished enqueueImpactedService for service name %s, namespace %s targetIPLIST[%v]",
+		ep.Name, ep.Namespace, targetIPList)
 }

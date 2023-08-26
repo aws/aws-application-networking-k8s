@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
@@ -59,7 +60,8 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 	mockRuleManager.EXPECT().Create(gomock.Any(), gomock.Any())
 	mockDnsManager.EXPECT().Create(gomock.Any(), gomock.Any())
 
-	deployer := &latticeServiceStackDeployer{
+	deployer := &LatticeServiceStackDeployer{
+		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
 		k8sclient:             mockClient,
 		latticeServiceManager: mockServiceManager,
@@ -110,7 +112,8 @@ func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
 
 	latticemodel.NewLatticeService(s, "fake-service", latticemodel.ServiceSpec{})
 
-	deployer := &latticeServiceStackDeployer{
+	deployer := &LatticeServiceStackDeployer{
+		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
 		k8sclient:             mockClient,
 		latticeServiceManager: mockServiceManager,
@@ -160,7 +163,8 @@ func Test_latticeServiceStackDeployer_DeleteService(t *testing.T) {
 
 	mockServiceManager.EXPECT().Delete(gomock.Any(), gomock.Any())
 
-	deployer := &latticeServiceStackDeployer{
+	deployer := &LatticeServiceStackDeployer{
+		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
 		k8sclient:             mockClient,
 		latticeServiceManager: mockServiceManager,
@@ -213,7 +217,8 @@ func Test_latticeServiceStackDeployer_DeleteAllResources(t *testing.T) {
 	mockServiceManager.EXPECT().Delete(gomock.Any(), gomock.Any())
 	mockTargetGroupManager.EXPECT().Delete(gomock.Any(), gomock.Any())
 
-	deployer := &latticeServiceStackDeployer{
+	deployer := &LatticeServiceStackDeployer{
+		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
 		k8sclient:             mockClient,
 		latticeServiceManager: mockServiceManager,

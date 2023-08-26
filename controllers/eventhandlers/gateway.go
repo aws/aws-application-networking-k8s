@@ -4,6 +4,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -21,11 +24,13 @@ import (
 )
 
 type enqueueRequestsForGatewayEvent struct {
+	log    gwlog.Logger
 	client client.Client
 }
 
-func NewEnqueueRequestGatewayEvent(client client.Client) handler.EventHandler {
+func NewEnqueueRequestGatewayEvent(log gwlog.Logger, client client.Client) handler.EventHandler {
 	return &enqueueRequestsForGatewayEvent{
+		log:    log,
 		client: client,
 	}
 }
@@ -38,11 +43,11 @@ func (h *enqueueRequestsForGatewayEvent) Create(e event.CreateEvent, queue workq
 
 	// initialize transition time
 	gwNew.Status.Conditions[0].LastTransitionTime = ZeroTransitionTime
-	h.enqueueImpactedHTTPRoute(queue, gwNew)
+	h.enqueueImpactedRoutes(queue)
 }
 
 func (h *enqueueRequestsForGatewayEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("Gateway Update ")
+	h.log.Info("Gateway Update ")
 
 	gwOld := e.ObjectOld.(*gateway_api.Gateway)
 	gwNew := e.ObjectNew.(*gateway_api.Gateway)
@@ -52,7 +57,7 @@ func (h *enqueueRequestsForGatewayEvent) Update(e event.UpdateEvent, queue workq
 			gwOld.Spec, gwNew.Spec)
 		// initialize transition time
 		gwNew.Status.Conditions[0].LastTransitionTime = ZeroTransitionTime
-		h.enqueueImpactedHTTPRoute(queue, gwNew)
+		h.enqueueImpactedRoutes(queue)
 	}
 }
 
@@ -64,32 +69,33 @@ func (h *enqueueRequestsForGatewayEvent) Generic(e event.GenericEvent, queue wor
 
 }
 
-func (h *enqueueRequestsForGatewayEvent) enqueueImpactedHTTPRoute(queue workqueue.RateLimitingInterface, gw *gateway_api.Gateway) {
-	httpRouteList := &gateway_api.HTTPRouteList{}
+func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(queue workqueue.RateLimitingInterface) {
+	routes, err := core.ListAllRoutes(context.TODO(), h.client)
+	if err != nil {
+		h.log.Errorf("Failed to list all routes, %s", err)
+		return
+	}
+	for _, route := range routes {
 
-	h.client.List(context.TODO(), httpRouteList)
-
-	for _, httpRoute := range httpRouteList.Items {
-
-		if len(httpRoute.Spec.ParentRefs) <= 0 {
-			glog.V(6).Infof("Ignore httpRoute no parentRefs %s", httpRoute.Name)
+		if len(route.Spec().ParentRefs()) <= 0 {
+			h.log.Infof("Ignore route no parentRefs %s", route.Name())
 			continue
 		}
 
 		// find the parent gw object
-		var gwNamespace = httpRoute.Namespace
-		if httpRoute.Spec.ParentRefs[0].Namespace != nil {
-			gwNamespace = string(*httpRoute.Spec.ParentRefs[0].Namespace)
+		var gwNamespace = route.Namespace()
+		if route.Spec().ParentRefs()[0].Namespace != nil {
+			gwNamespace = string(*route.Spec().ParentRefs()[0].Namespace)
 		}
+
 		gwName := types.NamespacedName{
 			Namespace: gwNamespace,
-			Name:      string(httpRoute.Spec.ParentRefs[0].Name),
+			Name:      string(route.Spec().ParentRefs()[0].Name),
 		}
 
 		gw := &gateway_api.Gateway{}
-
 		if err := h.client.Get(context.TODO(), gwName, gw); err != nil {
-			glog.V(6).Infof("Ignore HTTPRoute with unknown parentRef %s\n", httpRoute.Name)
+			h.log.Infof("Ignore Route with unknown parentRef %s", route.Name())
 			continue
 		}
 
@@ -101,16 +107,16 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedHTTPRoute(queue workqueu
 		}
 
 		if err := h.client.Get(context.TODO(), gwClassName, gwClass); err != nil {
-			glog.V(6).Infof("Ignore HTTPRoute with unknown Gateway %s \n", httpRoute.Name)
+			h.log.Infof("Ignore Route with unknown Gateway %s", route.Name())
 			continue
 		}
 
 		if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-			glog.V(2).Infof("Trigger HTTPRoute from Gateway event , httpRoute %s", httpRoute.Name)
+			glog.V(2).Infof("Trigger Route from Gateway event, route %s", route.Name())
 			queue.Add(reconcile.Request{
 				NamespacedName: types.NamespacedName{
-					Namespace: httpRoute.Namespace,
-					Name:      httpRoute.Name,
+					Namespace: route.Namespace(),
+					Name:      route.Name(),
 				},
 			})
 		}
