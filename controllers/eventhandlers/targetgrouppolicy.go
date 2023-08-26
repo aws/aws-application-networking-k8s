@@ -80,7 +80,7 @@ func (h *targetGroupPolicyEventHandler) MapToHTTPRoute(obj client.Object) []reco
 	h.client.List(context.TODO(), routeList)
 
 	for _, httpRoute := range routeList.Items {
-		if isServiceUsedByRoute(core.NewHTTPRoute(httpRoute), svc) {
+		if isServiceUsedByRouteForPolicy(core.NewHTTPRoute(httpRoute), svc) {
 			routeName := types.NamespacedName{
 				Namespace: httpRoute.Namespace,
 				Name:      httpRoute.Name,
@@ -105,7 +105,7 @@ func (h *targetGroupPolicyEventHandler) MapToGRPCRoute(obj client.Object) []reco
 	h.client.List(context.TODO(), routeList)
 
 	for _, grpcRoute := range routeList.Items {
-		if isServiceUsedByRoute(core.NewGRPCRoute(grpcRoute), svc) {
+		if isServiceUsedByRouteForPolicy(core.NewGRPCRoute(grpcRoute), svc) {
 			routeName := types.NamespacedName{
 				Namespace: grpcRoute.Namespace,
 				Name:      grpcRoute.Name,
@@ -146,7 +146,7 @@ func (h *targetGroupPolicyEventHandler) MapToServiceExport(obj client.Object) []
 	return requests
 }
 
-func isServiceUsedByRoute(route core.Route, svc *corev1.Service) bool {
+func isServiceUsedByRouteForPolicy(route core.Route, svc *corev1.Service) bool {
 	for _, rule := range route.Spec().Rules() {
 		for _, backendRef := range rule.BackendRefs() {
 			isKindEqual := backendRef.Kind() != nil && string(*backendRef.Kind()) == "Service"

@@ -3,10 +3,11 @@ package eventhandlers
 import (
 	"context"
 
-	"github.com/golang/glog"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -14,43 +15,44 @@ import (
 
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
-type enqueueRequetsForServiceEvent struct {
+type enqueueRequestForServiceWithExportEvent struct {
+	log    gwlog.Logger
 	client client.Client
 }
 
-func NewEqueueRequestServiceEvent(client client.Client) handler.EventHandler {
-	return &enqueueRequetsForServiceEvent{
+func NewEqueueRequestServiceWithExportEvent(log gwlog.Logger, client client.Client) handler.EventHandler {
+	return &enqueueRequestForServiceWithExportEvent{
+		log:    log,
 		client: client,
 	}
 }
 
-func (h *enqueueRequetsForServiceEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("Event: service create")
+func (h *enqueueRequestForServiceWithExportEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+	h.log.Info("Event: service create")
 	service := e.Object.(*corev1.Service)
 	h.enqueueImpactedService(queue, service)
 	h.enqueueImpactedServiceExport(queue, service)
 }
 
-func (h *enqueueRequetsForServiceEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestForServiceWithExportEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
 }
 
-func (h *enqueueRequetsForServiceEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("Event: service delete")
+func (h *enqueueRequestForServiceWithExportEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+	h.log.Info("Event: service delete")
 	service := e.Object.(*corev1.Service)
 	h.enqueueImpactedService(queue, service)
 	h.enqueueImpactedServiceExport(queue, service)
 }
 
-func (h *enqueueRequetsForServiceEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestForServiceWithExportEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 
 }
 
-func (h *enqueueRequetsForServiceEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
-	glog.V(6).Infof("Event: enqueueImpactedService: %v\n", ep)
+func (h *enqueueRequestForServiceWithExportEvent) enqueueImpactedService(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
+	h.log.Infof("Event: enqueueImpactedService: service name: %s, service namespace: %s", ep.Name, ep.Namespace)
 
 	srv := &corev1.Service{}
 	namespacedName := types.NamespacedName{
@@ -59,7 +61,7 @@ func (h *enqueueRequetsForServiceEvent) enqueueImpactedService(queue workqueue.R
 	}
 
 	if err := h.client.Get(context.TODO(), namespacedName, srv); err != nil {
-		glog.V(6).Infof("Event: enqueueImpactedService, service not found %v\n", err)
+		h.log.Infof("Event: enqueueImpactedService, service not found %v\n", err)
 		return
 	}
 
@@ -69,8 +71,8 @@ func (h *enqueueRequetsForServiceEvent) enqueueImpactedService(queue workqueue.R
 
 }
 
-func (h *enqueueRequetsForServiceEvent) enqueueImpactedServiceExport(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
-	glog.V(6).Infof("Event: enqueueImpactedServiceExport: %v\n", ep)
+func (h *enqueueRequestForServiceWithExportEvent) enqueueImpactedServiceExport(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
+	h.log.Infof("Event: enqueueImpactedServiceExport: service name %s, service namespace %s", ep.Name, ep.Namespace)
 
 	srvExport := &mcs_api.ServiceExport{}
 	namespacedName := types.NamespacedName{
@@ -79,7 +81,7 @@ func (h *enqueueRequetsForServiceEvent) enqueueImpactedServiceExport(queue workq
 	}
 
 	if err := h.client.Get(context.TODO(), namespacedName, srvExport); err != nil {
-		glog.V(6).Infof("Event: enqueueImpactedServiceExport, serviceexport not found %v\n", err)
+		h.log.Infof("Event: enqueueImpactedServiceExport, serviceexport not found %v\n", err)
 		return
 	}
 
@@ -88,85 +90,81 @@ func (h *enqueueRequetsForServiceEvent) enqueueImpactedServiceExport(queue workq
 	})
 }
 
-type enqueueHTTPRequetsForServiceEvent struct {
+type enqueueRequestForServiceWithRoutesEvent struct {
+	log    gwlog.Logger
 	client client.Client
 }
 
-func NewEqueueHTTPRequestServiceEvent(client client.Client) handler.EventHandler {
-	return &enqueueHTTPRequetsForServiceEvent{
+func NewEnqueueRequestForServiceWithRoutesEvent(log gwlog.Logger, client client.Client) handler.EventHandler {
+	return &enqueueRequestForServiceWithRoutesEvent{
+		log:    log,
 		client: client,
 	}
 }
 
-func (h *enqueueHTTPRequetsForServiceEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestForServiceWithRoutesEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	service := e.Object.(*corev1.Service)
-	h.enqueueImpactedHTTPRoute(queue, service)
+	h.enqueueImpactedRoutes(queue, service)
 }
 
-func (h *enqueueHTTPRequetsForServiceEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestForServiceWithRoutesEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
 }
 
-func (h *enqueueHTTPRequetsForServiceEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestForServiceWithRoutesEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
 	service := e.Object.(*corev1.Service)
-	h.enqueueImpactedHTTPRoute(queue, service)
+	h.enqueueImpactedRoutes(queue, service)
 }
 
-func (h *enqueueHTTPRequetsForServiceEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestForServiceWithRoutesEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 
 }
 
-func (h *enqueueHTTPRequetsForServiceEvent) enqueueImpactedHTTPRoute(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
-	glog.V(6).Infof("Event: enqueueImpactedHTTPRoute: %v\n", ep)
+func (h *enqueueRequestForServiceWithRoutesEvent) enqueueImpactedRoutes(queue workqueue.RateLimitingInterface, ep *corev1.Service) {
+	h.log.Infof("Event: enqueueImpactedRoutes for service name %s, namespace %s", ep.Name, ep.Namespace)
 
-	httpRouteList := &gateway_api.HTTPRouteList{}
-
-	h.client.List(context.TODO(), httpRouteList)
-
-	for _, httpRoute := range httpRouteList.Items {
-		if !isServiceUsedByHTTPRoute(httpRoute, ep) {
+	routes, err := core.ListAllRoutes(context.TODO(), h.client)
+	if err != nil {
+		h.log.Errorf("Failed to list all routes, %s", err)
+		return
+	}
+	for _, route := range routes {
+		if !isServiceUsedByRoute(route, ep) {
 			continue
 		}
-		glog.V(6).Infof("Event: enqueueImpactedHTTPRoute --> httproute %v \n", httpRoute)
+		h.log.Infof("Event: enqueueImpactedRoutes --> route %v", route)
 		namespacedName := types.NamespacedName{
-			Namespace: httpRoute.Namespace,
-			Name:      httpRoute.Name,
+			Namespace: route.Namespace(),
+			Name:      route.Name(),
 		}
 		queue.Add(reconcile.Request{
 			NamespacedName: namespacedName,
 		})
-
 	}
-
 }
 
-func isServiceUsedByHTTPRoute(httpRoute gateway_api.HTTPRoute, ep *corev1.Service) bool {
-	for _, httpRule := range httpRoute.Spec.Rules {
-		for _, httpBackendRef := range httpRule.BackendRefs {
-			//glog.V(6).Infof("isServiceUsedByHTTPRoute httpBackendRef %v, %v\n", httpBackendRef.BackendObjectReference, ep.Name)
-			if string(*httpBackendRef.BackendObjectReference.Kind) != "service" {
-				glog.V(6).Infof("isServiceUsedByHTTPRoute: kind %v\n", string(*httpBackendRef.BackendObjectReference.Kind))
+func isServiceUsedByRoute(route core.Route, ep *corev1.Service) bool {
+	for _, rule := range route.Spec().Rules() {
+		for _, backendRef := range rule.BackendRefs() {
+			if string(*backendRef.Kind()) != "service" {
 				continue
 			}
 
-			if string(httpBackendRef.BackendObjectReference.Name) != ep.Name {
-				//glog.V(6).Infof("isServiceUsedByHTTPRoute, name %v\n", string(httpBackendRef.BackendObjectReference.Name))
+			if string(backendRef.Name()) != ep.Name {
 				continue
 			}
 
-			namespace := httpRoute.Namespace
-			if httpBackendRef.BackendObjectReference.Namespace != nil {
-				namespace = string(*httpBackendRef.BackendObjectReference.Namespace)
+			namespace := route.Namespace()
+			if backendRef.Namespace() != nil {
+				namespace = string(*backendRef.Namespace())
 			}
 
 			if namespace != ep.Namespace {
-				//glog.V(6).Infof("isServiceUsedByHTTPRoute, namespace %v\n", namespace)
 				continue
 			}
 
 			return true
-
 		}
 	}
-	return false
 
+	return false
 }

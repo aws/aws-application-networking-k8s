@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -33,7 +34,8 @@ import (
 
 // ServiceImportReconciler reconciles a ServiceImport object
 type ServiceImportReconciler struct {
-	client.Client
+	log              gwlog.Logger
+	client           client.Client
 	Scheme           *runtime.Scheme
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
@@ -44,17 +46,28 @@ const (
 	serviceImportFinalizer = "serviceimport.k8s.aws/resource"
 )
 
-func NewServceImportReconciler(client client.Client, scheme *runtime.Scheme, eventRecorder record.EventRecorder,
-	finalizerManager k8s.FinalizerManager, dataStore *latticestore.LatticeDataStore) *ServiceImportReconciler {
+func RegisterServiceImportController(
+	log gwlog.Logger,
+	mgr ctrl.Manager,
+	dataStore *latticestore.LatticeDataStore,
+	finalizerManager k8s.FinalizerManager,
+) error {
+	mgrClient := mgr.GetClient()
+	scheme := mgr.GetScheme()
+	eventRecorder := mgr.GetEventRecorderFor("ServiceImport")
 
-	return &ServiceImportReconciler{
-		Client:           client,
+	r := &ServiceImportReconciler{
+		log:              log,
+		client:           mgrClient,
 		Scheme:           scheme,
 		finalizerManager: finalizerManager,
 		eventRecorder:    eventRecorder,
 		latticeDataStore: dataStore,
 	}
 
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&mcs_api.ServiceImport{}).
+		Complete(r)
 }
 
 //+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceimports,verbs=get;list;watch;create;update;patch;delete
@@ -78,7 +91,7 @@ func (r *ServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	serviceImport := &mcs_api.ServiceImport{}
 
-	if err := r.Client.Get(ctx, req.NamespacedName, serviceImport); err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, serviceImport); err != nil {
 		reconcileLog.Info("Item Not Found")
 		return ctrl.Result{}, nil
 	}
@@ -98,12 +111,4 @@ func (r *ServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	reconcileLog.Info("Adding/Updating")
 
 	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *ServiceImportReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&mcs_api.ServiceImport{}).
-		Complete(r)
 }

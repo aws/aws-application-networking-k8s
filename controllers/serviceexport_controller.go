@@ -20,9 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/golang/glog"
-
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,36 +45,65 @@ import (
 
 // ServiceExportReconciler reconciles a ServiceExport object
 type ServiceExportReconciler struct {
-	client.Client
+	log              gwlog.Logger
+	client           client.Client
 	Scheme           *runtime.Scheme
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
 	modelBuilder     gateway.TargetGroupModelBuilder
 	stackDeployer    deploy.StackDeployer
 	latticeDataStore *latticestore.LatticeDataStore
-	stackMashaller   deploy.StackMarshaller
+	stackMarshaller  deploy.StackMarshaller
 }
 
 const (
 	serviceExportFinalizer = "serviceexport.k8s.aws/resources"
 )
 
-func NewServiceExportReconciler(cloud aws.Cloud, client client.Client, scheme *runtime.Scheme, eventRecorder record.EventRecorder,
-	finalizerManager k8s.FinalizerManager, latticeDataStore *latticestore.LatticeDataStore) *ServiceExportReconciler {
-	modelBuilder := gateway.NewTargetGroupBuilder(client, latticeDataStore, cloud)
-	stackDeploy := deploy.NewTargetGroupStackDeploy(cloud, client, latticeDataStore)
+func RegisterServiceExportController(
+	log gwlog.Logger,
+	cloud aws.Cloud,
+	latticeDataStore *latticestore.LatticeDataStore,
+	finalizerManager k8s.FinalizerManager,
+	mgr ctrl.Manager,
+) error {
+	mgrClient := mgr.GetClient()
+	scheme := mgr.GetScheme()
+	eventRecorder := mgr.GetEventRecorderFor("serviceExport")
+
+	modelBuilder := gateway.NewTargetGroupBuilder(log, mgrClient, latticeDataStore, cloud)
+	stackDeploy := deploy.NewTargetGroupStackDeploy(log, cloud, mgrClient, latticeDataStore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
-	return &ServiceExportReconciler{
-		Client:           client,
+	r := &ServiceExportReconciler{
+		log:              log,
+		client:           mgrClient,
 		Scheme:           scheme,
 		finalizerManager: finalizerManager,
 		modelBuilder:     modelBuilder,
 		stackDeployer:    stackDeploy,
 		eventRecorder:    eventRecorder,
 		latticeDataStore: latticeDataStore,
-		stackMashaller:   stackMarshaller,
+		stackMarshaller:  stackMarshaller,
 	}
+
+	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, r.client)
+	svcExportEventsHandler := eventhandlers.NewEqueueRequestServiceWithExportEvent(log, r.client)
+
+	builder := ctrl.NewControllerManagedBy(mgr).
+		For(&mcs_api.ServiceExport{}).
+		Watches(&source.Kind{Type: &corev1.Service{}}, svcExportEventsHandler)
+
+	if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
+		builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(tgpEventHandler.MapToServiceExport))
+	} else {
+		if err != nil {
+			return err
+		}
+		log.Infof("TargetGroupPolicy CRD is not installed, skipping watch")
+	}
+
+	return builder.Complete(r)
 }
 
 //+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceexports,verbs=get;list;watch;create;update;patch;delete
@@ -98,27 +124,23 @@ func (r *ServiceExportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (r *ServiceExportReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
-	srvLog := log.FromContext(ctx)
-
-	// TODO(user): your logic here
-	srvLog.Info("ServiceExportReconciler")
 	srvExport := &mcs_api.ServiceExport{}
 
-	if err := r.Client.Get(ctx, req.NamespacedName, srvExport); err != nil {
+	if err := r.client.Get(ctx, req.NamespacedName, srvExport); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 
 	if srvExport.ObjectMeta.Annotations["multicluster.x-k8s.io/federation"] == "amazon-vpc-lattice" {
-		glog.V(6).Infof("ServiceExportReconciler --- found matching service export --- %s\n", srvExport.Name)
+		r.log.Infof("ServiceExportReconciler --- found matching service export --- %s\n", srvExport.Name)
 
 		if !srvExport.DeletionTimestamp.IsZero() {
-			srvLog.Info("Deleting")
+			r.log.Info("Deleting")
 			if err := r.cleanupServiceExportResources(ctx, srvExport); err != nil {
-				glog.V(6).Infof("Failed to clean up service export %v, err :%v \n", srvExport, err)
+				r.log.Infof("Failed to clean up service export %v, err :%v \n", srvExport, err)
 				return err
 			}
 
-			srvLog.Info("Successfully delete")
+			r.log.Info("Successfully delete")
 
 			r.finalizerManager.RemoveFinalizers(ctx, srvExport, serviceExportFinalizer)
 			return nil
@@ -151,7 +173,7 @@ func (r *ServiceExportReconciler) buildAndDeployModel(ctx context.Context, srvEx
 	stack, targetGroup, err := r.modelBuilder.Build(ctx, srvExport)
 
 	if err != nil {
-		glog.V(6).Infof("Failed to buildAndDeployModel for service export %v\n", srvExport)
+		r.log.Infof("Failed to buildAndDeployModel for service export %v\n", srvExport)
 
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,
 			k8s.GatewayEventReasonFailedBuildModel,
@@ -162,12 +184,12 @@ func (r *ServiceExportReconciler) buildAndDeployModel(ctx context.Context, srvEx
 		// TODO continue deploy to trigger reconcile of stale SDK objects
 		//return stack, targetGroup, nil
 	}
-	glog.V(6).Infof("buildAndDeployModel: stack=%v, targetgroup=%v, err = %v\n", stack, targetGroup, err)
+	r.log.Infof("buildAndDeployModel: stack=%v, targetgroup=%v, err = %v\n", stack, targetGroup, err)
 
-	stackJSON, err := r.stackMashaller.Marshal(stack)
+	stackJSON, err := r.stackMarshaller.Marshal(stack)
 
 	if err != nil {
-		glog.V(6).Infof("Error on marshalling serviceExport model for name: %v namespace: %v\n", srvExport.Name, srvExport.Namespace)
+		r.log.Infof("Error on marshalling serviceExport model for name: %v namespace: %v\n", srvExport.Name, srvExport.Namespace)
 	}
 
 	gwLog.Info("Successfully built model", stackJSON, "")
@@ -180,25 +202,4 @@ func (r *ServiceExportReconciler) buildAndDeployModel(ctx context.Context, srvEx
 	gwLog.Info("Successfully deployed model")
 
 	return stack, targetGroup, err
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *ServiceExportReconciler) SetupWithManager(log gwlog.Logger, mgr ctrl.Manager) error {
-	svcEventsHandler := eventhandlers.NewEqueueRequestServiceEvent(r.Client)
-	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, r.Client)
-	builder := ctrl.NewControllerManagedBy(mgr).
-		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&mcs_api.ServiceExport{}).
-		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventsHandler)
-
-	if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
-		builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(tgpEventHandler.MapToServiceExport))
-	} else {
-		if err != nil {
-			return err
-		}
-		log.Infof("TargetGroupPolicy CRD is not installed, skipping watch")
-	}
-
-	return builder.Complete(r)
 }

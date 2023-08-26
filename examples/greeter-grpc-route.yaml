@@ -1,17 +1,18 @@
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GRPCRoute
 metadata:
-  name: grpc
+  name: greeter-grpc-route
 spec:
   parentRefs:
   - name: my-hotel
-    sectionName: http
+    sectionName: https
   rules:
   - backendRefs:
-    - name: grpc-server
+    - name: greeter-grpc-server
       kind: Service
-      port: 50051
+      port: 443
       weight: 10
     matches:
         - method:
-            service: Greeter
+            service: helloworld.Greeter
+            method: SayHello

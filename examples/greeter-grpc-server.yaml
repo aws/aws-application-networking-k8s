@@ -1,32 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: grpc-server
+  name: greeter-grpc-server
   labels:
-    app: grpc-server
+    app: greeter-grpc-server
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: grpc-server
+      app: greeter-grpc-server
   template:
     metadata:
       labels:
-        app: grpc-server
+        app: greeter-grpc-server
     spec:
       containers:
-      - name: grpc-server
-        image: tobegit3hub/grpc-helloworld:latest
+      - name: greeter-grpc-server
+        image: aguilbau/hello-world-grpc:latest
 
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: grpc-server
+  name: greeter-grpc-server
 spec:
   selector:
-    app: grpc-server
+    app: greeter-grpc-server
   ports:
     - protocol: TCP
       port: 443
