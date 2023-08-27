@@ -38,6 +38,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"strings"
 )
 
 func init() {
@@ -291,12 +292,18 @@ func (env *Framework) GetVpcLatticeService(ctx context.Context, httpRoute *v1bet
 }
 
 func (env *Framework) GetTargetGroup(ctx context.Context, service *v1.Service) *vpclattice.TargetGroupSummary {
+	return env.GetTargetGroupWithProtocol(ctx, service, "http", "http1")
+}
+
+func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *v1.Service, protocol, protocolVersion string) *vpclattice.TargetGroupSummary {
+	latticeTGName := fmt.Sprintf("%s-%s-%s",
+		latticestore.TargetGroupName(service.Name, service.Namespace), protocol, protocolVersion)
 	var found *vpclattice.TargetGroupSummary
 	Eventually(func(g Gomega) {
 		targetGroups, err := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
 		g.Expect(err).To(BeNil())
 		for _, targetGroup := range targetGroups {
-			if lo.FromPtr(targetGroup.Name) == latticestore.TargetGroupName(service.Name, service.Namespace) {
+			if lo.FromPtr(targetGroup.Name) == latticeTGName {
 				found = targetGroup
 				break
 			}
@@ -557,8 +564,12 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 	targetGroups, err := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
 	Expect(err).ToNot(HaveOccurred())
 	filteredTgs := lo.Filter(targetGroups, func(targetGroup *vpclattice.TargetGroupSummary, _ int) bool {
-		_, ok := env.TestCasesCreatedTargetGroupNames[*targetGroup.Name]
-		return ok
+		for key, _ := range env.TestCasesCreatedTargetGroupNames {
+			if strings.HasPrefix(*targetGroup.Name, key) {
+				return true
+			}
+		}
+		return false
 	})
 	tgIds := lo.Map(filteredTgs, func(targetGroup *vpclattice.TargetGroupSummary, _ int) *string {
 		return targetGroup.Id

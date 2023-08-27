@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	"strings"
 )
 
 var _ = Describe("HTTPRoute Mutation", func() {
@@ -56,13 +57,13 @@ var _ = Describe("HTTPRoute Mutation", func() {
 			for _, targetGroup := range targetGroups {
 				fmt.Println("targetGroup.Name: ", *targetGroup.Name)
 
-				if lo.FromPtr(targetGroup.Name) == latticestore.TargetGroupName(service1.Name, service1.Namespace) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service1.Name, service1.Namespace)) {
 					service1TgFound = true
 				}
-				if lo.FromPtr(targetGroup.Name) == latticestore.TargetGroupName(service2.Name, service2.Namespace) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service2.Name, service2.Namespace)) {
 					service2TgFound = true
 				}
-				if lo.FromPtr(targetGroup.Name) == latticestore.TargetGroupName(service3.Name, service3.Namespace) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service3.Name, service3.Namespace)) {
 					service3TgFound = true
 				}
 			}
@@ -89,13 +90,13 @@ var _ = Describe("HTTPRoute Mutation", func() {
 			for _, targetGroup := range targetGroups {
 				fmt.Println("targetGroup.Name: ", *targetGroup.Name)
 
-				if lo.FromPtr(targetGroup.Name) == latticestore.TargetGroupName(service1.Name, service1.Namespace) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service1.Name, service1.Namespace)) {
 					service1TgFound = true
 				}
-				if lo.FromPtr(targetGroup.Name) == latticestore.TargetGroupName(service2.Name, service2.Namespace) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service2.Name, service2.Namespace)) {
 					service2TgFound = true
 				}
-				if lo.FromPtr(targetGroup.Name) == latticestore.TargetGroupName(service3.Name, service3.Namespace) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service3.Name, service3.Namespace)) {
 					service3TgFound = true
 				}
 			}

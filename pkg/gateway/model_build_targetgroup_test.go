@@ -8,6 +8,15 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -16,16 +25,6 @@ import (
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_TGModelByServicexportBuild(t *testing.T) {
@@ -212,6 +211,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
+			v1alpha1.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 
 			if tt.svc != nil {
@@ -488,6 +488,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
+			v1alpha1.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			ds := latticestore.NewLatticeDataStore()
 
@@ -760,6 +761,8 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 				}
 			}
 		}
+		k8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).Return(nil)
+
 		_, err := task.buildTargetGroup(ctx, k8sClient)
 
 		fmt.Printf("err %v\n", err)
