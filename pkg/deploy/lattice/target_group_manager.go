@@ -332,7 +332,7 @@ func isNameOfTargetGroup(targetGroup *latticemodel.TargetGroup, name string) boo
 			for _, pv := range validProtocolVersions {
 				candidate := &latticemodel.TargetGroup{
 					Spec: latticemodel.TargetGroupSpec{
-						Name: name,
+						Name: targetGroup.Spec.Name,
 						Config: latticemodel.TargetGroupConfig{
 							Protocol:        p,
 							ProtocolVersion: pv,
