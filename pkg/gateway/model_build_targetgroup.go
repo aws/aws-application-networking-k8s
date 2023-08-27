@@ -460,7 +460,9 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupName(_ context.Context, b
 
 func getAttachedTargetGroupPolicy(ctx context.Context, k8sClient client.Client, svcName, svcNamespace string) (*v1alpha1.TargetGroupPolicy, error) {
 	policyList := &v1alpha1.TargetGroupPolicyList{}
-	err := k8sClient.List(ctx, policyList)
+	err := k8sClient.List(ctx, policyList, &client.ListOptions{
+		Namespace: svcNamespace,
+	})
 	if err != nil {
 		return nil, err
 	}

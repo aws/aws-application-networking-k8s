@@ -761,7 +761,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 				}
 			}
 		}
-		k8sClient.EXPECT().List(ctx, gomock.Any()).Return(nil)
+		k8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).Return(nil)
 
 		_, err := task.buildTargetGroup(ctx, k8sClient)
 

@@ -312,17 +312,41 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 }
 
 func isNameOfTargetGroup(targetGroup *latticemodel.TargetGroup, name string) bool {
-	// We are missing protocol info for ServiceImport, but we do know if it is GRPCRoute or not.
-	// We have two choices (GRPC/non-GRPC) anyway, so just do prefix matching and pick GRPC when it is.
 	if targetGroup.Spec.Config.IsServiceImport {
-		match := strings.HasPrefix(name, targetGroup.Spec.Name)
-		if targetGroup.Spec.Config.ProtocolVersion == vpclattice.TargetGroupProtocolVersionGrpc {
-			return match && strings.HasSuffix(name, vpclattice.TargetGroupProtocolVersionGrpc)
+		// We are missing protocol info for ServiceImport, but we do know the RouteType.
+		// Relying on the assumption that we have one TG per (RouteType, Service),
+		// do a simple guess to find the matching TG.
+		validProtocols := []string{
+			vpclattice.TargetGroupProtocolHttp,
+			vpclattice.TargetGroupProtocolHttps,
 		}
-		return match
+		validProtocolVersions := []string{
+			vpclattice.TargetGroupProtocolVersionHttp1,
+			vpclattice.TargetGroupProtocolVersionHttp2,
+		}
+		if targetGroup.Spec.Config.ProtocolVersion == vpclattice.TargetGroupProtocolVersionGrpc {
+			validProtocolVersions = []string{vpclattice.TargetGroupProtocolVersionGrpc}
+		}
+
+		for _, p := range validProtocols {
+			for _, pv := range validProtocolVersions {
+				candidate := &latticemodel.TargetGroup{
+					Spec: latticemodel.TargetGroupSpec{
+						Name: name,
+						Config: latticemodel.TargetGroupConfig{
+							Protocol:        p,
+							ProtocolVersion: pv,
+						},
+					},
+				}
+				if name == getLatticeTGName(candidate) {
+					return true
+				}
+			}
+		}
+		return false
 	} else {
-		tgName := getLatticeTGName(targetGroup)
-		return name == tgName
+		return name == getLatticeTGName(targetGroup)
 	}
 }
 
