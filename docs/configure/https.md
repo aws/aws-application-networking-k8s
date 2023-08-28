@@ -97,3 +97,27 @@ spec:
     sectionName: tls-with-custom-cert  # Specify custom-defined certificate 
 ...
 ```        
+
+### Enabling TLS connection on the backend
+
+Currently TLS Passthrough mode is not supported in the controller, but it allows TLS re-encryption to support backends that only allow TLS connections.
+To handle this use case, you need to configure your service to receive HTTPS traffic instead:
+
+```
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: TargetGroupPolicy
+metadata:
+    name: test-policy
+spec:
+    targetRef:
+        group: ""
+        kind: Service
+        name: my-parking-service # Put service name here
+    protocol: HTTP
+    protocolVersion: HTTPS
+```
+
+This will create VPC Lattice TargetGroup with HTTPS protocol option, which can receive TLS traffic.
+Note that certificate validation is not supported.
+
+For more details, please refer to [TargetGroupPolicy API reference](../reference/target-group-policy.md).
