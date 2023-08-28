@@ -6,44 +6,48 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
+	"github.com/onsi/gomega/format"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/external-dns/endpoint"
 
-	"github.com/aws/aws-application-networking-k8s/controllers"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
+	"github.com/aws/aws-application-networking-k8s/controllers"
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/format"
 	"github.com/samber/lo"
 	"github.com/samber/lo/parallel"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"strings"
 )
-
-func init() {
-	format.MaxLength = 0
-}
 
 type TestObject struct {
 	Type     client.Object
@@ -51,16 +55,42 @@ type TestObject struct {
 }
 
 var (
-	CurrentClusterVpcId = os.Getenv("CLUSTER_VPC_ID")
-	TestObjects         = []TestObject{
-		{&v1beta1.HTTPRoute{}, &v1beta1.HTTPRouteList{}},
-		{&v1alpha1.ServiceExport{}, &v1alpha1.ServiceExportList{}},
-		{&v1alpha1.ServiceImport{}, &v1alpha1.ServiceImportList{}},
-		{&v1beta1.Gateway{}, &v1beta1.GatewayList{}},
+	schemeForTestFramework = runtime.NewScheme()
+	CurrentClusterVpcId    = os.Getenv("CLUSTER_VPC_ID")
+	TestObjects            = []TestObject{
+		{&gateway_api_v1beta1.HTTPRoute{}, &gateway_api_v1beta1.HTTPRouteList{}},
+		{&mcs_api.ServiceExport{}, &mcs_api.ServiceExportList{}},
+		{&mcs_api.ServiceImport{}, &mcs_api.ServiceImportList{}},
+		{&gateway_api_v1beta1.Gateway{}, &gateway_api_v1beta1.GatewayList{}},
 		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
 		{&v1.Service{}, &v1.ServiceList{}},
 	}
 )
+
+func init() {
+	format.MaxLength = 0
+	utilruntime.Must(clientgoscheme.AddToScheme(schemeForTestFramework))
+	utilruntime.Must(gateway_api_v1alpha2.AddToScheme(schemeForTestFramework))
+	utilruntime.Must(gateway_api_v1beta1.AddToScheme(schemeForTestFramework))
+	utilruntime.Must(mcs_api.AddToScheme(schemeForTestFramework))
+	addOptionalCRDs(schemeForTestFramework)
+}
+
+func addOptionalCRDs(scheme *runtime.Scheme) {
+	dnsEndpoint := schema.GroupVersion{
+		Group:   "externaldns.k8s.io",
+		Version: "v1alpha1",
+	}
+	scheme.AddKnownTypes(dnsEndpoint, &endpoint.DNSEndpoint{}, &endpoint.DNSEndpointList{})
+	metav1.AddToGroupVersion(scheme, dnsEndpoint)
+
+	targetGroupPolicy := schema.GroupVersion{
+		Group:   "application-networking.k8s.aws",
+		Version: "v1alpha1",
+	}
+	scheme.AddKnownTypes(targetGroupPolicy, &v1alpha1.TargetGroupPolicy{}, &v1alpha1.TargetGroupPolicyList{})
+	metav1.AddToGroupVersion(scheme, targetGroupPolicy)
+}
 
 type Framework struct {
 	client.Client
@@ -79,17 +109,15 @@ type Framework struct {
 }
 
 func NewFramework(ctx context.Context, testNamespace string) *Framework {
-	var scheme = scheme.Scheme
-	lo.Must0(v1beta1.Install(scheme))
-	lo.Must0(v1alpha1.Install(scheme))
+	addOptionalCRDs(schemeForTestFramework)
 	config.ConfigInit()
 	controllerRuntimeConfig := controllerruntime.GetConfigOrDie()
 	framework := &Framework{
-		Client:                              lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: scheme})),
+		Client:                              lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: schemeForTestFramework})),
 		LatticeClient:                       services.NewDefaultLattice(session.Must(session.NewSession()), config.Region), // region is currently hardcoded
 		GrpcurlRunner:                       &v1.Pod{},
 		ctx:                                 ctx,
-		k8sScheme:                           scheme,
+		k8sScheme:                           schemeForTestFramework,
 		namespace:                           testNamespace,
 		controllerRuntimeConfig:             controllerRuntimeConfig,
 		TestCasesCreatedServiceNetworkNames: make(map[string]bool),
@@ -256,7 +284,7 @@ func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList 
 	}).WithOffset(1).Should(Succeed())
 }
 
-func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *v1beta1.Gateway) *vpclattice.ServiceNetworkSummary {
+func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *gateway_api_v1beta1.Gateway) *vpclattice.ServiceNetworkSummary {
 	var found *vpclattice.ServiceNetworkSummary
 	Eventually(func(g Gomega) {
 		listServiceNetworksOutput, err := env.LatticeClient.ListServiceNetworksWithContext(ctx, &vpclattice.ListServiceNetworksInput{})
@@ -272,20 +300,21 @@ func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *v1beta1.Ga
 	return found
 }
 
-func (env *Framework) GetVpcLatticeService(ctx context.Context, httpRoute *v1beta1.HTTPRoute) *vpclattice.ServiceSummary {
+func (env *Framework) GetVpcLatticeService(ctx context.Context, route core.Route) *vpclattice.ServiceSummary {
 	var found *vpclattice.ServiceSummary
+	latticeServiceNameFromRouteName := latticestore.LatticeServiceName(route.Name(), route.Namespace())
 	Eventually(func(g Gomega) {
 		listServicesOutput, err := env.LatticeClient.ListServicesWithContext(ctx, &vpclattice.ListServicesInput{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(listServicesOutput.Items).ToNot(BeEmpty())
 		for _, service := range listServicesOutput.Items {
-			if lo.FromPtr(service.Name) == latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace) {
+			if *service.Name == latticeServiceNameFromRouteName {
 				found = service
 			}
 		}
 		g.Expect(found).ToNot(BeNil())
 		g.Expect(found.Status).To(Equal(lo.ToPtr(vpclattice.ServiceStatusActive)))
-		g.Expect(found.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
+		g.Expect(found.DnsEntry).To(ContainSubstring(latticeServiceNameFromRouteName))
 	}).WithOffset(1).Should(Succeed())
 
 	return found
@@ -640,9 +669,57 @@ func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
 	env.TestCasesCreatedServiceNames = make(map[string]bool)
 }
 
+func (env *Framework) GetLatticeServiceHttpsListenerNonDefaultRules(ctx context.Context, vpcLatticeService *vpclattice.ServiceSummary) ([]*vpclattice.GetRuleOutput, error) {
+
+	listListenerResp, err := env.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+		ServiceIdentifier: vpcLatticeService.Id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	httpsListenerId := ""
+	for _, item := range listListenerResp.Items {
+		if strings.Contains(*item.Name, "https") {
+			httpsListenerId = *item.Id
+			break
+		}
+	}
+	if httpsListenerId == "" {
+		return nil, fmt.Errorf("expect having 1 https listener for lattice service %s, but got 0", *vpcLatticeService.Id)
+	}
+	listRulesResp, err := env.LatticeClient.ListRulesWithContext(ctx, &vpclattice.ListRulesInput{
+		ListenerIdentifier: &httpsListenerId,
+		ServiceIdentifier:  vpcLatticeService.Id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	nonDefaultRules := lo.Filter(listRulesResp.Items, func(rule *vpclattice.RuleSummary, _ int) bool {
+		return rule.IsDefault == nil || *rule.IsDefault == false
+	})
+	nonDefaultRuleIds := lo.Map(nonDefaultRules, func(rule *vpclattice.RuleSummary, _ int) *string {
+		return rule.Id
+	})
+
+	var retrievedRules []*vpclattice.GetRuleOutput
+	for _, ruleId := range nonDefaultRuleIds {
+		rule, err := env.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+			ServiceIdentifier:  vpcLatticeService.Id,
+			ListenerIdentifier: &httpsListenerId,
+			RuleIdentifier:     ruleId,
+		})
+		if err != nil {
+			return nil, err
+		}
+		retrievedRules = append(retrievedRules, rule)
+	}
+	return retrievedRules, nil
+}
+
 func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNamespace string) string {
 	log.Println("GetVpcLatticeServiceDns: ", httpRouteName, httpRouteNamespace)
-	httproute := v1beta1.HTTPRoute{}
+	httproute := gateway_api_v1beta1.HTTPRoute{}
 	env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
 	vpcLatticeServiceDns := httproute.Annotations[controllers.LatticeAssignedDomainName]
 	return vpcLatticeServiceDns
@@ -653,26 +730,39 @@ type RunGrpcurlCmdOptions struct {
 	GrpcServerPort      string
 	Service             string
 	Method              string
+	Headers             [][]string // a slice of String Tuple
 	ReqParamsJsonString string
 	UseTLS              bool
 }
 
 // https://github.com/fullstorydev/grpcurl
+// https://gallery.ecr.aws/a0j4q9e4/grpcurl-runner
 func (env *Framework) RunGrpcurlCmd(opts RunGrpcurlCmdOptions) (string, string, error) {
-	log.Println("CreateGrpcurlRunnerPod: ")
+	log.Println("RunGrpcurlCmd")
 	Expect(env.GrpcurlRunner).To(Not(BeNil()))
 
-	tlsOption := "-plaintext"
-	if opts.UseTLS {
-		tlsOption = "-insecure"
+	tlsOption := ""
+	if !opts.UseTLS {
+		tlsOption = "-plaintext"
 	}
+
+	headers := ""
+	for _, tuple := range opts.Headers {
+		headers += fmt.Sprintf("-H '%s: %s' ", tuple[0], tuple[1])
+	}
+
 	reqParams := ""
 	if opts.ReqParamsJsonString != "" {
 		reqParams = fmt.Sprintf("-d '%s'", opts.ReqParamsJsonString)
 	}
 
-	cmd := fmt.Sprintf("/grpcurl %s %s %s:%s %s/%s",
+	cmd := fmt.Sprintf("/grpcurl "+
+		"-proto /protos/addsvc.proto "+
+		"-proto /protos/grpcbin.proto "+
+		"-proto /protos/helloworld.proto "+
+		"%s %s %s %s:%s %s/%s",
 		tlsOption,
+		headers,
 		reqParams,
 		opts.GrpcServerHostName,
 		opts.GrpcServerPort,

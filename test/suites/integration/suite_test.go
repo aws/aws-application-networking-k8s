@@ -2,15 +2,18 @@ package integration
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+
 	"testing"
+
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (

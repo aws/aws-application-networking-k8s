@@ -2,20 +2,23 @@ package integration
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"log"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	"time"
 
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
 var _ = Describe("HTTPRoute path matches", func() {
@@ -41,8 +44,8 @@ var _ = Describe("HTTPRoute path matches", func() {
 			service2,
 			deployment2,
 		)
-
-		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
+		route, _ := core.NewRoute(pathMatchHttpRoute)
+		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
 
 		targetGroupV1 := testFramework.GetTargetGroup(ctx, service1)
 		Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))

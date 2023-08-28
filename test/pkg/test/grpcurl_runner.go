@@ -18,8 +18,9 @@ func NewGrpcurlRunnerPod() *v1.Pod {
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				{
-					Name:  "grpcurl-runner-container",
-					Image: "networld/grpcurl:latest",
+					Name: "grpcurl-runner-container",
+					// https://gallery.ecr.aws/a0j4q9e4/grpcurl-runner
+					Image: "public.ecr.aws/a0j4q9e4/grpcurl-runner:latest",
 					Command: []string{
 						"/bin/sh",
 						"-c",
