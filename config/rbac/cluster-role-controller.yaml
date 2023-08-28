@@ -187,6 +187,32 @@ rules:
   - patch
   - update
 - apiGroups:
+    - gateway.networking.k8s.io
+  resources:
+    - grpcroutes
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - gateway.networking.k8s.io
+  resources:
+    - grpcroutes/finalizers
+  verbs:
+    - update
+- apiGroups:
+    - gateway.networking.k8s.io
+  resources:
+    - grpcroutes/status
+  verbs:
+    - get
+    - patch
+    - update
+- apiGroups:
   - multicluster.x-k8s.io
   resources:
   - serviceexports
