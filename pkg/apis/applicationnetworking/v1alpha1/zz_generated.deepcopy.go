@@ -19,22 +19,22 @@ func (in *HealthCheckConfig) DeepCopyInto(out *HealthCheckConfig) {
 	}
 	if in.IntervalSeconds != nil {
 		in, out := &in.IntervalSeconds, &out.IntervalSeconds
-		*out = new(int32)
+		*out = new(int64)
 		**out = **in
 	}
 	if in.TimeoutSeconds != nil {
 		in, out := &in.TimeoutSeconds, &out.TimeoutSeconds
-		*out = new(int32)
+		*out = new(int64)
 		**out = **in
 	}
 	if in.HealthyThresholdCount != nil {
 		in, out := &in.HealthyThresholdCount, &out.HealthyThresholdCount
-		*out = new(int32)
+		*out = new(int64)
 		**out = **in
 	}
 	if in.UnhealthyThresholdCount != nil {
 		in, out := &in.UnhealthyThresholdCount, &out.UnhealthyThresholdCount
-		*out = new(int32)
+		*out = new(int64)
 		**out = **in
 	}
 	if in.StatusMatch != nil {
@@ -49,7 +49,7 @@ func (in *HealthCheckConfig) DeepCopyInto(out *HealthCheckConfig) {
 	}
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
-		*out = new(int32)
+		*out = new(int64)
 		**out = **in
 	}
 	if in.Protocol != nil {

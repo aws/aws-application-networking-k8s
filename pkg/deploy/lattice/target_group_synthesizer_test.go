@@ -25,6 +25,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -98,6 +99,7 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
+			v1alpha1.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 
 			svc := corev1.Service{
@@ -321,6 +323,7 @@ type sdkTGDef struct {
 	serviceExportExist       bool
 	HTTPRouteExist           bool
 	refedByHTTPRoute         bool
+	hasServiceArns           bool
 	serviceNetworkManagerErr error
 
 	expectDelete bool
@@ -378,13 +381,28 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 			wantDataStoreStatus:  "",
 		},
 		{
+			name: "Delete SDK TargetGroup since it is dangling with no service associated",
+			sdkTargetGroups: []sdkTGDef{
+				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
+					isSameVPC: true,
+					hasTags:   true, hasServiceExportTypeTag: false,
+					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: true,
+					hasServiceArns: false,
+					expectDelete:   true},
+			},
+			wantSynthesizerError: nil,
+			wantDataStoreError:   nil,
+			wantDataStoreStatus:  "",
+		},
+		{
 			name: "No need to delete SDK TargetGroup since it is referenced by a HTTPRoutes) ",
 			sdkTargetGroups: []sdkTGDef{
 				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
 					isSameVPC: true,
 					hasTags:   true, hasServiceExportTypeTag: false,
 					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: true,
-					expectDelete: false},
+					hasServiceArns: true,
+					expectDelete:   false},
 			},
 			wantSynthesizerError: nil,
 			wantDataStoreError:   nil,
@@ -501,6 +519,11 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 				tags[latticemodel.K8SHTTPRouteNameKey] = aws.String(routename)
 				tags[latticemodel.K8SHTTPRouteNamespaceKey] = aws.String(routenamespace)
 
+				serviceArns := []*string{}
+				if sdkTG.hasServiceArns {
+					serviceArns = append(serviceArns, aws.String("dummy"))
+				}
+
 				sdkTGReturned = append(sdkTGReturned,
 					targetGroupOutput{
 						getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
@@ -510,7 +533,9 @@ func Test_SynthesizeSDKTargetGroups(t *testing.T) {
 							Config: &vpclattice.TargetGroupConfig{
 								VpcIdentifier:   &vpc,
 								ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
-							}},
+							},
+							ServiceArns: serviceArns,
+						},
 						targetGroupTags: tagsOutput,
 					},
 				)
@@ -817,6 +842,7 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *te
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
+			v1alpha1.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 
 			svc := corev1.Service{

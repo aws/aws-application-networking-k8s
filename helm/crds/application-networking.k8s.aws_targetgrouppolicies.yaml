@@ -51,14 +51,14 @@ spec:
                   healthyThresholdCount:
                     description: The number of consecutive successful health checks
                       required before considering an unhealthy target healthy.
-                    format: int32
+                    format: int64
                     maximum: 10
                     minimum: 2
                     type: integer
                   intervalSeconds:
                     description: The approximate amount of time, in seconds, between
                       health checks of an individual target.
-                    format: int32
+                    format: int64
                     maximum: 300
                     minimum: 5
                     type: integer
@@ -69,7 +69,7 @@ spec:
                     description: The port used when performing health checks on targets.
                       If not specified, health check defaults to the port that a target
                       receives traffic on.
-                    format: int32
+                    format: int64
                     maximum: 65535
                     minimum: 1
                     type: integer
@@ -94,14 +94,14 @@ spec:
                   timeoutSeconds:
                     description: The amount of time, in seconds, to wait before reporting
                       a target as unhealthy.
-                    format: int32
+                    format: int64
                     maximum: 120
                     minimum: 1
                     type: integer
                   unhealthyThresholdCount:
                     description: The number of consecutive failed health checks required
                       before considering a target unhealthy.
-                    format: int32
+                    format: int64
                     maximum: 10
                     minimum: 2
                     type: integer

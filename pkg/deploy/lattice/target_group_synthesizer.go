@@ -58,9 +58,14 @@ func (t *TargetGroupSynthesizer) Synthesize(ctx context.Context) error {
 	 * TODO: resolve bug that this might delete other Route's TG before they have chance
 	 *       to be reconcile during controller restart
 	 */
-	if err := t.SynthesizeSDKTargetGroups(ctx); err != nil {
-		ret = LATTICE_RETRY
-	}
+	// This might conflict and try to delete other TGs in the middle of creation, because
+	// this is coming from TargetGroupStackDeployer, which can run before all rules are reconciled.
+	//
+	// Since the same cleaner logic is running from ServiceStackDeployer, we may not need this here.
+	//
+	//if err := t.SynthesizeSDKTargetGroups(ctx); err != nil {
+	//	ret = LATTICE_RETRY
+	//}
 
 	if ret != "" {
 		return errors.New(ret)
@@ -284,7 +289,11 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 			if route != nil {
 				tgName := latticestore.TargetGroupName(*srvName, *srvNamespace)
-				isUsed := t.isTargetGroupUsedByRoute(ctx, tgName, route)
+
+				// We have finished rule reconciliation at this point.
+				// If a target group under HTTPRoute does not have any service, it is stale.
+				isUsed := t.isTargetGroupUsedByRoute(ctx, tgName, route) &&
+					len(sdkTG.getTargetGroupOutput.ServiceArns) > 0
 				if isUsed {
 					t.log.Infof("Ignore TargetGroup(triggered by route) %v, %v since route object is found",
 						*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)

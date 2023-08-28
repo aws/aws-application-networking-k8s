@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"strings"
 )
 
 var _ = Describe("HTTPRoute Update", func() {
@@ -98,10 +99,10 @@ func checkTgs(service1 *corev1.Service, service2 *corev1.Service, expectedServic
 		Expect(err).To(BeNil())
 
 		for _, targetGroup := range targetGroups {
-			if lo.FromPtr(targetGroup.Name) == latticestore.TargetGroupName(service1.Name, service1.Namespace) {
+			if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service1.Name, service1.Namespace)) {
 				service1TgFound = true
 			}
-			if lo.FromPtr(targetGroup.Name) == latticestore.TargetGroupName(service2.Name, service2.Namespace) {
+			if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service2.Name, service2.Namespace)) {
 				service2TgFound = true
 			}
 		}

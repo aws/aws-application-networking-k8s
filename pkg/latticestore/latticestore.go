@@ -297,12 +297,21 @@ func (ds *LatticeDataStore) GetLatticeService(name string, namespace string) (La
 }
 
 // the max tg name length is 127
-func TargetGroupName(name string, namespace string) string {
-	return fmt.Sprintf("k8s-%s-%s", utils.Truncate(name, 20), utils.Truncate(namespace, 20))
+// worst case - k8s-(50)-(50)-https-http2 (117 chars)
+func TargetGroupName(name, namespace string) string {
+	return fmt.Sprintf("k8s-%s-%s",
+		utils.Truncate(name, 50),
+		utils.Truncate(namespace, 50),
+	)
 }
 
-func TargetGroupLongName(k8sName string, routeName string, vpcid string) string {
-	return fmt.Sprintf("%s-%s-%s", k8sName, utils.Truncate(routeName, 20), utils.Truncate(vpcid, 20))
+// worst case - (70)-(20)-(21)-https-http2 (125 chars)
+func TargetGroupLongName(defaultName, routeName, vpcId string) string {
+	return fmt.Sprintf("%s-%s-%s",
+		utils.Truncate(defaultName, 70),
+		utils.Truncate(routeName, 20),
+		utils.Truncate(vpcId, 21),
+	)
 }
 
 func LatticeServiceName(name string, namespace string) string {
