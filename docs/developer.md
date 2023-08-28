@@ -69,6 +69,7 @@ $kubectl apply -f config/crds/bases/k8s-gateway-v0.6.1.yaml
 kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceexports.yaml
 kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceimports.yaml
 kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
+kubectl apply -f config/crds/bases/application-networking.k8s.aws_targetgrouppolicies.yaml
 kubectl apply -f examples/gatewayclass.yaml
 ```
 
