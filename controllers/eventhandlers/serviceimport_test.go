@@ -27,7 +27,7 @@ func TestServiceImportEventHandler_MapToRoute(t *testing.T) {
 		}),
 	}
 	mockClient := mock_client.NewMockClient(c)
-	h := NewServiceImportEventHandler(gwlog.NewLogger(true), mockClient)
+	h := NewServiceImportEventHandler(gwlog.FallbackLogger, mockClient)
 	mockClient.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, routeList *gateway_api.HTTPRouteList, _ ...interface{}) error {
 			for _, route := range routes {

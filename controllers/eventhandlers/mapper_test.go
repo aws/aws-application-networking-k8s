@@ -102,7 +102,7 @@ func TestServiceToRoutes(t *testing.T) {
 		},
 	)
 
-	mapper := &resourceMapper{log: gwlog.NewLogger(true), client: mockClient}
+	mapper := &resourceMapper{log: gwlog.FallbackLogger, client: mockClient}
 	res := mapper.ServiceToRoutes(context.Background(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-service",
@@ -167,7 +167,7 @@ func TestTargetGroupPolicyToService(t *testing.T) {
 
 	for _, tt := range testCases {
 		mockClient := mock_client.NewMockClient(c)
-		mapper := &resourceMapper{log: gwlog.NewLogger(true), client: mockClient}
+		mapper := &resourceMapper{log: gwlog.FallbackLogger, client: mockClient}
 		if tt.serviceFound {
 			mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 		} else {

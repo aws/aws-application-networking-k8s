@@ -31,7 +31,7 @@ func TestServiceEventHandler_MapToRoute(t *testing.T) {
 		}),
 	}
 	mockClient := mock_client.NewMockClient(c)
-	h := NewServiceEventHandler(gwlog.NewLogger(true), mockClient)
+	h := NewServiceEventHandler(gwlog.FallbackLogger, mockClient)
 	mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, svc client.Object, _ ...interface{}) error {
 			svc.SetName("test-service")
@@ -87,7 +87,7 @@ func TestServiceEventHandler_MapToServiceExport(t *testing.T) {
 	defer c.Finish()
 
 	mockClient := mock_client.NewMockClient(c)
-	h := NewServiceEventHandler(gwlog.NewLogger(true), mockClient)
+	h := NewServiceEventHandler(gwlog.FallbackLogger, mockClient)
 	mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, svcOrSvcExport client.Object, _ ...interface{}) error {
 			svcOrSvcExport.SetName("test-service")
