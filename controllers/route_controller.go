@@ -37,7 +37,6 @@ import (
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/external-dns/endpoint"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
@@ -86,16 +85,14 @@ func RegisterAllRouteControllers(
 ) error {
 	mgrClient := mgr.GetClient()
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(log, mgrClient)
-	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceWithRoutesEvent(log, mgrClient)
-	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, mgrClient)
+	svcEventHandler := eventhandlers.NewServiceEventHandler(log, mgrClient)
 
 	routeInfos := []struct {
 		routeType      core.RouteType
 		gatewayApiType client.Object
-		eventMapFunc   handler.MapFunc
 	}{
-		{core.HttpRouteType, &gateway_api_v1beta1.HTTPRoute{}, tgpEventHandler.MapToHTTPRoute},
-		{core.GrpcRouteType, &gateway_api_v1alpha2.GRPCRoute{}, tgpEventHandler.MapToGRPCRoute},
+		{core.HttpRouteType, &gateway_api_v1beta1.HTTPRoute{}},
+		{core.GrpcRouteType, &gateway_api_v1alpha2.GRPCRoute{}},
 	}
 
 	for _, routeInfo := range routeInfos {
@@ -112,16 +109,17 @@ func RegisterAllRouteControllers(
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		}
 
-		svcImportEventHandler := eventhandlers.NewEqueueRequestServiceImportEvent(log, mgrClient, routeInfo.routeType)
+		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType).
 			Watches(&source.Kind{Type: &gateway_api_v1beta1.Gateway{}}, gwEventHandler).
-			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
-			Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler)
+			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToRoute(routeInfo.routeType)).
+			Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
+			Watches(&source.Kind{Type: &corev1.Endpoints{}}, svcEventHandler.MapToRoute(routeInfo.routeType))
 
 		if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
-			builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(routeInfo.eventMapFunc))
+			builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, svcEventHandler.MapToRoute(routeInfo.routeType))
 		} else {
 			if err != nil {
 				return err

@@ -40,7 +40,6 @@ import (
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // ServiceExportReconciler reconciles a ServiceExport object
@@ -87,15 +86,14 @@ func RegisterServiceExportController(
 		stackMarshaller:  stackMarshaller,
 	}
 
-	tgpEventHandler := eventhandlers.NewTargetGroupPolicyEventHandler(log, r.client)
-	svcExportEventsHandler := eventhandlers.NewEqueueRequestServiceWithExportEvent(log, r.client)
+	svcEventHandler := eventhandlers.NewServiceEventHandler(log, r.client)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&mcs_api.ServiceExport{}).
-		Watches(&source.Kind{Type: &corev1.Service{}}, svcExportEventsHandler)
+		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToServiceExport())
 
 	if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
-		builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, handler.EnqueueRequestsFromMapFunc(tgpEventHandler.MapToServiceExport))
+		builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, svcEventHandler.MapToServiceExport())
 	} else {
 		if err != nil {
 			return err
