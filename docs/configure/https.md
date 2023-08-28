@@ -113,8 +113,8 @@ spec:
         group: ""
         kind: Service
         name: my-parking-service # Put service name here
-    protocol: HTTP
-    protocolVersion: HTTPS
+    protocol: HTTPS
+    protocolVersion: HTTP1
 ```
 
 This will create VPC Lattice TargetGroup with HTTPS protocol option, which can receive TLS traffic.

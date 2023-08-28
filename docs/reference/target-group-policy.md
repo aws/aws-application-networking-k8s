@@ -23,9 +23,9 @@ However, the policy will not take effect unless the target is valid.
 
 ### Notes
 
-* Attaching TargetGroupPolicy to a resource that is already referenced by a route may result in a replacement
-of VPC Lattice TargetGroup resource.
-* Removing TargetGroupPolicy of a resource will roll back protocols to default setting (HTTP1/HTTP plaintext)
+* Attaching TargetGroupPolicy to a resource that is already referenced by a route will result in a replacement
+of VPC Lattice TargetGroup resource, except for health check updates.
+* Removing TargetGroupPolicy of a resource will roll back protocol configuration to default setting. (HTTP1/HTTP plaintext)
 
 |Field	|Description	|
 |---	|---	|
@@ -40,7 +40,7 @@ Appears on: TargetGroupPolicy
 
 TargetGroupPolicySpec defines the desired state of TargetGroupPolicy.
 
-Updates to certain fields of this configuration result in a replacement of VPC Lattice TargetGroup resource.
+Updates to this configuration result in a replacement of VPC Lattice TargetGroup resource, except for `healthCheck` field.
 
 |Field	| Description|
 |---	|---|
