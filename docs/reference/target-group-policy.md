@@ -18,8 +18,14 @@ The policy will not take effect if:
 * The resource is not referenced by any route
 * The resource is referenced by a route of unsupported type
 
-Attaching TargetGroupPolicy to a resource that is already referenced by a route may result in a replacement
+These restrictions are not forced; for example, users may create a policy that targets a service that is not created yet.
+However, the policy will not take effect unless the target is valid.
+
+### Notes
+
+* Attaching TargetGroupPolicy to a resource that is already referenced by a route may result in a replacement
 of VPC Lattice TargetGroup resource.
+* Removing TargetGroupPolicy of a resource will roll back protocols to default setting (HTTP1/HTTP plaintext)
 
 |Field	|Description	|
 |---	|---	|
