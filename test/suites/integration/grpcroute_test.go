@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -35,7 +34,7 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		testFramework.ExpectCreated(ctx, grpcBinDeployment, grpcBinService, grpcHelloWorldDeployment, grpcHelloWorldService)
 	})
 
-	It("GRPCRoute rules with no matches, it could invoke all services/methods of a grpcServer", func() {
+	It("GRPCRoute rules with no matches, client pod could invoke all services/methods of grpcBinService", func() {
 		grpcRoute = testFramework.NewGRPCRoute(k8snamespace, testGateway, []v1alpha2.GRPCRouteRule{
 			{
 				BackendRefs: []v1alpha2.GRPCBackendRef{
@@ -70,11 +69,10 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 			g.Expect(*rules[0].Match.HttpMatch.PathMatch.Match.Prefix).To(Equal("/"))
 		}).Should(Succeed())
 
-		fmt.Println("latticeService.DnsEntry.DomainName: ", latticeService.DnsEntry.DomainName)
 		grpcurlCmdOptions := test.RunGrpcurlCmdOptions{
 			GrpcServerHostName:  *latticeService.DnsEntry.DomainName,
 			GrpcServerPort:      "443",
-			Service:             " grpcbin.GRPCBin",
+			Service:             "grpcbin.GRPCBin",
 			Method:              "DummyUnary",
 			ReqParamsJsonString: `{ "f_string": "myTestString", "f_int32": 42, "f_bytes": "SGVsbG8gV29ybGQ="}`,
 			UseTLS:              true,
@@ -101,10 +99,8 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		Eventually(func(g Gomega) {
 			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stdoutStr).To(ContainSubstring("\"v\": " + strconv.Itoa(5+6)))
 		}).Should(Succeed())
-		Expect(err).To(BeNil())
-		Expect(stderrStr).To(BeEmpty())
-		Expect(stdoutStr).To(ContainSubstring("\"v\": " + strconv.Itoa(5+6)))
 
 		grpcurlCmdOptions = test.RunGrpcurlCmdOptions{
 			GrpcServerHostName:  *latticeService.DnsEntry.DomainName,
@@ -118,13 +114,12 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		Eventually(func(g Gomega) {
 			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stdoutStr).To(ContainSubstring(`"v": "Str1Str2"`))
 		}).Should(Succeed())
-		Expect(stderrStr).To(BeEmpty())
-		Expect(stdoutStr).To(ContainSubstring(`"v": "Str1Str2"`))
 	})
 
 	It("Update existing GRPCRoute to have only one new rule with gRPCMethod, gRPCService and header match, "+
-		"it can only invoke the matched gRPCMethod with correct headers", func() {
+		"client pod can only invoke the matched gRPCMethod with correct headers", func() {
 		Expect(grpcRoute).To(Not(BeNil()))
 		err := testFramework.Get(ctx, client.ObjectKeyFromObject(grpcRoute), grpcRoute)
 		Expect(err).To(BeNil())
@@ -192,7 +187,7 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 			GrpcServerPort:     "443",
 			Service:            "grpcbin.GRPCBin",
 			Method:             "HeadersUnary",
-			Headers: [][]string{
+			Headers: [][2]string{
 				{"test-key1", "test-value1"},
 				{"test-key2", "test-value2"},
 				{"test-key3", "test-value3"},
@@ -204,31 +199,30 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		Eventually(func(g Gomega) {
 			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stdoutStr).To(ContainSubstring(`:authority`))
+			g.Expect(stdoutStr).To(ContainSubstring(*latticeService.DnsEntry.DomainName))
+			g.Expect(stdoutStr).To(ContainSubstring(`test-key1`))
+			g.Expect(stdoutStr).To(ContainSubstring(`test-value1`))
 		}).Should(Succeed())
-		Expect(stderrStr).To(BeEmpty())
-		Expect(stdoutStr).To(ContainSubstring(`:authority`))
-		Expect(stdoutStr).To(ContainSubstring(*latticeService.DnsEntry.DomainName))
-		Expect(stdoutStr).To(ContainSubstring(`test-key1`))
-		Expect(stdoutStr).To(ContainSubstring(`test-value1`))
 
 		grpcurlCmdOptions = test.RunGrpcurlCmdOptions{
 			GrpcServerHostName: *latticeService.DnsEntry.DomainName,
 			GrpcServerPort:     "443",
 			Service:            "grpcbin.GRPCBin",
 			Method:             "HeadersUnary",
-			Headers: [][]string{
+			Headers: [][2]string{
 				{"test-key1", "test-value1"},
 				{"test-key2", "test-value2"},
 				{"test-key3", "invalid-value"},
 			},
 			UseTLS: true,
 		}
-		//Unhappy path: Verify client is NOT able to invoke grpcbin.GRPCBin/HeadersUnary method that has no matching headers
+		//Unhappy path: Verify client is NOT able to invoke grpcbin.GRPCBin/HeadersUnary method that has invalid headers matching
 		Eventually(func(g Gomega) {
 			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(Not(BeNil()))
+			g.Expect(stderrStr).To(ContainSubstring("Not Found"))
 		}).Should(Succeed())
-		Expect(stderrStr).To(ContainSubstring("Not Found"))
 
 		grpcurlCmdOptions = test.RunGrpcurlCmdOptions{
 			GrpcServerHostName:  *latticeService.DnsEntry.DomainName,
@@ -243,14 +237,14 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		Eventually(func(g Gomega) {
 			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(Not(BeNil()))
+			g.Expect(stderrStr).To(ContainSubstring("Not Found"))
 		}).Should(Succeed())
-		Expect(stderrStr).To(ContainSubstring("Not Found"))
 	})
 
 	It("Update existing GRPCRoute to have 2 rules: rule1 only has grpcService matching and no grpcMethod matching, "+
-		"it can invokes ALL grpcMethods of addsvc.Add service from grpcBinServer. "+
-		"The rule2 routes to another targetGroup grpcHelloWorldServer and without matching."+
-		"Expect this GRPCRoute(latticeService) is able to route traffic to 2 different k8sServices(targetGroups)", func() {
+		"client pod can invokes ALL grpcMethods of addsvc.Add service from grpcBinService. "+
+		"The rule2 backendRefs to another grpcHelloWorldService without matching."+
+		"Expect client pod can send traffic to these 2 different k8sServices(targetGroups)", func() {
 		err := testFramework.Get(ctx, client.ObjectKeyFromObject(grpcRoute), grpcRoute)
 		Expect(err).To(BeNil())
 		grpcRoute.Spec.Rules = []v1alpha2.GRPCRouteRule{
@@ -322,7 +316,7 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 			ReqParamsJsonString: `{"a": "Str1", "b": "Str2"}`,
 			UseTLS:              true,
 		}
-		//Happy path: Verify client is able to invoke methods of addsvc.Add grpcService
+		//Happy path: Verify client is able to invoke methods from `addsvc.Add` grpcService
 		var stdoutStr, stderrStr string
 		Eventually(func(g Gomega) {
 			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
@@ -342,9 +336,8 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		Eventually(func(g Gomega) {
 			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stdoutStr).To(ContainSubstring("\"v\": " + strconv.Itoa(5+6)))
 		}).Should(Succeed())
-		Expect(stderrStr).To(BeEmpty())
-		Expect(stdoutStr).To(ContainSubstring("\"v\": " + strconv.Itoa(5+6)))
 
 		grpcurlCmdOptions = test.RunGrpcurlCmdOptions{
 			GrpcServerHostName:  *latticeService.DnsEntry.DomainName,
@@ -358,9 +351,8 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		Eventually(func(g Gomega) {
 			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stdoutStr).To(ContainSubstring("\"message\": \"Hello myTestName\""))
 		}).Should(Succeed())
-		Expect(stderrStr).To(BeEmpty())
-		Expect(stdoutStr).To(ContainSubstring("\"message\": \"Hello myTestName\""))
 	})
 
 	AfterAll(func() {
