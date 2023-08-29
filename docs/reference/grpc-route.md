@@ -18,6 +18,7 @@ This allows you to specifically define and manage the routing of gRPC traffic wi
 
 **Limitations**:
 
+- **Listener Protocol**: The `GRPCRoute` sectionName must refer to an HTTPS listener in the parent `Gateway`.
 - **Service Export**: The `GRPCRoute` does not support integration with `ServiceExport`.
 - **Method Matches**: One method match is allowed within a single rule.
 - **Header Matches Limit**: A maximum of 5 header matches per rule is supported.
@@ -51,7 +52,7 @@ spec:
             service: helloworld.Greeter
             method: SayHello
       backendRefs:
-        - name: grpc-hello-server
+        - name: greeter-grpc-server
           kind: Service
           port: 443
 ```
@@ -64,7 +65,7 @@ In this example:
   The rule also specifies a header match condition, where traffic must have a header with the name `testKey1` and
   value `testValue1` for the routing rule to apply.
 - The second rule matches gRPC traffic for the service `helloworld.Greeter` and method `SayHello`, forwarding it to
-  the `grpc-hello-server` on port `443`.
+  the `greeter-grpc-server` on port `443`.
 
 ---
 

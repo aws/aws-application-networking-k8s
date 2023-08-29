@@ -20,7 +20,6 @@ routing rules using the Gateway API.
 1. **Apply the Gateway Configuration**:
 
    This YAML file contains the definition for a gateway with an HTTPS listener.
-   VPC Lattice requires listeners for gRPC traffic to use HTTPS protocol.
    ```
    kubectl apply -f examples/my-hotel-gateway-multi-listeners.yaml
    ```
