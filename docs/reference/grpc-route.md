@@ -9,12 +9,12 @@ This allows you to specifically define and manage the routing of gRPC traffic wi
 
 **Features**:
 
+- **Routing Traffic**: Enables routing gRPC traffic to servers within your Kubernetes cluster.
 - **Service and Method Matching**: The `GRPCRoute` allows for matching by:
-    - An exact gRPC service combined and method.
+    - An exact gRPC service and method.
     - An exact gRPC service without specifying a method.
     - All gRPC services and methods.
 - **Header Matching**: Enables matching based on specific headers in the gRPC request.
-- **Case Insensitivity**: All method matches are currently case-insensitive.
 
 **Limitations**:
 
@@ -23,6 +23,7 @@ This allows you to specifically define and manage the routing of gRPC traffic wi
 - **Method Matches**: One method match is allowed within a single rule.
 - **Header Matches Limit**: A maximum of 5 header matches per rule is supported.
 - **No Method Without Service**: Matching only by a gRPC method without specifying a service is not supported.
+- **Case Insensitivity**: All method matches are currently case-insensitive.
 
 ## Example Configuration:
 
