@@ -78,14 +78,13 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 			UseTLS:              true,
 		}
 
-		var stdoutStr, stderrStr string
 		Eventually(func(g Gomega) {
-			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
+			stdoutStr, stderrStr, err := testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stderrStr).To(BeEmpty())
+			g.Expect(stdoutStr).To(ContainSubstring(`"fString": "myTestString"`))
+			g.Expect(stdoutStr).To(ContainSubstring(`"fInt32": 42`))
 		}).Should(Succeed())
-		Expect(stderrStr).To(BeEmpty())
-		Expect(stdoutStr).To(ContainSubstring(`"fString": "myTestString"`))
-		Expect(stdoutStr).To(ContainSubstring(`"fInt32": 42`))
 
 		grpcurlCmdOptions = test.RunGrpcurlCmdOptions{
 			GrpcServerHostName:  *latticeService.DnsEntry.DomainName,
@@ -97,8 +96,9 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		}
 		//Happy path: Verify client is able to invoke addsvc.Add/Sum method
 		Eventually(func(g Gomega) {
-			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
+			stdoutStr, stderrStr, err := testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stderrStr).To(BeEmpty())
 			g.Expect(stdoutStr).To(ContainSubstring("\"v\": " + strconv.Itoa(5+6)))
 		}).Should(Succeed())
 
@@ -112,8 +112,9 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		}
 		//Happy path: Verify client is able to invoke addsvc.Add/Concat method
 		Eventually(func(g Gomega) {
-			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
+			stdoutStr, stderrStr, err := testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stderrStr).To(BeEmpty())
 			g.Expect(stdoutStr).To(ContainSubstring(`"v": "Str1Str2"`))
 		}).Should(Succeed())
 	})
@@ -195,10 +196,10 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 			UseTLS: true,
 		}
 		//Happy path: Verify client is able to invoke grpcbin.GRPCBin/HeadersUnary method with correct headers matching
-		var stdoutStr, stderrStr string
 		Eventually(func(g Gomega) {
-			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
+			stdoutStr, stderrStr, err := testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stderrStr).To(BeEmpty())
 			g.Expect(stdoutStr).To(ContainSubstring(`:authority`))
 			g.Expect(stdoutStr).To(ContainSubstring(*latticeService.DnsEntry.DomainName))
 			g.Expect(stdoutStr).To(ContainSubstring(`test-key1`))
@@ -219,7 +220,7 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		}
 		//Unhappy path: Verify client is NOT able to invoke grpcbin.GRPCBin/HeadersUnary method that has invalid headers matching
 		Eventually(func(g Gomega) {
-			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
+			_, stderrStr, err := testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(Not(BeNil()))
 			g.Expect(stderrStr).To(ContainSubstring("Not Found"))
 		}).Should(Succeed())
@@ -235,7 +236,7 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 
 		//Unhappy path: Verify client is NOT able to invoke grpcbin.GRPCBin/DummyUnary method that has no rule matches
 		Eventually(func(g Gomega) {
-			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
+			_, stderrStr, err := testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(Not(BeNil()))
 			g.Expect(stderrStr).To(ContainSubstring("Not Found"))
 		}).Should(Succeed())
@@ -317,13 +318,12 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 			UseTLS:              true,
 		}
 		//Happy path: Verify client is able to invoke methods from `addsvc.Add` grpcService
-		var stdoutStr, stderrStr string
 		Eventually(func(g Gomega) {
-			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
+			stdoutStr, stderrStr, err := testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stderrStr).To(BeEmpty())
+			g.Expect(stdoutStr).To(ContainSubstring(`"v": "Str1Str2"`))
 		}).Should(Succeed())
-		Expect(stderrStr).To(BeEmpty())
-		Expect(stdoutStr).To(ContainSubstring(`"v": "Str1Str2"`))
 
 		grpcurlCmdOptions = test.RunGrpcurlCmdOptions{
 			GrpcServerHostName:  *latticeService.DnsEntry.DomainName,
@@ -334,8 +334,9 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 			UseTLS:              true,
 		}
 		Eventually(func(g Gomega) {
-			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
+			stdoutStr, stderrStr, err := testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stderrStr).To(BeEmpty())
 			g.Expect(stdoutStr).To(ContainSubstring("\"v\": " + strconv.Itoa(5+6)))
 		}).Should(Succeed())
 
@@ -349,8 +350,9 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		}
 		//Happy path: Verify client is able to invoke methods of helloworld.Greeter that from another grpc-helloworld-server(targetGroup)
 		Eventually(func(g Gomega) {
-			stdoutStr, stderrStr, err = testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
+			stdoutStr, stderrStr, err := testFramework.RunGrpcurlCmd(grpcurlCmdOptions)
 			g.Expect(err).To(BeNil())
+			g.Expect(stderrStr).To(BeEmpty())
 			g.Expect(stdoutStr).To(ContainSubstring("\"message\": \"Hello myTestName\""))
 		}).Should(Succeed())
 	})

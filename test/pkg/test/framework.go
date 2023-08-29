@@ -699,7 +699,7 @@ func (env *Framework) GetLatticeServiceHttpsListenerNonDefaultRules(ctx context.
 		return nil, err
 	}
 	nonDefaultRules := utils.SliceFilter(listRulesResp.Items, func(rule *vpclattice.RuleSummary) bool {
-		return rule.IsDefault != nil && *rule.IsDefault == true
+		return rule.IsDefault != nil && *rule.IsDefault == false
 	})
 
 	nonDefaultRuleIds := utils.SliceMap(nonDefaultRules, func(rule *vpclattice.RuleSummary) *string {
