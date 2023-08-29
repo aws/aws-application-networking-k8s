@@ -110,7 +110,7 @@ func (c *defaultCloud) IsArnManaged(arn string) (bool, error) {
 	tagsReq := &vpclattice.ListTagsForResourceInput{ResourceArn: &arn}
 	resp, err := c.lattice.ListTagsForResource(tagsReq)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
 	isManaged := c.ContainsManagedBy(resp.Tags)
 	return isManaged, nil

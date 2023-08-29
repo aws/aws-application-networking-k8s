@@ -75,7 +75,8 @@ func TestIsArnManaged(t *testing.T) {
 	t.Run("error", func(t *testing.T) {
 		lat.EXPECT().ListTagsForResource(gomock.Any()).
 			Return(nil, errors.New(":("))
-		_, err := cl.IsArnManaged("arn")
-		assert.NotNil(t, err)
+		managed, err := cl.IsArnManaged("arn")
+		assert.Nil(t, err)
+		assert.False(t, managed)
 	})
 }
