@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 const (
@@ -464,6 +465,10 @@ func getAttachedTargetGroupPolicy(ctx context.Context, k8sClient client.Client, 
 		Namespace: svcNamespace,
 	})
 	if err != nil {
+		if meta.IsNoMatchError(err) {
+			// CRD does not exist
+			return nil, nil
+		}
 		return nil, err
 	}
 	for _, policy := range policyList.Items {

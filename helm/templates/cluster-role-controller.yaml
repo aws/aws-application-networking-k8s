@@ -292,7 +292,7 @@ rules:
   - update
   - watch
 - apiGroups:
-    - externaldns.k8s.io
+    - application-networking.k8s.aws
   resources:
     - targetgrouppolicies
   verbs:
@@ -304,7 +304,7 @@ rules:
     - update
     - watch
 - apiGroups:
-    - externaldns.k8s.io
+    - application-networking.k8s.aws
   resources:
     - targetgrouppolicies/finalizers
   verbs:
