@@ -1,4 +1,4 @@
-# Get Start Using the AWS Gateway API Controller
+# Getting Started with AWS Gateway API Controller
 
 Once you have [deployed the AWS Gateway API Controller](deploy.md), this guide helps you get started using the controller.
 
