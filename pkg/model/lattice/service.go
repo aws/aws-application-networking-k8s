@@ -14,8 +14,9 @@ type Service struct {
 }
 
 type ServiceSpec struct {
-	Name                string    `json:"name"`
-	Namespace           string    `json:"namespace"`
+	Name                string `json:"name"`
+	Namespace           string `json:"namespace"`
+	RouteType           core.RouteType
 	Protocols           []*string `json:"protocols"`
 	ServiceNetworkNames []string  `json:"servicenetworkhname"`
 	CustomerDomainName  string    `json:"customerdomainname"`
