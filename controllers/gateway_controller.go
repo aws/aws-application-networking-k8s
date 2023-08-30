@@ -77,7 +77,7 @@ func RegisterGatewayController(
 	evtRec := mgr.GetEventRecorderFor("gateway")
 
 	modelBuilder := gateway.NewServiceNetworkModelBuilder()
-	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, mgrClient, datastore)
+	stackDeployer := deploy.NewServiceNetworkStackDeployer(log, cloud, mgrClient, datastore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	r := &GatewayReconciler{
@@ -93,7 +93,7 @@ func RegisterGatewayController(
 		stackMarshaller:  stackMarshaller,
 	}
 
-	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(mgrClient)
+	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(log, mgrClient)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gateway_api.Gateway{}).
 		Watches(

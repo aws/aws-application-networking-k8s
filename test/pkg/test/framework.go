@@ -16,6 +16,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
@@ -34,11 +36,13 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"strings"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 func init() {
@@ -86,7 +90,7 @@ func NewFramework(ctx context.Context, testNamespace string) *Framework {
 	controllerRuntimeConfig := controllerruntime.GetConfigOrDie()
 	framework := &Framework{
 		Client:                              lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: scheme})),
-		LatticeClient:                       services.NewDefaultLattice(session.Must(session.NewSession()), config.Region), // region is currently hardcoded
+		LatticeClient:                       services.NewDefaultLattice(gwlog.FallbackLogger, session.Must(session.NewSession()), config.Region), // region is currently hardcoded
 		GrpcurlRunner:                       &v1.Pod{},
 		ctx:                                 ctx,
 		k8sScheme:                           scheme,

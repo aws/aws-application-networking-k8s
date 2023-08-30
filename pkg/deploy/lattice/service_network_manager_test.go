@@ -3,15 +3,20 @@ package lattice
 import (
 	"context"
 	"errors"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	"testing"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 // ServiceNetwork does not exist before,happy case.
@@ -49,7 +54,7 @@ func Test_CreateServiceNetwork_MeshNotExist_NoNeedToAssociate(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(meshCreateOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.Nil(t, err)
@@ -101,7 +106,7 @@ func Test_CreateServiceNetwork_MeshNotExist_NeedToAssociate(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.Nil(t, err)
@@ -136,7 +141,7 @@ func Test_CreateServiceNetwork_ListFailed(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, errors.New("ERROR"))
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.NotNil(t, err)
@@ -187,7 +192,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.NotNil(t, err)
@@ -237,7 +242,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.NotNil(t, err)
@@ -286,7 +291,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.Nil(t, err)
@@ -338,7 +343,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_AssociateToNotAssociate(t *testi
 
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	_, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
@@ -400,7 +405,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.Nil(t, err)
@@ -464,7 +469,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *te
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.Nil(t, err)
@@ -517,7 +522,7 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFa
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -569,7 +574,7 @@ func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCr
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -621,7 +626,7 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDe
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -670,7 +675,7 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationReturnsE
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, errors.New("ERROR"))
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -713,7 +718,7 @@ func Test_CreateMesh_MeshNotExist_MeshCreateFailed(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().CreateServiceNetworkWithContext(ctx, meshCreateInput).Return(meshCreateOutput, errors.New("ERROR"))
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.Create(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -733,7 +738,7 @@ func Test_DeleteMesh_MeshNotExist(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	err := meshManager.Delete(ctx, "test")
 
 	assert.Nil(t, err)
@@ -772,7 +777,7 @@ func Test_DeleteMesh_MeshExistsNoAssociation(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkWithContext(ctx, deleteMeshInout).Return(deleteMeshOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	err := meshManager.Delete(ctx, "test")
 
 	assert.Nil(t, err)
@@ -827,7 +832,7 @@ func Test_DeleteMesh_MeshExistsAssociatedWithVPC_Deleting(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().DeleteServiceNetworkVpcAssociationWithContext(ctx, deleteServiceNetworkVpcAssociationInput).Return(deleteServiceNetworkVpcAssociationOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	err := meshManager.Delete(ctx, "test")
 
 	assert.NotNil(t, err)
@@ -875,7 +880,7 @@ func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(snTagsOuput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	err := meshManager.Delete(ctx, "test")
 
 	assert.NotNil(t, err)
@@ -918,7 +923,7 @@ func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC_NotCreatedByVPC(t *testing
 	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	err := meshManager.Delete(ctx, "test")
 
 	assert.Nil(t, err)
@@ -965,7 +970,7 @@ func Test_DeleteMesh_MeshExistsAssociatedWithOtherVPC_CreatedByVPC(t *testing.T)
 
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	err := meshManager.Delete(ctx, "test")
 
 	assert.NotNil(t, err)
@@ -997,7 +1002,7 @@ func Test_ListMesh_MeshExists(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	meshList, err := meshManager.List(ctx)
 
 	assert.Nil(t, err)
@@ -1015,7 +1020,7 @@ func Test_ListMesh_NoMesh(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
 
-	meshManager := NewDefaultServiceNetworkManager(mockCloud)
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	meshList, err := meshManager.List(ctx)
 
 	assert.Nil(t, err)

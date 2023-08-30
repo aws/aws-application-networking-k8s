@@ -3,11 +3,12 @@ package aws
 import (
 	"fmt"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 const (
@@ -64,7 +65,7 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig) (Cloud, error) {
 		}
 	})
 
-	lattice := services.NewDefaultLattice(sess, cfg.Region)
+	lattice := services.NewDefaultLattice(log, sess, cfg.Region)
 	cl := NewDefaultCloud(lattice, cfg)
 	return cl, nil
 }

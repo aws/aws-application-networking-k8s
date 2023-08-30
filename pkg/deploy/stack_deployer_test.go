@@ -2,16 +2,18 @@ package deploy
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/types"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -63,7 +65,7 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 	deployer := &LatticeServiceStackDeployer{
 		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
-		k8sclient:             mockClient,
+		k8sClient:             mockClient,
 		latticeServiceManager: mockServiceManager,
 		targetGroupManager:    mockTargetGroupManager,
 		listenerManager:       mockListenerManager,
@@ -115,7 +117,7 @@ func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
 	deployer := &LatticeServiceStackDeployer{
 		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
-		k8sclient:             mockClient,
+		k8sClient:             mockClient,
 		latticeServiceManager: mockServiceManager,
 		targetGroupManager:    mockTargetGroupManager,
 		targetsManager:        mockTargetsManager,
@@ -166,7 +168,7 @@ func Test_latticeServiceStackDeployer_DeleteService(t *testing.T) {
 	deployer := &LatticeServiceStackDeployer{
 		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
-		k8sclient:             mockClient,
+		k8sClient:             mockClient,
 		latticeServiceManager: mockServiceManager,
 		targetGroupManager:    mockTargetGroupManager,
 		listenerManager:       mockListenerManager,
@@ -220,7 +222,7 @@ func Test_latticeServiceStackDeployer_DeleteAllResources(t *testing.T) {
 	deployer := &LatticeServiceStackDeployer{
 		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
-		k8sclient:             mockClient,
+		k8sClient:             mockClient,
 		latticeServiceManager: mockServiceManager,
 		targetGroupManager:    mockTargetGroupManager,
 		listenerManager:       mockListenerManager,

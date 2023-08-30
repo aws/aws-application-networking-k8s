@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 /*
@@ -67,7 +68,7 @@ func Test_RegisterTargets_RegisterSuccessfully(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
+	targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &createInput)
 
 	assert.Nil(t, err)
@@ -90,7 +91,7 @@ func Test_RegisterTargets_TGNotExist(t *testing.T) {
 	latticeDataStore := latticestore.NewLatticeDataStore()
 	mockCloud := mocks_aws.NewMockCloud(c)
 
-	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
+	targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &createInput)
 
 	assert.NotNil(t, err)
@@ -143,7 +144,7 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, errors.New("Register_Targets_Failed"))
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
+	targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &planToRegister)
 
 	assert.NotNil(t, err)
@@ -227,7 +228,7 @@ func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, &registerTargetsInput).Return(registerTargetsOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
+	targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &planToRegister)
 
 	assert.NotNil(t, err)

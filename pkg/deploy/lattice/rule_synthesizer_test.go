@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func Test_SynthesizeRule(t *testing.T) {
@@ -274,7 +275,7 @@ func Test_SynthesizeRule(t *testing.T) {
 			mockRuleManager.EXPECT().Update(ctx, gomock.Any())
 		}
 
-		synthesizer := NewRuleSynthesizer(mockRuleManager, stack, ds)
+		synthesizer := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleManager, stack, ds)
 
 		err := synthesizer.Synthesize(ctx)
 
@@ -391,7 +392,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 
 	}
 
-	synthesizer := NewRuleSynthesizer(mockRuleManager, stack, ds)
+	synthesizer := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleManager, stack, ds)
 
 	synthesizer.Synthesize(ctx)
 

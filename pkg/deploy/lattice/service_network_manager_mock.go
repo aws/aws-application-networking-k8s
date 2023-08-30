@@ -36,32 +36,32 @@ func (m *MockServiceNetworkManager) EXPECT() *MockServiceNetworkManagerMockRecor
 }
 
 // Create mocks base method.
-func (m *MockServiceNetworkManager) Create(ctx context.Context, service_network *lattice.ServiceNetwork) (lattice.ServiceNetworkStatus, error) {
+func (m *MockServiceNetworkManager) Create(ctx context.Context, serviceNetwork *lattice.ServiceNetwork) (lattice.ServiceNetworkStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", ctx, service_network)
+	ret := m.ctrl.Call(m, "Create", ctx, serviceNetwork)
 	ret0, _ := ret[0].(lattice.ServiceNetworkStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Create indicates an expected call of Create.
-func (mr *MockServiceNetworkManagerMockRecorder) Create(ctx, service_network interface{}) *gomock.Call {
+func (mr *MockServiceNetworkManagerMockRecorder) Create(ctx, serviceNetwork interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockServiceNetworkManager)(nil).Create), ctx, service_network)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockServiceNetworkManager)(nil).Create), ctx, serviceNetwork)
 }
 
 // Delete mocks base method.
-func (m *MockServiceNetworkManager) Delete(ctx context.Context, service_network string) error {
+func (m *MockServiceNetworkManager) Delete(ctx context.Context, serviceNetwork string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", ctx, service_network)
+	ret := m.ctrl.Call(m, "Delete", ctx, serviceNetwork)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockServiceNetworkManagerMockRecorder) Delete(ctx, service_network interface{}) *gomock.Call {
+func (mr *MockServiceNetworkManagerMockRecorder) Delete(ctx, serviceNetwork interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockServiceNetworkManager)(nil).Delete), ctx, service_network)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockServiceNetworkManager)(nil).Delete), ctx, serviceNetwork)
 }
 
 // List mocks base method.

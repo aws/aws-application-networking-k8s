@@ -11,16 +11,19 @@ import (
 	"testing"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 var namespaceName = types.NamespacedName{
@@ -111,7 +114,7 @@ func Test_AddListener(t *testing.T) {
 		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
-		listenerManager := NewListenerManager(mockCloud, latticeDataStore)
+		listenerManager := NewListenerManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 
 		var serviceID = "serviceID"
 		var serviceARN = "serviceARN"
@@ -236,7 +239,7 @@ func Test_ListListener(t *testing.T) {
 		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
-		listenerManager := NewListenerManager(mockCloud, latticeDataStore)
+		listenerManager := NewListenerManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 
 		serviceID := "service1-ID"
 		listenerListInput := vpclattice.ListListenersInput{
@@ -288,7 +291,7 @@ func Test_DeleteListerner(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().DeleteListener(&listenerDeleteInput).Return(&listenerDeleteOuput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	listenerManager := NewListenerManager(mockCloud, latticeDataStore)
+	listenerManager := NewListenerManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 
 	listenerManager.Delete(ctx, listenerID, serviceID)
 

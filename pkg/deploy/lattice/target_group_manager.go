@@ -4,18 +4,18 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/golang/glog"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"fmt"
+	"strings"
+
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"strings"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type TargetGroupManager interface {
@@ -26,11 +26,13 @@ type TargetGroupManager interface {
 }
 
 type defaultTargetGroupManager struct {
+	log   gwlog.Logger
 	cloud lattice_aws.Cloud
 }
 
-func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
+func NewTargetGroupManager(log gwlog.Logger, cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 	return &defaultTargetGroupManager{
+		log:   log,
 		cloud: cloud,
 	}
 }
@@ -68,7 +70,7 @@ func getLatticeTGName(targetGroup *latticemodel.TargetGroup) string {
 //	TG is TargetGroupStatusActive
 func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error) {
 
-	glog.V(6).Infof("Create Target Group API call for name %s \n", targetGroup.Spec.Name)
+	s.log.Infof("Create Target Group API call for name %s", targetGroup.Spec.Name)
 
 	latticeTGName := getLatticeTGName(targetGroup)
 	// check if exists
@@ -91,7 +93,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 		return latticemodel.TargetGroupStatus{TargetGroupARN: aws.StringValue(tgSummary.Arn), TargetGroupID: aws.StringValue(tgSummary.Id)}, nil
 	}
 
-	glog.V(6).Infof("create targetgroup API here %v\n", targetGroup)
+	s.log.Infof("create targetgroup API here %v", targetGroup)
 	port := int64(targetGroup.Spec.Config.Port)
 
 	ipAddressType := &targetGroup.Spec.Config.IpAddressType
@@ -131,10 +133,10 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 	}
 
 	resp, err := vpcLatticeSess.CreateTargetGroupWithContext(ctx, &createTargetGroupInput)
-	glog.V(2).Infof("create target group >>>> req [%v], resp[%v] err[%v]\n", createTargetGroupInput, resp, err)
+	s.log.Debugf("create target group >>>> req [%v], resp[%v] err[%v]", createTargetGroupInput, resp, err)
 
 	if err != nil {
-		glog.V(6).Infof("fail to create target group %v \n", err)
+		s.log.Infof("fail to create target group %v", err)
 		return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
 	} else {
 		tgArn := aws.StringValue(resp.Arn)
@@ -157,7 +159,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 }
 
 func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error) {
-	glog.V(6).Infof("Create Lattice Target Group API call for name %s \n", targetGroup.Spec.Name)
+	s.log.Infof("Create Lattice Target Group API call for name %s", targetGroup.Spec.Name)
 
 	// check if exists
 	tgSummary, err := s.findTargetGroup(ctx, targetGroup)
@@ -172,10 +174,10 @@ func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *lattic
 }
 
 func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *latticemodel.TargetGroup) error {
-	glog.V(6).Infof("Manager: Deleting target group %v \n", targetGroup)
+	s.log.Infof("Manager: Deleting target group %v", targetGroup)
 
 	if targetGroup.Spec.LatticeID == "" {
-		glog.V(6).Info("TargetGroupManager: Delete API ignored for empty LatticeID\n")
+		s.log.Info("TargetGroupManager: Delete API ignored for empty LatticeID")
 		return nil
 	}
 
@@ -184,14 +186,14 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 	listTargetsInput := vpclattice.ListTargetsInput{
 		TargetGroupIdentifier: &targetGroup.Spec.LatticeID,
 	}
-	glog.V(6).Infof("TG manager list, listReq %v\n", listTargetsInput)
+	s.log.Infof("TG manager list, listReq %v", listTargetsInput)
 	listResp, err := vpcLatticeSess.ListTargetsAsList(ctx, &listTargetsInput)
-	glog.V(6).Infof("TG manager delete,  listResp %v, err: %v \n", listResp, err)
+	s.log.Infof("TG manager delete,  listResp %v, err: %v", listResp, err)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == vpclattice.ErrCodeResourceNotFoundException {
 				// already deleted in lattice, this is OK
-				glog.V(6).Infof("Target group already deleted %v \n", targetGroup.Spec.LatticeID)
+				s.log.Infof("Target group already deleted %v", targetGroup.Spec.LatticeID)
 				err = nil
 			}
 		}
@@ -204,7 +206,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 		var targets []*vpclattice.Target
 		for _, t := range listResp {
 			if t.Status != nil && *t.Status != vpclattice.TargetStatusUnused {
-				glog.V(6).Infof("TargetGroupManager: The targetGroup [%v] has non-Unused status target(s), which means this targetGroup is still in use by latticeService, it cannot be deleted now\n", targetGroup.Spec.LatticeID)
+				s.log.Infof("TargetGroupManager: The targetGroup [%v] has non-Unused status target(s), which means this targetGroup is still in use by latticeService, it cannot be deleted now", targetGroup.Spec.LatticeID)
 				// Before call the defaultTargetGroupManager.Delete(), we always call the latticeServiceManager.Delete() first,
 				//  *t.Status != vpclattice.TargetStatusUnused means previous delete latticeService still in the progress, we could wait for 20 seconds and then retry
 				return errors.New(LATTICE_RETRY)
@@ -222,16 +224,16 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 				TargetGroupIdentifier: &targetGroup.Spec.LatticeID,
 				Targets:               targets,
 			}
-			glog.V(6).Infof("TG manager deregister: Input : %v\n", deRegisterInput)
+			s.log.Infof("TG manager deregister: Input : %v", deRegisterInput)
 			deRegResp, err := vpcLatticeSess.DeregisterTargetsWithContext(ctx, &deRegisterInput)
-			glog.V(6).Infof("manager deregister resp %v err %v \n", deRegResp, err)
+			s.log.Infof("manager deregister resp %v err %v", deRegResp, err)
 			if err != nil {
 				return err
 			}
 
 			isDeRegRespUnsuccessful := len(deRegResp.Unsuccessful) > 0
 			if isDeRegRespUnsuccessful {
-				glog.V(6).Infof("Targets deregister unsuccessfully, will retry later \n")
+				s.log.Infof("Targets deregister unsuccessfully, will retry later")
 				return errors.New(LATTICE_RETRY)
 			}
 		}
@@ -245,15 +247,15 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case vpclattice.ErrCodeResourceNotFoundException:
-				glog.V(6).Infof("Target group already deleted %v \n", targetGroup.Spec.LatticeID)
+				s.log.Infof("Target group already deleted %v", targetGroup.Spec.LatticeID)
 				err = nil
 				break
 			default:
-				glog.V(6).Infof("vpcLatticeSess.DeleteTargetGroupWithContext() return error %v \n", err)
+				s.log.Infof("vpcLatticeSess.DeleteTargetGroupWithContext() return error %v", err)
 			}
 		}
 	}
-	glog.V(2).Infof("TGManager delTGInput >>>> %v delTGResp :%v, err %v \n", deleteTGInput, delResp, err)
+	s.log.Debugf("TGManager delTGInput >>>> %v delTGResp :%v, err %v", deleteTGInput, delResp, err)
 
 	return err
 }
@@ -268,7 +270,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 	var tgList []targetGroupOutput
 	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
 	resp, err := vpcLatticeSess.ListTargetGroupsAsList(ctx, &targetGroupListInput)
-	glog.V(6).Infof("ManagerList: %v, err: %v \n", resp, err)
+	s.log.Infof("ManagerList: %v, err: %v", resp, err)
 	if err != nil {
 		return tgList, err
 	}
@@ -279,12 +281,12 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 		}
 
 		tgOutput, err := vpcLatticeSess.GetTargetGroupWithContext(ctx, &tgInput)
-		//glog.V(6).Infof("MangerTG: tgOUtput %v err %v \n", tgOutput, err)
+		//s.log.Infof("MangerTG: tgOUtput %v err %v", tgOutput, err)
 		if err != nil {
 			continue
 		}
 
-		//glog.V(6).Infof("Manager-List: tg-vpc %v , config.vpc %v\n", aws.StringValue(tgOutput.Config.VpcId), config.VpcID)
+		//s.log.Infof("Manager-List: tg-vpc %v , config.vpc %v", aws.StringValue(tgOutput.Config.VpcId), config.VpcID)
 
 		if tgOutput.Config != nil && aws.StringValue(tgOutput.Config.VpcIdentifier) == config.VpcID {
 			// retrieve target group tags
@@ -295,7 +297,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 
 			tagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, &tagsInput)
 
-			glog.V(6).Infof("tagsOutput %v,  err: %v", tagsOutput, err)
+			s.log.Infof("tagsOutput %v,  err: %v", tagsOutput, err)
 
 			if err != nil {
 				// setting it to nil, so the caller knows there is tag resource associated to this target group
@@ -357,10 +359,10 @@ func (s *defaultTargetGroupManager) findTargetGroup(ctx context.Context, targetG
 	resp, err := vpcLatticeSess.ListTargetGroupsAsList(ctx, &targetGroupListInput)
 
 	if err == nil {
-		glog.V(6).Infof("findTargetGroup: resp %v \n", resp)
+		s.log.Infof("findTargetGroup: resp %v", resp)
 		for _, r := range resp {
 			if isNameOfTargetGroup(targetGroup, *r.Name) {
-				glog.V(6).Info("targetgroup ", *r.Name, " already exists with arn ", *r.Arn, "\n")
+				s.log.Info("targetgroup ", *r.Name, " already exists with arn ", *r.Arn, "")
 				status := aws.StringValue(r.Status)
 				switch status {
 				case vpclattice.TargetGroupStatusCreateInProgress:
@@ -377,7 +379,7 @@ func (s *defaultTargetGroupManager) findTargetGroup(ctx context.Context, targetG
 			}
 		}
 	} else {
-		glog.V(6).Infof("findTargetGroup, listTargetGroupsAsList failed err %v\n", err)
+		s.log.Infof("findTargetGroup, listTargetGroupsAsList failed err %v", err)
 		return nil, err
 	}
 	return nil, nil

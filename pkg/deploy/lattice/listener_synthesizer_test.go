@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 // PortNumberPtr translates an int to a *PortNumber
@@ -161,7 +162,7 @@ func Test_SynthesizeListener(t *testing.T) {
 
 		}
 
-		synthesizer := NewListenerSynthesizer(mockListenerManager, stack, ds)
+		synthesizer := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerManager, stack, ds)
 
 		err := synthesizer.Synthesize(ctx)
 

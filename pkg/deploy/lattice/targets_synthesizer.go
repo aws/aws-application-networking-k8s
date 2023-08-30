@@ -4,16 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
-func NewTargetsSynthesizer(cloud lattice_aws.Cloud, tgManager TargetsManager, stack core.Stack, latticeDataStore *latticestore.LatticeDataStore) *targetsSynthesizer {
+func NewTargetsSynthesizer(
+	log gwlog.Logger,
+	cloud lattice_aws.Cloud,
+	tgManager TargetsManager,
+	stack core.Stack,
+	latticeDataStore *latticestore.LatticeDataStore,
+) *targetsSynthesizer {
 	return &targetsSynthesizer{
+		log:              log,
 		cloud:            cloud,
 		targetsManager:   tgManager,
 		stack:            stack,
@@ -22,6 +29,7 @@ func NewTargetsSynthesizer(cloud lattice_aws.Cloud, tgManager TargetsManager, st
 }
 
 type targetsSynthesizer struct {
+	log              gwlog.Logger
 	cloud            lattice_aws.Cloud
 	targetsManager   TargetsManager
 	stack            core.Stack
@@ -32,7 +40,7 @@ func (t *targetsSynthesizer) Synthesize(ctx context.Context) error {
 	var resTargets []*latticemodel.Targets
 
 	t.stack.ListResources(&resTargets)
-	glog.V(6).Infof("Synthesize Targets: %v \n", resTargets)
+	t.log.Infof("Synthesize Targets: %v", resTargets)
 
 	return t.SynthesizeTargets(ctx, resTargets)
 
@@ -44,8 +52,8 @@ func (t *targetsSynthesizer) SynthesizeTargets(ctx context.Context, resTargets [
 		err := t.targetsManager.Create(ctx, targets)
 
 		if err != nil {
-			errmsg := fmt.Sprintf("TargetSynthesize: Failed to create targets :%v , err:%v\n", targets, err)
-			glog.V(6).Infof("Errmsg: %s \n", errmsg)
+			errmsg := fmt.Sprintf("TargetSynthesize: Failed to create targets :%v , err:%v", targets, err)
+			t.log.Infof("Errmsg: %s", errmsg)
 			return errors.New(errmsg)
 
 		}

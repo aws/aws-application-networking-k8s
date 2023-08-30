@@ -7,8 +7,6 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/golang/glog"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -129,6 +127,7 @@ func (t *targetGroupModelBuildTask) buildModel(ctx context.Context) error {
 // triggered from service exports/targetgroups
 func (t *targetGroupModelBuildTask) BuildTargets(ctx context.Context) error {
 	targetTask := &latticeTargetsModelBuildTask{
+		log:         t.log,
 		client:      t.client,
 		tgName:      t.serviceExport.Name,
 		tgNamespace: t.serviceExport.Namespace,
@@ -166,6 +165,7 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 			}
 
 			targetTask := &latticeTargetsModelBuildTask{
+				log:            t.log,
 				client:         t.client,
 				tgName:         string(backendRef.Name()),
 				tgNamespace:    backendNamespace,
@@ -513,8 +513,6 @@ func parseHealthCheckConfig(tgp *v1alpha1.TargetGroupPolicy) *vpclattice.HealthC
 
 func buildTargetGroupIpAdressType(svc *corev1.Service) (string, error) {
 	ipFamilies := svc.Spec.IPFamilies
-
-	glog.V(6).Infof("buildTargetGroupIpAddressType ipFamilies: %v\n", ipFamilies)
 
 	if len(ipFamilies) != 1 {
 		return "", errors.New("Lattice Target Group only support single stack ip addresses")

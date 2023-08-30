@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -24,31 +24,37 @@ type ListenerManager interface {
 }
 
 type defaultListenerManager struct {
+	log              gwlog.Logger
 	cloud            lattice_aws.Cloud
 	latticeDataStore *latticestore.LatticeDataStore
 }
 
-func NewListenerManager(cloud lattice_aws.Cloud, latticeDataStore *latticestore.LatticeDataStore) *defaultListenerManager {
+func NewListenerManager(
+	log gwlog.Logger,
+	cloud lattice_aws.Cloud,
+	latticeDataStore *latticestore.LatticeDataStore,
+) *defaultListenerManager {
 	return &defaultListenerManager{
+		log:              log,
 		cloud:            cloud,
 		latticeDataStore: latticeDataStore,
 	}
 }
 
 func (s *defaultListenerManager) Create(ctx context.Context, listener *latticemodel.Listener) (latticemodel.ListenerStatus, error) {
-	glog.V(6).Infof("Creating listener >>>> %v \n", listener)
+	s.log.Infof("Creating listener >>>> %v", listener)
 
 	serviceStatus, err := s.latticeDataStore.GetLatticeService(listener.Spec.Name, listener.Spec.Namespace)
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Service %v not found during listener creation", listener.Spec)
-		glog.V(6).Infof("Error during create listner %s \n", errmsg)
+		s.log.Infof("Error during create listner %s", errmsg)
 		return latticemodel.ListenerStatus{}, errors.New(errmsg)
 	}
 
 	lis, err := s.findListenerByNamePort(ctx, serviceStatus.ID, listener.Spec.Port)
 
-	glog.V(6).Infof("findListenerByNamePort %v , lisenter %v error %v\n", listener, lis, err)
+	s.log.Infof("findListenerByNamePort %v , lisenter %v error %v", listener, lis, err)
 
 	if err == nil {
 		// update Listener
@@ -87,11 +93,11 @@ func (s *defaultListenerManager) Create(ctx context.Context, listener *latticemo
 
 	resp, err := latticeSess.CreateListener(&listenerInput)
 
-	glog.V(2).Infoln("############req creating listner ###########")
-	glog.V(2).Infoln(listenerInput)
-	glog.V(2).Infoln("############resp creating listner ###########")
-	glog.V(2).Infof("create listener err :%v\n", err)
-	glog.V(2).Infoln(resp)
+	s.log.Debugln("############req creating listner ###########")
+	s.log.Debugln(listenerInput)
+	s.log.Debugln("############resp creating listner ###########")
+	s.log.Debugf("create listener err :%v", err)
+	s.log.Debugln(resp)
 	return latticemodel.ListenerStatus{
 		Name:        listener.Spec.Name,
 		Namespace:   listener.Spec.Namespace,
@@ -123,7 +129,7 @@ func latticeName2k8s(name string) (string, string) {
 func (s *defaultListenerManager) List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error) {
 	var sdkListeners []*vpclattice.ListenerSummary
 
-	glog.V(6).Infof("List - defaultListenerManager  serviceID %v \n", serviceID)
+	s.log.Infof("List - defaultListenerManager  serviceID %v", serviceID)
 	latticeSess := s.cloud.Lattice()
 	listenerListInput := vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(serviceID),
@@ -132,12 +138,12 @@ func (s *defaultListenerManager) List(ctx context.Context, serviceID string) ([]
 	resp, err := latticeSess.ListListeners(&listenerListInput)
 
 	if err != nil {
-		glog.V(6).Infof("defaultListenerManager: Failed to list service err %v \n", err)
+		s.log.Infof("defaultListenerManager: Failed to list service err %v", err)
 		return sdkListeners, err
 	}
 
-	glog.V(6).Infoln("############resp list listener ###########")
-	glog.V(6).Infoln(resp)
+	s.log.Infoln("############resp list listener ###########")
+	s.log.Infoln(resp)
 
 	for _, r := range resp.Items {
 
@@ -157,7 +163,7 @@ func (s *defaultListenerManager) List(ctx context.Context, serviceID string) ([]
 }
 
 func (s *defaultListenerManager) findListenerByNamePort(ctx context.Context, serviceID string, port int64) (*vpclattice.ListenerSummary, error) {
-	glog.V(6).Infof("calling findListenerByNamePort serviceID %v port %d \n", serviceID, port)
+	s.log.Infof("calling findListenerByNamePort serviceID %v port %d", serviceID, port)
 	latticeSess := s.cloud.Lattice()
 	listenerListInput := vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(serviceID),
@@ -167,9 +173,9 @@ func (s *defaultListenerManager) findListenerByNamePort(ctx context.Context, ser
 
 	if err == nil {
 		for _, r := range resp.Items {
-			glog.V(6).Infof("findListenerByNamePort>> output port %v item: %v \n", port, r)
+			s.log.Infof("findListenerByNamePort>> output port %v item: %v", port, r)
 			if aws.Int64Value(r.Port) == port {
-				glog.V(6).Infof("Listener %s Port %v already exists arn: %v \n", serviceID, port, r.Arn)
+				s.log.Infof("Listener %s Port %v already exists arn: %v", serviceID, port, r.Arn)
 				return r, nil
 
 			}
@@ -185,7 +191,7 @@ func (s *defaultListenerManager) findListenerByNamePort(ctx context.Context, ser
 func (s *defaultListenerManager) Delete(ctx context.Context, listenerID string, serviceID string) error {
 
 	// TODO
-	glog.V(6).Infof("listern--Delete >>> listener %v in service %v\n", listenerID, serviceID)
+	s.log.Infof("listern--Delete >>> listener %v in service %v", listenerID, serviceID)
 	listenerDeleteInput := vpclattice.DeleteListenerInput{
 		ServiceIdentifier:  aws.String(serviceID),
 		ListenerIdentifier: aws.String(listenerID),
@@ -193,9 +199,9 @@ func (s *defaultListenerManager) Delete(ctx context.Context, listenerID string, 
 
 	resp, err := s.cloud.Lattice().DeleteListener(&listenerDeleteInput)
 
-	glog.V(2).Infoln("############ req delete listner ###########")
-	glog.V(2).Infoln(listenerDeleteInput)
-	glog.V(2).Infoln("############resp delete listner ###########")
-	glog.V(2).Infof("Delete  listener resp %vm err :%v\n", resp, err)
+	s.log.Debugln("############ req delete listner ###########")
+	s.log.Debugln(listenerDeleteInput)
+	s.log.Debugln("############resp delete listner ###########")
+	s.log.Debugf("Delete  listener resp %vm err :%v", resp, err)
 	return err
 }

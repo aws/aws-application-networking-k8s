@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 
-	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -25,25 +26,27 @@ type RuleManager interface {
 }
 
 type defaultRuleManager struct {
+	log              gwlog.Logger
 	cloud            lattice_aws.Cloud
 	latticeDataStore *latticestore.LatticeDataStore
 }
 
-func NewRuleManager(cloud lattice_aws.Cloud, store *latticestore.LatticeDataStore) *defaultRuleManager {
+func NewRuleManager(log gwlog.Logger, cloud lattice_aws.Cloud, store *latticestore.LatticeDataStore) *defaultRuleManager {
 	return &defaultRuleManager{
+		log:              log,
 		cloud:            cloud,
 		latticeDataStore: store,
 	}
 }
 
 func (r *defaultRuleManager) Get(ctx context.Context, serviceID string, listernID string, ruleID string) (*vpclattice.GetRuleOutput, error) {
-	getruleInput := vpclattice.GetRuleInput{
+	getRuleInput := vpclattice.GetRuleInput{
 		ListenerIdentifier: aws.String(listernID),
 		ServiceIdentifier:  aws.String(serviceID),
 		RuleIdentifier:     aws.String(ruleID),
 	}
 
-	resp, err := r.cloud.Lattice().GetRule(&getruleInput)
+	resp, err := r.cloud.Lattice().GetRule(&getRuleInput)
 
 	return resp, err
 }
@@ -60,11 +63,11 @@ func (r *defaultRuleManager) List(ctx context.Context, service string, listener 
 	var resp *vpclattice.ListRulesOutput
 	resp, err := r.cloud.Lattice().ListRules(&ruleListInput)
 
-	glog.V(6).Infoln("############list rules req############")
-	glog.V(6).Infof("rule: %v , serviceID: %v, listenerID %v \n", resp, service, listener)
+	r.log.Debugln("############list rules req############")
+	r.log.Debugf("rule: %v , serviceID: %v, listenerID %v", resp, service, listener)
 
-	glog.V(6).Infoln("############list rules resp############")
-	glog.V(6).Infof("resp: %v, err: %v\n", resp, err)
+	r.log.Debugln("############list rules resp############")
+	r.log.Debugf("resp: %v, err: %v", resp, err)
 
 	if err != nil {
 		return sdkRules, err
@@ -90,13 +93,13 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 
 	var ruleUpdateList []*vpclattice.RuleUpdate
 
-	glog.V(6).Infof("Rule --- update >>>>>>>>.%v\n", rules)
+	r.log.Infof("Rule --- update >>>>>>>>.%v", rules)
 
 	latticeService, err := r.latticeDataStore.GetLatticeService(rules[0].Spec.ServiceName, rules[0].Spec.ServiceNamespace)
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Service %v not found during rule creation", rules[0].Spec)
-		glog.V(2).Infof("Error during update rule %s \n", errmsg)
+		r.log.Debugf("Error during update rule %s", errmsg)
 		return errors.New(errmsg)
 	}
 
@@ -105,7 +108,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Listener %v not found during rule creation", rules[0].Spec)
-		glog.V(2).Infof("Error during update rule %s \n", errmsg)
+		r.log.Debugf("Error during update rule %s", errmsg)
 		return errors.New(errmsg)
 	}
 
@@ -128,22 +131,22 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 
 	resp, err := r.cloud.Lattice().BatchUpdateRule(&batchRuleInput)
 
-	glog.V(2).Infoln("############req updating rule ###########")
-	glog.V(2).Infoln(batchRuleInput)
-	glog.V(2).Infof("############resp updateing rule ###########, err: %v \n", err)
-	glog.V(2).Infoln(resp)
+	r.log.Debugln("############req updating rule ###########")
+	r.log.Debugln(batchRuleInput)
+	r.log.Debugf("############resp updateing rule ###########, err: %v", err)
+	r.log.Debugln(resp)
 
 	return err
 }
 
 func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule) (latticemodel.RuleStatus, error) {
-	glog.V(6).Infof("Rule --- Create >>>>>>>>.%v\n", *rule)
+	r.log.Infof("Rule --- Create >>>>>>>>.%v", *rule)
 
 	latticeService, err := r.latticeDataStore.GetLatticeService(rule.Spec.ServiceName, rule.Spec.ServiceNamespace)
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Service %v not found during rule creation", rule.Spec)
-		glog.V(2).Infof("Error during create rule %s \n", errmsg)
+		r.log.Debugf("Error during create rule %s", errmsg)
 		return latticemodel.RuleStatus{}, errors.New(errmsg)
 	}
 
@@ -152,15 +155,15 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 	if err != nil {
 		errmsg := fmt.Sprintf("Listener %v not found during rule creation", rule.Spec)
-		glog.V(2).Infof("Error during create rule %s \n", errmsg)
+		r.log.Debugf("Error during create rule %s", errmsg)
 		return latticemodel.RuleStatus{}, errors.New(errmsg)
 	}
 
 	priority, err := ruleID2Priority(rule.Spec.RuleID)
-	glog.V(6).Infof("Convert rule id %s to priority %d error: %v \n", rule.Spec.RuleID, priority, err)
+	r.log.Infof("Convert rule id %s to priority %d error: %v", rule.Spec.RuleID, priority, err)
 
 	if err != nil {
-		glog.V(2).Infof("Error create rule, failed to convert RuleID %v to priority err :%v\n", rule.Spec.RuleID, err)
+		r.log.Debugf("Error create rule, failed to convert RuleID %v to priority err :%v", rule.Spec.RuleID, err)
 		return latticemodel.RuleStatus{}, errors.New("failed to create rule, due to invalid ruleID")
 	}
 
@@ -169,10 +172,10 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 	if err == nil && !ruleStatus.UpdateTGsNeeded {
 
 		if ruleStatus.Priority != priority {
-			glog.V(6).Infof("Rule-Create: need to BatchUpdate priority")
+			r.log.Infof("Rule-Create: need to BatchUpdate priority")
 			ruleStatus.UpdatePriorityNeeded = true
 		}
-		glog.V(6).Infof("Rule--Create, found existing matching rule %v rulsStatus %v\n", rule, ruleStatus)
+		r.log.Infof("Rule--Create, found existing matching rule %v rulsStatus %v", rule, ruleStatus)
 		return ruleStatus, nil
 	}
 
@@ -186,7 +189,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 		tg, err := r.latticeDataStore.GetTargetGroup(tgName, tgRule.RouteName, tgRule.IsServiceImport)
 
 		if err != nil {
-			glog.V(2).Infof("Faild to create rule due to unknown tg %v, err %v\n", tgName, err)
+			r.log.Debugf("Faild to create rule due to unknown tg %v, err %v", tgName, err)
 			return latticemodel.RuleStatus{}, err
 		}
 
@@ -223,10 +226,10 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 		resp, err := r.cloud.Lattice().UpdateRule(&updateRuleInput)
 
-		glog.V(2).Infoln("############req updating rule TGs###########")
-		glog.V(2).Infoln(updateRuleInput)
-		glog.V(2).Infof("############resp updating  rule TGs ###########, err: %v \n", err)
-		glog.V(2).Infoln(resp)
+		r.log.Debugln("############req updating rule TGs###########")
+		r.log.Debugln(updateRuleInput)
+		r.log.Debugf("############resp updating  rule TGs ###########, err: %v", err)
+		r.log.Debugln(resp)
 		return latticemodel.RuleStatus{
 			RuleID:               aws.StringValue(resp.Id),
 			UpdatePriorityNeeded: ruleStatus.UpdatePriorityNeeded,
@@ -258,10 +261,10 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 
 		resp, err := r.cloud.Lattice().CreateRule(&ruleInput)
 
-		glog.V(2).Infoln("############req creating rule ###########")
-		glog.V(2).Infoln(ruleInput)
-		glog.V(2).Infof("############resp creating rule ###########, err: %v \n", err)
-		glog.V(2).Infoln(resp)
+		r.log.Debugln("############req creating rule ###########")
+		r.log.Debugln(ruleInput)
+		r.log.Debugf("############resp creating rule ###########, err: %v", err)
+		r.log.Debugln(resp)
 		if err != nil {
 			return latticemodel.RuleStatus{}, err
 		} else {
@@ -278,8 +281,6 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 }
 
 func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *latticemodel.Rule) {
-	glog.V(6).Infof("Setting sdk HttpMatch using rule.Spec %v", rule.Spec)
-
 	// setup path based
 	if rule.Spec.PathMatchExact || rule.Spec.PathMatchPrefix {
 		matchType := vpclattice.PathMatchType{}
@@ -309,20 +310,20 @@ func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *latticemodel.Rule
 	}
 }
 
-func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRuleOutput) bool {
+func isRulesSame(log gwlog.Logger, modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRuleOutput) bool {
 	// Exact Path Match
 	if modelRule.Spec.PathMatchExact {
-		glog.V(6).Infoln("Checking PathMatchExact")
+		log.Infoln("Checking PathMatchExact")
 
 		if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact == nil {
-			glog.V(6).Infoln("no sdk PathMatchExact match")
+			log.Infoln("no sdk PathMatchExact match")
 			return false
 		}
 
 		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact) != modelRule.Spec.PathMatchValue {
-			glog.V(6).Infoln("Match.Exact mismatch")
+			log.Infoln("Match.Exact mismatch")
 			return false
 		}
 
@@ -330,46 +331,46 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 		if sdkRuleDetail.Match.HttpMatch.PathMatch != nil &&
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match != nil &&
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact != nil {
-			glog.V(6).Infoln("no sdk PathMatchExact match")
+			log.Infoln("no sdk PathMatchExact match")
 			return false
 		}
 	}
 
 	// Path Prefix
 	if modelRule.Spec.PathMatchPrefix {
-		glog.V(6).Infoln("Checking PathMatchPrefix")
+		log.Infoln("Checking PathMatchPrefix")
 
 		if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix == nil {
-			glog.V(6).Infoln("no sdk HTTP PathPrefix")
+			log.Infoln("no sdk HTTP PathPrefix")
 			return false
 		}
 
 		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) != modelRule.Spec.PathMatchValue {
-			glog.V(6).Infoln("PathMatchPrefix mismatch ")
+			log.Infoln("PathMatchPrefix mismatch ")
 			return false
 		}
 	} else {
 		if sdkRuleDetail.Match.HttpMatch.PathMatch != nil &&
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match != nil &&
 			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix != nil {
-			glog.V(6).Infoln("no sdk HTTP PathPrefix")
+			log.Infoln("no sdk HTTP PathPrefix")
 			return false
 		}
 	}
 
 	// Method match
 	if aws.StringValue(sdkRuleDetail.Match.HttpMatch.Method) != modelRule.Spec.Method {
-		glog.V(6).Infof("Method mismatch '%v' != '%v'\n", modelRule.Spec.Method, sdkRuleDetail.Match.HttpMatch.Method)
+		log.Infof("Method mismatch '%v' != '%v'", modelRule.Spec.Method, sdkRuleDetail.Match.HttpMatch.Method)
 		return false
 	}
 
 	// Header Match
 	if modelRule.Spec.NumOfHeaderMatches > 0 {
-		glog.V(6).Infof("Checking Header Match, numofheader matches %v \n", modelRule.Spec.NumOfHeaderMatches)
+		log.Infof("Checking Header Match, numofheader matches %v", modelRule.Spec.NumOfHeaderMatches)
 		if len(sdkRuleDetail.Match.HttpMatch.HeaderMatches) != modelRule.Spec.NumOfHeaderMatches {
-			glog.V(6).Infoln("header match number mismatch")
+			log.Infoln("header match number mismatch")
 			return false
 		}
 
@@ -377,7 +378,7 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 
 		// compare 2 array
 		for _, sdkHeader := range sdkRuleDetail.Match.HttpMatch.HeaderMatches {
-			glog.V(6).Infof("sdkHeader >> %v\n", sdkHeader)
+			log.Infof("sdkHeader >> %v", sdkHeader)
 			matchFound := false
 			// check if this is in module
 			for i := 0; i < modelRule.Spec.NumOfHeaderMatches; i++ {
@@ -394,13 +395,13 @@ func isRulesSame(modelRule *latticemodel.Rule, sdkRuleDetail *vpclattice.GetRule
 
 			if !matchFound {
 				misMatch = true
-				glog.V(6).Infof("header not found sdkHeader %v\n", *sdkHeader)
+				log.Infof("header not found sdkHeader %v", *sdkHeader)
 				break
 			}
 		}
 
 		if misMatch {
-			glog.V(6).Infof("mismatch header")
+			log.Infof("mismatch header")
 			return false
 		}
 	}
@@ -428,11 +429,11 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 	var resp *vpclattice.ListRulesOutput
 	resp, err := r.cloud.Lattice().ListRules(&ruleListInput)
 
-	glog.V(6).Infoln("############list rules req############")
-	glog.V(6).Infof("rule: %v , serviceID: %v, listenerID %v \n", rule, serviceID, listenerID)
+	r.log.Infoln("############list rules req############")
+	r.log.Infof("rule: %v , serviceID: %v, listenerID %v", rule, serviceID, listenerID)
 
-	glog.V(6).Infoln("############list rules resp############")
-	glog.V(6).Infof("resp: %v, err: %v\n", resp, err)
+	r.log.Infoln("############list rules resp############")
+	r.log.Infof("resp: %v, err: %v", resp, err)
 
 	if err != nil {
 		return latticemodel.RuleStatus{}, err
@@ -444,7 +445,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 
 		if aws.BoolValue(ruleSum.IsDefault) {
 			// Ignore the default
-			glog.V(6).Infof("findMatchingRule: ingnore the default rule %v\n", ruleSum)
+			r.log.Infof("findMatchingRule: ingnore the default rule %v", ruleSum)
 			continue
 		}
 
@@ -460,13 +461,13 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 		ruleResp, err := r.cloud.Lattice().GetRule(&ruleInput)
 
 		if err != nil {
-			glog.V(2).Infof("findMatchingRule, rule %v not found err:%v\n", ruleInput, err)
+			r.log.Debugf("findMatchingRule, rule %v not found err:%v", ruleInput, err)
 			continue
 		}
 
 		priorityMap[aws.Int64Value(ruleResp.Priority)] = true
 
-		samerule := isRulesSame(rule, ruleResp)
+		samerule := isRulesSame(r.log, rule, ruleResp)
 
 		if !samerule {
 			continue
@@ -475,14 +476,14 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 		matchRule = ruleResp
 
 		if len(ruleResp.Action.Forward.TargetGroups) != len(rule.Spec.Action.TargetGroups) {
-			glog.V(6).Infof("Mismatched TGs lattice %v, k8s %v\n",
+			r.log.Infof("Mismatched TGs lattice %v, k8s %v",
 				ruleResp.Action.Forward.TargetGroups, rule.Spec.Action.TargetGroups)
 			updateTGsNeeded = true
 			continue
 		}
 
 		if len(ruleResp.Action.Forward.TargetGroups) == 0 {
-			glog.V(6).Infof("0 targetGroups \n")
+			r.log.Infof("0 targetGroups")
 			continue
 		}
 
@@ -494,13 +495,13 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 				k8sTGinStore, err := r.latticeDataStore.GetTargetGroup(tgName, rule.Spec.ServiceName, k8sTG.IsServiceImport)
 
 				if err != nil {
-					glog.V(6).Infof("Failed to find k8s tg %v in store \n", k8sTG)
+					r.log.Infof("Failed to find k8s tg %v in store", k8sTG)
 					updateTGsNeeded = true
 					continue
 				}
 
 				if aws.StringValue(tg.TargetGroupIdentifier) != k8sTGinStore.ID {
-					glog.V(6).Infof("TGID mismatch lattice %v, k8s %v\n",
+					r.log.Infof("TGID mismatch lattice %v, k8s %v",
 						aws.StringValue(tg.TargetGroupIdentifier), k8sTGinStore.ID)
 					updateTGsNeeded = true
 					continue
@@ -508,7 +509,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 				}
 
 				if k8sTG.Weight != aws.Int64Value(tg.Weight) {
-					glog.V(6).Infof("Weight has changed for tg %v old %v new %v\n",
+					r.log.Infof("Weight has changed for tg %v old %v new %v",
 						tg, aws.Int64Value(tg.Weight), k8sTG.Weight)
 					updateTGsNeeded = true
 					continue
@@ -519,7 +520,7 @@ func (r *defaultRuleManager) findMatchingRule(ctx context.Context, rule *lattice
 			}
 
 			if updateTGsNeeded {
-				glog.V(6).Infof("update TGs Needed for tg %v \n", tg)
+				r.log.Infof("update TGs Needed for tg %v", tg)
 				break
 
 			}
@@ -569,7 +570,7 @@ func ruleID2Priority(ruleID string) (int64, error) {
 }
 
 func (r *defaultRuleManager) Delete(ctx context.Context, ruleID string, listenerID string, serviceID string) error {
-	glog.V(6).Infof("Rule --- Delete >>>>> rule %v, listener %v service %v \n", ruleID, listenerID, serviceID)
+	r.log.Infof("Rule --- Delete >>>>> rule %v, listener %v service %v", ruleID, listenerID, serviceID)
 
 	deleteInput := vpclattice.DeleteRuleInput{
 		RuleIdentifier:     aws.String(ruleID),
@@ -579,7 +580,7 @@ func (r *defaultRuleManager) Delete(ctx context.Context, ruleID string, listener
 
 	resp, err := r.cloud.Lattice().DeleteRule(&deleteInput)
 
-	glog.V(2).Infof("Delete Rule >>>> input %v, output %v, err %v\n", deleteInput, resp, err)
+	r.log.Debugf("Delete Rule >>>> input %v, output %v, err %v", deleteInput, resp, err)
 
 	return err
 }

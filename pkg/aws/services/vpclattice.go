@@ -8,7 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice/vpclatticeiface"
-	"github.com/golang/glog"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 //go:generate mockgen -destination vpclattice_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Lattice
@@ -27,7 +28,7 @@ type defaultLattice struct {
 	vpclatticeiface.VPCLatticeAPI
 }
 
-func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
+func NewDefaultLattice(log gwlog.Logger, sess *session.Session, region string) *defaultLattice {
 	var latticeSess vpclatticeiface.VPCLatticeAPI
 
 	latticeEndpoint := "https://vpc-lattice." + region + ".amazonaws.com"
@@ -39,7 +40,7 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 
 	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint).WithMaxRetries(20))
 
-	glog.V(2).Infoln("Lattice Service EndPoint:", endpoint)
+	log.Debugln("Lattice Service EndPoint:", endpoint)
 
 	return &defaultLattice{latticeSess}
 }

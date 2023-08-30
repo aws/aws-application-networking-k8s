@@ -18,17 +18,19 @@ package controllers
 
 import (
 	"context"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -59,8 +61,8 @@ func RegisterServiceController(
 	client := mgr.GetClient()
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("service")
-	modelBuild := gateway.NewTargetsBuilder(client, cloud, datastore)
-	stackDeploy := deploy.NewTargetsStackDeploy(cloud, client, datastore)
+	modelBuild := gateway.NewTargetsBuilder(log, client, cloud, datastore)
+	stackDeploy := deploy.NewTargetsStackDeploy(log, cloud, client, datastore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	sr := &serviceReconciler{
 		log:              log,

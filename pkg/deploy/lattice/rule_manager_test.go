@@ -9,14 +9,17 @@ import (
 	"testing"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 var rulelist = []struct {
@@ -532,7 +535,7 @@ func Test_CreateRule(t *testing.T) {
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 
-		ruleManager := NewRuleManager(mockCloud, latticeDataStore)
+		ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 
 		if !tt.noServiceID {
 			latticeDataStore.AddLatticeService(tt.newRule.Spec.ServiceName, tt.newRule.Spec.ServiceNamespace, "serviceARN",
@@ -749,7 +752,7 @@ func Test_UpdateRule(t *testing.T) {
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 
-		ruleManager := NewRuleManager(mockCloud, latticeDataStore)
+		ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 
 		var i = 0
 		if !tt.noServiceID {
@@ -835,7 +838,7 @@ func Test_List(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	ruleManager := NewRuleManager(mockCloud, latticeDataStore)
+	ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 
 	resp, err := ruleManager.List(ctx, serviceID, listenerID)
 
@@ -882,7 +885,7 @@ func Test_GetRule(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	ruleManager := NewRuleManager(mockCloud, latticeDataStore)
+	ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 
 	resp, err := ruleManager.Get(ctx, serviceID, listenerID, ruleID)
 
@@ -918,7 +921,7 @@ func Test_DeleteRule(t *testing.T) {
 	mockVpcLatticeSess.EXPECT().DeleteRule(&ruleDeleteInput).Return(&ruleDeleteOuput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
 
-	ruleManager := NewRuleManager(mockCloud, latticeDataStore)
+	ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 
 	ruleManager.Delete(ctx, ruleID, listenerID, serviceID)
 
@@ -1488,7 +1491,7 @@ func Test_isRulesSame(t *testing.T) {
 	for _, tt := range tests {
 		fmt.Printf("Testing >>>>> %v \n", tt.name)
 
-		sameRule := isRulesSame(tt.k8sRule, tt.sdkRule)
+		sameRule := isRulesSame(gwlog.FallbackLogger, tt.k8sRule, tt.sdkRule)
 
 		if tt.ruleMatched {
 			assert.True(t, sameRule)

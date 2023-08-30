@@ -5,7 +5,6 @@ go 1.20
 require (
 	github.com/aws/aws-sdk-go v1.44.321
 	github.com/go-logr/zapr v1.2.3
-	github.com/golang/glog v1.0.0
 	github.com/golang/mock v1.6.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.24.1

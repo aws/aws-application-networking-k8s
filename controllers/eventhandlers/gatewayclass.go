@@ -2,7 +2,6 @@ package eventhandlers
 
 import (
 	"context"
-	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
@@ -13,15 +12,18 @@ import (
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
-func NewEnqueueRequestsForGatewayClassEvent(client client.Client) handler.EventHandler {
+func NewEnqueueRequestsForGatewayClassEvent(log gwlog.Logger, client client.Client) handler.EventHandler {
 	return &enqueueRequestsForGatewayClassEvent{
+		log:    log,
 		client: client,
 	}
 }
 
 type enqueueRequestsForGatewayClassEvent struct {
+	log    gwlog.Logger
 	client client.Client
 }
 
@@ -31,11 +33,11 @@ func (h *enqueueRequestsForGatewayClassEvent) Create(e event.CreateEvent, queue 
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("GatwayClass, Update ")
+	h.log.Info("GatewayClass, Update")
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	glog.V(6).Info("GatewayClass, Delete")
+	h.log.Info("GatewayClass, Delete")
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
@@ -52,7 +54,7 @@ func (h *enqueueRequestsForGatewayClassEvent) enqueueImpactedGateway(queue workq
 		if string(gw.Spec.GatewayClassName) == string(gwclass.Name) {
 
 			if gwclass.Spec.ControllerName == config.LatticeGatewayControllerName {
-				glog.V(6).Infof("Found matching gateway, %s\n", gw.Name)
+				h.log.Infof("Found matching gateway, %s", gw.Name)
 
 				queue.Add(reconcile.Request{
 					NamespacedName: types.NamespacedName{
