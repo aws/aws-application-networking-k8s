@@ -11,7 +11,7 @@ metadata:
   name: review
 spec:
   hostnames:
-  - review.my-test.com  <-----------  this is the custom domain name
+  - review.my-test.com  # this is the custom domain name
   parentRefs:
   - name: my-hotel
     sectionName: http

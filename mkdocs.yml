@@ -8,11 +8,16 @@ strict: true
 nav:
   - Home: index.md
   - Deployment: deploy.md
-  - Get Started: getstarted.md
+  - Getting Started: getstarted.md
+  - Developer Guide: developer.md
   - Configuration:
     - Overview: configure/index.md
-    - Configure HTTPs: configure/https.md
-    - Configure domain name: configure/customer_domain_name.md
+    - TLS: configure/https.md
+    - Custom Domain Name: configure/custom-domain-name.md
+    - GRPC: configure/grpc.md
+  - API Reference:
+    - GRPCRoute: reference/grpc-route.md
+    - TargetGroupPolicy: reference/target-group-policy.md
   - Design Overview: overview.md
 
 plugins:
