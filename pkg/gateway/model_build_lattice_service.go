@@ -115,12 +115,15 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 }
 
 func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) error {
-	pro := "HTTP"
-	protocols := []*string{&pro}
+	routeType := core.HttpRouteType
+	if _, ok := t.route.(*core.GRPCRoute); ok {
+		routeType = core.GrpcRouteType
+	}
+
 	spec := latticemodel.ServiceSpec{
 		Name:      t.route.Name(),
 		Namespace: t.route.Namespace(),
-		Protocols: protocols,
+		RouteType: routeType,
 		//ServiceNetworkNames: string(t.route.Spec().ParentRefs()[0].Name),
 	}
 
