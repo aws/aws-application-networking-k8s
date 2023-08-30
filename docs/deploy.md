@@ -36,7 +36,8 @@ Run through them again for a second cluster to use with the extended example sho
                    "vpc-lattice:*",
                    "iam:CreateServiceLinkedRole",
                    "ec2:DescribeVpcs",
-                   "ec2:DescribeSubnets"
+                   "ec2:DescribeSubnets",
+                   "ec2:DescribeTags"
                ],
                "Resource": "*"
            }
