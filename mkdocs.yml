@@ -12,6 +12,7 @@ nav:
   - Developer Guide: developer.md
   - Configuration:
     - Overview: configure/index.md
+    - Environment Variables: configure/environment.md
     - TLS: configure/https.md
     - Custom Domain Name: configure/custom-domain-name.md
     - GRPC: configure/grpc.md

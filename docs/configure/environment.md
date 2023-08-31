@@ -1,4 +1,4 @@
-### Configuration Variables
+### Environment Variables
 AWS Gateway API Controller for VPC Lattice supports a number of configuration options, which are set through environment variables.
 The following environment variables are available, and all of them are optional.
 
