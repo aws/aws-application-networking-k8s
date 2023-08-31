@@ -91,7 +91,7 @@ spec:
         intervalSeconds: 5
         timeoutSeconds: 1
         healthyThresholdCount: 3
-        unhealthyThresholdcount: 2
+        unhealthyThresholdCount: 2
         path: "/healthcheck"
         port: 80
         protocol: HTTP

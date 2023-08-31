@@ -12,3 +12,11 @@ spec:
     healthCheck:
         enabled: true
         intervalSeconds: 10
+        timeoutSeconds: 1
+        healthyThresholdCount: 3
+        unhealthyThresholdCount: 2
+        path: "/"
+        port: 8090
+        protocol: HTTP
+        protocolVersion: HTTP1
+        statusMatch: "200"
