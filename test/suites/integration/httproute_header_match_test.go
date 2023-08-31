@@ -2,19 +2,22 @@ package integration
 
 import (
 	"fmt"
+	"log"
+	"regexp"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"log"
-	"regexp"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	"time"
 
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
 var _ = Describe("HTTPRoute header matches", func() {
@@ -33,8 +36,8 @@ var _ = Describe("HTTPRoute header matches", func() {
 			headerMatchHttpRoute,
 			service,
 			deployment)
-
-		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, headerMatchHttpRoute)
+		route, _ := core.NewRoute(headerMatchHttpRoute)
+		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
 
 		log.Println("Verifying VPC lattice service listeners and rules")
 		Eventually(func(g Gomega) {

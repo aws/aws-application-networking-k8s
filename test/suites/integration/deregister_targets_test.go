@@ -1,15 +1,18 @@
 package integration
 
 import (
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"log"
+
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
 var _ = Describe("Deregister Targets", func() {
@@ -33,8 +36,8 @@ var _ = Describe("Deregister Targets", func() {
 			service,
 			deployment,
 		)
-
-		_ = testFramework.GetVpcLatticeService(ctx, pathMatchHttpRoute)
+		route, _ := core.NewRoute(pathMatchHttpRoute)
+		_ = testFramework.GetVpcLatticeService(ctx, route)
 
 		// Verify VPC Lattice Target Group exists
 		targetGroup = testFramework.GetTargetGroup(ctx, service)

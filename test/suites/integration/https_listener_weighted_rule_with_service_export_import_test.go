@@ -2,19 +2,22 @@ package integration
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"log"
-	"os"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	"time"
 
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
 var _ = Describe("Test 2 listeners with weighted httproute rules and service export import", func() {
@@ -58,8 +61,8 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 				serviceExport1,
 				serviceImport1,
 			)
-
-			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, httpRoute)
+			route, _ := core.NewRoute(httpRoute)
+			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
 
 			log.Println("Verifying Target Groups")
 			retrievedTg0 := testFramework.GetTargetGroup(ctx, service0)

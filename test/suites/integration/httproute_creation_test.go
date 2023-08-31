@@ -1,14 +1,17 @@
 package integration
 
 import (
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"os"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
 var _ = Describe("HTTPRoute Creation", func() {
@@ -96,7 +99,8 @@ func verifyResourceCreation(
 	httpRoute *v1beta1.HTTPRoute,
 	service *v1.Service,
 ) {
-	_ = testFramework.GetVpcLatticeService(ctx, httpRoute)
+	route, _ := core.NewRoute(httpRoute)
+	_ = testFramework.GetVpcLatticeService(ctx, route)
 
 	targetGroup := testFramework.GetTargetGroup(ctx, service)
 	Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))

@@ -2,15 +2,20 @@ package integration
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"flag"
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+
 	"testing"
+
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
@@ -48,8 +53,11 @@ var _ = BeforeSuite(func() {
 })
 
 func TestIntegration(t *testing.T) {
+	var debug bool
 	ctx = test.NewContext(t)
-	testFramework = test.NewFramework(ctx, k8snamespace)
+	flag.BoolVar(&debug, "debug", false, "enable debug mode")
+	logger := gwlog.NewLogger(debug)
+	testFramework = test.NewFramework(ctx, logger.Named("framework"), k8snamespace)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Integration")
 }
