@@ -389,7 +389,7 @@ func GetTargets(targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.D
 }
 
 func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *vpclattice.ServiceNetworkSummary) (bool, error) {
-	env.log.Infoln("IsVpcAssociatedWithServiceNetwork vpcId:%v serviceNetwork: %v \n", vpcId, serviceNetwork)
+	env.log.Infof("IsVpcAssociatedWithServiceNetwork vpcId:%v serviceNetwork: %v \n", vpcId, serviceNetwork)
 	vpcAssociations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
 		ServiceNetworkIdentifier: serviceNetwork.Id,
 		VpcIdentifier:            &vpcId,
