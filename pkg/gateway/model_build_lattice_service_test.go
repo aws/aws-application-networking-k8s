@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func Test_LatticeServiceModelBuild(t *testing.T) {
@@ -55,6 +56,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		wantError     error
 		wantErrIsNil  bool
 		wantName      string
+		wantRouteType core.RouteType
 		wantIsDeleted bool
 	}{
 		{
@@ -80,6 +82,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 			wantError:     nil,
 			wantName:      "service1",
+			wantRouteType: core.HttpRouteType,
 			wantIsDeleted: false,
 			wantErrIsNil:  true,
 		},
@@ -102,6 +105,29 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 			wantError:     nil,
 			wantName:      "service1",
+			wantRouteType: core.HttpRouteType,
+			wantIsDeleted: false,
+			wantErrIsNil:  true,
+		},
+		{
+			name: "Add LatticeService with GRPCRoute",
+			route: core.NewGRPCRoute(gateway_api_v1alpha2.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "service1",
+				},
+				Spec: gateway_api_v1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gateway_api.CommonRouteSpec{
+						ParentRefs: []gateway_api.ParentReference{
+							{
+								Name: "gateway1",
+							},
+						},
+					},
+				},
+			}),
+			wantError:     nil,
+			wantName:      "service1",
+			wantRouteType: core.GrpcRouteType,
 			wantIsDeleted: false,
 			wantErrIsNil:  true,
 		},
@@ -139,6 +165,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 			wantError:     nil,
 			wantName:      "service2",
+			wantRouteType: core.HttpRouteType,
 			wantIsDeleted: true,
 			wantErrIsNil:  true,
 		},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
@@ -14,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/external-dns/endpoint"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type DnsEndpointManager interface {
@@ -47,12 +47,20 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 		return nil
 	}
 
-	httproute := &gateway_api.HTTPRoute{}
+	var (
+		route core.Route
+		err   error
+	)
 	routeNamespacedName := types.NamespacedName{
 		Namespace: service.Spec.Namespace,
 		Name:      service.Spec.Name,
 	}
-	if err := s.k8sClient.Get(ctx, routeNamespacedName, httproute); err != nil {
+	if service.Spec.RouteType == core.GrpcRouteType {
+		route, err = core.GetGRPCRoute(ctx, s.k8sClient, routeNamespacedName)
+	} else {
+		route, err = core.GetHTTPRoute(ctx, s.k8sClient, routeNamespacedName)
+	}
+	if err != nil {
 		s.log.Debugf("Skipping creation of %s: Could not find corresponding route", namespacedName.String())
 		return nil
 	}
@@ -80,7 +88,7 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 					},
 				},
 			}
-			controllerutil.SetControllerReference(httproute, ep, s.k8sClient.Scheme())
+			controllerutil.SetControllerReference(route.K8sObject(), ep, s.k8sClient.Scheme())
 			if err = s.k8sClient.Create(ctx, ep); err != nil {
 				s.log.Debugf("Failed creating DNSEndpoint: %s", err.Error())
 				return err
