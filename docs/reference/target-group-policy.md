@@ -63,7 +63,7 @@ For the detailed explanation and supported values, please refer to [VPC Lattice 
 * Omitting `healthCheck` results in [VPC Lattice default behavior](https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html) depending on the protocol.
   * Health check is enabled by default for HTTP1 target groups.
   * Health check is disabled by default for HTTP2/gRPC target groups.
-* For targets behind GRPCRoute, you should create a separate endpoint to enable health checks - HTTP/2 health check directly on gRPC endpoints is not supported.
+* For targets behind GRPCRoute, you should create a separate endpoint dedicated for health checks - HTTP/2 health check directly on gRPC endpoints is not supported.
 
 |Field	|Description	|
 |---	|---	|
