@@ -4,13 +4,23 @@ The following environment variables are available, and all of them are optional.
 
 ---
 
+#### `CLUSTER_NAME`
+
+Type: string
+
+Default: Inferred from IMDS metadata
+
+A unique name to identify a cluster. This will be used in AWS resource tags to record ownership.
+
+---
+
 #### `CLUSTER_VPC_ID`
 
 Type: string
 
-Default: ""
+Default: Inferred from IMDS metadata
 
-When running AWS Gateway API Controller outside the Kubernetes Cluster, this specify the VPC of the cluster.
+When running AWS Gateway API Controller outside the Kubernetes Cluster, this specifies the VPC of the cluster.
 
 ---
 
@@ -18,9 +28,9 @@ When running AWS Gateway API Controller outside the Kubernetes Cluster, this spe
 
 Type: string
 
-Default: ""
+Default: Inferred from IMDS metadata
 
-When running AWS Gateway API Controller outside the Kubernetes Cluster, this specify the AWS account.
+When running AWS Gateway API Controller outside the Kubernetes Cluster, this specifies the AWS account.
 
 ---
 
@@ -30,7 +40,7 @@ Type: string
 
 Default: "us-west-2"
 
-When running AWS Gateway API Controller outside the Kubernetes Cluster, this specify the region of VPC lattice service endpoint
+When running AWS Gateway API Controller outside the Kubernetes Cluster, this specifies the region of VPC lattice service endpoint
 
 ---
 
@@ -40,7 +50,7 @@ Type: string
 
 Default: "info"
 
-When it is set as "debug", the AWS Gateway API Controller prints detailed debugging information.  Otherwise, it is only prints the key information
+When set as "debug", the AWS Gateway API Controller will emit debug level logs.
 
 
 ---
@@ -51,7 +61,8 @@ Type: string
 
 Default: "NO_DEFAULT_SERVICE_NETWORK"
 
-When it is set to something different than "NO_DEFAULT_SERVICE_NETWORK", the AWS Gateway API Controller will associate its correspoding Lattice Service Network to cluster's VPC.  Also, all HTTPRoutes will automatically have an additional parentref to this `CLUSTER_LOCAL_GATEWAY`
+When it is set to something different from "NO_DEFAULT_SERVICE_NETWORK", the AWS Gateway API Controller will associate its correspoding Lattice Service Network to cluster's VPC.
+Also, all HTTPRoutes will automatically have an additional parentref to this `CLUSTER_LOCAL_GATEWAY`.
 
 ---
 
@@ -61,27 +72,25 @@ Type: string
 
 Default:  "short"
 
-***If it is set to "long"*** 
- AWS Gateway API will create Lattice Target Group as follows
+When set to "long", the controller will create Lattice TargetGroup as follows.
 
-for backendRef of a Kubernetes Service:
+For Kubernetes Service as BackendRef:
 
-k8s-(k8s service name)-(k8s service namespace)-(k8s httproute name)-(VPC ID)
+`k8s-(k8s service name)-(k8s service namespace)-(k8s httproute name)-(VPC ID)-(protocol)-(protocol version)`
 
-for serviceexport of a Kubernetes Servic:
+For ServiceExport of a Kubernetes Service:
 
-k8s-(k8s service name)-(k8s service namespace)-(VPC-ID)
+`k8s-(k8s service name)-(k8s service namespace)-(VPC-ID)-(protocol)-(protocol version)`
 
-***By default***
-  AWS Gateway API will create Lattice Target Group as follows
+By default, the controller will create Lattice TargetGroup as follows
 
-for backendRef of a Kubernetes Service:
+For Kubernetes Service as BackendRef:
 
-k8s-(k8s service name)-(k8s service namespace)
+`k8s-(k8s service name)-(k8s service namespace)-(protocol)-(protocol version)`
 
-for serviceexport of a Kubernetes Service:
+For ServiceExport of a Kubernetes Service:
 
-k8s-(k8s service name)-(k8s service namespace)
+`k8s-(k8s service name)-(k8s service namespace)-(protocol)-(protocol version)`
 
 
 ```
