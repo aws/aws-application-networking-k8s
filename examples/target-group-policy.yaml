@@ -16,7 +16,7 @@ spec:
         healthyThresholdCount: 3
         unhealthyThresholdCount: 2
         path: "/"
-        port: 80
+        port: 8090
         protocol: HTTP
         protocolVersion: HTTP1
         statusMatch: "200"
