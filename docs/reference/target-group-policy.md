@@ -21,8 +21,7 @@ The policy will not take effect if:
 These restrictions are not forced; for example, users may create a policy that targets a service that is not created yet.
 However, the policy will not take effect unless the target is valid.
 
-### Notes
-
+**Limitations and Considerations**
 * Attaching TargetGroupPolicy to a resource that is already referenced by a route will result in a replacement
 of VPC Lattice TargetGroup resource, except for health check updates.
 * Removing TargetGroupPolicy of a resource will roll back protocol configuration to default setting. (HTTP1/HTTP plaintext)
@@ -42,6 +41,9 @@ TargetGroupPolicySpec defines the desired state of TargetGroupPolicy.
 
 Updates to this configuration result in a replacement of VPC Lattice TargetGroup resource, except for `healthCheck` field.
 
+**Limitations and Considerations**
+* `HTTP2` protocolVersion is only allowed for services under TLS gateway listeners, as per VPC Lattice specification.
+
 |Field	| Description|
 |---	|---|
 |`targetRef` *[PolicyTargetReference](https://gateway-api.sigs.k8s.io/geps/gep-713/#policy-targetref-api)*	| TargetRef points to the kubernetes `Service` resource that will have this policy attached. This field is following the guidelines of Kubernetes Gateway API policy attachment. |
@@ -53,7 +55,15 @@ Updates to this configuration result in a replacement of VPC Lattice TargetGroup
 
 Appears on: TargetGroupPolicySpec
 
-HealthCheckConfig defines health check configuration for given VPC Lattice target group. For the detailed explanation and supported values, please refer to [VPC Lattice documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html) on health checks.
+HealthCheckConfig defines health check configuration for given VPC Lattice target group.
+
+For the detailed explanation and supported values, please refer to [VPC Lattice documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html) on health checks.
+
+**Limitations and Considerations**
+* Omitting `healthCheck` results in [VPC Lattice default behavior](https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html) depending on the protocol.
+  * Health check is enabled by default for HTTP1 target groups.
+  * Health check is disabled by default for HTTP2/gRPC target groups.
+* For targets behind GRPCRoute, you should create a separate endpoint dedicated for health checks - HTTP/2 health check directly on gRPC endpoints is not supported.
 
 |Field	|Description	|
 |---	|---	|
