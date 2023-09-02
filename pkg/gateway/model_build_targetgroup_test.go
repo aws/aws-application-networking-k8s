@@ -8,12 +8,6 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -25,6 +19,13 @@ import (
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_TGModelByServicexportBuild(t *testing.T) {
@@ -398,7 +399,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 			wantError:           nil,
 			wantName:            "service1",
 			wantIsDeleted:       false,
-			wantErrIsNil:        false,
+			wantErrIsNil:        true,
 			wantIPv6TargetGroup: false,
 		},
 		{

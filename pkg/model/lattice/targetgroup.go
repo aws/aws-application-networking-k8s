@@ -1,8 +1,9 @@
 package lattice
 
 import (
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
 const (
@@ -22,11 +23,12 @@ type TargetGroup struct {
 }
 
 type TargetGroupSpec struct {
-	Name      string
-	Config    TargetGroupConfig `json:"config"`
-	Type      TargetGroupType
-	IsDeleted bool
-	LatticeID string
+	Name             string
+	Config           TargetGroupConfig `json:"config"`
+	Type             TargetGroupType
+	IsDeleted        bool
+	LatticeID        string
+	K8sServiceExists bool
 }
 
 type TargetGroupConfig struct {

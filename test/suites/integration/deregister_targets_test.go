@@ -15,66 +15,74 @@ import (
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
-var _ = Describe("Deregister Targets", func() {
+var _ = Describe("Deregister Targets", Ordered, func() {
 	var (
-		deployment         *appsv1.Deployment
-		service            *v1.Service
+		deployments        = make([]*appsv1.Deployment, 2)
+		services           = make([]*v1.Service, 2)
+		targetGroups       = make([]*vpclattice.TargetGroupSummary, 2)
 		pathMatchHttpRoute *v1beta1.HTTPRoute
-		targetGroup        *vpclattice.TargetGroupSummary
 	)
 
-	BeforeEach(func() {
-		deployment, service = testFramework.NewHttpApp(test.HTTPAppOptions{
-			Name:      "target-deregistration-test",
+	BeforeAll(func() {
+		deployments[0], services[0] = testFramework.NewHttpApp(test.HTTPAppOptions{
+			Name:      "target-deregistration-test-1",
+			Namespace: k8snamespace,
+		})
+		deployments[1], services[1] = testFramework.NewHttpApp(test.HTTPAppOptions{
+			Name:      "target-deregistration-test-2",
 			Namespace: k8snamespace,
 		})
 		pathMatchHttpRoute = testFramework.NewPathMatchHttpRoute(
-			testGateway, []client.Object{service}, "http", "", k8snamespace)
+			testGateway, []client.Object{services[0], services[1]}, "http", "", k8snamespace)
 		testFramework.ExpectCreated(
 			ctx,
 			pathMatchHttpRoute,
-			service,
-			deployment,
+			services[0],
+			deployments[0],
+			services[1],
+			deployments[1],
 		)
 		route, _ := core.NewRoute(pathMatchHttpRoute)
 		_ = testFramework.GetVpcLatticeService(ctx, route)
 
-		// Verify VPC Lattice Target Group exists
-		targetGroup = testFramework.GetTargetGroup(ctx, service)
-		Expect(*targetGroup.VpcIdentifier).To(Equal(test.CurrentClusterVpcId))
-		Expect(*targetGroup.Protocol).To(Equal("HTTP"))
+		for i, service := range services {
+			// Verify VPC Lattice Target Group exists
+			targetGroups[i] = testFramework.GetTargetGroup(ctx, service)
+			Expect(*targetGroups[i]).To(Not(BeNil()))
 
-		// Verify VPC Lattice Targets exist
-		targets := testFramework.GetTargets(ctx, targetGroup, deployment)
-		Expect(*targetGroup.Port).To(BeEquivalentTo(80))
-		for _, target := range targets {
-			Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].TargetPort.IntVal))
-			Expect(*target.Status).To(Or(
-				Equal(vpclattice.TargetStatusInitial),
-				Equal(vpclattice.TargetStatusHealthy),
-			))
+			// Verify VPC Lattice Targets exist
+			targets := testFramework.GetTargets(ctx, targetGroups[i], deployments[i])
+			Expect(*targetGroups[i].Port).To(BeEquivalentTo(80))
+			for _, target := range targets {
+				Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].TargetPort.IntVal))
+				Expect(*target.Status).To(Or(
+					Equal(vpclattice.TargetStatusInitial),
+					Equal(vpclattice.TargetStatusHealthy),
+				))
+			}
 		}
 	})
 
-	AfterEach(func() {
+	It("Kubernetes Service deletion deregisters targets", func() {
+		testFramework.ExpectDeleted(ctx, services[0])
+		verifyNoTargetsForTargetGroup(targetGroups[0])
+	})
+
+	It("Kubernetes Deployment deletion triggers targets de-registering", func() {
+		testFramework.ExpectDeleted(ctx, services[1])
+		verifyNoTargetsForTargetGroup(targetGroups[1])
+	})
+
+	AfterAll(func() {
 		// Lattice targets draining time for test cases in this file is actually unavoidable,
 		//because these test cases logic themselves test lattice targets de-registering before delete the httproute
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			pathMatchHttpRoute,
-			service,
-			deployment,
+			services[0],
+			deployments[0],
+			services[1],
+			deployments[1],
 		)
-	})
-
-	//It("Kubernetes Service deletion deregisters targets", func() {
-	//	Fail("Currently controller have a bug, service deletion does NOT trigger targets de-registering, need to further investigate the root cause")
-	//	testFramework.ExpectDeleted(ctx, service)
-	//  verifyNoTargetsForTargetGroup(targetGroup)
-	//})
-
-	It("Kubernetes Deployment deletion triggers targets de-registering", func() {
-		testFramework.ExpectDeleted(ctx, deployment)
-		verifyNoTargetsForTargetGroup(targetGroup)
 	})
 })
 

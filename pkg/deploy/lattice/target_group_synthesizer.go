@@ -3,9 +3,11 @@ package lattice
 import (
 	"context"
 	"errors"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -375,6 +377,8 @@ func (t *TargetGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 	return nil
 }
 
+// SynthesizeTriggeredTargetGroupsCreation currently, is only used  by route creation,
+// serviceExport creation uses another method SynthesizeTriggeredTargetGroup()
 func (t *TargetGroupSynthesizer) SynthesizeTriggeredTargetGroupsCreation(ctx context.Context) error {
 	var resTargetGroups []*latticemodel.TargetGroup
 	var returnErr = false
@@ -398,6 +402,13 @@ func (t *TargetGroupSynthesizer) SynthesizeTriggeredTargetGroupsCreation(ctx con
 				resTargetGroup.Spec.Config.IsServiceImport, "")
 			t.log.Infof("targetGroup Synthesized successfully for %s: %v", resTargetGroup.Spec.Name, tgStatus)
 		} else { // handle TargetGroup creation request that triggered by httproute with backendref k8sService creation or serviceExport creation
+			t.log.Debugf("Only create targetGroup if corresponding K8sService exists, resTargetGroup.Spec.K8sServiceExists: %v", resTargetGroup.Spec.K8sServiceExists)
+			if !resTargetGroup.Spec.K8sServiceExists {
+				// In here we just do `continue` and don't do `returnErr = true` , because we hope to handle this scenario:
+				// given the Route and its backendref k8sServices exist, then if the user try to do the deleting k8sService,
+				// we hope the code could reach the later `targetsSynthesizer.Synthesize()` function to deregister lattice targets
+				continue
+			}
 			resTargetGroup.Spec.Config.VpcID = config.VpcID
 			tgStatus, err := t.targetGroupManager.Create(ctx, resTargetGroup)
 			if err != nil {

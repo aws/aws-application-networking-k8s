@@ -17,6 +17,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -24,7 +26,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 const (
@@ -243,6 +244,7 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 	}
 
 	tg := latticemodel.NewTargetGroup(t.stack, tgName, tgSpec)
+	tg.Spec.K8sServiceExists = true
 	t.log.Infof("buildTargetGroup, tg[%s], tgSpec %v", tgName, tg)
 
 	// add targetgroup to localcache for service reconcile to reference
@@ -345,7 +347,7 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 	} else {
 		isDeleted = true
 	}
-
+	k8sServiceExists := false
 	ipAddressType := vpclattice.IpAddressTypeIpv4
 
 	if backendKind == "ServiceImport" {
@@ -384,22 +386,12 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 		}
 
 		svc := &corev1.Service{}
-		if err := t.client.Get(ctx, serviceNamespaceName, svc); err != nil {
+		if err := t.client.Get(ctx, serviceNamespaceName, svc); err == nil {
+			ipAddressType, _ = buildTargetGroupIpAdressType(svc)
+			k8sServiceExists = true
+		} else {
 			t.log.Infof("Error finding backend service %v error :%v", serviceNamespaceName, err)
-			if !isDeleted {
-				//Return error for creation request only,
-				//For k8sService deletion request, we should go ahead to build TargetGroupSpec model
-				return latticemodel.TargetGroupSpec{}, err
-			}
-		}
-
-		var err error
-
-		ipAddressType, err = buildTargetGroupIpAdressType(svc)
-
-		// Ignore error for creation request
-		if !isDeleted && err != nil {
-			return latticemodel.TargetGroupSpec{}, err
+			k8sServiceExists = false
 		}
 	}
 
@@ -447,7 +439,8 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 			Port:          80,
 			IpAddressType: ipAddressType,
 		},
-		IsDeleted: isDeleted,
+		K8sServiceExists: k8sServiceExists,
+		IsDeleted:        isDeleted,
 	}, nil
 }
 

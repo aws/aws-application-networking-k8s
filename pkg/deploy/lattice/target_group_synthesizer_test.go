@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -20,10 +21,11 @@ import (
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -965,10 +967,11 @@ func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByServiceImport(t *te
 
 func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testing.T) {
 	tests := []struct {
-		name         string
-		svcList      []svcDef
-		isDeleted    bool
-		wantErrIsNil bool
+		name                         string
+		svcList                      []svcDef
+		isDeleted                    bool
+		wantErrIsNil                 bool
+		k8sServicesExistInTheCluster bool
 	}{
 		{
 			name: "httproute creation request with backendref k8sService triggered target group creation, ok case",
@@ -986,8 +989,9 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testi
 					mgrErr: false,
 				},
 			},
-			isDeleted:    false,
-			wantErrIsNil: true,
+			isDeleted:                    false,
+			wantErrIsNil:                 true,
+			k8sServicesExistInTheCluster: true,
 		},
 		{
 			name: "httproute creation request with backendref k8sService triggered target group creation, mgrErr",
@@ -1005,8 +1009,9 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testi
 					mgrErr: false,
 				},
 			},
-			isDeleted:    false,
-			wantErrIsNil: false,
+			isDeleted:                    false,
+			wantErrIsNil:                 false,
+			k8sServicesExistInTheCluster: true,
 		},
 		{
 			name: "SynthesizeTriggeredTargetGroupsCreation should ignore any target group deletion request",
@@ -1024,8 +1029,16 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testi
 					mgrErr: false,
 				},
 			},
-			isDeleted:    true,
-			wantErrIsNil: true,
+			isDeleted:                    true,
+			wantErrIsNil:                 true,
+			k8sServicesExistInTheCluster: true,
+		},
+		{
+			name:                         "if k8sService do not exist, SynthesizeTriggeredTargetGroupsCreation should don't put entry in the dataStore and don't return error",
+			svcList:                      []svcDef{},
+			isDeleted:                    false,
+			wantErrIsNil:                 true,
+			k8sServicesExistInTheCluster: false,
 		},
 	}
 
@@ -1047,13 +1060,14 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testi
 				Config: latticemodel.TargetGroupConfig{
 					IsServiceImport: false,
 				},
-				IsDeleted: tt.isDeleted,
+				K8sServiceExists: tt.k8sServicesExistInTheCluster,
+				IsDeleted:        tt.isDeleted,
 			}
 
 			tg := latticemodel.NewTargetGroup(stack, svc.name, tgSpec)
 			fmt.Printf("tg : %v\n", tg)
 
-			if !tt.isDeleted {
+			if !tt.isDeleted && tt.k8sServicesExistInTheCluster {
 
 				if svc.mgrErr {
 					mockTGManager.EXPECT().Create(ctx, tg).Return(latticemodel.TargetGroupStatus{}, errors.New("tgmgr err"))
@@ -1079,7 +1093,7 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testi
 		if !tt.isDeleted {
 			// check datastore
 			for _, tg := range tt.svcList {
-				if tg.mgrErr {
+				if tg.mgrErr || !tt.k8sServicesExistInTheCluster {
 					//TODO, test routename
 					_, err := ds.GetTargetGroup(tg.name, "", false)
 					assert.NotNil(t, err)

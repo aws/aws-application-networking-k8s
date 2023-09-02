@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -104,8 +103,14 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	}
 
 	if err := t.client.Get(ctx, namespacedName, svc); err != nil {
-		errmsg := fmt.Sprintf("Build Targets failed because K8S service %s does not exist", namespacedName)
-		return errors.New(errmsg)
+		glog.V(6).Infof("K8S service %s does not exist", namespacedName)
+		t.latticeTargets = latticemodel.NewTargets(t.stack, tgName, latticemodel.TargetsSpec{
+			Name:         t.tgName,
+			Namespace:    t.tgNamespace,
+			RouteName:    t.routeName,
+			TargetIPList: []latticemodel.Target{},
+		})
+		return nil
 	}
 
 	definedPorts := make(map[int32]struct{})

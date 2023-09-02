@@ -18,10 +18,11 @@ import (
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func Test_Targets(t *testing.T) {
@@ -37,6 +38,7 @@ func Test_Targets(t *testing.T) {
 		refByServiceExport bool
 		refByService       bool
 		wantErrIsNil       bool
+		k8sServiceExists   bool
 		expectedTargetList []latticemodel.Target
 		route              core.Route
 	}{
@@ -66,9 +68,10 @@ func Test_Targets(t *testing.T) {
 					DeletionTimestamp: nil,
 				},
 			},
-			inDataStore:  true,
-			refByService: true,
-			wantErrIsNil: true,
+			inDataStore:      true,
+			refByService:     true,
+			wantErrIsNil:     true,
+			k8sServiceExists: true,
 			expectedTargetList: []latticemodel.Target{
 				{
 					TargetIP: "10.10.1.1",
@@ -120,9 +123,10 @@ func Test_Targets(t *testing.T) {
 					},
 				},
 			},
-			inDataStore:  true,
-			refByService: true,
-			wantErrIsNil: true,
+			inDataStore:      true,
+			refByService:     true,
+			wantErrIsNil:     true,
+			k8sServiceExists: true,
 			expectedTargetList: []latticemodel.Target{
 				{
 					TargetIP: "10.10.1.1",
@@ -185,6 +189,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:        true,
 			refByServiceExport: true,
 			wantErrIsNil:       true,
+			k8sServiceExists:   true,
 			expectedTargetList: []latticemodel.Target{
 				{
 					TargetIP: "10.10.1.1",
@@ -227,6 +232,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:        true,
 			refByServiceExport: true,
 			wantErrIsNil:       true,
+			k8sServiceExists:   true,
 			expectedTargetList: nil,
 		},
 		{
@@ -247,6 +253,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:        true,
 			refByServiceExport: true,
 			wantErrIsNil:       true,
+			k8sServiceExists:   true,
 			expectedTargetList: nil,
 		},
 		{
@@ -278,6 +285,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:        false,
 			refByServiceExport: true,
 			wantErrIsNil:       false,
+			k8sServiceExists:   true,
 		},
 		{
 			name:               "Endpoints's TargetGroup is NOT referenced by serviceexport",
@@ -309,6 +317,7 @@ func Test_Targets(t *testing.T) {
 			refByServiceExport: false,
 			refByService:       false,
 			wantErrIsNil:       false,
+			k8sServiceExists:   true,
 		},
 		{
 			name:               "Endpoints does NOT exists",
@@ -318,6 +327,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:        false,
 			refByServiceExport: true,
 			wantErrIsNil:       false,
+			k8sServiceExists:   true,
 			svc: corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:         "ns1",
@@ -352,9 +362,10 @@ func Test_Targets(t *testing.T) {
 					DeletionTimestamp: nil,
 				},
 			},
-			inDataStore:  true,
-			refByService: true,
-			wantErrIsNil: true,
+			inDataStore:      true,
+			refByService:     true,
+			wantErrIsNil:     true,
+			k8sServiceExists: true,
 			expectedTargetList: []latticemodel.Target{
 				{
 					TargetIP: "10.10.1.1",
@@ -403,6 +414,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:        true,
 			refByServiceExport: true,
 			wantErrIsNil:       true,
+			k8sServiceExists:   true,
 			expectedTargetList: []latticemodel.Target{
 				{
 					TargetIP: "10.10.1.1",
@@ -444,6 +456,15 @@ func Test_Targets(t *testing.T) {
 			refByService:       true,
 			refByServiceExport: true,
 			wantErrIsNil:       false,
+			k8sServiceExists:   true,
+		},
+		{
+			name:               "K8sService does not exist",
+			inDataStore:        false,
+			refByService:       true,
+			wantErrIsNil:       false,
+			k8sServiceExists:   false,
+			expectedTargetList: []latticemodel.Target{},
 		},
 	}
 
@@ -465,7 +486,9 @@ func Test_Targets(t *testing.T) {
 			assert.NoError(t, k8sClient.Create(ctx, tt.endPoints[0].DeepCopy()))
 		}
 
-		assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
+		if tt.k8sServiceExists {
+			assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
+		}
 
 		ds := latticestore.NewLatticeDataStore()
 
