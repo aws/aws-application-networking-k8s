@@ -33,6 +33,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -101,18 +102,24 @@ func RegisterServiceController(
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
+}
+
+func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	r.log.Infow("reconcile", "name", req.Name)
 
 	svc := &corev1.Service{}
 	if err := r.client.Get(ctx, req.NamespacedName, svc); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return client.IgnoreNotFound(err)
 	}
 	if !svc.DeletionTimestamp.IsZero() {
 		tgName := latticestore.TargetGroupName(svc.Name, svc.Namespace)
 		tgs := r.datastore.GetTargetGroupsByName(tgName)
 		for _, tg := range tgs {
 			r.log.Debugf("deletion request for tgName: %s: at timestamp: %s", tg.TargetGroupKey.Name, svc.DeletionTimestamp)
-			r.reconcileTargetsResource(ctx, svc, tg.TargetGroupKey.RouteName)
+			if err := r.reconcileTargetsResource(ctx, svc, tg.TargetGroupKey.RouteName); err != nil {
+				return err
+			}
 		}
 		r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer)
 	} else {
@@ -122,14 +129,14 @@ func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	r.log.Infow("reconciled", "name", req.Name)
-	return ctrl.Result{}, nil
+	return nil
 }
 
-func (r *serviceReconciler) reconcileTargetsResource(ctx context.Context, svc *corev1.Service, routename string) {
-	if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
-		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("failed and finalizer: %s", err))
+func (r *serviceReconciler) reconcileTargetsResource(ctx context.Context, svc *corev1.Service, routename string) error {
+	if _, _, err := r.buildAndDeployModel(ctx, svc, routename); err != nil {
+		return err
 	}
-	r.buildAndDeployModel(ctx, svc, routename)
+	return nil
 }
 
 func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error) {
