@@ -18,17 +18,22 @@ package controllers
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
-	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 const (
@@ -103,8 +108,47 @@ func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	if !svc.DeletionTimestamp.IsZero() {
+		tgName := latticestore.TargetGroupName(svc.Name, svc.Namespace)
+		tgs := r.datastore.GetTargetGroupsByName(tgName)
+		for _, tg := range tgs {
+			r.log.Debugf("deletion request for tgName: %s: at timestamp: %s", tg.TargetGroupKey.Name, svc.DeletionTimestamp)
+			r.reconcileTargetsResource(ctx, svc, tg.TargetGroupKey.RouteName)
+		}
 		r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer)
+	} else {
+		if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
+			r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("failed and finalizer: %s", err))
+		}
 	}
+
 	r.log.Infow("reconciled", "name", req.Name)
 	return ctrl.Result{}, nil
+}
+
+func (r *serviceReconciler) reconcileTargetsResource(ctx context.Context, svc *corev1.Service, routename string) {
+	if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
+		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("failed and finalizer: %s", err))
+	}
+	r.buildAndDeployModel(ctx, svc, routename)
+}
+
+func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error) {
+	stack, latticeTargets, err := r.modelBuilder.Build(ctx, svc, routename)
+	if err != nil {
+		r.eventRecorder.Event(svc, corev1.EventTypeWarning,
+			k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("failed build model: %s", err))
+		return nil, nil, err
+	}
+
+	jsonStack, _ := r.stackMashaller.Marshal(stack)
+	r.log.Debugw("successfully built model", "stack", jsonStack)
+
+	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		r.eventRecorder.Event(svc, corev1.EventTypeWarning,
+			k8s.ServiceEventReasonFailedDeployModel, fmt.Sprintf("failed deploy model: %s", err))
+		return nil, nil, err
+	}
+
+	r.log.Debugw("successfully deployed model", "service", svc.Name)
+	return stack, latticeTargets, err
 }
