@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"testing"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -20,10 +21,11 @@ import (
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -122,6 +124,11 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 			mockTGManager := NewMockTargetGroupManager(c)
 
 			ds := latticestore.NewLatticeDataStore()
+			if !tt.svcExport.DeletionTimestamp.IsZero() {
+				// When test serviceExport deletion, we expect latticeDataStore already has this tg entry
+				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
+				ds.AddTargetGroup(tgName, "vpc-123456789", "123456789", "tg-123", false, "")
+			}
 
 			builder := gateway.NewTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
 
@@ -865,7 +872,11 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *te
 			mockTGManager := NewMockTargetGroupManager(c)
 
 			ds := latticestore.NewLatticeDataStore()
-
+			if !tt.svcExport.DeletionTimestamp.IsZero() {
+				// When test serviceExport deletion, we expect latticeDataStore already has this tg entry
+				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
+				ds.AddTargetGroup(tgName, "vpc-123456789", "arn123", "4567", false, "")
+			}
 			builder := gateway.NewTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)

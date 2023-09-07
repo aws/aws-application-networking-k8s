@@ -8,12 +8,6 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -25,6 +19,13 @@ import (
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_TGModelByServicexportBuild(t *testing.T) {
@@ -96,7 +97,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 				},
 			},
 
-			wantErrIsNil:        false,
+			wantErrIsNil:        true,
 			wantIsDeleted:       true,
 			wantIPv6TargetGroup: false,
 		},
@@ -224,7 +225,11 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 			}
 
 			ds := latticestore.NewLatticeDataStore()
-
+			if !tt.svcExport.DeletionTimestamp.IsZero() {
+				// When test serviceExport deletion, we expect latticeDataStore already has this tg entry
+				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
+				ds.AddTargetGroup(tgName, "vpc-123456789", "123456789", "tg-123", false, "")
+			}
 			builder := NewTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
@@ -247,9 +252,10 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 			if tt.wantIsDeleted {
 				assert.Equal(t, false, dsTG.ByServiceExport)
 				assert.Equal(t, true, tg.Spec.IsDeleted)
+				assert.Equal(t, "tg-123", tg.Spec.LatticeID)
 			} else {
 				assert.Equal(t, true, dsTG.ByServiceExport)
-
+				assert.Equal(t, "", tg.Spec.LatticeID)
 				if tt.wantIPv6TargetGroup {
 					assert.Equal(t, vpclattice.IpAddressTypeIpv6, tg.Spec.Config.IpAddressType)
 				} else {

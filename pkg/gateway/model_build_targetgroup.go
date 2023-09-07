@@ -17,6 +17,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -24,7 +26,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 const (
@@ -192,23 +193,39 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 // Build target group for K8S serviceexport object
 func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error {
 	tgName := latticestore.TargetGroupName(t.serviceExport.Name, t.serviceExport.Namespace)
+	var tg *latticemodel.TargetGroup
+	var err error
+	if t.serviceExport.DeletionTimestamp.IsZero() {
+		// build TargetGroup Model for serviceExport creation
+		tg, err = t.buildTargetGroupForServiceExportCreation(ctx, tgName)
+	} else {
+		// build TargetGroup Model for serviceExport deletion
+		tg, err = t.buildTargetGroupForServiceExportDeletion(ctx, tgName)
+	}
+	if err != nil {
+		return err
+	}
+	t.tgByResID[tgName] = tg
+	t.targetGroup = tg
+	return nil
+}
 
+func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportCreation(ctx context.Context, targetGroupName string) (*latticemodel.TargetGroup, error) {
 	svc := &corev1.Service{}
 	if err := t.client.Get(ctx, k8s.NamespacedName(t.serviceExport), svc); err != nil {
-		// mark there is no serviceexport dependence on the TG
-		t.datastore.SetTargetGroupByServiceExport(tgName, false, false)
-		return fmt.Errorf("error finding corresponding service %v error :%w", k8s.NamespacedName(t.serviceExport), err)
+		t.log.Infof("Error finding corresponding service %v error :%v \n", k8s.NamespacedName(t.serviceExport), err)
+		t.datastore.SetTargetGroupByServiceExport(targetGroupName, false, false)
+		return nil, err
 	}
 
 	ipAddressType, err := buildTargetGroupIpAdressType(svc)
-
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	tgp, err := getAttachedTargetGroupPolicy(ctx, t.client, t.serviceExport.Name, t.serviceExport.Namespace)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
@@ -222,10 +239,8 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 		}
 		healthCheckConfig = parseHealthCheckConfig(tgp)
 	}
-
-	//if t.serviceExport.
-	tgSpec := latticemodel.TargetGroupSpec{
-		Name: tgName,
+	stackTG := latticemodel.NewTargetGroup(t.stack, targetGroupName, latticemodel.TargetGroupSpec{
+		Name: targetGroupName,
 		Type: latticemodel.TargetGroupTypeIP,
 		Config: latticemodel.TargetGroupConfig{
 			VpcID: config.VpcID,
@@ -240,36 +255,33 @@ func (t *targetGroupModelBuildTask) BuildTargetGroup(ctx context.Context) error 
 			HealthCheckConfig:   healthCheckConfig,
 			IpAddressType:       ipAddressType,
 		},
+	})
+	t.log.Infof("buildTargetGroup, stackTG[%s], tgSpec%v \n", targetGroupName, stackTG)
+	t.datastore.AddTargetGroup(targetGroupName, "", "", "", false, "")
+	t.datastore.SetTargetGroupByServiceExport(targetGroupName, false, true)
+	return stackTG, nil
+}
+
+func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportDeletion(ctx context.Context, targetGroupName string) (*latticemodel.TargetGroup, error) {
+	stackTG := latticemodel.NewTargetGroup(t.stack, targetGroupName, latticemodel.TargetGroupSpec{
+		Name:      targetGroupName,
+		LatticeID: "",
+		IsDeleted: true,
+	})
+	t.datastore.SetTargetGroupByServiceExport(targetGroupName, false, false)
+	dsTG, err := t.datastore.GetTargetGroup(targetGroupName, "", false)
+	t.log.Infof("TargetGroup cached in datastore: %v \n", dsTG)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot find targetgroup %v in Datastore,error :%v \n", targetGroupName, err)
 	}
-
-	tg := latticemodel.NewTargetGroup(t.stack, tgName, tgSpec)
-	t.log.Infof("buildTargetGroup, tg[%s], tgSpec %v", tgName, tg)
-
-	// add targetgroup to localcache for service reconcile to reference
-	// for serviceexport, the httproutename is set to ""
-	t.datastore.AddTargetGroup(tgName, "", "", "", tgSpec.Config.IsServiceImport, "")
-
-	if !t.serviceExport.DeletionTimestamp.IsZero() {
-		// triggered by serviceexport delete
-		t.datastore.SetTargetGroupByServiceExport(tgName, false, false)
-	} else {
-		// triggered by serviceexport add
-		t.datastore.SetTargetGroupByServiceExport(tgName, false, true)
+	if !dsTG.ByBackendRef {
+		// When handling targetGroup deletion reequst while having dsTG.ByBackendRef==false,
+		// That means this targetgroup is not in use anymore, i.e., not referenced by latticeService rules(aka http/grpc route rules),
+		// so it can be deleted. Assign the stackTG.Spec.LatticeID to make targetgroup_manger can delete it
+		t.log.Infof("BuildingTargetGroup: TG %v is NOT used anymore and can be deleted\n", stackTG)
+		stackTG.Spec.LatticeID = dsTG.ID
 	}
-
-	// for serviceexport, the routeName is null
-	dsTG, err := t.datastore.GetTargetGroup(tgName, "", false)
-
-	t.log.Infof("TargetGroup cached in datastore: %v", dsTG)
-	if (err != nil) || (!dsTG.ByBackendRef && !dsTG.ByServiceExport) {
-		t.log.Infof("BuildingTargetGroup: TG %v is NOT used anymore and can be delted", tgSpec)
-		tg.Spec.IsDeleted = true
-		tg.Spec.LatticeID = dsTG.ID
-	}
-
-	t.tgByResID[tgName] = tg
-	t.targetGroup = tg
-	return nil
+	return stackTG, nil
 }
 
 // Build target group for backend service ref used in Route
