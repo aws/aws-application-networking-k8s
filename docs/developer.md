@@ -8,7 +8,7 @@ Before you start you need to have following:
 - aws cli - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 - eksctl - https://github.com/eksctl-io/eksctl/blob/main/README.md#installation
 - kubectl - https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html
-- go v1.18+ - https://go.dev/doc/install
+- go v1.20.x - https://go.dev/doc/install
 - yq - https://github.com/mikefarah/yq#install
 - jq - https://jqlang.github.io/jq/
 - make 
@@ -28,7 +28,7 @@ this is preferable way for local development.
 Once you have eksctl and aws account you can create EKS cluster. It's handy to set env variables, since many places relies on them.
 
 ```bash
-export AWS_ACCOUNT= {your accout}
+export AWS_ACCOUNT= {your account}
 export AWS_REGION= {region with eks and lattice}
 export CLUSTER_NAME=dev-cluster
 ```
