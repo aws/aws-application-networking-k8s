@@ -1,16 +1,25 @@
 package utils
 
-import "strings"
+import (
+	"github.com/pkg/errors"
+	"strings"
+)
 
 type MapFunc[T any, U any] func(T) U
 type FilterFunc[T any] func(T) bool
 
-// TODO: should be check by API call (Mingxi)
-func ArntoId(arn string) string {
-	if len(arn) == 0 {
-		return ""
+// arn:<partition>:vpc-lattice:<region>:<account id>:<resource-type>/<resource-id>
+func ArnToAccountId(arn string) (string, error) {
+	if arn == "" {
+		return "", nil
 	}
-	return arn[len(arn)-22:]
+
+	split := strings.Split(arn, ":")
+	if len(split) < 6 {
+		return "", errors.Errorf("Not a valid arn %s", arn)
+	}
+
+	return split[4], nil
 }
 
 func Truncate(name string, length int) string {

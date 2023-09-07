@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -13,6 +14,12 @@ import (
 
 //go:generate mockgen -destination vpclattice_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Lattice
 
+type Tags = map[string]*string
+
+type ServiceNetworkInfo struct {
+	SvcNetwork *vpclattice.ServiceNetworkSummary
+	Tags       Tags
+}
 type Lattice interface {
 	vpclatticeiface.VPCLatticeAPI
 	ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error)
@@ -21,6 +28,7 @@ type Lattice interface {
 	ListTargetsAsList(ctx context.Context, input *vpclattice.ListTargetsInput) ([]*vpclattice.TargetSummary, error)
 	ListServiceNetworkVpcAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput) ([]*vpclattice.ServiceNetworkVpcAssociationSummary, error)
 	ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error)
+	FindServiceNetwork(ctx context.Context, name string, accountId string) (*ServiceNetworkInfo, error)
 }
 
 type defaultLattice struct {
@@ -168,4 +176,66 @@ func (d *defaultLattice) ListServiceNetworkServiceAssociationsAsList(ctx context
 	}
 
 	return result, nil
+}
+
+func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, optionalAccountId string) (*ServiceNetworkInfo, error) {
+	input := vpclattice.ListServiceNetworksInput{}
+
+	for {
+		resp, err := d.ListServiceNetworksWithContext(ctx, &input)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, r := range resp.Items {
+			if aws.StringValue(r.Name) != name {
+				continue
+			}
+			acctIdMatches, err1 := accountIdMatches(optionalAccountId, *r.Arn)
+			if err1 != nil {
+				return nil, err1
+			}
+			if !acctIdMatches {
+				glog.V(6).Infoln("ServiceNetwork found but does not match account id ", name, r.Arn, optionalAccountId)
+				continue
+			}
+
+			glog.V(6).Infoln("Found ServiceNetwork ", name, r.Arn, optionalAccountId)
+
+			tagsInput := vpclattice.ListTagsForResourceInput{
+				ResourceArn: r.Arn,
+			}
+
+			tagsOutput, err2 := d.ListTagsForResourceWithContext(ctx, &tagsInput)
+			if err2 != nil {
+				return nil, err2
+			}
+
+			return &ServiceNetworkInfo{
+				SvcNetwork: r,
+				Tags:       tagsOutput.Tags,
+			}, nil
+		}
+
+		if resp.NextToken == nil {
+			break
+		}
+
+		input.NextToken = resp.NextToken
+	}
+
+	return nil, nil
+}
+
+func accountIdMatches(accountId string, arn string) (bool, error) {
+	if accountId == "" {
+		return true, nil
+	}
+
+	snAccountId, err := utils.ArnToAccountId(arn)
+	if err != nil {
+		return false, err
+	}
+
+	return accountId == snAccountId, nil
 }

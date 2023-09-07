@@ -19,8 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
@@ -251,13 +251,16 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 		return err
 	}
 
-	serviceNetworkStatus, err := r.datastore.GetServiceNetworkStatus(gw.Name, config.AccountID)
-	if err = r.updateGatewayStatus(ctx, &serviceNetworkStatus, gw); err != nil {
+	snInfo, err := r.cloud.Lattice().FindServiceNetwork(ctx, gw.Name, config.AccountID)
+	if err != nil {
+		return err
+	}
+
+	if err = r.updateGatewayStatus(ctx, snInfo, gw); err != nil {
 		return err
 	}
 
 	return nil
-
 }
 
 func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *gateway_api.Gateway) error {
@@ -267,7 +270,7 @@ func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *gat
 
 func (r *GatewayReconciler) updateGatewayStatus(
 	ctx context.Context,
-	serviceNetworkStatus *latticestore.ServiceNetwork,
+	snInfo *services.ServiceNetworkInfo,
 	gw *gateway_api.Gateway,
 ) error {
 	gwOld := gw.DeepCopy()
@@ -277,15 +280,11 @@ func (r *GatewayReconciler) updateGatewayStatus(
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: gw.Generation,
 		Reason:             string(gateway_api.GatewayReasonProgrammed),
-		Message:            fmt.Sprintf("aws-gateway-arn: %s", serviceNetworkStatus.ARN),
+		Message:            fmt.Sprintf("aws-gateway-arn: %s", *snInfo.SvcNetwork.Arn),
 	})
 
-	// TODO following is causing crash on some platform, see https://t.corp.amazon.com/b7c9ea6c-5168-4616-b718-c1bdf78dbdf1/communication
-	//gw.Annotations["gateway.networking.k8s.io/aws-gateway-id"] = serviceNetworkStatus.ID
-
 	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		return fmt.Errorf("update gw status error, gw: %s, status: %s, err: %w",
-			gw.Name, serviceNetworkStatus.Status, err)
+		return fmt.Errorf("update gw status error, gw: %s, err: %w", gw.Name, err)
 	}
 	return nil
 }

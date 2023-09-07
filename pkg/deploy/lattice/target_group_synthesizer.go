@@ -138,7 +138,7 @@ func (t *TargetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 					returnErr = true
 					continue
 				} else {
-					t.log.Infof("Synthersizing Target Group: successfully deleted target group %v", resTargetGroup)
+					t.log.Infof("Synthesizing Target Group: successfully deleted target group %v", resTargetGroup)
 					t.latticeDataStore.DelTargetGroup(resTargetGroup.Spec.Name, resTargetGroup.Spec.Config.K8SHTTPRouteName, false)
 				}
 

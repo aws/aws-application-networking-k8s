@@ -2,7 +2,6 @@ package aws
 
 import (
 	"fmt"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -33,11 +32,11 @@ type Cloud interface {
 	// creates lattice tags with default values populated
 	DefaultTags() Tags
 
-	// check if managedBy tag set for lattice resource
-	IsArnManaged(arn string) (bool, error)
-
 	// check if tags map has managedBy tag
 	ContainsManagedBy(tags Tags) bool
+
+	// check if managedBy tag set for lattice resource
+	IsArnManaged(arn string) (bool, error)
 }
 
 // NewCloud constructs new Cloud implementation.

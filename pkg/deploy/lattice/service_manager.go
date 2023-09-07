@@ -79,13 +79,13 @@ func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, s
 }
 
 func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *string, snName string) error {
-	sn, err := m.datastore.GetServiceNetworkStatus(snName, m.cloud.Config().AccountId)
+	snInfo, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName, m.cloud.Config().AccountId)
 	if err != nil {
 		return err
 	}
 	assocReq := &CreateSnSvcAssocReq{
 		ServiceIdentifier:        svcId,
-		ServiceNetworkIdentifier: aws.String(sn.ID),
+		ServiceNetworkIdentifier: snInfo.SvcNetwork.Id,
 		Tags:                     m.cloud.DefaultTags(),
 	}
 	assocResp, err := m.cloud.Lattice().CreateServiceNetworkServiceAssociationWithContext(ctx, assocReq)
