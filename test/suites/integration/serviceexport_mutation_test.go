@@ -3,7 +3,6 @@ package integration
 import (
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -54,7 +53,7 @@ var _ = Describe("ServiceExport Mutation Test", func() {
 		When("Delete ServiceExport, while corresponding K8sService exists", func() {
 			It("Expect targetGroup not found", func() {
 				testFramework.ExpectDeletedThenNotFound(ctx, serviceExport)
-				verifyTargetGroupNotFound(targetGroup)
+				testFramework.VerifyTargetGroupNotFound(targetGroup)
 			})
 		})
 
@@ -63,23 +62,8 @@ var _ = Describe("ServiceExport Mutation Test", func() {
 				testFramework.ExpectDeletedThenNotFound(ctx, service)
 				time.Sleep(5 * time.Second)
 				testFramework.ExpectDeletedThenNotFound(ctx, serviceExport)
-				verifyTargetGroupNotFound(targetGroup)
+				testFramework.VerifyTargetGroupNotFound(targetGroup)
 			})
 		})
 	})
 })
-
-func verifyTargetGroupNotFound(tg *vpclattice.TargetGroupSummary) {
-	Eventually(func(g Gomega) {
-		retrievedTargetGroup, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
-			TargetGroupIdentifier: tg.Id,
-		})
-		g.Expect(retrievedTargetGroup.Id).To(BeNil())
-		g.Expect(err).To(Not(BeNil()))
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				g.Expect(aerr.Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
-			}
-		}
-	}).Should(Succeed())
-}

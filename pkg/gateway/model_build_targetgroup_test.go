@@ -226,7 +226,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 
 			ds := latticestore.NewLatticeDataStore()
 			if !tt.svcExport.DeletionTimestamp.IsZero() {
-				// When test serviceExport deletion, we expect latticeDataStore already has this tg entry
+				// When test serviceExport deletion, we expect latticeDataStore already had this tg entry
 				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
 				ds.AddTargetGroup(tgName, "vpc-123456789", "123456789", "tg-123", false, "")
 			}
