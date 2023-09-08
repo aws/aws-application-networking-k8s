@@ -210,7 +210,7 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportCreation(ctx
 	svc := &corev1.Service{}
 	if err := t.client.Get(ctx, k8s.NamespacedName(t.serviceExport), svc); err != nil {
 		t.datastore.SetTargetGroupByServiceExport(targetGroupName, false, false)
-		return nil, fmt.Errorf("Failed to find corresponding k8sService %s error :%w \n", k8s.NamespacedName(t.serviceExport).String(), err)
+		return nil, fmt.Errorf("Failed to find corresponding k8sService %s, error :%w ", k8s.NamespacedName(t.serviceExport), err)
 	}
 
 	ipAddressType, err := buildTargetGroupIpAdressType(svc)
@@ -251,7 +251,17 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportCreation(ctx
 			IpAddressType:       ipAddressType,
 		},
 	})
-	t.log.Infof("buildTargetGroup, stackTG[%s], tgSpec%v \n", targetGroupName, stackTG)
+
+	t.log.Infow("stackTG:",
+		"targetGroupName", stackTG.Spec.Name,
+		"K8SServiceName", stackTG.Spec.Config.K8SServiceName,
+		"K8SServiceNamespace", stackTG.Spec.Config.K8SServiceNamespace,
+		"Protocol", stackTG.Spec.Config.Protocol,
+		"ProtocolVersion", stackTG.Spec.Config.ProtocolVersion,
+		"IpAddressType", stackTG.Spec.Config.IpAddressType,
+		"HealthCheckConfig", stackTG.Spec.Config.HealthCheckConfig,
+	)
+
 	t.datastore.AddTargetGroup(targetGroupName, "", "", "", false, "")
 	t.datastore.SetTargetGroupByServiceExport(targetGroupName, false, true)
 	return stackTG, nil
@@ -265,15 +275,15 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportDeletion(ctx
 	})
 	t.datastore.SetTargetGroupByServiceExport(targetGroupName, false, false)
 	dsTG, err := t.datastore.GetTargetGroup(targetGroupName, "", false)
-	t.log.Infof("TargetGroup cached in datastore: %v \n", dsTG)
+	t.log.Debugf("TargetGroup cached in datastore: %v", dsTG)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot find target group name %s in datastore,error:%w \n", targetGroupName, err)
+		return nil, fmt.Errorf("%w: targetGroupName: %s", err, targetGroupName)
 	}
 	if !dsTG.ByBackendRef {
 		// When handling the serviceExport deletion request while having dsTG.ByBackendRef==false,
 		// That means this target group is not in use anymore, i.e., it is not referenced by latticeService rules(aka http/grpc route rules),
 		// so, it can be deleted. Assign the stackTG.Spec.LatticeID to make target group manager can delete it
-		t.log.Infof("BuildingTargetGroup: TG %v is NOT in use anymore and can be deleted\n", stackTG)
+		t.log.Debugf("BuildingTargetGroup: TG %v is NOT in use anymore and can be deleted", stackTG)
 		stackTG.Spec.LatticeID = dsTG.ID
 	}
 	return stackTG, nil
