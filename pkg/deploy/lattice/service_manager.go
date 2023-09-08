@@ -83,6 +83,10 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 	if err != nil {
 		return err
 	}
+	if snInfo == nil {
+		return fmt.Errorf("Service network %s for account %s not found", snName, m.cloud.Config().AccountId)
+	}
+
 	assocReq := &CreateSnSvcAssocReq{
 		ServiceIdentifier:        svcId,
 		ServiceNetworkIdentifier: snInfo.SvcNetwork.Id,

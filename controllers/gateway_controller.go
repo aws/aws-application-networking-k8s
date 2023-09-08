@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
@@ -255,8 +254,11 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 	if err != nil {
 		return err
 	}
+	if snInfo == nil {
+		return fmt.Errorf("Service network %s for account %s not found", gw.Name, config.AccountID)
+	}
 
-	if err = r.updateGatewayStatus(ctx, snInfo, gw); err != nil {
+	if err = r.updateGatewayStatus(ctx, *snInfo.SvcNetwork.Arn, gw); err != nil {
 		return err
 	}
 
@@ -270,7 +272,7 @@ func (r *GatewayReconciler) cleanupGatewayResources(ctx context.Context, gw *gat
 
 func (r *GatewayReconciler) updateGatewayStatus(
 	ctx context.Context,
-	snInfo *services.ServiceNetworkInfo,
+	snArn string,
 	gw *gateway_api.Gateway,
 ) error {
 	gwOld := gw.DeepCopy()
@@ -280,7 +282,7 @@ func (r *GatewayReconciler) updateGatewayStatus(
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: gw.Generation,
 		Reason:             string(gateway_api.GatewayReasonProgrammed),
-		Message:            fmt.Sprintf("aws-gateway-arn: %s", *snInfo.SvcNetwork.Arn),
+		Message:            fmt.Sprintf("aws-gateway-arn: %s", snArn),
 	})
 
 	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
