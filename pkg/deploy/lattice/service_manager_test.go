@@ -78,7 +78,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			DoAndReturn(
 				func(ctx context.Context, name string, accountId string) (*services.ServiceNetworkInfo, error) {
 					return &services.ServiceNetworkInfo{
-						SvcNetwork: &vpclattice.ServiceNetworkSummary{
+						SvcNetwork: vpclattice.ServiceNetworkSummary{
 							Arn:  aws.String("sn-arn"),
 							Id:   aws.String("sn-id"),
 							Name: aws.String(name),
@@ -179,7 +179,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			DoAndReturn(
 				func(ctx context.Context, name string, accountId string) (*services.ServiceNetworkInfo, error) {
 					return &services.ServiceNetworkInfo{
-						SvcNetwork: &vpclattice.ServiceNetworkSummary{
+						SvcNetwork: vpclattice.ServiceNetworkSummary{
 							Arn:  aws.String(name + "-arn"),
 							Id:   aws.String(name + "-id"),
 							Name: aws.String(name),

@@ -2,10 +2,10 @@ package services
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice/vpclatticeiface"
@@ -17,7 +17,7 @@ import (
 type Tags = map[string]*string
 
 type ServiceNetworkInfo struct {
-	SvcNetwork *vpclattice.ServiceNetworkSummary
+	SvcNetwork vpclattice.ServiceNetworkSummary
 	Tags       Tags
 }
 type Lattice interface {
@@ -182,6 +182,7 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, op
 	input := vpclattice.ListServiceNetworksInput{}
 
 	for {
+
 		resp, err := d.ListServiceNetworksWithContext(ctx, &input)
 		if err != nil {
 			return nil, err
@@ -212,7 +213,7 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, op
 			}
 
 			return &ServiceNetworkInfo{
-				SvcNetwork: r,
+				SvcNetwork: *r,
 				Tags:       tagsOutput.Tags,
 			}, nil
 		}
@@ -227,15 +228,15 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, op
 	return nil, nil
 }
 
-func accountIdMatches(accountId string, arn string) (bool, error) {
+func accountIdMatches(accountId string, itemArn string) (bool, error) {
 	if accountId == "" {
 		return true, nil
 	}
 
-	snAccountId, err := utils.ArnToAccountId(arn)
+	parsedArn, err := arn.Parse(itemArn)
 	if err != nil {
 		return false, err
 	}
 
-	return accountId == snAccountId, nil
+	return accountId == parsedArn.AccountID, nil
 }

@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -367,16 +367,16 @@ func Test_defaultLattice_FindServiceNetwork_disambiguateByAccount(t *testing.T) 
 	item1, err1 := d.FindServiceNetwork(ctx, "duplicated-name", acct1)
 	assert.Nil(t, err1)
 	assert.NotNil(t, item1)
-	acctId1, _ := utils.ArnToAccountId(*item1.SvcNetwork.Arn)
-	assert.Equal(t, acct1, acctId1)
+	arn1, _ := arn.Parse(*item1.SvcNetwork.Arn)
+	assert.Equal(t, acct1, arn1.AccountID)
 	// make sure tags come back too
 	assert.Equal(t, "bar", *item1.Tags["foo"])
 
 	item2, err2 := d.FindServiceNetwork(ctx, "duplicated-name", acct2)
 	assert.Nil(t, err2)
 	assert.NotNil(t, item2)
-	acctId2, _ := utils.ArnToAccountId(*item2.SvcNetwork.Arn)
-	assert.Equal(t, acct2, acctId2)
+	arn2, _ := arn.Parse(*item2.SvcNetwork.Arn)
+	assert.Equal(t, acct2, arn2.AccountID)
 
 	// will just return the first item it finds - is NOT predictable but doesn't fail
 	emptyAcctItem, err3 := d.FindServiceNetwork(ctx, "duplicated-name", "")
