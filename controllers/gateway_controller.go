@@ -24,7 +24,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
@@ -60,14 +59,12 @@ type GatewayReconciler struct {
 	modelBuilder     gateway.ServiceNetworkModelBuilder
 	stackDeployer    deploy.StackDeployer
 	cloud            aws.Cloud
-	datastore        *latticestore.LatticeDataStore
 	stackMarshaller  deploy.StackMarshaller
 }
 
 func RegisterGatewayController(
 	log gwlog.Logger,
 	cloud aws.Cloud,
-	datastore *latticestore.LatticeDataStore,
 	finalizerManager k8s.FinalizerManager,
 	mgr ctrl.Manager,
 ) error {
@@ -76,7 +73,7 @@ func RegisterGatewayController(
 	evtRec := mgr.GetEventRecorderFor("gateway")
 
 	modelBuilder := gateway.NewServiceNetworkModelBuilder()
-	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, mgrClient, datastore)
+	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, mgrClient)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	r := &GatewayReconciler{
@@ -88,7 +85,6 @@ func RegisterGatewayController(
 		modelBuilder:     modelBuilder,
 		stackDeployer:    stackDeployer,
 		cloud:            cloud,
-		datastore:        datastore,
 		stackMarshaller:  stackMarshaller,
 	}
 
@@ -253,9 +249,6 @@ func (r *GatewayReconciler) reconcileGatewayResources(ctx context.Context, gw *g
 	snInfo, err := r.cloud.Lattice().FindServiceNetwork(ctx, gw.Name, config.AccountID)
 	if err != nil {
 		return err
-	}
-	if snInfo == nil {
-		return fmt.Errorf("Service network %s for account %s not found", gw.Name, config.AccountID)
 	}
 
 	if err = r.updateGatewayStatus(ctx, *snInfo.SvcNetwork.Arn, gw); err != nil {

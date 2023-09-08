@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -123,11 +124,10 @@ func (r *ruleSynthesizer) getSDKRules(ctx context.Context) ([]*latticemodel.Rule
 	glog.V(6).Infof("getSDKRules, rule %v err %v \n", resRule, err)
 
 	for _, service := range resService {
-		latticeService, err := r.latticestore.GetLatticeService(service.Spec.Name, service.Spec.Namespace)
-
+		latticeService, err := r.rule.Cloud().Lattice().FindService(ctx, service)
 		if err != nil {
-			glog.V(6).Infof("getSDKRules: failed to find service in store service %v, err %v \n", service, err)
-			return sdkRules, errors.New("getSDKRules: failed to find service in store")
+			glog.V(6).Infof("getSDKRules: failed to find service %v, err %v \n", service, err)
+			return sdkRules, errors.New("getSDKRules: failed to find service")
 		}
 
 		listeners, err := r.latticestore.GetAllListeners(service.Spec.Name, service.Spec.Namespace)
@@ -139,7 +139,7 @@ func (r *ruleSynthesizer) getSDKRules(ctx context.Context) ([]*latticemodel.Rule
 		}
 
 		for _, listener := range listeners {
-			rules, _ := r.rule.List(ctx, latticeService.ID, listener.ID)
+			rules, _ := r.rule.List(ctx, aws.StringValue(latticeService.Id), listener.ID)
 
 			sdkRules = append(sdkRules, rules...)
 

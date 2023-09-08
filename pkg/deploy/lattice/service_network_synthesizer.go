@@ -88,7 +88,7 @@ func (s *serviceNetworkSynthesizer) deleteServiceNetwork(ctx context.Context, re
 
 	// TODO need to check if service network is referenced by gateway in other namespace
 	gwList := &gateway_api.GatewayList{}
-	s.Client.List(context.TODO(), gwList)
+	s.Client.List(ctx, gwList)
 	snUsedByGateway := false
 	for _, gw := range gwList.Items {
 		if gw.Name == resServiceNetwork.Spec.Name &&
@@ -108,6 +108,7 @@ func (s *serviceNetworkSynthesizer) deleteServiceNetwork(ctx context.Context, re
 
 	err := s.serviceNetworkManager.Delete(ctx, resServiceNetwork.Spec.Name)
 	if err != nil {
+		glog.V(6).Infof("Synthesizing Gateway delete failed for gateway %v error =%v\n ", resServiceNetwork.Spec.Name, err)
 		return LATTICE_RETRY
 	} else {
 		glog.V(6).Infof("Synthesizing Gateway: successfully deleted gateway %v\n", resServiceNetwork.Spec.Name)

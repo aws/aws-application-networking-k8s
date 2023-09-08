@@ -524,19 +524,27 @@ func Test_CreateRule(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-
+		mockLattice := mocks.NewMockLattice(c)
 		mockCloud := mocks_aws.NewMockCloud(c)
-
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 
 		ruleManager := NewRuleManager(mockCloud, latticeDataStore)
 
 		if !tt.noServiceID {
-			latticeDataStore.AddLatticeService(tt.newRule.Spec.ServiceName, tt.newRule.Spec.ServiceNamespace, "serviceARN",
-				tt.newRule.Status.ServiceID, "test-dns")
+			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+				&vpclattice.ServiceSummary{
+					Name: aws.String((&RuleNameProvider{tt.newRule}).LatticeName()),
+					Arn:  aws.String("serviceARN"),
+					Id:   aws.String(tt.newRule.Status.ServiceID),
+					DnsEntry: &vpclattice.DnsEntry{
+						DomainName:   aws.String("test-dns"),
+						HostedZoneId: aws.String("my-favourite-zone"),
+					},
+				}, nil).Times(1)
+		} else {
+			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{}).Times(1)
 		}
 
 		if !tt.noListenerID {
@@ -571,7 +579,7 @@ func Test_CreateRule(t *testing.T) {
 					Items: items,
 				}
 			}
-			mockVpcLatticeSess.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
+			mockLattice.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
 
 			if tt.oldRule != nil {
 				ruleGetInput := vpclattice.GetRuleInput{
@@ -608,7 +616,7 @@ func Test_CreateRule(t *testing.T) {
 					},
 				}
 
-				mockVpcLatticeSess.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
+				mockLattice.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
 
 			}
 		}
@@ -653,7 +661,7 @@ func Test_CreateRule(t *testing.T) {
 				ruleOutput := vpclattice.CreateRuleOutput{
 					Id: aws.String(ruleID),
 				}
-				mockVpcLatticeSess.EXPECT().CreateRule(&ruleInput).Return(&ruleOutput, nil)
+				mockLattice.EXPECT().CreateRule(&ruleInput).Return(&ruleOutput, nil)
 			}
 
 			if tt.updateRule {
@@ -693,7 +701,7 @@ func Test_CreateRule(t *testing.T) {
 				ruleOutput := vpclattice.UpdateRuleOutput{
 					Id: aws.String(ruleID),
 				}
-				mockVpcLatticeSess.EXPECT().UpdateRule(&ruleInput).Return(&ruleOutput, nil)
+				mockLattice.EXPECT().UpdateRule(&ruleInput).Return(&ruleOutput, nil)
 			}
 		}
 
@@ -741,11 +749,9 @@ func Test_UpdateRule(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-
+		mockLattice := mocks.NewMockLattice(c)
 		mockCloud := mocks_aws.NewMockCloud(c)
-
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 
@@ -753,9 +759,18 @@ func Test_UpdateRule(t *testing.T) {
 
 		var i = 0
 		if !tt.noServiceID {
-
-			latticeDataStore.AddLatticeService(rules[i].Spec.ServiceName, rules[i].Spec.ServiceNamespace, "serviceARN",
-				rules[i].Status.ServiceID, "test-dns")
+			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+				&vpclattice.ServiceSummary{
+					Name: aws.String((&RuleNameProvider{rules[i]}).LatticeName()),
+					Arn:  aws.String("serviceARN"),
+					Id:   aws.String(rules[i].Status.ServiceID),
+					DnsEntry: &vpclattice.DnsEntry{
+						DomainName:   aws.String("test-dns"),
+						HostedZoneId: aws.String("my-favourite-zone"),
+					},
+				}, nil).Times(1)
+		} else {
+			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{}).Times(1)
 		}
 
 		if !tt.noListenerID {
@@ -785,7 +800,7 @@ func Test_UpdateRule(t *testing.T) {
 
 		if !tt.noListenerID && !tt.noServiceID {
 			var batchRuleOutput vpclattice.BatchUpdateRuleOutput
-			mockVpcLatticeSess.EXPECT().BatchUpdateRule(&batchRuleInput).Return(&batchRuleOutput, nil)
+			mockLattice.EXPECT().BatchUpdateRule(&batchRuleInput).Return(&batchRuleOutput, nil)
 		}
 
 		err := ruleManager.Update(ctx, rules)

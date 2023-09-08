@@ -5,8 +5,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 // creates a route sending GET to getService and POST to postService
@@ -56,11 +54,9 @@ func (env *Framework) NewMethodMatchHttpRoute(parentRefsGateway *v1beta1.Gateway
 					SectionName: lo.ToPtr(v1beta1.SectionName("http")),
 				}},
 			},
-			Rules: []v1beta1.HTTPRouteRule {getRule, postRule},
+			Rules: []v1beta1.HTTPRouteRule{getRule, postRule},
 		},
 	})
 
-	env.TestCasesCreatedServiceNames[latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)] = true
-	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, httpRoute)
 	return httpRoute
 }

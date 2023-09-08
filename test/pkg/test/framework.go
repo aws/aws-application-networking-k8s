@@ -94,19 +94,13 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 
 type Framework struct {
 	client.Client
-	ctx                                 context.Context
-	log                                 gwlog.Logger
-	k8sScheme                           *runtime.Scheme
-	namespace                           string
-	controllerRuntimeConfig             *rest.Config
-	LatticeClient                       services.Lattice
-	GrpcurlRunner                       *v1.Pod
-	TestCasesCreatedServiceNetworkNames map[string]bool //key: ServiceNetworkName; value: not in use, meaningless
-	TestCasesCreatedServiceNames        map[string]bool //key: ServiceName; value not in use, meaningless
-	TestCasesCreatedTargetGroupNames    map[string]bool //key: TargetGroupName; value: not in use, meaningless
-	// TODO: instead of using one big list TestCasesCreatedK8sResource to track all created k8s resource,
-	//  we should create different lists for different kind of k8s resource i.e., httproute have 1 list, service have another list etc.
-	TestCasesCreatedK8sResource []client.Object
+	ctx                     context.Context
+	log                     gwlog.Logger
+	k8sScheme               *runtime.Scheme
+	namespace               string
+	controllerRuntimeConfig *rest.Config
+	LatticeClient           services.Lattice
+	GrpcurlRunner           *v1.Pod
 }
 
 func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *Framework {
@@ -115,17 +109,14 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 	config.ConfigInit()
 	controllerRuntimeConfig := controllerruntime.GetConfigOrDie()
 	framework := &Framework{
-		Client:                              lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: testScheme})),
-		LatticeClient:                       services.NewDefaultLattice(session.Must(session.NewSession()), config.Region), // region is currently hardcoded
-		GrpcurlRunner:                       &v1.Pod{},
-		ctx:                                 ctx,
-		log:                                 log,
-		k8sScheme:                           testScheme,
-		namespace:                           testNamespace,
-		controllerRuntimeConfig:             controllerRuntimeConfig,
-		TestCasesCreatedServiceNetworkNames: make(map[string]bool),
-		TestCasesCreatedServiceNames:        make(map[string]bool),
-		TestCasesCreatedTargetGroupNames:    make(map[string]bool),
+		Client:                  lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: testScheme})),
+		LatticeClient:           services.NewDefaultLattice(session.Must(session.NewSession()), config.Region), // region is currently hardcoded
+		GrpcurlRunner:           &v1.Pod{},
+		ctx:                     ctx,
+		log:                     log,
+		k8sScheme:               testScheme,
+		namespace:               testNamespace,
+		controllerRuntimeConfig: controllerRuntimeConfig,
 	}
 	SetDefaultEventuallyTimeout(3 * time.Minute)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
@@ -149,7 +140,6 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		retrievedServiceNetworks, _ := env.LatticeClient.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
 		for _, sn := range retrievedServiceNetworks {
 			env.log.Infof("Found service network, checking if created by current EKS Cluster: %v", sn)
-			g.Expect(*sn.Name).Should(Not(BeKeyOf(env.TestCasesCreatedServiceNetworkNames)))
 			retrievedTags, err := env.LatticeClient.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
 				ResourceArn: sn.Arn,
 			})
@@ -166,7 +156,6 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		retrievedServices, _ := env.LatticeClient.ListServicesAsList(ctx, &vpclattice.ListServicesInput{})
 		for _, service := range retrievedServices {
 			env.log.Infof("Found service, checking if created by current EKS Cluster: %v", service)
-			g.Expect(*service.Name).Should(Not(BeKeyOf(env.TestCasesCreatedServiceNames)))
 			retrievedTags, err := env.LatticeClient.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
 				ResourceArn: service.Arn,
 			})
@@ -200,35 +189,9 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 					//so we temporarily skip to verify whether ServiceExport created TargetGroup is deleted or not
 					continue
 				}
-				g.Expect(env.TestCasesCreatedServiceNames).To(Not(ContainElements(BeKeyOf(*tg.Name))))
 			}
 		}
 	}).Should(Succeed())
-}
-
-// if we still want this method, we should tag the things we create with the test suite
-func (env *Framework) CleanTestEnvironment(ctx context.Context) {
-	defer GinkgoRecover()
-	env.log.Info("Cleaning the test environment")
-	// Kubernetes API Objects
-	namespaces := &v1.NamespaceList{}
-	Expect(env.List(ctx, namespaces)).WithOffset(1).To(Succeed())
-	// TODO: instead of using one big list TestCasesCreatedK8sResource to track all created k8s resource,
-	//  we should create different lists for different kind of k8s resource i.e., httproute have 1 list, service have another list etc.
-	for _, object := range env.TestCasesCreatedK8sResource {
-		env.log.Infof("Deleting k8s resource %s %s/%s", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
-		env.Delete(ctx, object)
-		//Ignore resource-not-found error here, as the test case logic itself could already clear the resources
-	}
-
-	//Theoretically, Deleting all k8s resource by above `env.Delete(ctx, object)`, will make controller delete all related VPC Lattice resource,
-	//but the controller is still developing in the progress and may leaking some VPCLattice resource, need to invoke vpcLattice api to double confirm and delete leaking resource.
-	env.DeleteAllFrameworkTracedServiceNetworks(ctx)
-	env.DeleteAllFrameworkTracedVpcLatticeServices(ctx)
-	env.DeleteAllFrameworkTracedTargetGroups(ctx)
-	env.EventuallyExpectNotFound(ctx, env.TestCasesCreatedK8sResource...)
-	env.TestCasesCreatedK8sResource = nil
-
 }
 
 func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Object) {
@@ -305,19 +268,15 @@ func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *gateway_ap
 
 func (env *Framework) GetVpcLatticeService(ctx context.Context, route core.Route) *vpclattice.ServiceSummary {
 	var found *vpclattice.ServiceSummary
-	serviceName := latticestore.LatticeServiceName(route.Name(), route.Namespace())
+	rnProvider := controllers.RouteNameProvider{route}
+
 	Eventually(func(g Gomega) {
-		listServicesOutput, err := env.LatticeClient.ListServicesWithContext(ctx, &vpclattice.ListServicesInput{})
+		svc, err := env.LatticeClient.FindService(ctx, &rnProvider)
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(listServicesOutput.Items).ToNot(BeEmpty())
-		for _, service := range listServicesOutput.Items {
-			if *service.Name == serviceName {
-				found = service
-			}
-		}
+		found = svc
 		g.Expect(found).ToNot(BeNil())
 		g.Expect(found.Status).To(Equal(lo.ToPtr(vpclattice.ServiceStatusActive)))
-		g.Expect(found.DnsEntry).To(ContainSubstring(serviceName))
+		g.Expect(found.DnsEntry).To(ContainSubstring(rnProvider.LatticeName()))
 	}).WithOffset(1).Should(Succeed())
 
 	return found
@@ -435,256 +394,6 @@ func (env *Framework) AreAllLatticeTargetsHealthy(ctx context.Context, tg *vpcla
 		}
 	}
 	return true, nil
-}
-
-func (env *Framework) DeleteAllFrameworkTracedServiceNetworks(ctx aws.Context) {
-	env.log.Infof("DeleteAllFrameworkTracedServiceNetworks %v", env.TestCasesCreatedServiceNetworkNames)
-	sns, err := env.LatticeClient.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
-	Expect(err).ToNot(HaveOccurred())
-	filteredSns := lo.Filter(sns, func(sn *vpclattice.ServiceNetworkSummary, _ int) bool {
-		_, ok := env.TestCasesCreatedServiceNames[*sn.Name]
-		return ok
-	})
-	snIds := lo.Map(filteredSns, func(svc *vpclattice.ServiceNetworkSummary, _ int) *string {
-		return svc.Id
-	})
-	var serviceNetworkIdsWithRemainingAssociations []*string
-	for _, snId := range snIds {
-		_, err := env.LatticeClient.DeleteServiceNetworkWithContext(ctx, &vpclattice.DeleteServiceNetworkInput{
-			ServiceNetworkIdentifier: snId,
-		})
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				case vpclattice.ErrCodeResourceNotFoundException:
-					continue
-				case vpclattice.ErrCodeConflictException:
-					serviceNetworkIdsWithRemainingAssociations = append(serviceNetworkIdsWithRemainingAssociations, snId)
-				}
-			}
-		}
-	}
-
-	var allServiceNetworkVpcAssociationIdsToBeDeleted []*string
-	for _, snIdWithRemainingAssociations := range serviceNetworkIdsWithRemainingAssociations {
-		associations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
-			ServiceNetworkIdentifier: snIdWithRemainingAssociations,
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		snvaIds := lo.Map(associations, func(association *vpclattice.ServiceNetworkVpcAssociationSummary, _ int) *string {
-			return association.Id
-		})
-		allServiceNetworkVpcAssociationIdsToBeDeleted = append(allServiceNetworkVpcAssociationIdsToBeDeleted, snvaIds...)
-	}
-
-	for _, snvaId := range allServiceNetworkVpcAssociationIdsToBeDeleted {
-		_, err := env.LatticeClient.DeleteServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.DeleteServiceNetworkVpcAssociationInput{
-			ServiceNetworkVpcAssociationIdentifier: snvaId,
-		})
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	var allServiceNetworkServiceAssociationIdsToBeDeleted []*string
-
-	for _, snIdWithRemainingAssociations := range serviceNetworkIdsWithRemainingAssociations {
-		associations, err := env.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx, &vpclattice.ListServiceNetworkServiceAssociationsInput{
-			ServiceNetworkIdentifier: snIdWithRemainingAssociations,
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		snsaIds := lo.Map(associations, func(association *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) *string {
-			return association.Id
-		})
-		allServiceNetworkServiceAssociationIdsToBeDeleted = append(allServiceNetworkServiceAssociationIdsToBeDeleted, snsaIds...)
-	}
-
-	for _, snsaId := range allServiceNetworkServiceAssociationIdsToBeDeleted {
-		_, err := env.LatticeClient.DeleteServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.DeleteServiceNetworkServiceAssociationInput{
-			ServiceNetworkServiceAssociationIdentifier: snsaId,
-		})
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	Eventually(func(g Gomega) {
-		for _, snvaId := range allServiceNetworkVpcAssociationIdsToBeDeleted {
-			_, err := env.LatticeClient.GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
-				ServiceNetworkVpcAssociationIdentifier: snvaId,
-			})
-			if err != nil {
-				g.Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
-			}
-		}
-		for _, snsaId := range allServiceNetworkServiceAssociationIdsToBeDeleted {
-			_, err := env.LatticeClient.GetServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
-				ServiceNetworkServiceAssociationIdentifier: snsaId,
-			})
-			if err != nil {
-				g.Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
-			}
-		}
-	}).Should(Succeed())
-
-	for _, snId := range serviceNetworkIdsWithRemainingAssociations {
-		env.LatticeClient.DeleteServiceNetworkWithContext(ctx, &vpclattice.DeleteServiceNetworkInput{
-			ServiceNetworkIdentifier: snId,
-		})
-	}
-
-	env.TestCasesCreatedServiceNetworkNames = make(map[string]bool)
-}
-
-// In the VPC Lattice backend code, delete VPC Lattice services will also make all its listeners and rules to be deleted asynchronously
-func (env *Framework) DeleteAllFrameworkTracedVpcLatticeServices(ctx aws.Context) {
-	env.log.Infoln("DeleteAllFrameworkTracedVpcLatticeServices", env.TestCasesCreatedServiceNames)
-	services, err := env.LatticeClient.ListServicesAsList(ctx, &vpclattice.ListServicesInput{})
-	Expect(err).ToNot(HaveOccurred())
-	filteredServices := lo.Filter(services, func(service *vpclattice.ServiceSummary, _ int) bool {
-		_, ok := env.TestCasesCreatedServiceNames[*service.Name]
-		return ok
-	})
-	serviceIds := lo.Map(filteredServices, func(svc *vpclattice.ServiceSummary, _ int) *string {
-		return svc.Id
-	})
-	var serviceWithRemainingAssociations []*string
-	for _, serviceId := range serviceIds {
-		_, err := env.LatticeClient.DeleteServiceWithContext(ctx, &vpclattice.DeleteServiceInput{
-			ServiceIdentifier: serviceId,
-		})
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				case vpclattice.ErrCodeResourceNotFoundException:
-					delete(env.TestCasesCreatedServiceNames, *serviceId)
-					continue
-				case vpclattice.ErrCodeConflictException:
-					serviceWithRemainingAssociations = append(serviceWithRemainingAssociations, serviceId)
-				}
-			}
-
-		}
-	}
-	var allServiceNetworkServiceAssociationIdsToBeDeleted []*string
-
-	for _, serviceIdWithRemainingAssociations := range serviceWithRemainingAssociations {
-
-		associations, err := env.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx, &vpclattice.ListServiceNetworkServiceAssociationsInput{
-			ServiceIdentifier: serviceIdWithRemainingAssociations,
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		snsaIds := lo.Map(associations, func(association *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) *string {
-			return association.Id
-		})
-		allServiceNetworkServiceAssociationIdsToBeDeleted = append(allServiceNetworkServiceAssociationIdsToBeDeleted, snsaIds...)
-	}
-
-	for _, snsaId := range allServiceNetworkServiceAssociationIdsToBeDeleted {
-		_, err := env.LatticeClient.DeleteServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.DeleteServiceNetworkServiceAssociationInput{
-			ServiceNetworkServiceAssociationIdentifier: snsaId,
-		})
-		if err != nil {
-			Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
-		}
-	}
-
-	Eventually(func(g Gomega) {
-		for _, snsaId := range allServiceNetworkServiceAssociationIdsToBeDeleted {
-			_, err := env.LatticeClient.GetServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
-				ServiceNetworkServiceAssociationIdentifier: snsaId,
-			})
-			if err != nil {
-				g.Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
-			}
-		}
-	}).Should(Succeed())
-
-	for _, serviceId := range serviceWithRemainingAssociations {
-		env.LatticeClient.DeleteServiceWithContext(ctx, &vpclattice.DeleteServiceInput{
-			ServiceIdentifier: serviceId,
-		})
-	}
-	env.TestCasesCreatedServiceNames = make(map[string]bool)
-}
-
-func (env *Framework) DeleteAllFrameworkTracedTargetGroups(ctx aws.Context) {
-	targetGroups, err := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
-	Expect(err).ToNot(HaveOccurred())
-	filteredTgs := lo.Filter(targetGroups, func(targetGroup *vpclattice.TargetGroupSummary, _ int) bool {
-		for key, _ := range env.TestCasesCreatedTargetGroupNames {
-			if strings.HasPrefix(*targetGroup.Name, key) {
-				return true
-			}
-		}
-		return false
-	})
-	tgIds := lo.Map(filteredTgs, func(targetGroup *vpclattice.TargetGroupSummary, _ int) *string {
-		return targetGroup.Id
-	})
-
-	env.log.Infoln("Number of traced target groups to delete is:", len(tgIds))
-
-	var tgsToDeregister []string
-	for _, tgId := range tgIds {
-		env.log.Infoln("Attempting to delete target group: ", tgId)
-
-		_, err := env.LatticeClient.DeleteTargetGroup(&vpclattice.DeleteTargetGroupInput{
-			TargetGroupIdentifier: tgId,
-		})
-		if err != nil {
-			tgsToDeregister = append(tgsToDeregister, *tgId)
-		} else {
-			env.log.Infoln("Deleted target group: ", tgId)
-		}
-	}
-
-	// next try to deregister targets
-	var tgsToDelete []string
-	for _, tgId := range tgsToDeregister {
-		targetSummaries, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{
-			TargetGroupIdentifier: &tgId,
-		})
-
-		if err.(awserr.Error).Code() == vpclattice.ErrCodeResourceNotFoundException {
-			env.log.Infoln("Target group already deleted: ", tgId)
-			continue
-		}
-
-		Expect(err).ToNot(HaveOccurred())
-		tgsToDelete = append(tgsToDelete, tgId)
-		if len(targetSummaries) > 0 {
-			var targets []*vpclattice.Target = lo.Map(targetSummaries, func(targetSummary *vpclattice.TargetSummary, _ int) *vpclattice.Target {
-				return &vpclattice.Target{
-					Id:   targetSummary.Id,
-					Port: targetSummary.Port,
-				}
-			})
-			env.LatticeClient.DeregisterTargetsWithContext(ctx, &vpclattice.DeregisterTargetsInput{
-				TargetGroupIdentifier: &tgId,
-				Targets:               targets,
-			})
-		}
-	}
-
-	if len(tgsToDelete) > 0 {
-		env.log.Infoln("Need to wait for draining targets to be deregistered", tgsToDelete)
-		// After initiating the DeregisterTargets call, the Targets will be in `draining` status for the next 5 minutes,
-		// And VPC lattice backend will run a background job to completely delete the targets within 6 minutes at maximum in total.
-		Eventually(func(g Gomega) {
-			env.log.Infoln("Trying to clear Target group", tgsToDelete, "need to wait for draining targets to be deregistered")
-
-			for _, tgId := range tgsToDelete {
-				_, err := env.LatticeClient.DeleteTargetGroupWithContext(ctx, &vpclattice.DeleteTargetGroupInput{
-					TargetGroupIdentifier: &tgId,
-				})
-				if err != nil {
-					g.Expect(err.(awserr.Error).Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
-				}
-			}
-		}).WithPolling(15 * time.Second).WithTimeout(7 * time.Minute).Should(Succeed())
-
-	}
-	env.TestCasesCreatedServiceNames = make(map[string]bool)
 }
 
 func (env *Framework) GetLatticeServiceHttpsListenerNonDefaultRules(ctx context.Context, vpcLatticeService *vpclattice.ServiceSummary) ([]*vpclattice.GetRuleOutput, error) {

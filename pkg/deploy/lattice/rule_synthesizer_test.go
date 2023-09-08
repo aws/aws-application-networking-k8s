@@ -2,6 +2,9 @@ package lattice
 
 import (
 	"context"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+
 	//"errors"
 	"fmt"
 	"testing"
@@ -9,6 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	sdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -294,6 +298,11 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 	ds := latticestore.NewLatticeDataStore()
 
 	mockRuleManager := NewMockRuleManager(c)
+	mockCloud := aws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+
+	mockRuleManager.EXPECT().Cloud().Return(mockCloud).AnyTimes()
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	var serviceName = "service1"
 	var serviceNamespace = "test"
@@ -313,9 +322,14 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 		Namespace: serviceNamespace,
 		Protocols: protocols,
 	}
-	latticemodel.NewLatticeService(stack, "", spec)
+	stackService := latticemodel.NewLatticeService(stack, "", spec)
 
-	ds.AddLatticeService(serviceName, serviceNamespace, "servicearn", serviceID, "test-dns")
+	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+		&vpclattice.ServiceSummary{
+			Name: sdk.String(stackService.LatticeName()),
+			Arn:  sdk.String("svc-arn"),
+			Id:   sdk.String(serviceID),
+		}, nil)
 
 	rule1 := latticemodel.RuleStatus{
 		RuleARN:    "rule1-arn",

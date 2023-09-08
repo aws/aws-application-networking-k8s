@@ -2,6 +2,10 @@ package lattice
 
 import (
 	"context"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	sdk "github.com/aws/aws-sdk-go/aws"
+
 	//"errors"
 	"fmt"
 	"testing"
@@ -104,6 +108,11 @@ func Test_SynthesizeListener(t *testing.T) {
 		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
 
 		mockListenerManager := NewMockListenerManager(c)
+		mockCloud := aws.NewMockCloud(c)
+		mockLattice := services.NewMockLattice(c)
+
+		mockListenerManager.EXPECT().Cloud().Return(mockCloud).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 		pro := "HTTP"
 		protocols := []*string{&pro}
@@ -125,7 +134,13 @@ func Test_SynthesizeListener(t *testing.T) {
 			BackendServiceNamespace: "default",
 		}
 
-		latticemodel.NewLatticeService(stack, "", spec)
+		stackService := latticemodel.NewLatticeService(stack, "", spec)
+		mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+			&vpclattice.ServiceSummary{
+				Name: sdk.String(stackService.LatticeName()),
+				Arn:  sdk.String("svc-arn"),
+				Id:   sdk.String(tt.serviceID),
+			}, nil)
 
 		port := int64(tt.gwListenerPort)
 
@@ -140,7 +155,6 @@ func Test_SynthesizeListener(t *testing.T) {
 				},
 			}, tt.mgrErr)
 
-		ds.AddLatticeService(tt.httpRoute.Name, tt.httpRoute.Namespace, tt.serviceARN, tt.serviceID, "dns")
 		if !tt.wantIsDeleted {
 			listenerResourceName := fmt.Sprintf("%s-%s-%d-%s", tt.httpRoute.Name, tt.httpRoute.Namespace,
 				tt.gwListenerPort, protocol)

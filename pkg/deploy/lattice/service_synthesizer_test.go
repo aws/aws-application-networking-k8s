@@ -197,12 +197,6 @@ func Test_SynthesizeService(t *testing.T) {
 
 		if tt.wantErrIsNil {
 			assert.Nil(t, err)
-			if tt.httpRoute.DeletionTimestamp.IsZero() {
-				svc, err := ds.GetLatticeService(spec.Name, spec.Namespace)
-				assert.Nil(t, err)
-				assert.Equal(t, tt.serviceARN, svc.ARN)
-				assert.Equal(t, tt.serviceID, svc.ID)
-			}
 		} else {
 			assert.NotNil(t, err)
 		}

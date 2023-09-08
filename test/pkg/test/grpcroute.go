@@ -5,8 +5,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 func (env *Framework) NewGRPCRoute(namespace string, parentRefsGateway *v1beta1.Gateway, rules []v1alpha2.GRPCRouteRule) *v1alpha2.GRPCRoute {
@@ -27,7 +25,5 @@ func (env *Framework) NewGRPCRoute(namespace string, parentRefsGateway *v1beta1.
 		},
 	})
 
-	env.TestCasesCreatedServiceNames[latticestore.LatticeServiceName(grpcRoute.Name, grpcRoute.Namespace)] = true
-	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, grpcRoute)
 	return grpcRoute
 }

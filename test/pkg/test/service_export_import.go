@@ -41,7 +41,6 @@ func (env *Framework) CreateServiceExportAndServiceImportByService(service *v1.S
 			},
 		},
 	})
-	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, serviceExport, serviceImport)
 	return serviceExport, serviceImport
 }
 
@@ -60,7 +59,6 @@ func (env *Framework) CreateServiceExport(service *v1.Service) *v1alpha1.Service
 			},
 		},
 	})
-	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, serviceExport)
 	return serviceExport
 }
 
@@ -84,6 +82,5 @@ func (env *Framework) CreateServiceImport(service *v1.Service) *v1alpha1.Service
 			},
 		},
 	})
-	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, serviceImport)
 	return serviceImport
 }

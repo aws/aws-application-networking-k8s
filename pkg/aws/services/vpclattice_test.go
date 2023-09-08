@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -12,6 +13,17 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
+
+func Test_IsNotFoundError(t *testing.T) {
+	err := errors.New("ERROR")
+	nfErr := NewNotFoundError("type", "name")
+	blankNfEff := &NotFoundError{}
+
+	assert.False(t, IsNotFoundError(err))
+	assert.False(t, IsNotFoundError(nil))
+	assert.True(t, IsNotFoundError(nfErr))
+	assert.True(t, IsNotFoundError(blankNfEff))
+}
 
 func Test_defaultLattice_ListServiceNetworksAsList(t *testing.T) {
 	tests := []struct {
@@ -46,29 +58,38 @@ func Test_defaultLattice_ListServiceNetworksAsList(t *testing.T) {
 			MaxResults: &tt.maxResults,
 			NextToken:  nil,
 		}
-		sampleMesh := &vpclattice.ServiceNetworkSummary{
+		sn := &vpclattice.ServiceNetworkSummary{
 			Arn:  &tt.testArn,
 			Id:   &tt.testId,
 			Name: &tt.testName,
 		}
-		listMeshOutput1 := &vpclattice.ListServiceNetworksOutput{
-			Items:     []*vpclattice.ServiceNetworkSummary{sampleMesh, sampleMesh},
+		listOutput1 := &vpclattice.ListServiceNetworksOutput{
+			Items:     []*vpclattice.ServiceNetworkSummary{sn, sn},
 			NextToken: &tt.nextToken,
 		}
-		listMeshOutput2 := &vpclattice.ListServiceNetworksOutput{
-			Items:     []*vpclattice.ServiceNetworkSummary{sampleMesh, sampleMesh},
+		listOutput2 := &vpclattice.ListServiceNetworksOutput{
+			Items:     []*vpclattice.ServiceNetworkSummary{sn, sn},
 			NextToken: &tt.nextToken,
 		}
-		listMeshOutput3 := &vpclattice.ListServiceNetworksOutput{
-			Items:     []*vpclattice.ServiceNetworkSummary{sampleMesh},
+		listOutput3 := &vpclattice.ListServiceNetworksOutput{
+			Items:     []*vpclattice.ServiceNetworkSummary{sn},
 			NextToken: nil,
 		}
-		mockLattice.EXPECT().ListServiceNetworksWithContext(tt.ctx, input).Return(listMeshOutput1, nil)
-		mockLattice.EXPECT().ListServiceNetworksWithContext(tt.ctx, input).Return(listMeshOutput2, nil)
-		mockLattice.EXPECT().ListServiceNetworksWithContext(tt.ctx, input).Return(listMeshOutput3, nil)
+		mockLattice.EXPECT().ListServiceNetworksPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+			func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
+				cont := f(listOutput1, false)
+				if cont {
+					cont = f(listOutput2, false)
+				}
+				if cont {
+					f(listOutput3, true)
+				}
+				return nil
+			}).Times(1)
+
 		got, err := d.ListServiceNetworksAsList(tt.ctx, input)
 		assert.Nil(t, err)
-		assert.Equal(t, got, []*vpclattice.ServiceNetworkSummary{sampleMesh, sampleMesh, sampleMesh, sampleMesh, sampleMesh})
+		assert.Equal(t, got, []*vpclattice.ServiceNetworkSummary{sn, sn, sn, sn, sn})
 	}
 }
 
@@ -110,8 +131,16 @@ func Test_defaultLattice_ListServicesAsList(t *testing.T) {
 			Items:     []*vpclattice.ServiceSummary{sampleService},
 			NextToken: nil,
 		}
-		mockLattice.EXPECT().ListServicesWithContext(tt.ctx, input).Return(listOutput1, nil)
-		mockLattice.EXPECT().ListServicesWithContext(tt.ctx, input).Return(listOutput2, nil)
+
+		mockLattice.EXPECT().ListServicesPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+			func(ctx aws.Context, input *vpclattice.ListServicesInput, f func(*vpclattice.ListServicesOutput, bool) bool, opts ...request.Option) error {
+				cont := f(listOutput1, false)
+				if cont {
+					f(listOutput2, true)
+				}
+				return nil
+			}).Times(1)
+
 		got, err := d.ListServicesAsList(tt.ctx, input)
 		assert.Nil(t, err)
 		assert.Equal(t, got, []*vpclattice.ServiceSummary{sampleService, sampleService})
@@ -148,11 +177,17 @@ func Test_defaultLattice_ListTGsAsList(t *testing.T) {
 		sample := &vpclattice.TargetGroupSummary{
 			Name: &tt.testName,
 		}
+
 		listOutput1 := &vpclattice.ListTargetGroupsOutput{
 			Items:     []*vpclattice.TargetGroupSummary{sample},
 			NextToken: nil,
 		}
-		mockLattice.EXPECT().ListTargetGroupsWithContext(tt.ctx, input).Return(listOutput1, nil)
+
+		mockLattice.EXPECT().ListTargetGroupsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+			func(ctx aws.Context, input *vpclattice.ListTargetGroupsInput, f func(*vpclattice.ListTargetGroupsOutput, bool) bool, opts ...request.Option) error {
+				f(listOutput1, true)
+				return nil
+			}).Times(1)
 
 		got, err := d.ListTargetGroupsAsList(tt.ctx, input)
 		assert.Nil(t, err)
@@ -194,7 +229,11 @@ func Test_defaultLattice_ListTargetsAsList(t *testing.T) {
 			Items:     []*vpclattice.TargetSummary{sample, sample},
 			NextToken: nil,
 		}
-		mockLattice.EXPECT().ListTargetsWithContext(tt.ctx, input).Return(listOutput1, nil)
+		mockLattice.EXPECT().ListTargetsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+			func(ctx aws.Context, input *vpclattice.ListTargetsInput, f func(*vpclattice.ListTargetsOutput, bool) bool, opts ...request.Option) error {
+				f(listOutput1, true)
+				return nil
+			}).Times(1)
 
 		got, err := d.ListTargetsAsList(tt.ctx, input)
 		assert.Nil(t, err)
@@ -236,7 +275,11 @@ func Test_defaultLattice_ListServiceNetworkVpcAssociationsAsList(t *testing.T) {
 			Items:     []*vpclattice.ServiceNetworkVpcAssociationSummary{sample},
 			NextToken: nil,
 		}
-		mockLattice.EXPECT().ListServiceNetworkVpcAssociationsWithContext(tt.ctx, input).Return(listOutput1, nil)
+		mockLattice.EXPECT().ListServiceNetworkVpcAssociationsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+			func(ctx aws.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput, f func(*vpclattice.ListServiceNetworkVpcAssociationsOutput, bool) bool, opts ...request.Option) error {
+				f(listOutput1, true)
+				return nil
+			}).Times(1)
 
 		got, err := d.ListServiceNetworkVpcAssociationsAsList(tt.ctx, input)
 		assert.Nil(t, err)
@@ -276,7 +319,11 @@ func Test_defaultLattice_ListServiceNetworkServiceAssociationsAsList(t *testing.
 			Items:     []*vpclattice.ServiceNetworkServiceAssociationSummary{},
 			NextToken: nil,
 		}
-		mockLattice.EXPECT().ListServiceNetworkServiceAssociationsWithContext(tt.ctx, input).Return(listOutput1, nil)
+		mockLattice.EXPECT().ListServiceNetworkServiceAssociationsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+			func(ctx aws.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput, f func(*vpclattice.ListServiceNetworkServiceAssociationsOutput, bool) bool, opts ...request.Option) error {
+				f(listOutput1, true)
+				return nil
+			}).Times(1)
 
 		got, err := d.ListServiceNetworkServiceAssociationsAsList(tt.ctx, input)
 		assert.Nil(t, err)
@@ -297,20 +344,24 @@ func Test_defaultLattice_FindServiceNetwork_happyPath(t *testing.T) {
 
 	snName := "sn-name"
 	acctId := "123456"
-	arn := getTestArn(acctId)
+	testArn := getTestArn(acctId)
 
 	item := &vpclattice.ServiceNetworkSummary{
 		Name: &snName,
-		Arn:  &arn,
+		Arn:  &testArn,
 		Id:   aws.String("id"),
 	}
 
-	listOutput := &vpclattice.ListServiceNetworksOutput{
+	listOutput1 := &vpclattice.ListServiceNetworksOutput{
 		Items:     []*vpclattice.ServiceNetworkSummary{item},
 		NextToken: nil,
 	}
 
-	mockLattice.EXPECT().ListServiceNetworksWithContext(gomock.Any(), gomock.Any()).Return(listOutput, nil).AnyTimes()
+	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
+			f(listOutput1, true)
+			return nil
+		}).AnyTimes()
 	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
 		&vpclattice.ListTagsForResourceOutput{}, nil).AnyTimes()
 
@@ -326,7 +377,7 @@ func Test_defaultLattice_FindServiceNetwork_happyPath(t *testing.T) {
 
 	mismatchedAccountId := "555555"
 	itemNotFound, err3 := d.FindServiceNetwork(ctx, snName, mismatchedAccountId)
-	assert.Nil(t, err3)
+	assert.True(t, IsNotFoundError(err3))
 	assert.Nil(t, itemNotFound)
 }
 
@@ -339,7 +390,7 @@ func Test_defaultLattice_FindServiceNetwork_disambiguateByAccount(t *testing.T) 
 	acct1 := "12345"
 	acct2 := "88888"
 
-	listOutput := &vpclattice.ListServiceNetworksOutput{
+	listOutput1 := &vpclattice.ListServiceNetworksOutput{
 		Items: []*vpclattice.ServiceNetworkSummary{
 			{
 				Arn:  aws.String(getTestArn(acct1)),
@@ -355,8 +406,12 @@ func Test_defaultLattice_FindServiceNetwork_disambiguateByAccount(t *testing.T) 
 		NextToken: nil,
 	}
 
-	mockLattice.EXPECT().ListServiceNetworksWithContext(gomock.Any(), gomock.Any()).Return(
-		listOutput, nil).AnyTimes()
+	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
+			f(listOutput1, true)
+			return nil
+		}).AnyTimes()
+
 	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
 		&vpclattice.ListTagsForResourceOutput{
 			Tags: map[string]*string{
@@ -390,17 +445,21 @@ func Test_defaultLattice_FindServiceNetwork_noResults(t *testing.T) {
 	mockLattice := NewMockLattice(c)
 	d := &defaultLattice{VPCLatticeAPI: mockLattice}
 
-	mockLattice.EXPECT().ListServiceNetworksWithContext(gomock.Any(), gomock.Any()).Return(
-		&vpclattice.ListServiceNetworksOutput{}, nil).AnyTimes()
+	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
+			f(&vpclattice.ListServiceNetworksOutput{}, true)
+			return nil
+		}).AnyTimes()
+
 	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
 		&vpclattice.ListTagsForResourceOutput{}, nil).AnyTimes()
 
 	item, err := d.FindServiceNetwork(ctx, "foo", "1234")
-	assert.Nil(t, err)
+	assert.True(t, IsNotFoundError(err))
 	assert.Nil(t, item)
 }
 
-func Test_defaultLattice_FindServiceNetwork_manyResults(t *testing.T) {
+func Test_defaultLattice_FindServiceNetwork_pagedResults(t *testing.T) {
 	ctx := context.TODO()
 	c := gomock.NewController(t)
 	mockLattice := NewMockLattice(c)
@@ -424,18 +483,21 @@ func Test_defaultLattice_FindServiceNetwork_manyResults(t *testing.T) {
 		}
 	}
 
-	rIdx := 0
-
-	mockLattice.EXPECT().ListServiceNetworksWithContext(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, req *vpclattice.ListServiceNetworksInput, _ ...interface{}) (*vpclattice.ListServiceNetworksOutput, error) {
-			result :=
-				&vpclattice.ListServiceNetworksOutput{
-					Items:     results[rIdx],
-					NextToken: tokens[rIdx],
+	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
+			for i, result := range results {
+				responsePage := &vpclattice.ListServiceNetworksOutput{
+					Items:     result,
+					NextToken: tokens[i],
 				}
-			rIdx = (rIdx + 1) % len(results)
-			return result, nil
+				cont := f(responsePage, i+1 == len(results))
+				if !cont {
+					break
+				}
+			}
+			return nil
 		}).AnyTimes()
+
 	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
 		&vpclattice.ListTagsForResourceOutput{}, nil).AnyTimes()
 
@@ -453,6 +515,10 @@ func Test_defaultLattice_FindServiceNetwork_manyResults(t *testing.T) {
 	assert.Nil(t, err2)
 	assert.NotNil(t, page2item)
 	assert.Equal(t, "name-21", *page2item.SvcNetwork.Name)
+
+	notPresentItem, err4 := d.FindServiceNetwork(ctx, "no-name", "")
+	assert.True(t, IsNotFoundError(err4))
+	assert.Nil(t, notPresentItem)
 }
 
 func Test_defaultLattice_FindServiceNetwork_errorsRaised(t *testing.T) {
@@ -461,26 +527,140 @@ func Test_defaultLattice_FindServiceNetwork_errorsRaised(t *testing.T) {
 	mockLattice := NewMockLattice(c)
 	d := &defaultLattice{VPCLatticeAPI: mockLattice}
 
-	mockLattice.EXPECT().ListServiceNetworksWithContext(gomock.Any(), gomock.Any()).Return(
-		nil, errors.Errorf("LIST_ERR")).Times(1)
+	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(errors.New("LIST_ERR")).Times(1)
 
 	_, listErr := d.FindServiceNetwork(ctx, "foo", "1234")
 	assert.NotNil(t, listErr)
+	assert.False(t, IsNotFoundError(listErr))
 
-	mockLattice.EXPECT().ListServiceNetworksWithContext(gomock.Any(), gomock.Any()).Return(
-		&vpclattice.ListServiceNetworksOutput{
-			Items: []*vpclattice.ServiceNetworkSummary{
-				{
-					Arn:  aws.String(getTestArn("1234")),
-					Name: aws.String("foo"),
-					Id:   aws.String("id"),
-				},
+	listOutput := vpclattice.ListServiceNetworksOutput{
+		Items: []*vpclattice.ServiceNetworkSummary{
+			{
+				Arn:  aws.String(getTestArn("1234")),
+				Name: aws.String("foo"),
+				Id:   aws.String("id"),
 			},
-			NextToken: nil,
-		}, nil).Times(1)
+		},
+		NextToken: nil,
+	}
+	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
+			f(&listOutput, true)
+			return nil
+		}).Times(1)
+
 	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
 		nil, errors.Errorf("TAG_ERR")).Times(1)
 
 	_, tagErr := d.FindServiceNetwork(ctx, "foo", "1234")
 	assert.NotNil(t, tagErr)
+	assert.False(t, IsNotFoundError(tagErr))
+}
+
+type StringNameProvider struct {
+	name string
+}
+
+func (p *StringNameProvider) LatticeName() string {
+	return p.name
+}
+
+func Test_defaultLattice_FindService_happyPath(t *testing.T) {
+	ctx := context.TODO()
+	c := gomock.NewController(t)
+	mockLattice := NewMockLattice(c)
+	d := &defaultLattice{VPCLatticeAPI: mockLattice}
+
+	name := "s-name"
+
+	item := &vpclattice.ServiceSummary{
+		Name: &name,
+		Arn:  aws.String("arn"),
+		Id:   aws.String("id"),
+	}
+
+	listOutput1 := &vpclattice.ListServicesOutput{
+		Items:     []*vpclattice.ServiceSummary{item},
+		NextToken: nil,
+	}
+
+	mockLattice.EXPECT().ListServicesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx aws.Context, input *vpclattice.ListServicesInput, f func(*vpclattice.ListServicesOutput, bool) bool, opts ...request.Option) error {
+			f(listOutput1, true)
+			return nil
+		}).AnyTimes()
+
+	itemFound, err1 := d.FindService(ctx, &StringNameProvider{name})
+	assert.Nil(t, err1)
+	assert.NotNil(t, itemFound)
+	assert.Equal(t, name, *itemFound.Name)
+
+	itemNotFound, err2 := d.FindService(ctx, &StringNameProvider{"no-name"})
+	assert.True(t, IsNotFoundError(err2))
+	assert.Nil(t, itemNotFound)
+}
+
+func Test_defaultLattice_FindService_pagedResults(t *testing.T) {
+	ctx := context.TODO()
+	c := gomock.NewController(t)
+	mockLattice := NewMockLattice(c)
+	d := &defaultLattice{VPCLatticeAPI: mockLattice}
+
+	item1 := &vpclattice.ServiceSummary{
+		Name: aws.String("name1"),
+		Arn:  aws.String("arn1"),
+		Id:   aws.String("id1"),
+	}
+	item2 := &vpclattice.ServiceSummary{
+		Name: aws.String("name2"),
+		Arn:  aws.String("arn2"),
+		Id:   aws.String("id2"),
+	}
+
+	listOutput1 := &vpclattice.ListServicesOutput{
+		Items:     []*vpclattice.ServiceSummary{item1},
+		NextToken: aws.String("next"),
+	}
+	listOutput2 := &vpclattice.ListServicesOutput{
+		Items:     []*vpclattice.ServiceSummary{item2},
+		NextToken: nil,
+	}
+
+	mockLattice.EXPECT().ListServicesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx aws.Context, input *vpclattice.ListServicesInput, f func(*vpclattice.ListServicesOutput, bool) bool, opts ...request.Option) error {
+			cont := f(listOutput1, false)
+			if cont {
+				f(listOutput2, true)
+			}
+			return nil
+		}).AnyTimes()
+
+	itemFound1, err1 := d.FindService(ctx, &StringNameProvider{"name1"})
+	assert.Nil(t, err1)
+	assert.NotNil(t, itemFound1)
+	assert.Equal(t, "name1", *itemFound1.Name)
+
+	itemFound2, err2 := d.FindService(ctx, &StringNameProvider{"name2"})
+	assert.Nil(t, err2)
+	assert.NotNil(t, itemFound2)
+	assert.Equal(t, "name2", *itemFound2.Name)
+
+	itemNotFound, err3 := d.FindService(ctx, &StringNameProvider{"no-name"})
+	assert.True(t, IsNotFoundError(err3))
+	assert.Nil(t, itemNotFound)
+}
+
+func Test_defaultLattice_FindService_errorsRaised(t *testing.T) {
+	ctx := context.TODO()
+	c := gomock.NewController(t)
+	mockLattice := NewMockLattice(c)
+	d := &defaultLattice{VPCLatticeAPI: mockLattice}
+
+	mockLattice.EXPECT().ListServicesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(errors.New("LIST_ERR")).Times(1)
+
+	_, listErr := d.FindService(ctx, &StringNameProvider{"foo"})
+	assert.NotNil(t, listErr)
+	assert.False(t, IsNotFoundError(listErr))
 }

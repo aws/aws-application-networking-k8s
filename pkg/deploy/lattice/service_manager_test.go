@@ -42,8 +42,9 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// service does not exist in lattice
 		lat.EXPECT().
-			ListServicesAsList(gomock.Any(), gomock.Any()).
-			Return([]*SvcSummary{}, nil)
+			FindService(gomock.Any(), gomock.Any()).
+			Return(nil, &services.NotFoundError{}).
+			Times(1)
 
 		// assert that we call create service
 		lat.EXPECT().
@@ -115,12 +116,12 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// service exists in lattice
 		lat.EXPECT().
-			ListServicesAsList(gomock.Any(), gomock.Any()).
-			Return([]*SvcSummary{{
+			FindService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.ServiceSummary{
 				Arn:  aws.String("svc-arn"),
 				Id:   aws.String("svc-id"),
 				Name: aws.String(svc.LatticeName()),
-			}}, nil).
+			}, nil).
 			Times(1)
 
 		// 3 associations exist in lattice: keep, delete, and foreign
@@ -205,12 +206,12 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// service exists
 		lat.EXPECT().
-			ListServicesAsList(gomock.Any(), gomock.Any()).
-			Return([]*SvcSummary{{
+			FindService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.ServiceSummary{
 				Arn:  aws.String("svc-arn"),
 				Id:   aws.String("svc-id"),
 				Name: aws.String(svc.LatticeName()),
-			}}, nil)
+			}, nil)
 		lat.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 			Return([]*SnSvcAssocSummary{

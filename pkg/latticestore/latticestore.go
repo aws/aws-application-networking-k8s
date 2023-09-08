@@ -11,34 +11,12 @@ import (
 
 // ERROR CODE
 const (
-	DATASTORE_SERVICE_NETWORK_NOT_EXIST = "service network does not exist in Data Store"
-	DATASTORE_SERVICE_NOT_EXIST         = "service does not exist in Data Store"
-	DATASTORE_TG_NOT_EXIST              = "target Group does not exist in Data Store"
-	DATASTORE_LISTENER_NOT_EXIST        = "listener does not exist in Data Store"
-)
-
-// Status
-const (
-	DATASTORE_SERVICE_NETWORK_CREATE_IN_PROGRESS = "service network is create-in-progress"
-	DATASTORE_SERVICE_NETWORK_CREATED            = "service network is created and associated"
+	DATASTORE_TG_NOT_EXIST       = "target Group does not exist in Data Store"
+	DATASTORE_LISTENER_NOT_EXIST = "listener does not exist in Data Store"
 )
 
 // this package is used to cache lattice info that relates to K8S object.
 // e.g. the AWSARN for the matching K8S object
-
-type LatticeServiceKey struct {
-	Name      string
-	Namespace string
-}
-
-type LatticeService struct {
-	LatticeServiceKey LatticeServiceKey
-	ARN               string
-	ID                string
-	DNS               string
-}
-
-type LatticeServicePool map[LatticeServiceKey]*LatticeService
 
 type ListenerKey struct {
 	Name      string
@@ -80,27 +58,24 @@ type Target struct {
 type TargetGroupPool map[TargetGroupKey]*TargetGroup
 
 type LatticeDataStore struct {
-	log             gwlog.Logger
-	lock            sync.Mutex
-	latticeServices LatticeServicePool
-	targetGroups    TargetGroupPool
-	listeners       ListenerPool
+	log          gwlog.Logger
+	lock         sync.Mutex
+	targetGroups TargetGroupPool
+	listeners    ListenerPool
 }
 
 type LatticeDataStoreInfo struct {
-	LatticeServices map[string]LatticeService
-	TargetGroups    map[string]TargetGroup
-	Listeners       map[string]Listener
+	TargetGroups map[string]TargetGroup
+	Listeners    map[string]Listener
 }
 
 var defaultLatticeDataStore *LatticeDataStore
 
 func NewLatticeDataStoreWithLog(log gwlog.Logger) *LatticeDataStore {
 	defaultLatticeDataStore = &LatticeDataStore{
-		log:             log,
-		latticeServices: make(LatticeServicePool),
-		targetGroups:    make(TargetGroupPool),
-		listeners:       make(ListenerPool),
+		log:          log,
+		targetGroups: make(TargetGroupPool),
+		listeners:    make(ListenerPool),
 	}
 	return defaultLatticeDataStore
 }
@@ -114,14 +89,8 @@ func dumpCurrentLatticeDataStore(ds *LatticeDataStore) *LatticeDataStoreInfo {
 	defer ds.lock.Unlock()
 
 	var store = LatticeDataStoreInfo{
-		LatticeServices: make(map[string]LatticeService),
-		TargetGroups:    make(map[string]TargetGroup),
-		Listeners:       make(map[string]Listener),
-	}
-
-	for _, svc := range ds.latticeServices {
-		key := fmt.Sprintf("%s-%s", svc.LatticeServiceKey.Name, svc.LatticeServiceKey.Namespace)
-		store.LatticeServices[key] = *svc
+		TargetGroups: make(map[string]TargetGroup),
+		Listeners:    make(map[string]Listener),
 	}
 
 	for tgkey, targetgroup := range ds.targetGroups {
@@ -142,80 +111,6 @@ func GetDefaultLatticeDataStore() *LatticeDataStore {
 	return defaultLatticeDataStore
 }
 
-func (ds *LatticeDataStore) AddLatticeService(name string, namespace string, arn string, id string, dns string) error {
-	ds.lock.Lock()
-	defer ds.lock.Unlock()
-
-	serviceKey := LatticeServiceKey{
-		Name:      name,
-		Namespace: namespace,
-	}
-
-	_, ok := ds.latticeServices[serviceKey]
-	if ok {
-		ds.log.Debugf("UpdateLatticeService: name: %s namespace: %s, arn: %s", name, namespace, arn)
-	} else {
-		ds.log.Debugf("AddLatticeService API, name: %s, namespace: %s, arn: %s", name, namespace, arn)
-	}
-
-	ds.latticeServices[serviceKey] = &LatticeService{
-		LatticeServiceKey: serviceKey,
-		ARN:               arn,
-		ID:                id,
-		DNS:               dns,
-	}
-
-	return nil
-}
-
-func (ds *LatticeDataStore) DelLatticeService(name string, namespace string) error {
-	ds.lock.Lock()
-	defer ds.lock.Unlock()
-
-	ds.log.Debugf("DelLatticeService API, name: %s namespace: %s", name, namespace)
-
-	serviceKey := LatticeServiceKey{
-		Name:      name,
-		Namespace: namespace,
-	}
-
-	_, ok := ds.latticeServices[serviceKey]
-
-	if !ok {
-		ds.log.Debugf("Deleting unknown service: name: %s, namespace: %s", name, namespace)
-		return errors.New(DATASTORE_SERVICE_NOT_EXIST)
-	}
-	delete(ds.latticeServices, serviceKey)
-	return nil
-
-}
-
-func (ds *LatticeDataStore) GetLatticeService(name string, namespace string) (LatticeService, error) {
-	ds.lock.Lock()
-	defer ds.lock.Unlock()
-
-	ds.log.Debugf("GetLatticeService API, name: %s, namespace: %s", name, namespace)
-	var svc = LatticeService{}
-
-	serviceKey := LatticeServiceKey{
-		Name:      name,
-		Namespace: namespace,
-	}
-
-	_, ok := ds.latticeServices[serviceKey]
-
-	if ok {
-		svc.LatticeServiceKey = serviceKey
-		svc.ARN = ds.latticeServices[serviceKey].ARN
-		svc.ID = ds.latticeServices[serviceKey].ID
-		svc.DNS = ds.latticeServices[serviceKey].DNS
-		return svc, nil
-	} else {
-		return svc, errors.New(DATASTORE_SERVICE_NOT_EXIST)
-	}
-
-}
-
 // the max tg name length is 127
 // worst case - k8s-(50)-(50)-https-http2 (117 chars)
 func TargetGroupName(name, namespace string) string {
@@ -232,10 +127,6 @@ func TargetGroupLongName(defaultName, routeName, vpcId string) string {
 		utils.Truncate(routeName, 20),
 		utils.Truncate(vpcId, 21),
 	)
-}
-
-func LatticeServiceName(name string, namespace string) string {
-	return fmt.Sprintf("%s-%s", utils.Truncate(name, 20), utils.Truncate(namespace, 18))
 }
 
 func (ds *LatticeDataStore) AddTargetGroup(name string, vpc string, arn string, tgID string,

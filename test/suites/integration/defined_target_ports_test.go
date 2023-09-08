@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/aws/aws-application-networking-k8s/controllers"
 	"os"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -11,7 +12,6 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
@@ -70,7 +70,8 @@ var _ = Describe("Defined Target Ports", func() {
 		// Verify VPC Lattice Service exists
 		route, _ := core.NewRoute(httpRoute)
 		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, route)
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)))
+		rnp := controllers.RouteNameProvider{route}
+		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(rnp.LatticeName()))
 
 		performVerification(service, deployment, definedPorts)
 	})

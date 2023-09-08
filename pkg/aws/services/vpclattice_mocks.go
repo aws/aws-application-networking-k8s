@@ -1036,6 +1036,21 @@ func (mr *MockLatticeMockRecorder) DeregisterTargetsWithContext(arg0, arg1 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargetsWithContext", reflect.TypeOf((*MockLattice)(nil).DeregisterTargetsWithContext), varargs...)
 }
 
+// FindService mocks base method.
+func (m *MockLattice) FindService(arg0 context.Context, arg1 LatticeNameProvider) (*vpclattice.ServiceSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindService", arg0, arg1)
+	ret0, _ := ret[0].(*vpclattice.ServiceSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindService indicates an expected call of FindService.
+func (mr *MockLatticeMockRecorder) FindService(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindService", reflect.TypeOf((*MockLattice)(nil).FindService), arg0, arg1)
+}
+
 // FindServiceNetwork mocks base method.
 func (m *MockLattice) FindServiceNetwork(arg0 context.Context, arg1, arg2 string) (*ServiceNetworkInfo, error) {
 	m.ctrl.T.Helper()

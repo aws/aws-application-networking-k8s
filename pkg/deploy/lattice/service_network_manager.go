@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -53,7 +54,7 @@ type defaultServiceNetworkManager struct {
 func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_network *latticemodel.ServiceNetwork) (latticemodel.ServiceNetworkStatus, error) {
 	// check if exists
 	service_networkSummary, err := m.cloud.Lattice().FindServiceNetwork(ctx, service_network.Spec.Name, "")
-	if err != nil {
+	if err != nil && !services.IsNotFoundError(err) {
 		return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
 	}
 
@@ -170,15 +171,15 @@ func (m *defaultServiceNetworkManager) List(ctx context.Context) ([]string, erro
 	return service_networkList, nil
 }
 
-func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_network string) error {
-	service_networkSummary, err := m.cloud.Lattice().FindServiceNetwork(ctx, service_network, "")
+func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string) error {
+	service_networkSummary, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName, "")
 	if err != nil {
-		return err
-	}
-
-	if service_networkSummary == nil {
-		glog.V(2).Infof("Successfully deleted unknown service_network %v\n", service_network)
-		return nil
+		if services.IsNotFoundError(err) {
+			glog.V(2).Infoln("Service network not found, assume already deleted", snName)
+			return nil
+		} else {
+			return err
+		}
 	}
 
 	vpcLatticeSess := m.cloud.Lattice()
@@ -197,9 +198,9 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 		}
 		glog.V(2).Infof("DeleteServiceNetworkVpcAssociationInput >>>> %v\n", deleteServiceNetworkVpcAssociationInput)
 		resp, err := vpcLatticeSess.DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
-		glog.V(2).Infof("DeleteServiceNetworkVPCAssociationResp: service_network %v , resp %v, err %v \n", service_network, resp, err)
+		glog.V(2).Infof("DeleteServiceNetworkVPCAssociationResp: service_network %v , resp %v, err %v \n", snName, resp, err)
 		if err != nil {
-			glog.V(2).Infof("Failed to delete association for %v, err: %v \n", service_network, err)
+			glog.V(2).Infof("Failed to delete association for %v, err: %v \n", snName, err)
 		}
 		// retry later to check if VPC disassociation workflow finishes
 		return errors.New(LATTICE_RETRY)
@@ -214,9 +215,9 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 			needToDelete = true
 		} else {
 			if ok {
-				glog.V(2).Infof("Skip deleting, the service network[%v] is created by VPC %v", service_network, *vpcOwner)
+				glog.V(2).Infof("Skip deleting, the service network[%v] is created by VPC %v", snName, *vpcOwner)
 			} else {
-				glog.V(2).Infof("Skip deleting, the service network[%v] is not created by K8S, since there is no tag", service_network)
+				glog.V(2).Infof("Skip deleting, the service network[%v] is not created by K8S, since there is no tag", snName)
 			}
 		}
 	}
@@ -224,25 +225,25 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 	if needToDelete {
 
 		if len(assocResp) != 0 {
-			glog.V(2).Infof("Retry deleting %v later, due to service network still has VPCs associated", service_network)
+			glog.V(2).Infof("Retry deleting %v later, due to service network still has VPCs associated", snName)
 			return errors.New(LATTICE_RETRY)
 		}
 
 		deleteInput := vpclattice.DeleteServiceNetworkInput{
 			ServiceNetworkIdentifier: &service_networkID,
 		}
-		glog.V(2).Infof("DeleteServiceNetworkWithContext: service_network %v", service_network)
+		glog.V(2).Infof("DeleteServiceNetworkWithContext: service_network %v", snName)
 		resp, err := vpcLatticeSess.DeleteServiceNetworkWithContext(ctx, &deleteInput)
-		glog.V(2).Infof("DeleteServiceNetworkWithContext: service_network %v , resp %v, err %v \n", service_network, resp, err)
+		glog.V(2).Infof("DeleteServiceNetworkWithContext: service_network %v , resp %v, err %v \n", snName, resp, err)
 		if err != nil {
 			return errors.New(LATTICE_RETRY)
 		}
 
-		glog.V(2).Infof("Successfully delete service_network %v\n", service_network)
+		glog.V(2).Infof("Successfully delete service_network %v\n", snName)
 		return err
 
 	} else {
-		glog.V(2).Infof("Deleting service_network (%v) Skipped, since it is owned by different VPC ", service_network)
+		glog.V(2).Infof("Deleting service_network (%v) Skipped, since it is owned by different VPC ", snName)
 		return nil
 	}
 }

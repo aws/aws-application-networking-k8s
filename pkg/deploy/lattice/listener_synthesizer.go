@@ -15,7 +15,7 @@ import (
 )
 
 type listenerSynthesizer struct {
-	listener     ListenerManager
+	listenerMgr  ListenerManager
 	stack        core.Stack
 	latticestore *latticestore.LatticeDataStore
 }
@@ -23,7 +23,7 @@ type listenerSynthesizer struct {
 func NewListenerSynthesizer(ListenerManager ListenerManager, stack core.Stack, store *latticestore.LatticeDataStore) *listenerSynthesizer {
 
 	return &listenerSynthesizer{
-		listener:     ListenerManager,
+		listenerMgr:  ListenerManager,
 		stack:        stack,
 		latticestore: store,
 	}
@@ -37,7 +37,7 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 	glog.V(6).Infof("Synthesize Listener:  %v\n", resListener)
 
 	for _, listener := range resListener {
-		status, err := l.listener.Create(ctx, listener)
+		status, err := l.listenerMgr.Create(ctx, listener)
 
 		if err != nil {
 			errmsg := fmt.Sprintf("ListenerSynthesie: failed to create listener %v, err %v", listener, err)
@@ -53,8 +53,7 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 
 	// handle delete
 	sdkListeners, err := l.getSDKListeners(ctx)
-
-	glog.V(6).Infof("getSDKlistener: %v, err: %v\n", sdkListeners, err)
+	glog.V(6).Infof("getSDKlistener result: %v, err: %v\n", sdkListeners, err)
 
 	for _, sdkListener := range sdkListeners {
 		_, err := l.findMatchListener(ctx, sdkListener, resListener)
@@ -64,7 +63,7 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 		}
 
 		glog.V(6).Infof("ListenerSynthesize >>>> delete staled sdk listener %v\n", *sdkListener)
-		l.listener.Delete(ctx, sdkListener.ListenerID, sdkListener.ServiceID)
+		l.listenerMgr.Delete(ctx, sdkListener.ListenerID, sdkListener.ServiceID)
 		k8sname, k8snamespace := latticeName2k8s(sdkListener.Name)
 
 		l.latticestore.DelListener(k8sname, k8snamespace, sdkListener.Port, sdkListener.Protocol)
@@ -96,17 +95,16 @@ func (l *listenerSynthesizer) getSDKListeners(ctx context.Context) ([]*latticemo
 	var resService []*latticemodel.Service
 
 	err := l.stack.ListResources(&resService)
-
-	glog.V(6).Infof("getSDKListeners service: %v err: %v \n", resService, err)
+	glog.V(6).Infof("service: %v ignore err: %v \n", resService, err)
 
 	for _, service := range resService {
-		latticeService, err := l.latticestore.GetLatticeService(service.Spec.Name, service.Spec.Namespace)
+		latticeService, err := l.listenerMgr.Cloud().Lattice().FindService(ctx, service)
 		if err != nil {
-			glog.V(6).Infof("getSDKRules: failed to find in store,  service: %v, err: %v \n", service, err)
-			return sdkListeners, errors.New("getSDKRules: failed to find service in store")
+			glog.V(6).Infof("failed to find in store,  service: %v, err: %v \n", service, err)
+			return sdkListeners, errors.New("failed to find service in store")
 		}
 
-		listenerSummaries, err := l.listener.List(ctx, latticeService.ID)
+		listenerSummaries, err := l.listenerMgr.List(ctx, aws.StringValue(latticeService.Id))
 
 		for _, listenerSummary := range listenerSummaries {
 
@@ -114,7 +112,7 @@ func (l *listenerSynthesizer) getSDKListeners(ctx context.Context) ([]*latticemo
 				Name:        aws.StringValue(listenerSummary.Name),
 				ListenerARN: aws.StringValue(listenerSummary.Arn),
 				ListenerID:  aws.StringValue(listenerSummary.Id),
-				ServiceID:   aws.StringValue(&latticeService.ID),
+				ServiceID:   aws.StringValue(latticeService.Id),
 				Port:        aws.Int64Value(listenerSummary.Port),
 				Protocol:    aws.StringValue(listenerSummary.Protocol),
 			})
