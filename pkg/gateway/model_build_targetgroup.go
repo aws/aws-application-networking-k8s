@@ -252,7 +252,7 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportCreation(ctx
 		},
 	})
 
-	t.log.Infow("stackTG:",
+	t.log.Debugw("stackTG:",
 		"targetGroupName", stackTG.Spec.Name,
 		"K8SServiceName", stackTG.Spec.Config.K8SServiceName,
 		"K8SServiceNamespace", stackTG.Spec.Config.K8SServiceNamespace,
