@@ -388,6 +388,21 @@ func GetTargets(targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.D
 	return podIps, retrievedTargets
 }
 
+func (env *Framework) VerifyTargetGroupNotFound(tg *vpclattice.TargetGroupSummary) {
+	Eventually(func(g Gomega) {
+		retrievedTargetGroup, err := env.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+			TargetGroupIdentifier: tg.Id,
+		})
+		g.Expect(retrievedTargetGroup.Id).To(BeNil())
+		g.Expect(err).To(Not(BeNil()))
+		if err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				g.Expect(aerr.Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
+			}
+		}
+	}).Should(Succeed())
+}
+
 func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *vpclattice.ServiceNetworkSummary) (bool, error) {
 	env.log.Infof("IsVpcAssociatedWithServiceNetwork vpcId:%v serviceNetwork: %v \n", vpcId, serviceNetwork)
 	vpcAssociations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
