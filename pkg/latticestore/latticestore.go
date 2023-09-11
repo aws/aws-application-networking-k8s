@@ -26,20 +26,6 @@ const (
 // this package is used to cache lattice info that relates to K8S object.
 // e.g. the AWSARN for the matching K8S object
 
-type ServiceNetworkKey struct {
-	Name      string
-	AccountID string
-}
-
-type ServiceNetwork struct {
-	Key    ServiceNetworkKey `json:"meshkey"`
-	ARN    string            `json:"arn"`
-	ID     string            `json:"id"`
-	Status string            `json:"status"`
-}
-
-type ServiceNetworkPool map[ServiceNetworkKey]*ServiceNetwork
-
 type LatticeServiceKey struct {
 	Name      string
 	Namespace string
@@ -96,14 +82,12 @@ type TargetGroupPool map[TargetGroupKey]*TargetGroup
 type LatticeDataStore struct {
 	log             gwlog.Logger
 	lock            sync.Mutex
-	serviceNetworks ServiceNetworkPool
 	latticeServices LatticeServicePool
 	targetGroups    TargetGroupPool
 	listeners       ListenerPool
 }
 
 type LatticeDataStoreInfo struct {
-	ServiceNetworks map[string]ServiceNetwork
 	LatticeServices map[string]LatticeService
 	TargetGroups    map[string]TargetGroup
 	Listeners       map[string]Listener
@@ -114,7 +98,6 @@ var defaultLatticeDataStore *LatticeDataStore
 func NewLatticeDataStoreWithLog(log gwlog.Logger) *LatticeDataStore {
 	defaultLatticeDataStore = &LatticeDataStore{
 		log:             log,
-		serviceNetworks: make(ServiceNetworkPool),
 		latticeServices: make(LatticeServicePool),
 		targetGroups:    make(TargetGroupPool),
 		listeners:       make(ListenerPool),
@@ -131,15 +114,9 @@ func dumpCurrentLatticeDataStore(ds *LatticeDataStore) *LatticeDataStoreInfo {
 	defer ds.lock.Unlock()
 
 	var store = LatticeDataStoreInfo{
-		ServiceNetworks: make(map[string]ServiceNetwork),
 		LatticeServices: make(map[string]LatticeService),
 		TargetGroups:    make(map[string]TargetGroup),
 		Listeners:       make(map[string]Listener),
-	}
-
-	for _, sn := range ds.serviceNetworks {
-		key := fmt.Sprintf("%s-%s", sn.Key.Name, sn.Key.AccountID)
-		store.ServiceNetworks[key] = *sn
 	}
 
 	for _, svc := range ds.latticeServices {
@@ -163,63 +140,6 @@ func dumpCurrentLatticeDataStore(ds *LatticeDataStore) *LatticeDataStoreInfo {
 }
 func GetDefaultLatticeDataStore() *LatticeDataStore {
 	return defaultLatticeDataStore
-}
-
-func (ds *LatticeDataStore) AddServiceNetwork(name string, account string, arn string, id string, status string) error {
-	ds.lock.Lock()
-	defer ds.lock.Unlock()
-
-	ds.log.Debugf("AddServiceNetwork name: %s, account: %s, arn: %s, id: %s", name, account, arn, id)
-
-	Key := ServiceNetworkKey{Name: name, AccountID: account}
-	_, ok := ds.serviceNetworks[Key]
-
-	if ok {
-		ds.log.Debugf("UpdateServiceNetwork name: %s, account :%s, arn: %s, id: %s", name, account, arn, id)
-	}
-
-	ds.serviceNetworks[Key] = &ServiceNetwork{
-		Key:    Key,
-		ARN:    arn,
-		ID:     id,
-		Status: status,
-	}
-
-	return nil
-}
-
-func (ds *LatticeDataStore) DelServiceNetwork(name string, account string) error {
-	ds.lock.Lock()
-	defer ds.lock.Unlock()
-
-	ds.log.Debugf("DelServiceNetwork name: %s, account: %s", name, account)
-
-	key := ServiceNetworkKey{Name: name, AccountID: account}
-	_, ok := ds.serviceNetworks[key]
-
-	if !ok {
-		ds.log.Debugf("Deleting unknown service network: name: %s, account: %s", name, account)
-		return errors.New(DATASTORE_SERVICE_NETWORK_NOT_EXIST)
-	}
-
-	delete(ds.serviceNetworks, key)
-	return nil
-}
-
-func (ds *LatticeDataStore) GetServiceNetworkStatus(name string, account string) (ServiceNetwork, error) {
-	ds.lock.Lock()
-	defer ds.lock.Unlock()
-	key := ServiceNetworkKey{Name: name, AccountID: account}
-
-	mesh, ok := ds.serviceNetworks[key]
-
-	if !ok {
-		ds.log.Debugf("GetServiceNetworkStatus NOT found name: %s, account: %s", name, account)
-		return ServiceNetwork{}, errors.New(DATASTORE_SERVICE_NETWORK_NOT_EXIST)
-	}
-
-	return *mesh, nil
-
 }
 
 func (ds *LatticeDataStore) AddLatticeService(name string, namespace string, arn string, id string, dns string) error {

@@ -12,24 +12,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_SynthesizeTriggeredGateways(t *testing.T) {
 	now := metav1.Now()
 	tests := []struct {
-		name                string
-		gw                  *gateway_api.Gateway
-		gwUsedByOtherNS     bool
-		meshManagerErr      error
-		wantSynthesizerErr  error
-		wantDataStoreErr    error
-		wantDataStoreStatus string
+		name               string
+		gw                 *gateway_api.Gateway
+		gwUsedByOtherNS    bool
+		meshManagerErr     error
+		wantSynthesizerErr error
 	}{
 		{
 			name: "Adding a new Mesh successfully",
@@ -38,10 +33,8 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 					Name: "mesh1",
 				},
 			},
-			meshManagerErr:      nil,
-			wantSynthesizerErr:  nil,
-			wantDataStoreErr:    nil,
-			wantDataStoreStatus: "",
+			meshManagerErr:     nil,
+			wantSynthesizerErr: nil,
 		},
 		{
 			name: "Adding a new Mesh associating in progress",
@@ -50,10 +43,8 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 					Name: "mesh2",
 				},
 			},
-			meshManagerErr:      errors.New(LATTICE_RETRY),
-			wantSynthesizerErr:  errors.New(LATTICE_RETRY),
-			wantDataStoreErr:    nil,
-			wantDataStoreStatus: "",
+			meshManagerErr:     errors.New(LATTICE_RETRY),
+			wantSynthesizerErr: errors.New(LATTICE_RETRY),
 		},
 
 		{
@@ -65,11 +56,9 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 					DeletionTimestamp: &now,
 				},
 			},
-			meshManagerErr:      nil,
-			gwUsedByOtherNS:     false,
-			wantSynthesizerErr:  nil,
-			wantDataStoreErr:    errors.New(latticestore.DATASTORE_SERVICE_NETWORK_NOT_EXIST),
-			wantDataStoreStatus: latticestore.DATASTORE_SERVICE_NETWORK_NOT_EXIST,
+			meshManagerErr:     nil,
+			gwUsedByOtherNS:    false,
+			wantSynthesizerErr: nil,
 		},
 		{
 			name: "Deleting Mesh Skipped due to other NS still uses it",
@@ -80,11 +69,9 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 					DeletionTimestamp: &now,
 				},
 			},
-			meshManagerErr:      nil,
-			gwUsedByOtherNS:     true,
-			wantSynthesizerErr:  nil,
-			wantDataStoreErr:    nil,
-			wantDataStoreStatus: "",
+			meshManagerErr:     nil,
+			gwUsedByOtherNS:    true,
+			wantSynthesizerErr: nil,
 		},
 		{
 			name: "Deleting Mesh Successfully in progress",
@@ -95,10 +82,8 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 					DeletionTimestamp: &now,
 				},
 			},
-			meshManagerErr:      errors.New(LATTICE_RETRY),
-			wantSynthesizerErr:  errors.New(LATTICE_RETRY),
-			wantDataStoreErr:    nil,
-			wantDataStoreStatus: "",
+			meshManagerErr:     errors.New(LATTICE_RETRY),
+			wantSynthesizerErr: errors.New(LATTICE_RETRY),
 		},
 	}
 
@@ -114,9 +99,6 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		stack, mesh, _ := builder.Build(context.Background(), tt.gw)
 
 		var meshStatus latticemodel.ServiceNetworkStatus
-
-		ds := latticestore.NewLatticeDataStore()
-
 		mockMeshManager := NewMockServiceNetworkManager(c)
 
 		// testing deleting staled mesh (gateway)
@@ -125,8 +107,6 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		// testing add or delete of triggered gateway(mesh)
 		if !tt.gw.DeletionTimestamp.IsZero() {
 			// testing delete
-			// insert the record in cache and verify it will be deleted later
-			ds.AddServiceNetwork(tt.gw.Name, config.AccountID, "ARN", "id", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
 
 			gwList := &gateway_api.GatewayList{}
 
@@ -166,25 +146,10 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 			mockMeshManager.EXPECT().Create(ctx, mesh).Return(meshStatus, tt.meshManagerErr)
 		}
 
-		meshMeshSynthesizer := NewServiceNetworkSynthesizer(mock_client, mockMeshManager, stack, ds)
+		meshMeshSynthesizer := NewServiceNetworkSynthesizer(mock_client, mockMeshManager, stack)
 		err := meshMeshSynthesizer.synthesizeTriggeredGateways(ctx)
-
 		assert.Equal(t, tt.wantSynthesizerErr, err)
-
-		// verify the local cache for triggered gateway add or delete
-		output, err := ds.GetServiceNetworkStatus(tt.gw.Name, config.AccountID)
-
-		fmt.Printf("GetMeshStatus:%v, err %v\n", output, err)
-		if tt.gw.DeletionTimestamp.IsZero() {
-			// Verify record being added to local store correctly
-			assert.Equal(t, meshStatus.ServiceNetworkARN, output.ARN)
-			assert.Equal(t, meshStatus.ServiceNetworkID, output.ID)
-		}
-
-		assert.Equal(t, tt.wantDataStoreErr, err)
-
 	}
-
 }
 
 type sdkMeshDef struct {
@@ -236,8 +201,6 @@ func Test_SythesizeSDKMeshs(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		ds := latticestore.NewLatticeDataStore()
-
 		mockMeshManager := NewMockServiceNetworkManager(c)
 
 		// testing deleting staled mesh (gateway)
@@ -253,7 +216,7 @@ func Test_SythesizeSDKMeshs(t *testing.T) {
 				fmt.Printf("sdkMesh %v\n", sdkMesh)
 				sdkMeshsReturned = append(sdkMeshsReturned, sdkMesh.name)
 				fmt.Printf("sdkMeshsReturned --loop %v\n", sdkMeshsReturned)
-				ds.AddServiceNetwork(sdkMesh.name, config.AccountID, "staleMeshARN", "staleMeshId", latticestore.DATASTORE_SERVICE_NETWORK_CREATED)
+
 				if !sdkMesh.isStale {
 					gwList.Items = append(gwList.Items,
 						gateway_api.Gateway{
@@ -286,13 +249,8 @@ func Test_SythesizeSDKMeshs(t *testing.T) {
 		}
 
 		mockMeshManager.EXPECT().List(ctx).Return(sdkMeshsReturned, nil)
-
-		meshMeshSynthesizer := NewServiceNetworkSynthesizer(mock_client, mockMeshManager, nil, ds)
-
+		meshMeshSynthesizer := NewServiceNetworkSynthesizer(mock_client, mockMeshManager, nil)
 		err := meshMeshSynthesizer.synthesizeSDKServiceNetworks(ctx)
-
 		assert.Equal(t, tt.wantSynthesizerErr, err)
-
 	}
-
 }

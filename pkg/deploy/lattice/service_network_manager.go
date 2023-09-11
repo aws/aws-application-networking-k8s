@@ -52,7 +52,7 @@ type defaultServiceNetworkManager struct {
 //	CreateServiceNetworkVpcAssociationInput returns ServiceNetworkVpcAssociationStatusFailed/ServiceNetworkVpcAssociationStatusCreateInProgress/MeshVpcAssociationStatusDeleteInProgress
 func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_network *latticemodel.ServiceNetwork) (latticemodel.ServiceNetworkStatus, error) {
 	// check if exists
-	service_networkSummary, err := m.findServiceNetworkByName(ctx, service_network.Spec.Name)
+	service_networkSummary, err := m.cloud.Lattice().FindServiceNetwork(ctx, service_network.Spec.Name, "")
 	if err != nil {
 		return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
 	}
@@ -88,8 +88,8 @@ func (m *defaultServiceNetworkManager) Create(ctx context.Context, service_netwo
 
 	} else {
 		glog.V(6).Infof("service_network[%v] exists, further check association", service_network)
-		service_networkID = aws.StringValue(service_networkSummary.snSummary.Id)
-		service_networkArn = aws.StringValue(service_networkSummary.snSummary.Arn)
+		service_networkID = aws.StringValue(service_networkSummary.SvcNetwork.Id)
+		service_networkArn = aws.StringValue(service_networkSummary.SvcNetwork.Arn)
 		isServiceNetworkAssociatedWithVPC, service_networkAssociatedWithCurrentVPCId, _, err = m.isServiceNetworkAssociatedWithVPC(ctx, service_networkID)
 		if err != nil {
 			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
@@ -171,7 +171,7 @@ func (m *defaultServiceNetworkManager) List(ctx context.Context) ([]string, erro
 }
 
 func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_network string) error {
-	service_networkSummary, err := m.findServiceNetworkByName(ctx, service_network)
+	service_networkSummary, err := m.cloud.Lattice().FindServiceNetwork(ctx, service_network, "")
 	if err != nil {
 		return err
 	}
@@ -182,7 +182,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 	}
 
 	vpcLatticeSess := m.cloud.Lattice()
-	service_networkID := aws.StringValue(service_networkSummary.snSummary.Id)
+	service_networkID := aws.StringValue(service_networkSummary.SvcNetwork.Id)
 
 	_, service_networkAssociatedWithCurrentVPCId, assocResp, err := m.isServiceNetworkAssociatedWithVPC(ctx, service_networkID)
 	if err != nil {
@@ -208,9 +208,8 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 
 	// check if this VPC is the one created the service network
 	needToDelete := false
-	if service_networkSummary.snTags != nil && service_networkSummary.snTags.Tags != nil {
-		snTags := service_networkSummary.snTags
-		vpcOwner, ok := snTags.Tags[latticemodel.K8SServiceNetworkOwnedByVPC]
+	if service_networkSummary.Tags != nil {
+		vpcOwner, ok := service_networkSummary.Tags[latticemodel.K8SServiceNetworkOwnedByVPC]
 		if ok && *vpcOwner == config.VpcID {
 			needToDelete = true
 		} else {
@@ -245,40 +244,6 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, service_netwo
 	} else {
 		glog.V(2).Infof("Deleting service_network (%v) Skipped, since it is owned by different VPC ", service_network)
 		return nil
-	}
-}
-
-// Find service_network by name return service_network,err if service_network exists, otherwise return nil, nil.
-func (m *defaultServiceNetworkManager) findServiceNetworkByName(ctx context.Context, targetServiceNetwork string) (*serviceNetworkOutput, error) {
-	vpcLatticeSess := m.cloud.Lattice()
-	service_networkListInput := vpclattice.ListServiceNetworksInput{}
-	resp, err := vpcLatticeSess.ListServiceNetworksAsList(ctx, &service_networkListInput)
-	if err == nil {
-		for _, r := range resp {
-			if aws.StringValue(r.Name) == targetServiceNetwork {
-				glog.V(6).Infoln("Found ServiceNetwork named ", targetServiceNetwork)
-
-				tagsInput := vpclattice.ListTagsForResourceInput{
-					ResourceArn: r.Arn,
-				}
-				tagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, &tagsInput)
-
-				if err != nil {
-					tagsOutput = nil
-				}
-
-				snOutput := serviceNetworkOutput{
-					snSummary: r,
-					snTags:    tagsOutput,
-				}
-
-				// treat err as no tag
-				return &snOutput, nil
-			}
-		}
-		return nil, err
-	} else {
-		return nil, err
 	}
 }
 

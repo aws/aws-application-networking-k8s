@@ -67,7 +67,7 @@ func deploy(ctx context.Context, stack core.Stack, synthesizers []ResourceSynthe
 
 func (d *serviceNetworkStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	synthesizers := []ResourceSynthesizer{
-		lattice.NewServiceNetworkSynthesizer(d.k8sclient, d.latticeServiceNetworkManager, stack, d.latticeDataStore),
+		lattice.NewServiceNetworkSynthesizer(d.k8sclient, d.latticeServiceNetworkManager, stack),
 	}
 	return deploy(ctx, stack, synthesizers)
 }

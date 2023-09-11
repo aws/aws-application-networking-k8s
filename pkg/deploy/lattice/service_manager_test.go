@@ -40,9 +40,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			},
 		}
 
-		ds.AddServiceNetwork("sn", cfg.AccountId, "sn-arn", "sn-id", "sn-status")
-
-		// service does not exists in lattice
+		// service does not exist in lattice
 		lat.EXPECT().
 			ListServicesAsList(gomock.Any(), gomock.Any()).
 			Return([]*SvcSummary{}, nil)
@@ -74,6 +72,22 @@ func TestServiceManagerInteg(t *testing.T) {
 				}).
 			Times(1)
 
+		// expect a call to find the service network
+		lat.EXPECT().
+			FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(
+				func(ctx context.Context, name string, accountId string) (*services.ServiceNetworkInfo, error) {
+					return &services.ServiceNetworkInfo{
+						SvcNetwork: vpclattice.ServiceNetworkSummary{
+							Arn:  aws.String("sn-arn"),
+							Id:   aws.String("sn-id"),
+							Name: aws.String(name),
+						},
+						Tags: nil,
+					}, nil
+				}).
+			Times(1)
+
 		status, err := m.Create(ctx, svc)
 		assert.Nil(t, err)
 		assert.Equal(t, "arn", status.Arn)
@@ -97,11 +111,6 @@ func TestServiceManagerInteg(t *testing.T) {
 				Namespace:           "ns",
 				ServiceNetworkNames: []string{snKeep, snAdd},
 			},
-		}
-
-		// populate storage with managed sn's
-		for _, sn := range []string{snKeep, snDelete, snAdd} {
-			ds.AddServiceNetwork(sn, cfg.AccountId, sn+"-arn", sn+"-id", sn+"-status")
 		}
 
 		// service exists in lattice
@@ -163,6 +172,22 @@ func TestServiceManagerInteg(t *testing.T) {
 					return &DelSnSvcAssocResp{}, nil
 				}).
 			Times(1)
+
+		// expect calls to find the service network
+		lat.EXPECT().
+			FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(
+				func(ctx context.Context, name string, accountId string) (*services.ServiceNetworkInfo, error) {
+					return &services.ServiceNetworkInfo{
+						SvcNetwork: vpclattice.ServiceNetworkSummary{
+							Arn:  aws.String(name + "-arn"),
+							Id:   aws.String(name + "-id"),
+							Name: aws.String(name),
+						},
+						Tags: nil,
+					}, nil
+				}).
+			AnyTimes()
 
 		status, err := m.Create(ctx, svc)
 		assert.Nil(t, err)

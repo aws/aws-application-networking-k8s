@@ -2,7 +2,6 @@ package aws
 
 import (
 	"fmt"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -14,8 +13,6 @@ const (
 	TagBase      = "application-networking.k8s.aws/"
 	TagManagedBy = TagBase + "ManagedBy"
 )
-
-type Tags = map[string]*string
 
 //go:generate mockgen -destination cloud_mocks.go -package aws github.com/aws/aws-application-networking-k8s/pkg/aws Cloud
 
@@ -31,13 +28,13 @@ type Cloud interface {
 	Lattice() services.Lattice
 
 	// creates lattice tags with default values populated
-	DefaultTags() Tags
+	DefaultTags() services.Tags
+
+	// check if tags map has managedBy tag
+	ContainsManagedBy(tags services.Tags) bool
 
 	// check if managedBy tag set for lattice resource
 	IsArnManaged(arn string) (bool, error)
-
-	// check if tags map has managedBy tag
-	ContainsManagedBy(tags Tags) bool
 }
 
 // NewCloud constructs new Cloud implementation.
@@ -92,13 +89,13 @@ func (c *defaultCloud) Config() CloudConfig {
 	return c.cfg
 }
 
-func (c *defaultCloud) DefaultTags() Tags {
-	tags := Tags{}
+func (c *defaultCloud) DefaultTags() services.Tags {
+	tags := services.Tags{}
 	tags[TagManagedBy] = &c.managedByTag
 	return tags
 }
 
-func (c *defaultCloud) ContainsManagedBy(tags Tags) bool {
+func (c *defaultCloud) ContainsManagedBy(tags services.Tags) bool {
 	tag, ok := tags[TagManagedBy]
 	if !ok || tag == nil {
 		return false
