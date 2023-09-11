@@ -275,10 +275,10 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportDeletion(ctx
 	})
 	t.datastore.SetTargetGroupByServiceExport(targetGroupName, false, false)
 	dsTG, err := t.datastore.GetTargetGroup(targetGroupName, "", false)
-	t.log.Debugf("TargetGroup cached in datastore: %v", dsTG)
 	if err != nil {
 		return nil, fmt.Errorf("%w: targetGroupName: %s", err, targetGroupName)
 	}
+	t.log.Debugf("TargetGroup cached in datastore: %v", dsTG)
 	if !dsTG.ByBackendRef {
 		// When handling the serviceExport deletion request while having dsTG.ByBackendRef==false,
 		// That means this target group is not in use anymore, i.e., it is not referenced by latticeService rules(aka http/grpc route rules),
