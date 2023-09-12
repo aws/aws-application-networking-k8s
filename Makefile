@@ -94,9 +94,12 @@ manifest: ## Generate CRD manifest
 	go run k8s.io/code-generator/cmd/register-gen@v0.28.0 --input-dirs ./pkg/apis/applicationnetworking/v1alpha1 --output-base ./ --go-header-file hack/boilerplate.go.txt
 	cp config/crds/bases/application-networking.k8s.aws* helm/crds
 
+e2e-test-namespace := "e2e-test"
+
 ## Run e2e tests against cluster pointed to by ~/.kube/config
-.PHONY: e2etest
-e2etest:
+.PHONY: e2e-test
+e2e-test:
+	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1 || true # ignore already exists error
 	cd test && go test \
 		-p 1 \
 		-count 1 \
@@ -106,3 +109,11 @@ e2etest:
 		--ginkgo.focus="${FOCUS}" \
 		--ginkgo.timeout=90m \
 		--ginkgo.v
+
+.SILENT:
+.PHONY: e2e-clean
+e2e-clean:
+	@echo -n "Cleaning up e2e tests... "
+	@kubectl delete namespace $(e2e-test-namespace) > /dev/null 2>&1
+	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1
+	@echo "Done!"
