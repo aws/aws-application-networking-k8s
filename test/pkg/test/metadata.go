@@ -24,7 +24,7 @@ func New[T client.Object](t T, mergeFrom ...T) T {
 		t.SetName(RandomName())
 	}
 	if t.GetNamespace() == "" {
-		t.SetNamespace("default")
+		t.SetNamespace("e2e-test")
 	}
 	t.SetLabels(map[string]string{DiscoveryLabel: "true"})
 	return MustMerge(t, mergeFrom...)

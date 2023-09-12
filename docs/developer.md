@@ -65,7 +65,7 @@ eksctl create iamserviceaccount \
 Once cluster is ready. We need to apply CRDs for gateway-api resources.
 
 ```bash
-$kubectl apply -f config/crds/bases/k8s-gateway-v0.6.1.yaml
+kubectl apply -f config/crds/bases/k8s-gateway-v0.6.1.yaml
 kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceexports.yaml
 kubectl apply -f config/crds/bases/multicluster.x-k8s.io_serviceimports.yaml
 kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
@@ -73,10 +73,10 @@ kubectl apply -f config/crds/bases/application-networking.k8s.aws_targetgrouppol
 kubectl apply -f examples/gatewayclass.yaml
 ```
 
-And create non-default namespace for e2etest. In case you want to run them.
+When e2e tests are terminated during execution, it might break clean-up stage and resources will leak. To delete dangling resources manually use cleanup script:
 
 ```bash
-kubectl create namespace non-default
+make e2e-clean
 ```
 
 ## Local Development
@@ -110,7 +110,7 @@ And use "EnvFile" GoLand plugin to read the env variables from the generated `.e
 For larger changes it's recommended to run e2e suites on your local cluster.
 
 ```
-REGION=us-west-2 make e2etest
+REGION=us-west-2 make e2e-test
 ```
 
 You can use `FOCUS` environment variable to run some specific test cases based on filter condition.
@@ -125,7 +125,7 @@ var _ = Describe("HTTPRoute path matches", func() {
 ```
 export FOCUS="HTTPRoute should support multiple path matches"
 export REGION=us-west-2
-make e2etest
+make e2e-test
 ```
 
 For example, to run the test case "HTTPRoute should support multiple path matches", you could run the following command:
@@ -150,10 +150,10 @@ make presubmit
 
 For larger, functional changes, run e2e tests:
 ```sh
-make e2etest
+make e2e-test
 ```
 
-It is recommended to run `make e2etest` in both environments where `DNSEndpoint` CRD exists and does not exist,
+It is recommended to run `make e2e-test` in both environments where `DNSEndpoint` CRD exists and does not exist,
 as the controller is designed to support both use cases.
 
 ## Make Docker Image
