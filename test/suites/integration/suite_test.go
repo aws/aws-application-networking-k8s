@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	k8snamespace = "non-default"
+	k8snamespace = "e2e-test"
 )
 
 var testFramework *test.Framework
@@ -32,7 +32,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	testFramework.ExpectToBeClean(ctx)
-	grpcurlRunnerPod := test.NewGrpcurlRunnerPod()
+	grpcurlRunnerPod := test.NewGrpcurlRunnerPod("grpc-runner", k8snamespace)
 	if err := testFramework.Get(ctx, client.ObjectKeyFromObject(grpcurlRunnerPod), testFramework.GrpcurlRunner); err != nil {
 		if apierrors.IsNotFound(err) {
 			testFramework.ExpectCreated(ctx, grpcurlRunnerPod)

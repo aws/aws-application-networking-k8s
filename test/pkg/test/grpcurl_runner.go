@@ -6,11 +6,11 @@ import (
 )
 
 // https://github.com/fullstorydev/grpcurl
-func NewGrpcurlRunnerPod() *v1.Pod {
+func NewGrpcurlRunnerPod(name, namespace string) *v1.Pod {
 	grpcurlPod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "grpcurl-runner",
+			Namespace: namespace,
+			Name:      name,
 			Labels: map[string]string{
 				"app": "grpcurl-runner",
 			},
