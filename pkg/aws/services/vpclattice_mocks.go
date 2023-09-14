@@ -1037,7 +1037,7 @@ func (mr *MockLatticeMockRecorder) DeregisterTargetsWithContext(arg0, arg1 inter
 }
 
 // FindService mocks base method.
-func (m *MockLattice) FindService(arg0 context.Context, arg1 LatticeNameProvider) (*vpclattice.ServiceSummary, error) {
+func (m *MockLattice) FindService(arg0 context.Context, arg1 LatticeServiceNameProvider) (*vpclattice.ServiceSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindService", arg0, arg1)
 	ret0, _ := ret[0].(*vpclattice.ServiceSummary)

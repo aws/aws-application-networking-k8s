@@ -326,7 +326,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 
 	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ServiceSummary{
-			Name: sdk.String(stackService.LatticeName()),
+			Name: sdk.String(stackService.LatticeServiceName()),
 			Arn:  sdk.String("svc-arn"),
 			Id:   sdk.String(serviceID),
 		}, nil)

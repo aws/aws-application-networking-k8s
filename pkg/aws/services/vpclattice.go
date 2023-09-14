@@ -23,8 +23,8 @@ type ServiceNetworkInfo struct {
 	Tags       Tags
 }
 
-type LatticeNameProvider interface {
-	LatticeName() string
+type LatticeServiceNameProvider interface {
+	LatticeServiceName() string
 }
 
 type NotFoundError struct {
@@ -54,7 +54,7 @@ type Lattice interface {
 	ListServiceNetworkVpcAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput) ([]*vpclattice.ServiceNetworkVpcAssociationSummary, error)
 	ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error)
 	FindServiceNetwork(ctx context.Context, name string, accountId string) (*ServiceNetworkInfo, error)
-	FindService(ctx context.Context, nameProvider LatticeNameProvider) (*vpclattice.ServiceSummary, error)
+	FindService(ctx context.Context, nameProvider LatticeServiceNameProvider) (*vpclattice.ServiceSummary, error)
 }
 
 type defaultLattice struct {
@@ -234,8 +234,8 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, op
 
 	return snMatch, nil
 }
-func (d *defaultLattice) FindService(ctx context.Context, nameProvider LatticeNameProvider) (*vpclattice.ServiceSummary, error) {
-	serviceName := nameProvider.LatticeName()
+func (d *defaultLattice) FindService(ctx context.Context, nameProvider LatticeServiceNameProvider) (*vpclattice.ServiceSummary, error) {
+	serviceName := nameProvider.LatticeServiceName()
 	input := vpclattice.ListServicesInput{}
 
 	var svcMatch *vpclattice.ServiceSummary

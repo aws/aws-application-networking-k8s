@@ -268,7 +268,7 @@ func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *gateway_ap
 
 func (env *Framework) GetVpcLatticeService(ctx context.Context, route core.Route) *vpclattice.ServiceSummary {
 	var found *vpclattice.ServiceSummary
-	rnProvider := controllers.RouteNameProvider{route}
+	rnProvider := controllers.RouteLSNProvider{route}
 
 	Eventually(func(g Gomega) {
 		svc, err := env.LatticeClient.FindService(ctx, &rnProvider)
@@ -276,7 +276,7 @@ func (env *Framework) GetVpcLatticeService(ctx context.Context, route core.Route
 		found = svc
 		g.Expect(found).ToNot(BeNil())
 		g.Expect(found.Status).To(Equal(lo.ToPtr(vpclattice.ServiceStatusActive)))
-		g.Expect(found.DnsEntry).To(ContainSubstring(rnProvider.LatticeName()))
+		g.Expect(found.DnsEntry).To(ContainSubstring(rnProvider.LatticeServiceName()))
 	}).WithOffset(1).Should(Succeed())
 
 	return found

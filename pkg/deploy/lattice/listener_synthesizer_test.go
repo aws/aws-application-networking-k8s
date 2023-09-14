@@ -137,7 +137,7 @@ func Test_SynthesizeListener(t *testing.T) {
 		stackService := latticemodel.NewLatticeService(stack, "", spec)
 		mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 			&vpclattice.ServiceSummary{
-				Name: sdk.String(stackService.LatticeName()),
+				Name: sdk.String(stackService.LatticeServiceName()),
 				Arn:  sdk.String("svc-arn"),
 				Id:   sdk.String(tt.serviceID),
 			}, nil)

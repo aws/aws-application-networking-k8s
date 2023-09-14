@@ -535,7 +535,7 @@ func Test_CreateRule(t *testing.T) {
 		if !tt.noServiceID {
 			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 				&vpclattice.ServiceSummary{
-					Name: aws.String((&RuleNameProvider{tt.newRule}).LatticeName()),
+					Name: aws.String((&RuleLSNPRovider{tt.newRule}).LatticeServiceName()),
 					Arn:  aws.String("serviceARN"),
 					Id:   aws.String(tt.newRule.Status.ServiceID),
 					DnsEntry: &vpclattice.DnsEntry{
@@ -761,7 +761,7 @@ func Test_UpdateRule(t *testing.T) {
 		if !tt.noServiceID {
 			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 				&vpclattice.ServiceSummary{
-					Name: aws.String((&RuleNameProvider{rules[i]}).LatticeName()),
+					Name: aws.String((&RuleLSNPRovider{rules[i]}).LatticeServiceName()),
 					Arn:  aws.String("serviceARN"),
 					Id:   aws.String(rules[i].Status.ServiceID),
 					DnsEntry: &vpclattice.DnsEntry{

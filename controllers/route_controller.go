@@ -79,11 +79,11 @@ const (
 	LatticeAssignedDomainName = "application-networking.k8s.aws/lattice-assigned-domain-name"
 )
 
-type RouteNameProvider struct {
+type RouteLSNProvider struct {
 	Route core.Route
 }
 
-func (r *RouteNameProvider) LatticeName() string {
+func (r *RouteLSNProvider) LatticeServiceName() string {
 	return utils.LatticeServiceName(r.Route.Name(), r.Route.Namespace())
 }
 
@@ -375,7 +375,7 @@ func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 		k8s.RouteEventReasonDeploySucceed, "Adding/Updating reconcile Done!")
 
-	svc, err := r.cloud.Lattice().FindService(ctx, &RouteNameProvider{route})
+	svc, err := r.cloud.Lattice().FindService(ctx, &RouteLSNProvider{route})
 	if err != nil && !services.IsNotFoundError(err) {
 		return err
 	}

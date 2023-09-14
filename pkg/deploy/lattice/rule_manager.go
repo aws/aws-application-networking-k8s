@@ -42,11 +42,11 @@ func (r *defaultRuleManager) Cloud() lattice_aws.Cloud {
 	return r.cloud
 }
 
-type RuleNameProvider struct {
+type RuleLSNPRovider struct {
 	rule *latticemodel.Rule
 }
 
-func (r *RuleNameProvider) LatticeName() string {
+func (r *RuleLSNPRovider) LatticeServiceName() string {
 	return utils.LatticeServiceName(r.rule.Spec.ServiceName, r.rule.Spec.ServiceNamespace)
 }
 
@@ -106,7 +106,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 
 	glog.V(6).Infof("Rule --- update >>>>>>>>.%v\n", rules)
 
-	latticeService, err := r.cloud.Lattice().FindService(ctx, &RuleNameProvider{rules[0]})
+	latticeService, err := r.cloud.Lattice().FindService(ctx, &RuleLSNPRovider{rules[0]})
 	if err != nil {
 		errmsg := fmt.Sprintf("Service %v not found during rule creation", rules[0].Spec)
 		glog.V(2).Infof("Error during update rule %s \n", errmsg)
@@ -152,7 +152,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule) (latticemodel.RuleStatus, error) {
 	glog.V(6).Infof("Rule --- Create >>>>>>>>.%v\n", *rule)
 
-	latticeService, err := r.cloud.Lattice().FindService(ctx, &RuleNameProvider{rule})
+	latticeService, err := r.cloud.Lattice().FindService(ctx, &RuleLSNPRovider{rule})
 	if err != nil {
 		errmsg := fmt.Sprintf("Service %v not found during rule creation, err: %v", rule.Spec, err)
 		glog.V(2).Infof("Error during create rule %s \n", errmsg)

@@ -132,7 +132,7 @@ func Test_AddListener(t *testing.T) {
 		if !tt.noServiceID {
 			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 				&vpclattice.ServiceSummary{
-					Name: aws.String((&ListenerNameProvider{listener}).LatticeName()),
+					Name: aws.String((&ListenerLSNProvider{listener}).LatticeServiceName()),
 					Arn:  aws.String(serviceARN),
 					Id:   aws.String(serviceID),
 					DnsEntry: &vpclattice.DnsEntry{

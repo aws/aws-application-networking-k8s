@@ -41,18 +41,18 @@ func (d *defaultListenerManager) Cloud() lattice_aws.Cloud {
 	return d.cloud
 }
 
-type ListenerNameProvider struct {
+type ListenerLSNProvider struct {
 	l *latticemodel.Listener
 }
 
-func (r *ListenerNameProvider) LatticeName() string {
+func (r *ListenerLSNProvider) LatticeServiceName() string {
 	return utils.LatticeServiceName(r.l.Spec.Name, r.l.Spec.Namespace)
 }
 
 func (d *defaultListenerManager) Create(ctx context.Context, listener *latticemodel.Listener) (latticemodel.ListenerStatus, error) {
 	glog.V(6).Infof("Creating listener >>>> %v \n", listener)
 
-	svc, err1 := d.cloud.Lattice().FindService(ctx, &ListenerNameProvider{listener})
+	svc, err1 := d.cloud.Lattice().FindService(ctx, &ListenerLSNProvider{listener})
 	if err1 != nil {
 		if services.IsNotFoundError(err1) {
 			errMsg := fmt.Sprintf("Service %v not found during listener creation", listener.Spec.Name)

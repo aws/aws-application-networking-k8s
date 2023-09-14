@@ -87,7 +87,7 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 }
 
 func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
-	svcName := svc.LatticeName()
+	svcName := svc.LatticeServiceName()
 	req := &vpclattice.CreateServiceInput{
 		Name: &svcName,
 	}
@@ -227,7 +227,7 @@ func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, [
 		// TODO: we should have something more lightweight, retrying full reconciliation looks to heavy
 		if aws.StringValue(oldSn.Status) == vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress {
 			return nil, nil, fmt.Errorf("%w: want to associate sn: %s to svc: %s, but status is: %s",
-				RetryErr, newSn, svc.LatticeName(), *oldSn.Status)
+				RetryErr, newSn, svc.LatticeServiceName(), *oldSn.Status)
 		}
 		// TODO: if assoc in failed state, may be we should try to re-create?
 	}

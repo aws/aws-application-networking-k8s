@@ -42,6 +42,6 @@ func NewLatticeService(stack core.Stack, id string, spec ServiceSpec) *Service {
 	return service
 }
 
-func (s *Service) LatticeName() string {
+func (s *Service) LatticeServiceName() string {
 	return utils.LatticeServiceName(s.Spec.Name, s.Spec.Namespace)
 }

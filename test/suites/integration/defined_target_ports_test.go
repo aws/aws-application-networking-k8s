@@ -70,8 +70,8 @@ var _ = Describe("Defined Target Ports", func() {
 		// Verify VPC Lattice Service exists
 		route, _ := core.NewRoute(httpRoute)
 		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, route)
-		rnp := controllers.RouteNameProvider{route}
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(rnp.LatticeName()))
+		rnp := controllers.RouteLSNProvider{route}
+		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(rnp.LatticeServiceName()))
 
 		performVerification(service, deployment, definedPorts)
 	})

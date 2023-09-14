@@ -48,7 +48,7 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 
 	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ServiceSummary{
-			Name: aws.String(stackService.LatticeName()),
+			Name: aws.String(stackService.LatticeServiceName()),
 			Id:   aws.String("fake-service"),
 		}, nil).AnyTimes()
 
@@ -113,7 +113,7 @@ func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
 
 	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ServiceSummary{
-			Name: aws.String(stackService.LatticeName()),
+			Name: aws.String(stackService.LatticeServiceName()),
 			Id:   aws.String("fake-service"),
 		}, nil).AnyTimes()
 
@@ -163,7 +163,7 @@ func Test_latticeServiceStackDeployer_DeleteService(t *testing.T) {
 
 	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ServiceSummary{
-			Name: aws.String(stackService.LatticeName()),
+			Name: aws.String(stackService.LatticeServiceName()),
 			Id:   aws.String("fake-service"),
 		}, nil).AnyTimes()
 
@@ -220,7 +220,7 @@ func Test_latticeServiceStackDeployer_DeleteAllResources(t *testing.T) {
 
 	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ServiceSummary{
-			Name: aws.String(stackService.LatticeName()),
+			Name: aws.String(stackService.LatticeServiceName()),
 			Id:   aws.String("fake-service"),
 		}, nil).AnyTimes()
 

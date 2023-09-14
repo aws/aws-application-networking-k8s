@@ -51,7 +51,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			CreateServiceWithContext(gomock.Any(), gomock.Any()).
 			DoAndReturn(
 				func(_ context.Context, req *CreateSvcReq, _ ...interface{}) (*CreateSvcResp, error) {
-					assert.Equal(t, svc.LatticeName(), *req.Name)
+					assert.Equal(t, svc.LatticeServiceName(), *req.Name)
 					return &CreateSvcResp{
 						Arn:      aws.String("arn"),
 						DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
@@ -120,7 +120,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			Return(&vpclattice.ServiceSummary{
 				Arn:  aws.String("svc-arn"),
 				Id:   aws.String("svc-id"),
-				Name: aws.String(svc.LatticeName()),
+				Name: aws.String(svc.LatticeServiceName()),
 			}, nil).
 			Times(1)
 
@@ -210,7 +210,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			Return(&vpclattice.ServiceSummary{
 				Arn:  aws.String("svc-arn"),
 				Id:   aws.String("svc-id"),
-				Name: aws.String(svc.LatticeName()),
+				Name: aws.String(svc.LatticeServiceName()),
 			}, nil)
 		lat.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
@@ -258,7 +258,7 @@ func TestCreateSvcReq(t *testing.T) {
 
 	req := m.newCreateSvcReq(svcModel)
 
-	assert.Equal(t, *req.Name, svcModel.LatticeName())
+	assert.Equal(t, *req.Name, svcModel.LatticeServiceName())
 	assert.Equal(t, *req.CustomDomainName, spec.CustomerDomainName)
 	assert.Equal(t, *req.CertificateArn, spec.CustomerCertARN)
 
