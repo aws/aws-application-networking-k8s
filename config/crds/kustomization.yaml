@@ -6,3 +6,4 @@ resources:
   - bases/multicluster.x-k8s.io_serviceimports.yaml
   - bases/externaldns.k8s.io_dnsendpoints.yaml
   - bases/application-networking.k8s.aws_targetgrouppolicies.yaml
+  - bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
