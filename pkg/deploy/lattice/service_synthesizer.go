@@ -44,7 +44,6 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 
 			if err == nil {
 				glog.V(6).Infof("service - Synthesizer: finish deleting service %v\n", *resService)
-				s.latticeDataStore.DelLatticeService(resService.Spec.Name, resService.Spec.Namespace)
 
 				// also delete all listeners of this service
 				listeners, err := s.latticeDataStore.GetAllListeners(resService.Spec.Name, resService.Spec.Namespace)
@@ -67,9 +66,6 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 				glog.V(6).Infof("Error on s.serviceManager.Create %v \n", err)
 				return err
 			}
-
-			s.latticeDataStore.AddLatticeService(resService.Spec.Name, resService.Spec.Namespace,
-				serviceStatus.Arn, serviceStatus.Id, serviceStatus.Dns)
 
 			glog.V(6).Infof("Creating Service DNS")
 			resService.Status = &serviceStatus

@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
 	gomock "github.com/golang/mock/gomock"
@@ -34,6 +35,20 @@ func NewMockRuleManager(ctrl *gomock.Controller) *MockRuleManager {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRuleManager) EXPECT() *MockRuleManagerMockRecorder {
 	return m.recorder
+}
+
+// Cloud mocks base method.
+func (m *MockRuleManager) Cloud() aws.Cloud {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Cloud")
+	ret0, _ := ret[0].(aws.Cloud)
+	return ret0
+}
+
+// Cloud indicates an expected call of Cloud.
+func (mr *MockRuleManagerMockRecorder) Cloud() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockRuleManager)(nil).Cloud))
 }
 
 // Create mocks base method.

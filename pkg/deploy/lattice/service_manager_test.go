@@ -42,15 +42,16 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// service does not exist in lattice
 		lat.EXPECT().
-			ListServicesAsList(gomock.Any(), gomock.Any()).
-			Return([]*SvcSummary{}, nil)
+			FindService(gomock.Any(), gomock.Any()).
+			Return(nil, &services.NotFoundError{}).
+			Times(1)
 
 		// assert that we call create service
 		lat.EXPECT().
 			CreateServiceWithContext(gomock.Any(), gomock.Any()).
 			DoAndReturn(
 				func(_ context.Context, req *CreateSvcReq, _ ...interface{}) (*CreateSvcResp, error) {
-					assert.Equal(t, svc.LatticeName(), *req.Name)
+					assert.Equal(t, svc.LatticeServiceName(), *req.Name)
 					return &CreateSvcResp{
 						Arn:      aws.String("arn"),
 						DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
@@ -115,12 +116,12 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// service exists in lattice
 		lat.EXPECT().
-			ListServicesAsList(gomock.Any(), gomock.Any()).
-			Return([]*SvcSummary{{
+			FindService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.ServiceSummary{
 				Arn:  aws.String("svc-arn"),
 				Id:   aws.String("svc-id"),
-				Name: aws.String(svc.LatticeName()),
-			}}, nil).
+				Name: aws.String(svc.LatticeServiceName()),
+			}, nil).
 			Times(1)
 
 		// 3 associations exist in lattice: keep, delete, and foreign
@@ -205,12 +206,12 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// service exists
 		lat.EXPECT().
-			ListServicesAsList(gomock.Any(), gomock.Any()).
-			Return([]*SvcSummary{{
+			FindService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.ServiceSummary{
 				Arn:  aws.String("svc-arn"),
 				Id:   aws.String("svc-id"),
-				Name: aws.String(svc.LatticeName()),
-			}}, nil)
+				Name: aws.String(svc.LatticeServiceName()),
+			}, nil)
 		lat.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 			Return([]*SnSvcAssocSummary{
@@ -257,7 +258,7 @@ func TestCreateSvcReq(t *testing.T) {
 
 	req := m.newCreateSvcReq(svcModel)
 
-	assert.Equal(t, *req.Name, svcModel.LatticeName())
+	assert.Equal(t, *req.Name, svcModel.LatticeServiceName())
 	assert.Equal(t, *req.CustomDomainName, spec.CustomerDomainName)
 	assert.Equal(t, *req.CertificateArn, spec.CustomerCertARN)
 

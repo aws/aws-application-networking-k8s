@@ -3,12 +3,12 @@ package lattice
 import (
 	"context"
 	"errors"
+	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"testing"
 
-	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -46,8 +46,7 @@ func Test_CreateServiceNetwork_MeshNotExist_NoNeedToAssociate(t *testing.T) {
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(meshCreateOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	mockLattice.EXPECT().
-		FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{}).Times(1)
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
@@ -131,13 +130,12 @@ func Test_CreateServiceNetwork_ListFailed(t *testing.T) {
 	mockCloud := mocks_aws.NewMockCloud(c)
 
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, errors.New("ERROR"))
-	mockCloud.EXPECT().Lattice().Return(mockLattice)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	resp, err := meshManager.Create(ctx, &meshCreateInput)
 
 	assert.NotNil(t, err)
-	assert.Equal(t, err, errors.New("ERROR"))
 	assert.Equal(t, resp.ServiceNetworkARN, "")
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
@@ -733,8 +731,8 @@ func Test_DeleteMesh_MeshNotExist(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{})
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(mockCloud)
 	err := meshManager.Delete(ctx, "test")

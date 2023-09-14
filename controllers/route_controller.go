@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
@@ -70,11 +72,20 @@ type RouteReconciler struct {
 	stackDeployer    deploy.StackDeployer
 	latticeDataStore *latticestore.LatticeDataStore
 	stackMarshaller  deploy.StackMarshaller
+	cloud            aws.Cloud
 }
 
 const (
 	LatticeAssignedDomainName = "application-networking.k8s.aws/lattice-assigned-domain-name"
 )
+
+type RouteLSNProvider struct {
+	Route core.Route
+}
+
+func (r *RouteLSNProvider) LatticeServiceName() string {
+	return utils.LatticeServiceName(r.Route.Name(), r.Route.Namespace())
+}
 
 func RegisterAllRouteControllers(
 	log gwlog.Logger,
@@ -107,6 +118,7 @@ func RegisterAllRouteControllers(
 			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, datastore, cloud),
 			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient, datastore),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
+			cloud:            cloud,
 		}
 
 		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
@@ -311,9 +323,7 @@ func (r *RouteReconciler) buildAndDeployModel(
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		r.log.Infof("RouteReconciler: Failed deploy %s due to err %s", route.Name(), err)
 
-		var retryErr = errors.New(lattice.LATTICE_RETRY)
-
-		if errors.As(err, &retryErr) {
+		if errors.As(err, &lattice.RetryErr) {
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 				k8s.RouteEventReasonRetryReconcile, "retry reconcile...")
 
@@ -358,22 +368,27 @@ func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core
 		return backendRefIPFamiliesErr
 	}
 
-	_, _, err := r.buildAndDeployModel(ctx, route)
-
-	//TODO add metric
-
-	if err == nil {
-		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
-			k8s.RouteEventReasonDeploySucceed, "Adding/Updating reconcile Done!")
-
-		serviceStatus, err1 := r.latticeDataStore.GetLatticeService(route.Name(), route.Namespace())
-
-		if err1 == nil {
-			r.updateRouteStatus(ctx, serviceStatus.DNS, route)
-		}
+	if _, _, err := r.buildAndDeployModel(ctx, route); err != nil {
+		return err
 	}
 
-	return err
+	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
+		k8s.RouteEventReasonDeploySucceed, "Adding/Updating reconcile Done!")
+
+	svc, err := r.cloud.Lattice().FindService(ctx, &RouteLSNProvider{route})
+	if err != nil && !services.IsNotFoundError(err) {
+		return err
+	}
+
+	if svc == nil || svc.DnsEntry == nil || svc.DnsEntry.DomainName == nil {
+		return errors.New(lattice.LATTICE_RETRY)
+	}
+
+	if err := r.updateRouteStatus(ctx, *svc.DnsEntry.DomainName, route); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, route core.Route) error {

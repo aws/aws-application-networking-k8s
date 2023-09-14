@@ -26,11 +26,8 @@ type StackDeployer interface {
 type serviceNetworkStackDeployer struct {
 	cloud     aws.Cloud
 	k8sclient client.Client
-	// TODO vpcID     string
 
-	//TODO others
 	latticeServiceNetworkManager lattice.ServiceNetworkManager
-	latticeDataStore             *latticestore.LatticeDataStore
 }
 
 type ResourceSynthesizer interface {
@@ -38,12 +35,11 @@ type ResourceSynthesizer interface {
 	PostSynthesize(ctx context.Context) error
 }
 
-func NewServiceNetworkStackDeployer(cloud aws.Cloud, k8sClient client.Client, latticeDataStore *latticestore.LatticeDataStore) *serviceNetworkStackDeployer {
+func NewServiceNetworkStackDeployer(cloud aws.Cloud, k8sClient client.Client) *serviceNetworkStackDeployer {
 	return &serviceNetworkStackDeployer{
 		cloud:                        cloud,
 		k8sclient:                    k8sClient,
 		latticeServiceNetworkManager: lattice.NewDefaultServiceNetworkManager(cloud),
-		latticeDataStore:             latticeDataStore,
 	}
 }
 

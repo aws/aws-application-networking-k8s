@@ -5,8 +5,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 type ObjectAndWeight struct {
@@ -51,7 +49,5 @@ func (env *Framework) NewWeightedRoutingHttpRoute(parentRefsGateway *v1beta1.Gat
 			},
 		},
 	})
-	env.TestCasesCreatedServiceNames[latticestore.LatticeServiceName(httpRoute.Name, httpRoute.Namespace)] = true
-	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, httpRoute)
 	return httpRoute
 }

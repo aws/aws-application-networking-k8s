@@ -9,7 +9,7 @@ func (env *Framework) NewGateway(name string, namespace string) *v1beta1.Gateway
 	gateway := New(
 		&v1beta1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: name,
+				Name:      name,
 				Namespace: namespace,
 				Annotations: map[string]string{
 					"application-networking.k8s.aws/lattice-vpc-association": "true",
@@ -33,7 +33,5 @@ func (env *Framework) NewGateway(name string, namespace string) *v1beta1.Gateway
 			Status: v1beta1.GatewayStatus{},
 		},
 	)
-	env.TestCasesCreatedServiceNetworkNames[gateway.Name] = true
-	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, gateway)
 	return gateway
 }

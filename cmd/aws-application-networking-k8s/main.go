@@ -155,7 +155,7 @@ func main() {
 		setupLog.Fatalf("gateway-class controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterGatewayController(ctrlLog.Named("gateway"), cloud, latticeDataStore, finalizerManager, mgr)
+	err = controllers.RegisterGatewayController(ctrlLog.Named("gateway"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("gateway controller setup failed: %s", err)
 	}

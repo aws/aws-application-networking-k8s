@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/golang/glog"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 )
 
 type RuleManager interface {
+	Cloud() lattice_aws.Cloud
 	Create(ctx context.Context, rule *latticemodel.Rule) (latticemodel.RuleStatus, error)
 	Delete(ctx context.Context, ruleID string, listenerID string, serviceID string) error
 	Update(ctx context.Context, rules []*latticemodel.Rule) error
@@ -34,6 +36,18 @@ func NewRuleManager(cloud lattice_aws.Cloud, store *latticestore.LatticeDataStor
 		cloud:            cloud,
 		latticeDataStore: store,
 	}
+}
+
+func (r *defaultRuleManager) Cloud() lattice_aws.Cloud {
+	return r.cloud
+}
+
+type RuleLSNPRovider struct {
+	rule *latticemodel.Rule
+}
+
+func (r *RuleLSNPRovider) LatticeServiceName() string {
+	return utils.LatticeServiceName(r.rule.Spec.ServiceName, r.rule.Spec.ServiceNamespace)
 }
 
 func (r *defaultRuleManager) Get(ctx context.Context, serviceID string, listernID string, ruleID string) (*vpclattice.GetRuleOutput, error) {
@@ -92,8 +106,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 
 	glog.V(6).Infof("Rule --- update >>>>>>>>.%v\n", rules)
 
-	latticeService, err := r.latticeDataStore.GetLatticeService(rules[0].Spec.ServiceName, rules[0].Spec.ServiceNamespace)
-
+	latticeService, err := r.cloud.Lattice().FindService(ctx, &RuleLSNPRovider{rules[0]})
 	if err != nil {
 		errmsg := fmt.Sprintf("Service %v not found during rule creation", rules[0].Spec)
 		glog.V(2).Infof("Error during update rule %s \n", errmsg)
@@ -122,7 +135,7 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 	// batchupdate rules using right priority
 	batchRuleInput := vpclattice.BatchUpdateRuleInput{
 		ListenerIdentifier: aws.String(listener.ID),
-		ServiceIdentifier:  aws.String(latticeService.ID),
+		ServiceIdentifier:  aws.String(*latticeService.Id),
 		Rules:              ruleUpdateList,
 	}
 
@@ -139,10 +152,9 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*latticemodel.R
 func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule) (latticemodel.RuleStatus, error) {
 	glog.V(6).Infof("Rule --- Create >>>>>>>>.%v\n", *rule)
 
-	latticeService, err := r.latticeDataStore.GetLatticeService(rule.Spec.ServiceName, rule.Spec.ServiceNamespace)
-
+	latticeService, err := r.cloud.Lattice().FindService(ctx, &RuleLSNPRovider{rule})
 	if err != nil {
-		errmsg := fmt.Sprintf("Service %v not found during rule creation", rule.Spec)
+		errmsg := fmt.Sprintf("Service %v not found during rule creation, err: %v", rule.Spec, err)
 		glog.V(2).Infof("Error during create rule %s \n", errmsg)
 		return latticemodel.RuleStatus{}, errors.New(errmsg)
 	}
@@ -164,7 +176,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 		return latticemodel.RuleStatus{}, errors.New("failed to create rule, due to invalid ruleID")
 	}
 
-	ruleStatus, err := r.findMatchingRule(ctx, rule, latticeService.ID, listener.ID)
+	ruleStatus, err := r.findMatchingRule(ctx, rule, *latticeService.Id, listener.ID)
 
 	if err == nil && !ruleStatus.UpdateTGsNeeded {
 
@@ -217,7 +229,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 				HttpMatch: &httpMatch,
 			},
 			Priority:          aws.Int64(ruleStatus.Priority),
-			ServiceIdentifier: aws.String(latticeService.ID),
+			ServiceIdentifier: aws.String(*latticeService.Id),
 			RuleIdentifier:    aws.String(ruleStatus.RuleID),
 		}
 
@@ -230,7 +242,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 		return latticemodel.RuleStatus{
 			RuleID:               aws.StringValue(resp.Id),
 			UpdatePriorityNeeded: ruleStatus.UpdatePriorityNeeded,
-			ServiceID:            latticeService.ID,
+			ServiceID:            aws.StringValue(latticeService.Id),
 			ListenerID:           listener.ID,
 		}, nil
 
@@ -253,7 +265,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 			},
 			Name:              aws.String(ruleName),
 			Priority:          aws.Int64(ruleStatus.Priority),
-			ServiceIdentifier: aws.String(latticeService.ID),
+			ServiceIdentifier: aws.String(*latticeService.Id),
 		}
 
 		resp, err := r.cloud.Lattice().CreateRule(&ruleInput)
@@ -268,7 +280,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *latticemodel.Rule
 			return latticemodel.RuleStatus{
 				RuleID:               *resp.Id,
 				ListenerID:           listener.ID,
-				ServiceID:            latticeService.ID,
+				ServiceID:            aws.StringValue(latticeService.Id),
 				UpdatePriorityNeeded: ruleStatus.UpdatePriorityNeeded,
 				UpdateTGsNeeded:      ruleStatus.UpdatePriorityNeeded,
 			}, nil

@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -46,21 +47,6 @@ func NewServiceManager(cloud lattice_aws.Cloud, latticeDataStore *latticestore.L
 	}
 }
 
-// find service by name, if not found returns nil without error
-func (m *defaultServiceManager) getService(ctx context.Context, svcName string) (*vpclattice.ServiceSummary, error) {
-	svcsReq := vpclattice.ListServicesInput{}
-	svcsResp, err := m.cloud.Lattice().ListServicesAsList(ctx, &svcsReq)
-	if err != nil {
-		return nil, err
-	}
-	for _, r := range svcsResp {
-		if aws.StringValue(r.Name) == svcName {
-			return r, nil
-		}
-	}
-	return nil, nil
-}
-
 func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, svc *Service) (ServiceInfo, error) {
 	createSvcReq := m.newCreateSvcReq(svc)
 	createSvcResp, err := m.cloud.Lattice().CreateServiceWithContext(ctx, createSvcReq)
@@ -83,9 +69,6 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 	if err != nil {
 		return err
 	}
-	if snInfo == nil {
-		return fmt.Errorf("Service network %s for account %s not found", snName, m.cloud.Config().AccountId)
-	}
 
 	assocReq := &CreateSnSvcAssocReq{
 		ServiceIdentifier:        svcId,
@@ -104,7 +87,7 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 }
 
 func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
-	svcName := svc.LatticeName()
+	svcName := svc.LatticeServiceName()
 	req := &vpclattice.CreateServiceInput{
 		Name: &svcName,
 	}
@@ -244,7 +227,7 @@ func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, [
 		// TODO: we should have something more lightweight, retrying full reconciliation looks to heavy
 		if aws.StringValue(oldSn.Status) == vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress {
 			return nil, nil, fmt.Errorf("%w: want to associate sn: %s to svc: %s, but status is: %s",
-				RetryErr, newSn, svc.LatticeName(), *oldSn.Status)
+				RetryErr, newSn, svc.LatticeServiceName(), *oldSn.Status)
 		}
 		// TODO: if assoc in failed state, may be we should try to re-create?
 	}
@@ -292,8 +275,8 @@ func (m *defaultServiceManager) deleteService(ctx context.Context, svc *SvcSumma
 
 // Create or update Service and ServiceNetwork-Service associations
 func (m *defaultServiceManager) Create(ctx context.Context, svc *Service) (ServiceInfo, error) {
-	svcSum, err := m.getService(ctx, svc.LatticeName())
-	if err != nil {
+	svcSum, err := m.cloud.Lattice().FindService(ctx, svc)
+	if err != nil && !services.IsNotFoundError(err) {
 		return ServiceInfo{}, err
 	}
 
@@ -310,12 +293,13 @@ func (m *defaultServiceManager) Create(ctx context.Context, svc *Service) (Servi
 }
 
 func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error {
-	svcSum, err := m.getService(ctx, svc.LatticeName())
+	svcSum, err := m.cloud.Lattice().FindService(ctx, svc)
 	if err != nil {
-		return err
-	}
-	if svcSum == nil {
-		return nil // already deleted
+		if services.IsNotFoundError(err) {
+			return nil // already deleted
+		} else {
+			return err
+		}
 	}
 
 	err = m.deleteAllAssociations(ctx, svcSum)

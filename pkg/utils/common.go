@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -30,4 +31,8 @@ func SliceFilter[T any](in []T, f FilterFunc[T]) []T {
 		}
 	}
 	return out
+}
+
+func LatticeServiceName(name string, namespace string) string {
+	return fmt.Sprintf("%s-%s", Truncate(name, 20), Truncate(namespace, 18))
 }

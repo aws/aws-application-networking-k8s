@@ -1,7 +1,6 @@
 package test
 
 import (
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -62,8 +61,6 @@ func (env *Framework) NewGrpcHelloWorld(options GrpcAppOptions) (*appsv1.Deploym
 			},
 		},
 	})
-	env.TestCasesCreatedTargetGroupNames[latticestore.TargetGroupName(service.Name, service.Namespace)] = true
-	env.TestCasesCreatedK8sResource = append(env.TestCasesCreatedK8sResource, service, deployment)
 	return deployment, service
 
 }

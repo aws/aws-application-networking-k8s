@@ -80,19 +80,19 @@ func Test_AddListener(t *testing.T) {
 		noServiceID bool
 	}{
 		{
-			name:        "add listner",
+			name:        "add listener",
 			isUpdate:    false,
 			noServiceID: false,
 		},
 
 		{
-			name:        "update listner",
+			name:        "update listener",
 			isUpdate:    true,
 			noServiceID: false,
 		},
 
 		{
-			name:        "add listner, no service ID",
+			name:        "add listener, no service ID",
 			isUpdate:    false,
 			noServiceID: true,
 		},
@@ -104,11 +104,9 @@ func Test_AddListener(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-
+		mockLattice := mocks.NewMockLattice(c)
 		mockCloud := mocks_aws.NewMockCloud(c)
-
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+		mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 		latticeDataStore := latticestore.NewLatticeDataStore()
 		listenerManager := NewListenerManager(mockCloud, latticeDataStore)
@@ -116,12 +114,6 @@ func Test_AddListener(t *testing.T) {
 		var serviceID = "serviceID"
 		var serviceARN = "serviceARN"
 		var serviceDNS = "DNS-test"
-
-		if !tt.noServiceID {
-			// Add service to ds
-			latticeDataStore.AddLatticeService(namespaceName.Name, namespaceName.Namespace, serviceARN, serviceID, serviceDNS)
-
-		}
 
 		stack := core.NewDefaultStack(core.StackID(namespaceName))
 
@@ -137,6 +129,21 @@ func Test_AddListener(t *testing.T) {
 		listener := latticemodel.NewListener(stack, listenerResourceName, int64(listenersummarys[0].Port), "HTTP",
 			namespaceName.Name, namespaceName.Namespace, action)
 
+		if !tt.noServiceID {
+			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+				&vpclattice.ServiceSummary{
+					Name: aws.String((&ListenerLSNProvider{listener}).LatticeServiceName()),
+					Arn:  aws.String(serviceARN),
+					Id:   aws.String(serviceID),
+					DnsEntry: &vpclattice.DnsEntry{
+						DomainName:   aws.String(serviceDNS),
+						HostedZoneId: aws.String("my-favourite-zone"),
+					},
+				}, nil).Times(1)
+		} else {
+			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{}).Times(1)
+		}
+
 		listenerOutput := vpclattice.CreateListenerOutput{}
 		listenerInput := vpclattice.CreateListenerInput{}
 
@@ -148,15 +155,13 @@ func Test_AddListener(t *testing.T) {
 		defaultAction := vpclattice.RuleAction{
 			FixedResponse: &defaultResp,
 		}
-		//listenerARN := "listener-ARN"
-		//listenerID := "listener-ID"
-		if !tt.noServiceID && !tt.isUpdate {
 
-			listername := k8sLatticeListenerName(namespaceName.Name, namespaceName.Namespace,
+		if !tt.noServiceID && !tt.isUpdate {
+			listenerName := k8sLatticeListenerName(namespaceName.Name, namespaceName.Namespace,
 				int(listenersummarys[0].Port), listenersummarys[0].Protocol)
 			listenerInput = vpclattice.CreateListenerInput{
 				DefaultAction:     &defaultAction,
-				Name:              &listername,
+				Name:              &listenerName,
 				ServiceIdentifier: &serviceID,
 				Protocol:          aws.String("HTTP"),
 				Port:              aws.Int64(listenersummarys[0].Port),
@@ -166,11 +171,10 @@ func Test_AddListener(t *testing.T) {
 				DefaultAction: &defaultAction,
 				Id:            &listenersummarys[0].Id,
 			}
-			mockVpcLatticeSess.EXPECT().CreateListener(&listenerInput).Return(&listenerOutput, nil)
+			mockLattice.EXPECT().CreateListener(&listenerInput).Return(&listenerOutput, nil)
 		}
 
 		if !tt.noServiceID {
-
 			listenerListInput := vpclattice.ListListenersInput{
 				ServiceIdentifier: aws.String(serviceID),
 			}
@@ -178,12 +182,10 @@ func Test_AddListener(t *testing.T) {
 			listenerOutput := vpclattice.ListListenersOutput{}
 
 			if tt.isUpdate {
-
 				listenerOutput = listenerList
-
 			}
 
-			mockVpcLatticeSess.EXPECT().ListListeners(&listenerListInput).Return(&listenerOutput, nil)
+			mockLattice.EXPECT().ListListenersWithContext(ctx, &listenerListInput).Return(&listenerOutput, nil)
 		}
 		resp, err := listenerManager.Create(ctx, listener)
 
