@@ -41,18 +41,19 @@ type SecurityGroupId string
 type VpcAssociationPolicySpec struct {
 
 	// SecurityGroupIds defines the security groups enforced on the VpcServiceNetworkAssociation.
+	// Security groups does not take effect if AssociateWithVpc is set to false.
+	//
 	// For more details, please check the VPC Lattice documentation https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html
 	//
 	// +optional
 	// +kubebuilder:validation:MinItems=1
 	SecurityGroupIds []SecurityGroupId `json:"securityGroupIds,omitempty"`
 
-	// AssociateWithVpc indicates whether the VpcServiceNetworkAssociation should be created for current the VPC of EKS cluster.
+	// AssociateWithVpc indicates whether the VpcServiceNetworkAssociation should be created for the current VPC of k8s cluster.
 	//
 	// Both this flag and Gateway annotation "application-networking.k8s.aws/lattice-vpc-association" are reserved tentatively for backward compatibility.
 	// Either one of them set to true or both of them undefined will result in the VpcServiceNetworkAssociation created.
 	// +optional
-	// +kubebuilder:default=true
 	AssociateWithVpc *bool `json:"associateWithVpc,omitempty"`
 
 	// TargetRef points to the kubernetes Gateway resource that will have this policy attached.
