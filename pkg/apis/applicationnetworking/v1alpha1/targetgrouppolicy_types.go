@@ -2,7 +2,10 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 )
 
 const (
@@ -125,3 +128,11 @@ const (
 	HealthCheckProtocolVersionHTTP1 HealthCheckProtocolVersion = "HTTP1"
 	HealthCheckProtocolVersionHTTP2 HealthCheckProtocolVersion = "HTTP2"
 )
+
+func (p *TargetGroupPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
+	return p.Spec.TargetRef
+}
+
+func (p *TargetGroupPolicy) GetNamespacedName() types.NamespacedName {
+	return k8s.NamespacedName(p)
+}
