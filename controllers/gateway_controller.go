@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
@@ -89,12 +91,21 @@ func RegisterGatewayController(
 	}
 
 	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(mgrClient)
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&gateway_api.Gateway{}).
-		Watches(
-			&source.Kind{Type: &gateway_api.GatewayClass{}},
-			gwClassEventHandler).
-		Complete(r)
+	vpcAssociationPolicyEventHandler := eventhandlers.NewVpcAssociationPolicyEventHandler(log, mgrClient)
+	builder := ctrl.NewControllerManagedBy(mgr).
+		For(&gateway_api.Gateway{})
+	builder.Watches(&source.Kind{Type: &gateway_api.GatewayClass{}}, gwClassEventHandler)
+
+	//Watch VpcAssociationPolicy CRD if it is installed
+	if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.VpcAssociationPolicyKind); ok {
+		builder.Watches(&source.Kind{Type: &v1alpha1.VpcAssociationPolicy{}}, vpcAssociationPolicyEventHandler.MapToGateway())
+	} else {
+		if err != nil {
+			return err
+		}
+		log.Infof("VpcAssociationPolicy CRD is not installed, skipping watch")
+	}
+	return builder.Complete(r)
 }
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways,verbs=get;list;watch;create;update;patch;delete

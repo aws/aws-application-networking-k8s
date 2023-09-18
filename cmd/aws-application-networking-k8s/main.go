@@ -20,9 +20,10 @@ import (
 	"flag"
 	"os"
 
+	"github.com/go-logr/zapr"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/go-logr/zapr"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -34,18 +35,20 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	"github.com/aws/aws-application-networking-k8s/controllers"
-	//+kubebuilder:scaffold:imports
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/external-dns/endpoint"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	"github.com/aws/aws-application-networking-k8s/controllers"
+
+	//+kubebuilder:scaffold:imports
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 var (
@@ -70,12 +73,15 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 	scheme.AddKnownTypes(dnsEndpoint, &endpoint.DNSEndpoint{}, &endpoint.DNSEndpointList{})
 	metav1.AddToGroupVersion(scheme, dnsEndpoint)
 
-	targetGroupPolicy := schema.GroupVersion{
-		Group:   "application-networking.k8s.aws",
+	awsGatewayControllerCRDGroupVersion := schema.GroupVersion{
+		Group:   v1alpha1.GroupName,
 		Version: "v1alpha1",
 	}
-	scheme.AddKnownTypes(targetGroupPolicy, &v1alpha1.TargetGroupPolicy{}, &v1alpha1.TargetGroupPolicyList{})
-	metav1.AddToGroupVersion(scheme, targetGroupPolicy)
+	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &v1alpha1.TargetGroupPolicy{}, &v1alpha1.TargetGroupPolicyList{})
+	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
+
+	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &v1alpha1.VpcAssociationPolicy{}, &v1alpha1.VpcAssociationPolicyList{})
+	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
 }
 
 func main() {

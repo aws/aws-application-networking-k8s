@@ -2,10 +2,8 @@ package eventhandlers
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -13,6 +11,11 @@ import (
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type resourceMapper struct {
@@ -21,16 +24,16 @@ type resourceMapper struct {
 }
 
 const (
-	coreGroupName     = "" // empty means core by definition
 	serviceKind       = "Service"
 	serviceImportKind = "ServiceImport"
+	gatewayKind       = "Gateway"
 )
 
 func (r *resourceMapper) ServiceToRoutes(ctx context.Context, svc *corev1.Service, routeType core.RouteType) []core.Route {
 	if svc == nil {
 		return nil
 	}
-	return r.backendRefToRoutes(ctx, svc, coreGroupName, serviceKind, routeType)
+	return r.backendRefToRoutes(ctx, svc, corev1.GroupName, serviceKind, routeType)
 }
 
 func (r *resourceMapper) ServiceImportToRoutes(ctx context.Context, svc *mcs_api.ServiceImport, routeType core.RouteType) []core.Route {
@@ -63,49 +66,78 @@ func (r *resourceMapper) EndpointsToService(ctx context.Context, ep *corev1.Endp
 }
 
 func (r *resourceMapper) TargetGroupPolicyToService(ctx context.Context, tgp *v1alpha1.TargetGroupPolicy) *corev1.Service {
-	if tgp == nil {
-		return nil
-	}
-	policyName := k8s.NamespacedName(tgp).String()
+	return policyToTargetRefObj(r, ctx, tgp, &corev1.Service{})
+}
 
-	targetRef := tgp.Spec.TargetRef
+func (r *resourceMapper) VpcAssociationPolicyToGateway(ctx context.Context, vap *v1alpha1.VpcAssociationPolicy) *gateway_api.Gateway {
+	return policyToTargetRefObj(r, ctx, vap, &gateway_api.Gateway{})
+}
+
+func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Context, policy core.Policy, retObj T) T {
+	null := *new(T)
+	if policy == nil {
+		return null
+	}
+	policyNamespacedName := policy.GetNamespacedName()
+
+	targetRef := policy.GetTargetRef()
 	if targetRef == nil {
-		r.log.Infow("TargetGroupPolicy does not have targetRef, skipping",
-			"policyName", policyName)
-		return nil
+		r.log.Infow("Policy does not have targetRef, skipping",
+			"policyName", policyNamespacedName)
+		return null
 	}
-	if targetRef.Group != coreGroupName || targetRef.Kind != serviceKind {
-		r.log.Infow("Detected non-Service TargetGroupPolicy attachment, skipping",
-			"policyName", policyName, "targetRef", targetRef)
-		return nil
-	}
-	namespace := tgp.Namespace
-	if targetRef.Namespace != nil && namespace != string(*targetRef.Namespace) {
-		r.log.Infow("Detected cross namespace TargetGroupPolicy attachment, skipping",
-			"policyName", policyName, "targetRef", targetRef)
-		return nil
+	expectedGroup, expectedKind, err := k8sResourceTypeToGroupNameAndKindName(retObj)
+	if err != nil {
+		r.log.Errorw("Failed to get expected GroupVersion of targetRefObj",
+			"policyName", policyNamespacedName, "reason", err.Error())
+		return null
 	}
 
-	svcName := types.NamespacedName{
-		Namespace: namespace,
+	if targetRef.Group != gateway_api.Group(expectedGroup) || targetRef.Kind != gateway_api.Kind(expectedKind) {
+		r.log.Infow("Detected targetRef GroupVersion and expected retObj GroupVersion are different, skipping",
+			"policyName", policyNamespacedName,
+			"targetRef", targetRef,
+			"expectedGroup", expectedGroup,
+			"expectedKind", expectedKind)
+		return null
+	}
+	if targetRef.Namespace != nil && policyNamespacedName.Namespace != string(*targetRef.Namespace) {
+		r.log.Infow("Detected Policy and TargetRef namespace are different, skipping",
+			"policyName", policyNamespacedName, "targetRef", targetRef,
+			"policyNamespace", policyNamespacedName.Namespace)
+		return null
+	}
+
+	key := types.NamespacedName{
+		Namespace: policyNamespacedName.Namespace,
 		Name:      string(targetRef.Name),
 	}
-	svc := &corev1.Service{}
-	if err := r.client.Get(ctx, svcName, svc); err != nil {
+	if err := r.client.Get(ctx, key, retObj); err != nil {
 		if errors.IsNotFound(err) {
-			r.log.Debugw("TargetGroupPolicy is referring to non-existent service, skipping",
-				"policyName", policyName, "serviceName", svcName.String())
+			r.log.Debugw("Policy is referring to a non-existent targetRefObj, skipping",
+				"policyName", policyNamespacedName, "targetRef", targetRef)
 		} else {
 			// Still gracefully skipping the event but errors other than NotFound are bad sign.
 			r.log.Errorw("Failed to query targetRef of TargetGroupPolicy",
-				"policyName", policyName, "serviceName", svcName.String(), "reason", err.Error())
+				"policyName", policyNamespacedName, "targetRef", targetRef, "reason", err.Error())
 		}
-		return nil
+		return null
 	}
 	r.log.Debugw("TargetGroupPolicy change on Service detected",
-		"policyName", policyName, "serviceName", svcName.String())
+		"policyName", policyNamespacedName, "targetRef", targetRef)
 
-	return svc
+	return retObj
+}
+
+func k8sResourceTypeToGroupNameAndKindName(obj client.Object) (string, string, error) {
+	switch obj.(type) {
+	case *corev1.Service:
+		return corev1.GroupName, serviceKind, nil
+	case *gateway_api.Gateway:
+		return gateway_api.GroupName, gatewayKind, nil
+	default:
+		return "", "", fmt.Errorf("un-registered obj type: %T", obj)
+	}
 }
 
 func (r *resourceMapper) backendRefToRoutes(ctx context.Context, obj client.Object, group, kind string, routeType core.RouteType) []core.Route {
