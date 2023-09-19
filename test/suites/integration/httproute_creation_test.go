@@ -12,6 +12,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"github.com/aws/aws-sdk-go/aws"
 )
 
 var _ = Describe("HTTPRoute Creation", func() {
@@ -79,6 +80,26 @@ var _ = Describe("HTTPRoute Creation", func() {
 			testFramework.ExpectCreated(ctx, service, deployment)
 
 			verifyResourceCreation(httpRoute, service)
+		})
+	})
+
+	Context("Order #4: Service, HttpRoute", func() {
+		It("Create lattice resources successfully when no Targets available", func() {
+			httpRoute = testFramework.NewHttpRoute(testGateway, service, "Service")
+
+			// Override port match to make the BackendRef not be able to find
+			// any port causing no available targets to register
+			httpRoute.Spec.Rules[0].BackendRefs[0].BackendRef.Port = (*v1beta1.PortNumber)(aws.Int32(100))
+
+			testFramework.ExpectCreated(
+				ctx,
+				httpRoute,
+				deployment,
+				service,
+			)
+
+			testFramework.GetTargetGroup(ctx, service)
+			testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
 		})
 	})
 

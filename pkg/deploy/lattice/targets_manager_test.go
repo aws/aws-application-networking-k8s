@@ -120,12 +120,19 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 		Name:          "test",
 		Namespace:     "",
 		TargetGroupID: "123456789",
-		TargetIPList:  nil,
+		TargetIPList: []latticemodel.Target{
+			{
+				TargetIP: "123.456.7.891",
+				Port:     sPort,
+			},
+		},
 	}
+
 	planToRegister := latticemodel.Targets{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         targetsSpec,
 	}
+
 	registerTargetsOutput := &vpclattice.RegisterTargetsOutput{}
 
 	latticeDataStore := latticestore.NewLatticeDataStore()
@@ -232,4 +239,40 @@ func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 
 	assert.NotNil(t, err)
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
+}
+
+func Test_RegisterTargets_NoTargets_NoCallRegisterTargets(t *testing.T) {
+	planToRegister := latticemodel.Targets{
+		ResourceMeta: core.ResourceMeta{},
+		Spec: latticemodel.TargetsSpec{
+			Name:          "test",
+			Namespace:     "",
+			TargetGroupID: "123456789",
+			TargetIPList:  []latticemodel.Target{},
+		},
+	}
+
+	latticeDataStore := latticestore.NewLatticeDataStore()
+	tgName := latticestore.TargetGroupName("test", "")
+
+	listTargetOutput := []*vpclattice.TargetSummary{}
+
+	// routename
+	latticeDataStore.AddTargetGroup(tgName, "vpc-123456789", "123456789", "123456789", false, "")
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockVpcLatticeSess := mocks.NewMockLattice(c)
+
+	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
+	// Expect not to call RegisterTargets
+	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).MaxTimes(0)
+	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+
+	targetsManager := NewTargetsManager(mockCloud, latticeDataStore)
+	err := targetsManager.Create(ctx, &planToRegister)
+
+	assert.Nil(t, err)
 }

@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -94,6 +95,11 @@ func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemode
 			Port: &port,
 		}
 		targetList = append(targetList, &t)
+	}
+
+	// No targets to register
+	if len(targetList) == 0 {
+		return nil
 	}
 
 	registerRouteInput := vpclattice.RegisterTargetsInput{
