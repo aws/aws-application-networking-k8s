@@ -86,15 +86,17 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 			"policyName", policyNamespacedName)
 		return null
 	}
-	expectedGroup, expectedKind, err := k8sResourceTypeToGroupNameAndKindName(retObj)
+	expectedGroup, expectedKind, err := k8sResourceTypeToGroupAndKind(retObj)
 	if err != nil {
-		r.log.Errorw("Failed to get expected GroupVersion of targetRefObj",
-			"policyName", policyNamespacedName, "reason", err.Error())
+		r.log.Errorw("Failed to get expected GroupKind for targetRefObj",
+			"policyName", policyNamespacedName,
+			"targetRef", targetRef,
+			"reason", err.Error())
 		return null
 	}
 
-	if targetRef.Group != gateway_api.Group(expectedGroup) || targetRef.Kind != gateway_api.Kind(expectedKind) {
-		r.log.Infow("Detected targetRef GroupVersion and expected retObj GroupVersion are different, skipping",
+	if targetRef.Group != expectedGroup || targetRef.Kind != expectedKind {
+		r.log.Infow("Detected targetRef GroupKind and expected retObj GroupKind are different, skipping",
 			"policyName", policyNamespacedName,
 			"targetRef", targetRef,
 			"expectedGroup", expectedGroup,
@@ -103,8 +105,9 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 	}
 	if targetRef.Namespace != nil && policyNamespacedName.Namespace != string(*targetRef.Namespace) {
 		r.log.Infow("Detected Policy and TargetRef namespace are different, skipping",
-			"policyName", policyNamespacedName, "targetRef", targetRef,
-			"policyNamespace", policyNamespacedName.Namespace)
+			"policyNamespacedName", policyNamespacedName, "targetRef", targetRef,
+			"targetRef.Namespace", targetRef.Namespace,
+			"policyNamespacedName.Namespace", policyNamespacedName.Namespace)
 		return null
 	}
 
@@ -129,7 +132,7 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 	return retObj
 }
 
-func k8sResourceTypeToGroupNameAndKindName(obj client.Object) (string, string, error) {
+func k8sResourceTypeToGroupAndKind(obj client.Object) (gateway_api.Group, gateway_api.Kind, error) {
 	switch obj.(type) {
 	case *corev1.Service:
 		return corev1.GroupName, serviceKind, nil
