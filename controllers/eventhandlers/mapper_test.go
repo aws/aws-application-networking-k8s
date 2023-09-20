@@ -3,10 +3,8 @@ package eventhandlers
 import (
 	"context"
 	"errors"
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -14,7 +12,11 @@ import (
 	"k8s.io/utils/pointer"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"testing"
+
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func createHTTPRoute(name, namespace string, backendRef gateway_api.BackendObjectReference) gateway_api.HTTPRoute {
@@ -191,6 +193,106 @@ func TestTargetGroupPolicyToService(t *testing.T) {
 			assert.NotNil(t, svc)
 		} else {
 			assert.Nil(t, svc)
+		}
+	}
+}
+
+func TestVpcAssociationPolicyToGateway(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	ns1 := "default"
+	ns2 := "non-default"
+
+	testCases := []struct {
+		testCaseName    string
+		namespace       string
+		targetKind      gateway_api.Kind
+		targetNamespace *gateway_api.Namespace
+		gatewayFound    bool
+		expectSuccess   bool
+	}{
+		{
+			testCaseName:    "namespace not match",
+			namespace:       ns1,
+			targetKind:      "Gateway",
+			targetNamespace: (*gateway_api.Namespace)(&ns2),
+			expectSuccess:   false,
+		},
+		{
+			testCaseName:    "targetKind not match scenario 1",
+			namespace:       ns1,
+			targetKind:      "NotGateway",
+			targetNamespace: (*gateway_api.Namespace)(&ns1),
+			expectSuccess:   false,
+		},
+		{
+			testCaseName:    "targetKind not match scenario 2",
+			namespace:       ns1,
+			targetKind:      "Service",
+			targetNamespace: (*gateway_api.Namespace)(&ns1),
+			expectSuccess:   false,
+		},
+		{
+			testCaseName:    "gateway not found",
+			namespace:       ns1,
+			targetKind:      "Gateway",
+			targetNamespace: (*gateway_api.Namespace)(&ns1),
+			gatewayFound:    false,
+			expectSuccess:   false,
+		},
+		{
+			testCaseName:    "gateway found, targetRef namespace match",
+			namespace:       ns1,
+			targetKind:      "Gateway",
+			targetNamespace: (*gateway_api.Namespace)(&ns1),
+			gatewayFound:    true,
+			expectSuccess:   true,
+		},
+		{
+			testCaseName:    "gateway found, targetRef namespace not defined",
+			namespace:       ns1,
+			targetKind:      "Gateway",
+			targetNamespace: nil,
+			gatewayFound:    true,
+			expectSuccess:   true,
+		},
+	}
+
+	for _, tt := range testCases {
+		mockClient := mock_client.NewMockClient(c)
+		mapper := &resourceMapper{log: gwlog.FallbackLogger, client: mockClient}
+		if tt.gatewayFound {
+			mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		} else {
+			mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("fail")).AnyTimes()
+		}
+		var targetRefGroupName string
+		if tt.targetKind == "Gateway" {
+			targetRefGroupName = gateway_api.GroupName
+		} else if tt.targetKind == "Service" {
+			targetRefGroupName = corev1.GroupName
+		}
+
+		gw := mapper.VpcAssociationPolicyToGateway(context.Background(), &v1alpha1.VpcAssociationPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test--vpc-association-policy",
+				Namespace: tt.namespace,
+			},
+
+			Spec: v1alpha1.VpcAssociationPolicySpec{
+				TargetRef: &gateway_api_v1alpha2.PolicyTargetReference{
+					Group:     gateway_api.Group(targetRefGroupName),
+					Kind:      tt.targetKind,
+					Name:      "test-gw",
+					Namespace: tt.targetNamespace,
+				},
+			},
+		})
+		if tt.expectSuccess {
+			assert.NotNil(t, gw)
+		} else {
+			assert.Nil(t, gw)
 		}
 	}
 }
