@@ -11,11 +11,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"fmt"
+	"strings"
+
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"strings"
 )
 
 type TargetGroupManager interface {
@@ -73,22 +74,16 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 	latticeTGName := getLatticeTGName(targetGroup)
 	// check if exists
 	tgSummary, err := s.findTargetGroup(ctx, targetGroup)
+
 	if err != nil {
 		return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
 	}
 
 	vpcLatticeSess := s.cloud.Lattice()
+
+	// this means Target Group already existed, so this is an update request
 	if tgSummary != nil {
-		if targetGroup.Spec.Config.HealthCheckConfig != nil {
-			_, err := vpcLatticeSess.UpdateTargetGroupWithContext(ctx, &vpclattice.UpdateTargetGroupInput{
-				HealthCheck:           targetGroup.Spec.Config.HealthCheckConfig,
-				TargetGroupIdentifier: tgSummary.Id,
-			})
-			if err != nil {
-				return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
-			}
-		}
-		return latticemodel.TargetGroupStatus{TargetGroupARN: aws.StringValue(tgSummary.Arn), TargetGroupID: aws.StringValue(tgSummary.Id)}, nil
+		return s.update(ctx, targetGroup, tgSummary)
 	}
 
 	glog.V(6).Infof("create targetgroup API here %v\n", targetGroup)
@@ -169,6 +164,38 @@ func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *lattic
 	}
 
 	return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, errors.New("Non existing Target Group")
+}
+
+func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *latticemodel.TargetGroup, tgSummary *vpclattice.TargetGroupSummary) (latticemodel.TargetGroupStatus, error) {
+	glog.V(6).Info("Target Group already existed. Updating instead")
+
+	vpcLatticeSess := s.cloud.Lattice()
+
+	healthCheckConfig := targetGroup.Spec.Config.HealthCheckConfig
+
+	targetGroupStatus := latticemodel.TargetGroupStatus{
+		TargetGroupARN: aws.StringValue(tgSummary.Arn),
+		TargetGroupID:  aws.StringValue(tgSummary.Id),
+	}
+
+	if healthCheckConfig == nil {
+		glog.V(6).Info("healthCheck is empty. Resetting to default settings")
+
+		targetGroupProtocolVersion := targetGroup.Spec.Config.ProtocolVersion
+
+		healthCheckConfig = s.getDefaultHealthCheckConfig(targetGroupProtocolVersion)
+	}
+
+	_, err := vpcLatticeSess.UpdateTargetGroupWithContext(ctx, &vpclattice.UpdateTargetGroupInput{
+		HealthCheck:           healthCheckConfig,
+		TargetGroupIdentifier: tgSummary.Id,
+	})
+
+	if err != nil {
+		return latticemodel.TargetGroupStatus{}, err
+	}
+
+	return targetGroupStatus, nil
 }
 
 func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *latticemodel.TargetGroup) error {
@@ -381,4 +408,49 @@ func (s *defaultTargetGroupManager) findTargetGroup(ctx context.Context, targetG
 		return nil, err
 	}
 	return nil, nil
+}
+
+// Get default health check configuration according to
+// https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html#health-check-settings
+func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProtocolVersion string) *vpclattice.HealthCheckConfig {
+	var intResetValue int64 = 0
+
+	defaultMatcher := vpclattice.Matcher{
+		HttpCode: aws.String("200"),
+	}
+
+	defaultPath := "/"
+
+	defaultProtocol := vpclattice.TargetGroupProtocolHttp
+
+	if targetGroupProtocolVersion == "" {
+		targetGroupProtocolVersion = vpclattice.TargetGroupProtocolVersionHttp1
+	}
+
+	enabled := targetGroupProtocolVersion == vpclattice.TargetGroupProtocolVersionHttp1
+
+	healthCheckProtocolVersion := targetGroupProtocolVersion
+
+	if targetGroupProtocolVersion == vpclattice.TargetGroupProtocolVersionGrpc {
+		healthCheckProtocolVersion = vpclattice.HealthCheckProtocolVersionHttp1
+	}
+
+	return &vpclattice.HealthCheckConfig{
+		Enabled: &enabled,
+
+		Protocol:        &defaultProtocol,
+		ProtocolVersion: &healthCheckProtocolVersion,
+
+		Path:    &defaultPath,
+		Matcher: &defaultMatcher,
+
+		// Set to nil to use the port of the targets
+		Port: nil,
+
+		// Set to 0 to reset to default value
+		HealthCheckIntervalSeconds: &intResetValue,
+		HealthyThresholdCount:      &intResetValue,
+		UnhealthyThresholdCount:    &intResetValue,
+		HealthCheckTimeoutSeconds:  &intResetValue,
+	}
 }
