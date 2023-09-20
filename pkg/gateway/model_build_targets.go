@@ -109,6 +109,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	}
 
 	definedPorts := make(map[int32]struct{})
+
 	if tg.ByServiceExport {
 		serviceExport := &mcs_api.ServiceExport{}
 		err = t.client.Get(ctx, namespacedName, serviceExport)

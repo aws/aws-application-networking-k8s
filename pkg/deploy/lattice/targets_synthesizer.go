@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/golang/glog"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -49,6 +50,7 @@ func (t *targetsSynthesizer) SynthesizeTargets(ctx context.Context, resTargets [
 			return errors.New(errmsg)
 
 		}
+
 		tgName := latticestore.TargetGroupName(targets.Spec.Name, targets.Spec.Namespace)
 
 		var targetList []latticestore.Target
