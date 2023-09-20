@@ -9,3 +9,7 @@ type Policy interface {
 	GetNamespacedName() types.NamespacedName
 	GetTargetRef() *v1alpha2.PolicyTargetReference
 }
+
+type PolicyList interface {
+	GetItems() []Policy
+}

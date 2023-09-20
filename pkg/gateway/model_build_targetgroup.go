@@ -17,8 +17,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -218,7 +216,7 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportCreation(ctx
 		return nil, err
 	}
 
-	tgp, err := getAttachedTargetGroupPolicy(ctx, t.client, t.serviceExport.Name, t.serviceExport.Namespace)
+	tgp, err := GetAttachedPolicy(ctx, t.client, k8s.NamespacedName(t.serviceExport), &v1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +420,12 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 
 	tgName := latticestore.TargetGroupName(string(backendRef.Name()), namespace)
 
-	tgp, err := getAttachedTargetGroupPolicy(ctx, client, string(backendRef.Name()), namespace)
+	refObjNamespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      string(backendRef.Name()),
+	}
+	tgp, err := GetAttachedPolicy(ctx, t.client, refObjNamespacedName, &v1alpha1.TargetGroupPolicy{})
+
 	if err != nil {
 		return latticemodel.TargetGroupSpec{}, err
 	}
@@ -474,40 +477,6 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupName(_ context.Context, b
 	} else {
 		return latticestore.TargetGroupName(string(backendRef.Name()), t.route.Namespace())
 	}
-}
-
-func getAttachedTargetGroupPolicy(ctx context.Context, k8sClient client.Client, svcName, svcNamespace string) (*v1alpha1.TargetGroupPolicy, error) {
-	policyList := &v1alpha1.TargetGroupPolicyList{}
-	err := k8sClient.List(ctx, policyList, &client.ListOptions{
-		Namespace: svcNamespace,
-	})
-	if err != nil {
-		if meta.IsNoMatchError(err) {
-			// CRD does not exist
-			return nil, nil
-		}
-		return nil, err
-	}
-	for _, policy := range policyList.Items {
-		targetRef := policy.Spec.TargetRef
-		if targetRef == nil {
-			continue
-		}
-
-		groupKindMatch := targetRef.Group == "" && targetRef.Kind == "Service"
-		nameMatch := string(targetRef.Name) == svcName
-
-		namespace := policy.Namespace
-		if targetRef.Namespace != nil {
-			namespace = string(*targetRef.Namespace)
-		}
-		namespaceMatch := namespace == svcNamespace
-
-		if groupKindMatch && nameMatch && namespaceMatch {
-			return &policy, nil
-		}
-	}
-	return nil, nil
 }
 
 func parseHealthCheckConfig(tgp *v1alpha1.TargetGroupPolicy) *vpclattice.HealthCheckConfig {

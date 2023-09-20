@@ -6,6 +6,7 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
 const (
@@ -68,4 +69,12 @@ func (p *VpcAssociationPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
 
 func (p *VpcAssociationPolicy) GetNamespacedName() types.NamespacedName {
 	return k8s.NamespacedName(p)
+}
+
+func (pl *VpcAssociationPolicyList) GetItems() []core.Policy {
+	items := make([]core.Policy, len(pl.Items))
+	for i, item := range pl.Items {
+		items[i] = &item
+	}
+	return items
 }
