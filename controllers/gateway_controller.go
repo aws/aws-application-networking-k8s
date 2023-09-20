@@ -74,7 +74,7 @@ func RegisterGatewayController(
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("gateway")
 
-	modelBuilder := gateway.NewServiceNetworkModelBuilder()
+	modelBuilder := gateway.NewServiceNetworkModelBuilder(mgrClient)
 	stackDeployer := deploy.NewServiceNetworkStackDeployer(cloud, mgrClient)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 

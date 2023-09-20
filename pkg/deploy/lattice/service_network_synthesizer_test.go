@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -87,6 +86,11 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		},
 	}
 
+	c := gomock.NewController(t)
+	defer c.Finish()
+	k8sClient := mock_client.NewMockClient(c)
+	k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
 	for _, tt := range tests {
 
 		fmt.Printf("Testing >>>>> %v\n", tt.name)
@@ -94,7 +98,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 		defer c.Finish()
 		ctx := context.TODO()
 
-		builder := gateway.NewServiceNetworkModelBuilder()
+		builder := gateway.NewServiceNetworkModelBuilder(k8sClient)
 
 		stack, mesh, _ := builder.Build(context.Background(), tt.gw)
 
