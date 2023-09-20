@@ -200,13 +200,13 @@ func Test_getAttachedPolicy(t *testing.T) {
 					})
 			}
 
-			got, err := getAttachedPolicy(ctx, k8sClient, tt.args.refObjNamespacedName, tt.args.policy)
+			got, err := GetAttachedPolicy(ctx, k8sClient, tt.args.refObjNamespacedName, tt.args.policy)
 			if tt.expectPolicyNotFound {
 				assert.Nil(t, err)
 				assert.Nil(t, got)
 				return
 			}
-			assert.Equalf(t, tt.want, got, "getAttachedPolicy(%v, %v, %v, %v)", ctx, k8sClient, tt.args.refObjNamespacedName, tt.args.policy)
+			assert.Equalf(t, tt.want, got, "GetAttachedPolicy(%v, %v, %v, %v)", ctx, k8sClient, tt.args.refObjNamespacedName, tt.args.policy)
 		})
 	}
 }

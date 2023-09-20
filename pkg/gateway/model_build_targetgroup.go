@@ -216,7 +216,7 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportCreation(ctx
 		return nil, err
 	}
 
-	tgp, err := getAttachedPolicy(ctx, t.client, k8s.NamespacedName(t.serviceExport), &v1alpha1.TargetGroupPolicy{})
+	tgp, err := GetAttachedPolicy(ctx, t.client, k8s.NamespacedName(t.serviceExport), &v1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +424,7 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 		Namespace: namespace,
 		Name:      string(backendRef.Name()),
 	}
-	tgp, err := getAttachedPolicy(ctx, t.client, refObjNamespacedName, &v1alpha1.TargetGroupPolicy{})
+	tgp, err := GetAttachedPolicy(ctx, t.client, refObjNamespacedName, &v1alpha1.TargetGroupPolicy{})
 
 	if err != nil {
 		return latticemodel.TargetGroupSpec{}, err

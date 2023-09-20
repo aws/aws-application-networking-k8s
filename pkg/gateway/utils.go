@@ -14,25 +14,14 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
-func getAttachedPolicy[T core.Policy](ctx context.Context, k8sClient client.Client, refObjNamespacedName types.NamespacedName, policy T) (T, error) {
+func GetAttachedPolicy[T core.Policy](ctx context.Context, k8sClient client.Client, refObjNamespacedName types.NamespacedName, policy T) (T, error) {
 	null := *new(T)
-	var policyList interface{}
-	var expectedTargetRefObjGroup gateway_api.Group
-	var expectedTargetRefObjKind gateway_api.Kind
-	switch core.Policy(policy).(type) {
-	case *v1alpha1.VpcAssociationPolicy:
-		expectedTargetRefObjGroup = gateway_api.GroupName
-		expectedTargetRefObjKind = "Gateway"
-		policyList = &v1alpha1.VpcAssociationPolicyList{}
-	case *v1alpha1.TargetGroupPolicy:
-		expectedTargetRefObjGroup = corev1.GroupName
-		expectedTargetRefObjKind = "Service"
-		policyList = &v1alpha1.TargetGroupPolicyList{}
-	default:
-		return null, fmt.Errorf("unsupported policy type %T", policy)
-
+	policyList, expectedTargetRefObjGroup, expectedTargetRefObjKind, err := policyTypeToPolicyListAndTargetRefGroupKind(policy)
+	if err != nil {
+		return null, err
 	}
-	err := k8sClient.List(ctx, policyList.(client.ObjectList), &client.ListOptions{
+
+	err = k8sClient.List(ctx, policyList.(client.ObjectList), &client.ListOptions{
 		Namespace: refObjNamespacedName.Namespace,
 	})
 	if err != nil {
@@ -42,7 +31,7 @@ func getAttachedPolicy[T core.Policy](ctx context.Context, k8sClient client.Clie
 		}
 		return null, err
 	}
-	for _, p := range policyList.(core.PolicyList).GetItems() {
+	for _, p := range policyList.GetItems() {
 		targetRef := p.GetTargetRef()
 		if targetRef == nil {
 			continue
@@ -60,4 +49,15 @@ func getAttachedPolicy[T core.Policy](ctx context.Context, k8sClient client.Clie
 		}
 	}
 	return null, nil
+}
+
+func policyTypeToPolicyListAndTargetRefGroupKind(policyType core.Policy) (core.PolicyList, gateway_api.Group, gateway_api.Kind, error) {
+	switch policyType.(type) {
+	case *v1alpha1.VpcAssociationPolicy:
+		return &v1alpha1.VpcAssociationPolicyList{}, gateway_api.GroupName, "Gateway", nil
+	case *v1alpha1.TargetGroupPolicy:
+		return &v1alpha1.TargetGroupPolicyList{}, corev1.GroupName, "Service", nil
+	default:
+		return nil, "", "", fmt.Errorf("unsupported policy type %T", policyType)
+	}
 }
