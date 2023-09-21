@@ -21,11 +21,12 @@ type ServiceNetwork struct {
 
 type ServiceNetworkSpec struct {
 	// The name of the ServiceNetwork
-	Name           string `json:"name"`
-	Namespace      string `json:"namespace"`
-	Account        string `json:"account"`
-	AssociateToVPC bool
-	IsDeleted      bool
+	Name             string    `json:"name"`
+	Namespace        string    `json:"namespace"`
+	Account          string    `json:"account"`
+	SecurityGroupIds []*string `json:"securityGroupIds"`
+	AssociateToVPC   bool
+	IsDeleted        bool
 }
 
 type ServiceNetworkStatus struct {
