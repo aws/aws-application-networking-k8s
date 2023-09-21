@@ -3,8 +3,10 @@ package lattice
 import (
 	"context"
 	"errors"
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+
 	"github.com/golang/glog"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"

@@ -50,7 +50,7 @@ func (b *serviceNetworkModelBuilder) Build(ctx context.Context, gw *gateway_api.
 		return nil, nil, corev1.ErrIntOverflowGenerated
 	}
 
-	return task.stack, task.mesh, nil
+	return task.stack, task.serviceNetwork, nil
 }
 
 func (t *serviceNetworkModelBuildTask) run(ctx context.Context) error {
@@ -79,11 +79,7 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 	associateToVPC := true
 	if len(t.gateway.ObjectMeta.Annotations) > 0 {
 		if value, exist := t.gateway.Annotations[LatticeVPCAssociationAnnotation]; exist {
-			if value == "true" {
-				associateToVPC = true
-			} else {
-				associateToVPC = false
-			}
+			associateToVPC = value == "true"
 		}
 	}
 
@@ -110,7 +106,7 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 		spec.IsDeleted = false
 	}
 
-	t.mesh = latticemodel.NewServiceNetwork(t.stack, ResourceIDServiceNetwork, spec)
+	t.serviceNetwork = latticemodel.NewServiceNetwork(t.stack, ResourceIDServiceNetwork, spec)
 
 	return nil
 }
@@ -118,7 +114,7 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 type serviceNetworkModelBuildTask struct {
 	gateway              *gateway_api.Gateway
 	vpcAssociationPolicy *v1alpha1.VpcAssociationPolicy
-	mesh                 *latticemodel.ServiceNetwork
+	serviceNetwork       *latticemodel.ServiceNetwork
 
 	stack core.Stack
 }
