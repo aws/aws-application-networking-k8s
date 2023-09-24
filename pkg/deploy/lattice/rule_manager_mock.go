@@ -67,47 +67,47 @@ func (mr *MockRuleManagerMockRecorder) Create(ctx, rule interface{}) *gomock.Cal
 }
 
 // Delete mocks base method.
-func (m *MockRuleManager) Delete(ctx context.Context, ruleID, listenerID, serviceID string) error {
+func (m *MockRuleManager) Delete(ctx context.Context, ruleId, listenerId, serviceId string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", ctx, ruleID, listenerID, serviceID)
+	ret := m.ctrl.Call(m, "Delete", ctx, ruleId, listenerId, serviceId)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockRuleManagerMockRecorder) Delete(ctx, ruleID, listenerID, serviceID interface{}) *gomock.Call {
+func (mr *MockRuleManagerMockRecorder) Delete(ctx, ruleId, listenerId, serviceId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockRuleManager)(nil).Delete), ctx, ruleID, listenerID, serviceID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockRuleManager)(nil).Delete), ctx, ruleId, listenerId, serviceId)
 }
 
 // Get mocks base method.
-func (m *MockRuleManager) Get(ctx context.Context, serviceID, listernID, ruleID string) (*vpclattice.GetRuleOutput, error) {
+func (m *MockRuleManager) Get(ctx context.Context, serviceId, listenerId, ruleId string) (*vpclattice.GetRuleOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", ctx, serviceID, listernID, ruleID)
+	ret := m.ctrl.Call(m, "Get", ctx, serviceId, listenerId, ruleId)
 	ret0, _ := ret[0].(*vpclattice.GetRuleOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockRuleManagerMockRecorder) Get(ctx, serviceID, listernID, ruleID interface{}) *gomock.Call {
+func (mr *MockRuleManagerMockRecorder) Get(ctx, serviceId, listenerId, ruleId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRuleManager)(nil).Get), ctx, serviceID, listernID, ruleID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockRuleManager)(nil).Get), ctx, serviceId, listenerId, ruleId)
 }
 
 // List mocks base method.
-func (m *MockRuleManager) List(ctx context.Context, serviceID, listenerID string) ([]*lattice.RuleStatus, error) {
+func (m *MockRuleManager) List(ctx context.Context, serviceId, listenerId string) ([]*lattice.RuleStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", ctx, serviceID, listenerID)
+	ret := m.ctrl.Call(m, "List", ctx, serviceId, listenerId)
 	ret0, _ := ret[0].([]*lattice.RuleStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // List indicates an expected call of List.
-func (mr *MockRuleManagerMockRecorder) List(ctx, serviceID, listenerID interface{}) *gomock.Call {
+func (mr *MockRuleManagerMockRecorder) List(ctx, serviceId, listenerId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockRuleManager)(nil).List), ctx, serviceID, listenerID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockRuleManager)(nil).List), ctx, serviceId, listenerId)
 }
 
 // Update mocks base method.

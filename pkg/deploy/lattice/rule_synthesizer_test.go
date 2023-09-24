@@ -2,8 +2,10 @@ package lattice
 
 import (
 	"context"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	//"errors"
 	"fmt"
@@ -278,7 +280,7 @@ func Test_SynthesizeRule(t *testing.T) {
 			mockRuleManager.EXPECT().Update(ctx, gomock.Any())
 		}
 
-		synthesizer := NewRuleSynthesizer(mockRuleManager, stack, ds)
+		synthesizer := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleManager, stack, ds)
 
 		err := synthesizer.Synthesize(ctx)
 
@@ -405,7 +407,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 
 	}
 
-	synthesizer := NewRuleSynthesizer(mockRuleManager, stack, ds)
+	synthesizer := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleManager, stack, ds)
 
 	synthesizer.Synthesize(ctx)
 

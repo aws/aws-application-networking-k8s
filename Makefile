@@ -96,9 +96,8 @@ manifest: ## Generate CRD manifest
 
 e2e-test-namespace := "e2e-test"
 
-## Run e2e tests against cluster pointed to by ~/.kube/config
 .PHONY: e2e-test
-e2e-test:
+e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1 || true # ignore already exists error
 	cd test && go test \
 		-p 1 \
@@ -112,7 +111,7 @@ e2e-test:
 
 .SILENT:
 .PHONY: e2e-clean
-e2e-clean:
+e2e-clean: ## Delete eks resources created in the e2e test namespace
 	@echo -n "Cleaning up e2e tests... "
 	@kubectl delete namespace $(e2e-test-namespace) > /dev/null 2>&1
 	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1

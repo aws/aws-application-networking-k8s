@@ -90,7 +90,7 @@ func RegisterGatewayController(
 		stackMarshaller:  stackMarshaller,
 	}
 
-	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(mgrClient)
+	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(log, mgrClient)
 	vpcAssociationPolicyEventHandler := eventhandlers.NewVpcAssociationPolicyEventHandler(log, mgrClient)
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&gateway_api.Gateway{})
