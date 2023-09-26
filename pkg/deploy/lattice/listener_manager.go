@@ -2,7 +2,6 @@ package lattice
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -110,7 +109,7 @@ func (d *defaultListenerManager) Create(
 
 	resp, err := d.cloud.Lattice().CreateListener(&listenerInput)
 	if err != nil {
-		d.log.Errorf("Error during creation of Listener %s-%s", listenerSpec.Name, listenerSpec.Namespace)
+		return latticemodel.ListenerStatus{}, err
 	}
 
 	return latticemodel.ListenerStatus{
@@ -183,7 +182,7 @@ func (d *defaultListenerManager) findListenerByNamePort(
 		}
 	}
 
-	return nil, errors.New("listener does not exist")
+	return nil, fmt.Errorf("listener for service %s and port %d does not exist", serviceId, port)
 }
 
 func (d *defaultListenerManager) Delete(ctx context.Context, listenerId string, serviceId string) error {

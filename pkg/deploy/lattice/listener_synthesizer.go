@@ -102,7 +102,9 @@ func (l *listenerSynthesizer) getSDKListeners(ctx context.Context) ([]*latticemo
 	var resService []*latticemodel.Service
 
 	err := l.stack.ListResources(&resService)
-	l.log.Debugf("Ignoring error when listing services %s", err)
+	if err != nil {
+		l.log.Debugf("Ignoring error when listing services %s", err)
+	}
 
 	for _, service := range resService {
 		latticeService, err := l.listenerMgr.Cloud().Lattice().FindService(ctx, service)
