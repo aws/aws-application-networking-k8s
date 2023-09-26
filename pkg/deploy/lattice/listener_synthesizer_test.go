@@ -2,8 +2,11 @@ package lattice
 
 import (
 	"context"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	sdk "github.com/aws/aws-sdk-go/aws"
 
 	//"errors"
@@ -169,13 +172,11 @@ func Test_SynthesizeListener(t *testing.T) {
 				ServiceID:   tt.serviceID,
 				Port:        int64(tt.gwListenerPort),
 				Protocol:    tt.gwProtocol}, tt.mgrErr)
-
 		} else {
 			mockListenerManager.EXPECT().Delete(ctx, tt.listenerID, tt.serviceID).Return(tt.mgrErr)
-
 		}
 
-		synthesizer := NewListenerSynthesizer(mockListenerManager, stack, ds)
+		synthesizer := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerManager, stack, ds)
 
 		err := synthesizer.Synthesize(ctx)
 
@@ -191,7 +192,6 @@ func Test_SynthesizeListener(t *testing.T) {
 			assert.Equal(t, listener.Key.Name, tt.httpRoute.Name)
 			assert.Equal(t, listener.Key.Namespace, tt.httpRoute.Namespace)
 			assert.Equal(t, listener.Key.Port, int64(tt.gwListenerPort))
-
 		} else {
 			assert.Nil(t, err)
 

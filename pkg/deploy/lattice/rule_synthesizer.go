@@ -3,22 +3,31 @@ package lattice
 import (
 	"context"
 	"errors"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/glog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type ruleSynthesizer struct {
+	log          gwlog.Logger
 	rule         RuleManager
 	stack        core.Stack
 	latticestore *latticestore.LatticeDataStore
 }
 
-func NewRuleSynthesizer(ruleManager RuleManager, stack core.Stack, store *latticestore.LatticeDataStore) *ruleSynthesizer {
+func NewRuleSynthesizer(
+	log gwlog.Logger,
+	ruleManager RuleManager,
+	stack core.Stack,
+	store *latticestore.LatticeDataStore,
+) *ruleSynthesizer {
 	return &ruleSynthesizer{
+		log:          log,
 		rule:         ruleManager,
 		stack:        stack,
 		latticestore: store,
@@ -92,7 +101,7 @@ func (r *ruleSynthesizer) findMatchedRule(ctx context.Context, sdkRuleID string,
 	}
 
 	for _, modelRule := range resRule {
-		sameRule := isRulesSame(modelRule, sdkRuleDetail)
+		sameRule := isRulesSame(r.log, modelRule, sdkRuleDetail)
 
 		if !sameRule {
 			continue

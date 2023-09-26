@@ -2,7 +2,10 @@ package deploy
 
 import (
 	"context"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
@@ -10,7 +13,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // StackDeployer will deploy a resource stack into AWS and K8S.
@@ -71,7 +73,7 @@ func (d *serviceNetworkStackDeployer) Deploy(ctx context.Context, stack core.Sta
 type LatticeServiceStackDeployer struct {
 	log                   gwlog.Logger
 	cloud                 aws.Cloud
-	k8sclient             client.Client
+	k8sClient             client.Client
 	latticeServiceManager lattice.ServiceManager
 	targetGroupManager    lattice.TargetGroupManager
 	targetsManager        lattice.TargetsManager
@@ -90,23 +92,23 @@ func NewLatticeServiceStackDeploy(
 	return &LatticeServiceStackDeployer{
 		log:                   log,
 		cloud:                 cloud,
-		k8sclient:             k8sClient,
+		k8sClient:             k8sClient,
 		latticeServiceManager: lattice.NewServiceManager(cloud, latticeDataStore),
 		targetGroupManager:    lattice.NewTargetGroupManager(cloud),
 		targetsManager:        lattice.NewTargetsManager(cloud, latticeDataStore),
-		listenerManager:       lattice.NewListenerManager(cloud, latticeDataStore),
-		ruleManager:           lattice.NewRuleManager(cloud, latticeDataStore),
+		listenerManager:       lattice.NewListenerManager(log, cloud, latticeDataStore),
+		ruleManager:           lattice.NewRuleManager(log, cloud, latticeDataStore),
 		dnsEndpointManager:    externaldns.NewDnsEndpointManager(k8sClient),
 		latticeDataStore:      latticeDataStore,
 	}
 }
 
 func (d *LatticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
-	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDataStore)
+	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sClient, d.targetGroupManager, stack, d.latticeDataStore)
 	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.cloud, d.targetsManager, stack, d.latticeDataStore)
 	serviceSynthesizer := lattice.NewServiceSynthesizer(d.latticeServiceManager, d.dnsEndpointManager, stack, d.latticeDataStore)
-	listenerSynthesizer := lattice.NewListenerSynthesizer(d.listenerManager, stack, d.latticeDataStore)
-	ruleSynthesizer := lattice.NewRuleSynthesizer(d.ruleManager, stack, d.latticeDataStore)
+	listenerSynthesizer := lattice.NewListenerSynthesizer(d.log, d.listenerManager, stack, d.latticeDataStore)
+	ruleSynthesizer := lattice.NewRuleSynthesizer(d.log, d.ruleManager, stack, d.latticeDataStore)
 
 	//Handle targetGroups creation request
 	if err := targetGroupSynthesizer.SynthesizeTriggeredTargetGroupsCreation(ctx); err != nil {
