@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/glog"
+	"golang.org/x/exp/slices"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -16,10 +16,13 @@ import (
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
+//go:generate mockgen -destination service_network_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ServiceNetworkManager
+
 type ServiceNetworkManager interface {
-	Create(ctx context.Context, serviceNetwork *latticemodel.ServiceNetwork) (latticemodel.ServiceNetworkStatus, error)
+	CreateOrUpdate(ctx context.Context, service_network *latticemodel.ServiceNetwork) (latticemodel.ServiceNetworkStatus, error)
 	List(ctx context.Context) ([]string, error)
 	Delete(ctx context.Context, serviceNetwork string) error
 }
@@ -41,7 +44,8 @@ type defaultServiceNetworkManager struct {
 	cloud lattice_aws.Cloud
 }
 
-// Create will try to create a service_network and associate the service_network with vpc
+// CreateOrUpdate will try to create a service_network and associate the service_network with vpc.
+// Or try to update the security groups for the serviceNetworkVpcAssociation if security groups are changed.
 // return error when:
 //
 //	ListServiceNetworksWithContext returns error
@@ -55,12 +59,10 @@ type defaultServiceNetworkManager struct {
 // return errors.New(LATTICE_RETRY) when:
 //
 //	CreateServiceNetworkVpcAssociationInput returns ServiceNetworkVpcAssociationStatusFailed/ServiceNetworkVpcAssociationStatusCreateInProgress/MeshVpcAssociationStatusDeleteInProgress
-func (m *defaultServiceNetworkManager) Create(
-	ctx context.Context,
-	serviceNetwork *latticemodel.ServiceNetwork,
-) (latticemodel.ServiceNetworkStatus, error) {
+
+func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, desiredSn *latticemodel.ServiceNetwork) (latticemodel.ServiceNetworkStatus, error) {
 	// check if exists
-	serviceNetworkSummary, err := m.cloud.Lattice().FindServiceNetwork(ctx, serviceNetwork.Spec.Name, "")
+	FoundSnSummary, err := m.cloud.Lattice().FindServiceNetwork(ctx, desiredSn.Spec.Name, "")
 	if err != nil && !services.IsNotFoundError(err) {
 		return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
 	}
@@ -68,23 +70,21 @@ func (m *defaultServiceNetworkManager) Create(
 	// pre declaration
 	var serviceNetworkId string
 	var serviceNetworkArn string
-	var isServiceNetworkAssociatedWithVpc bool
-	var serviceNetworkAssociatedWithCurrentVpcId *string
+	var isSnAlreadyAssociatedWithCurrentVpc bool
+	var snvaAssociatedWithCurrentVPC *vpclattice.ServiceNetworkVpcAssociationSummary
 	vpcLatticeSess := m.cloud.Lattice()
-
-	if serviceNetworkSummary == nil {
+	if FoundSnSummary == nil {
 		m.log.Debugf("Creating ServiceNetwork %s and tagging it with vpcId %s",
-			serviceNetwork.Spec.Name, config.VpcID)
-
+			desiredSn.Spec.Name, config.VpcID)
 		// Add tag to show this is the VPC create this service network
 		// This means, the service network can only be deleted by the controller running in this VPC
 		serviceNetworkInput := vpclattice.CreateServiceNetworkInput{
-			Name: &serviceNetwork.Spec.Name,
+			Name: &desiredSn.Spec.Name,
 			Tags: make(map[string]*string),
 		}
 		serviceNetworkInput.Tags[latticemodel.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 
-		m.log.Debugf("Creating serviceNetwork %+v", serviceNetworkInput)
+		m.log.Debugf("Creating desiredSn %+v", serviceNetworkInput)
 		resp, err := vpcLatticeSess.CreateServiceNetworkWithContext(ctx, &serviceNetworkInput)
 		if err != nil {
 			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
@@ -92,24 +92,28 @@ func (m *defaultServiceNetworkManager) Create(
 
 		serviceNetworkId = aws.StringValue(resp.Id)
 		serviceNetworkArn = aws.StringValue(resp.Arn)
-		isServiceNetworkAssociatedWithVpc = false
 	} else {
-		glog.V(6).Infof("serviceNetwork %s exists, checking its VPC association", serviceNetwork.Spec.Name)
-		serviceNetworkId = aws.StringValue(serviceNetworkSummary.SvcNetwork.Id)
-		serviceNetworkArn = aws.StringValue(serviceNetworkSummary.SvcNetwork.Arn)
-		isServiceNetworkAssociatedWithVpc, serviceNetworkAssociatedWithCurrentVpcId, _, err = m.isServiceNetworkAssociatedWithVPC(ctx, serviceNetworkId)
+		m.log.Debugf("desiredSn %s exists, checking its VPC association", desiredSn.Spec.Name)
+		serviceNetworkId = aws.StringValue(FoundSnSummary.SvcNetwork.Id)
+		serviceNetworkArn = aws.StringValue(FoundSnSummary.SvcNetwork.Arn)
+		isSnAlreadyAssociatedWithCurrentVpc, snvaAssociatedWithCurrentVPC, _, err = m.isServiceNetworkAlreadyAssociatedWithVPC(ctx, serviceNetworkId)
 		if err != nil {
 			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
 		}
+		if desiredSn.Spec.AssociateToVPC == true && isSnAlreadyAssociatedWithCurrentVpc == true &&
+			snvaAssociatedWithCurrentVPC.Status != nil && aws.StringValue(snvaAssociatedWithCurrentVPC.Status) == vpclattice.ServiceNetworkVpcAssociationStatusActive {
+			return m.UpdateServiceNetworkVpcAssociationIfNeeded(ctx, &FoundSnSummary.SvcNetwork, desiredSn, snvaAssociatedWithCurrentVPC.Id)
+		}
 	}
 
-	if serviceNetwork.Spec.AssociateToVPC == true {
-		if isServiceNetworkAssociatedWithVpc == false {
+	if desiredSn.Spec.AssociateToVPC == true {
+		if isSnAlreadyAssociatedWithCurrentVpc == false {
 			// current state:  service network is associated to VPC
 			// desired state:  associate this service network to VPC
 			createServiceNetworkVpcAssociationInput := vpclattice.CreateServiceNetworkVpcAssociationInput{
 				ServiceNetworkIdentifier: &serviceNetworkId,
 				VpcIdentifier:            &config.VpcID,
+				SecurityGroupIds:         desiredSn.Spec.SecurityGroupIds,
 			}
 			m.log.Debugf("Creating association between ServiceNetwork %s and VPC %s", serviceNetworkId, config.VpcID)
 			resp, err := vpcLatticeSess.CreateServiceNetworkVpcAssociationWithContext(ctx, &createServiceNetworkVpcAssociationInput)
@@ -132,23 +136,24 @@ func (m *defaultServiceNetworkManager) Create(
 			}
 		}
 	} else {
-		if isServiceNetworkAssociatedWithVpc == true {
+		// desiredSn.Spec.AssociateToVPC == false
+		if isSnAlreadyAssociatedWithCurrentVpc == true {
 			// current state: service network is associated to VPC
 			// desired state: not to associate this service network to VPC
-			m.log.Debugf("Disassociating ServiceNetwork %s from VPC", serviceNetwork.Spec.Name)
+			m.log.Debugf("Disassociating ServiceNetwork %s from VPC", desiredSn.Spec.Name)
 			deleteServiceNetworkVpcAssociationInput := vpclattice.DeleteServiceNetworkVpcAssociationInput{
-				ServiceNetworkVpcAssociationIdentifier: serviceNetworkAssociatedWithCurrentVpcId,
+				ServiceNetworkVpcAssociationIdentifier: snvaAssociatedWithCurrentVPC.Id,
 			}
 			resp, err := vpcLatticeSess.DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
 			if err != nil {
 				m.log.Errorf("Failed to delete association for %s, with response %s and err %s",
-					serviceNetwork.Spec.Name, resp, err)
+					desiredSn.Spec.Name, resp, err)
 			}
 
 			// return retry and check later if disassociation workflow finishes
 			return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
 		}
-		m.log.Debugf("Created serviceNetwork %s without VPC association", serviceNetwork.Spec.Name)
+		m.log.Debugf("Created desiredSn %s without VPC association", desiredSn.Spec.Name)
 	}
 	return latticemodel.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
 }
@@ -182,19 +187,17 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string
 
 	vpcLatticeSess := m.cloud.Lattice()
 	serviceNetworkId := aws.StringValue(serviceNetworkSummary.SvcNetwork.Id)
-
-	_, serviceNetworkAssociatedWithCurrentVpcId, assocResp, err := m.isServiceNetworkAssociatedWithVPC(ctx, serviceNetworkId)
+	_, snvaAssociatedWithCurrentVPC, assocResp, err := m.isServiceNetworkAlreadyAssociatedWithVPC(ctx, serviceNetworkId)
 	if err != nil {
 		return err
 	}
-
-	if serviceNetworkAssociatedWithCurrentVpcId != nil {
+	if snvaAssociatedWithCurrentVPC != nil && snvaAssociatedWithCurrentVPC.Id != nil {
 		// Current VPC is associated with this service network
 		// Happy case, disassociate the VPC from service network
 		deleteServiceNetworkVpcAssociationInput := vpclattice.DeleteServiceNetworkVpcAssociationInput{
-			ServiceNetworkVpcAssociationIdentifier: serviceNetworkAssociatedWithCurrentVpcId,
+			ServiceNetworkVpcAssociationIdentifier: snvaAssociatedWithCurrentVPC.Id,
 		}
-		m.log.Debugf("Deleting ServiceNetworkVpcAssociation %s", *serviceNetworkAssociatedWithCurrentVpcId)
+		m.log.Debugf("Deleting ServiceNetworkVpcAssociation %s", *snvaAssociatedWithCurrentVPC.Id)
 		_, err := vpcLatticeSess.DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
 		if err != nil {
 			m.log.Debugf("Failed to delete association for %s, err: %s", snName, err)
@@ -241,10 +244,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string
 }
 
 // If service_network exists, check if service_network has already associated with VPC
-func (m *defaultServiceNetworkManager) isServiceNetworkAssociatedWithVPC(
-	ctx context.Context,
-	serviceNetworkId string,
-) (bool, *string, []*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
+func (m *defaultServiceNetworkManager) isServiceNetworkAlreadyAssociatedWithVPC(ctx context.Context, serviceNetworkId string) (bool, *vpclattice.ServiceNetworkVpcAssociationSummary, []*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
 	vpcLatticeSess := m.cloud.Lattice()
 	// TODO: can pass vpc id to ListServiceNetworkVpcAssociationsInput, could return err if no associations
 	associationStatusInput := vpclattice.ListServiceNetworkVpcAssociationsInput{
@@ -267,22 +267,80 @@ func (m *defaultServiceNetworkManager) isServiceNetworkAssociatedWithVPC(
 				switch associationStatus {
 				case vpclattice.ServiceNetworkVpcAssociationStatusActive:
 					m.log.Debugf("Mesh and Vpc association is active.")
-					return true, r.Id, resp, nil
+					return true, r, resp, nil
 				case vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed:
 					m.log.Debugf("Mesh and Vpc association does not exists, start creating service_network and vpc association")
-					return false, r.Id, resp, nil
+					return false, r, resp, nil
 				case vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed:
 					m.log.Debugf("Mesh and Vpc association failed to delete")
-					return true, r.Id, resp, nil
+					return true, r, resp, nil
 				case vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress:
 					m.log.Debugf("ServiceNetwork and Vpc association is being deleted, retry later")
-					return true, r.Id, resp, errors.New(LATTICE_RETRY)
+					return true, r, resp, errors.New(LATTICE_RETRY)
 				case vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress:
 					m.log.Debugf("ServiceNetwork and Vpc association is being created, retry later")
-					return true, r.Id, resp, errors.New(LATTICE_RETRY)
+					return true, r, resp, errors.New(LATTICE_RETRY)
 				}
 			}
 		}
 	}
 	return false, nil, resp, err
+}
+
+func (m *defaultServiceNetworkManager) UpdateServiceNetworkVpcAssociationIfNeeded(ctx context.Context, existingSN *vpclattice.ServiceNetworkSummary, desiredSN *latticemodel.ServiceNetwork, existingSnvaId *string) (latticemodel.ServiceNetworkStatus, error) {
+	retrievedSnva, err := m.cloud.Lattice().GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
+	})
+	if err != nil {
+		return latticemodel.ServiceNetworkStatus{}, err
+	}
+
+	if len(desiredSN.Spec.SecurityGroupIds) == 0 && retrievedSnva.SecurityGroupIds != nil && len(retrievedSnva.SecurityGroupIds) > 0 {
+		// VPC lattice API have a limitation that the user can't remove all security groups if current snva already has security groups.
+		// If that case happen, the controller will not delete snva. User should manually delete it.
+		//https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html#security-groups-rules
+		gwlog.FallbackLogger.Errorf("Can't remove all security groups from service network vpc association, for service network %s, snvaId %s", desiredSN.Spec.Name, retrievedSnva.Id)
+
+		// TODO: Add validation webhook or update gateway (or VpcAssociationPolicy) status to indicate that error.
+		//  https://gateway-api.sigs.k8s.io/geps/gep-713/#standard-status-condition
+		return latticemodel.ServiceNetworkStatus{}, errors.New(LATTICE_RETRY)
+	}
+
+	sgIdsEqual := securityGroupIdsEqual(desiredSN.Spec.SecurityGroupIds, retrievedSnva.SecurityGroupIds)
+
+	if sgIdsEqual {
+		// desiredSN's security group ids are same with retrievedSnva's security group ids, don't need to update
+		return latticemodel.ServiceNetworkStatus{
+			ServiceNetworkID:     *existingSN.Id,
+			ServiceNetworkARN:    *existingSN.Arn,
+			SnvaSecurityGroupIds: retrievedSnva.SecurityGroupIds,
+		}, nil
+	}
+
+	updateSnvaResp, err := m.cloud.Lattice().UpdateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.UpdateServiceNetworkVpcAssociationInput{
+		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
+		SecurityGroupIds:                       desiredSN.Spec.SecurityGroupIds,
+	})
+	if err != nil {
+		return latticemodel.ServiceNetworkStatus{}, err
+	}
+
+	if *updateSnvaResp.Status == vpclattice.ServiceNetworkVpcAssociationStatusActive {
+		return latticemodel.ServiceNetworkStatus{
+			ServiceNetworkID:     *existingSN.Id,
+			ServiceNetworkARN:    *existingSN.Arn,
+			SnvaSecurityGroupIds: updateSnvaResp.SecurityGroupIds,
+		}, nil
+	} else {
+		return latticemodel.ServiceNetworkStatus{}, errors.New(LATTICE_RETRY)
+	}
+
+}
+
+func securityGroupIdsEqual(arr1, arr2 []*string) bool {
+	ids1 := utils.SliceMap(arr1, aws.StringValue)
+	slices.Sort(ids1)
+	ids2 := utils.SliceMap(arr2, aws.StringValue)
+	slices.Sort(ids2)
+	return slices.Equal(ids1, ids2)
 }

@@ -148,7 +148,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 			}
 		} else {
 			meshStatus = latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "testing arn", ServiceNetworkID: "87654321"}
-			mockMeshManager.EXPECT().Create(ctx, mesh).Return(meshStatus, tt.meshManagerErr)
+			mockMeshManager.EXPECT().CreateOrUpdate(ctx, mesh).Return(meshStatus, tt.meshManagerErr)
 		}
 
 		meshMeshSynthesizer := NewServiceNetworkSynthesizer(gwlog.FallbackLogger, mock_client, mockMeshManager, stack)

@@ -68,7 +68,7 @@ func (s *serviceNetworkSynthesizer) synthesizeTriggeredGateways(ctx context.Cont
 			}
 		} else {
 			s.log.Debugf("Synthesizing Gateway %s", resServiceNetwork.Spec.Name)
-			serviceNetworkStatus, err := s.serviceNetworkManager.Create(ctx, resServiceNetwork)
+			serviceNetworkStatus, err := s.serviceNetworkManager.CreateOrUpdate(ctx, resServiceNetwork)
 			if err != nil {
 				s.log.Debugf("Synthesizing Gateway failed for gateway %s due to %s",
 					resServiceNetwork.Spec.Name, err)
