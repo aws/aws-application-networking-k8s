@@ -10,9 +10,9 @@ One of its option is `securityGroupIds`. it can control the inbound traffic from
 
 Recommended security group inbound rules:
 
-| Source                      | Protocol                                            | Port Range                                      | Comment                                                   |
-|-----------------------------|-----------------------------------------------------|-------------------------------------------------|-----------------------------------------------------------|
-| Kubernetes cluster VPC CIDR | protocols defined in the gateway's listener section | ports defined in the gateway's listener section | Allow inbound traffic from current cluster vpc to gateway |
+| Source                                                  | Protocol                                            | Port Range                                      | Comment                                                   |
+|---------------------------------------------------------|-----------------------------------------------------|-------------------------------------------------|-----------------------------------------------------------|
+| Kubernetes cluster VPC CIDR or security group reference | protocols defined in the gateway's listener section | ports defined in the gateway's listener section | Allow inbound traffic from current cluster vpc to gateway |
 
 
 **Limitations and Considerations**
