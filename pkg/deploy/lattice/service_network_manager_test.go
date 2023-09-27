@@ -3,24 +3,24 @@ package lattice
 import (
 	"context"
 	"errors"
-
-	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
+	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 // ServiceNetwork does not exist before,happy case.
-func Test_CreateServiceNetwork_MeshNotExist_NoNeedToAssociate(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshNotExist_NoNeedToAssociate(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -50,18 +50,16 @@ func Test_CreateServiceNetwork_MeshNotExist_NoNeedToAssociate(t *testing.T) {
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(meshCreateOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
-
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{}).Times(1)
-
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &meshCreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
 
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ServiceNetworkARN, arn)
 	assert.Equal(t, resp.ServiceNetworkID, id)
 }
 
-func Test_CreateServiceNetwork_MeshNotExist_NeedToAssociate(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshNotExist_NeedToAssociate(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -111,7 +109,7 @@ func Test_CreateServiceNetwork_MeshNotExist_NeedToAssociate(t *testing.T) {
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &meshCreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
 
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ServiceNetworkARN, arn)
@@ -119,7 +117,7 @@ func Test_CreateServiceNetwork_MeshNotExist_NeedToAssociate(t *testing.T) {
 }
 
 // List and find mesh does not work.
-func Test_CreateServiceNetwork_ListFailed(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_ListFailed(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -138,7 +136,7 @@ func Test_CreateServiceNetwork_ListFailed(t *testing.T) {
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &meshCreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, resp.ServiceNetworkARN, "")
@@ -147,7 +145,7 @@ func Test_CreateServiceNetwork_ListFailed(t *testing.T) {
 
 // ServiceNetwork already exists, association is in ServiceNetworkVpcAssociationStatusCreateInProgress.
 
-func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -190,7 +188,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &meshCreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
@@ -200,7 +198,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 
 // ServiceNetwork already exists, association is in ServiceNetworkVpcAssociationStatusDeleteInProgress.
 
-func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:    "test",
@@ -242,7 +240,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &meshCreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
@@ -251,7 +249,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 }
 
 // ServiceNetwork already exists, association is ServiceNetworkVpcAssociationStatusActive.
-func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusActive(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusActive(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -259,6 +257,246 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 			AssociateToVPC: true,
 		},
 		Status: &latticemodel.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
+	}
+	meshId := "12345678912345678912"
+	meshArn := "12345678912345678912"
+	name := "test"
+	vpcId := config.VpcID
+	item := vpclattice.ServiceNetworkSummary{
+		Arn:  &meshArn,
+		Id:   &meshId,
+		Name: &name,
+	}
+
+	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &config.VpcID,
+	}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+		&mocks.ServiceNetworkInfo{
+			SvcNetwork: item,
+			Tags:       nil,
+		}, nil)
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &name,
+		Status:             aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
+		VpcId:              &vpcId,
+	}, nil)
+	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
+
+	assert.Nil(t, err)
+	assert.Equal(t, resp.ServiceNetworkARN, meshArn)
+	assert.Equal(t, resp.ServiceNetworkID, meshId)
+}
+
+func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_UpdateSNVASecurityGroups(t *testing.T) {
+	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	meshCreateInput := latticemodel.ServiceNetwork{
+		Spec: latticemodel.ServiceNetworkSpec{
+			Name:             "test",
+			Account:          "123456789",
+			AssociateToVPC:   true,
+			SecurityGroupIds: securityGroupIds,
+		},
+	}
+	meshId := "12345678912345678912"
+	meshArn := "12345678912345678912"
+	name := "test"
+	vpcId := config.VpcID
+	item := vpclattice.ServiceNetworkSummary{
+		Arn:  &meshArn,
+		Id:   &meshId,
+		Name: &name,
+	}
+
+	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &config.VpcID,
+	}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+		&mocks.ServiceNetworkInfo{
+			SvcNetwork: item,
+			Tags:       nil,
+		}, nil)
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &name,
+		Status:             aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
+		VpcId:              &vpcId,
+		//SecurityGroupIds:   []*string{aws.String("sg-123456789"), aws.String("sg-987654321")},
+	}, nil)
+	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).MaxTimes(0)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{
+		Arn:              &meshArn,
+		Id:               &meshId,
+		SecurityGroupIds: securityGroupIds,
+		Status:           aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
+	}, nil)
+
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
+
+	assert.Equal(t, err, nil)
+	assert.Equal(t, resp.ServiceNetworkARN, meshArn)
+	assert.Equal(t, resp.ServiceNetworkID, meshId)
+	assert.Equal(t, resp.SnvaSecurityGroupIds, securityGroupIds)
+}
+
+func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_SecurityGroupsDoNotNeedToBeUpdated(t *testing.T) {
+	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	desiredSn := latticemodel.ServiceNetwork{
+		Spec: latticemodel.ServiceNetworkSpec{
+			Name:             "test",
+			Account:          "123456789",
+			AssociateToVPC:   true,
+			SecurityGroupIds: securityGroupIds,
+		},
+	}
+	meshId := "12345678912345678912"
+	meshArn := "12345678912345678912"
+	name := "test"
+	vpcId := config.VpcID
+	item := vpclattice.ServiceNetworkSummary{
+		Arn:  &meshArn,
+		Id:   &meshId,
+		Name: &name,
+	}
+
+	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &config.VpcID,
+	}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+		&mocks.ServiceNetworkInfo{
+			SvcNetwork: item,
+			Tags:       nil,
+		}, nil)
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &name,
+		Status:             &status,
+		VpcId:              &vpcId,
+		SecurityGroupIds:   securityGroupIds,
+	}, nil)
+	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := meshManager.CreateOrUpdate(ctx, &desiredSn)
+
+	assert.Equal(t, err, nil)
+	assert.Equal(t, resp.ServiceNetworkARN, meshArn)
+	assert.Equal(t, resp.ServiceNetworkID, meshId)
+	assert.Equal(t, resp.SnvaSecurityGroupIds, securityGroupIds)
+}
+func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgress_WillNotInvokeLatticeUpdateSNVA(t *testing.T) {
+	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	desiredSn := latticemodel.ServiceNetwork{
+		Spec: latticemodel.ServiceNetworkSpec{
+			Name:             "test",
+			Account:          "123456789",
+			AssociateToVPC:   true,
+			SecurityGroupIds: securityGroupIds,
+		},
+	}
+	meshId := "12345678912345678912"
+	meshArn := "12345678912345678912"
+	name := "test"
+	item := vpclattice.ServiceNetworkSummary{
+		Arn:  &meshArn,
+		Id:   &meshId,
+		Name: &name,
+	}
+
+	status := vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress
+	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &meshId,
+		Status:             &status,
+		VpcId:              &config.VpcID,
+	}
+	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+		&mocks.ServiceNetworkInfo{
+			SvcNetwork: item,
+			Tags:       nil,
+		}, nil)
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := meshManager.CreateOrUpdate(ctx, &desiredSn)
+
+	assert.Equal(t, err, errors.New(LATTICE_RETRY))
+	assert.Equal(t, resp.ServiceNetworkARN, "")
+	assert.Equal(t, resp.ServiceNetworkID, "")
+}
+
+func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_CannotUpdateSecurityGroupsFromNonemptyToEmpty(t *testing.T) {
+	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	desiredSn := latticemodel.ServiceNetwork{
+		Spec: latticemodel.ServiceNetworkSpec{
+			Name:             "test",
+			Account:          "123456789",
+			AssociateToVPC:   true,
+			SecurityGroupIds: []*string{},
+		},
 	}
 	meshId := "12345678912345678912"
 	meshArn := "12345678912345678912"
@@ -289,18 +527,29 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+		ServiceNetworkArn:  &meshArn,
+		ServiceNetworkId:   &meshId,
+		ServiceNetworkName: &name,
+		Status:             aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
+		VpcId:              &config.VpcID,
+		SecurityGroupIds:   securityGroupIds,
+	}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
+	updateSNVAError := errors.New("InvalidParameterException SecurityGroupIds cannot be empty")
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{}, updateSNVAError)
+
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
-
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &meshCreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &desiredSn)
 
-	assert.Nil(t, err)
-	assert.Equal(t, resp.ServiceNetworkARN, meshArn)
-	assert.Equal(t, resp.ServiceNetworkID, meshId)
+	assert.Equal(t, err, updateSNVAError)
+	assert.Equal(t, resp.ServiceNetworkARN, "")
+	assert.Equal(t, resp.ServiceNetworkID, "")
 }
 
-func Test_CreateServiceNetwork_MeshAlreadyExist_AssociateToNotAssociate(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshAlreadyExist_AssociateToNotAssociate(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -347,7 +596,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_AssociateToNotAssociate(t *testi
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	_, err := meshManager.Create(ctx, &meshCreateInput)
+	_, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
 
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
 
@@ -355,7 +604,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_AssociateToNotAssociate(t *testi
 
 // ServiceNetwork already exists, association is ServiceNetworkVpcAssociationStatusCreateFailed.
 
-func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusCreateFailed(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStatusCreateFailed(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -411,7 +660,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &meshCreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
 
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ServiceNetworkARN, meshArn)
@@ -419,7 +668,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_ServiceNetworkVpcAssociationStat
 }
 
 // ServiceNetwork already exists, associated with other VPC
-func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *testing.T) {
 	meshCreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -477,7 +726,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *te
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &meshCreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &meshCreateInput)
 
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ServiceNetworkARN, meshArn)
@@ -485,7 +734,7 @@ func Test_CreateServiceNetwork_MeshAlreadyExist_MeshAssociatedWithOtherVPC(t *te
 }
 
 // ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusFailed.
-func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFailed(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFailed(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -529,7 +778,7 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFa
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &CreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
@@ -538,7 +787,7 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusFa
 }
 
 // ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusCreateInProgress.
-func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -580,7 +829,7 @@ func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCr
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &CreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
@@ -589,7 +838,7 @@ func Test_CreateServiceNetwork_MeshNOTExist_ServiceNetworkVpcAssociationStatusCr
 }
 
 // ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusDeleteInProgress.
-func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -631,7 +880,7 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDe
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &CreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
@@ -640,7 +889,7 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationStatusDe
 }
 
 // ServiceNetwork does not exists, association returns Error.
-func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationReturnsError(t *testing.T) {
+func Test_CreateOrUpdateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationReturnsError(t *testing.T) {
 	CreateInput := latticemodel.ServiceNetwork{
 		Spec: latticemodel.ServiceNetworkSpec{
 			Name:           "test",
@@ -679,7 +928,7 @@ func Test_CreateServiceNetwork_MeshNotExist_ServiceNetworkVpcAssociationReturnsE
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &CreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, err, errors.New("ERROR"))
@@ -721,7 +970,7 @@ func Test_CreateMesh_MeshNotExist_MeshCreateFailed(t *testing.T) {
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
-	resp, err := meshManager.Create(ctx, &CreateInput)
+	resp, err := meshManager.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
 	assert.Equal(t, err, errors.New("ERROR"))

@@ -85,10 +85,7 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 		if t.vpcAssociationPolicy.Spec.AssociateWithVpc != nil {
 			associateToVPC = *t.vpcAssociationPolicy.Spec.AssociateWithVpc
 		}
-
-		if t.vpcAssociationPolicy.Spec.SecurityGroupIds != nil {
-			spec.SecurityGroupIds = securityGroupIdsToStringPointersSlice(t.vpcAssociationPolicy.Spec.SecurityGroupIds)
-		}
+		spec.SecurityGroupIds = securityGroupIdsToStringPointersSlice(t.vpcAssociationPolicy.Spec.SecurityGroupIds)
 	}
 	spec.AssociateToVPC = associateToVPC
 	defaultSN, err := config.GetClusterLocalGateway()
@@ -118,7 +115,7 @@ type serviceNetworkModelBuildTask struct {
 }
 
 func securityGroupIdsToStringPointersSlice(sgIds []v1alpha1.SecurityGroupId) []*string {
-	var ret []*string
+	ret := make([]*string, 0)
 	for _, sgId := range sgIds {
 		sgIdStr := string(sgId)
 		ret = append(ret, &sgIdStr)
