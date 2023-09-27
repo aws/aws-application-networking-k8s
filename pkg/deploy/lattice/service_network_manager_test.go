@@ -537,13 +537,14 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Cannot
 	}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
-	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+	updateSNVAError := errors.New("InvalidParameterException SecurityGroupIds cannot be empty")
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{}, updateSNVAError)
 
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	meshManager := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := meshManager.CreateOrUpdate(ctx, &desiredSn)
 
-	assert.Equal(t, err, errors.New(LATTICE_RETRY))
+	assert.Equal(t, err, updateSNVAError)
 	assert.Equal(t, resp.ServiceNetworkARN, "")
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
