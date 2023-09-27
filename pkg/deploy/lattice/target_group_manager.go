@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/golang/glog"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"fmt"
@@ -306,9 +304,6 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 			}
 
 			tagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, &tagsInput)
-
-			glog.V(6).Infof("tagsOutput %v,  err: %v", tagsOutput, err)
-
 			if err != nil {
 				s.log.Debugf("Error listing tags for target group %s: %s", *tg.Arn, err)
 				// setting it to nil, so the caller knows there is tag resource associated to this target group
