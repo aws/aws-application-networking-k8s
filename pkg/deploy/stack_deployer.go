@@ -37,11 +37,11 @@ type ResourceSynthesizer interface {
 	PostSynthesize(ctx context.Context) error
 }
 
-func NewServiceNetworkStackDeployer(cloud aws.Cloud, k8sClient client.Client) *serviceNetworkStackDeployer {
+func NewServiceNetworkStackDeployer(log gwlog.Logger, cloud aws.Cloud, k8sClient client.Client) *serviceNetworkStackDeployer {
 	return &serviceNetworkStackDeployer{
 		cloud:                        cloud,
 		k8sclient:                    k8sClient,
-		latticeServiceNetworkManager: lattice.NewDefaultServiceNetworkManager(cloud),
+		latticeServiceNetworkManager: lattice.NewDefaultServiceNetworkManager(log, cloud),
 	}
 }
 
@@ -98,7 +98,7 @@ func NewLatticeServiceStackDeploy(
 		targetsManager:        lattice.NewTargetsManager(cloud, latticeDataStore),
 		listenerManager:       lattice.NewListenerManager(log, cloud, latticeDataStore),
 		ruleManager:           lattice.NewRuleManager(log, cloud, latticeDataStore),
-		dnsEndpointManager:    externaldns.NewDnsEndpointManager(k8sClient),
+		dnsEndpointManager:    externaldns.NewDnsEndpointManager(log, k8sClient),
 		latticeDataStore:      latticeDataStore,
 	}
 }

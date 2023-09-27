@@ -8,6 +8,8 @@ import (
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -230,7 +232,7 @@ func TestCreateDnsEndpoint(t *testing.T) {
 	for _, tt := range tests {
 		fmt.Printf("Testing >>>>> %v\n", tt.name)
 		client := mock_client.NewMockClient(c)
-		mgr := NewDnsEndpointManager(client)
+		mgr := NewDnsEndpointManager(gwlog.FallbackLogger, client)
 
 		client.EXPECT().Scheme().Return(runtime.NewScheme()).AnyTimes()
 
