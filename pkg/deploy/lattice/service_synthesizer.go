@@ -3,17 +3,22 @@ package lattice
 import (
 	"context"
 
-	"github.com/golang/glog"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
-func NewServiceSynthesizer(serviceManager ServiceManager, dnsEndpointManager externaldns.DnsEndpointManager,
-	stack core.Stack, latticeDataStore *latticestore.LatticeDataStore) *serviceSynthesizer {
+func NewServiceSynthesizer(
+	log gwlog.Logger,
+	serviceManager ServiceManager,
+	dnsEndpointManager externaldns.DnsEndpointManager,
+	stack core.Stack,
+	latticeDataStore *latticestore.LatticeDataStore,
+) *serviceSynthesizer {
 	return &serviceSynthesizer{
+		log:                log,
 		serviceManager:     serviceManager,
 		dnsEndpointManager: dnsEndpointManager,
 		stack:              stack,
@@ -22,6 +27,7 @@ func NewServiceSynthesizer(serviceManager ServiceManager, dnsEndpointManager ext
 }
 
 type serviceSynthesizer struct {
+	log                gwlog.Logger
 	serviceManager     ServiceManager
 	dnsEndpointManager externaldns.DnsEndpointManager
 	stack              core.Stack
@@ -30,56 +36,50 @@ type serviceSynthesizer struct {
 
 func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 	var resServices []*latticemodel.Service
-
 	s.stack.ListResources(&resServices)
-	glog.V(6).Infof("Service-synthesize start: %v \n", resServices)
 
-	// TODO
 	for _, resService := range resServices {
-
-		glog.V(6).Infof("Synthesize Service/HTTPRoute: %v\n", resService)
+		s.log.Debugf("Synthesizing service: %s-%s", resService.Spec.Name, resService.Spec.Namespace)
 		if resService.Spec.IsDeleted {
 			// handle service delete
 			err := s.serviceManager.Delete(ctx, resService)
 
 			if err == nil {
-				glog.V(6).Infof("service - Synthesizer: finish deleting service %v\n", *resService)
+				s.log.Debugf("Successfully synthesized service deletion %s-%s", resService.Spec.Name, resService.Spec.Namespace)
 
-				// also delete all listeners of this service
+				// Also delete all listeners of this service
 				listeners, err := s.latticeDataStore.GetAllListeners(resService.Spec.Name, resService.Spec.Namespace)
-
-				glog.V(6).Infof("service synthesize -- need to delete listeners %v, err : %v\n", listeners, err)
-
-				for _, l := range listeners {
-					s.latticeDataStore.DelListener(resService.Spec.Name, resService.Spec.Namespace,
-						l.Key.Port, l.Key.Protocol)
+				if err != nil {
+					return err
 				}
 
+				for _, l := range listeners {
+					err := s.latticeDataStore.DelListener(resService.Spec.Name, resService.Spec.Namespace,
+						l.Key.Port, l.Key.Protocol)
+					if err != nil {
+						s.log.Errorf("Error deleting listener for service %s-%s, port %d, protocol %s: %s",
+							resService.Spec.Name, resService.Spec.Namespace, l.Key.Port, l.Key.Protocol, err)
+					}
+				}
 				// Deleting DNSEndpoint is not required, as it has ownership relation.
 			}
 			return err
 		} else {
-
 			serviceStatus, err := s.serviceManager.Create(ctx, resService)
-
 			if err != nil {
-				glog.V(6).Infof("Error on s.serviceManager.Create %v \n", err)
 				return err
 			}
 
-			glog.V(6).Infof("Creating Service DNS")
 			resService.Status = &serviceStatus
 			err = s.dnsEndpointManager.Create(ctx, resService)
 			if err != nil {
-				glog.V(2).Infof("Failed creating service DNS: %v", err)
 				return err
 			}
 
-			glog.V(6).Infof("serviceStatus %v, error = %v \n", serviceStatus, err)
+			s.log.Debugf("Successfully created service %s-%s with status %s",
+				resService.Spec.Name, resService.Spec.Namespace, serviceStatus)
 		}
 	}
-
-	glog.V(6).Infof("Service-synthesize end %v \n", resServices)
 
 	return nil
 }

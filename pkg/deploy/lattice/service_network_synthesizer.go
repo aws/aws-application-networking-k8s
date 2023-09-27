@@ -3,33 +3,38 @@ package lattice
 import (
 	"context"
 	"errors"
-	"github.com/golang/glog"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
-func NewServiceNetworkSynthesizer(client client.Client, serviceNetworkManager ServiceNetworkManager, stack core.Stack) *serviceNetworkSynthesizer {
+func NewServiceNetworkSynthesizer(
+	log gwlog.Logger,
+	client client.Client,
+	serviceNetworkManager ServiceNetworkManager,
+	stack core.Stack,
+) *serviceNetworkSynthesizer {
 	return &serviceNetworkSynthesizer{
-		Client:                client,
+		log:                   log,
+		client:                client,
 		serviceNetworkManager: serviceNetworkManager,
 		stack:                 stack,
 	}
 }
 
 type serviceNetworkSynthesizer struct {
-	client.Client
-
+	log                   gwlog.Logger
+	client                client.Client
 	serviceNetworkManager ServiceNetworkManager
 	stack                 core.Stack
 }
 
 func (s *serviceNetworkSynthesizer) Synthesize(ctx context.Context) error {
 	var ret = ""
-
-	glog.V(6).Infof("Start synthesizing ServiceNetworks/Gateways ...  \n")
 
 	if err := s.synthesizeTriggeredGateways(ctx); err != nil {
 		ret = LATTICE_RETRY
@@ -44,10 +49,8 @@ func (s *serviceNetworkSynthesizer) Synthesize(ctx context.Context) error {
 	if ret != "" {
 		return errors.New(ret)
 	} else {
-		glog.V(6).Infof("Finish synthesizing ServiceNetworks/Gateways ...  \n")
 		return nil
 	}
-
 }
 
 func (s *serviceNetworkSynthesizer) synthesizeTriggeredGateways(ctx context.Context) error {
@@ -55,23 +58,24 @@ func (s *serviceNetworkSynthesizer) synthesizeTriggeredGateways(ctx context.Cont
 	var ret = "" // only tracks the last error encountered, others are in the logs
 
 	s.stack.ListResources(&serviceNetworks)
-	glog.V(6).Infof("Start synthesizing Triggered ServiceNetworks/Gateways ...%v \n", serviceNetworks)
 
 	for _, resServiceNetwork := range serviceNetworks {
+		s.log.Debugf("Start synthesizing service network %s", resServiceNetwork.Spec.Name)
 		if resServiceNetwork.Spec.IsDeleted {
 			deleteRet := s.deleteServiceNetwork(ctx, resServiceNetwork)
 			if deleteRet != "" {
 				ret = deleteRet
 			}
 		} else {
-			glog.V(6).Infof("Synthesizing Gateway: Add %v\n", resServiceNetwork.Spec.Name)
+			s.log.Debugf("Synthesizing Gateway %s", resServiceNetwork.Spec.Name)
 			serviceNetworkStatus, err := s.serviceNetworkManager.Create(ctx, resServiceNetwork)
-
 			if err != nil {
-				glog.V(6).Infof("Synthesizing Gateway failed for gateway %v error =%v\n ", resServiceNetwork.Spec.Name, err)
+				s.log.Debugf("Synthesizing Gateway failed for gateway %s due to %s",
+					resServiceNetwork.Spec.Name, err)
 				ret = LATTICE_RETRY
 			} else {
-				glog.V(6).Infof("Synthesizing Gateway succeeded for gateway %v, status %v \n", resServiceNetwork.Spec.Name, serviceNetworkStatus)
+				s.log.Debugf("Synthesizing Gateway succeeded for gateway %s, status %s",
+					resServiceNetwork.Spec.Name, serviceNetworkStatus)
 			}
 		}
 	}
@@ -84,34 +88,32 @@ func (s *serviceNetworkSynthesizer) synthesizeTriggeredGateways(ctx context.Cont
 }
 
 func (s *serviceNetworkSynthesizer) deleteServiceNetwork(ctx context.Context, resServiceNetwork *latticemodel.ServiceNetwork) string {
-	glog.V(6).Infof("Synthesizing Gateway: Del %v\n", resServiceNetwork.Spec.Name)
+	s.log.Debugf("Synthesizing Gateway deletion for service network %s", resServiceNetwork.Spec.Name)
 
 	// TODO need to check if service network is referenced by gateway in other namespace
 	gwList := &gateway_api.GatewayList{}
-	s.Client.List(ctx, gwList)
+	s.client.List(ctx, gwList)
 	snUsedByGateway := false
 	for _, gw := range gwList.Items {
 		if gw.Name == resServiceNetwork.Spec.Name &&
 			gw.Namespace != resServiceNetwork.Spec.Namespace {
-			glog.V(6).Infof("Skip deleting gw %v, namespace %v, since it is still used", gw.Name, gw.Namespace)
+			s.log.Debugf("Skip deleting gateway %s-%s, since it is still used", gw.Name, gw.Namespace)
 			snUsedByGateway = true
 			break
 		}
 	}
 
 	if snUsedByGateway {
-		glog.V(6).Infof("Skipping deleting gw: %v since it is still used by gateway(s)",
-			resServiceNetwork.Spec.Name)
-
 		return ""
 	}
 
 	err := s.serviceNetworkManager.Delete(ctx, resServiceNetwork.Spec.Name)
 	if err != nil {
-		glog.V(6).Infof("Synthesizing Gateway delete failed for gateway %v error =%v\n ", resServiceNetwork.Spec.Name, err)
+		s.log.Debugf("Synthesizing Gateway delete failed for gateway %s due to %s",
+			resServiceNetwork.Spec.Name, err)
 		return LATTICE_RETRY
 	} else {
-		glog.V(6).Infof("Synthesizing Gateway: successfully deleted gateway %v\n", resServiceNetwork.Spec.Name)
+		s.log.Debugf("Synthesizing gateway deletion for service network %s succeeded", resServiceNetwork.Spec.Name)
 	}
 
 	return ""
@@ -121,18 +123,16 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 	var ret = ""
 	sdkServiceNetworks, err := s.serviceNetworkManager.List(ctx)
 	if err != nil {
-		glog.V(2).Infof("Synthesize failed on List lattice serviceNetworkes %v\n", err)
 		return err
 	}
-	glog.V(6).Infof("SDK List: %v \n", sdkServiceNetworks)
 
 	// handling delete those gateway in lattice DB, but not in K8S DB
 	// check local K8S cache
 	gwList := &gateway_api.GatewayList{}
-	s.Client.List(context.TODO(), gwList)
+	s.client.List(context.TODO(), gwList)
 
 	for _, sdkServiceNetwork := range sdkServiceNetworks {
-		glog.V(6).Infof("Synthesizing Gateway: checking if sdkServiceNetwork %v needed to be deleted \n", sdkServiceNetwork)
+		s.log.Debugf("Checking if service network %s needs to be deleted during gateway synthesis", sdkServiceNetwork)
 
 		toBeDeleted := false
 
@@ -149,23 +149,19 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 		}
 
 		if toBeDeleted {
-
-			glog.V(2).Infof("Synthesizing Gateway: Delete stale sdkServiceNetwork %v\n", sdkServiceNetwork)
+			s.log.Debugf("Deleting stale service network %s during gateway synthesis", sdkServiceNetwork)
 			err := s.serviceNetworkManager.Delete(ctx, sdkServiceNetwork)
-
 			if err != nil {
-				glog.V(6).Infof("Need to retry synthesizing err %v", err)
+				s.log.Debugf("Need to retry synthesizing service network %s due to err %s", sdkServiceNetwork, err)
 				ret = LATTICE_RETRY
 			}
 		} else {
-			glog.V(6).Infof("Skip deleting sdkServiceNetwork %v since some gateway(s) still reference it",
+			s.log.Debugf("Skip deleting service network %s since some gateway(s) still reference it",
 				sdkServiceNetwork)
-
 		}
 
 	}
 	if ret != "" {
-		glog.V(2).Infof("Need to retry synthesizing, reg = %v", ret)
 		return errors.New(ret)
 	} else {
 		return nil
@@ -174,7 +170,6 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 
 func mapResServiceNetworkByResourceID(resServiceNetworks []*latticemodel.ServiceNetwork) map[string]*latticemodel.ServiceNetwork {
 	resServiceNetworkByID := make(map[string]*latticemodel.ServiceNetwork, len(resServiceNetworks))
-
 	for _, resServiceNetwork := range resServiceNetworks {
 		resServiceNetworkByID[resServiceNetwork.ID()] = resServiceNetwork
 	}

@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/golang/glog"
 
@@ -229,8 +230,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string
 		}
 		resp, err := vpcLatticeSess.DeleteServiceNetworkWithContext(ctx, &deleteInput)
 		if err != nil {
-			m.log.Debugf("Failed to delete service network %s due to %s", snName, resp)
-			return errors.New(LATTICE_RETRY)
+			return fmt.Errorf("%w: failed to delete service network %s due to %s", RetryErr, snName, resp)
 		}
 
 		return err

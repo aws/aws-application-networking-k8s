@@ -14,6 +14,7 @@ import (
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func Test_SynthesizeTriggeredGateways(t *testing.T) {
@@ -150,7 +151,7 @@ func Test_SynthesizeTriggeredGateways(t *testing.T) {
 			mockMeshManager.EXPECT().Create(ctx, mesh).Return(meshStatus, tt.meshManagerErr)
 		}
 
-		meshMeshSynthesizer := NewServiceNetworkSynthesizer(mock_client, mockMeshManager, stack)
+		meshMeshSynthesizer := NewServiceNetworkSynthesizer(gwlog.FallbackLogger, mock_client, mockMeshManager, stack)
 		err := meshMeshSynthesizer.synthesizeTriggeredGateways(ctx)
 		assert.Equal(t, tt.wantSynthesizerErr, err)
 	}
@@ -253,7 +254,7 @@ func Test_SythesizeSDKMeshs(t *testing.T) {
 		}
 
 		mockMeshManager.EXPECT().List(ctx).Return(sdkMeshsReturned, nil)
-		meshMeshSynthesizer := NewServiceNetworkSynthesizer(mock_client, mockMeshManager, nil)
+		meshMeshSynthesizer := NewServiceNetworkSynthesizer(gwlog.FallbackLogger, mock_client, mockMeshManager, nil)
 		err := meshMeshSynthesizer.synthesizeSDKServiceNetworks(ctx)
 		assert.Equal(t, tt.wantSynthesizerErr, err)
 	}
