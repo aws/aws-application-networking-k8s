@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/golang/glog"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"fmt"
@@ -17,6 +15,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type TargetGroupManager interface {
@@ -27,11 +26,13 @@ type TargetGroupManager interface {
 }
 
 type defaultTargetGroupManager struct {
+	log   gwlog.Logger
 	cloud lattice_aws.Cloud
 }
 
-func NewTargetGroupManager(cloud lattice_aws.Cloud) *defaultTargetGroupManager {
+func NewTargetGroupManager(log gwlog.Logger, cloud lattice_aws.Cloud) *defaultTargetGroupManager {
 	return &defaultTargetGroupManager{
+		log:   log,
 		cloud: cloud,
 	}
 }
@@ -67,9 +68,11 @@ func getLatticeTGName(targetGroup *latticemodel.TargetGroup) string {
 // return nil when:
 //
 //	TG is TargetGroupStatusActive
-func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error) {
-
-	glog.V(6).Infof("Create Target Group API call for name %s \n", targetGroup.Spec.Name)
+func (s *defaultTargetGroupManager) Create(
+	ctx context.Context,
+	targetGroup *latticemodel.TargetGroup,
+) (latticemodel.TargetGroupStatus, error) {
+	s.log.Debugf("Creating VPC Lattice Target Group %s", targetGroup.Spec.Name)
 
 	latticeTGName := getLatticeTGName(targetGroup)
 	// check if exists
@@ -86,9 +89,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 		return s.update(ctx, targetGroup, tgSummary)
 	}
 
-	glog.V(6).Infof("create targetgroup API here %v\n", targetGroup)
 	port := int64(targetGroup.Spec.Config.Port)
-
 	ipAddressType := &targetGroup.Spec.Config.IpAddressType
 
 	// if IpAddressTypeIpv4 is not set, then default to nil
@@ -126,10 +127,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 	}
 
 	resp, err := vpcLatticeSess.CreateTargetGroupWithContext(ctx, &createTargetGroupInput)
-	glog.V(2).Infof("create target group >>>> req [%v], resp[%v] err[%v]\n", createTargetGroupInput, resp, err)
-
 	if err != nil {
-		glog.V(6).Infof("fail to create target group %v \n", err)
 		return latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""}, err
 	} else {
 		tgArn := aws.StringValue(resp.Arn)
@@ -152,7 +150,7 @@ func (s *defaultTargetGroupManager) Create(ctx context.Context, targetGroup *lat
 }
 
 func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *latticemodel.TargetGroup) (latticemodel.TargetGroupStatus, error) {
-	glog.V(6).Infof("Create Lattice Target Group API call for name %s \n", targetGroup.Spec.Name)
+	s.log.Debugf("Getting VPC Lattice Target Group %s", targetGroup.Spec.Name)
 
 	// check if exists
 	tgSummary, err := s.findTargetGroup(ctx, targetGroup)
@@ -167,22 +165,18 @@ func (s *defaultTargetGroupManager) Get(ctx context.Context, targetGroup *lattic
 }
 
 func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *latticemodel.TargetGroup, tgSummary *vpclattice.TargetGroupSummary) (latticemodel.TargetGroupStatus, error) {
-	glog.V(6).Info("Target Group already existed. Updating instead")
+	s.log.Debugf("Updating VPC Lattice Target Group %s", targetGroup.Spec.Name)
 
 	vpcLatticeSess := s.cloud.Lattice()
-
 	healthCheckConfig := targetGroup.Spec.Config.HealthCheckConfig
-
 	targetGroupStatus := latticemodel.TargetGroupStatus{
 		TargetGroupARN: aws.StringValue(tgSummary.Arn),
 		TargetGroupID:  aws.StringValue(tgSummary.Id),
 	}
 
 	if healthCheckConfig == nil {
-		glog.V(6).Info("healthCheck is empty. Resetting to default settings")
-
+		s.log.Debugf("HealthCheck is empty. Resetting to default settings")
 		targetGroupProtocolVersion := targetGroup.Spec.Config.ProtocolVersion
-
 		healthCheckConfig = s.getDefaultHealthCheckConfig(targetGroupProtocolVersion)
 	}
 
@@ -199,10 +193,10 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *lat
 }
 
 func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *latticemodel.TargetGroup) error {
-	glog.V(6).Infof("Manager: Deleting target group %v \n", targetGroup)
+	s.log.Debugf("Deleting VPC Lattice Target Group %s", targetGroup.Spec.Name)
 
 	if targetGroup.Spec.LatticeID == "" {
-		glog.V(6).Info("TargetGroupManager: Delete API ignored for empty LatticeID\n")
+		s.log.Debugf("No ID found for target group, ignoring.")
 		return nil
 	}
 
@@ -211,14 +205,13 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 	listTargetsInput := vpclattice.ListTargetsInput{
 		TargetGroupIdentifier: &targetGroup.Spec.LatticeID,
 	}
-	glog.V(6).Infof("TG manager list, listReq %v\n", listTargetsInput)
+
 	listResp, err := vpcLatticeSess.ListTargetsAsList(ctx, &listTargetsInput)
-	glog.V(6).Infof("TG manager delete,  listResp %v, err: %v \n", listResp, err)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == vpclattice.ErrCodeResourceNotFoundException {
 				// already deleted in lattice, this is OK
-				glog.V(6).Infof("Target group already deleted %v \n", targetGroup.Spec.LatticeID)
+				s.log.Debugf("Target group %s was already deleted", targetGroup.Spec.LatticeID)
 				err = nil
 			}
 		}
@@ -231,7 +224,8 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 		var targets []*vpclattice.Target
 		for _, t := range listResp {
 			if t.Status != nil && *t.Status != vpclattice.TargetStatusUnused {
-				glog.V(6).Infof("TargetGroupManager: The targetGroup [%v] has non-Unused status target(s), which means this targetGroup is still in use by latticeService, it cannot be deleted now\n", targetGroup.Spec.LatticeID)
+				s.log.Debugf("Target Group %s has non-unused status target(s), which means this targetGroup"+
+					" is still in use by a VPC Lattice Service, so it cannot be deleted now", targetGroup.Spec.LatticeID)
 				// Before call the defaultTargetGroupManager.Delete(), we always call the latticeServiceManager.Delete() first,
 				//  *t.Status != vpclattice.TargetStatusUnused means previous delete latticeService still in the progress, we could wait for 20 seconds and then retry
 				return errors.New(LATTICE_RETRY)
@@ -242,23 +236,21 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 			})
 		}
 
-		iftargetsRegistered := len(targets) > 0
-		if iftargetsRegistered {
-
+		targetsAreRegistered := len(targets) > 0
+		if targetsAreRegistered {
 			deRegisterInput := vpclattice.DeregisterTargetsInput{
 				TargetGroupIdentifier: &targetGroup.Spec.LatticeID,
 				Targets:               targets,
 			}
-			glog.V(6).Infof("TG manager deregister: Input : %v\n", deRegisterInput)
+
 			deRegResp, err := vpcLatticeSess.DeregisterTargetsWithContext(ctx, &deRegisterInput)
-			glog.V(6).Infof("manager deregister resp %v err %v \n", deRegResp, err)
 			if err != nil {
 				return err
 			}
 
 			isDeRegRespUnsuccessful := len(deRegResp.Unsuccessful) > 0
 			if isDeRegRespUnsuccessful {
-				glog.V(6).Infof("Targets deregister unsuccessfully, will retry later \n")
+				s.log.Debugf("Target deregistration was unsuccessful, will retry later")
 				return errors.New(LATTICE_RETRY)
 			}
 		}
@@ -267,20 +259,15 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, targetGroup *lat
 	deleteTGInput := vpclattice.DeleteTargetGroupInput{
 		TargetGroupIdentifier: &targetGroup.Spec.LatticeID,
 	}
-	delResp, err := vpcLatticeSess.DeleteTargetGroupWithContext(ctx, &deleteTGInput)
+	_, err = vpcLatticeSess.DeleteTargetGroupWithContext(ctx, &deleteTGInput)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case vpclattice.ErrCodeResourceNotFoundException:
-				glog.V(6).Infof("Target group already deleted %v \n", targetGroup.Spec.LatticeID)
+			if aerr.Code() == vpclattice.ErrCodeResourceNotFoundException {
+				s.log.Debugf("Target group %s was already deleted", targetGroup.Spec.LatticeID)
 				err = nil
-				break
-			default:
-				glog.V(6).Infof("vpcLatticeSess.DeleteTargetGroupWithContext() return error %v \n", err)
 			}
 		}
 	}
-	glog.V(2).Infof("TGManager delTGInput >>>> %v delTGResp :%v, err %v \n", deleteTGInput, delResp, err)
 
 	return err
 }
@@ -295,9 +282,8 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 	var tgList []targetGroupOutput
 	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
 	resp, err := vpcLatticeSess.ListTargetGroupsAsList(ctx, &targetGroupListInput)
-	glog.V(6).Infof("ManagerList: %v, err: %v \n", resp, err)
 	if err != nil {
-		return tgList, err
+		return nil, err
 	}
 
 	for _, tg := range resp {
@@ -306,12 +292,9 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 		}
 
 		tgOutput, err := vpcLatticeSess.GetTargetGroupWithContext(ctx, &tgInput)
-		//glog.V(6).Infof("MangerTG: tgOUtput %v err %v \n", tgOutput, err)
 		if err != nil {
 			continue
 		}
-
-		//glog.V(6).Infof("Manager-List: tg-vpc %v , config.vpc %v\n", aws.StringValue(tgOutput.Config.VpcId), config.VpcID)
 
 		if tgOutput.Config != nil && aws.StringValue(tgOutput.Config.VpcIdentifier) == config.VpcID {
 			// retrieve target group tags
@@ -321,10 +304,8 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]targetGroupOutp
 			}
 
 			tagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, &tagsInput)
-
-			glog.V(6).Infof("tagsOutput %v,  err: %v", tagsOutput, err)
-
 			if err != nil {
+				s.log.Debugf("Error listing tags for target group %s: %s", *tg.Arn, err)
 				// setting it to nil, so the caller knows there is tag resource associated to this target group
 				tagsOutput = nil
 			}
@@ -377,36 +358,36 @@ func isNameOfTargetGroup(targetGroup *latticemodel.TargetGroup, name string) boo
 	}
 }
 
-func (s *defaultTargetGroupManager) findTargetGroup(ctx context.Context, targetGroup *latticemodel.TargetGroup) (*vpclattice.TargetGroupSummary, error) {
-
+func (s *defaultTargetGroupManager) findTargetGroup(
+	ctx context.Context,
+	targetGroup *latticemodel.TargetGroup,
+) (*vpclattice.TargetGroupSummary, error) {
 	vpcLatticeSess := s.cloud.Lattice()
 	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
 	resp, err := vpcLatticeSess.ListTargetGroupsAsList(ctx, &targetGroupListInput)
-
-	if err == nil {
-		glog.V(6).Infof("findTargetGroup: resp %v \n", resp)
-		for _, r := range resp {
-			if isNameOfTargetGroup(targetGroup, *r.Name) {
-				glog.V(6).Info("targetgroup ", *r.Name, " already exists with arn ", *r.Arn, "\n")
-				status := aws.StringValue(r.Status)
-				switch status {
-				case vpclattice.TargetGroupStatusCreateInProgress:
-					return nil, errors.New(LATTICE_RETRY)
-				case vpclattice.TargetGroupStatusActive:
-					return r, nil
-				case vpclattice.TargetGroupStatusCreateFailed:
-					return nil, nil
-				case vpclattice.TargetGroupStatusDeleteFailed:
-					return r, nil
-				case vpclattice.TargetGroupStatusDeleteInProgress:
-					return nil, errors.New(LATTICE_RETRY)
-				}
-			}
-		}
-	} else {
-		glog.V(6).Infof("findTargetGroup, listTargetGroupsAsList failed err %v\n", err)
+	if err != nil {
 		return nil, err
 	}
+
+	for _, r := range resp {
+		if isNameOfTargetGroup(targetGroup, *r.Name) {
+			s.log.Debugf("Target group %s already exists with arn %s", *r.Name, *r.Arn)
+			status := aws.StringValue(r.Status)
+			switch status {
+			case vpclattice.TargetGroupStatusCreateInProgress:
+				return nil, errors.New(LATTICE_RETRY)
+			case vpclattice.TargetGroupStatusActive:
+				return r, nil
+			case vpclattice.TargetGroupStatusCreateFailed:
+				return nil, nil
+			case vpclattice.TargetGroupStatusDeleteFailed:
+				return r, nil
+			case vpclattice.TargetGroupStatusDeleteInProgress:
+				return nil, errors.New(LATTICE_RETRY)
+			}
+		}
+	}
+
 	return nil, nil
 }
 
@@ -420,7 +401,6 @@ func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProto
 	}
 
 	defaultPath := "/"
-
 	defaultProtocol := vpclattice.TargetGroupProtocolHttp
 
 	if targetGroupProtocolVersion == "" {
@@ -428,7 +408,6 @@ func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProto
 	}
 
 	enabled := targetGroupProtocolVersion == vpclattice.TargetGroupProtocolVersionHttp1
-
 	healthCheckProtocolVersion := targetGroupProtocolVersion
 
 	if targetGroupProtocolVersion == vpclattice.TargetGroupProtocolVersionGrpc {
@@ -436,18 +415,12 @@ func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProto
 	}
 
 	return &vpclattice.HealthCheckConfig{
-		Enabled: &enabled,
-
-		Protocol:        &defaultProtocol,
-		ProtocolVersion: &healthCheckProtocolVersion,
-
-		Path:    &defaultPath,
-		Matcher: &defaultMatcher,
-
-		// Set to nil to use the port of the targets
-		Port: nil,
-
-		// Set to 0 to reset to default value
+		Enabled:                    &enabled,
+		Protocol:                   &defaultProtocol,
+		ProtocolVersion:            &healthCheckProtocolVersion,
+		Path:                       &defaultPath,
+		Matcher:                    &defaultMatcher,
+		Port:                       nil, // Use target port
 		HealthCheckIntervalSeconds: &intResetValue,
 		HealthyThresholdCount:      &intResetValue,
 		UnhealthyThresholdCount:    &intResetValue,

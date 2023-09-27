@@ -39,11 +39,11 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 		Name:      service.Spec.Name + "-dns",
 	}
 	if service.Spec.CustomerDomainName == "" {
-		s.log.Debugf("Skipping creation of %s: detected no custom domain", namespacedName.String())
+		s.log.Debugf("Skipping creation of %s: detected no custom domain", namespacedName)
 		return nil
 	}
 	if service.Status == nil || service.Status.Dns == "" {
-		s.log.Debugf("Skipping creation of %s: DNS target not ready in svc status", namespacedName.String())
+		s.log.Debugf("Skipping creation of %s: DNS target not ready in svc status", namespacedName)
 		return nil
 	}
 
