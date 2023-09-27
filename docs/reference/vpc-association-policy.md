@@ -42,12 +42,12 @@ To remove security groups, instead, you should delete VPC Association and then c
 Be cautious to set AssociateWithVpc to false. That can break traffic from the current cluster workloads to the gateway.
 
 
-| Field	                                                                                                              | Description	                                          |
-|---------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
-| `apiVersion` *string*	                                                                                              | ``application-networking.k8s.aws/v1alpha1`` 	         |
-| `kind` *string*	                                                                                                    | ``VpcAssociationPolicy``	                             |
-| `metadata` [*ObjectMeta*](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#objectmeta-v1-meta)	 | Kubernetes metadata for the resource.                 |
-| `spec` *VpcAssociationPolicySpec*	                                                                                  | Defines the desired state of VpcAssociationPolicy.	   |
+| Field	                                                                                                                      | Description	                                        |
+|-----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| `apiVersion` *string*	                                                                                                      | ``application-networking.k8s.aws/v1alpha1`` 	       |
+| `kind` *string*	                                                                                                            | ``VpcAssociationPolicy``                            |
+| `metadata` [*ObjectMeta*](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#objectmeta-v1-meta)        	 | Kubernetes metadata for the resource.               |
+| `spec` *VpcAssociationPolicySpec*	                                                                                          | Defines the desired state of VpcAssociationPolicy.	 |
 
 
 ## VpcAssociationPolicySpec
