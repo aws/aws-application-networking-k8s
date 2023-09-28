@@ -1,14 +1,13 @@
 package latticestore
 
 import (
-	"github.com/golang/glog"
-
 	"encoding/json"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/retry"
 )
 
@@ -27,13 +26,12 @@ type LoggingHandler struct {
 }
 
 func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	glog.V(6).Infof("Handling http request: %s, from: %s, URI: %s\n", r.Method, r.RemoteAddr, r.RequestURI)
+	gwlog.FallbackLogger.Debugf("Handling http request: %s, from: %s, URI: %s\n", r.Method, r.RemoteAddr, r.RequestURI)
 	lh.h.ServeHTTP(w, r)
 }
 
 func (c *LatticeDataStore) ServeIntrospection() {
-
-	glog.V(6).Infof("Starting LatticeDataStore serve Introspection\n")
+	gwlog.FallbackLogger.Debugf("Starting LatticeDataStore serve Introspection\n")
 
 	server := c.setupIntrospectionServer()
 	for {
@@ -70,11 +68,11 @@ func (c *LatticeDataStore) setupIntrospectionServer() *http.Server {
 	availableCommandResponse, err := json.Marshal(&availableCommands)
 
 	if err != nil {
-		glog.V(6).Infof("Failed to marshal: %v\n", err)
+		gwlog.FallbackLogger.Debugf("Failed to marshal: %s", err)
 	}
 
 	defaultHandler := func(w http.ResponseWriter, r *http.Request) {
-		glog.V(6).Info(w.Write(availableCommandResponse))
+		gwlog.FallbackLogger.Debug(w.Write(availableCommandResponse))
 	}
 	serveMux := http.NewServeMux()
 	serveMux.HandleFunc("/", defaultHandler)
@@ -88,7 +86,7 @@ func (c *LatticeDataStore) setupIntrospectionServer() *http.Server {
 
 	addr := defaultIntrospectionBindAddress
 
-	glog.V(2).Infof("Serving introspection endpoints on %s\n", addr)
+	gwlog.FallbackLogger.Infof("Serving introspection endpoints on %s", addr)
 
 	server := &http.Server{
 		Addr:         addr,
@@ -101,18 +99,17 @@ func (c *LatticeDataStore) setupIntrospectionServer() *http.Server {
 
 func latticecacheHandler(c *LatticeDataStore) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		store := dumpCurrentLatticeDataStore(c)
 		//TODO
 		responseJSON, err := json.Marshal(store)
 
 		if err != nil {
-			glog.V(6).Infof("Failed to marshal latticecache %v\n", err)
+			gwlog.FallbackLogger.Errorf("Failed to marshal latticecache %s", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 
-		glog.V(6).Infof("store :%v \n", store)
-		glog.V(6).Info(w.Write(responseJSON))
+		gwlog.FallbackLogger.Debugf("store :%v", store)
+		gwlog.FallbackLogger.Debug(w.Write(responseJSON))
 	}
 }

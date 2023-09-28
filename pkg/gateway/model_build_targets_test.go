@@ -21,6 +21,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -487,6 +489,7 @@ func Test_Targets(t *testing.T) {
 			Namespace: tt.srvExportNamespace,
 		}
 		targetTask := &latticeTargetsModelBuildTask{
+			log:            gwlog.FallbackLogger,
 			client:         k8sClient,
 			tgName:         tt.srvExportName,
 			tgNamespace:    tt.srvExportNamespace,

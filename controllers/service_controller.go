@@ -65,8 +65,8 @@ func RegisterServiceController(
 	client := mgr.GetClient()
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("service")
-	modelBuild := gateway.NewTargetsBuilder(client, cloud, datastore)
-	stackDeploy := deploy.NewTargetsStackDeploy(cloud, client, datastore)
+	modelBuild := gateway.NewTargetsBuilder(log, client, cloud, datastore)
+	stackDeploy := deploy.NewTargetsStackDeploy(log, cloud, client, datastore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	sr := &serviceReconciler{
 		log:              log,

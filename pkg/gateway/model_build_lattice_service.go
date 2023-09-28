@@ -77,38 +77,34 @@ func (t *latticeServiceModelBuildTask) run(ctx context.Context) error {
 
 func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	err := t.buildLatticeService(ctx)
-
 	if err != nil {
-		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildLatticeService %w", err)
+		return fmt.Errorf("failed to build lattice service due to %w", err)
 	}
 
 	_, err = t.buildTargetGroup(ctx, t.client)
-
 	if err != nil {
-		return fmt.Errorf("latticeServiceModelBuildTask: Failed on buildTargetGroup %w", err)
+		return fmt.Errorf("failed to build target group due to %w", err)
 	}
 
 	if !t.route.DeletionTimestamp().IsZero() {
-		t.log.Infof("latticeServiceModelBuildTask: for delete ignore Targets, policy %v\n", t.route)
+		t.log.Debugf("Ignoring building lattice service on delete for route %s-%s", t.route.Name(), t.route.Namespace())
 		return nil
 	}
 
 	err = t.buildTargets(ctx)
-
 	if err != nil {
-		t.log.Infof("latticeServiceModelBuildTask: Failed on building targets, error = %v\n ", err)
+		t.log.Errorf("failed to build targets due to %s", err)
 	}
+
 	// only build listener when it is NOT delete case
 	err = t.buildListener(ctx)
-
 	if err != nil {
-		return fmt.Errorf("latticeServiceModelBuildTask: Failed on building listener %w", err)
+		return fmt.Errorf("failed to build listener due to %w", err)
 	}
 
 	err = t.buildRules(ctx)
-
 	if err != nil {
-		return fmt.Errorf("latticeServiceModelBuildTask: Failed on building rule %w", err)
+		return fmt.Errorf("failed to build rule due to %w", err)
 	}
 
 	return nil
@@ -139,10 +135,10 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		// The 1st hostname will be used as lattice customer-domain-name
 		spec.CustomerDomainName = string(t.route.Spec().Hostnames()[0])
 
-		t.log.Infof("Setting customer-domain-name: %v for route %v-%v",
+		t.log.Infof("Setting customer-domain-name: %s for route %s-%s",
 			spec.CustomerDomainName, t.route.Name(), t.route.Namespace())
 	} else {
-		t.log.Infof("No custom-domain-name for route :%v-%v",
+		t.log.Infof("No custom-domain-name for route %s-%s",
 			t.route.Name(), t.route.Namespace())
 		spec.CustomerDomainName = ""
 	}

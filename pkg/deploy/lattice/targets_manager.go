@@ -4,14 +4,13 @@ import (
 	"context"
 	"errors"
 
-	"github.com/golang/glog"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type TargetsManager interface {
@@ -19,12 +18,18 @@ type TargetsManager interface {
 }
 
 type defaultTargetsManager struct {
+	log       gwlog.Logger
 	cloud     lattice_aws.Cloud
 	datastore *latticestore.LatticeDataStore
 }
 
-func NewTargetsManager(cloud lattice_aws.Cloud, datastore *latticestore.LatticeDataStore) *defaultTargetsManager {
+func NewTargetsManager(
+	log gwlog.Logger,
+	cloud lattice_aws.Cloud,
+	datastore *latticestore.LatticeDataStore,
+) *defaultTargetsManager {
 	return &defaultTargetsManager{
+		log:       log,
 		cloud:     cloud,
 		datastore: datastore,
 	}
@@ -38,40 +43,36 @@ func NewTargetsManager(cloud lattice_aws.Cloud, datastore *latticestore.LatticeD
 //	otherwise:
 //	nil
 func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemodel.Targets) error {
-	glog.V(6).Infof("Update Lattice targets API call for %v \n", targets)
+	s.log.Debugf("Creating targets for target group %s-%s", targets.Spec.Name, targets.Spec.Namespace)
 
 	// Need to find TargetGroup ID from datastore
 	tgName := latticestore.TargetGroupName(targets.Spec.Name, targets.Spec.Namespace)
 	tg, err := s.datastore.GetTargetGroup(tgName, targets.Spec.RouteName, false) // isServiceImport=false
-
 	if err != nil {
-		glog.V(6).Infof("Failed to Create targets, service ( name %v namespace %v) not found, retry later\n", targets.Spec.Name, targets.Spec.Namespace)
+		s.log.Debugf("Failed to Create targets, service %s-%s was not found, will retry later",
+			targets.Spec.Name, targets.Spec.Namespace)
 		return errors.New(LATTICE_RETRY)
 	}
+
 	vpcLatticeSess := s.cloud.Lattice()
-	// find out sdk target list
 	listTargetsInput := vpclattice.ListTargetsInput{
 		TargetGroupIdentifier: &tg.ID,
 	}
-
 	var delTargetsList []*vpclattice.Target
 	listTargetsOutput, err := vpcLatticeSess.ListTargetsAsList(ctx, &listTargetsInput)
-	glog.V(6).Infof("TargetsManager-Create, listTargetsOutput %v, err %v \n", listTargetsOutput, err)
 	if err != nil {
-		glog.V(6).Infof("Failed to create target, tgName %v tg %v\n", tgName, tg)
 		return err
 	}
+
 	for _, sdkT := range listTargetsOutput {
 		// check if sdkT is in input target list
 		isStale := true
-
 		for _, t := range targets.Spec.TargetIPList {
 			if (aws.StringValue(sdkT.Id) == t.TargetIP) && (aws.Int64Value(sdkT.Port) == t.Port) {
 				isStale = false
 				break
 			}
 		}
-
 		if isStale {
 			delTargetsList = append(delTargetsList, &vpclattice.Target{Id: sdkT.Id, Port: sdkT.Port})
 		}
@@ -82,9 +83,12 @@ func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemode
 			TargetGroupIdentifier: &tg.ID,
 			Targets:               delTargetsList,
 		}
-		deRegisterTargetsOutput, err := vpcLatticeSess.DeregisterTargetsWithContext(ctx, &deRegisterTargetsInput)
-		glog.V(6).Infof("TargetManager-Create, deregister deleted targets input %v, output %v, err %v\n", deRegisterTargetsInput, deRegisterTargetsOutput, err)
+		_, err := vpcLatticeSess.DeregisterTargetsWithContext(ctx, &deRegisterTargetsInput)
+		if err != nil {
+			s.log.Errorf("Deregistering targets for target group %s failed due to %s", tg.ID, err)
+		}
 	}
+
 	// TODO following should be done at model level
 	var targetList []*vpclattice.Target
 	for _, target := range targets.Spec.TargetIPList {
@@ -106,21 +110,18 @@ func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemode
 		TargetGroupIdentifier: &tg.ID,
 		Targets:               targetList,
 	}
-	glog.V(6).Infof("Calling Lattice API register targets input %v \n", registerRouteInput)
 
 	resp, err := vpcLatticeSess.RegisterTargetsWithContext(ctx, &registerRouteInput)
-	glog.V(6).Infof("register pod to target group resp[%v]\n", resp)
-	glog.V(6).Infof("register pod to target group err[%v]\n", err)
 	if err != nil {
-		glog.V(6).Infof("Fail to register target err[%v]\n", err)
 		return err
 	}
 
 	isTargetRegisteredUnsuccessful := len(resp.Unsuccessful) > 0
 	if isTargetRegisteredUnsuccessful {
-		glog.V(6).Infof("Targets register unsuccessfully, will retry later\n")
+		s.log.Debugf("Failed to register targets for target group %s, will retry later", tg.ID)
 		return errors.New(LATTICE_RETRY)
 	}
-	glog.V(6).Infof("Targets register successfully\n")
+
+	s.log.Debugf("Successfully registered targets for target group %s", tg.ID)
 	return nil
 }

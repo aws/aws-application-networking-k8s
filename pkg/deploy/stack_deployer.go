@@ -96,7 +96,7 @@ func NewLatticeServiceStackDeploy(
 		k8sClient:             k8sClient,
 		latticeServiceManager: lattice.NewServiceManager(cloud, latticeDataStore),
 		targetGroupManager:    lattice.NewTargetGroupManager(log, cloud),
-		targetsManager:        lattice.NewTargetsManager(cloud, latticeDataStore),
+		targetsManager:        lattice.NewTargetsManager(log, cloud, latticeDataStore),
 		listenerManager:       lattice.NewListenerManager(log, cloud, latticeDataStore),
 		ruleManager:           lattice.NewRuleManager(log, cloud, latticeDataStore),
 		dnsEndpointManager:    externaldns.NewDnsEndpointManager(log, k8sClient),
@@ -106,7 +106,7 @@ func NewLatticeServiceStackDeploy(
 
 func (d *LatticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sClient, d.targetGroupManager, stack, d.latticeDataStore)
-	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.cloud, d.targetsManager, stack, d.latticeDataStore)
+	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.log, d.cloud, d.targetsManager, stack, d.latticeDataStore)
 	serviceSynthesizer := lattice.NewServiceSynthesizer(d.log, d.latticeServiceManager, d.dnsEndpointManager, stack, d.latticeDataStore)
 	listenerSynthesizer := lattice.NewListenerSynthesizer(d.log, d.listenerManager, stack, d.latticeDataStore)
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.log, d.ruleManager, stack, d.latticeDataStore)
@@ -177,25 +177,30 @@ func NewTargetGroupStackDeploy(
 func (d *LatticeTargetGroupStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	synthesizers := []ResourceSynthesizer{
 		lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sclient, d.targetGroupManager, stack, d.latticeDatastore),
-		lattice.NewTargetsSynthesizer(d.cloud, lattice.NewTargetsManager(d.cloud, d.latticeDatastore), stack, d.latticeDatastore),
+		lattice.NewTargetsSynthesizer(d.log, d.cloud, lattice.NewTargetsManager(d.log, d.cloud, d.latticeDatastore), stack, d.latticeDatastore),
 	}
 	return deploy(ctx, stack, synthesizers)
 }
 
 type latticeTargetsStackDeploy struct {
-	k8sclient        client.Client
+	log              gwlog.Logger
+	k8sClient        client.Client
 	stack            core.Stack
 	targetsManager   lattice.TargetsManager
 	latticeDataStore *latticestore.LatticeDataStore
 }
 
-func NewTargetsStackDeploy(cloud aws.Cloud, k8sClient client.Client, latticeDataStore *latticestore.LatticeDataStore) *latticeTargetsStackDeploy {
+func NewTargetsStackDeploy(
+	log gwlog.Logger,
+	cloud aws.Cloud,
+	k8sClient client.Client,
+	latticeDataStore *latticestore.LatticeDataStore,
+) *latticeTargetsStackDeploy {
 	return &latticeTargetsStackDeploy{
-		k8sclient:        k8sClient,
-		targetsManager:   lattice.NewTargetsManager(cloud, latticeDataStore),
+		k8sClient:        k8sClient,
+		targetsManager:   lattice.NewTargetsManager(log, cloud, latticeDataStore),
 		latticeDataStore: latticeDataStore,
 	}
-
 }
 
 func (d *latticeTargetsStackDeploy) Deploy(ctx context.Context, stack core.Stack) error {
@@ -203,7 +208,10 @@ func (d *latticeTargetsStackDeploy) Deploy(ctx context.Context, stack core.Stack
 
 	d.stack = stack
 
-	d.stack.ListResources(&resTargets)
+	err := d.stack.ListResources(&resTargets)
+	if err != nil {
+		d.log.Errorf("Failed to list targets due to %s", err)
+	}
 
 	for _, targets := range resTargets {
 		err := d.targetsManager.Create(ctx, targets)
@@ -216,11 +224,12 @@ func (d *latticeTargetsStackDeploy) Deploy(ctx context.Context, stack core.Stack
 					TargetIP:   target.TargetIP,
 					TargetPort: target.TargetPort,
 				}
-
 				targetList = append(targetList, t)
-
 			}
-			d.latticeDataStore.UpdateTargetsForTargetGroup(tgName, targets.Spec.RouteName, targetList)
+			err := d.latticeDataStore.UpdateTargetsForTargetGroup(tgName, targets.Spec.RouteName, targetList)
+			if err != nil {
+				d.log.Errorf("Failed to update targets for target group %s due to %s", tgName, err)
+			}
 		}
 
 	}

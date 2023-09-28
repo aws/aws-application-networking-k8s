@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,6 +17,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 const (
@@ -32,28 +31,36 @@ type LatticeTargetsBuilder interface {
 }
 
 type LatticeTargetsModelBuilder struct {
+	log         gwlog.Logger
 	client      client.Client
 	defaultTags map[string]string
 	datastore   *latticestore.LatticeDataStore
 	cloud       lattice_aws.Cloud
 }
 
-func NewTargetsBuilder(client client.Client, cloud lattice_aws.Cloud, datastore *latticestore.LatticeDataStore) *LatticeTargetsModelBuilder {
+func NewTargetsBuilder(
+	log gwlog.Logger,
+	client client.Client,
+	cloud lattice_aws.Cloud,
+	datastore *latticestore.LatticeDataStore,
+) *LatticeTargetsModelBuilder {
 	return &LatticeTargetsModelBuilder{
+		log:       log,
 		client:    client,
 		cloud:     cloud,
 		datastore: datastore,
 	}
 }
 
-func (b *LatticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error) {
+func (b *LatticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.Service, routeName string) (core.Stack, *latticemodel.Targets, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(service)))
 
 	task := &latticeTargetsModelBuildTask{
+		log:         b.log,
 		client:      b.client,
 		tgName:      service.Name,
 		tgNamespace: service.Namespace,
-		routeName:   routename,
+		routeName:   routeName,
 		stack:       stack,
 		datastore:   b.datastore,
 	}
@@ -67,18 +74,14 @@ func (b *LatticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.
 
 func (t *latticeTargetsModelBuildTask) run(ctx context.Context) error {
 	err := t.buildModel(ctx)
-
 	return err
 }
 
 func (t *latticeTargetsModelBuildTask) buildModel(ctx context.Context) error {
 	err := t.buildLatticeTargets(ctx)
-
 	if err != nil {
-		glog.V(6).Infof("Failed on buildLatticeTargets %s", err)
 		return err
 	}
-
 	return nil
 }
 
@@ -104,8 +107,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	}
 
 	if err := t.client.Get(ctx, namespacedName, svc); err != nil {
-		errmsg := fmt.Sprintf("Build Targets failed because K8S service %s does not exist", namespacedName)
-		return errors.New(errmsg)
+		return fmt.Errorf("Build Targets failed because K8S service %s does not exist", namespacedName)
 	}
 
 	definedPorts := make(map[int32]struct{})
@@ -114,19 +116,19 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		serviceExport := &mcs_api.ServiceExport{}
 		err = t.client.Get(ctx, namespacedName, serviceExport)
 		if err != nil {
-			glog.V(6).Infof("Failed to find Service export in the DS. Name:%s, Namespace:%s - err:%s", t.tgName, t.tgNamespace, err)
+			t.log.Errorf("Failed to find service export %s-%s in datastore due to %s", t.tgName, t.tgNamespace, err)
 		} else {
 			portsAnnotations := strings.Split(serviceExport.ObjectMeta.Annotations[portAnnotationsKey], ",")
 
 			for _, portAnnotation := range portsAnnotations {
 				definedPort, err := strconv.ParseInt(portAnnotation, 10, 32)
 				if err != nil {
-					glog.V(6).Infof("Failed to read Annotations/Port:%s, err:%s", serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+					t.log.Errorf("Failed to read Annotations/Port: %s due to %s",
+						serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
 				} else {
 					definedPorts[int32(definedPort)] = struct{}{}
 				}
 			}
-			glog.V(6).Infof("Build Targets - portAnnotations: %v", definedPorts)
 		}
 	} else if tg.ByBackendRef && t.backendRefPort != undefinedPort {
 		definedPorts[t.backendRefPort] = struct{}{}
@@ -163,17 +165,12 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 
 	if svc.DeletionTimestamp.IsZero() {
 		if err := t.client.Get(ctx, namespacedName, endpoints); err != nil {
-			errmsg := fmt.Sprintf("Build Targets failed because K8S service %s does not exist", namespacedName)
-			glog.V(6).Infof("errmsg: %s", errmsg)
-			return errors.New(errmsg)
+			return fmt.Errorf("build targets failed because K8S service %s does not exist", namespacedName)
 		}
-
-		glog.V(6).Infof("Build Targets:  endpoints %s", endpoints)
 
 		for _, endPoint := range endpoints.Subsets {
 			for _, address := range endPoint.Addresses {
 				for _, port := range endPoint.Ports {
-					glog.V(6).Infof("serviceReconcile-endpoints: address %v, port %v", address, port)
 					target := latticemodel.Target{
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
@@ -188,8 +185,6 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		}
 	}
 
-	glog.V(6).Infof("Build Targets--- targetIPList [%v]", targetList)
-
 	spec := latticemodel.TargetsSpec{
 		Name:         t.tgName,
 		Namespace:    t.tgNamespace,
@@ -203,6 +198,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 }
 
 type latticeTargetsModelBuildTask struct {
+	log            gwlog.Logger
 	client         client.Client
 	tgName         string
 	tgNamespace    string
