@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
@@ -312,36 +313,26 @@ func (r *RouteReconciler) buildAndDeployModel(
 		return nil, nil, err
 	}
 
-	stackJSON, err := r.stackMarshaller.Marshal(stack)
+	_, err = r.stackMarshaller.Marshal(stack)
 	if err != nil {
-		//TODO
-		r.log.Infof("error on r.stackMarshaller.Marshal error %s", err)
+		r.log.Errorf("error on r.stackMarshaller.Marshal error %s", err)
 	}
 
-	r.log.Info("Successfully built model:", stackJSON, "")
-
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
-		r.log.Infof("RouteReconciler: Failed deploy %s due to err %s", route.Name(), err)
-
 		if errors.As(err, &lattice.RetryErr) {
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 				k8s.RouteEventReasonRetryReconcile, "retry reconcile...")
-
 		} else {
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
-				k8s.RouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
+				k8s.RouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %s", err))
 		}
 		return nil, nil, err
 	}
-
-	r.log.Info("Successfully deployed model")
 
 	return stack, latticeService, err
 }
 
 func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core.Route) error {
-	r.log.Infof("Beginning -- reconcileRouteResource, [%v]", route)
-
 	if err := r.finalizerManager.AddFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType]); err != nil {
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning, k8s.RouteEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 	}
@@ -392,7 +383,7 @@ func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core
 }
 
 func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, route core.Route) error {
-	r.log.Infof("updateRouteStatus: route name %s, namespace %s, dns %s", route.Name(), route.Namespace(), dns)
+	r.log.Debugf("Updating route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
 	routeOld := route.DeepCopy()
 
 	if len(route.K8sObject().GetAnnotations()) == 0 {
@@ -437,7 +428,7 @@ func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, rou
 		return fmt.Errorf("failed to update route status due to err %w", err)
 	}
 
-	r.log.Infof("updateRouteStatus patched dns %v", dns)
+	r.log.Debugf("Successfully updated route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
 	return nil
 }
 

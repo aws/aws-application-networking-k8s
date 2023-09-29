@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func Test_SynthesizeTargets(t *testing.T) {
@@ -87,7 +88,7 @@ func Test_SynthesizeTargets(t *testing.T) {
 
 		mockStack := core.NewDefaultStack(core.StackID(tgNamespacedName))
 
-		targetsSynthesizer := NewTargetsSynthesizer(nil, mockTargetsManager, mockStack, ds)
+		targetsSynthesizer := NewTargetsSynthesizer(gwlog.FallbackLogger, nil, mockTargetsManager, mockStack, ds)
 
 		targetsSpec := latticemodel.TargetsSpec{
 			Name:         tt.srvExportName,

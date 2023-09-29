@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice/vpclatticeiface"
-	"github.com/golang/glog"
 )
 
 //go:generate mockgen -destination vpclattice_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Lattice
@@ -72,8 +71,6 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 	}
 
 	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint).WithMaxRetries(20))
-
-	glog.V(2).Infoln("Lattice Service EndPoint:", endpoint)
 
 	return &defaultLattice{latticeSess}
 }
@@ -196,11 +193,9 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, op
 				return false
 			}
 			if !acctIdMatches {
-				glog.V(6).Infoln("ServiceNetwork found but does not match account id", name, r.Arn, optionalAccountId)
 				continue
 			}
 
-			glog.V(6).Infoln("Found ServiceNetwork", name, r.Arn, optionalAccountId)
 			tagsInput := vpclattice.ListTagsForResourceInput{
 				ResourceArn: r.Arn,
 			}
@@ -228,7 +223,6 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, op
 		return nil, err
 	}
 	if snMatch == nil {
-		glog.V(6).Infoln("Service network for account not found ", name, optionalAccountId)
 		return nil, NewNotFoundError("Service network", name)
 	}
 
@@ -253,7 +247,6 @@ func (d *defaultLattice) FindService(ctx context.Context, nameProvider LatticeSe
 		return nil, err
 	}
 	if svcMatch == nil {
-		glog.V(6).Infoln("Service not found", serviceName)
 		return nil, NewNotFoundError("Service", serviceName)
 	}
 

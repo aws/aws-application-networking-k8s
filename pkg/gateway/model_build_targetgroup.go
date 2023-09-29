@@ -7,8 +7,6 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/golang/glog"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -110,17 +108,15 @@ func (t *targetGroupModelBuildTask) run(ctx context.Context) error {
 // for serviceexport
 func (t *targetGroupModelBuildTask) buildModel(ctx context.Context) error {
 	err := t.BuildTargetGroupForServiceExport(ctx)
-
 	if err != nil {
-		return fmt.Errorf("failed to build TargetGroup when serviceExport buildModel for name %v namespace %v, %w",
+		return fmt.Errorf("failed to build target group for service export %s-%s due to %w",
 			t.serviceExport.Name, t.serviceExport.Namespace, err)
 	}
 
 	err = t.BuildTargets(ctx)
-
 	if err != nil {
-		t.log.Infof("Failed to build Targets when serviceExport buildModel for name %v namespace %v",
-			t.serviceExport.Name, t.serviceExport.Namespace)
+		t.log.Errorf("Failed to build targets for service export %s-%s due to %w",
+			t.serviceExport.Name, t.serviceExport.Namespace, err)
 	}
 
 	return nil
@@ -129,6 +125,7 @@ func (t *targetGroupModelBuildTask) buildModel(ctx context.Context) error {
 // triggered from service exports/targetgroups
 func (t *targetGroupModelBuildTask) BuildTargets(ctx context.Context) error {
 	targetTask := &latticeTargetsModelBuildTask{
+		log:         t.log,
 		client:      t.client,
 		tgName:      t.serviceExport.Name,
 		tgNamespace: t.serviceExport.Namespace,
@@ -137,12 +134,10 @@ func (t *targetGroupModelBuildTask) BuildTargets(ctx context.Context) error {
 	}
 
 	err := targetTask.buildLatticeTargets(ctx)
-
 	if err != nil {
-		t.log.Infof("Error buildTargets for serviceExport name %v, namespace %v",
-			t.serviceExport.Name, t.serviceExport.Namespace)
 		return err
 	}
+
 	return nil
 }
 
@@ -151,7 +146,6 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 	for _, rule := range t.route.Spec().Rules() {
 		for _, backendRef := range rule.BackendRefs() {
 			if string(*backendRef.Kind()) == "ServiceImport" {
-				t.log.Infof("latticeServiceModelBuildTask: ignore service: %v", backendRef)
 				continue
 			}
 
@@ -166,6 +160,7 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 			}
 
 			targetTask := &latticeTargetsModelBuildTask{
+				log:            t.log,
 				client:         t.client,
 				tgName:         string(backendRef.Name()),
 				tgNamespace:    backendNamespace,
@@ -177,9 +172,7 @@ func (t *latticeServiceModelBuildTask) buildTargets(ctx context.Context) error {
 			}
 
 			err := targetTask.buildLatticeTargets(ctx)
-
 			if err != nil {
-				t.log.Infof("Error buildTargets for backend ref service %v", backendRef)
 				return err
 			}
 		}
@@ -196,9 +189,11 @@ func (t *targetGroupModelBuildTask) BuildTargetGroupForServiceExport(ctx context
 	} else {
 		tg, err = t.buildTargetGroupForServiceExportDeletion(ctx, tgName)
 	}
+
 	if err != nil {
 		return err
 	}
+
 	t.tgByResID[tgName] = tg
 	t.targetGroup = tg
 	return nil
@@ -220,6 +215,7 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportCreation(ctx
 	if err != nil {
 		return nil, err
 	}
+
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
 	var healthCheckConfig *vpclattice.HealthCheckConfig
@@ -232,6 +228,7 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportCreation(ctx
 		}
 		healthCheckConfig = parseHealthCheckConfig(tgp)
 	}
+
 	stackTG := latticemodel.NewTargetGroup(t.stack, targetGroupName, latticemodel.TargetGroupSpec{
 		Name: targetGroupName,
 		Type: latticemodel.TargetGroupTypeIP,
@@ -276,14 +273,15 @@ func (t *targetGroupModelBuildTask) buildTargetGroupForServiceExportDeletion(ctx
 	if err != nil {
 		return nil, fmt.Errorf("%w: targetGroupName: %s", err, targetGroupName)
 	}
-	t.log.Debugf("TargetGroup cached in datastore: %v", dsTG)
+
 	if !dsTG.ByBackendRef {
 		// When handling the serviceExport deletion request while having dsTG.ByBackendRef==false,
 		// That means this target group is not in use anymore, i.e., it is not referenced by latticeService rules(aka http/grpc route rules),
 		// so, it can be deleted. Assign the stackTG.Spec.LatticeID to make target group manager can delete it
-		t.log.Debugf("BuildingTargetGroup: TG %v is NOT in use anymore and can be deleted", stackTG)
+		t.log.Debugf("Target group %s is not in use anymore and can be deleted", stackTG.Spec.Name)
 		stackTG.Spec.LatticeID = dsTG.ID
 	}
+
 	return stackTG, nil
 }
 
@@ -293,13 +291,8 @@ func (t *latticeServiceModelBuildTask) buildTargetGroup(
 	client client.Client,
 ) (*latticemodel.TargetGroup, error) {
 	for _, rule := range t.route.Spec().Rules() {
-		t.log.Infof("buildTargetGroup: %v", rule)
-
 		for _, backendRef := range rule.BackendRefs() {
-			t.log.Infof("buildTargetGroup -- backendRef %v", backendRef)
-
 			tgName := t.buildTargetGroupName(ctx, backendRef)
-
 			tgSpec, err := t.buildTargetGroupSpec(ctx, client, backendRef)
 			if err != nil {
 				return nil, fmt.Errorf("buildTargetGroupSpec err %w", err)
@@ -330,7 +323,6 @@ func (t *latticeServiceModelBuildTask) buildTargetGroup(
 		}
 	}
 	return nil, nil
-
 }
 
 // Now, Only k8sService and serviceImport creation deletion use this function to build TargetGroupSpec, serviceExport does not use this function to create TargetGroupSpec
@@ -348,7 +340,7 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 	}
 
 	backendKind := string(*backendRef.Kind())
-	t.log.Infof("buildTargetGroupSpec, kind %s", backendKind)
+	t.log.Debugf("buildTargetGroupSpec, kind %s", backendKind)
 
 	var vpc = config.VpcID
 	var eksCluster = ""
@@ -372,12 +364,11 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 		serviceImport := &mcs_api.ServiceImport{}
 
 		if err := client.Get(context.TODO(), namespaceName, serviceImport); err == nil {
-			t.log.Infof("buildTargetGroupSpec, using service Import %v", namespaceName)
+			t.log.Debugf("Building target group spec using service import %s", namespaceName)
 			vpc = serviceImport.Annotations["multicluster.x-k8s.io/aws-vpc"]
 			eksCluster = serviceImport.Annotations["multicluster.x-k8s.io/aws-eks-cluster-name"]
-
 		} else {
-			t.log.Infof("buildTargetGroupSpec, using service Import %v, err :%v", namespaceName, err)
+			t.log.Errorf("Error building target group spec using service import %s due to %s", namespaceName, err)
 			if !isDeleted {
 				//Return error for creation request only.
 				//For ServiceImport deletion request, we should go ahead to build TargetGroupSpec model,
@@ -388,10 +379,10 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 
 	} else {
 		var namespace = t.route.Namespace()
-
 		if backendRef.Namespace() != nil {
 			namespace = string(*backendRef.Namespace())
 		}
+
 		// find out service target port
 		serviceNamespaceName := types.NamespacedName{
 			Namespace: namespace,
@@ -400,7 +391,7 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 
 		svc := &corev1.Service{}
 		if err := t.client.Get(ctx, serviceNamespaceName, svc); err != nil {
-			t.log.Infof("Error finding backend service %v error :%v", serviceNamespaceName, err)
+			t.log.Infof("Error finding backend service %s due to %s", serviceNamespaceName, err)
 			if !isDeleted {
 				//Return error for creation request only,
 				//For k8sService deletion request, we should go ahead to build TargetGroupSpec model
@@ -505,10 +496,8 @@ func parseHealthCheckConfig(tgp *v1alpha1.TargetGroupPolicy) *vpclattice.HealthC
 func buildTargetGroupIpAdressType(svc *corev1.Service) (string, error) {
 	ipFamilies := svc.Spec.IPFamilies
 
-	glog.V(6).Infof("buildTargetGroupIpAddressType ipFamilies: %v\n", ipFamilies)
-
 	if len(ipFamilies) != 1 {
-		return "", errors.New("Lattice Target Group only support single stack ip addresses")
+		return "", errors.New("Lattice Target Group only supports single stack IP addresses")
 	}
 
 	// IpFamilies will always have at least 1 element
@@ -520,6 +509,6 @@ func buildTargetGroupIpAdressType(svc *corev1.Service) (string, error) {
 	case corev1.IPv6Protocol:
 		return vpclattice.IpAddressTypeIpv6, nil
 	default:
-		return "", fmt.Errorf("unknown ipFamily: %v", ipFamily)
+		return "", fmt.Errorf("unknown ipFamily: %s", ipFamily)
 	}
 }

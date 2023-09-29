@@ -90,9 +90,6 @@ func main() {
 	var probeAddr string
 	var debug bool
 
-	// setup glog level
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&debug, "debug", false, "enable debug mode")

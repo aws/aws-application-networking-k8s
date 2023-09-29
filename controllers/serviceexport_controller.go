@@ -20,15 +20,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -129,18 +130,17 @@ func (r *ServiceExportReconciler) reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if srvExport.ObjectMeta.Annotations["multicluster.x-k8s.io/federation"] == "amazon-vpc-lattice" {
-		r.log.Infof("ServiceExportReconciler --- found matching service export --- %s\n", srvExport.Name)
+		r.log.Debugf("Found matching service export %s-%s", srvExport.Name, srvExport.Namespace)
 
 		if !srvExport.DeletionTimestamp.IsZero() {
-			r.log.Info("Deleting")
 			if err := r.cleanupServiceExportResources(ctx, srvExport); err != nil {
-				r.log.Infof("Failed to clean up service export %v, err :%v \n", srvExport, err)
 				return err
 			}
-
-			r.log.Info("Successfully delete")
-
-			r.finalizerManager.RemoveFinalizers(ctx, srvExport, serviceExportFinalizer)
+			err := r.finalizerManager.RemoveFinalizers(ctx, srvExport, serviceExportFinalizer)
+			if err != nil {
+				r.log.Errorf("Failed to remove finalizers for service export %s-%s due to %s",
+					srvExport.Name, srvExport.Namespace, err)
+			}
 			return nil
 		}
 
@@ -165,9 +165,10 @@ func (r *ServiceExportReconciler) reconcileServiceExportResources(ctx context.Co
 	return err
 }
 
-func (r *ServiceExportReconciler) buildAndDeployModel(ctx context.Context, srvExport *mcs_api.ServiceExport) (core.Stack, *latticemodel.TargetGroup, error) {
-	gwLog := log.FromContext(ctx)
-
+func (r *ServiceExportReconciler) buildAndDeployModel(
+	ctx context.Context,
+	srvExport *mcs_api.ServiceExport,
+) (core.Stack, *latticemodel.TargetGroup, error) {
 	stack, targetGroup, err := r.modelBuilder.Build(ctx, srvExport)
 
 	if err != nil {
@@ -182,22 +183,18 @@ func (r *ServiceExportReconciler) buildAndDeployModel(ctx context.Context, srvEx
 		// TODO continue deploy to trigger reconcile of stale SDK objects
 		//return stack, targetGroup, nil
 	}
-	r.log.Infof("buildAndDeployModel: stack=%v, targetgroup=%v, err = %v\n", stack, targetGroup, err)
 
-	stackJSON, err := r.stackMarshaller.Marshal(stack)
-
+	_, err = r.stackMarshaller.Marshal(stack)
 	if err != nil {
-		r.log.Infof("Error on marshalling serviceExport model for name: %v namespace: %v\n", srvExport.Name, srvExport.Namespace)
+		r.log.Errorf("Error on marshalling model for service export %s-%s", srvExport.Name, srvExport.Namespace)
 	}
-
-	gwLog.Info("Successfully built model", stackJSON, "")
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,
 			k8s.ServiceExportEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		return nil, nil, err
 	}
-	gwLog.Info("Successfully deployed model")
 
+	r.log.Debugf("Successfully deployed model for service export %s-%s", srvExport.Name, srvExport.Namespace)
 	return stack, targetGroup, err
 }
