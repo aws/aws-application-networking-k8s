@@ -230,7 +230,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
 				ds.AddTargetGroup(tgName, "vpc-123456789", "123456789", "tg-123", false, "")
 			}
-			builder := NewTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
+			builder := NewSvcExportTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 
@@ -538,7 +538,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 				}
 			}
 
-			_, err := task.buildTargetGroup(ctx, k8sClient)
+			err := task.buildTargetGroupsForRoute(ctx, k8sClient)
 
 			if !tt.wantErrIsNil {
 				assert.NotNil(t, err)
@@ -769,7 +769,7 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		}
 		k8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).Return(nil)
 
-		_, err := task.buildTargetGroup(ctx, k8sClient)
+		err := task.buildTargetGroupsForRoute(ctx, k8sClient)
 
 		fmt.Printf("err %v\n", err)
 

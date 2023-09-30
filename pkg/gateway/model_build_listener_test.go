@@ -390,15 +390,15 @@ func Test_ListenerModelBuild(t *testing.T) {
 		service := latticemodel.Service{}
 		task.latticeService = &service
 
-		err := task.buildListener(ctx)
+		err := task.buildListeners(ctx)
 
-		fmt.Printf("task.buildListener err: %v \n", err)
+		fmt.Printf("task.buildListeners err: %v \n", err)
 
 		if !tt.wantErrIsNil {
 			// TODO why following is failing????
 			//assert.Equal(t, err!=nil, true)
 			//assert.Error(t, err)
-			fmt.Printf("task.buildListener tt : %v err: %v %v\n", tt.name, err, err != nil)
+			fmt.Printf("task.buildListeners tt : %v err: %v %v\n", tt.name, err, err != nil)
 			continue
 		} else {
 			assert.NoError(t, err)
@@ -422,12 +422,6 @@ func Test_ListenerModelBuild(t *testing.T) {
 			assert.Equal(t, resListener[0].Spec.DefaultAction.BackendServiceNamespace, *ns)
 		} else {
 			assert.Equal(t, resListener[0].Spec.DefaultAction.BackendServiceNamespace, tt.route.Namespace())
-		}
-
-		if *tt.route.Spec().Rules()[0].BackendRefs()[0].Kind() == "Service" {
-			assert.Equal(t, resListener[0].Spec.DefaultAction.Is_Import, false)
-		} else {
-			assert.Equal(t, resListener[0].Spec.DefaultAction.Is_Import, true)
 		}
 
 		if tt.tlsTerminate && !tt.noTLSOption && !tt.wrongTLSOption {

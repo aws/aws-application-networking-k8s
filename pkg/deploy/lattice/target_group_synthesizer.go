@@ -9,18 +9,18 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func NewTargetGroupSynthesizer(
 	log gwlog.Logger,
-	cloud lattice_aws.Cloud,
+	cloud pkg_aws.Cloud,
 	client client.Client,
 	tgManager TargetGroupManager,
 	stack core.Stack,
@@ -38,7 +38,7 @@ func NewTargetGroupSynthesizer(
 
 type TargetGroupSynthesizer struct {
 	log                gwlog.Logger
-	cloud              lattice_aws.Cloud
+	cloud              pkg_aws.Cloud
 	client             client.Client
 	targetGroupManager TargetGroupManager
 	stack              core.Stack
@@ -75,7 +75,7 @@ func (t *TargetGroupSynthesizer) Synthesize(ctx context.Context) error {
 }
 
 func (t *TargetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Context) error {
-	var resTargetGroups []*latticemodel.TargetGroup
+	var resTargetGroups []*model.TargetGroup
 	var returnErr = false
 
 	t.stack.ListResources(&resTargetGroups)
@@ -175,7 +175,7 @@ func (t *TargetGroupSynthesizer) SynthesizeTriggeredTargetGroup(ctx context.Cont
 }
 
 func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) error {
-	var staleSDKTGs []latticemodel.TargetGroup
+	var staleSDKTGs []model.TargetGroup
 	sdkTGs, err := t.targetGroupManager.List(ctx)
 
 	if err != nil {
@@ -203,14 +203,14 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 			continue
 		}
 
-		parentRef, ok := tgTags.Tags[latticemodel.K8SParentRefTypeKey]
+		parentRef, ok := tgTags.Tags[model.K8SParentRefTypeKey]
 		if !ok || parentRef == nil {
 			t.log.Infof("Ignore target group that have no K8S parentRef tag :%v, %v",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 			continue
 		}
 
-		srvName, ok := tgTags.Tags[latticemodel.K8SServiceNameKey]
+		srvName, ok := tgTags.Tags[model.K8SServiceNameKey]
 
 		if !ok || srvName == nil {
 			t.log.Infof("Ignore TargetGroup have no servicename tag: %v, %v",
@@ -218,7 +218,7 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 			continue
 		}
 
-		srvNamespace, ok := tgTags.Tags[latticemodel.K8SServiceNamespaceKey]
+		srvNamespace, ok := tgTags.Tags[model.K8SServiceNamespaceKey]
 
 		if !ok || srvNamespace == nil {
 			t.log.Infof("Ignore TargetGroup have no servicenamespace tag: %v, %v",
@@ -228,7 +228,7 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 		// if its parentref is service export,  check the parent service export exist
 		// Ignore if service export exists
-		if *parentRef == latticemodel.K8SServiceExportType {
+		if *parentRef == model.K8SServiceExportType {
 			t.log.Infof("TargetGroup %v, %v is referenced by ServiceExport",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
@@ -239,7 +239,7 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 				Namespace: *srvNamespace,
 				Name:      *srvName,
 			}
-			srvExport := &mcs_api.ServiceExport{}
+			srvExport := &mcsv1alpha1.ServiceExport{}
 			if err := t.client.Get(ctx, srvExportName, srvExport); err == nil {
 
 				t.log.Infof("Ignore TargetGroup(triggered by serviceexport) %v, %v since serviceexport object is found",
@@ -250,11 +250,11 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 
 		// if its parentRef is a route, check that the parent route exists
 		// Ignore if route does not exist
-		if *parentRef == latticemodel.K8SHTTPRouteType {
+		if *parentRef == model.K8SHTTPRouteType {
 			t.log.Infof("TargetGroup %v, %v is referenced by a route",
 				*sdkTG.getTargetGroupOutput.Arn, *sdkTG.getTargetGroupOutput.Name)
 
-			routeNameValue, ok := tgTags.Tags[latticemodel.K8SHTTPRouteNameKey]
+			routeNameValue, ok := tgTags.Tags[model.K8SHTTPRouteNameKey]
 			tgRouteName = *routeNameValue
 
 			if !ok || routeNameValue == nil {
@@ -263,7 +263,7 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 				continue
 			}
 
-			routeNamespaceValue, ok := tgTags.Tags[latticemodel.K8SHTTPRouteNamespaceKey]
+			routeNamespaceValue, ok := tgTags.Tags[model.K8SHTTPRouteNamespaceKey]
 
 			if !ok || routeNamespaceValue == nil {
 				t.log.Infof("Ignore TargetGroup(triggered by route) %v, %v has no route namespace tag",
@@ -313,10 +313,10 @@ func (t *TargetGroupSynthesizer) SynthesizeSDKTargetGroups(ctx context.Context) 
 		t.log.Debugf("Append stale SDK TG to stale list Name %v, routename %v, ARN %v",
 			*sdkTG.getTargetGroupOutput.Name, tgRouteName, *sdkTG.getTargetGroupOutput.Id)
 
-		staleSDKTGs = append(staleSDKTGs, latticemodel.TargetGroup{
-			Spec: latticemodel.TargetGroupSpec{
+		staleSDKTGs = append(staleSDKTGs, model.TargetGroup{
+			Spec: model.TargetGroupSpec{
 				Name: *sdkTG.getTargetGroupOutput.Name,
-				Config: latticemodel.TargetGroupConfig{
+				Config: model.TargetGroupConfig{
 					K8SHTTPRouteName: tgRouteName,
 				},
 				LatticeID: *sdkTG.getTargetGroupOutput.Id,
@@ -376,7 +376,7 @@ func (t *TargetGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 }
 
 func (t *TargetGroupSynthesizer) SynthesizeTriggeredTargetGroupsCreation(ctx context.Context) error {
-	var resTargetGroups []*latticemodel.TargetGroup
+	var resTargetGroups []*model.TargetGroup
 	var returnErr = false
 	t.stack.ListResources(&resTargetGroups)
 	t.log.Infof("SynthesizeTriggeredTargetGroupsCreation TargetGroups: [%v]", resTargetGroups)
@@ -424,7 +424,7 @@ func (t *TargetGroupSynthesizer) SynthesizeTriggeredTargetGroupsCreation(ctx con
 }
 
 func (t *TargetGroupSynthesizer) SynthesizeTriggeredTargetGroupsDeletion(ctx context.Context) error {
-	var resTargetGroups []*latticemodel.TargetGroup
+	var resTargetGroups []*model.TargetGroup
 	var returnErr = false
 	t.stack.ListResources(&resTargetGroups)
 

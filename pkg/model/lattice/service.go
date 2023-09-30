@@ -7,10 +7,8 @@ import (
 
 type Service struct {
 	core.ResourceMeta `json:"-"`
-
-	Spec ServiceSpec `json:"spec"`
-
-	Status *ServiceStatus `json:"status,omitempty"`
+	Spec              ServiceSpec    `json:"spec"`
+	Status            *ServiceStatus `json:"status,omitempty"`
 }
 
 type ServiceSpec struct {

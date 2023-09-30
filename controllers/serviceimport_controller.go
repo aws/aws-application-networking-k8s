@@ -32,8 +32,7 @@ import (
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
-// ServiceImportReconciler reconciles a ServiceImport object
-type ServiceImportReconciler struct {
+type serviceImportReconciler struct {
 	log              gwlog.Logger
 	client           client.Client
 	Scheme           *runtime.Scheme
@@ -56,7 +55,7 @@ func RegisterServiceImportController(
 	scheme := mgr.GetScheme()
 	eventRecorder := mgr.GetEventRecorderFor("ServiceImport")
 
-	r := &ServiceImportReconciler{
+	r := &serviceImportReconciler{
 		log:              log,
 		client:           mgrClient,
 		Scheme:           scheme,
@@ -74,20 +73,10 @@ func RegisterServiceImportController(
 //+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceimports/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceimports/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the ServiceImport object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
-func (r *ServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *serviceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reconcileLog := log.FromContext(ctx)
 
-	// TODO(user): your logic here
-	reconcileLog.Info("ServiceImportReconciler")
+	reconcileLog.Info("serviceImportReconciler")
 
 	serviceImport := &mcs_api.ServiceImport{}
 
@@ -100,15 +89,13 @@ func (r *ServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		reconcileLog.Info("Deleting")
 		r.finalizerManager.RemoveFinalizers(ctx, serviceImport, serviceImportFinalizer)
 		return ctrl.Result{}, nil
-	}
+	} else {
+		if err := r.finalizerManager.AddFinalizers(ctx, serviceImport, serviceImportFinalizer); err != nil {
+			r.eventRecorder.Event(serviceImport, corev1.EventTypeWarning, k8s.ServiceImportEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
+			return ctrl.Result{}, nil
+		}
+		reconcileLog.Info("Adding/Updating")
 
-	// Handle add
-	if err := r.finalizerManager.AddFinalizers(ctx, serviceImport, serviceImportFinalizer); err != nil {
-		r.eventRecorder.Event(serviceImport, corev1.EventTypeWarning, k8s.ServiceImportEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return ctrl.Result{}, nil
 	}
-
-	reconcileLog.Info("Adding/Updating")
-
-	return ctrl.Result{}, nil
 }
