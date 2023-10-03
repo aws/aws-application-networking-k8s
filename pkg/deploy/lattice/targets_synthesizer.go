@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func NewTargetsSynthesizer(
 	log gwlog.Logger,
-	cloud lattice_aws.Cloud,
+	cloud pkg_aws.Cloud,
 	tgManager TargetsManager,
 	stack core.Stack,
 	latticeDataStore *latticestore.LatticeDataStore,
@@ -29,14 +29,14 @@ func NewTargetsSynthesizer(
 
 type targetsSynthesizer struct {
 	log              gwlog.Logger
-	cloud            lattice_aws.Cloud
+	cloud            pkg_aws.Cloud
 	targetsManager   TargetsManager
 	stack            core.Stack
 	latticeDataStore *latticestore.LatticeDataStore
 }
 
 func (t *targetsSynthesizer) Synthesize(ctx context.Context) error {
-	var resTargets []*latticemodel.Targets
+	var resTargets []*model.Targets
 	err := t.stack.ListResources(&resTargets)
 	if err != nil {
 		t.log.Errorf("Failed to list targets due to %s", err)
@@ -44,7 +44,7 @@ func (t *targetsSynthesizer) Synthesize(ctx context.Context) error {
 	return t.SynthesizeTargets(ctx, resTargets)
 }
 
-func (t *targetsSynthesizer) SynthesizeTargets(ctx context.Context, resTargets []*latticemodel.Targets) error {
+func (t *targetsSynthesizer) SynthesizeTargets(ctx context.Context, resTargets []*model.Targets) error {
 	for _, targets := range resTargets {
 		err := t.targetsManager.Create(ctx, targets)
 		if err != nil {

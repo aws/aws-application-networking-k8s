@@ -4,11 +4,11 @@ import (
 	"context"
 	"reflect"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
@@ -18,15 +18,15 @@ const (
 )
 
 type GRPCRoute struct {
-	r gateway_api_v1alpha2.GRPCRoute
+	r gwv1alpha2.GRPCRoute
 }
 
-func NewGRPCRoute(route gateway_api_v1alpha2.GRPCRoute) *GRPCRoute {
+func NewGRPCRoute(route gwv1alpha2.GRPCRoute) *GRPCRoute {
 	return &GRPCRoute{r: route}
 }
 
 func GetGRPCRoute(ctx context.Context, client client.Client, routeNamespacedName types.NamespacedName) (Route, error) {
-	grpcRoute := &gateway_api_v1alpha2.GRPCRoute{}
+	grpcRoute := &gwv1alpha2.GRPCRoute{}
 	err := client.Get(ctx, routeNamespacedName, grpcRoute)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func GetGRPCRoute(ctx context.Context, client client.Client, routeNamespacedName
 }
 
 func ListGRPCRoutes(context context.Context, client client.Client) ([]Route, error) {
-	routeList := &gateway_api_v1alpha2.GRPCRouteList{}
+	routeList := &gwv1alpha2.GRPCRouteList{}
 	if err := client.List(context, routeList); err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (r *GRPCRoute) Namespace() string {
 	return r.r.Namespace
 }
 
-func (r *GRPCRoute) DeletionTimestamp() *v1.Time {
+func (r *GRPCRoute) DeletionTimestamp() *metav1.Time {
 	return r.r.DeletionTimestamp
 }
 
@@ -75,19 +75,19 @@ func (r *GRPCRoute) K8sObject() client.Object {
 	return &r.r
 }
 
-func (r *GRPCRoute) Inner() *gateway_api_v1alpha2.GRPCRoute {
+func (r *GRPCRoute) Inner() *gwv1alpha2.GRPCRoute {
 	return &r.r
 }
 
 type GRPCRouteSpec struct {
-	s gateway_api_v1alpha2.GRPCRouteSpec
+	s gwv1alpha2.GRPCRouteSpec
 }
 
-func (s *GRPCRouteSpec) ParentRefs() []gateway_api_v1beta1.ParentReference {
+func (s *GRPCRouteSpec) ParentRefs() []gwv1beta1.ParentReference {
 	return s.s.ParentRefs
 }
 
-func (s *GRPCRouteSpec) Hostnames() []gateway_api_v1beta1.Hostname {
+func (s *GRPCRouteSpec) Hostnames() []gwv1beta1.Hostname {
 	return s.s.Hostnames
 }
 
@@ -128,32 +128,32 @@ func (s *GRPCRouteSpec) Equals(routeSpec RouteSpec) bool {
 }
 
 type GRPCRouteStatus struct {
-	s *gateway_api_v1alpha2.GRPCRouteStatus
+	s *gwv1alpha2.GRPCRouteStatus
 }
 
-func (s *GRPCRouteStatus) Parents() []gateway_api_v1beta1.RouteParentStatus {
+func (s *GRPCRouteStatus) Parents() []gwv1beta1.RouteParentStatus {
 	return s.s.Parents
 }
 
-func (s *GRPCRouteStatus) SetParents(parents []gateway_api_v1beta1.RouteParentStatus) {
+func (s *GRPCRouteStatus) SetParents(parents []gwv1beta1.RouteParentStatus) {
 	s.s.Parents = parents
 }
 
-func (s *GRPCRouteStatus) UpdateParentRefs(parent gateway_api_v1beta1.ParentReference, controllerName gateway_api_v1beta1.GatewayController) {
+func (s *GRPCRouteStatus) UpdateParentRefs(parent gwv1beta1.ParentReference, controllerName gwv1beta1.GatewayController) {
 	if len(s.Parents()) == 0 {
-		s.SetParents(make([]gateway_api_v1beta1.RouteParentStatus, 1))
+		s.SetParents(make([]gwv1beta1.RouteParentStatus, 1))
 	}
 
 	s.Parents()[0].ParentRef = parent
 	s.Parents()[0].ControllerName = controllerName
 }
 
-func (s *GRPCRouteStatus) UpdateRouteCondition(condition v1.Condition) {
+func (s *GRPCRouteStatus) UpdateRouteCondition(condition metav1.Condition) {
 	s.Parents()[0].Conditions = utils.GetNewConditions(s.Parents()[0].Conditions, condition)
 }
 
 type GRPCRouteRule struct {
-	r gateway_api_v1alpha2.GRPCRouteRule
+	r gwv1alpha2.GRPCRouteRule
 }
 
 func (r *GRPCRouteRule) BackendRefs() []BackendRef {
@@ -202,30 +202,30 @@ func (r *GRPCRouteRule) Equals(routeRule RouteRule) bool {
 }
 
 type GRPCBackendRef struct {
-	r gateway_api_v1alpha2.GRPCBackendRef
+	r gwv1alpha2.GRPCBackendRef
 }
 
 func (r *GRPCBackendRef) Weight() *int32 {
 	return r.r.Weight
 }
 
-func (r *GRPCBackendRef) Group() *gateway_api_v1beta1.Group {
+func (r *GRPCBackendRef) Group() *gwv1beta1.Group {
 	return r.r.Group
 }
 
-func (r *GRPCBackendRef) Kind() *gateway_api_v1beta1.Kind {
+func (r *GRPCBackendRef) Kind() *gwv1beta1.Kind {
 	return r.r.Kind
 }
 
-func (r *GRPCBackendRef) Name() gateway_api_v1beta1.ObjectName {
+func (r *GRPCBackendRef) Name() gwv1beta1.ObjectName {
 	return r.r.Name
 }
 
-func (r *GRPCBackendRef) Namespace() *gateway_api_v1beta1.Namespace {
+func (r *GRPCBackendRef) Namespace() *gwv1beta1.Namespace {
 	return r.r.Namespace
 }
 
-func (r *GRPCBackendRef) Port() *gateway_api_v1beta1.PortNumber {
+func (r *GRPCBackendRef) Port() *gwv1beta1.PortNumber {
 	return r.r.Port
 }
 
@@ -255,7 +255,7 @@ func (r *GRPCBackendRef) Equals(backendRef BackendRef) bool {
 }
 
 type GRPCRouteMatch struct {
-	m gateway_api_v1alpha2.GRPCRouteMatch
+	m gwv1alpha2.GRPCRouteMatch
 }
 
 func (m *GRPCRouteMatch) Headers() []HeaderMatch {
@@ -266,7 +266,7 @@ func (m *GRPCRouteMatch) Headers() []HeaderMatch {
 	return headerMatches
 }
 
-func (m *GRPCRouteMatch) Method() *gateway_api_v1alpha2.GRPCMethodMatch {
+func (m *GRPCRouteMatch) Method() *gwv1alpha2.GRPCMethodMatch {
 	return m.m.Method
 }
 
@@ -294,10 +294,10 @@ func (m *GRPCRouteMatch) Equals(routeMatch RouteMatch) bool {
 }
 
 type GRPCHeaderMatch struct {
-	m gateway_api_v1alpha2.GRPCHeaderMatch
+	m gwv1alpha2.GRPCHeaderMatch
 }
 
-func (m *GRPCHeaderMatch) Type() *gateway_api_v1beta1.HeaderMatchType {
+func (m *GRPCHeaderMatch) Type() *gwv1beta1.HeaderMatchType {
 	return m.m.Type
 }
 

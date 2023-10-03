@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -35,7 +35,7 @@ type serviceSynthesizer struct {
 }
 
 func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
-	var resServices []*latticemodel.Service
+	var resServices []*model.Service
 	s.stack.ListResources(&resServices)
 
 	for _, resService := range resServices {

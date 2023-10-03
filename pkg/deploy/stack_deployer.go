@@ -7,12 +7,12 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 // StackDeployer will deploy a resource stack into AWS and K8S.
@@ -27,7 +27,7 @@ type StackDeployer interface {
 // dedicated stack for serviceNetwork/service/targetgroup
 type serviceNetworkStackDeployer struct {
 	log                          gwlog.Logger
-	cloud                        aws.Cloud
+	cloud                        pkg_aws.Cloud
 	k8sClient                    client.Client
 	latticeServiceNetworkManager lattice.ServiceNetworkManager
 }
@@ -37,7 +37,7 @@ type ResourceSynthesizer interface {
 	PostSynthesize(ctx context.Context) error
 }
 
-func NewServiceNetworkStackDeployer(log gwlog.Logger, cloud aws.Cloud, k8sClient client.Client) *serviceNetworkStackDeployer {
+func NewServiceNetworkStackDeployer(log gwlog.Logger, cloud pkg_aws.Cloud, k8sClient client.Client) *serviceNetworkStackDeployer {
 	return &serviceNetworkStackDeployer{
 		log:                          log,
 		cloud:                        cloud,
@@ -73,7 +73,7 @@ func (d *serviceNetworkStackDeployer) Deploy(ctx context.Context, stack core.Sta
 
 type LatticeServiceStackDeployer struct {
 	log                   gwlog.Logger
-	cloud                 aws.Cloud
+	cloud                 pkg_aws.Cloud
 	k8sClient             client.Client
 	latticeServiceManager lattice.ServiceManager
 	targetGroupManager    lattice.TargetGroupManager
@@ -86,7 +86,7 @@ type LatticeServiceStackDeployer struct {
 
 func NewLatticeServiceStackDeploy(
 	log gwlog.Logger,
-	cloud aws.Cloud,
+	cloud pkg_aws.Cloud,
 	k8sClient client.Client,
 	latticeDataStore *latticestore.LatticeDataStore,
 ) *LatticeServiceStackDeployer {
@@ -152,7 +152,7 @@ func (d *LatticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 
 type LatticeTargetGroupStackDeployer struct {
 	log                gwlog.Logger
-	cloud              aws.Cloud
+	cloud              pkg_aws.Cloud
 	k8sclient          client.Client
 	targetGroupManager lattice.TargetGroupManager
 	latticeDatastore   *latticestore.LatticeDataStore
@@ -161,7 +161,7 @@ type LatticeTargetGroupStackDeployer struct {
 // triggered by service export
 func NewTargetGroupStackDeploy(
 	log gwlog.Logger,
-	cloud aws.Cloud,
+	cloud pkg_aws.Cloud,
 	k8sClient client.Client,
 	latticeDataStore *latticestore.LatticeDataStore,
 ) *LatticeTargetGroupStackDeployer {
@@ -182,7 +182,7 @@ func (d *LatticeTargetGroupStackDeployer) Deploy(ctx context.Context, stack core
 	return deploy(ctx, stack, synthesizers)
 }
 
-type latticeTargetsStackDeploy struct {
+type latticeTargetsStackDeployer struct {
 	log              gwlog.Logger
 	k8sClient        client.Client
 	stack            core.Stack
@@ -190,21 +190,21 @@ type latticeTargetsStackDeploy struct {
 	latticeDataStore *latticestore.LatticeDataStore
 }
 
-func NewTargetsStackDeploy(
+func NewTargetsStackDeployer(
 	log gwlog.Logger,
-	cloud aws.Cloud,
+	cloud pkg_aws.Cloud,
 	k8sClient client.Client,
 	latticeDataStore *latticestore.LatticeDataStore,
-) *latticeTargetsStackDeploy {
-	return &latticeTargetsStackDeploy{
+) *latticeTargetsStackDeployer {
+	return &latticeTargetsStackDeployer{
 		k8sClient:        k8sClient,
 		targetsManager:   lattice.NewTargetsManager(log, cloud, latticeDataStore),
 		latticeDataStore: latticeDataStore,
 	}
 }
 
-func (d *latticeTargetsStackDeploy) Deploy(ctx context.Context, stack core.Stack) error {
-	var resTargets []*latticemodel.Targets
+func (d *latticeTargetsStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
+	var resTargets []*model.Targets
 
 	d.stack = stack
 

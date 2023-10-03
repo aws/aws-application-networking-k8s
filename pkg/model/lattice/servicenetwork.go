@@ -11,12 +11,8 @@ const (
 
 type ServiceNetwork struct {
 	core.ResourceMeta `json:"-"`
-
-	// desired state of ServiceNetwork
-	Spec ServiceNetworkSpec `json:"spec"`
-
-	// observed state of ServiceNetwork
-	Status *ServiceNetworkStatus `json:"status,omitempty"`
+	Spec              ServiceNetworkSpec    `json:"spec"`
+	Status            *ServiceNetworkStatus `json:"status,omitempty"`
 }
 
 type ServiceNetworkSpec struct {

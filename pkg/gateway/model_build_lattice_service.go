@@ -12,18 +12,14 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 
-	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
-const (
-	resourceIDLatticeService = "LatticeService"
-)
-
 type LatticeServiceBuilder interface {
-	Build(ctx context.Context, httpRoute core.Route) (core.Stack, *latticemodel.Service, error)
+	Build(ctx context.Context, httpRoute core.Route) (core.Stack, *model.Service, error)
 }
 
 type LatticeServiceModelBuilder struct {
@@ -31,14 +27,14 @@ type LatticeServiceModelBuilder struct {
 	client      client.Client
 	defaultTags map[string]string
 	datastore   *latticestore.LatticeDataStore
-	cloud       lattice_aws.Cloud
+	cloud       pkg_aws.Cloud
 }
 
 func NewLatticeServiceBuilder(
 	log gwlog.Logger,
 	client client.Client,
 	datastore *latticestore.LatticeDataStore,
-	cloud lattice_aws.Cloud,
+	cloud pkg_aws.Cloud,
 ) *LatticeServiceModelBuilder {
 	return &LatticeServiceModelBuilder{
 		log:       log,
@@ -51,7 +47,7 @@ func NewLatticeServiceBuilder(
 func (b *LatticeServiceModelBuilder) Build(
 	ctx context.Context,
 	route core.Route,
-) (core.Stack, *latticemodel.Service, error) {
+) (core.Stack, *model.Service, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
 
 	task := &latticeServiceModelBuildTask{
@@ -59,7 +55,7 @@ func (b *LatticeServiceModelBuilder) Build(
 		route:     route,
 		stack:     stack,
 		client:    b.client,
-		tgByResID: make(map[string]*latticemodel.TargetGroup),
+		tgByResID: make(map[string]*model.TargetGroup),
 		datastore: b.datastore,
 	}
 
@@ -76,13 +72,11 @@ func (t *latticeServiceModelBuildTask) run(ctx context.Context) error {
 }
 
 func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
-	err := t.buildLatticeService(ctx)
-	if err != nil {
+	if err := t.buildLatticeService(ctx); err != nil {
 		return fmt.Errorf("failed to build lattice service due to %w", err)
 	}
 
-	_, err = t.buildTargetGroup(ctx, t.client)
-	if err != nil {
+	if err := t.buildTargetGroupsForRoute(ctx, t.client); err != nil {
 		return fmt.Errorf("failed to build target group due to %w", err)
 	}
 
@@ -91,19 +85,15 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 		return nil
 	}
 
-	err = t.buildTargets(ctx)
-	if err != nil {
+	if err := t.buildTargetsForRoute(ctx); err != nil {
 		t.log.Debugf("failed to build targets due to %s", err)
 	}
 
-	// only build listener when it is NOT delete case
-	err = t.buildListener(ctx)
-	if err != nil {
+	if err := t.buildListeners(ctx); err != nil {
 		return fmt.Errorf("failed to build listener due to %w", err)
 	}
 
-	err = t.buildRules(ctx)
-	if err != nil {
+	if err := t.buildRules(ctx); err != nil {
 		return fmt.Errorf("failed to build rule due to %w", err)
 	}
 
@@ -116,11 +106,10 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		routeType = core.GrpcRouteType
 	}
 
-	spec := latticemodel.ServiceSpec{
+	spec := model.ServiceSpec{
 		Name:      t.route.Name(),
 		Namespace: t.route.Namespace(),
 		RouteType: routeType,
-		//ServiceNetworkNames: string(t.route.Spec().ParentRefs()[0].Name),
 	}
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
@@ -151,7 +140,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 
 	serviceResourceName := fmt.Sprintf("%s-%s", t.route.Name(), t.route.Namespace())
 
-	t.latticeService = latticemodel.NewLatticeService(t.stack, serviceResourceName, spec)
+	t.latticeService = model.NewLatticeService(t.stack, serviceResourceName, spec)
 
 	return nil
 }
@@ -160,11 +149,11 @@ type latticeServiceModelBuildTask struct {
 	log             gwlog.Logger
 	route           core.Route
 	client          client.Client
-	latticeService  *latticemodel.Service
-	tgByResID       map[string]*latticemodel.TargetGroup
-	listenerByResID map[string]*latticemodel.Listener
-	rulesByResID    map[string]*latticemodel.Rule
+	latticeService  *model.Service
+	tgByResID       map[string]*model.TargetGroup
+	listenerByResID map[string]*model.Listener
+	rulesByResID    map[string]*model.Rule
 	stack           core.Stack
 	datastore       *latticestore.LatticeDataStore
-	cloud           lattice_aws.Cloud
+	cloud           pkg_aws.Cloud
 }

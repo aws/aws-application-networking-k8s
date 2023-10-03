@@ -15,11 +15,6 @@ type Rule struct {
 }
 
 const (
-	// K8S HTTPRouteMatch
-	MatchByPath = "HTTPRouteMatch"
-	// K8S HTTPRouteFilter
-	MatchByFilter = "HTTPRouteFilter"
-
 	MAX_NUM_OF_MATCHED_HEADERS = 5
 )
 

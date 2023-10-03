@@ -14,27 +14,27 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
-	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 type ListenerManager interface {
-	Cloud() lattice_aws.Cloud
-	Create(ctx context.Context, service *latticemodel.Listener) (latticemodel.ListenerStatus, error)
+	Cloud() pkg_aws.Cloud
+	Create(ctx context.Context, service *model.Listener) (model.ListenerStatus, error)
 	Delete(ctx context.Context, listenerID string, serviceID string) error
 	List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error)
 }
 
 type defaultListenerManager struct {
 	log              gwlog.Logger
-	cloud            lattice_aws.Cloud
+	cloud            pkg_aws.Cloud
 	latticeDataStore *latticestore.LatticeDataStore
 }
 
 func NewListenerManager(
 	log gwlog.Logger,
-	cloud lattice_aws.Cloud,
+	cloud pkg_aws.Cloud,
 	latticeDataStore *latticestore.LatticeDataStore,
 ) *defaultListenerManager {
 	return &defaultListenerManager{
@@ -44,12 +44,12 @@ func NewListenerManager(
 	}
 }
 
-func (d *defaultListenerManager) Cloud() lattice_aws.Cloud {
+func (d *defaultListenerManager) Cloud() pkg_aws.Cloud {
 	return d.cloud
 }
 
 type ListenerLSNProvider struct {
-	l *latticemodel.Listener
+	l *model.Listener
 }
 
 func (r *ListenerLSNProvider) LatticeServiceName() string {
@@ -58,8 +58,8 @@ func (r *ListenerLSNProvider) LatticeServiceName() string {
 
 func (d *defaultListenerManager) Create(
 	ctx context.Context,
-	listener *latticemodel.Listener,
-) (latticemodel.ListenerStatus, error) {
+	listener *model.Listener,
+) (model.ListenerStatus, error) {
 	listenerSpec := listener.Spec
 	d.log.Infof("Creating listener %s-%s", listenerSpec.Name, listenerSpec.Namespace)
 
@@ -68,9 +68,9 @@ func (d *defaultListenerManager) Create(
 		if services.IsNotFoundError(err1) {
 			errMsg := fmt.Sprintf("Service not found during creation of Listener %s-%s",
 				listenerSpec.Name, listenerSpec.Namespace)
-			return latticemodel.ListenerStatus{}, fmt.Errorf(errMsg)
+			return model.ListenerStatus{}, fmt.Errorf(errMsg)
 		} else {
-			return latticemodel.ListenerStatus{}, err1
+			return model.ListenerStatus{}, err1
 		}
 	}
 
@@ -78,7 +78,7 @@ func (d *defaultListenerManager) Create(
 	if err2 == nil {
 		// update Listener
 		k8sName, k8sNamespace := latticeName2k8s(aws.StringValue(lis.Name))
-		return latticemodel.ListenerStatus{
+		return model.ListenerStatus{
 			Name:        k8sName,
 			Namespace:   k8sNamespace,
 			Port:        aws.Int64Value(lis.Port),
@@ -109,10 +109,10 @@ func (d *defaultListenerManager) Create(
 
 	resp, err := d.cloud.Lattice().CreateListener(&listenerInput)
 	if err != nil {
-		return latticemodel.ListenerStatus{}, err
+		return model.ListenerStatus{}, err
 	}
 
-	return latticemodel.ListenerStatus{
+	return model.ListenerStatus{
 		Name:        listener.Spec.Name,
 		Namespace:   listener.Spec.Namespace,
 		ListenerARN: aws.StringValue(resp.Arn),

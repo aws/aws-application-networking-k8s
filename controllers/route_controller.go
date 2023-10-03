@@ -35,10 +35,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
-	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"sigs.k8s.io/external-dns/endpoint"
 
@@ -52,7 +51,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 )
 
@@ -61,8 +60,7 @@ var routeTypeToFinalizer = map[core.RouteType]string{
 	core.GrpcRouteType: "grpcroute.k8s.aws/resources",
 }
 
-// RouteReconciler reconciles a HTTPRoute and GRPCRoute objects
-type RouteReconciler struct {
+type routeReconciler struct {
 	routeType        core.RouteType
 	log              gwlog.Logger
 	client           client.Client
@@ -103,12 +101,12 @@ func RegisterAllRouteControllers(
 		routeType      core.RouteType
 		gatewayApiType client.Object
 	}{
-		{core.HttpRouteType, &gateway_api_v1beta1.HTTPRoute{}},
-		{core.GrpcRouteType, &gateway_api_v1alpha2.GRPCRoute{}},
+		{core.HttpRouteType, &gwv1beta1.HTTPRoute{}},
+		{core.GrpcRouteType, &gwv1alpha2.GRPCRoute{}},
 	}
 
 	for _, routeInfo := range routeInfos {
-		reconciler := RouteReconciler{
+		reconciler := routeReconciler{
 			routeType:        routeInfo.routeType,
 			log:              log,
 			client:           mgrClient,
@@ -126,9 +124,9 @@ func RegisterAllRouteControllers(
 
 		builder := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType).
-			Watches(&source.Kind{Type: &gateway_api_v1beta1.Gateway{}}, gwEventHandler).
+			Watches(&source.Kind{Type: &gwv1beta1.Gateway{}}, gwEventHandler).
 			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToRoute(routeInfo.routeType)).
-			Watches(&source.Kind{Type: &mcs_api.ServiceImport{}}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
+			Watches(&source.Kind{Type: &mcsv1alpha1.ServiceImport{}}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
 			Watches(&source.Kind{Type: &corev1.Endpoints{}}, svcEventHandler.MapToRoute(routeInfo.routeType))
 
 		if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
@@ -162,20 +160,11 @@ func RegisterAllRouteControllers(
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/status;httproutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/finalizers;httproutes/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Route object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
-func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *routeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
 }
 
-func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
+func (r *routeReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	r.log.Infow("reconcile", "name", req.Name)
 
 	route, err := r.getRoute(ctx, req)
@@ -192,35 +181,30 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 	}
 
 	if !route.DeletionTimestamp().IsZero() {
-		r.log.Infow("reconcile, deleting", "name", req.Name)
-		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
-			k8s.RouteEventReasonReconcile, "Deleting Reconcile")
-		if err := r.cleanupRouteResources(ctx, route); err != nil {
-			return fmt.Errorf("failed to cleanup GRPCRoute %s, %s: %w", route.Name(), route.Namespace(), err)
-		}
-		err = updateRouteListenerStatus(ctx, r.client, route)
-		if err != nil {
-			return err
-		}
-		err = r.finalizerManager.RemoveFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType])
-		if err != nil {
-			return err
-		}
-
-		// TODO delete metrics
-		r.log.Infow("reconciled", "name", req.Name)
-		return nil
+		return r.reconcileDelete(ctx, req, route)
 	} else {
-		r.log.Infow("reconcile, adding or updating", "name", req.Name)
-		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
-			k8s.RouteEventReasonReconcile, "Adding/Updating Reconcile")
-		err := r.reconcileRouteResource(ctx, route)
-		// TODO add/update metrics
-		return err
+		return r.reconcileUpsert(ctx, req, route)
 	}
 }
 
-func (r *RouteReconciler) getRoute(ctx context.Context, req ctrl.Request) (core.Route, error) {
+func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request, route core.Route) error {
+	r.log.Infow("reconcile, deleting", "name", req.Name)
+	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
+		k8s.RouteEventReasonReconcile, "Deleting Reconcile")
+
+	if err := r.cleanupRouteResources(ctx, route); err != nil {
+		return fmt.Errorf("failed to cleanup GRPCRoute %s, %s: %w", route.Name(), route.Namespace(), err)
+	}
+
+	if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
+		return err
+	}
+
+	r.log.Infow("reconciled", "name", req.Name)
+	return r.finalizerManager.RemoveFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType])
+}
+
+func (r *routeReconciler) getRoute(ctx context.Context, req ctrl.Request) (core.Route, error) {
 	switch r.routeType {
 	case core.HttpRouteType:
 		return core.GetHTTPRoute(ctx, r.client, req.NamespacedName)
@@ -232,7 +216,7 @@ func (r *RouteReconciler) getRoute(ctx context.Context, req ctrl.Request) (core.
 }
 
 func updateRouteListenerStatus(ctx context.Context, k8sClient client.Client, route core.Route) error {
-	gw := &gateway_api_v1beta1.Gateway{}
+	gw := &gwv1beta1.Gateway{}
 
 	gwNamespace := route.Namespace()
 	if route.Spec().ParentRefs()[0].Namespace != nil {
@@ -251,18 +235,18 @@ func updateRouteListenerStatus(ctx context.Context, k8sClient client.Client, rou
 	return UpdateGWListenerStatus(ctx, k8sClient, gw)
 }
 
-func (r *RouteReconciler) cleanupRouteResources(ctx context.Context, route core.Route) error {
+func (r *routeReconciler) cleanupRouteResources(ctx context.Context, route core.Route) error {
 	_, _, err := r.buildAndDeployModel(ctx, route)
 	return err
 }
 
-func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route) bool {
+func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route) bool {
 	if len(route.Spec().ParentRefs()) == 0 {
 		r.log.Infof("Ignore Route which has no ParentRefs gateway %s ", route.Name())
 		return false
 	}
 
-	gw := &gateway_api_v1beta1.Gateway{}
+	gw := &gwv1beta1.Gateway{}
 
 	gwNamespace := route.Namespace()
 	if route.Spec().ParentRefs()[0].Namespace != nil {
@@ -280,7 +264,7 @@ func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	}
 
 	// make sure gateway is an aws-vpc-lattice
-	gwClass := &gateway_api_v1beta1.GatewayClass{}
+	gwClass := &gwv1beta1.GatewayClass{}
 	gwClassName := types.NamespacedName{
 		Namespace: defaultNameSpace,
 		Name:      string(gw.Spec.GatewayClassName),
@@ -300,10 +284,10 @@ func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	return false
 }
 
-func (r *RouteReconciler) buildAndDeployModel(
+func (r *routeReconciler) buildAndDeployModel(
 	ctx context.Context,
 	route core.Route,
-) (core.Stack, *latticemodel.Service, error) {
+) (core.Stack, *model.Service, error) {
 	stack, latticeService, err := r.modelBuilder.Build(ctx, route)
 
 	if err != nil {
@@ -335,7 +319,11 @@ func (r *RouteReconciler) buildAndDeployModel(
 	return stack, latticeService, err
 }
 
-func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core.Route) error {
+func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request, route core.Route) error {
+	r.log.Infow("reconcile, adding or updating", "name", req.Name)
+	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
+		k8s.RouteEventReasonReconcile, "Adding/Updating Reconcile")
+
 	if err := r.finalizerManager.AddFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType]); err != nil {
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning, k8s.RouteEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %s", err))
 	}
@@ -348,10 +336,10 @@ func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core
 		route.Status().UpdateParentRefs(route.Spec().ParentRefs()[0], config.LatticeGatewayControllerName)
 
 		route.Status().UpdateRouteCondition(metav1.Condition{
-			Type:               string(gateway_api.RouteConditionAccepted),
+			Type:               string(gwv1beta1.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
-			Reason:             string(gateway_api.RouteReasonUnsupportedValue),
+			Reason:             string(gwv1beta1.RouteReasonUnsupportedValue),
 			Message:            fmt.Sprintf("Dual stack Service is not supported"),
 		})
 
@@ -382,10 +370,11 @@ func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core
 		return err
 	}
 
+	r.log.Infow("reconciled", "name", req.Name)
 	return nil
 }
 
-func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, route core.Route) error {
+func (r *routeReconciler) updateRouteStatus(ctx context.Context, dns string, route core.Route) error {
 	r.log.Debugf("Updating route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
 	routeOld := route.DeepCopy()
 
@@ -404,25 +393,25 @@ func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, rou
 	// Update listener Status
 	if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
 		route.Status().UpdateRouteCondition(metav1.Condition{
-			Type:               string(gateway_api_v1beta1.RouteConditionAccepted),
+			Type:               string(gwv1beta1.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
-			Reason:             string(gateway_api_v1beta1.RouteReasonNoMatchingParent),
+			Reason:             string(gwv1beta1.RouteReasonNoMatchingParent),
 			Message:            fmt.Sprintf("Could not match gateway %s: %s", route.Spec().ParentRefs()[0].Name, err),
 		})
 	} else {
 		route.Status().UpdateRouteCondition(metav1.Condition{
-			Type:               string(gateway_api_v1beta1.RouteConditionAccepted),
+			Type:               string(gwv1beta1.RouteConditionAccepted),
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
-			Reason:             string(gateway_api_v1beta1.RouteReasonAccepted),
+			Reason:             string(gwv1beta1.RouteReasonAccepted),
 			Message:            fmt.Sprintf("DNS Name: %s", dns),
 		})
 		route.Status().UpdateRouteCondition(metav1.Condition{
-			Type:               string(gateway_api_v1beta1.RouteConditionResolvedRefs),
+			Type:               string(gwv1beta1.RouteConditionResolvedRefs),
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
-			Reason:             string(gateway_api_v1beta1.RouteReasonResolvedRefs),
+			Reason:             string(gwv1beta1.RouteReasonResolvedRefs),
 			Message:            fmt.Sprintf("DNS Name: %s", dns),
 		})
 	}
@@ -435,7 +424,7 @@ func (r *RouteReconciler) updateRouteStatus(ctx context.Context, dns string, rou
 	return nil
 }
 
-func (r *RouteReconciler) validateBackendRefsIpFamilies(ctx context.Context, route core.Route) error {
+func (r *routeReconciler) validateBackendRefsIpFamilies(ctx context.Context, route core.Route) error {
 	rules := route.Spec().Rules()
 
 	for _, rule := range rules {
@@ -447,19 +436,8 @@ func (r *RouteReconciler) validateBackendRefsIpFamilies(ctx context.Context, rou
 				continue
 			}
 
-			svc := &corev1.Service{}
-
-			key := types.NamespacedName{
-				Name: string(backendRef.Name()),
-			}
-
-			if backendRef.Namespace() != nil {
-				key.Namespace = string(*backendRef.Namespace())
-			} else {
-				key.Namespace = route.Namespace()
-			}
-
-			if err := r.client.Get(ctx, key, svc); err != nil {
+			svc, err := gateway.GetServiceForBackendRef(ctx, r.client, route, backendRef)
+			if err != nil {
 				// Ignore error since Service might not be created yet
 				continue
 			}

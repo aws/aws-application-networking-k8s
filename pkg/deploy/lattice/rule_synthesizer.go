@@ -9,7 +9,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -35,7 +35,7 @@ func NewRuleSynthesizer(
 }
 
 func (r *ruleSynthesizer) Synthesize(ctx context.Context) error {
-	var resRule []*latticemodel.Rule
+	var resRule []*model.Rule
 
 	err := r.stack.ListResources(&resRule)
 	if err != nil {
@@ -92,9 +92,9 @@ func (r *ruleSynthesizer) findMatchedRule(
 	sdkRuleId string,
 	listener string,
 	service string,
-	resRule []*latticemodel.Rule,
-) (*latticemodel.Rule, error) {
-	var modelRule *latticemodel.Rule = nil
+	resRule []*model.Rule,
+) (*model.Rule, error) {
+	var modelRule *model.Rule = nil
 	sdkRuleDetail, err := r.rule.Get(ctx, service, listener, sdkRuleId)
 	if err != nil {
 		return modelRule, err
@@ -115,11 +115,11 @@ func (r *ruleSynthesizer) findMatchedRule(
 	return modelRule, fmt.Errorf("failed to find matching rule in model for rule %s", sdkRuleId)
 }
 
-func (r *ruleSynthesizer) getSDKRules(ctx context.Context) ([]*latticemodel.RuleStatus, error) {
-	var sdkRules []*latticemodel.RuleStatus
-	var resService []*latticemodel.Service
-	var resListener []*latticemodel.Listener
-	var resRule []*latticemodel.Rule
+func (r *ruleSynthesizer) getSDKRules(ctx context.Context) ([]*model.RuleStatus, error) {
+	var sdkRules []*model.RuleStatus
+	var resService []*model.Service
+	var resListener []*model.Listener
+	var resRule []*model.Rule
 
 	err := r.stack.ListResources(&resService)
 	if err != nil {
