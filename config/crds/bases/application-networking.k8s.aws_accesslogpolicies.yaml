@@ -14,7 +14,7 @@ spec:
     listKind: AccessLogPolicyList
     plural: accesslogpolicies
     shortNames:
-    - tgp
+    - alp
     singular: accesslogpolicy
   scope: Namespaced
   versions:

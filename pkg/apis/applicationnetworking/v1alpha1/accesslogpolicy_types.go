@@ -15,7 +15,7 @@ const (
 
 // +genclient
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:categories=gateway-api,shortName=tgp
+// +kubebuilder:resource:categories=gateway-api,shortName=alp
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type AccessLogPolicy struct {
@@ -40,7 +40,8 @@ type AccessLogPolicySpec struct {
 	//
 	// Changes to this value results in replacement of the VPC Lattice Access Log Subscription.
 	// +optional
-	DestinationArn *string `json:"protocol,omitempty"`
+	// +kubebuilder:validation:Pattern=`^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:([^/].*)?`
+	DestinationArn *string `json:"destinationArn,omitempty"`
 
 	// TargetRef points to the kubernetes Service or Gateway resource that will have this policy attached.
 	//
