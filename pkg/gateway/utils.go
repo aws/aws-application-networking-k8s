@@ -8,9 +8,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
@@ -51,12 +51,12 @@ func GetAttachedPolicy[T core.Policy](ctx context.Context, k8sClient client.Clie
 	return null, nil
 }
 
-func policyTypeToPolicyListAndTargetRefGroupKind(policyType core.Policy) (core.PolicyList, gateway_api.Group, gateway_api.Kind, error) {
+func policyTypeToPolicyListAndTargetRefGroupKind(policyType core.Policy) (core.PolicyList, gwv1beta1.Group, gwv1beta1.Kind, error) {
 	switch policyType.(type) {
-	case *v1alpha1.VpcAssociationPolicy:
-		return &v1alpha1.VpcAssociationPolicyList{}, gateway_api.GroupName, "Gateway", nil
-	case *v1alpha1.TargetGroupPolicy:
-		return &v1alpha1.TargetGroupPolicyList{}, corev1.GroupName, "Service", nil
+	case *anv1alpha1.VpcAssociationPolicy:
+		return &anv1alpha1.VpcAssociationPolicyList{}, gwv1beta1.GroupName, "Gateway", nil
+	case *anv1alpha1.TargetGroupPolicy:
+		return &anv1alpha1.TargetGroupPolicyList{}, corev1.GroupName, "Service", nil
 	default:
 		return nil, "", "", fmt.Errorf("unsupported policy type %T", policyType)
 	}

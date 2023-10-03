@@ -10,24 +10,23 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 const (
-	resourceIDLatticeTargets = "LatticeTargets"
-	portAnnotationsKey       = "multicluster.x-k8s.io/port"
-	undefinedPort            = int32(0)
+	portAnnotationsKey = "multicluster.x-k8s.io/port"
+	undefinedPort      = int32(0)
 )
 
 type LatticeTargetsBuilder interface {
-	Build(ctx context.Context, service *corev1.Service, routeName string) (core.Stack, *latticemodel.Targets, error)
+	Build(ctx context.Context, service *corev1.Service, routeName string) (core.Stack, *model.Targets, error)
 }
 
 type LatticeTargetsModelBuilder struct {
@@ -35,13 +34,13 @@ type LatticeTargetsModelBuilder struct {
 	client      client.Client
 	defaultTags map[string]string
 	datastore   *latticestore.LatticeDataStore
-	cloud       lattice_aws.Cloud
+	cloud       pkg_aws.Cloud
 }
 
 func NewTargetsBuilder(
 	log gwlog.Logger,
 	client client.Client,
-	cloud lattice_aws.Cloud,
+	cloud pkg_aws.Cloud,
 	datastore *latticestore.LatticeDataStore,
 ) *LatticeTargetsModelBuilder {
 	return &LatticeTargetsModelBuilder{
@@ -52,7 +51,7 @@ func NewTargetsBuilder(
 	}
 }
 
-func (b *LatticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.Service, routeName string) (core.Stack, *latticemodel.Targets, error) {
+func (b *LatticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.Service, routeName string) (core.Stack, *model.Targets, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(service)))
 
 	task := &latticeTargetsModelBuildTask{
@@ -73,16 +72,7 @@ func (b *LatticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.
 }
 
 func (t *latticeTargetsModelBuildTask) run(ctx context.Context) error {
-	err := t.buildModel(ctx)
-	return err
-}
-
-func (t *latticeTargetsModelBuildTask) buildModel(ctx context.Context) error {
-	err := t.buildLatticeTargets(ctx)
-	if err != nil {
-		return err
-	}
-	return nil
+	return t.buildLatticeTargets(ctx)
 }
 
 func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) error {
@@ -113,7 +103,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 	definedPorts := make(map[int32]struct{})
 
 	if tg.ByServiceExport {
-		serviceExport := &mcs_api.ServiceExport{}
+		serviceExport := &mcsv1alpha1.ServiceExport{}
 		err = t.client.Get(ctx, namespacedName, serviceExport)
 		if err != nil {
 			t.log.Errorf("Failed to find service export %s-%s in datastore due to %s", t.tgName, t.tgNamespace, err)
@@ -160,7 +150,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		skipMatch = true
 	}
 
-	var targetList []latticemodel.Target
+	var targetList []model.Target
 	endpoints := &corev1.Endpoints{}
 
 	if svc.DeletionTimestamp.IsZero() {
@@ -171,7 +161,7 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		for _, endPoint := range endpoints.Subsets {
 			for _, address := range endPoint.Addresses {
 				for _, port := range endPoint.Ports {
-					target := latticemodel.Target{
+					target := model.Target{
 						TargetIP: address.IP,
 						Port:     int64(port.Port),
 					}
@@ -185,14 +175,14 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 		}
 	}
 
-	spec := latticemodel.TargetsSpec{
+	spec := model.TargetsSpec{
 		Name:         t.tgName,
 		Namespace:    t.tgNamespace,
 		RouteName:    t.routeName,
 		TargetIPList: targetList,
 	}
 
-	t.latticeTargets = latticemodel.NewTargets(t.stack, tgName, spec)
+	t.latticeTargets = model.NewTargets(t.stack, tgName, spec)
 
 	return nil
 }
@@ -204,7 +194,7 @@ type latticeTargetsModelBuildTask struct {
 	tgNamespace    string
 	routeName      string
 	backendRefPort int32
-	latticeTargets *latticemodel.Targets
+	latticeTargets *model.Targets
 	stack          core.Stack
 	datastore      *latticestore.LatticeDataStore
 	route          core.Route

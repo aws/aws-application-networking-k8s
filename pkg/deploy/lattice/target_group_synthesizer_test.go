@@ -130,7 +130,7 @@ func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
 				ds.AddTargetGroup(tgName, "vpc-123456789", "123456789", "tg-123", false, "")
 			}
 
-			builder := gateway.NewTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
+			builder := gateway.NewSvcExportTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 			assert.Nil(t, err)
@@ -877,7 +877,7 @@ func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *te
 				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
 				ds.AddTargetGroup(tgName, "vpc-123456789", "arn123", "4567", false, "")
 			}
-			builder := gateway.NewTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
+			builder := gateway.NewSvcExportTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
 
 			stack, tg, err := builder.Build(ctx, tt.svcExport)
 			assert.Nil(t, err)

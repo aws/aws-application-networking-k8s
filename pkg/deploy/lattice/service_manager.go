@@ -8,15 +8,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 //go:generate mockgen -destination service_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ServiceManager
 
-type Service = latticemodel.Service
-type ServiceInfo = latticemodel.ServiceStatus
+type Service = model.Service
+type ServiceInfo = model.ServiceStatus
 type CreateSvcReq = vpclattice.CreateServiceInput
 type CreateSvcResp = vpclattice.CreateServiceOutput
 type UpdateSvcReq = vpclattice.UpdateServiceInput
@@ -31,16 +31,16 @@ type ListSnSvcAssocsReq = vpclattice.ListServiceNetworkServiceAssociationsInput
 type SnSvcAssocSummary = vpclattice.ServiceNetworkServiceAssociationSummary
 
 type ServiceManager interface {
-	Create(ctx context.Context, service *latticemodel.Service) (latticemodel.ServiceStatus, error)
-	Delete(ctx context.Context, service *latticemodel.Service) error
+	Create(ctx context.Context, service *model.Service) (model.ServiceStatus, error)
+	Delete(ctx context.Context, service *model.Service) error
 }
 
 type defaultServiceManager struct {
-	cloud     lattice_aws.Cloud
+	cloud     pkg_aws.Cloud
 	datastore *latticestore.LatticeDataStore
 }
 
-func NewServiceManager(cloud lattice_aws.Cloud, latticeDataStore *latticestore.LatticeDataStore) *defaultServiceManager {
+func NewServiceManager(cloud pkg_aws.Cloud, latticeDataStore *latticestore.LatticeDataStore) *defaultServiceManager {
 	return &defaultServiceManager{
 		cloud:     cloud,
 		datastore: latticeDataStore,

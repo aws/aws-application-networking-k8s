@@ -5,13 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	//"string"
-
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -37,7 +35,7 @@ func NewListenerSynthesizer(
 }
 
 func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
-	var resListener []*latticemodel.Listener
+	var resListener []*model.Listener
 
 	err := l.stack.ListResources(&resListener)
 	if err != nil {
@@ -85,21 +83,21 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 
 func (l *listenerSynthesizer) findMatchListener(
 	ctx context.Context,
-	sdkListener *latticemodel.ListenerStatus,
-	resListener []*latticemodel.Listener,
-) (latticemodel.Listener, error) {
+	sdkListener *model.ListenerStatus,
+	resListener []*model.Listener,
+) (model.Listener, error) {
 	for _, moduleListener := range resListener {
 		if moduleListener.Spec.Port == sdkListener.Port && moduleListener.Spec.Protocol == sdkListener.Protocol {
 			return *moduleListener, nil
 		}
 	}
-	return latticemodel.Listener{}, errors.New("failed to find matching listener in model")
+	return model.Listener{}, errors.New("failed to find matching listener in model")
 }
 
-func (l *listenerSynthesizer) getSDKListeners(ctx context.Context) ([]*latticemodel.ListenerStatus, error) {
-	var sdkListeners []*latticemodel.ListenerStatus
+func (l *listenerSynthesizer) getSDKListeners(ctx context.Context) ([]*model.ListenerStatus, error) {
+	var sdkListeners []*model.ListenerStatus
 
-	var resService []*latticemodel.Service
+	var resService []*model.Service
 
 	err := l.stack.ListResources(&resService)
 	if err != nil {
@@ -116,7 +114,7 @@ func (l *listenerSynthesizer) getSDKListeners(ctx context.Context) ([]*latticemo
 
 		listenerSummaries, err := l.listenerMgr.List(ctx, aws.StringValue(latticeService.Id))
 		for _, listenerSummary := range listenerSummaries {
-			sdkListeners = append(sdkListeners, &latticemodel.ListenerStatus{
+			sdkListeners = append(sdkListeners, &model.ListenerStatus{
 				Name:        aws.StringValue(listenerSummary.Name),
 				ListenerARN: aws.StringValue(listenerSummary.Arn),
 				ListenerID:  aws.StringValue(listenerSummary.Id),

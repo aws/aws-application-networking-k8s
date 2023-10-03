@@ -7,25 +7,25 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	lattice_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type TargetsManager interface {
-	Create(ctx context.Context, targets *latticemodel.Targets) error
+	Create(ctx context.Context, targets *model.Targets) error
 }
 
 type defaultTargetsManager struct {
 	log       gwlog.Logger
-	cloud     lattice_aws.Cloud
+	cloud     pkg_aws.Cloud
 	datastore *latticestore.LatticeDataStore
 }
 
 func NewTargetsManager(
 	log gwlog.Logger,
-	cloud lattice_aws.Cloud,
+	cloud pkg_aws.Cloud,
 	datastore *latticestore.LatticeDataStore,
 ) *defaultTargetsManager {
 	return &defaultTargetsManager{
@@ -42,7 +42,7 @@ func NewTargetsManager(
 //		nonempty unsuccessfully registered targets list
 //	otherwise:
 //	nil
-func (s *defaultTargetsManager) Create(ctx context.Context, targets *latticemodel.Targets) error {
+func (s *defaultTargetsManager) Create(ctx context.Context, targets *model.Targets) error {
 	s.log.Debugf("Creating targets for target group %s-%s", targets.Spec.Name, targets.Spec.Namespace)
 
 	// Need to find TargetGroup ID from datastore

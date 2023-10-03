@@ -28,11 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-// GatewayClassReconciler reconciles a GatewayClass object
-type GatewayClassReconciler struct {
+type gatewayClassReconciler struct {
 	log                      gwlog.Logger
 	client                   client.Client
 	scheme                   *runtime.Scheme
@@ -40,14 +39,14 @@ type GatewayClassReconciler struct {
 }
 
 func RegisterGatewayClassController(log gwlog.Logger, mgr ctrl.Manager) error {
-	r := &GatewayClassReconciler{
+	r := &gatewayClassReconciler{
 		log:                      log,
 		client:                   mgr.GetClient(),
 		scheme:                   mgr.GetScheme(),
 		latticeControllerEnabled: false,
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gateway_api.GatewayClass{}).
+		For(&gwv1beta1.GatewayClass{}).
 		Complete(r)
 }
 
@@ -55,19 +54,10 @@ func RegisterGatewayClassController(log gwlog.Logger, mgr ctrl.Manager) error {
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the GatewayClass object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
-func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.Infow("reconcile", "name", req.Name)
 
-	gwClass := &gateway_api.GatewayClass{}
+	gwClass := &gwv1beta1.GatewayClass{}
 	if err := r.client.Get(ctx, req.NamespacedName, gwClass); err != nil {
 		r.log.Debugw("gateway not found", "name", req.Name)
 		return ctrl.Result{}, nil
@@ -88,8 +78,8 @@ func (r *GatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	gwClass.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
 	gwClass.Status.Conditions[0].ObservedGeneration = gwClass.Generation
 	gwClass.Status.Conditions[0].Status = "True"
-	gwClass.Status.Conditions[0].Message = string(gateway_api.GatewayClassReasonAccepted)
-	gwClass.Status.Conditions[0].Reason = string(gateway_api.GatewayClassReasonAccepted)
+	gwClass.Status.Conditions[0].Message = string(gwv1beta1.GatewayClassReasonAccepted)
+	gwClass.Status.Conditions[0].Reason = string(gwv1beta1.GatewayClassReasonAccepted)
 
 	if err := r.client.Status().Patch(ctx, gwClass, client.MergeFrom(gwClassOld)); err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to update gatewayclass status")
