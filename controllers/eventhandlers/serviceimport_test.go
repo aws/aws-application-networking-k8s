@@ -2,7 +2,7 @@ package eventhandlers
 
 import (
 	"context"
-	mockclient "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/golang/mock/gomock"
@@ -26,7 +26,7 @@ func TestServiceImportEventHandler_MapToRoute(t *testing.T) {
 			Name:      "test-service",
 		}),
 	}
-	mockClient := mockclient.NewMockClient(c)
+	mockClient := mock_client.NewMockClient(c)
 	h := NewServiceImportEventHandler(gwlog.FallbackLogger, mockClient)
 	mockClient.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, routeList *gwv1beta1.HTTPRouteList, _ ...interface{}) error {

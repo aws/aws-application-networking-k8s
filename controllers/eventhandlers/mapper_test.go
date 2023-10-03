@@ -14,7 +14,7 @@ import (
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	mockclient "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -95,7 +95,7 @@ func TestServiceToRoutes(t *testing.T) {
 		"valid-explicit-namespace",
 	}
 
-	mockClient := mockclient.NewMockClient(c)
+	mockClient := mock_client.NewMockClient(c)
 	mockClient.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, routeList *gwv1beta1.HTTPRouteList, _ ...interface{}) error {
 			for _, route := range routes {
@@ -170,7 +170,7 @@ func TestTargetGroupPolicyToService(t *testing.T) {
 
 	for i, tt := range testCases {
 		t.Run(fmt.Sprintf("TGPolicyToService_%d", i), func(t *testing.T) {
-			mockClient := mockclient.NewMockClient(c)
+			mockClient := mock_client.NewMockClient(c)
 			mapper := &resourceMapper{log: gwlog.FallbackLogger, client: mockClient}
 			if tt.serviceFound {
 				mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -264,7 +264,7 @@ func TestVpcAssociationPolicyToGateway(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.testCaseName, func(t *testing.T) {
-			mockClient := mockclient.NewMockClient(c)
+			mockClient := mock_client.NewMockClient(c)
 			mapper := &resourceMapper{log: gwlog.FallbackLogger, client: mockClient}
 			if tt.gatewayFound {
 				mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)

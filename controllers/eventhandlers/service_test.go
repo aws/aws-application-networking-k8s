@@ -2,7 +2,7 @@ package eventhandlers
 
 import (
 	"context"
-	mockclient "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -30,7 +30,7 @@ func TestServiceEventHandler_MapToRoute(t *testing.T) {
 			Name:      "test-service",
 		}),
 	}
-	mockClient := mockclient.NewMockClient(c)
+	mockClient := mock_client.NewMockClient(c)
 	h := NewServiceEventHandler(gwlog.FallbackLogger, mockClient)
 	mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, svc client.Object, _ ...interface{}) error {
@@ -86,7 +86,7 @@ func TestServiceEventHandler_MapToServiceExport(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 
-	mockClient := mockclient.NewMockClient(c)
+	mockClient := mock_client.NewMockClient(c)
 	h := NewServiceEventHandler(gwlog.FallbackLogger, mockClient)
 	mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, svcOrSvcExport client.Object, _ ...interface{}) error {
