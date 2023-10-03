@@ -13,7 +13,7 @@ import (
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -25,16 +25,16 @@ case4: register targets Unsuccessfully
 */
 
 func Test_RegisterTargets_RegisterSuccessfully(t *testing.T) {
-	targets := latticemodel.Target{
+	targets := model.Target{
 		TargetIP: "123.456.78",
 		Port:     int64(8080),
 	}
-	targetsSpec := latticemodel.TargetsSpec{
+	targetsSpec := model.TargetsSpec{
 		Name:          "test",
 		TargetGroupID: "123456789",
-		TargetIPList:  []latticemodel.Target{targets},
+		TargetIPList:  []model.Target{targets},
 	}
-	createInput := latticemodel.Targets{
+	createInput := model.Targets{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         targetsSpec,
 	}
@@ -62,11 +62,11 @@ func Test_RegisterTargets_RegisterSuccessfully(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 
-	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(tgCreateOutput, nil)
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(tgCreateOutput, nil)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &createInput)
@@ -76,11 +76,11 @@ func Test_RegisterTargets_RegisterSuccessfully(t *testing.T) {
 
 // Target group does not exist, should return Retry
 func Test_RegisterTargets_TGNotExist(t *testing.T) {
-	targetsSpec := latticemodel.TargetsSpec{
+	targetsSpec := model.TargetsSpec{
 		Name:          "test",
 		TargetGroupID: "123456789",
 	}
-	createInput := latticemodel.Targets{
+	createInput := model.Targets{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         targetsSpec,
 	}
@@ -117,11 +117,11 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 
 	listTargetOutput := []*vpclattice.TargetSummary{targetsList}
 
-	targetsSpec := latticemodel.TargetsSpec{
+	targetsSpec := model.TargetsSpec{
 		Name:          "test",
 		Namespace:     "",
 		TargetGroupID: "123456789",
-		TargetIPList: []latticemodel.Target{
+		TargetIPList: []model.Target{
 			{
 				TargetIP: "123.456.7.891",
 				Port:     sPort,
@@ -129,7 +129,7 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 		},
 	}
 
-	planToRegister := latticemodel.Targets{
+	planToRegister := model.Targets{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         targetsSpec,
 	}
@@ -144,12 +144,12 @@ func Test_RegisterTargets_Registerfailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, errors.New("Register_Targets_Failed"))
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
+	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, errors.New("Register_Targets_Failed"))
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &planToRegister)
@@ -182,17 +182,17 @@ func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 		Targets:               []*vpclattice.Target{targetsSuccessful},
 	}
 
-	targetToRegister := latticemodel.Target{
+	targetToRegister := model.Target{
 		TargetIP: "123.456.78",
 		Port:     int64(8080),
 	}
-	targetsSpec := latticemodel.TargetsSpec{
+	targetsSpec := model.TargetsSpec{
 		Name:          "test",
 		Namespace:     "",
 		TargetGroupID: tgId,
-		TargetIPList:  []latticemodel.Target{targetToRegister},
+		TargetIPList:  []model.Target{targetToRegister},
 	}
-	planToRegister := latticemodel.Targets{
+	planToRegister := model.Targets{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         targetsSpec,
 	}
@@ -228,12 +228,12 @@ func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, deRegisterTargetsInput).Return(deRegisterTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, &registerTargetsInput).Return(registerTargetsOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
+	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, deRegisterTargetsInput).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().RegisterTargetsWithContext(ctx, &registerTargetsInput).Return(registerTargetsOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &planToRegister)
@@ -243,13 +243,13 @@ func Test_RegisterTargets_RegisterUnsuccessfully(t *testing.T) {
 }
 
 func Test_RegisterTargets_NoTargets_NoCallRegisterTargets(t *testing.T) {
-	planToRegister := latticemodel.Targets{
+	planToRegister := model.Targets{
 		ResourceMeta: core.ResourceMeta{},
-		Spec: latticemodel.TargetsSpec{
+		Spec: model.TargetsSpec{
 			Name:          "test",
 			Namespace:     "",
 			TargetGroupID: "123456789",
-			TargetIPList:  []latticemodel.Target{},
+			TargetIPList:  []model.Target{},
 		},
 	}
 
@@ -265,12 +265,12 @@ func Test_RegisterTargets_NoTargets_NoCallRegisterTargets(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetOutput, nil)
 	// Expect not to call RegisterTargets
-	mockVpcLatticeSess.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).MaxTimes(0)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).MaxTimes(0)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
 	err := targetsManager.Create(ctx, &planToRegister)

@@ -14,8 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -25,56 +25,56 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_RuleModelBuild(t *testing.T) {
-	var httpSectionName v1beta1.SectionName = "http"
-	var serviceKind v1beta1.Kind = "Service"
-	var serviceimportKind v1beta1.Kind = "ServiceImport"
+	var httpSectionName gwv1beta1.SectionName = "http"
+	var serviceKind gwv1beta1.Kind = "Service"
+	var serviceimportKind gwv1beta1.Kind = "ServiceImport"
 	var weight1 = int32(10)
 	var weight2 = int32(90)
-	var namespace = v1beta1.Namespace("testnamespace")
-	var namespace2 = v1beta1.Namespace("testnamespace2")
+	var namespace = gwv1beta1.Namespace("testnamespace")
+	var namespace2 = gwv1beta1.Namespace("testnamespace2")
 	var path1 = "/ver1"
 	var path2 = "/ver2"
 	var path3 = "/ver3"
-	var httpGet = v1beta1.HTTPMethodGet
-	var httpPost = v1beta1.HTTPMethodPost
-	var k8sPathMatchExactType = v1beta1.PathMatchExact
-	var k8sMethodMatchExactType = v1alpha2.GRPCMethodMatchExact
-	var backendRef1 = v1beta1.BackendRef{
-		BackendObjectReference: v1beta1.BackendObjectReference{
+	var httpGet = gwv1beta1.HTTPMethodGet
+	var httpPost = gwv1beta1.HTTPMethodPost
+	var k8sPathMatchExactType = gwv1beta1.PathMatchExact
+	var k8sMethodMatchExactType = gwv1alpha2.GRPCMethodMatchExact
+	var backendRef1 = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name: "targetgroup1",
 			Kind: &serviceKind,
 		},
 		Weight: &weight1,
 	}
-	var backendRef2 = v1beta1.BackendRef{
-		BackendObjectReference: v1beta1.BackendObjectReference{
+	var backendRef2 = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name: "targetgroup2",
 			Kind: &serviceimportKind,
 		},
 		Weight: &weight2,
 	}
-	var backendRef1Namespace1 = v1beta1.BackendRef{
-		BackendObjectReference: v1beta1.BackendObjectReference{
+	var backendRef1Namespace1 = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace,
 			Kind:      &serviceimportKind,
 		},
 		Weight: &weight2,
 	}
-	var backendRef1Namespace2 = v1beta1.BackendRef{
-		BackendObjectReference: v1beta1.BackendObjectReference{
+	var backendRef1Namespace2 = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace2,
 			Kind:      &serviceimportKind,
 		},
 		Weight: &weight2,
 	}
-	var backendServiceImportRef = v1beta1.BackendRef{
-		BackendObjectReference: v1beta1.BackendObjectReference{
+	var backendServiceImportRef = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name: "targetgroup1",
 			Kind: &serviceimportKind,
 		},
@@ -82,7 +82,7 @@ func Test_RuleModelBuild(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		gwListenerPort     v1beta1.PortNumber
+		gwListenerPort     gwv1beta1.PortNumber
 		route              core.Route
 		wantErrIsNil       bool
 		k8sGetGatewayCall  bool
@@ -94,23 +94,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -126,23 +126,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendServiceImportRef,
 								},
@@ -158,23 +158,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -193,48 +193,48 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 
 										Value: &path2,
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef2,
 								},
@@ -250,40 +250,40 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 									Method: &httpGet,
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 									Method: &httpPost,
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef2,
 								},
@@ -299,58 +299,58 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "non-default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Value: &path2,
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1Namespace1,
 								},
 							},
 						},
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Value: &path3,
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1Namespace2,
 								},
@@ -366,23 +366,23 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: v1alpha2.CommonRouteSpec{
-						ParentRefs: []v1alpha2.ParentReference{
+				Spec: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1alpha2.CommonRouteSpec{
+						ParentRefs: []gwv1alpha2.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.GRPCRouteRule{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{
-							BackendRefs: []v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendServiceImportRef,
 								},
@@ -398,64 +398,64 @@ func Test_RuleModelBuild(t *testing.T) {
 			wantErrIsNil:       true,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "non-default",
 				},
-				Spec: v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.GRPCRouteRule{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{
-							Matches: []v1alpha2.GRPCRouteMatch{
+							Matches: []gwv1alpha2.GRPCRouteMatch{
 								{
-									Method: &v1alpha2.GRPCMethodMatch{
+									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
 										Service: pointer.String("service"),
 										Method:  pointer.String("method1"),
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []v1alpha2.GRPCRouteMatch{
+							Matches: []gwv1alpha2.GRPCRouteMatch{
 								{
-									Method: &v1alpha2.GRPCMethodMatch{
+									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
 										Service: pointer.String("service"),
 										Method:  pointer.String("method2"),
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1Namespace1,
 								},
 							},
 						},
 						{
-							Matches: []v1alpha2.GRPCRouteMatch{
+							Matches: []gwv1alpha2.GRPCRouteMatch{
 								{
-									Method: &v1alpha2.GRPCMethodMatch{
+									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
 										Service: pointer.String("service"),
 										Method:  pointer.String("method3"),
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1Namespace2,
 								},
@@ -467,107 +467,106 @@ func Test_RuleModelBuild(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		fmt.Printf("Testing >>> %v\n", tt.name)
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
 
-		k8sClient := mock_client.NewMockClient(c)
+			mockK8sClient := mock_client.NewMockClient(c)
 
-		if tt.k8sGetGatewayCall {
+			if tt.k8sGetGatewayCall {
 
-			k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, gwName types.NamespacedName, gw *v1beta1.Gateway, arg3 ...interface{}) error {
+				mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, gwName types.NamespacedName, gw *gwv1beta1.Gateway, arg3 ...interface{}) error {
 
-					if tt.k8sGatewayReturnOK {
-						gw.Spec.Listeners = append(gw.Spec.Listeners, v1beta1.Listener{
-							Port: tt.gwListenerPort,
-							Name: *tt.route.Spec().ParentRefs()[0].SectionName,
-						})
-						return nil
-					} else {
-						return errors.New("unknown k8s object")
-					}
-				},
-			)
-		}
-
-		ds := latticestore.NewLatticeDataStore()
-
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
-
-		task := &latticeServiceModelBuildTask{
-			log:             gwlog.FallbackLogger,
-			route:           tt.route,
-			stack:           stack,
-			client:          k8sClient,
-			listenerByResID: make(map[string]*latticemodel.Listener),
-			datastore:       ds,
-		}
-
-		err := task.buildRules(ctx)
-
-		assert.NoError(t, err)
-
-		var resRules []*latticemodel.Rule
-
-		stack.ListResources(&resRules)
-
-		if len(resRules) > 0 {
-			fmt.Printf("resRules :%v \n", *resRules[0])
-		}
-
-		var i = 1
-		for _, resRule := range resRules {
-
-			fmt.Sscanf(resRule.Spec.RuleID, "rule-%d", &i)
-
-			assert.Equal(t, resRule.Spec.ListenerPort, int64(tt.gwListenerPort))
-			// Defer this to dedicate rule check			assert.Equal(t, resRule.Spec.PathMatchValue, tt.route.)
-			assert.Equal(t, resRule.Spec.ServiceName, tt.route.Name())
-			assert.Equal(t, resRule.Spec.ServiceNamespace, tt.route.Namespace())
-
-			var j = 0
-			for _, tg := range resRule.Spec.Action.TargetGroups {
-
-				assert.Equal(t, v1beta1.ObjectName(tg.Name), tt.route.Spec().Rules()[i-1].BackendRefs()[j].Name())
-				if tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace() != nil {
-					assert.Equal(t, v1beta1.Namespace(tg.Namespace), *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace())
-				} else {
-					assert.Equal(t, tg.Namespace, tt.route.Namespace())
-				}
-
-				if *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Kind() == "ServiceImport" {
-					assert.Equal(t, tg.IsServiceImport, true)
-				} else {
-					assert.Equal(t, tg.IsServiceImport, false)
-				}
-				j++
+						if tt.k8sGatewayReturnOK {
+							gw.Spec.Listeners = append(gw.Spec.Listeners, gwv1beta1.Listener{
+								Port: tt.gwListenerPort,
+								Name: *tt.route.Spec().ParentRefs()[0].SectionName,
+							})
+							return nil
+						} else {
+							return errors.New("unknown k8s object")
+						}
+					},
+				)
 			}
 
-		}
+			ds := latticestore.NewLatticeDataStore()
 
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
+
+			task := &latticeServiceModelBuildTask{
+				log:             gwlog.FallbackLogger,
+				route:           tt.route,
+				stack:           stack,
+				client:          mockK8sClient,
+				listenerByResID: make(map[string]*model.Listener),
+				datastore:       ds,
+			}
+
+			err := task.buildRules(ctx)
+
+			assert.NoError(t, err)
+
+			var resRules []*model.Rule
+
+			stack.ListResources(&resRules)
+
+			if len(resRules) > 0 {
+				fmt.Printf("resRules :%v \n", *resRules[0])
+			}
+
+			var i = 1
+			for _, resRule := range resRules {
+
+				fmt.Sscanf(resRule.Spec.RuleID, "rule-%d", &i)
+
+				assert.Equal(t, resRule.Spec.ListenerPort, int64(tt.gwListenerPort))
+				// Defer this to dedicate rule check			assert.Equal(t, resRule.Spec.PathMatchValue, tt.route.)
+				assert.Equal(t, resRule.Spec.ServiceName, tt.route.Name())
+				assert.Equal(t, resRule.Spec.ServiceNamespace, tt.route.Namespace())
+
+				var j = 0
+				for _, tg := range resRule.Spec.Action.TargetGroups {
+
+					assert.Equal(t, gwv1beta1.ObjectName(tg.Name), tt.route.Spec().Rules()[i-1].BackendRefs()[j].Name())
+					if tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace() != nil {
+						assert.Equal(t, gwv1beta1.Namespace(tg.Namespace), *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace())
+					} else {
+						assert.Equal(t, tg.Namespace, tt.route.Namespace())
+					}
+
+					if *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Kind() == "ServiceImport" {
+						assert.Equal(t, tg.IsServiceImport, true)
+					} else {
+						assert.Equal(t, tg.IsServiceImport, false)
+					}
+					j++
+				}
+			}
+		})
 	}
 }
 
 func Test_HeadersRuleBuild(t *testing.T) {
-	var httpSectionName v1beta1.SectionName = "http"
-	var serviceKind v1beta1.Kind = "Service"
+	var httpSectionName gwv1beta1.SectionName = "http"
+	var serviceKind gwv1beta1.Kind = "Service"
 
-	var namespace = v1beta1.Namespace("default")
+	var namespace = gwv1beta1.Namespace("default")
 	var path1 = "/ver1"
-	var k8sPathMatchExactType = v1beta1.PathMatchExact
-	var k8sPathMatchPrefixType = v1beta1.PathMatchPathPrefix
-	var k8sMethodMatchExactType = v1alpha2.GRPCMethodMatchExact
+	var k8sPathMatchExactType = gwv1beta1.PathMatchExact
+	var k8sPathMatchPrefixType = gwv1beta1.PathMatchPathPrefix
+	var k8sMethodMatchExactType = gwv1alpha2.GRPCMethodMatchExact
 
-	var k8sHeaderExactType = v1beta1.HeaderMatchExact
+	var k8sHeaderExactType = gwv1beta1.HeaderMatchExact
 	var hdr1 = "env1"
 	var hdr1Value = "test1"
 	var hdr2 = "env2"
 	var hdr2Value = "test2"
 
-	var backendRef1 = v1beta1.BackendRef{
-		BackendObjectReference: v1beta1.BackendObjectReference{
+	var backendRef1 = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name:      "targetgroup1",
 			Namespace: &namespace,
 			Kind:      &serviceKind,
@@ -576,9 +575,9 @@ func Test_HeadersRuleBuild(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		gwListenerPort   v1beta1.PortNumber
+		gwListenerPort   gwv1beta1.PortNumber
 		route            core.Route
-		expectedRuleSpec latticemodel.RuleSpec
+		expectedRuleSpec model.RuleSpec
 		wantErrIsNil     bool
 		samerule         bool
 	}{
@@ -588,32 +587,32 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -622,7 +621,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				PathMatchExact: true,
 				PathMatchValue: path1,
 			},
@@ -634,32 +633,32 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchPrefixType,
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -668,7 +667,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				PathMatchPrefix: true,
 				PathMatchValue:  path1,
 			},
@@ -679,39 +678,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									//	Path: &v1beta1.HTTPPathMatch{
+									//	Path: &gwv1beta1.HTTPPathMatch{
 									//		Type:  &k8sPathMatchPrefixType,
 									//		Value: &path1,
 									//	},
-									Headers: []v1beta1.HTTPHeaderMatch{
+									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -720,7 +719,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				NumOfHeaderMatches: 1,
 				MatchedHeaders: [5]vpclattice.HeaderMatch{
 
@@ -743,39 +742,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
-									Headers: []v1beta1.HTTPHeaderMatch{
+									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -784,7 +783,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				NumOfHeaderMatches: 2,
 				MatchedHeaders: [5]vpclattice.HeaderMatch{
 
@@ -811,44 +810,44 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
-									Headers: []v1beta1.HTTPHeaderMatch{
+									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -857,7 +856,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				PathMatchExact:     true,
 				PathMatchValue:     path1,
 				NumOfHeaderMatches: 2,
@@ -886,44 +885,44 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchPrefixType,
 										Value: &path1,
 									},
-									Headers: []v1beta1.HTTPHeaderMatch{
+									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -932,7 +931,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				PathMatchPrefix:    true,
 				PathMatchValue:     path1,
 				NumOfHeaderMatches: 2,
@@ -961,39 +960,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
-									Headers: []v1beta1.HTTPHeaderMatch{
+									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -1002,7 +1001,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				NumOfHeaderMatches: 2,
 				MatchedHeaders: [5]vpclattice.HeaderMatch{
 
@@ -1029,64 +1028,64 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
-									Headers: []v1beta1.HTTPHeaderMatch{
+									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1beta1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  v1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1beta1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -1095,7 +1094,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				PathMatchExact:     true,
 				PathMatchValue:     path1,
 				NumOfHeaderMatches: 2,
@@ -1124,39 +1123,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   true,
 			samerule:       true,
 
-			route: core.NewHTTPRoute(v1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1beta1.HTTPRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1beta1.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []v1beta1.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
 								},
 								{
 
-									Path: &v1beta1.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []v1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -1165,7 +1164,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				PathMatchExact: true,
 				PathMatchValue: path1,
 			},
@@ -1176,25 +1175,25 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.GRPCRouteRule{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{
-							Matches: []v1alpha2.GRPCRouteMatch{
+							Matches: []gwv1alpha2.GRPCRouteMatch{
 								{
-									Method: &v1alpha2.GRPCMethodMatch{
+									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
 										Service: pointer.String("service"),
 										Method:  pointer.String("method"),
@@ -1202,7 +1201,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 								},
 							},
 
-							BackendRefs: []v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -1211,7 +1210,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				Method:             "POST",
 				NumOfHeaderMatches: 0,
 				PathMatchExact:     true,
@@ -1224,32 +1223,32 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.GRPCRouteRule{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{
-							Matches: []v1alpha2.GRPCRouteMatch{
+							Matches: []gwv1alpha2.GRPCRouteMatch{
 								{
-									Method: &v1alpha2.GRPCMethodMatch{
+									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
 										Service: pointer.String("service"),
 									},
 								},
 							},
 
-							BackendRefs: []v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -1258,7 +1257,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				Method:             "POST",
 				NumOfHeaderMatches: 0,
 				PathMatchPrefix:    true,
@@ -1271,31 +1270,31 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.GRPCRouteRule{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{
-							Matches: []v1alpha2.GRPCRouteMatch{
+							Matches: []gwv1alpha2.GRPCRouteMatch{
 								{
-									Method: &v1alpha2.GRPCMethodMatch{
+									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type: &k8sMethodMatchExactType,
 									},
 								},
 							},
 
-							BackendRefs: []v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -1304,7 +1303,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				Method:             "POST",
 				NumOfHeaderMatches: 0,
 				PathMatchPrefix:    true,
@@ -1317,29 +1316,29 @@ func Test_HeadersRuleBuild(t *testing.T) {
 			wantErrIsNil:   false,
 			samerule:       true,
 
-			route: core.NewGRPCRoute(v1alpha2.GRPCRoute{
+			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: v1beta1.CommonRouteSpec{
-						ParentRefs: []v1beta1.ParentReference{
+				Spec: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []v1alpha2.GRPCRouteRule{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{
-							Matches: []v1alpha2.GRPCRouteMatch{
+							Matches: []gwv1alpha2.GRPCRouteMatch{
 								{
-									Method: &v1alpha2.GRPCMethodMatch{
+									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
 										Service: pointer.String("service"),
 									},
-									Headers: []v1alpha2.GRPCHeaderMatch{
+									Headers: []gwv1alpha2.GRPCHeaderMatch{
 										{
 											Name:  "foo1",
 											Value: "bar1",
@@ -1368,7 +1367,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 									},
 								},
 							},
-							BackendRefs: []v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -1377,12 +1376,12 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: latticemodel.RuleSpec{
+			expectedRuleSpec: model.RuleSpec{
 				Method:             "POST",
 				NumOfHeaderMatches: 5,
 				PathMatchPrefix:    true,
 				PathMatchValue:     "/service/",
-				MatchedHeaders: [latticemodel.MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch{
+				MatchedHeaders: [model.MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch{
 					{
 						Name: pointer.String("foo1"),
 						Match: &vpclattice.HeaderMatchType{
@@ -1419,75 +1418,74 @@ func Test_HeadersRuleBuild(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
 
-		fmt.Printf("Testing >>> %v\n", tt.name)
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
+			mockK8sClient := mock_client.NewMockClient(c)
 
-		k8sClient := mock_client.NewMockClient(c)
+			mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(ctx context.Context, gwName types.NamespacedName, gw *gwv1beta1.Gateway, arg3 ...interface{}) error {
 
-		k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, gwName types.NamespacedName, gw *v1beta1.Gateway, arg3 ...interface{}) error {
+					gw.Spec.Listeners = append(gw.Spec.Listeners, gwv1beta1.Listener{
+						Port: tt.gwListenerPort,
+						Name: *tt.route.Spec().ParentRefs()[0].SectionName,
+					})
+					return nil
 
-				gw.Spec.Listeners = append(gw.Spec.Listeners, v1beta1.Listener{
-					Port: tt.gwListenerPort,
-					Name: *tt.route.Spec().ParentRefs()[0].SectionName,
-				})
-				return nil
+				},
+			)
 
-			},
-		)
+			ds := latticestore.NewLatticeDataStore()
 
-		ds := latticestore.NewLatticeDataStore()
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
-
-		task := &latticeServiceModelBuildTask{
-			log:             gwlog.FallbackLogger,
-			route:           tt.route,
-			stack:           stack,
-			client:          k8sClient,
-			listenerByResID: make(map[string]*latticemodel.Listener),
-			datastore:       ds,
-		}
-
-		err := task.buildRules(ctx)
-
-		if tt.wantErrIsNil {
-			assert.Error(t, err)
-			continue
-		}
-		assert.NoError(t, err)
-
-		var resRules []*latticemodel.Rule
-		stack.ListResources(&resRules)
-
-		if len(resRules) > 0 {
-			// for debug fmt.Printf("resRules :%v \n", *resRules[0])
-		}
-
-		// we are unit- testing various combination of one rule for now
-		var i = 1
-		for _, resRule := range resRules {
-
-			// for debugging, fmt.Printf("i = %d resRule :%v \n, expected rule: %v\n", i, resRule, tt.expectedRuleSpec)
-
-			sameRule := isRuleSpecSame(&tt.expectedRuleSpec, &resRule.Spec)
-
-			if tt.samerule {
-				assert.True(t, sameRule)
-			} else {
-				assert.False(t, sameRule)
+			task := &latticeServiceModelBuildTask{
+				log:             gwlog.FallbackLogger,
+				route:           tt.route,
+				stack:           stack,
+				client:          mockK8sClient,
+				listenerByResID: make(map[string]*model.Listener),
+				datastore:       ds,
 			}
-			i++
 
-		}
+			err := task.buildRules(ctx)
 
+			if tt.wantErrIsNil {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			var resRules []*model.Rule
+			stack.ListResources(&resRules)
+
+			if len(resRules) > 0 {
+				// for debug fmt.Printf("resRules :%v \n", *resRules[0])
+			}
+
+			// we are unit- testing various combination of one rule for now
+			var i = 1
+			for _, resRule := range resRules {
+
+				// for debugging, fmt.Printf("i = %d resRule :%v \n, expected rule: %v\n", i, resRule, tt.expectedRuleSpec)
+
+				sameRule := isRuleSpecSame(&tt.expectedRuleSpec, &resRule.Spec)
+
+				if tt.samerule {
+					assert.True(t, sameRule)
+				} else {
+					assert.False(t, sameRule)
+				}
+				i++
+
+			}
+		})
 	}
 }
 
-func isRuleSpecSame(rule1 *latticemodel.RuleSpec, rule2 *latticemodel.RuleSpec) bool {
+func isRuleSpecSame(rule1 *model.RuleSpec, rule2 *model.RuleSpec) bool {
 
 	// debug fmt.Printf("rule1 :%v \n", rule1)
 	// debug fmt.Printf("rule2: %v \n", rule2)

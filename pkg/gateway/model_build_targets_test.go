@@ -16,11 +16,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -34,12 +34,12 @@ func Test_Targets(t *testing.T) {
 		port               int32
 		endPoints          []corev1.Endpoints
 		svc                corev1.Service
-		serviceExport      mcs_api.ServiceExport
+		serviceExport      mcsv1alpha1.ServiceExport
 		inDataStore        bool
 		refByServiceExport bool
 		refByService       bool
 		wantErrIsNil       bool
-		expectedTargetList []latticemodel.Target
+		expectedTargetList []model.Target
 		route              core.Route
 	}{
 		{
@@ -71,7 +71,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:  true,
 			refByService: true,
 			wantErrIsNil: true,
-			expectedTargetList: []latticemodel.Target{
+			expectedTargetList: []model.Target{
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
@@ -125,7 +125,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:  true,
 			refByService: true,
 			wantErrIsNil: true,
-			expectedTargetList: []latticemodel.Target{
+			expectedTargetList: []model.Target{
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
@@ -176,7 +176,7 @@ func Test_Targets(t *testing.T) {
 					},
 				},
 			},
-			serviceExport: mcs_api.ServiceExport{
+			serviceExport: mcsv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:         "ns1",
 					Name:              "export1",
@@ -187,7 +187,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:        true,
 			refByServiceExport: true,
 			wantErrIsNil:       true,
-			expectedTargetList: []latticemodel.Target{
+			expectedTargetList: []model.Target{
 				{
 					TargetIP: "10.10.1.1",
 					Port:     3090,
@@ -357,7 +357,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:  true,
 			refByService: true,
 			wantErrIsNil: true,
-			expectedTargetList: []latticemodel.Target{
+			expectedTargetList: []model.Target{
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
@@ -405,7 +405,7 @@ func Test_Targets(t *testing.T) {
 			inDataStore:        true,
 			refByServiceExport: true,
 			wantErrIsNil:       true,
-			expectedTargetList: []latticemodel.Target{
+			expectedTargetList: []model.Target{
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
@@ -450,68 +450,69 @@ func Test_Targets(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
 
-		k8sSchema := runtime.NewScheme()
-		k8sSchema.AddKnownTypes(mcs_api.SchemeGroupVersion, &mcs_api.ServiceExport{})
-		clientgoscheme.AddToScheme(k8sSchema)
-		k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sSchema := runtime.NewScheme()
+			k8sSchema.AddKnownTypes(mcsv1alpha1.SchemeGroupVersion, &mcsv1alpha1.ServiceExport{})
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 
-		if !reflect.DeepEqual(tt.serviceExport, mcs_api.ServiceExport{}) {
-			assert.NoError(t, k8sClient.Create(ctx, tt.serviceExport.DeepCopy()))
-		}
-
-		if len(tt.endPoints) > 0 {
-			assert.NoError(t, k8sClient.Create(ctx, tt.endPoints[0].DeepCopy()))
-		}
-
-		assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
-
-		ds := latticestore.NewLatticeDataStore()
-
-		if tt.inDataStore {
-			tgName := latticestore.TargetGroupName(tt.srvExportName, tt.srvExportNamespace)
-			err := ds.AddTargetGroup(tgName, "", "", "", false, "")
-			assert.Nil(t, err)
-			if tt.refByServiceExport {
-				ds.SetTargetGroupByServiceExport(tgName, false, true)
-			}
-			if tt.refByService {
-				ds.SetTargetGroupByBackendRef(tgName, "", false, true)
+			if !reflect.DeepEqual(tt.serviceExport, mcsv1alpha1.ServiceExport{}) {
+				assert.NoError(t, k8sClient.Create(ctx, tt.serviceExport.DeepCopy()))
 			}
 
-		}
+			if len(tt.endPoints) > 0 {
+				assert.NoError(t, k8sClient.Create(ctx, tt.endPoints[0].DeepCopy()))
+			}
 
-		srvName := types.NamespacedName{
-			Name:      tt.srvExportName,
-			Namespace: tt.srvExportNamespace,
-		}
-		targetTask := &latticeTargetsModelBuildTask{
-			log:            gwlog.FallbackLogger,
-			client:         k8sClient,
-			tgName:         tt.srvExportName,
-			tgNamespace:    tt.srvExportNamespace,
-			datastore:      ds,
-			backendRefPort: tt.port,
-			stack:          core.NewDefaultStack(core.StackID(srvName)),
-			route:          tt.route,
-		}
-		err := targetTask.buildLatticeTargets(ctx)
-		if tt.wantErrIsNil {
-			assert.Nil(t, err)
+			assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
 
-			fmt.Printf("t.latticeTargets %v \n", targetTask.latticeTargets)
-			assert.Equal(t, tt.srvExportName, targetTask.latticeTargets.Spec.Name)
-			assert.Equal(t, tt.srvExportNamespace, targetTask.latticeTargets.Spec.Namespace)
+			ds := latticestore.NewLatticeDataStore()
 
-			// verify targets, ports are built correctly
-			assert.Equal(t, tt.expectedTargetList, targetTask.latticeTargets.Spec.TargetIPList)
+			if tt.inDataStore {
+				tgName := latticestore.TargetGroupName(tt.srvExportName, tt.srvExportNamespace)
+				err := ds.AddTargetGroup(tgName, "", "", "", false, "")
+				assert.Nil(t, err)
+				if tt.refByServiceExport {
+					ds.SetTargetGroupByServiceExport(tgName, false, true)
+				}
+				if tt.refByService {
+					ds.SetTargetGroupByBackendRef(tgName, "", false, true)
+				}
 
-		} else {
-			assert.NotNil(t, err)
-		}
+			}
 
+			srvName := types.NamespacedName{
+				Name:      tt.srvExportName,
+				Namespace: tt.srvExportNamespace,
+			}
+			targetTask := &latticeTargetsModelBuildTask{
+				log:            gwlog.FallbackLogger,
+				client:         k8sClient,
+				tgName:         tt.srvExportName,
+				tgNamespace:    tt.srvExportNamespace,
+				datastore:      ds,
+				backendRefPort: tt.port,
+				stack:          core.NewDefaultStack(core.StackID(srvName)),
+				route:          tt.route,
+			}
+			err := targetTask.buildLatticeTargets(ctx)
+			if tt.wantErrIsNil {
+				assert.Nil(t, err)
+
+				fmt.Printf("t.latticeTargets %v \n", targetTask.latticeTargets)
+				assert.Equal(t, tt.srvExportName, targetTask.latticeTargets.Spec.Name)
+				assert.Equal(t, tt.srvExportNamespace, targetTask.latticeTargets.Spec.Namespace)
+
+				// verify targets, ports are built correctly
+				assert.Equal(t, tt.expectedTargetList, targetTask.latticeTargets.Spec.TargetIPList)
+
+			} else {
+				assert.NotNil(t, err)
+			}
+		})
 	}
 }

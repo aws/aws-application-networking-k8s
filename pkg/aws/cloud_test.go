@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,13 +38,13 @@ func TestIsArnManaged(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 
-	lat := services.NewMockLattice(c)
+	mockLattice := services.NewMockLattice(c)
 	cfg := CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
-	cl := NewDefaultCloud(lat, cfg)
+	cl := NewDefaultCloud(mockLattice, cfg)
 
 	t.Run("arn sent", func(t *testing.T) {
 		arn := "arn"
-		lat.EXPECT().ListTagsForResource(gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
 			DoAndReturn(
 				func(req *vpclattice.ListTagsForResourceInput) (*vpclattice.ListTagsForResourceOutput, error) {
 					assert.Equal(t, arn, *req.ResourceArn)
@@ -55,7 +55,7 @@ func TestIsArnManaged(t *testing.T) {
 
 	t.Run("is managed", func(t *testing.T) {
 		arn := "arn"
-		lat.EXPECT().ListTagsForResource(gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
 			Return(&vpclattice.ListTagsForResourceOutput{
 				Tags: cl.DefaultTags(),
 			}, nil)
@@ -65,7 +65,7 @@ func TestIsArnManaged(t *testing.T) {
 	})
 
 	t.Run("not managed", func(t *testing.T) {
-		lat.EXPECT().ListTagsForResource(gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
 			Return(&vpclattice.ListTagsForResourceOutput{}, nil)
 		managed, err := cl.IsArnManaged("arn")
 		assert.Nil(t, err)
@@ -73,7 +73,7 @@ func TestIsArnManaged(t *testing.T) {
 	})
 
 	t.Run("error", func(t *testing.T) {
-		lat.EXPECT().ListTagsForResource(gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
 			Return(nil, errors.New(":("))
 		managed, err := cl.IsArnManaged("arn")
 		assert.Nil(t, err)

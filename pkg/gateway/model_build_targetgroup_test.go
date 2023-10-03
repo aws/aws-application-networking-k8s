@@ -17,22 +17,22 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_TGModelByServicexportBuild(t *testing.T) {
 	now := metav1.Now()
 	tests := []struct {
 		name                string
-		svcExport           *mcs_api.ServiceExport
+		svcExport           *mcsv1alpha1.ServiceExport
 		svc                 *corev1.Service
 		endPoints           []corev1.Endpoints
 		wantErrIsNil        bool
@@ -41,7 +41,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 	}{
 		{
 			name: "Adding ServieExport where service object exist",
-			svcExport: &mcs_api.ServiceExport{
+			svcExport: &mcsv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "export1",
 					Namespace: "ns1",
@@ -75,7 +75,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 		},
 		{
 			name: "Adding ServieExport where service object does NOT exist",
-			svcExport: &mcs_api.ServiceExport{
+			svcExport: &mcsv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "export2",
 					Namespace: "ns1",
@@ -88,7 +88,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 		},
 		{
 			name: "Deleting ServiceExport where service object does NOT exist",
-			svcExport: &mcs_api.ServiceExport{
+			svcExport: &mcsv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "export3",
 					Namespace:         "ns1",
@@ -103,7 +103,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 		},
 		{
 			name: "Deleting ServieExport where service object exist",
-			svcExport: &mcs_api.ServiceExport{
+			svcExport: &mcsv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "export4",
 					Namespace:         "ns1",
@@ -139,7 +139,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 		},
 		{
 			name: "Creating IPv6 ServiceExport where service object with IpFamilies IPv6 exists",
-			svcExport: &mcs_api.ServiceExport{
+			svcExport: &mcsv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "export5",
 					Namespace:  "ns1",
@@ -172,7 +172,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 		},
 		{
 			name: "Failed to create IPv6 ServiceExport where service object with dual stack IpFamilies exists",
-			svcExport: &mcs_api.ServiceExport{
+			svcExport: &mcsv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "export6",
 					Namespace:  "ns1",
@@ -212,7 +212,7 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			v1alpha1.AddToScheme(k8sSchema)
+			anv1alpha1.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 
 			if tt.svc != nil {
@@ -270,13 +270,13 @@ func Test_TGModelByServicexportBuild(t *testing.T) {
 func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 	now := metav1.Now()
 
-	namespacePtr := func(ns string) *gateway_api.Namespace {
-		p := gateway_api.Namespace(ns)
+	namespacePtr := func(ns string) *gwv1beta1.Namespace {
+		p := gwv1beta1.Namespace(ns)
 		return &p
 	}
 
-	kindPtr := func(k string) *gateway_api.Kind {
-		p := gateway_api.Kind(k)
+	kindPtr := func(k string) *gwv1beta1.Kind {
+		p := gwv1beta1.Kind(k)
 		return &p
 	}
 
@@ -292,24 +292,24 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
-									BackendRef: gateway_api.BackendRef{
-										BackendObjectReference: gateway_api.BackendObjectReference{
+									BackendRef: gwv1beta1.BackendRef{
+										BackendObjectReference: gwv1beta1.BackendObjectReference{
 											Name:      "service1-tg1",
 											Namespace: namespacePtr("ns11"),
 											Kind:      kindPtr("Service"),
@@ -330,26 +330,26 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
-									BackendRef: gateway_api.BackendRef{
-										BackendObjectReference: gateway_api.BackendObjectReference{
+									BackendRef: gwv1beta1.BackendRef{
+										BackendObjectReference: gwv1beta1.BackendObjectReference{
 											Name:      "service2-tg1",
 											Namespace: namespacePtr("ns21"),
 											Kind:      kindPtr("Service"),
@@ -370,25 +370,25 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Create LatticeService where backend K8S service does NOT exist",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "service3",
 					Finalizers: []string{"gateway.k8s.aws/resources"},
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
-									BackendRef: gateway_api.BackendRef{
-										BackendObjectReference: gateway_api.BackendObjectReference{
+									BackendRef: gwv1beta1.BackendRef{
+										BackendObjectReference: gwv1beta1.BackendObjectReference{
 											Name:      "service3-tg1",
 											Namespace: namespacePtr("ns31"),
 											Kind:      kindPtr("Service"),
@@ -409,25 +409,25 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Create LatticeService where backend mcs serviceimport does NOT exist",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "service4",
 					Finalizers: []string{"gateway.k8s.aws/resources"},
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
-									BackendRef: gateway_api.BackendRef{
-										BackendObjectReference: gateway_api.BackendObjectReference{
+									BackendRef: gwv1beta1.BackendRef{
+										BackendObjectReference: gwv1beta1.BackendObjectReference{
 											Name:      "service4-tg1",
 											Namespace: namespacePtr("ns31"),
 											Kind:      kindPtr("ServiceImport"),
@@ -448,25 +448,25 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 		},
 		{
 			name: "Lattice Service with IPv6 Target Group",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "service5",
 					Finalizers: []string{"gateway.k8s.aws/resources"},
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
-									BackendRef: gateway_api.BackendRef{
-										BackendObjectReference: gateway_api.BackendObjectReference{
+									BackendRef: gwv1beta1.BackendRef{
+										BackendObjectReference: gwv1beta1.BackendObjectReference{
 											Name:      "service5-tg1",
 											Namespace: namespacePtr("ns31"),
 											Kind:      kindPtr("Service"),
@@ -494,7 +494,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			v1alpha1.AddToScheme(k8sSchema)
+			anv1alpha1.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			ds := latticestore.NewLatticeDataStore()
 
@@ -507,7 +507,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 				route:     tt.route,
 				stack:     stack,
 				client:    k8sClient,
-				tgByResID: make(map[string]*latticemodel.TargetGroup),
+				tgByResID: make(map[string]*model.TargetGroup),
 				datastore: ds,
 			}
 
@@ -585,22 +585,20 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 
 					}
 				}
-
 			}
-
 		})
 	}
 }
 
 func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 	now := metav1.Now()
-	namespacePtr := func(ns string) *gateway_api.Namespace {
-		p := gateway_api.Namespace(ns)
+	namespacePtr := func(ns string) *gwv1beta1.Namespace {
+		p := gwv1beta1.Namespace(ns)
 		return &p
 	}
 
-	kindPtr := func(k string) *gateway_api.Kind {
-		p := gateway_api.Kind(k)
+	kindPtr := func(k string) *gwv1beta1.Kind {
+		p := gwv1beta1.Kind(k)
 		return &p
 	}
 
@@ -615,24 +613,24 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "serviceimport1",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
-									BackendRef: gateway_api.BackendRef{
-										BackendObjectReference: gateway_api.BackendObjectReference{
+									BackendRef: gwv1beta1.BackendRef{
+										BackendObjectReference: gwv1beta1.BackendObjectReference{
 											Name:      "service1-tg2",
 											Namespace: namespacePtr("tg1-ns1"),
 											Kind:      kindPtr("ServiceImport"),
@@ -652,25 +650,25 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		},
 		{
 			name: "Add LatticeService, implicit namespace",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "serviceimport1",
 					Namespace: "tg1-ns2",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
-									BackendRef: gateway_api.BackendRef{
-										BackendObjectReference: gateway_api.BackendObjectReference{
+									BackendRef: gwv1beta1.BackendRef{
+										BackendObjectReference: gwv1beta1.BackendObjectReference{
 											Name: "service1-tg2",
 											Kind: kindPtr("ServiceImport"),
 										},
@@ -689,27 +687,27 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "serviceimport2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
-									BackendRef: gateway_api.BackendRef{
-										BackendObjectReference: gateway_api.BackendObjectReference{
+									BackendRef: gwv1beta1.BackendRef{
+										BackendObjectReference: gwv1beta1.BackendObjectReference{
 											Name:      "service1-tg2",
 											Namespace: namespacePtr("tg1-ns1"),
 											Kind:      kindPtr("ServiceImport"),
@@ -730,94 +728,94 @@ func Test_TGModelByHTTPRouteImportBuild(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		fmt.Printf("Test >>>> %v\n", tt.name)
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.Background()
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.Background()
 
-		k8sClient := mock_client.NewMockClient(c)
+			mockK8sClient := mock_client.NewMockClient(c)
 
-		ds := latticestore.NewLatticeDataStore()
+			ds := latticestore.NewLatticeDataStore()
 
-		//builder := NewLatticeServiceBuilder(k8sClient, ds, nil)
+			//builder := NewLatticeServiceBuilder(mockK8sClient, ds, nil)
 
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
-		task := &latticeServiceModelBuildTask{
-			log:       gwlog.FallbackLogger,
-			route:     tt.route,
-			stack:     stack,
-			client:    k8sClient,
-			tgByResID: make(map[string]*latticemodel.TargetGroup),
-			datastore: ds,
-		}
-
-		for _, httpRules := range tt.route.Spec().Rules() {
-			for _, httpBackendRef := range httpRules.BackendRefs() {
-				if tt.svcImportExist {
-					k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-						func(ctx context.Context, name types.NamespacedName, svcImport *mcs_api.ServiceImport, arg3 ...interface{}) error {
-							//TODO add more
-							svcImport.ObjectMeta.Name = string(httpBackendRef.Name())
-							return nil
-						},
-					)
-				} else {
-					k8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).Return(errors.New("serviceimport not exist"))
-				}
+			task := &latticeServiceModelBuildTask{
+				log:       gwlog.FallbackLogger,
+				route:     tt.route,
+				stack:     stack,
+				client:    mockK8sClient,
+				tgByResID: make(map[string]*model.TargetGroup),
+				datastore: ds,
 			}
-		}
-		k8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).Return(nil)
 
-		err := task.buildTargetGroupsForRoute(ctx, k8sClient)
-
-		fmt.Printf("err %v\n", err)
-
-		if !tt.wantErrIsNil {
-			assert.NotNil(t, err)
-		} else {
-			assert.Nil(t, err)
-		}
-
-		if tt.wantErrIsNil {
-			// verify data store
 			for _, httpRules := range tt.route.Spec().Rules() {
 				for _, httpBackendRef := range httpRules.BackendRefs() {
-					ns := tt.route.Namespace()
-					if httpBackendRef.Namespace() != nil {
-						ns = string(*httpBackendRef.Namespace())
-					}
-					tgName := latticestore.TargetGroupName(string(httpBackendRef.Name()), ns)
-
-					fmt.Printf("httpBackendRef %s\n", *httpBackendRef.Kind())
-					if "Service" == *httpBackendRef.Kind() {
-						if tt.wantIsDeleted {
-							tg := task.tgByResID[tgName]
-							fmt.Printf("--task.tgByResID[tgName] %v \n", tg)
-							assert.Equal(t, true, tg.Spec.IsDeleted)
-						} else {
-							dsTG, err := ds.GetTargetGroup(tgName, tt.route.Name(), false)
-							assert.Equal(t, true, dsTG.ByBackendRef)
-							fmt.Printf("--dsTG %v\n", dsTG)
-							assert.Nil(t, err)
-						}
+					if tt.svcImportExist {
+						mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+							func(ctx context.Context, name types.NamespacedName, svcImport *mcsv1alpha1.ServiceImport, arg3 ...interface{}) error {
+								//TODO add more
+								svcImport.ObjectMeta.Name = string(httpBackendRef.Name())
+								return nil
+							},
+						)
 					} else {
-						dsTG, err := ds.GetTargetGroup(tgName, "", true)
-						fmt.Printf("dsTG %v\n", dsTG)
-						if tt.wantIsDeleted {
-							tg := task.tgByResID[tgName]
-							assert.Equal(t, true, tg.Spec.IsDeleted)
-						} else {
-							assert.Equal(t, false, dsTG.ByBackendRef)
-							assert.Equal(t, false, dsTG.ByServiceExport)
-							assert.Nil(t, err)
-						}
+						mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).Return(errors.New("serviceimport not exist"))
 					}
-					assert.Nil(t, err)
 				}
 			}
+			mockK8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).Return(nil)
 
-		}
+			err := task.buildTargetGroupsForRoute(ctx, mockK8sClient)
+
+			fmt.Printf("err %v\n", err)
+
+			if !tt.wantErrIsNil {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+			}
+
+			if tt.wantErrIsNil {
+				// verify data store
+				for _, httpRules := range tt.route.Spec().Rules() {
+					for _, httpBackendRef := range httpRules.BackendRefs() {
+						ns := tt.route.Namespace()
+						if httpBackendRef.Namespace() != nil {
+							ns = string(*httpBackendRef.Namespace())
+						}
+						tgName := latticestore.TargetGroupName(string(httpBackendRef.Name()), ns)
+
+						fmt.Printf("httpBackendRef %s\n", *httpBackendRef.Kind())
+						if "Service" == *httpBackendRef.Kind() {
+							if tt.wantIsDeleted {
+								tg := task.tgByResID[tgName]
+								fmt.Printf("--task.tgByResID[tgName] %v \n", tg)
+								assert.Equal(t, true, tg.Spec.IsDeleted)
+							} else {
+								dsTG, err := ds.GetTargetGroup(tgName, tt.route.Name(), false)
+								assert.Equal(t, true, dsTG.ByBackendRef)
+								fmt.Printf("--dsTG %v\n", dsTG)
+								assert.Nil(t, err)
+							}
+						} else {
+							dsTG, err := ds.GetTargetGroup(tgName, "", true)
+							fmt.Printf("dsTG %v\n", dsTG)
+							if tt.wantIsDeleted {
+								tg := task.tgByResID[tgName]
+								assert.Equal(t, true, tg.Spec.IsDeleted)
+							} else {
+								assert.Equal(t, false, dsTG.ByBackendRef)
+								assert.Equal(t, false, dsTG.ByServiceExport)
+								assert.Nil(t, err)
+							}
+						}
+						assert.Nil(t, err)
+					}
+				}
+			}
+		})
 	}
 }
 
