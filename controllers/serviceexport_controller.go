@@ -150,11 +150,12 @@ func (r *serviceExportReconciler) buildAndDeployModel(
 	stack, _, err := r.modelBuilder.Build(ctx, srvExport)
 
 	if err != nil {
-		r.log.Infof("Failed to buildAndDeployModel for service export %v\n", srvExport)
+		r.log.Debugf("Failed to buildAndDeployModel for service export %s-%s due to %s",
+			srvExport.Name, srvExport.Namespace, err)
 
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,
 			k8s.GatewayEventReasonFailedBuildModel,
-			fmt.Sprintf("Failed BuildModel due to %v", err))
+			fmt.Sprintf("Failed BuildModel due to %s", err))
 
 		// Build failed means the K8S serviceexport, service are NOT ready to be deployed to lattice
 		// return nil  to complete controller loop for current change.
@@ -169,7 +170,7 @@ func (r *serviceExportReconciler) buildAndDeployModel(
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,
-			k8s.ServiceExportEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
+			k8s.ServiceExportEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %s", err))
 		return err
 	}
 

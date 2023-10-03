@@ -97,7 +97,7 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context) error
 			t.latticeService.Spec.CustomerCertARN = certARN
 		}
 
-		t.log.Debugf("Building Listener: found matching listner Port %v", port)
+		t.log.Debugf("Building Listener: found matching listner Port %d", port)
 
 		if len(t.route.Spec().Rules()) == 0 {
 			return fmt.Errorf("error building listener, there are no rules for route %s-%s",

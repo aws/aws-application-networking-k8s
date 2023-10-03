@@ -42,7 +42,6 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 		}
 
 		for _, rule := range t.route.Spec().Rules() {
-			t.log.Debugf("Parsing http rule spec: %+v", rule)
 			var ruleSpec model.RuleSpec
 
 			if len(rule.Matches()) > 1 {
@@ -170,8 +169,7 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecWithHeaderMatches(match cor
 
 	ruleSpec.NumOfHeaderMatches = len(match.Headers())
 
-	t.log.Debugf("Examining match.Headers %v for route %s-%s",
-		match.Headers(), t.route.Name(), t.route.Namespace())
+	t.log.Debugf("Examining match headers for route %s-%s", t.route.Name(), t.route.Namespace())
 
 	for i, header := range match.Headers() {
 		t.log.Debugf("Examining match.Header: i = %d header.Type %s", i, *header.Type())
