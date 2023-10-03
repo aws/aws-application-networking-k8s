@@ -5,23 +5,21 @@ import (
 	"errors"
 	"fmt"
 
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 
 	"k8s.io/apimachinery/pkg/types"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
-	resourceIDListenerConfig = "ListenerConfig"
-
 	awsCustomCertARN = "application-networking.k8s.aws/certificate-arn"
 )
 
 func (t *latticeServiceModelBuildTask) extractListenerInfo(
 	ctx context.Context,
-	parentRef gateway_api.ParentReference,
+	parentRef gwv1beta1.ParentReference,
 ) (int64, string, string, error) {
-	protocol := gateway_api.HTTPProtocolType
+	protocol := gwv1beta1.HTTPProtocolType
 	if parentRef.SectionName != nil {
 		t.log.Debugf("Listener parentRef SectionName is %s", *parentRef.SectionName)
 	}
@@ -33,7 +31,7 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 	}
 
 	var listenerPort = 0
-	gw := &gateway_api.Gateway{}
+	gw := &gwv1beta1.Gateway{}
 	gwName := types.NamespacedName{
 		Namespace: gwNamespace,
 		Name:      string(t.route.Spec().ParentRefs()[0].Name),
@@ -54,7 +52,7 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 				found = true
 
 				if section.TLS != nil {
-					if section.TLS.Mode != nil && *section.TLS.Mode == gateway_api.TLSModeTerminate {
+					if section.TLS.Mode != nil && *section.TLS.Mode == gwv1beta1.TLSModeTerminate {
 						curCertARN, ok := section.TLS.Options[awsCustomCertARN]
 						if ok {
 							t.log.Debugf("Found certification %s under section %s", curCertARN, section.Name)
@@ -81,7 +79,7 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 
 }
 
-func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error {
+func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context) error {
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
 			// when a service is associate to multiple service network(s), all listener config MUST be same
@@ -114,36 +112,21 @@ func (t *latticeServiceModelBuildTask) buildListener(ctx context.Context) error 
 		}
 
 		backendRef := rule.BackendRefs()[0]
+		targetGroupName := string(backendRef.Name())
 
-		var isImport = false
-		var targetGroupName = ""
 		var targetGroupNamespace = t.route.Namespace()
-
-		if string(*backendRef.Kind()) == "Service" {
-			if backendRef.Namespace() != nil {
-				targetGroupNamespace = string(*backendRef.Namespace())
-			}
-			targetGroupName = string(backendRef.Name())
-			isImport = false
+		if backendRef.Namespace() != nil {
+			targetGroupNamespace = string(*backendRef.Namespace())
 		}
 
-		if string(*backendRef.Kind()) == "ServiceImport" {
-			isImport = true
-			if backendRef.Namespace() != nil {
-				targetGroupNamespace = string(*backendRef.Namespace())
-			}
-			targetGroupName = string(backendRef.Name())
-		}
-
-		action := latticemodel.DefaultAction{
-			Is_Import:               isImport,
+		action := model.DefaultAction{
 			BackendServiceName:      targetGroupName,
 			BackendServiceNamespace: targetGroupNamespace,
 		}
 
 		listenerResourceName := fmt.Sprintf("%s-%s-%d-%s", t.route.Name(), t.route.Namespace(), port, protocol)
 		t.log.Infof("Creating new listener with name %s", listenerResourceName)
-		latticemodel.NewListener(t.stack, listenerResourceName, port, protocol, t.route.Name(), t.route.Namespace(), action)
+		model.NewListener(t.stack, listenerResourceName, port, protocol, t.route.Name(), t.route.Namespace(), action)
 	}
 
 	return nil

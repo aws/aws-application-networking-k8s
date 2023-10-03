@@ -32,24 +32,22 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 const (
-	// Typo
 	serviceFinalizer = "service.ki8s.aws/resources"
 )
 
-// serviceReconciler reconciles a Service object
 type serviceReconciler struct {
 	log              gwlog.Logger
 	client           client.Client
 	scheme           *runtime.Scheme
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
-	modelBuilder     gateway.LatticeTargetsBuilder
+	targetsBuilder   gateway.LatticeTargetsBuilder
 	stackDeployer    deploy.StackDeployer
 	datastore        *latticestore.LatticeDataStore
 	stackMashaller   deploy.StackMarshaller
@@ -65,16 +63,16 @@ func RegisterServiceController(
 	client := mgr.GetClient()
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("service")
-	modelBuild := gateway.NewTargetsBuilder(log, client, cloud, datastore)
-	stackDeploy := deploy.NewTargetsStackDeploy(log, cloud, client, datastore)
+	modelBuilder := gateway.NewTargetsBuilder(log, client, cloud, datastore)
+	stackDeployer := deploy.NewTargetsStackDeployer(log, cloud, client, datastore)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	sr := &serviceReconciler{
 		log:              log,
 		client:           client,
 		scheme:           scheme,
 		finalizerManager: finalizerManager,
-		modelBuilder:     modelBuild,
-		stackDeployer:    stackDeploy,
+		targetsBuilder:   modelBuilder,
+		stackDeployer:    stackDeployer,
 		eventRecorder:    evtRec,
 		datastore:        datastore,
 		stackMashaller:   stackMarshaller,
@@ -92,15 +90,6 @@ func RegisterServiceController(
 //+kubebuilder:rbac:groups=core,resources=endpoints/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core,resources=configmaps, verbs=create;delete;patch;update;get;list;watch
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Service object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
 }
@@ -117,7 +106,7 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		tgs := r.datastore.GetTargetGroupsByName(tgName)
 		for _, tg := range tgs {
 			r.log.Debugf("deletion request for tgName: %s: at timestamp: %s", tg.TargetGroupKey.Name, svc.DeletionTimestamp)
-			if err := r.reconcileTargetsResource(ctx, svc, tg.TargetGroupKey.RouteName); err != nil {
+			if _, _, err := r.buildAndDeployModel(ctx, svc, tg.TargetGroupKey.RouteName); err != nil {
 				return err
 			}
 		}
@@ -132,15 +121,8 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	return nil
 }
 
-func (r *serviceReconciler) reconcileTargetsResource(ctx context.Context, svc *corev1.Service, routename string) error {
-	if _, _, err := r.buildAndDeployModel(ctx, svc, routename); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service, routename string) (core.Stack, *latticemodel.Targets, error) {
-	stack, latticeTargets, err := r.modelBuilder.Build(ctx, svc, routename)
+func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service, routename string) (core.Stack, *model.Targets, error) {
+	stack, latticeTargets, err := r.targetsBuilder.Build(ctx, svc, routename)
 	if err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning,
 			k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("failed build model: %s", err))

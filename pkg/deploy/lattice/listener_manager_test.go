@@ -121,7 +121,6 @@ func Test_AddListener(t *testing.T) {
 		stack := core.NewDefaultStack(core.StackID(namespaceName))
 
 		action := latticemodel.DefaultAction{
-			Is_Import:               false,
 			BackendServiceName:      "tg-test",
 			BackendServiceNamespace: "tg-default",
 		}

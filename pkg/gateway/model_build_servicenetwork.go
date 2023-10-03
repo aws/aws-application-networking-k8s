@@ -7,23 +7,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 const (
 	ResourceIDServiceNetwork        = "ServiceNetwork"
 	LatticeVPCAssociationAnnotation = "application-networking.k8s.aws/lattice-vpc-association"
-	ModelBuiltError                 = "Failed to build model"
 )
 
-// ModelBuilder builds the model stack for the mesh resource.
 type ServiceNetworkModelBuilder interface {
-	// Build model stack for service
-	Build(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error)
+	Build(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *model.ServiceNetwork, error)
 }
 
 type serviceNetworkModelBuilder struct {
@@ -34,9 +31,9 @@ type serviceNetworkModelBuilder struct {
 func NewServiceNetworkModelBuilder(client client.Client) *serviceNetworkModelBuilder {
 	return &serviceNetworkModelBuilder{client: client}
 }
-func (b *serviceNetworkModelBuilder) Build(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *latticemodel.ServiceNetwork, error) {
+func (b *serviceNetworkModelBuilder) Build(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *model.ServiceNetwork, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
-	vpcAssociationPolicy, err := GetAttachedPolicy(ctx, b.client, k8s.NamespacedName(gw), &v1alpha1.VpcAssociationPolicy{})
+	vpcAssociationPolicy, err := GetAttachedPolicy(ctx, b.client, k8s.NamespacedName(gw), &anv1alpha1.VpcAssociationPolicy{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -69,7 +66,7 @@ func (t *serviceNetworkModelBuildTask) buildModel(ctx context.Context) error {
 }
 
 func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) error {
-	spec := latticemodel.ServiceNetworkSpec{
+	spec := model.ServiceNetworkSpec{
 		Name:      t.gateway.Name,
 		Namespace: t.gateway.Namespace,
 		Account:   config.AccountID,
@@ -101,20 +98,20 @@ func (t *serviceNetworkModelBuildTask) buildServiceNetwork(ctx context.Context) 
 		spec.IsDeleted = false
 	}
 
-	t.serviceNetwork = latticemodel.NewServiceNetwork(t.stack, ResourceIDServiceNetwork, spec)
+	t.serviceNetwork = model.NewServiceNetwork(t.stack, ResourceIDServiceNetwork, spec)
 
 	return nil
 }
 
 type serviceNetworkModelBuildTask struct {
 	gateway              *gateway_api.Gateway
-	vpcAssociationPolicy *v1alpha1.VpcAssociationPolicy
-	serviceNetwork       *latticemodel.ServiceNetwork
+	vpcAssociationPolicy *anv1alpha1.VpcAssociationPolicy
+	serviceNetwork       *model.ServiceNetwork
 
 	stack core.Stack
 }
 
-func securityGroupIdsToStringPointersSlice(sgIds []v1alpha1.SecurityGroupId) []*string {
+func securityGroupIdsToStringPointersSlice(sgIds []anv1alpha1.SecurityGroupId) []*string {
 	ret := make([]*string, 0)
 	for _, sgId := range sgIds {
 		sgIdStr := string(sgId)

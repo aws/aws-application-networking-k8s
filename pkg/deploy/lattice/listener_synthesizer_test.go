@@ -132,7 +132,6 @@ func Test_SynthesizeListener(t *testing.T) {
 		}
 
 		action := latticemodel.DefaultAction{
-			Is_Import:               false,
 			BackendServiceName:      "test",
 			BackendServiceNamespace: "default",
 		}

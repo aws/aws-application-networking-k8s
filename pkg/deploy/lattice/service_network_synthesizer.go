@@ -5,10 +5,10 @@ import (
 	"errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -54,7 +54,7 @@ func (s *serviceNetworkSynthesizer) Synthesize(ctx context.Context) error {
 }
 
 func (s *serviceNetworkSynthesizer) synthesizeTriggeredGateways(ctx context.Context) error {
-	var serviceNetworks []*latticemodel.ServiceNetwork
+	var serviceNetworks []*model.ServiceNetwork
 	var ret = "" // only tracks the last error encountered, others are in the logs
 
 	s.stack.ListResources(&serviceNetworks)
@@ -87,11 +87,11 @@ func (s *serviceNetworkSynthesizer) synthesizeTriggeredGateways(ctx context.Cont
 	}
 }
 
-func (s *serviceNetworkSynthesizer) deleteServiceNetwork(ctx context.Context, resServiceNetwork *latticemodel.ServiceNetwork) string {
+func (s *serviceNetworkSynthesizer) deleteServiceNetwork(ctx context.Context, resServiceNetwork *model.ServiceNetwork) string {
 	s.log.Debugf("Synthesizing Gateway deletion for service network %s", resServiceNetwork.Spec.Name)
 
 	// TODO need to check if service network is referenced by gateway in other namespace
-	gwList := &gateway_api.GatewayList{}
+	gwList := &gwv1beta1.GatewayList{}
 	s.client.List(ctx, gwList)
 	snUsedByGateway := false
 	for _, gw := range gwList.Items {
@@ -128,7 +128,7 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 
 	// handling delete those gateway in lattice DB, but not in K8S DB
 	// check local K8S cache
-	gwList := &gateway_api.GatewayList{}
+	gwList := &gwv1beta1.GatewayList{}
 	s.client.List(context.TODO(), gwList)
 
 	for _, sdkServiceNetwork := range sdkServiceNetworks {
@@ -168,8 +168,8 @@ func (s *serviceNetworkSynthesizer) synthesizeSDKServiceNetworks(ctx context.Con
 	}
 }
 
-func mapResServiceNetworkByResourceID(resServiceNetworks []*latticemodel.ServiceNetwork) map[string]*latticemodel.ServiceNetwork {
-	resServiceNetworkByID := make(map[string]*latticemodel.ServiceNetwork, len(resServiceNetworks))
+func mapResServiceNetworkByResourceID(resServiceNetworks []*model.ServiceNetwork) map[string]*model.ServiceNetwork {
+	resServiceNetworkByID := make(map[string]*model.ServiceNetwork, len(resServiceNetworks))
 	for _, resServiceNetwork := range resServiceNetworks {
 		resServiceNetworkByID[resServiceNetwork.ID()] = resServiceNetwork
 	}

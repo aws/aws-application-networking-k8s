@@ -19,7 +19,6 @@ type ListenerSpec struct {
 }
 
 type DefaultAction struct {
-	Is_Import               bool   `json:"isimport"`
 	BackendServiceName      string `json:"backendservicename"`
 	BackendServiceNamespace string `json:"backendservicenamespace"`
 }
