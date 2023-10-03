@@ -6,8 +6,8 @@ VpcAssociationPolicy is a Custom Resource Definition (CRD) that can be attached 
 
 ### Fields of VpcAssociationPolicy
 
-| Field Name	  | Type                                                                                                    |           | Required                                            | Description	 |
-|--------------|---------------------------------------------------------------------------------------------------------|-----------|-----------------------------------------------------|--------------|
+| Field Name	  | Type                                                                                                    | Required  | Description                                         | 
+|--------------|---------------------------------------------------------------------------------------------------------|-----------|-----------------------------------------------------|
 | `apiVersion` | *string*	                                                                                               | yes       | ``application-networking.k8s.aws/v1alpha1`` 	       |
 | `kind`       | *string*	                                                                                               | yes       | ``VpcAssociationPolicy``                            |
 | `metadata`   | [*ObjectMeta*](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#objectmeta-v1-meta) | yes     	 | Kubernetes metadata for the resource.               |
@@ -25,7 +25,7 @@ VpcAssociationPolicySpec defines the desired state of VpcAssociationPolicy.
 
 | Field Name	        | Type                                                                                          | Required | Description                                                                                                                                                                                                                                                                                         |
 |--------------------|-----------------------------------------------------------------------------------------------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `targetRef`        | *[PolicyTargetReference](https://gateway-api.sigs.k8s.io/geps/gep-713/#policy-targetref-api)* | Yes	     | TargetRef points to the kubernetes `Gateway` resource that will have this policy attached. It follows the guidelines of Kubernetes Gateway API policy attachment                                                                                                                                    |
+| `targetRef`        | *[PolicyTargetReference](https://gateway-api.sigs.k8s.io/geps/gep-713/#policy-targetref-api)* | Yes	     | Points to the Kubernetes Gateway resource that will have this policy attached, following the guidelines of [Kubernetes Gateway API policy attachment](https://gateway-api.sigs.k8s.io/geps/gep-713/#policy-targetref-api).                                                                          |
 | `associateWithVpc` | *bool*	                                                                                       | No       | Indicates whether the targetRef Gateway is associated with the current k8s cluster VPC. By default, the Gateway API controller sets this to true if it's not defined in VpcAssociationPolicy.                                                                                                       |
 | `securityGroupIds` | *string[]*	                                                                                   | No       | Defines security groups applied to the gateway (ServiceNetworkVpcAssociation), it controls the inbound traffic from current cluster workloads to the gateway listeners. Please check the [VPC Lattice doc](https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html) for more detail. |
 
@@ -46,7 +46,7 @@ When attaching a VpcAssociationPolicy to a resource, the following restrictions 
 
 The security group will not take effect if:
 
-* The targetRef `gateway` does not exist.
+* The `targetRef` gateway does not exist.
 * The `associateWithVpc` field is set to false.
 
 
