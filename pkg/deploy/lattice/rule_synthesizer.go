@@ -39,7 +39,7 @@ func (r *ruleSynthesizer) Synthesize(ctx context.Context) error {
 
 	err := r.stack.ListResources(&resRule)
 	if err != nil {
-		r.log.Debugf("Error while synthesizing rules %v, %s", resRule, err)
+		r.log.Debugf("Error while listing rules %s", err)
 	}
 
 	updatePriority := false
@@ -61,7 +61,7 @@ func (r *ruleSynthesizer) Synthesize(ctx context.Context) error {
 	// handle delete
 	sdkRules, err := r.getSDKRules(ctx)
 	if err != nil {
-		r.log.Debugf("Error while getting rules %v, %s", sdkRules, err)
+		r.log.Debugf("Error while getting rules due to %s", err)
 	}
 
 	for _, sdkRule := range sdkRules {

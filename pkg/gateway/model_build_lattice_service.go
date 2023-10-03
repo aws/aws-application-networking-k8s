@@ -86,7 +86,7 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	}
 
 	if err := t.buildTargetsForRoute(ctx); err != nil {
-		t.log.Errorf("failed to build targets due to %s", err)
+		t.log.Debugf("failed to build targets due to %s", err)
 	}
 
 	if err := t.buildListeners(ctx); err != nil {

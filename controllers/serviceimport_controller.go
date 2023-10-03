@@ -19,10 +19,9 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -30,6 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 type serviceImportReconciler struct {
