@@ -176,6 +176,8 @@ func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
+	r.log.Infow("reconcile", "name", req.Name)
+
 	route, err := r.getRoute(ctx, req)
 	if err != nil {
 		return client.IgnoreNotFound(err)
@@ -194,7 +196,7 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 			k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 		if err := r.cleanupRouteResources(ctx, route); err != nil {
-			return fmt.Errorf("failed to cleanup GRPCRoute %v, %v: %w", route.Name(), route.Namespace(), err)
+			return fmt.Errorf("failed to cleanup GRPCRoute %s, %s: %w", route.Name(), route.Namespace(), err)
 		}
 		err = updateRouteListenerStatus(ctx, r.client, route)
 		if err != nil {
@@ -206,6 +208,7 @@ func (r *RouteReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 		}
 
 		// TODO delete metrics
+		r.log.Infow("reconciled", "name", req.Name)
 		return nil
 	} else {
 		r.log.Infow("reconcile, adding or updating", "name", req.Name)
@@ -255,7 +258,7 @@ func (r *RouteReconciler) cleanupRouteResources(ctx context.Context, route core.
 
 func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route) bool {
 	if len(route.Spec().ParentRefs()) == 0 {
-		r.log.Infof("Ignore Route which has no ParentRefs gateway %v ", route.Name())
+		r.log.Infof("Ignore Route which has no ParentRefs gateway %s ", route.Name())
 		return false
 	}
 
@@ -284,16 +287,16 @@ func (r *RouteReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	}
 
 	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
-		r.log.Infof("Ignore Route not controlled by any GatewayClass %v, %v", route.Name(), route.Namespace())
+		r.log.Infof("Ignore Route not controlled by any GatewayClass %s, %s", route.Name(), route.Namespace())
 		return false
 	}
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-		r.log.Infof("Found aws-vpc-lattice for Route for %v, %v", route.Name(), route.Namespace())
+		r.log.Infof("Found aws-vpc-lattice for Route for %s, %s", route.Name(), route.Namespace())
 		return true
 	}
 
-	r.log.Infof("Ignore non aws-vpc-lattice Route %v, %v", route.Name(), route.Namespace())
+	r.log.Infof("Ignore non aws-vpc-lattice Route %s, %s", route.Name(), route.Namespace())
 	return false
 }
 
@@ -334,7 +337,7 @@ func (r *RouteReconciler) buildAndDeployModel(
 
 func (r *RouteReconciler) reconcileRouteResource(ctx context.Context, route core.Route) error {
 	if err := r.finalizerManager.AddFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType]); err != nil {
-		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning, k8s.RouteEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
+		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning, k8s.RouteEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %s", err))
 	}
 
 	backendRefIPFamiliesErr := r.validateBackendRefsIpFamilies(ctx, route)

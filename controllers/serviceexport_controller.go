@@ -157,7 +157,7 @@ func (r *ServiceExportReconciler) cleanupServiceExportResources(ctx context.Cont
 
 func (r *ServiceExportReconciler) reconcileServiceExportResources(ctx context.Context, srvExport *mcs_api.ServiceExport) error {
 	if err := r.finalizerManager.AddFinalizers(ctx, srvExport, serviceExportFinalizer); err != nil {
-		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
+		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %s", err))
 		return errors.New("TODO")
 	}
 
@@ -172,11 +172,12 @@ func (r *ServiceExportReconciler) buildAndDeployModel(
 	stack, targetGroup, err := r.modelBuilder.Build(ctx, srvExport)
 
 	if err != nil {
-		r.log.Infof("Failed to buildAndDeployModel for service export %v\n", srvExport)
+		r.log.Debugf("Failed to buildAndDeployModel for service export %s-%s due to %s",
+			srvExport.Name, srvExport.Namespace, err)
 
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,
 			k8s.GatewayEventReasonFailedBuildModel,
-			fmt.Sprintf("Failed BuildModel due to %v", err))
+			fmt.Sprintf("Failed BuildModel due to %s", err))
 
 		// Build failed means the K8S serviceexport, service are NOT ready to be deployed to lattice
 		// return nil  to complete controller loop for current change.
@@ -191,7 +192,7 @@ func (r *ServiceExportReconciler) buildAndDeployModel(
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,
-			k8s.ServiceExportEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
+			k8s.ServiceExportEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %s", err))
 		return nil, nil, err
 	}
 

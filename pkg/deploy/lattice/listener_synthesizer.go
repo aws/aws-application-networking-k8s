@@ -61,7 +61,7 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 	// handle delete
 	sdkListeners, err := l.getSDKListeners(ctx)
 	if err != nil {
-		l.log.Errorf("Failed to get SDK Listeners during Listener synthesis due to err %s", err)
+		l.log.Debugf("Failed to get SDK Listeners during Listener synthesis due to err %s", err)
 	}
 
 	for _, sdkListener := range sdkListeners {

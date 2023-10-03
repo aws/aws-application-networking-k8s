@@ -93,7 +93,7 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 
 	err = t.buildTargets(ctx)
 	if err != nil {
-		t.log.Errorf("failed to build targets due to %s", err)
+		t.log.Debugf("failed to build targets due to %s", err)
 	}
 
 	// only build listener when it is NOT delete case

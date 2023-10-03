@@ -19,10 +19,9 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -30,6 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 // ServiceImportReconciler reconciles a ServiceImport object
@@ -104,7 +106,7 @@ func (r *ServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Handle add
 	if err := r.finalizerManager.AddFinalizers(ctx, serviceImport, serviceImportFinalizer); err != nil {
-		r.eventRecorder.Event(serviceImport, corev1.EventTypeWarning, k8s.ServiceImportEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
+		r.eventRecorder.Event(serviceImport, corev1.EventTypeWarning, k8s.ServiceImportEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %s", err))
 		return ctrl.Result{}, nil
 	}
 

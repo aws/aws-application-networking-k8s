@@ -145,8 +145,6 @@ func (d *defaultListenerManager) List(ctx context.Context, serviceID string) ([]
 		return sdkListeners, err
 	}
 
-	d.log.Debugf("Found listeners for service %v", resp.Items)
-
 	for _, r := range resp.Items {
 		listener := vpclattice.ListenerSummary{
 			Arn:      r.Arn,

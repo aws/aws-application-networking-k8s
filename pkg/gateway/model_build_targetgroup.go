@@ -115,7 +115,7 @@ func (t *targetGroupModelBuildTask) buildModel(ctx context.Context) error {
 
 	err = t.BuildTargets(ctx)
 	if err != nil {
-		t.log.Errorf("Failed to build targets for service export %s-%s due to %w",
+		t.log.Debugf("Failed to build targets for service export %s-%s due to %s",
 			t.serviceExport.Name, t.serviceExport.Namespace, err)
 	}
 
@@ -318,7 +318,6 @@ func (t *latticeServiceModelBuildTask) buildTargetGroup(
 			}
 
 			tg := latticemodel.NewTargetGroup(t.stack, tgName, tgSpec)
-			t.log.Infof("buildTargetGroup, tg[%s], tgSpec%v \n", tgName, tg)
 			t.tgByResID[tgName] = tg
 		}
 	}
