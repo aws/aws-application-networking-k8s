@@ -76,7 +76,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
 						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
@@ -110,7 +110,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
 						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
@@ -144,7 +144,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
 						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
@@ -178,7 +178,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
 						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
@@ -210,7 +210,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
 						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
@@ -268,7 +268,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
 						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &httpSectionName,
 							},
 						},
@@ -300,7 +300,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
 						ParentRefs: []gwv1beta1.ParentReference{
 							{
-								Name:        "mesh1",
+								Name:        "gw1",
 								SectionName: &missingSectionName,
 							},
 						},
