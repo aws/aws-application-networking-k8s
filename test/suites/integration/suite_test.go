@@ -2,7 +2,6 @@ package integration
 
 import (
 	"context"
-	"flag"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -46,18 +45,16 @@ var _ = BeforeSuite(func() {
 
 	sn := testFramework.GetServiceNetwork(ctx, testGateway)
 
-	test.Logger(ctx).Infof("Expecting VPC %s and service network %s association", vpcid, *sn.Id)
+	testFramework.Log.Infof("Expecting VPC %s and service network %s association", vpcid, *sn.Id)
 	Eventually(func(g Gomega) {
 		g.Expect(testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcid, sn)).To(BeTrue())
 	}).Should(Succeed())
 })
 
 func TestIntegration(t *testing.T) {
-	var debug bool
 	ctx = test.NewContext(t)
-	flag.BoolVar(&debug, "debug", false, "enable debug mode")
-	logger := gwlog.NewLogger(debug)
-	testFramework = test.NewFramework(ctx, logger.Named("framework"), k8snamespace)
+	logger := gwlog.NewLogger(true)
+	testFramework = test.NewFramework(ctx, logger, k8snamespace)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Integration")
 }

@@ -1,8 +1,9 @@
 package integration
 
 import (
-	"github.com/aws/aws-application-networking-k8s/controllers"
 	"os"
+
+	"github.com/aws/aws-application-networking-k8s/controllers"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
@@ -70,7 +71,7 @@ var _ = Describe("Defined Target Ports", func() {
 		// Verify VPC Lattice Service exists
 		route, _ := core.NewRoute(httpRoute)
 		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, route)
-		rnp := controllers.RouteLSNProvider{route}
+		rnp := controllers.RouteLSNProvider{Route: route}
 		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(rnp.LatticeServiceName()))
 
 		performVerification(service, deployment, definedPorts)

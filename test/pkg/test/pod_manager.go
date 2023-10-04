@@ -19,7 +19,7 @@ import (
 
 // https://github.com/aws/amazon-vpc-cni-k8s/blob/7eeb2a9ab437887f77de30a5eab20bb42742df06/test/framework/resources/k8s/resources/pod.go#L188
 func (env *Framework) PodExec(namespace string, podName string, cmd string, printOutput bool) (string, string, error) {
-	env.log.Infof("PodExec() [namespace: %v] [podName: %v] [command: %v] \n", namespace, podName, cmd)
+	env.Log.Infof("PodExec() [namespace: %v] [podName: %v] [command: %v] \n", namespace, podName, cmd)
 	restClient, err := env.getRestClientForPod(namespace, podName)
 	if err != nil {
 		return "", "", err
@@ -56,7 +56,7 @@ func (env *Framework) PodExec(namespace string, podName string, cmd string, prin
 	stdoutStr := stdout.String()
 	stderrStr := stderr.String()
 	if printOutput {
-		env.log.Infow("pod exec output", "stdout", stdoutStr, "stderr", stderrStr)
+		env.Log.Infow("pod exec output", "stdout", stdoutStr, "stderr", stderrStr)
 	}
 
 	return stdoutStr, stderrStr, err
@@ -66,7 +66,7 @@ func (env *Framework) GetPodsByDeploymentName(deploymentName string, deploymentN
 	deployment := appsv1.Deployment{}
 	env.Get(env.ctx, types.NamespacedName{Name: deploymentName, Namespace: deploymentNamespce}, &deployment)
 	pods := &v1.PodList{}
-	env.log.Infoln("deployment.Spec.Selector.MatchLabels:", deployment.Spec.Selector.MatchLabels)
+	env.Log.Infoln("deployment.Spec.Selector.MatchLabels:", deployment.Spec.Selector.MatchLabels)
 	env.List(env.ctx, pods, client.MatchingLabelsSelector{
 		Selector: labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels),
 	})
