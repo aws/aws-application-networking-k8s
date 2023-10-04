@@ -2,9 +2,10 @@ package lattice
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/aws"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	//"errors"
@@ -14,37 +15,35 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	sdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_SynthesizeRule(t *testing.T) {
-
-	//var httpSectionName gateway_api.SectionName = "http"
-	var serviceKind gateway_api.Kind = "Service"
-	var serviceimportKind gateway_api.Kind = "ServiceImport"
+	//var httpSectionName gwv1beta1.SectionName = "http"
+	var serviceKind gwv1beta1.Kind = "Service"
+	var serviceimportKind gwv1beta1.Kind = "ServiceImport"
 	var weight1 = int32(10)
 	var weight2 = int32(90)
-	var namespace = gateway_api.Namespace("default")
+	var namespace = gwv1beta1.Namespace("default")
 	var path1 = string("/ver1")
 	var path2 = string("/ver2")
-	var backendRef1 = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var backendRef1 = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name:      "targetgroup1",
 			Namespace: &namespace,
 			Kind:      &serviceKind,
 		},
 		Weight: &weight1,
 	}
-	var backendRef2 = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var backendRef2 = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace,
 			Kind:      &serviceimportKind,
@@ -52,8 +51,8 @@ func Test_SynthesizeRule(t *testing.T) {
 		Weight: &weight2,
 	}
 	/*
-		var backendServiceImportRef = gateway_api.BackendRef{
-			BackendObjectReference: gateway_api.BackendObjectReference{
+		var backendServiceImportRef = gwv1beta1.BackendRef{
+			BackendObjectReference: gwv1beta1.BackendObjectReference{
 				Name: "targetgroup1",
 				Kind: &serviceimportKind,
 			},
@@ -62,13 +61,13 @@ func Test_SynthesizeRule(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		gwListenerPort gateway_api.PortNumber
-		httpRoute      *gateway_api.HTTPRoute
+		gwListenerPort gwv1beta1.PortNumber
+		httpRoute      *gwv1beta1.HTTPRoute
 		listenerARN    string
 		listenerID     string
 		serviceARN     string
 		serviceID      string
-		rulespec       []latticemodel.RuleSpec
+		rulespec       []model.RuleSpec
 		updatedTGs     bool
 		mgrErr         error
 		wantErrIsNil   bool
@@ -77,46 +76,46 @@ func Test_SynthesizeRule(t *testing.T) {
 		{
 			name:           "test1: Add Rule",
 			gwListenerPort: *PortNumberPtr(80),
-			httpRoute: &gateway_api.HTTPRoute{
+			httpRoute: &gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 
 										Value: &path2,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef2,
 								},
@@ -125,7 +124,7 @@ func Test_SynthesizeRule(t *testing.T) {
 					},
 				},
 			},
-			rulespec: []latticemodel.RuleSpec{
+			rulespec: []model.RuleSpec{
 				{
 					PathMatchPrefix: true,
 					PathMatchValue:  path1,
@@ -148,46 +147,46 @@ func Test_SynthesizeRule(t *testing.T) {
 		{
 			name:           "Test2: Add Rule",
 			gwListenerPort: *PortNumberPtr(80),
-			httpRoute: &gateway_api.HTTPRoute{
+			httpRoute: &gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 
 										Value: &path1,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
 							},
 						},
 						{
-							Matches: []gateway_api.HTTPRouteMatch{
+							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
 
-									Path: &gateway_api.HTTPPathMatch{
+									Path: &gwv1beta1.HTTPPathMatch{
 
 										Value: &path2,
 									},
 								},
 							},
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef2,
 								},
@@ -196,7 +195,7 @@ func Test_SynthesizeRule(t *testing.T) {
 					},
 				},
 			},
-			rulespec: []latticemodel.RuleSpec{
+			rulespec: []model.RuleSpec{
 				{
 					PathMatchPrefix: true,
 					PathMatchValue:  path1,
@@ -221,78 +220,77 @@ func Test_SynthesizeRule(t *testing.T) {
 	var protocol = "HTTP"
 
 	for _, tt := range tests {
-		fmt.Printf("testing >>>> %v\n", tt.name)
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
 
-		ds := latticestore.NewLatticeDataStore()
+			ds := latticestore.NewLatticeDataStore()
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
 
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+			mockRuleManager := NewMockRuleManager(c)
 
-		mockRuleManager := NewMockRuleManager(c)
+			var ruleID = 1
+			for i, httpRule := range tt.httpRoute.Spec.Rules {
+				//var ruleValue string
+				tgList := []*model.RuleTargetGroup{}
 
-		var ruleID = 1
+				for _, httpBackendRef := range httpRule.BackendRefs {
+					ruleTG := model.RuleTargetGroup{}
 
-		for i, httpRule := range tt.httpRoute.Spec.Rules {
-			//var ruleValue string
-			tgList := []*latticemodel.RuleTargetGroup{}
+					ruleTG.Name = string(httpBackendRef.Name)
+					ruleTG.Namespace = string(*httpBackendRef.Namespace)
 
-			for _, httpBackendRef := range httpRule.BackendRefs {
-				ruleTG := latticemodel.RuleTargetGroup{}
+					if httpBackendRef.Weight != nil {
+						ruleTG.Weight = int64(*httpBackendRef.Weight)
+					}
 
-				ruleTG.Name = string(httpBackendRef.Name)
-				ruleTG.Namespace = string(*httpBackendRef.Namespace)
-
-				if httpBackendRef.Weight != nil {
-					ruleTG.Weight = int64(*httpBackendRef.Weight)
+					tgList = append(tgList, &ruleTG)
 				}
 
-				tgList = append(tgList, &ruleTG)
+				ruleIDName := fmt.Sprintf("rule-%d", ruleID)
+				ruleAction := model.RuleAction{
+					TargetGroups: tgList,
+				}
+				rule := model.NewRule(stack, ruleIDName, tt.httpRoute.Name, tt.httpRoute.Namespace, int64(tt.gwListenerPort),
+					protocol, ruleAction, tt.rulespec[i])
+
+				var ruleResp model.RuleStatus
+
+				if tt.updatedTGs {
+					ruleResp.UpdatePriorityNeeded = true
+				} else {
+					ruleResp.UpdatePriorityNeeded = false
+				}
+				mockRuleManager.EXPECT().Create(ctx, rule).Return(ruleResp, nil)
+
+				ruleID++
+
 			}
 
-			ruleIDName := fmt.Sprintf("rule-%d", ruleID)
-			ruleAction := latticemodel.RuleAction{
-				TargetGroups: tgList,
-			}
-			rule := latticemodel.NewRule(stack, ruleIDName, tt.httpRoute.Name, tt.httpRoute.Namespace, int64(tt.gwListenerPort),
-				protocol, ruleAction, tt.rulespec[i])
-
-			var ruleResp latticemodel.RuleStatus
+			var resRule []*model.Rule
+			stack.ListResources(&resRule)
 
 			if tt.updatedTGs {
-				ruleResp.UpdatePriorityNeeded = true
-			} else {
-				ruleResp.UpdatePriorityNeeded = false
+				// TODO, resRule return from stack.ListResources is not consistent with the ordering
+				// so we use gomock.Any() instead of resRule below
+				mockRuleManager.EXPECT().Update(ctx, gomock.Any())
 			}
-			mockRuleManager.EXPECT().Create(ctx, rule).Return(ruleResp, nil)
 
-			ruleID++
+			synthesizer := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleManager, stack, ds)
 
-		}
+			err := synthesizer.Synthesize(ctx)
 
-		var resRule []*latticemodel.Rule
-		stack.ListResources(&resRule)
-
-		if tt.updatedTGs {
-			// TODO, resRule return from stack.ListResources is not consistent with the ordering
-			// so we use gomock.Any() instead of resRule below
-			mockRuleManager.EXPECT().Update(ctx, gomock.Any())
-		}
-
-		synthesizer := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleManager, stack, ds)
-
-		err := synthesizer.Synthesize(ctx)
-
-		if tt.wantErrIsNil {
-			assert.Nil(t, err)
-		}
-
+			if tt.wantErrIsNil {
+				assert.Nil(t, err)
+			} else {
+				assert.NotNil(t, err)
+			}
+		})
 	}
 }
 
 func Test_SynthesizeDeleteRule(t *testing.T) {
-
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
@@ -300,8 +298,8 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 	ds := latticestore.NewLatticeDataStore()
 
 	mockRuleManager := NewMockRuleManager(c)
-	mockCloud := aws.NewMockCloud(c)
-	mockLattice := services.NewMockLattice(c)
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mockLattice := mocks.NewMockLattice(c)
 
 	mockRuleManager.EXPECT().Cloud().Return(mockCloud).AnyTimes()
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
@@ -310,7 +308,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 	var serviceNamespace = "test"
 	var serviceID = "service1-id"
 
-	var httpRoute = gateway_api.HTTPRoute{
+	var httpRoute = gwv1beta1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: serviceName,
 		},
@@ -319,21 +317,21 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(&httpRoute.ObjectMeta)))
 	pro := "HTTP"
 	protocols := []*string{&pro}
-	spec := latticemodel.ServiceSpec{
+	spec := model.ServiceSpec{
 		Name:      serviceName,
 		Namespace: serviceNamespace,
 		Protocols: protocols,
 	}
-	stackService := latticemodel.NewLatticeService(stack, "", spec)
+	stackService := model.NewLatticeService(stack, "", spec)
 
 	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ServiceSummary{
-			Name: sdk.String(stackService.LatticeServiceName()),
-			Arn:  sdk.String("svc-arn"),
-			Id:   sdk.String(serviceID),
+			Name: aws.String(stackService.LatticeServiceName()),
+			Arn:  aws.String("svc-arn"),
+			Id:   aws.String(serviceID),
 		}, nil)
 
-	rule1 := latticemodel.RuleStatus{
+	rule1 := model.RuleStatus{
 		RuleARN:    "rule1-arn",
 		RuleID:     "rule1-id",
 		Priority:   1,
@@ -341,7 +339,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 		ListenerID: "listener1-ID",
 	}
 
-	rule2 := latticemodel.RuleStatus{
+	rule2 := model.RuleStatus{
 		RuleARN:    "rule2-arn",
 		RuleID:     "rule2-id",
 		Priority:   2,
@@ -349,7 +347,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 		ListenerID: "listener1-ID",
 	}
 
-	rule3 := latticemodel.RuleStatus{
+	rule3 := model.RuleStatus{
 		RuleARN:    "rule3-arn",
 		RuleID:     "rule3-id",
 		Priority:   1,
@@ -357,7 +355,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 		ListenerID: "listener2-ID",
 	}
 
-	rule4 := latticemodel.RuleStatus{
+	rule4 := model.RuleStatus{
 		RuleARN:    "rule4-arn",
 		RuleID:     "rule4-id",
 		Priority:   2,
@@ -370,13 +368,13 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 		listenerARN string
 		listenerID  string
 
-		rulelist []*latticemodel.RuleStatus
+		rulelist []*model.RuleStatus
 	}{
 		{
 			port:        80,
 			listenerARN: "listener1-ARN",
 			listenerID:  "listener1-ID",
-			rulelist: []*latticemodel.RuleStatus{
+			rulelist: []*model.RuleStatus{
 				&rule1,
 				&rule2,
 			},
@@ -385,7 +383,7 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 			port:        443,
 			listenerARN: "listener2-ARN",
 			listenerID:  "listener2-ID",
-			rulelist: []*latticemodel.RuleStatus{
+			rulelist: []*model.RuleStatus{
 				&rule3,
 				&rule4,
 			},
@@ -409,6 +407,6 @@ func Test_SynthesizeDeleteRule(t *testing.T) {
 
 	synthesizer := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleManager, stack, ds)
 
-	synthesizer.Synthesize(ctx)
-
+	err := synthesizer.Synthesize(ctx)
+	assert.Nil(t, err)
 }

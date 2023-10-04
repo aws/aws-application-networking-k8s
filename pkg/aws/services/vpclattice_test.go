@@ -46,50 +46,52 @@ func Test_defaultLattice_ListServiceNetworksAsList(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		mockLattice := NewMockLattice(c)
+		t.Run(tt.testName, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			mockLattice := NewMockLattice(c)
 
-		d := &defaultLattice{
-			VPCLatticeAPI: mockLattice,
-		}
+			d := &defaultLattice{
+				VPCLatticeAPI: mockLattice,
+			}
 
-		input := &vpclattice.ListServiceNetworksInput{
-			MaxResults: &tt.maxResults,
-			NextToken:  nil,
-		}
-		sn := &vpclattice.ServiceNetworkSummary{
-			Arn:  &tt.testArn,
-			Id:   &tt.testId,
-			Name: &tt.testName,
-		}
-		listOutput1 := &vpclattice.ListServiceNetworksOutput{
-			Items:     []*vpclattice.ServiceNetworkSummary{sn, sn},
-			NextToken: &tt.nextToken,
-		}
-		listOutput2 := &vpclattice.ListServiceNetworksOutput{
-			Items:     []*vpclattice.ServiceNetworkSummary{sn, sn},
-			NextToken: &tt.nextToken,
-		}
-		listOutput3 := &vpclattice.ListServiceNetworksOutput{
-			Items:     []*vpclattice.ServiceNetworkSummary{sn},
-			NextToken: nil,
-		}
-		mockLattice.EXPECT().ListServiceNetworksPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
-			func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
-				cont := f(listOutput1, false)
-				if cont {
-					cont = f(listOutput2, false)
-				}
-				if cont {
-					f(listOutput3, true)
-				}
-				return nil
-			}).Times(1)
+			input := &vpclattice.ListServiceNetworksInput{
+				MaxResults: &tt.maxResults,
+				NextToken:  nil,
+			}
+			sn := &vpclattice.ServiceNetworkSummary{
+				Arn:  &tt.testArn,
+				Id:   &tt.testId,
+				Name: &tt.testName,
+			}
+			listOutput1 := &vpclattice.ListServiceNetworksOutput{
+				Items:     []*vpclattice.ServiceNetworkSummary{sn, sn},
+				NextToken: &tt.nextToken,
+			}
+			listOutput2 := &vpclattice.ListServiceNetworksOutput{
+				Items:     []*vpclattice.ServiceNetworkSummary{sn, sn},
+				NextToken: &tt.nextToken,
+			}
+			listOutput3 := &vpclattice.ListServiceNetworksOutput{
+				Items:     []*vpclattice.ServiceNetworkSummary{sn},
+				NextToken: nil,
+			}
+			mockLattice.EXPECT().ListServiceNetworksPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+				func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
+					cont := f(listOutput1, false)
+					if cont {
+						cont = f(listOutput2, false)
+					}
+					if cont {
+						f(listOutput3, true)
+					}
+					return nil
+				}).Times(1)
 
-		got, err := d.ListServiceNetworksAsList(tt.ctx, input)
-		assert.Nil(t, err)
-		assert.Equal(t, got, []*vpclattice.ServiceNetworkSummary{sn, sn, sn, sn, sn})
+			got, err := d.ListServiceNetworksAsList(tt.ctx, input)
+			assert.Nil(t, err)
+			assert.Equal(t, got, []*vpclattice.ServiceNetworkSummary{sn, sn, sn, sn, sn})
+		})
 	}
 }
 
@@ -108,42 +110,44 @@ func Test_defaultLattice_ListServicesAsList(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		mockLattice := NewMockLattice(c)
+		t.Run(tt.testName, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			mockLattice := NewMockLattice(c)
 
-		d := &defaultLattice{
-			VPCLatticeAPI: mockLattice,
-		}
+			d := &defaultLattice{
+				VPCLatticeAPI: mockLattice,
+			}
 
-		input := &vpclattice.ListServicesInput{
-			MaxResults: &tt.maxResults,
-			NextToken:  nil,
-		}
-		sampleService := &vpclattice.ServiceSummary{
-			Name: &tt.testName,
-		}
-		listOutput1 := &vpclattice.ListServicesOutput{
-			Items:     []*vpclattice.ServiceSummary{sampleService},
-			NextToken: &tt.nextToken,
-		}
-		listOutput2 := &vpclattice.ListServicesOutput{
-			Items:     []*vpclattice.ServiceSummary{sampleService},
-			NextToken: nil,
-		}
+			input := &vpclattice.ListServicesInput{
+				MaxResults: &tt.maxResults,
+				NextToken:  nil,
+			}
+			sampleService := &vpclattice.ServiceSummary{
+				Name: &tt.testName,
+			}
+			listOutput1 := &vpclattice.ListServicesOutput{
+				Items:     []*vpclattice.ServiceSummary{sampleService},
+				NextToken: &tt.nextToken,
+			}
+			listOutput2 := &vpclattice.ListServicesOutput{
+				Items:     []*vpclattice.ServiceSummary{sampleService},
+				NextToken: nil,
+			}
 
-		mockLattice.EXPECT().ListServicesPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
-			func(ctx aws.Context, input *vpclattice.ListServicesInput, f func(*vpclattice.ListServicesOutput, bool) bool, opts ...request.Option) error {
-				cont := f(listOutput1, false)
-				if cont {
-					f(listOutput2, true)
-				}
-				return nil
-			}).Times(1)
+			mockLattice.EXPECT().ListServicesPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+				func(ctx aws.Context, input *vpclattice.ListServicesInput, f func(*vpclattice.ListServicesOutput, bool) bool, opts ...request.Option) error {
+					cont := f(listOutput1, false)
+					if cont {
+						f(listOutput2, true)
+					}
+					return nil
+				}).Times(1)
 
-		got, err := d.ListServicesAsList(tt.ctx, input)
-		assert.Nil(t, err)
-		assert.Equal(t, got, []*vpclattice.ServiceSummary{sampleService, sampleService})
+			got, err := d.ListServicesAsList(tt.ctx, input)
+			assert.Nil(t, err)
+			assert.Equal(t, got, []*vpclattice.ServiceSummary{sampleService, sampleService})
+		})
 	}
 }
 
@@ -162,36 +166,38 @@ func Test_defaultLattice_ListTGsAsList(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		mockLattice := NewMockLattice(c)
+		t.Run(tt.testName, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			mockLattice := NewMockLattice(c)
 
-		d := &defaultLattice{
-			VPCLatticeAPI: mockLattice,
-		}
+			d := &defaultLattice{
+				VPCLatticeAPI: mockLattice,
+			}
 
-		input := &vpclattice.ListTargetGroupsInput{
-			MaxResults: &tt.maxResults,
-			NextToken:  nil,
-		}
-		sample := &vpclattice.TargetGroupSummary{
-			Name: &tt.testName,
-		}
+			input := &vpclattice.ListTargetGroupsInput{
+				MaxResults: &tt.maxResults,
+				NextToken:  nil,
+			}
+			sample := &vpclattice.TargetGroupSummary{
+				Name: &tt.testName,
+			}
 
-		listOutput1 := &vpclattice.ListTargetGroupsOutput{
-			Items:     []*vpclattice.TargetGroupSummary{sample},
-			NextToken: nil,
-		}
+			listOutput1 := &vpclattice.ListTargetGroupsOutput{
+				Items:     []*vpclattice.TargetGroupSummary{sample},
+				NextToken: nil,
+			}
 
-		mockLattice.EXPECT().ListTargetGroupsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
-			func(ctx aws.Context, input *vpclattice.ListTargetGroupsInput, f func(*vpclattice.ListTargetGroupsOutput, bool) bool, opts ...request.Option) error {
-				f(listOutput1, true)
-				return nil
-			}).Times(1)
+			mockLattice.EXPECT().ListTargetGroupsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+				func(ctx aws.Context, input *vpclattice.ListTargetGroupsInput, f func(*vpclattice.ListTargetGroupsOutput, bool) bool, opts ...request.Option) error {
+					f(listOutput1, true)
+					return nil
+				}).Times(1)
 
-		got, err := d.ListTargetGroupsAsList(tt.ctx, input)
-		assert.Nil(t, err)
-		assert.Equal(t, got, []*vpclattice.TargetGroupSummary{sample})
+			got, err := d.ListTargetGroupsAsList(tt.ctx, input)
+			assert.Nil(t, err)
+			assert.Equal(t, got, []*vpclattice.TargetGroupSummary{sample})
+		})
 	}
 }
 
@@ -210,34 +216,36 @@ func Test_defaultLattice_ListTargetsAsList(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		mockLattice := NewMockLattice(c)
+		t.Run(tt.testName, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			mockLattice := NewMockLattice(c)
 
-		d := &defaultLattice{
-			VPCLatticeAPI: mockLattice,
-		}
+			d := &defaultLattice{
+				VPCLatticeAPI: mockLattice,
+			}
 
-		input := &vpclattice.ListTargetsInput{
-			MaxResults: &tt.maxResults,
-			NextToken:  nil,
-		}
-		sample := &vpclattice.TargetSummary{
-			Id: &tt.testName,
-		}
-		listOutput1 := &vpclattice.ListTargetsOutput{
-			Items:     []*vpclattice.TargetSummary{sample, sample},
-			NextToken: nil,
-		}
-		mockLattice.EXPECT().ListTargetsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
-			func(ctx aws.Context, input *vpclattice.ListTargetsInput, f func(*vpclattice.ListTargetsOutput, bool) bool, opts ...request.Option) error {
-				f(listOutput1, true)
-				return nil
-			}).Times(1)
+			input := &vpclattice.ListTargetsInput{
+				MaxResults: &tt.maxResults,
+				NextToken:  nil,
+			}
+			sample := &vpclattice.TargetSummary{
+				Id: &tt.testName,
+			}
+			listOutput1 := &vpclattice.ListTargetsOutput{
+				Items:     []*vpclattice.TargetSummary{sample, sample},
+				NextToken: nil,
+			}
+			mockLattice.EXPECT().ListTargetsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+				func(ctx aws.Context, input *vpclattice.ListTargetsInput, f func(*vpclattice.ListTargetsOutput, bool) bool, opts ...request.Option) error {
+					f(listOutput1, true)
+					return nil
+				}).Times(1)
 
-		got, err := d.ListTargetsAsList(tt.ctx, input)
-		assert.Nil(t, err)
-		assert.Equal(t, got, []*vpclattice.TargetSummary{sample, sample})
+			got, err := d.ListTargetsAsList(tt.ctx, input)
+			assert.Nil(t, err)
+			assert.Equal(t, got, []*vpclattice.TargetSummary{sample, sample})
+		})
 	}
 }
 
@@ -256,34 +264,36 @@ func Test_defaultLattice_ListServiceNetworkVpcAssociationsAsList(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		mockLattice := NewMockLattice(c)
+		t.Run(tt.testName, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			mockLattice := NewMockLattice(c)
 
-		d := &defaultLattice{
-			VPCLatticeAPI: mockLattice,
-		}
+			d := &defaultLattice{
+				VPCLatticeAPI: mockLattice,
+			}
 
-		input := &vpclattice.ListServiceNetworkVpcAssociationsInput{
-			MaxResults: &tt.maxResults,
-			NextToken:  nil,
-		}
-		sample := &vpclattice.ServiceNetworkVpcAssociationSummary{
-			ServiceNetworkName: &tt.testName,
-		}
-		listOutput1 := &vpclattice.ListServiceNetworkVpcAssociationsOutput{
-			Items:     []*vpclattice.ServiceNetworkVpcAssociationSummary{sample},
-			NextToken: nil,
-		}
-		mockLattice.EXPECT().ListServiceNetworkVpcAssociationsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
-			func(ctx aws.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput, f func(*vpclattice.ListServiceNetworkVpcAssociationsOutput, bool) bool, opts ...request.Option) error {
-				f(listOutput1, true)
-				return nil
-			}).Times(1)
+			input := &vpclattice.ListServiceNetworkVpcAssociationsInput{
+				MaxResults: &tt.maxResults,
+				NextToken:  nil,
+			}
+			sample := &vpclattice.ServiceNetworkVpcAssociationSummary{
+				ServiceNetworkName: &tt.testName,
+			}
+			listOutput1 := &vpclattice.ListServiceNetworkVpcAssociationsOutput{
+				Items:     []*vpclattice.ServiceNetworkVpcAssociationSummary{sample},
+				NextToken: nil,
+			}
+			mockLattice.EXPECT().ListServiceNetworkVpcAssociationsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+				func(ctx aws.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput, f func(*vpclattice.ListServiceNetworkVpcAssociationsOutput, bool) bool, opts ...request.Option) error {
+					f(listOutput1, true)
+					return nil
+				}).Times(1)
 
-		got, err := d.ListServiceNetworkVpcAssociationsAsList(tt.ctx, input)
-		assert.Nil(t, err)
-		assert.Equal(t, got, []*vpclattice.ServiceNetworkVpcAssociationSummary{sample})
+			got, err := d.ListServiceNetworkVpcAssociationsAsList(tt.ctx, input)
+			assert.Nil(t, err)
+			assert.Equal(t, got, []*vpclattice.ServiceNetworkVpcAssociationSummary{sample})
+		})
 	}
 }
 
@@ -302,32 +312,34 @@ func Test_defaultLattice_ListServiceNetworkServiceAssociationsAsList(t *testing.
 		},
 	}
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		mockLattice := NewMockLattice(c)
+		t.Run(tt.testName, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			mockLattice := NewMockLattice(c)
 
-		d := &defaultLattice{
-			VPCLatticeAPI: mockLattice,
-		}
+			d := &defaultLattice{
+				VPCLatticeAPI: mockLattice,
+			}
 
-		input := &vpclattice.ListServiceNetworkServiceAssociationsInput{
-			MaxResults: &tt.maxResults,
-			NextToken:  nil,
-		}
+			input := &vpclattice.ListServiceNetworkServiceAssociationsInput{
+				MaxResults: &tt.maxResults,
+				NextToken:  nil,
+			}
 
-		listOutput1 := &vpclattice.ListServiceNetworkServiceAssociationsOutput{
-			Items:     []*vpclattice.ServiceNetworkServiceAssociationSummary{},
-			NextToken: nil,
-		}
-		mockLattice.EXPECT().ListServiceNetworkServiceAssociationsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
-			func(ctx aws.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput, f func(*vpclattice.ListServiceNetworkServiceAssociationsOutput, bool) bool, opts ...request.Option) error {
-				f(listOutput1, true)
-				return nil
-			}).Times(1)
+			listOutput1 := &vpclattice.ListServiceNetworkServiceAssociationsOutput{
+				Items:     []*vpclattice.ServiceNetworkServiceAssociationSummary{},
+				NextToken: nil,
+			}
+			mockLattice.EXPECT().ListServiceNetworkServiceAssociationsPagesWithContext(tt.ctx, input, gomock.Any()).DoAndReturn(
+				func(ctx aws.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput, f func(*vpclattice.ListServiceNetworkServiceAssociationsOutput, bool) bool, opts ...request.Option) error {
+					f(listOutput1, true)
+					return nil
+				}).Times(1)
 
-		got, err := d.ListServiceNetworkServiceAssociationsAsList(tt.ctx, input)
-		assert.Nil(t, err)
-		assert.Equal(t, got, []*vpclattice.ServiceNetworkServiceAssociationSummary{})
+			got, err := d.ListServiceNetworkServiceAssociationsAsList(tt.ctx, input)
+			assert.Nil(t, err)
+			assert.Equal(t, got, []*vpclattice.ServiceNetworkServiceAssociationSummary{})
+		})
 	}
 }
 

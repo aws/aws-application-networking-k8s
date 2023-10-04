@@ -58,7 +58,7 @@ type defaultServiceNetworkManager struct {
 //
 // return errors.New(LATTICE_RETRY) when:
 //
-//	CreateServiceNetworkVpcAssociationInput returns ServiceNetworkVpcAssociationStatusFailed/ServiceNetworkVpcAssociationStatusCreateInProgress/MeshVpcAssociationStatusDeleteInProgress
+//	CreateServiceNetworkVpcAssociationInput returns ServiceNetworkVpcAssociationStatusFailed/ServiceNetworkVpcAssociationStatusCreateInProgress/ServiceNetworkVpcAssociationStatusDeleteInProgress
 
 func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, serviceNetwork *model.ServiceNetwork) (model.ServiceNetworkStatus, error) {
 	// check if exists
@@ -266,13 +266,13 @@ func (m *defaultServiceNetworkManager) isServiceNetworkAlreadyAssociatedWithVPC(
 			if err == nil {
 				switch associationStatus {
 				case vpclattice.ServiceNetworkVpcAssociationStatusActive:
-					m.log.Debugf("Mesh and Vpc association is active.")
+					m.log.Debugf("ServiceNetwork and Vpc association is active.")
 					return true, r, resp, nil
 				case vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed:
-					m.log.Debugf("Mesh and Vpc association does not exists, start creating service_network and vpc association")
+					m.log.Debugf("ServiceNetwork and Vpc association does not exists, start creating service_network and vpc association")
 					return false, r, resp, nil
 				case vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed:
-					m.log.Debugf("Mesh and Vpc association failed to delete")
+					m.log.Debugf("ServiceNetwork and Vpc association failed to delete")
 					return true, r, resp, nil
 				case vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress:
 					m.log.Debugf("ServiceNetwork and Vpc association is being deleted, retry later")

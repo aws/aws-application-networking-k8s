@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -29,13 +30,13 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 	tg_types := [2]string{"by-backendref", "by-serviceexport"}
 
 	for _, tg_type := range tg_types {
-		var tgSpec latticemodel.TargetGroupSpec
+		var tgSpec model.TargetGroupSpec
 
 		if tg_type == "by-serviceexport" {
 			// testing targetgroup for serviceexport
-			tgSpec = latticemodel.TargetGroupSpec{
+			tgSpec = model.TargetGroupSpec{
 				Name: "test",
-				Config: latticemodel.TargetGroupConfig{
+				Config: model.TargetGroupConfig{
 					Port:                int32(8080),
 					Protocol:            "HTTP",
 					ProtocolVersion:     vpclattice.TargetGroupProtocolVersionHttp1,
@@ -49,9 +50,9 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			}
 		} else if tg_type == "by-backendref" {
 			// testing targetgroup for backendref
-			tgSpec = latticemodel.TargetGroupSpec{
+			tgSpec = model.TargetGroupSpec{
 				Name: "test",
-				Config: latticemodel.TargetGroupConfig{
+				Config: model.TargetGroupConfig{
 					Port:                  int32(8080),
 					Protocol:              "HTTP",
 					ProtocolVersion:       vpclattice.TargetGroupProtocolVersionHttp1,
@@ -66,11 +67,11 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 				},
 			}
 		}
-		tgCreateInput := latticemodel.TargetGroup{
+		tgCreateInput := model.TargetGroup{
 			ResourceMeta: core.ResourceMeta{},
 			Spec:         tgSpec,
 		}
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
+		mockLattice := mocks.NewMockLattice(c)
 		arn := "12345678912345678912"
 		id := "12345678912345678912"
 		name := "test-http-http1"
@@ -96,25 +97,25 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			Type:   &emptystring,
 			Tags:   make(map[string]*string),
 		}
-		createTargetGroupInput.Tags[latticemodel.K8SServiceNameKey] = &tgSpec.Config.K8SServiceName
-		createTargetGroupInput.Tags[latticemodel.K8SServiceNamespaceKey] = &tgSpec.Config.K8SServiceNamespace
+		createTargetGroupInput.Tags[model.K8SServiceNameKey] = &tgSpec.Config.K8SServiceName
+		createTargetGroupInput.Tags[model.K8SServiceNamespaceKey] = &tgSpec.Config.K8SServiceNamespace
 
 		if tg_type == "by-serviceexport" {
-			value := latticemodel.K8SServiceExportType
-			createTargetGroupInput.Tags[latticemodel.K8SParentRefTypeKey] = &value
+			value := model.K8SServiceExportType
+			createTargetGroupInput.Tags[model.K8SParentRefTypeKey] = &value
 		} else if tg_type == "by-backendref" {
-			value := latticemodel.K8SHTTPRouteType
-			createTargetGroupInput.Tags[latticemodel.K8SParentRefTypeKey] = &value
-			createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNameKey] = &tgSpec.Config.K8SHTTPRouteName
-			createTargetGroupInput.Tags[latticemodel.K8SHTTPRouteNamespaceKey] = &tgSpec.Config.K8SHTTPRouteNamespace
+			value := model.K8SHTTPRouteType
+			createTargetGroupInput.Tags[model.K8SParentRefTypeKey] = &value
+			createTargetGroupInput.Tags[model.K8SHTTPRouteNameKey] = &tgSpec.Config.K8SHTTPRouteName
+			createTargetGroupInput.Tags[model.K8SHTTPRouteNamespaceKey] = &tgSpec.Config.K8SHTTPRouteNamespace
 		}
 
 		listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 		mockCloud := mocks_aws.NewMockCloud(c)
-		mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-		mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, &createTargetGroupInput).Return(tgCreateOutput, nil)
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+		mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+		mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, &createTargetGroupInput).Return(tgCreateOutput, nil)
+		mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 		tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 		resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -129,16 +130,16 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Config: model.TargetGroupConfig{},
 	}
-	tgCreateInput := latticemodel.TargetGroup{
+	tgCreateInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 		Status:       nil,
 	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -160,9 +161,9 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -197,57 +198,59 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 
-	for _, test := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("Test_%d", i), func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
 
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-		mockCloud := mocks_aws.NewMockCloud(c)
-		tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
+			mockLattice := mocks.NewMockLattice(c)
+			mockCloud := mocks_aws.NewMockCloud(c)
+			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
-		tgSpec := latticemodel.TargetGroupSpec{
-			Name: "test",
-			Config: latticemodel.TargetGroupConfig{
-				Protocol:          vpclattice.TargetGroupProtocolHttps,
-				ProtocolVersion:   vpclattice.TargetGroupProtocolVersionHttp1,
-				HealthCheckConfig: test.healthCheckConfig,
-			},
-		}
+			tgSpec := model.TargetGroupSpec{
+				Name: "test",
+				Config: model.TargetGroupConfig{
+					Protocol:          vpclattice.TargetGroupProtocolHttps,
+					ProtocolVersion:   vpclattice.TargetGroupProtocolVersionHttp1,
+					HealthCheckConfig: test.healthCheckConfig,
+				},
+			}
 
-		tgCreateInput := latticemodel.TargetGroup{
-			ResourceMeta: core.ResourceMeta{},
-			Spec:         tgSpec,
-		}
+			tgCreateInput := model.TargetGroup{
+				ResourceMeta: core.ResourceMeta{},
+				Spec:         tgSpec,
+			}
 
-		tgSummary := vpclattice.TargetGroupSummary{
-			Arn:    &arn,
-			Id:     &id,
-			Name:   aws.String("test-https-http1"),
-			Status: aws.String(vpclattice.TargetGroupStatusActive),
-			Port:   aws.Int64(80),
-		}
+			tgSummary := vpclattice.TargetGroupSummary{
+				Arn:    &arn,
+				Id:     &id,
+				Name:   aws.String("test-https-http1"),
+				Status: aws.String(vpclattice.TargetGroupStatusActive),
+				Port:   aws.Int64(80),
+			}
 
-		listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
+			listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
-		mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+			mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
 
-		if test.wantErr {
-			mockVpcLatticeSess.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("error"))
-		} else {
-			mockVpcLatticeSess.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, nil)
-		}
+			if test.wantErr {
+				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("error"))
+			} else {
+				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, nil)
+			}
 
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+			mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-		resp, err := tgManager.Create(ctx, &tgCreateInput)
+			resp, err := tgManager.Create(ctx, &tgCreateInput)
 
-		if test.wantErr {
-			assert.NotNil(t, err)
-		} else {
-			assert.Nil(t, err)
-			assert.Equal(t, resp.TargetGroupARN, arn)
-			assert.Equal(t, resp.TargetGroupID, id)
-		}
+			if test.wantErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, resp.TargetGroupARN, arn)
+				assert.Equal(t, resp.TargetGroupID, id)
+			}
+		})
 	}
 }
 
@@ -256,15 +259,15 @@ func Test_CreateTargetGroup_TGCreateInProgress_Retry(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Config: model.TargetGroupConfig{},
 	}
-	tgCreateInput := latticemodel.TargetGroup{
+	tgCreateInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -279,8 +282,8 @@ func Test_CreateTargetGroup_TGCreateInProgress_Retry(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New(LATTICE_RETRY))
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New(LATTICE_RETRY))
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -295,15 +298,15 @@ func Test_CreateTargetGroup_TGDeleteInProgress_Retry(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Config: model.TargetGroupConfig{},
 	}
-	tgCreateInput := latticemodel.TargetGroup{
+	tgCreateInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -318,8 +321,8 @@ func Test_CreateTargetGroup_TGDeleteInProgress_Retry(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New(LATTICE_RETRY))
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New(LATTICE_RETRY))
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -335,15 +338,15 @@ func Test_CreateTargetGroup_TGNotExist_UpdateInProgress(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Config: model.TargetGroupConfig{},
 	}
-	tgCreateInput := latticemodel.TargetGroup{
+	tgCreateInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -358,9 +361,9 @@ func Test_CreateTargetGroup_TGNotExist_UpdateInProgress(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -376,15 +379,15 @@ func Test_CreateTargetGroup_TGNotExist_CreateInProgress(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Config: model.TargetGroupConfig{},
 	}
-	tgCreateInput := latticemodel.TargetGroup{
+	tgCreateInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -399,9 +402,9 @@ func Test_CreateTargetGroup_TGNotExist_CreateInProgress(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -416,15 +419,15 @@ func Test_CreateTargetGroup_TGNotExist_DeleteInProgress(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Config: model.TargetGroupConfig{},
 	}
-	tgCreateInput := latticemodel.TargetGroup{
+	tgCreateInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -439,9 +442,9 @@ func Test_CreateTargetGroup_TGNotExist_DeleteInProgress(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -456,15 +459,15 @@ func Test_CreateTargetGroup_TGNotExist_Failed(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Config: model.TargetGroupConfig{},
 	}
-	tgCreateInput := latticemodel.TargetGroup{
+	tgCreateInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -479,9 +482,9 @@ func Test_CreateTargetGroup_TGNotExist_Failed(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -496,20 +499,20 @@ func Test_CreateTargetGroup_ListTGError(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Config: model.TargetGroupConfig{},
 	}
-	tgCreateInput := latticemodel.TargetGroup{
+	tgCreateInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New("test"))
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New("test"))
+	mockCloud.EXPECT().Lattice().Return(mockLattice)
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -524,15 +527,15 @@ func Test_CreateTargetGroup_CreateTGFailed(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:   "test",
-		Config: latticemodel.TargetGroupConfig{},
+		Config: model.TargetGroupConfig{},
 	}
-	tgCreateInput := latticemodel.TargetGroup{
+	tgCreateInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
@@ -547,9 +550,9 @@ func Test_CreateTargetGroup_CreateTGFailed(t *testing.T) {
 	listTgOutput := []*vpclattice.TargetGroupSummary{}
 
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-	mockVpcLatticeSess.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, errors.New("test"))
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, errors.New("test"))
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	resp, err := tgManager.Create(ctx, &tgCreateInput)
 
@@ -590,14 +593,14 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 	}
 	deleteTargetGroupOutput := &vpclattice.DeleteTargetGroupOutput{}
 
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:      "test",
-		Config:    latticemodel.TargetGroupConfig{},
+		Config:    model.TargetGroupConfig{},
 		Type:      "IP",
 		IsDeleted: false,
 		LatticeID: "123",
 	}
-	tgDeleteInput := latticemodel.TargetGroup{
+	tgDeleteInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
@@ -605,11 +608,11 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -629,14 +632,14 @@ func Test_DeleteTG_NoRegisteredTargets_DeleteTargetGroup(t *testing.T) {
 	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{}
 	deleteTargetGroupOutput := &vpclattice.DeleteTargetGroupOutput{}
 
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:      "test",
-		Config:    latticemodel.TargetGroupConfig{},
+		Config:    model.TargetGroupConfig{},
 		Type:      "IP",
 		IsDeleted: false,
 		LatticeID: "123",
 	}
-	tgDeleteInput := latticemodel.TargetGroup{
+	tgDeleteInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
@@ -644,11 +647,11 @@ func Test_DeleteTG_NoRegisteredTargets_DeleteTargetGroup(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -667,14 +670,14 @@ func Test_DeleteTG_DeRegisteredTargetsFailed(t *testing.T) {
 	listTargetsOutput := []*vpclattice.TargetSummary{targets}
 	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{}
 
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:      "test",
-		Config:    latticemodel.TargetGroupConfig{},
+		Config:    model.TargetGroupConfig{},
 		Type:      "IP",
 		IsDeleted: false,
 		LatticeID: "123",
 	}
-	tgDeleteInput := latticemodel.TargetGroup{
+	tgDeleteInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
@@ -682,10 +685,10 @@ func Test_DeleteTG_DeRegisteredTargetsFailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, errors.New("Deregister_failed"))
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, errors.New("Deregister_failed"))
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -704,14 +707,14 @@ func Test_DeleteTG_ListTargetsFailed(t *testing.T) {
 	}
 	listTargetsOutput := []*vpclattice.TargetSummary{targets}
 
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:      "test",
-		Config:    latticemodel.TargetGroupConfig{},
+		Config:    model.TargetGroupConfig{},
 		Type:      "IP",
 		IsDeleted: false,
 		LatticeID: "123",
 	}
-	tgDeleteInput := latticemodel.TargetGroup{
+	tgDeleteInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 		Status:       nil,
@@ -720,9 +723,9 @@ func Test_DeleteTG_ListTargetsFailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, errors.New("Listregister_failed"))
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, errors.New("Listregister_failed"))
+	mockCloud.EXPECT().Lattice().Return(mockLattice)
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -751,14 +754,14 @@ func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 		Unsuccessful: unsuccessful,
 	}
 
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:      "test",
-		Config:    latticemodel.TargetGroupConfig{},
+		Config:    model.TargetGroupConfig{},
 		Type:      "IP",
 		IsDeleted: false,
 		LatticeID: "123",
 	}
-	tgDeleteInput := latticemodel.TargetGroup{
+	tgDeleteInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
@@ -766,10 +769,10 @@ func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -798,14 +801,14 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroupFailed(t *testing.T) {
 	}
 	deleteTargetGroupOutput := &vpclattice.DeleteTargetGroupOutput{}
 
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:      "test",
-		Config:    latticemodel.TargetGroupConfig{},
+		Config:    model.TargetGroupConfig{},
 		Type:      "IP",
 		IsDeleted: false,
 		LatticeID: "123",
 	}
-	tgDeleteInput := latticemodel.TargetGroup{
+	tgDeleteInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
@@ -813,11 +816,11 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroupFailed(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, errors.New("DeleteTG_failed"))
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, errors.New("DeleteTG_failed"))
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -838,14 +841,14 @@ func Test_DeleteTG_TargetsNonUnused(t *testing.T) {
 	}
 	listTargetsOutput := []*vpclattice.TargetSummary{targets}
 
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:      "test",
-		Config:    latticemodel.TargetGroupConfig{},
+		Config:    model.TargetGroupConfig{},
 		Type:      "IP",
 		IsDeleted: false,
 		LatticeID: "123",
 	}
-	tgDeleteInput := latticemodel.TargetGroup{
+	tgDeleteInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 		Status:       nil,
@@ -854,9 +857,9 @@ func Test_DeleteTG_TargetsNonUnused(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice)
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -877,14 +880,14 @@ func Test_DeleteTG_vpcLatticeSessReturnResourceNotFound_DeleteTargetGroupSuccess
 	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{}
 	deleteTargetGroupOutput := &vpclattice.DeleteTargetGroupOutput{}
 
-	tgSpec := latticemodel.TargetGroupSpec{
+	tgSpec := model.TargetGroupSpec{
 		Name:      "test",
-		Config:    latticemodel.TargetGroupConfig{},
+		Config:    model.TargetGroupConfig{},
 		Type:      "IP",
 		IsDeleted: false,
 		LatticeID: "123",
 	}
-	tgDeleteInput := latticemodel.TargetGroup{
+	tgDeleteInput := model.TargetGroup{
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
@@ -892,11 +895,11 @@ func Test_DeleteTG_vpcLatticeSessReturnResourceNotFound_DeleteTargetGroupSuccess
 	defer c.Finish()
 	ctx := context.TODO()
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
-	mockVpcLatticeSess.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockVpcLatticeSess.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, awserr.New(vpclattice.ErrCodeResourceNotFoundException, "", nil))
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, awserr.New(vpclattice.ErrCodeResourceNotFoundException, "", nil))
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -939,15 +942,15 @@ func Test_ListTG_TGsExist(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
-	mockVpcLatticeSess.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG1, nil)
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
+	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG1, nil)
 	// assume no tags
-	mockVpcLatticeSess.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, errors.New("no tags"))
-	mockVpcLatticeSess.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG2, nil)
+	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, errors.New("no tags"))
+	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG2, nil)
 
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
+	mockCloud.EXPECT().Lattice().Return(mockLattice)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	tgList, err := tgManager.List(ctx)
@@ -968,10 +971,10 @@ func Test_ListTG_NoTG(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	mockVpcLatticeSess := mocks.NewMockLattice(c)
+	mockLattice := mocks.NewMockLattice(c)
 	mockCloud := mocks_aws.NewMockCloud(c)
-	mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess)
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 	tgList, err := tgManager.List(ctx)
@@ -987,8 +990,8 @@ func Test_Get(t *testing.T) {
 		tgId           string
 		tgArn          string
 		tgName         string
-		input          *latticemodel.TargetGroup
-		wantOutput     latticemodel.TargetGroupStatus
+		input          *model.TargetGroup
+		wantOutput     model.TargetGroupStatus
 		randomArn      string
 		randomId       string
 		randomName     string
@@ -1000,11 +1003,11 @@ func Test_Get(t *testing.T) {
 			tgId:    "tg-id-012345",
 			tgArn:   "tg-arn-123456",
 			tgName:  "tg-test-1-https-http1",
-			input: &latticemodel.TargetGroup{
+			input: &model.TargetGroup{
 				ResourceMeta: core.ResourceMeta{},
-				Spec: latticemodel.TargetGroupSpec{
+				Spec: model.TargetGroupSpec{
 					Name: "tg-test-1",
-					Config: latticemodel.TargetGroupConfig{
+					Config: model.TargetGroupConfig{
 						Protocol:        vpclattice.TargetGroupProtocolHttps,
 						ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 					},
@@ -1014,7 +1017,7 @@ func Test_Get(t *testing.T) {
 				},
 				Status: nil,
 			},
-			wantOutput:     latticemodel.TargetGroupStatus{TargetGroupARN: "tg-arn-123456", TargetGroupID: "tg-id-012345"},
+			wantOutput:     model.TargetGroupStatus{TargetGroupARN: "tg-arn-123456", TargetGroupID: "tg-id-012345"},
 			randomArn:      "random-tg-arn-12345",
 			randomId:       "random-tg-id-12345",
 			randomName:     "tgrandom-1",
@@ -1026,11 +1029,11 @@ func Test_Get(t *testing.T) {
 			tgId:    "tg-id-012345",
 			tgArn:   "tg-arn-123456",
 			tgName:  "tg-test-1-https-http1",
-			input: &latticemodel.TargetGroup{
+			input: &model.TargetGroup{
 				ResourceMeta: core.ResourceMeta{},
-				Spec: latticemodel.TargetGroupSpec{
+				Spec: model.TargetGroupSpec{
 					Name: "tg-test-1",
-					Config: latticemodel.TargetGroupConfig{
+					Config: model.TargetGroupConfig{
 						Protocol:        vpclattice.TargetGroupProtocolHttps,
 						ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 					},
@@ -1040,7 +1043,7 @@ func Test_Get(t *testing.T) {
 				},
 				Status: nil,
 			},
-			wantOutput:     latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""},
+			wantOutput:     model.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""},
 			randomArn:      "random-tg-arn-12345",
 			randomId:       "random-tg-id-12345",
 			randomName:     "tgrandom-1",
@@ -1052,11 +1055,11 @@ func Test_Get(t *testing.T) {
 			tgId:    "tg-id-012345",
 			tgArn:   "tg-arn-123456",
 			tgName:  "tg-test-1-https-http1",
-			input: &latticemodel.TargetGroup{
+			input: &model.TargetGroup{
 				ResourceMeta: core.ResourceMeta{},
-				Spec: latticemodel.TargetGroupSpec{
+				Spec: model.TargetGroupSpec{
 					Name: "tg-test-1",
-					Config: latticemodel.TargetGroupConfig{
+					Config: model.TargetGroupConfig{
 						Protocol:        vpclattice.TargetGroupProtocolHttps,
 						ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 					},
@@ -1066,7 +1069,7 @@ func Test_Get(t *testing.T) {
 				},
 				Status: nil,
 			},
-			wantOutput:     latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""},
+			wantOutput:     model.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""},
 			randomArn:      "random-tg-arn-12345",
 			randomId:       "random-tg-id-12345",
 			randomName:     "tgrandom-1",
@@ -1078,11 +1081,11 @@ func Test_Get(t *testing.T) {
 			tgId:    "tg-id-012345",
 			tgArn:   "tg-arn-123456",
 			tgName:  "tg-test-not-exist-https-http1",
-			input: &latticemodel.TargetGroup{
+			input: &model.TargetGroup{
 				ResourceMeta: core.ResourceMeta{},
-				Spec: latticemodel.TargetGroupSpec{
+				Spec: model.TargetGroupSpec{
 					Name: "tg-test-2",
-					Config: latticemodel.TargetGroupConfig{
+					Config: model.TargetGroupConfig{
 						Protocol:        vpclattice.TargetGroupProtocolHttps,
 						ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 					},
@@ -1092,7 +1095,7 @@ func Test_Get(t *testing.T) {
 				},
 				Status: nil,
 			},
-			wantOutput:     latticemodel.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""},
+			wantOutput:     model.TargetGroupStatus{TargetGroupARN: "", TargetGroupID: ""},
 			randomArn:      "random-tg-arn-12345",
 			randomId:       "random-tg-id-12345",
 			randomName:     "tgrandom-2",
@@ -1101,45 +1104,47 @@ func Test_Get(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
-		mockVpcLatticeSess := mocks.NewMockLattice(c)
-		mockCloud := mocks_aws.NewMockCloud(c)
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("Test_%d", i), func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
+			mockLattice := mocks.NewMockLattice(c)
+			mockCloud := mocks_aws.NewMockCloud(c)
 
-		listTGinput := &vpclattice.ListTargetGroupsInput{}
-		listTGOutput := []*vpclattice.TargetGroupSummary{
-			{
-				Arn:    &tt.randomArn,
-				Id:     &tt.randomId,
-				Name:   &tt.randomName,
-				Status: &tt.tgStatusFailed,
-				Type:   nil,
-			},
-			{
-				Arn:    &tt.tgArn,
-				Id:     &tt.tgId,
-				Name:   &tt.tgName,
-				Status: &tt.tgStatus,
-				Type:   nil,
-			}}
+			listTGinput := &vpclattice.ListTargetGroupsInput{}
+			listTGOutput := []*vpclattice.TargetGroupSummary{
+				{
+					Arn:    &tt.randomArn,
+					Id:     &tt.randomId,
+					Name:   &tt.randomName,
+					Status: &tt.tgStatusFailed,
+					Type:   nil,
+				},
+				{
+					Arn:    &tt.tgArn,
+					Id:     &tt.tgId,
+					Name:   &tt.tgName,
+					Status: &tt.tgStatus,
+					Type:   nil,
+				}}
 
-		mockVpcLatticeSess.EXPECT().ListTargetGroupsAsList(ctx, listTGinput).Return(listTGOutput, nil)
+			mockLattice.EXPECT().ListTargetGroupsAsList(ctx, listTGinput).Return(listTGOutput, nil)
 
-		mockCloud.EXPECT().Lattice().Return(mockVpcLatticeSess).AnyTimes()
-		targetGroupManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
+			mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+			targetGroupManager := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
 
-		resp, err := targetGroupManager.Get(ctx, tt.input)
+			resp, err := targetGroupManager.Get(ctx, tt.input)
 
-		if tt.wantErr != nil {
-			assert.NotNil(t, err)
-			assert.Equal(t, err, tt.wantErr)
-		} else {
-			assert.Nil(t, err)
-			assert.Equal(t, resp.TargetGroupID, tt.wantOutput.TargetGroupID)
-			assert.Equal(t, resp.TargetGroupARN, tt.wantOutput.TargetGroupARN)
-		}
+			if tt.wantErr != nil {
+				assert.NotNil(t, err)
+				assert.Equal(t, err, tt.wantErr)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, resp.TargetGroupID, tt.wantOutput.TargetGroupID)
+				assert.Equal(t, resp.TargetGroupARN, tt.wantOutput.TargetGroupARN)
+			}
+		})
 	}
 }
 

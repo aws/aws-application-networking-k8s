@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -20,29 +20,29 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func Test_LatticeServiceModelBuild(t *testing.T) {
 	now := metav1.Now()
-	var httpSectionName gateway_api.SectionName = "http"
-	var serviceKind gateway_api.Kind = "Service"
-	var serviceimportKind gateway_api.Kind = "ServiceImport"
+	var httpSectionName gwv1beta1.SectionName = "http"
+	var serviceKind gwv1beta1.Kind = "Service"
+	var serviceimportKind gwv1beta1.Kind = "ServiceImport"
 	var weight1 = int32(10)
 	var weight2 = int32(90)
-	var namespace = gateway_api.Namespace("default")
+	var namespace = gwv1beta1.Namespace("default")
 
-	var backendRef1 = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var backendRef1 = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name:      "targetgroup1",
 			Namespace: &namespace,
 			Kind:      &serviceKind,
 		},
 		Weight: &weight1,
 	}
-	var backendRef2 = gateway_api.BackendRef{
-		BackendObjectReference: gateway_api.BackendObjectReference{
+	var backendRef2 = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace,
 			Kind:      &serviceimportKind,
@@ -61,19 +61,19 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 	}{
 		{
 			name: "Add LatticeService with hostname",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
 						},
 					},
-					Hostnames: []gateway_api.Hostname{
+					Hostnames: []gwv1beta1.Hostname{
 						"test1.test.com",
 						"test2.test.com",
 					},
@@ -88,13 +88,13 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Add LatticeService",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -111,13 +111,13 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Add LatticeService with GRPCRoute",
-			route: core.NewGRPCRoute(gateway_api_v1alpha2.GRPCRoute{
+			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: gateway_api_v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -133,24 +133,24 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		},
 		{
 			name: "Delete LatticeService",
-			route: core.NewHTTPRoute(gateway_api.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name:        "gateway2",
 								SectionName: &httpSectionName,
 							},
 						},
 					},
-					Rules: []gateway_api.HTTPRouteRule{
+					Rules: []gwv1beta1.HTTPRouteRule{
 						{
-							BackendRefs: []gateway_api.HTTPBackendRef{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
 								{
 									BackendRef: backendRef1,
 								},
@@ -191,7 +191,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				route:     tt.route,
 				stack:     stack,
 				client:    k8sClient,
-				tgByResID: make(map[string]*latticemodel.TargetGroup),
+				tgByResID: make(map[string]*model.TargetGroup),
 				datastore: ds,
 			}
 
@@ -202,11 +202,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			if tt.wantIsDeleted {
 				assert.Equal(t, true, task.latticeService.Spec.IsDeleted)
 				// make sure no rules and listener are built
-				var resRules []*latticemodel.Rule
+				var resRules []*model.Rule
 				stack.ListResources(&resRules)
 				assert.Equal(t, len(resRules), 0)
 
-				var resListener []*latticemodel.Listener
+				var resListener []*model.Listener
 				stack.ListResources(&resListener)
 				assert.Equal(t, len(resListener), 0)
 
@@ -228,7 +228,6 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			} else {
 				assert.NotNil(t, err)
 			}
-
 		})
 	}
 }

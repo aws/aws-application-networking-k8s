@@ -9,10 +9,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
@@ -29,17 +29,17 @@ func Test_getAttachedPolicy(t *testing.T) {
 		expectPolicyNotFound            bool
 	}
 	ns := "test-ns"
-	typedNs := gateway_api_v1alpha2.Namespace(ns)
+	typedNs := gwv1alpha2.Namespace(ns)
 	prtocol := "HTTP"
 	protocolVersion := "HTTP2"
 	trueBool := true
-	targetGroupPolicyHappyPath := &v1alpha1.TargetGroupPolicy{
+	targetGroupPolicyHappyPath := &anv1alpha1.TargetGroupPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-target-group-policy",
 			Namespace: ns,
 		},
-		Spec: v1alpha1.TargetGroupPolicySpec{
-			TargetRef: &gateway_api_v1alpha2.PolicyTargetReference{
+		Spec: anv1alpha1.TargetGroupPolicySpec{
+			TargetRef: &gwv1alpha2.PolicyTargetReference{
 				Group:     corev1.GroupName,
 				Name:      "svc-1",
 				Kind:      "Service",
@@ -50,32 +50,32 @@ func Test_getAttachedPolicy(t *testing.T) {
 		},
 	}
 
-	policyTargetRefSectionNil := targetGroupPolicyHappyPath.DeepCopyObject().(*v1alpha1.TargetGroupPolicy)
+	policyTargetRefSectionNil := targetGroupPolicyHappyPath.DeepCopyObject().(*anv1alpha1.TargetGroupPolicy)
 	policyTargetRefSectionNil.Spec.TargetRef = nil
 
-	policyTargetRefKindWrong := targetGroupPolicyHappyPath.DeepCopyObject().(*v1alpha1.TargetGroupPolicy)
+	policyTargetRefKindWrong := targetGroupPolicyHappyPath.DeepCopyObject().(*anv1alpha1.TargetGroupPolicy)
 	policyTargetRefKindWrong.Spec.TargetRef.Kind = "ServiceImport"
 
-	notRelatedTargetGroupPolicy := targetGroupPolicyHappyPath.DeepCopyObject().(*v1alpha1.TargetGroupPolicy)
+	notRelatedTargetGroupPolicy := targetGroupPolicyHappyPath.DeepCopyObject().(*anv1alpha1.TargetGroupPolicy)
 	notRelatedTargetGroupPolicy.Spec.TargetRef.Name = "another-svc"
 
-	vpcAssociationPolicyHappyPath := &v1alpha1.VpcAssociationPolicy{
+	vpcAssociationPolicyHappyPath := &anv1alpha1.VpcAssociationPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-vpc-association-policy",
 			Namespace: ns,
 		},
-		Spec: v1alpha1.VpcAssociationPolicySpec{
-			TargetRef: &gateway_api_v1alpha2.PolicyTargetReference{
-				Group: gateway_api_v1alpha2.GroupName,
+		Spec: anv1alpha1.VpcAssociationPolicySpec{
+			TargetRef: &gwv1alpha2.PolicyTargetReference{
+				Group: gwv1alpha2.GroupName,
 				Name:  "gw-1",
 				Kind:  "Gateway",
 			},
-			SecurityGroupIds: []v1alpha1.SecurityGroupId{"sg-1", "sg-2"},
+			SecurityGroupIds: []anv1alpha1.SecurityGroupId{"sg-1", "sg-2"},
 			AssociateWithVpc: &trueBool,
 		},
 	}
 
-	notRelatedVpcAssociationPolicy := vpcAssociationPolicyHappyPath.DeepCopyObject().(*v1alpha1.VpcAssociationPolicy)
+	notRelatedVpcAssociationPolicy := vpcAssociationPolicyHappyPath.DeepCopyObject().(*anv1alpha1.VpcAssociationPolicy)
 	notRelatedVpcAssociationPolicy.Spec.TargetRef.Name = "another-gw"
 
 	var tests = []testCase{
@@ -86,7 +86,7 @@ func Test_getAttachedPolicy(t *testing.T) {
 					Namespace: ns,
 					Name:      "svc-1",
 				},
-				policy: &v1alpha1.TargetGroupPolicy{},
+				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
 			expectedK8sClientReturnedPolicy: targetGroupPolicyHappyPath,
 			want:                            targetGroupPolicyHappyPath,
@@ -99,7 +99,7 @@ func Test_getAttachedPolicy(t *testing.T) {
 					Namespace: ns,
 					Name:      "another-svc",
 				},
-				policy: &v1alpha1.TargetGroupPolicy{},
+				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
 			want:                            nil,
 			expectedK8sClientReturnedPolicy: targetGroupPolicyHappyPath,
@@ -112,7 +112,7 @@ func Test_getAttachedPolicy(t *testing.T) {
 					Namespace: ns,
 					Name:      "svc-1",
 				},
-				policy: &v1alpha1.TargetGroupPolicy{},
+				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
 			want:                            nil,
 			expectedK8sClientReturnedPolicy: nil,
@@ -125,7 +125,7 @@ func Test_getAttachedPolicy(t *testing.T) {
 					Namespace: ns,
 					Name:      "svc-1",
 				},
-				policy: &v1alpha1.TargetGroupPolicy{},
+				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
 			expectedK8sClientReturnedPolicy: policyTargetRefSectionNil,
 			want:                            nil,
@@ -138,7 +138,7 @@ func Test_getAttachedPolicy(t *testing.T) {
 					Namespace: ns,
 					Name:      "svc-1",
 				},
-				policy: &v1alpha1.TargetGroupPolicy{},
+				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
 			expectedK8sClientReturnedPolicy: policyTargetRefKindWrong,
 			want:                            nil,
@@ -151,7 +151,7 @@ func Test_getAttachedPolicy(t *testing.T) {
 					Namespace: ns,
 					Name:      "gw-1",
 				},
-				policy: &v1alpha1.VpcAssociationPolicy{},
+				policy: &anv1alpha1.VpcAssociationPolicy{},
 			},
 			expectedK8sClientReturnedPolicy: vpcAssociationPolicyHappyPath,
 			want:                            vpcAssociationPolicyHappyPath,
@@ -164,7 +164,7 @@ func Test_getAttachedPolicy(t *testing.T) {
 					Namespace: ns,
 					Name:      "gw-1",
 				},
-				policy: &v1alpha1.VpcAssociationPolicy{},
+				policy: &anv1alpha1.VpcAssociationPolicy{},
 			},
 			expectedK8sClientReturnedPolicy: nil,
 			want:                            nil,
@@ -176,37 +176,37 @@ func Test_getAttachedPolicy(t *testing.T) {
 	ctx := context.TODO()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			k8sClient := mock_client.NewMockClient(c)
+			mockK8sClient := mock_client.NewMockClient(c)
 
-			if _, ok := tt.args.policy.(*v1alpha1.TargetGroupPolicy); ok {
-				k8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, list *v1alpha1.TargetGroupPolicyList, arg3 ...interface{}) error {
+			if _, ok := tt.args.policy.(*anv1alpha1.TargetGroupPolicy); ok {
+				mockK8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, list *anv1alpha1.TargetGroupPolicyList, arg3 ...interface{}) error {
 						list.Items = append(list.Items, *notRelatedTargetGroupPolicy)
 						if tt.expectedK8sClientReturnedPolicy != nil {
-							policy := tt.expectedK8sClientReturnedPolicy.(*v1alpha1.TargetGroupPolicy)
+							policy := tt.expectedK8sClientReturnedPolicy.(*anv1alpha1.TargetGroupPolicy)
 							list.Items = append(list.Items, *policy)
 						}
 						return nil
 					})
-			} else if _, ok := tt.args.policy.(*v1alpha1.VpcAssociationPolicy); ok {
-				k8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, list *v1alpha1.VpcAssociationPolicyList, arg3 ...interface{}) error {
+			} else if _, ok := tt.args.policy.(*anv1alpha1.VpcAssociationPolicy); ok {
+				mockK8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, list *anv1alpha1.VpcAssociationPolicyList, arg3 ...interface{}) error {
 						list.Items = append(list.Items, *notRelatedVpcAssociationPolicy)
 						if tt.expectedK8sClientReturnedPolicy != nil {
-							policy := tt.expectedK8sClientReturnedPolicy.(*v1alpha1.VpcAssociationPolicy)
+							policy := tt.expectedK8sClientReturnedPolicy.(*anv1alpha1.VpcAssociationPolicy)
 							list.Items = append(list.Items, *policy)
 						}
 						return nil
 					})
 			}
 
-			got, err := GetAttachedPolicy(ctx, k8sClient, tt.args.refObjNamespacedName, tt.args.policy)
+			got, err := GetAttachedPolicy(ctx, mockK8sClient, tt.args.refObjNamespacedName, tt.args.policy)
 			if tt.expectPolicyNotFound {
 				assert.Nil(t, err)
 				assert.Nil(t, got)
 				return
 			}
-			assert.Equalf(t, tt.want, got, "GetAttachedPolicy(%v, %v, %v, %v)", ctx, k8sClient, tt.args.refObjNamespacedName, tt.args.policy)
+			assert.Equalf(t, tt.want, got, "GetAttachedPolicy(%v, %v, %v, %v)", ctx, mockK8sClient, tt.args.refObjNamespacedName, tt.args.policy)
 		})
 	}
 }
