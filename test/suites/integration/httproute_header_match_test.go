@@ -78,7 +78,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 		testFramework.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 		pods := testFramework.GetPodsByDeploymentName(deployment.Name, deployment.Namespace)
 		Expect(len(pods)).To(BeEquivalentTo(1))
-		log.Println("pods[0].Name:", pods[0].Name)
+		pod := pods[0]
 
 		// after rules in place, it can take some time for listener rules to fully propagate
 		log.Println("Verifying traffic")
@@ -86,7 +86,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 		// check correct headers
 		Eventually(func(g Gomega) {
 			cmd := fmt.Sprintf("curl %s -H \"my-header-name1: my-header-value1\" -H \"my-header-name2: my-header-value2\"", dnsName)
-			stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, true)
+			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-v3 handler pod"))
 		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
@@ -94,7 +94,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 		// check incorrect headers
 		Eventually(func(g Gomega) {
 			invalidCmd := fmt.Sprintf("curl %s -H \"my-header-name1: my-header-value1\" -H \"my-header-name2: value2-invalid\"", dnsName)
-			stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, invalidCmd, true)
+			stdout, _, err := testFramework.PodExec(pod, invalidCmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("Not Found"))
 		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())

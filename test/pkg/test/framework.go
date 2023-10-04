@@ -363,7 +363,6 @@ func (env *Framework) VerifyTargetGroupNotFound(tg *vpclattice.TargetGroupSummar
 }
 
 func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *vpclattice.ServiceNetworkSummary) (bool, error) {
-	env.Log.Infof("IsVpcAssociatedWithServiceNetwork vpcId:%v serviceNetwork: %v \n", vpcId, serviceNetwork)
 	vpcAssociations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
 		ServiceNetworkIdentifier: serviceNetwork.Id,
 		VpcIdentifier:            &vpcId,
@@ -497,9 +496,7 @@ func (env *Framework) RunGrpcurlCmd(opts RunGrpcurlCmdOptions) (string, string, 
 		opts.Service,
 		opts.Method)
 
-	stdoutStr, stderrStr, err := env.PodExec(env.GrpcurlRunner.Namespace, env.GrpcurlRunner.Name, cmd, false)
-	return stdoutStr, stderrStr, err
-
+	return env.PodExec(*env.GrpcurlRunner, cmd)
 }
 
 func (env *Framework) SleepForRouteDeletion() {

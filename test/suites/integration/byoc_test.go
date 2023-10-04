@@ -30,15 +30,18 @@ import (
 
 var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 
-	var (
-		log            = testFramework.Log.Named("byoc")
-		sess           = session.New()
-		awsCfg         = aws.NewConfig().WithRegion(config.Region)
-		acmClient      = acm.New(sess, awsCfg)
-		r53Client      = route53.New(sess)
+	const (
 		hostedZoneName = "e2e-test.com"
 		certDnsName    = "*." + hostedZoneName
 		cname          = "byoc." + hostedZoneName
+	)
+
+	var (
+		log       = testFramework.Log.Named("byoc")
+		sess      = session.New()
+		awsCfg    = aws.NewConfig().WithRegion(config.Region)
+		acmClient = acm.New(sess, awsCfg)
+		r53Client = route53.New(sess)
 
 		certArn       string
 		hostedZoneId  string
@@ -57,7 +60,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		log.Infof("created certificate: %s", certArn)
 
 		// add new certificate to gateway spec
-		addGatewayByocListener(certArn)
+		addGatewayBYOCListener(certArn)
 		log.Infof("added listener with cert to gateway")
 
 		// create and deploy service for traffic test
@@ -91,12 +94,14 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 	It("same pod https traffic test", func() {
 		log := log.Named("traffic test")
 		pods := testFramework.GetPodsByDeploymentName(deployment.Name, deployment.Namespace)
+		pod := pods[0]
 		Eventually(func(g Gomega) {
-			cmd := fmt.Sprintf("curl -k https://%s/", cname)
-			log.Infof("calling lattice service, cmd=%s, pod=%s/%s", cmd, pods[0].Namespace, pods[0].Name)
-			stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, true)
+			cmd := fmt.Sprintf("curl -v -k https://%s/", cname)
+			log.Infof("calling lattice service, cmd=%s, pod=%s/%s", cmd, pod.Namespace, pod.Name)
+			stdout, stderr, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("byoc-app handler pod"))
+			g.Expect(stderr).To(ContainSubstring("issuer: O=byoc-e2e-test"))
 		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
 	})
 
@@ -114,7 +119,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(context.TODO(), httpRoute, service, deployment)
 
-		removeGatewayByocListener()
+		removeGatewayBYOCListener()
 		log.Infof("removed listener with custom cert from gateway")
 
 		err = deleteCert(acmClient, certArn)
@@ -157,7 +162,7 @@ func genCert(dnsName string) ([]byte, []byte, error) {
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().Unix()),
 		Subject: pkix.Name{
-			Organization: []string{"AWS"},
+			Organization: []string{"byoc-e2e-test"},
 		},
 		DNSNames:              []string{dnsName},
 		NotBefore:             time.Now(),
@@ -230,7 +235,7 @@ func deleteCert(client *acm.ACM, arn string) error {
 	return err
 }
 
-func addGatewayByocListener(certArn string) {
+func addGatewayBYOCListener(certArn string) {
 	gw := &gwv1beta1.Gateway{}
 	testFramework.Get(context.TODO(), types.NamespacedName{
 		Namespace: testGateway.Namespace,
@@ -252,7 +257,7 @@ func addGatewayByocListener(certArn string) {
 	testFramework.ExpectUpdated(context.TODO(), gw)
 }
 
-func removeGatewayByocListener() {
+func removeGatewayBYOCListener() {
 	gw := &gwv1beta1.Gateway{}
 	testFramework.Get(context.TODO(), types.NamespacedName{
 		Namespace: testGateway.Namespace,
