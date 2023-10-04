@@ -18,11 +18,17 @@ const (
 // +kubebuilder:resource:categories=gateway-api,shortName=alp
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:subresource:status
 type AccessLogPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec AccessLogPolicySpec `json:"spec"`
+
+	// Status defines the current state of AccessLogPolicy.
+	//
+	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", reason:"NotReconciled", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
+	Status AccessLogPolicyStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -47,6 +53,28 @@ type AccessLogPolicySpec struct {
 	//
 	// This field is following the guidelines of Kubernetes Gateway API policy attachment.
 	TargetRef *v1alpha2.PolicyTargetReference `json:"targetRef"`
+}
+
+// AccessLogPolicyStatus defines the observed state of AccessLogPolicy.
+type AccessLogPolicyStatus struct {
+	// Conditions describe the current conditions of the AccessLogPolicy.
+	//
+	// Implementations should prefer to express Policy conditions
+	// using the `PolicyConditionType` and `PolicyConditionReason`
+	// constants so that operators and tools can converge on a common
+	// vocabulary to describe AccessLogPolicy state.
+	//
+	// Known condition types are:
+	//
+	// * "Accepted"
+	// * "Ready"
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 func (p *AccessLogPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {

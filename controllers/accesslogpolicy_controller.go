@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	accesLogPolicyFinalizer = "accesslogpolicy.k8s.aws/resources"
+	accessLogPolicyFinalizer = "accesslogpolicy.k8s.aws/resources"
 )
 
 type accessLogPolicyReconciler struct {
@@ -113,9 +113,7 @@ func (r *accessLogPolicyReconciler) reconcile(ctx context.Context, req ctrl.Requ
 }
 
 func (r *accessLogPolicyReconciler) reconcileDelete(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) error {
-	r.log.Infof("RECONCILING DELETE FOR ALP %+v", alp) // TODO: Remove me
-
-	err := r.finalizerManager.RemoveFinalizers(ctx, alp, accesLogPolicyFinalizer)
+	err := r.finalizerManager.RemoveFinalizers(ctx, alp, accessLogPolicyFinalizer)
 	if err != nil {
 		return err
 	}
@@ -124,9 +122,7 @@ func (r *accessLogPolicyReconciler) reconcileDelete(ctx context.Context, alp *an
 }
 
 func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) error {
-	r.log.Infof("RECONCILING UPSERT FOR ALP %+v", alp) // TODO: Remove me
-
-	if err := r.finalizerManager.AddFinalizers(ctx, alp, accesLogPolicyFinalizer); err != nil {
+	if err := r.finalizerManager.AddFinalizers(ctx, alp, accessLogPolicyFinalizer); err != nil {
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning,
 			k8s.AccessLogPolicyEventReasonFailedAddFinalizer, fmt.Sprintf("Failed to add finalizer due to %s", err))
 		return err
@@ -135,15 +131,19 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 	if !r.targetRefExists(ctx, alp) {
 		r.log.Infof("Could not find Acces Log Policy targetRef %s %s",
 			alp.Spec.TargetRef.Kind, alp.Spec.TargetRef.Name)
-
-		// TODO: Set status
-
+		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound)
+		if err != nil {
+			return fmt.Errorf("failed to update Access Log Policy status, %w", err)
+		}
 		return nil
 	}
 
-	// TODO: Build AccessLogSubscription model
+	// TODO: Create VPC Lattice Access Log Subscription
 
-	// TODO: Set status
+	err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonAccepted)
+	if err != nil {
+		return fmt.Errorf("failed to update Access Log Policy status, %w", err)
+	}
 
 	return nil
 }
@@ -184,24 +184,20 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(
 	alp *anv1alpha1.AccessLogPolicy,
 	reason gwv1alpha2.PolicyConditionReason,
 ) error {
-	alpOld := alp.DeepCopy()
-
 	status := metav1.ConditionTrue
 	if reason != gwv1alpha2.PolicyReasonAccepted {
 		status = metav1.ConditionFalse
 	}
 
-	condition := metav1.Condition{
+	alp.Status.Conditions = utils.GetNewConditions(alp.Status.Conditions, metav1.Condition{
 		Type:               string(gwv1alpha2.PolicyConditionAccepted),
 		ObservedGeneration: alp.Generation,
 		Message:            config.LatticeGatewayControllerName,
 		Status:             status,
 		Reason:             string(reason),
-	}
+	})
 
-	alp.Status.Conditions = utils.GetNewConditions(alp.Status.Conditions, cond)
-
-	if err := r.client.Status().Patch(ctx, alp, client.MergeFrom(alpOld)); err != nil {
+	if err := r.client.Status().Update(ctx, alp); err != nil {
 		return fmt.Errorf("failed to set Access Log Policy Accepted status to %s and reason to %s, %w",
 			status, reason, err)
 	}
