@@ -21,16 +21,22 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -126,20 +132,79 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
-	// Does targetRef exist?
-	// If yes, proceed
+	if !r.targetRefExists(ctx, alp) {
+		r.log.Infof("Could not find Acces Log Policy targetRef %s %s",
+			alp.Spec.TargetRef.Kind, alp.Spec.TargetRef.Name)
+
+		// TODO: Set status
+
+		return nil
+	}
+
+	// TODO: Build AccessLogSubscription model
+
+	// TODO: Set status
 
 	return nil
 }
 
 func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) bool {
-	if alp.Spec.TargetRef.Kind == "Gateway" {
-
-	} else if alp.Spec.TargetRef.Kind == "HTTPRoute" {
-
-	} else if alp.Spec.TargetRef.Kind == "GRPCRoute" {
-
-	} else {
-
+	targetRefNamespace := alp.Namespace
+	if alp.Spec.TargetRef.Namespace != nil {
+		targetRefNamespace = string(*alp.Spec.TargetRef.Namespace)
 	}
+
+	targetRefNamespacedName := types.NamespacedName{
+		Name:      string(alp.Spec.TargetRef.Name),
+		Namespace: targetRefNamespace,
+	}
+
+	var err error
+
+	switch alp.Spec.TargetRef.Kind {
+	case "Gateway":
+		gateway := &gwv1beta1.Gateway{}
+		err = r.client.Get(ctx, targetRefNamespacedName, gateway)
+	case "HTTPRoute":
+		httpRoute := &gwv1beta1.HTTPRoute{}
+		err = r.client.Get(ctx, targetRefNamespacedName, httpRoute)
+	case "GRPCRoute":
+		grpcRoute := &gwv1alpha2.GRPCRoute{}
+		err = r.client.Get(ctx, targetRefNamespacedName, grpcRoute)
+	default:
+		r.log.Infof("Access Log Policy targetRef is for an unsupported Kind: %s", alp.Spec.TargetRef.Kind)
+		return false
+	}
+
+	return err == nil
+}
+
+func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(
+	ctx context.Context,
+	alp *anv1alpha1.AccessLogPolicy,
+	reason gwv1alpha2.PolicyConditionReason,
+) error {
+	alpOld := alp.DeepCopy()
+
+	status := metav1.ConditionTrue
+	if reason != gwv1alpha2.PolicyReasonAccepted {
+		status = metav1.ConditionFalse
+	}
+
+	condition := metav1.Condition{
+		Type:               string(gwv1alpha2.PolicyConditionAccepted),
+		ObservedGeneration: alp.Generation,
+		Message:            config.LatticeGatewayControllerName,
+		Status:             status,
+		Reason:             string(reason),
+	}
+
+	alp.Status.Conditions = utils.GetNewConditions(alp.Status.Conditions, cond)
+
+	if err := r.client.Status().Patch(ctx, alp, client.MergeFrom(alpOld)); err != nil {
+		return fmt.Errorf("failed to set Access Log Policy Accepted status to %s and reason to %s, %w",
+			status, reason, err)
+	}
+
+	return nil
 }
