@@ -43,7 +43,7 @@ type AccessLogPolicySpec struct {
 	// +kubebuilder:validation:Pattern=`^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:([^/].*)?`
 	DestinationArn *string `json:"destinationArn,omitempty"`
 
-	// TargetRef points to the kubernetes Service or Gateway resource that will have this policy attached.
+	// TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.
 	//
 	// This field is following the guidelines of Kubernetes Gateway API policy attachment.
 	TargetRef *v1alpha2.PolicyTargetReference `json:"targetRef"`

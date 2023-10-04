@@ -49,9 +49,10 @@ spec:
                 pattern: ^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:([^/].*)?
                 type: string
               targetRef:
-                description: "TargetRef points to the kubernetes Service or Gateway
-                  resource that will have this policy attached. \n This field is following
-                  the guidelines of Kubernetes Gateway API policy attachment."
+                description: "TargetRef points to the Kubernetes Gateway, HTTPRoute,
+                  or GRPCRoute resource that will have this policy attached. \n This
+                  field is following the guidelines of Kubernetes Gateway API policy
+                  attachment."
                 properties:
                   group:
                     description: Group is the group of the target resource.
