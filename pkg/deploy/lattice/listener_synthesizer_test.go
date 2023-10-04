@@ -3,11 +3,11 @@ package lattice
 import (
 	"context"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	sdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws"
 
 	//"errors"
 	"fmt"
@@ -18,26 +18,26 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 // PortNumberPtr translates an int to a *PortNumber
-func PortNumberPtr(p int) *gateway_api.PortNumber {
-	result := gateway_api.PortNumber(p)
+func PortNumberPtr(p int) *gwv1beta1.PortNumber {
+	result := gwv1beta1.PortNumber(p)
 	return &result
 }
 func Test_SynthesizeListener(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		gwListenerPort gateway_api.PortNumber
+		gwListenerPort gwv1beta1.PortNumber
 		gwProtocol     string
-		httpRoute      *gateway_api.HTTPRoute
+		httpRoute      *gwv1beta1.HTTPRoute
 		listenerARN    string
 		listenerID     string
 		serviceARN     string
@@ -50,13 +50,13 @@ func Test_SynthesizeListener(t *testing.T) {
 			name:           "Add Listener",
 			gwListenerPort: *PortNumberPtr(80),
 			gwProtocol:     "HTTP",
-			httpRoute: &gateway_api.HTTPRoute{
+			httpRoute: &gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -76,13 +76,13 @@ func Test_SynthesizeListener(t *testing.T) {
 			name:           "Delete Listener",
 			gwListenerPort: *PortNumberPtr(80),
 			gwProtocol:     "HTTP",
-			httpRoute: &gateway_api.HTTPRoute{
+			httpRoute: &gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service2",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway2",
 							},
@@ -102,103 +102,104 @@ func Test_SynthesizeListener(t *testing.T) {
 	var protocol = "HTTP"
 
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
 
-		ds := latticestore.NewLatticeDataStore()
+			ds := latticestore.NewLatticeDataStore()
 
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
 
-		mockListenerManager := NewMockListenerManager(c)
-		mockCloud := aws.NewMockCloud(c)
-		mockLattice := services.NewMockLattice(c)
+			mockListenerManager := NewMockListenerManager(c)
+			mockCloud := mocks_aws.NewMockCloud(c)
+			mockLattice := mocks.NewMockLattice(c)
 
-		mockListenerManager.EXPECT().Cloud().Return(mockCloud).AnyTimes()
-		mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+			mockListenerManager.EXPECT().Cloud().Return(mockCloud).AnyTimes()
+			mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-		pro := "HTTP"
-		protocols := []*string{&pro}
-		spec := latticemodel.ServiceSpec{
-			Name:      tt.httpRoute.Name,
-			Namespace: tt.httpRoute.Namespace,
-			Protocols: protocols,
-		}
+			pro := "HTTP"
+			protocols := []*string{&pro}
+			spec := model.ServiceSpec{
+				Name:      tt.httpRoute.Name,
+				Namespace: tt.httpRoute.Namespace,
+				Protocols: protocols,
+			}
 
-		if tt.httpRoute.DeletionTimestamp.IsZero() {
-			spec.IsDeleted = false
-		} else {
-			spec.IsDeleted = true
-		}
+			if tt.httpRoute.DeletionTimestamp.IsZero() {
+				spec.IsDeleted = false
+			} else {
+				spec.IsDeleted = true
+			}
 
-		action := latticemodel.DefaultAction{
-			BackendServiceName:      "test",
-			BackendServiceNamespace: "default",
-		}
+			action := model.DefaultAction{
+				BackendServiceName:      "test",
+				BackendServiceNamespace: "default",
+			}
 
-		stackService := latticemodel.NewLatticeService(stack, "", spec)
-		mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
-			&vpclattice.ServiceSummary{
-				Name: sdk.String(stackService.LatticeServiceName()),
-				Arn:  sdk.String("svc-arn"),
-				Id:   sdk.String(tt.serviceID),
-			}, nil)
+			stackService := model.NewLatticeService(stack, "", spec)
+			mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+				&vpclattice.ServiceSummary{
+					Name: aws.String(stackService.LatticeServiceName()),
+					Arn:  aws.String("svc-arn"),
+					Id:   aws.String(tt.serviceID),
+				}, nil)
 
-		port := int64(tt.gwListenerPort)
+			port := int64(tt.gwListenerPort)
 
-		mockListenerManager.EXPECT().List(ctx, tt.serviceID).Return(
-			[]*vpclattice.ListenerSummary{
-				{
-					Arn:      &tt.listenerARN,
-					Id:       &tt.listenerID,
-					Name:     &tt.httpRoute.Name,
-					Port:     &port,
-					Protocol: &protocol,
-				},
-			}, tt.mgrErr)
+			mockListenerManager.EXPECT().List(ctx, tt.serviceID).Return(
+				[]*vpclattice.ListenerSummary{
+					{
+						Arn:      &tt.listenerARN,
+						Id:       &tt.listenerID,
+						Name:     &tt.httpRoute.Name,
+						Port:     &port,
+						Protocol: &protocol,
+					},
+				}, tt.mgrErr)
 
-		if !tt.wantIsDeleted {
-			listenerResourceName := fmt.Sprintf("%s-%s-%d-%s", tt.httpRoute.Name, tt.httpRoute.Namespace,
-				tt.gwListenerPort, protocol)
-			listener := latticemodel.NewListener(stack, listenerResourceName, int64(tt.gwListenerPort), tt.gwProtocol,
-				tt.httpRoute.Name, tt.httpRoute.Namespace, action)
+			if !tt.wantIsDeleted {
+				listenerResourceName := fmt.Sprintf("%s-%s-%d-%s", tt.httpRoute.Name, tt.httpRoute.Namespace,
+					tt.gwListenerPort, protocol)
+				listener := model.NewListener(stack, listenerResourceName, int64(tt.gwListenerPort), tt.gwProtocol,
+					tt.httpRoute.Name, tt.httpRoute.Namespace, action)
 
-			mockListenerManager.EXPECT().Create(ctx, listener).Return(latticemodel.ListenerStatus{
-				Name:        tt.httpRoute.Name,
-				Namespace:   tt.httpRoute.Namespace,
-				ListenerARN: tt.listenerARN,
-				ListenerID:  tt.listenerID,
-				ServiceID:   tt.serviceID,
-				Port:        int64(tt.gwListenerPort),
-				Protocol:    tt.gwProtocol}, tt.mgrErr)
-		} else {
-			mockListenerManager.EXPECT().Delete(ctx, tt.listenerID, tt.serviceID).Return(tt.mgrErr)
-		}
+				mockListenerManager.EXPECT().Create(ctx, listener).Return(model.ListenerStatus{
+					Name:        tt.httpRoute.Name,
+					Namespace:   tt.httpRoute.Namespace,
+					ListenerARN: tt.listenerARN,
+					ListenerID:  tt.listenerID,
+					ServiceID:   tt.serviceID,
+					Port:        int64(tt.gwListenerPort),
+					Protocol:    tt.gwProtocol}, tt.mgrErr)
+			} else {
+				mockListenerManager.EXPECT().Delete(ctx, tt.listenerID, tt.serviceID).Return(tt.mgrErr)
+			}
 
-		synthesizer := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerManager, stack, ds)
+			synthesizer := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerManager, stack, ds)
 
-		err := synthesizer.Synthesize(ctx)
+			err := synthesizer.Synthesize(ctx)
 
-		if tt.wantErrIsNil {
-			assert.Nil(t, err)
-		}
-		if !tt.wantIsDeleted {
-			listener, err := ds.GetlListener(spec.Name, spec.Namespace, int64(tt.gwListenerPort), tt.gwProtocol)
-			assert.Nil(t, err)
-			fmt.Printf("listener: %v \n", listener)
-			assert.Equal(t, listener.ARN, tt.listenerARN)
-			assert.Equal(t, listener.ID, tt.listenerID)
-			assert.Equal(t, listener.Key.Name, tt.httpRoute.Name)
-			assert.Equal(t, listener.Key.Namespace, tt.httpRoute.Namespace)
-			assert.Equal(t, listener.Key.Port, int64(tt.gwListenerPort))
-		} else {
-			assert.Nil(t, err)
+			if tt.wantErrIsNil {
+				assert.Nil(t, err)
+			}
 
-			// make sure listener is also deleted from datastore
-			_, err := ds.GetlListener(spec.Name, spec.Namespace, int64(tt.gwListenerPort), tt.gwProtocol)
-			assert.NotNil(t, err)
+			if !tt.wantIsDeleted {
+				listener, err := ds.GetlListener(spec.Name, spec.Namespace, int64(tt.gwListenerPort), tt.gwProtocol)
+				assert.Nil(t, err)
+				fmt.Printf("listener: %v \n", listener)
+				assert.Equal(t, listener.ARN, tt.listenerARN)
+				assert.Equal(t, listener.ID, tt.listenerID)
+				assert.Equal(t, listener.Key.Name, tt.httpRoute.Name)
+				assert.Equal(t, listener.Key.Namespace, tt.httpRoute.Namespace)
+				assert.Equal(t, listener.Key.Port, int64(tt.gwListenerPort))
+			} else {
+				assert.Nil(t, err)
 
-		}
+				// make sure listener is also deleted from datastore
+				_, err := ds.GetlListener(spec.Name, spec.Namespace, int64(tt.gwListenerPort), tt.gwProtocol)
+				assert.NotNil(t, err)
+			}
+		})
 	}
-
 }

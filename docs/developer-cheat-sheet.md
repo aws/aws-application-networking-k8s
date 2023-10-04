@@ -43,6 +43,15 @@ import (
 )
 ```
 
+For unit tests, this changes slightly for more readability when using the imports strictly for mocking
+```go
+import (
+  mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+  mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+  mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+)
+```
+
 ### Service, Service, or Service?
 Similarly, because there is overlap between the Gateway API spec, model types, and Lattice API nouns, it is important to use differentiating names between the types in components where the name could be ambiguous. The safest approach is to use a prefix:
 

@@ -12,7 +12,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -21,14 +21,14 @@ func Test_SynthesizeTargets(t *testing.T) {
 		name               string
 		srvExportName      string
 		srvExportNamespace string
-		targetList         []latticemodel.Target
+		targetList         []model.Target
 		expectedTargetList []latticestore.Target
 	}{
 		{
 			name:               "Add all endpoints to build spec",
 			srvExportName:      "export1",
 			srvExportNamespace: "ns1",
-			targetList: []latticemodel.Target{
+			targetList: []model.Target{
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
@@ -68,55 +68,55 @@ func Test_SynthesizeTargets(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
 
-		ds := latticestore.NewLatticeDataStore()
+			ds := latticestore.NewLatticeDataStore()
 
-		tgName := latticestore.TargetGroupName(tt.srvExportName, tt.srvExportNamespace)
-		// TODO routename
-		err := ds.AddTargetGroup(tgName, "", "", "", false, "")
-		assert.Nil(t, err)
-		ds.SetTargetGroupByServiceExport(tgName, false, true)
+			tgName := latticestore.TargetGroupName(tt.srvExportName, tt.srvExportNamespace)
+			// TODO routename
+			err := ds.AddTargetGroup(tgName, "", "", "", false, "")
+			assert.Nil(t, err)
+			ds.SetTargetGroupByServiceExport(tgName, false, true)
 
-		mockTargetsManager := NewMockTargetsManager(c)
-		tgNamespacedName := types.NamespacedName{
-			Namespace: tt.srvExportNamespace,
-			Name:      tt.srvExportName,
-		}
+			mockTargetsManager := NewMockTargetsManager(c)
+			tgNamespacedName := types.NamespacedName{
+				Namespace: tt.srvExportNamespace,
+				Name:      tt.srvExportName,
+			}
 
-		mockStack := core.NewDefaultStack(core.StackID(tgNamespacedName))
+			stack := core.NewDefaultStack(core.StackID(tgNamespacedName))
 
-		targetsSynthesizer := NewTargetsSynthesizer(gwlog.FallbackLogger, nil, mockTargetsManager, mockStack, ds)
+			synthesizer := NewTargetsSynthesizer(gwlog.FallbackLogger, nil, mockTargetsManager, stack, ds)
 
-		targetsSpec := latticemodel.TargetsSpec{
-			Name:         tt.srvExportName,
-			Namespace:    tt.srvExportNamespace,
-			TargetIPList: tt.targetList,
-		}
-		modelTarget := latticemodel.Targets{
-			Spec: targetsSpec,
-		}
+			targetsSpec := model.TargetsSpec{
+				Name:         tt.srvExportName,
+				Namespace:    tt.srvExportNamespace,
+				TargetIPList: tt.targetList,
+			}
+			modelTarget := model.Targets{
+				Spec: targetsSpec,
+			}
 
-		resTargetsList := []*latticemodel.Targets{}
+			resTargetsList := []*model.Targets{}
 
-		resTargetsList = append(resTargetsList, &modelTarget)
+			resTargetsList = append(resTargetsList, &modelTarget)
 
-		mockTargetsManager.EXPECT().Create(ctx, gomock.Any()).Return(nil)
+			mockTargetsManager.EXPECT().Create(ctx, gomock.Any()).Return(nil)
 
-		err = targetsSynthesizer.SynthesizeTargets(ctx, resTargetsList)
-		assert.Nil(t, err)
+			err = synthesizer.SynthesizeTargets(ctx, resTargetsList)
+			assert.Nil(t, err)
 
-		// TODO routename
-		dsTG, err := ds.GetTargetGroup(tgName, "", false)
-		assert.Equal(t, tt.expectedTargetList, dsTG.EndPoints)
+			// TODO routename
+			dsTG, err := ds.GetTargetGroup(tgName, "", false)
+			assert.Equal(t, tt.expectedTargetList, dsTG.EndPoints)
 
-		assert.Nil(t, err)
-		fmt.Printf("dsTG: %v \n", dsTG)
+			assert.Nil(t, err)
+			fmt.Printf("dsTG: %v \n", dsTG)
 
-		assert.Nil(t, err)
-
+			assert.Nil(t, err)
+		})
 	}
-
 }

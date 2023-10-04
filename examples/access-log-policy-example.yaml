@@ -7,4 +7,4 @@ spec:
     group: gateway.networking.k8s.io
     kind: Gateway
     name: my-hotel
-  destinationArn: "arn:aws:s3:::kapshawn-test-mercuryaccesslogs"
+  destinationArn: "arn:aws:s3:::my-bucket"

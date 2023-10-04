@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -24,7 +24,7 @@ func Test_SynthesizeService(t *testing.T) {
 	now := metav1.Now()
 	tests := []struct {
 		name          string
-		httpRoute     *gateway_api.HTTPRoute
+		httpRoute     *gwv1beta1.HTTPRoute
 		serviceARN    string
 		serviceID     string
 		mgrErr        error
@@ -35,13 +35,13 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Add LatticeService",
 
-			httpRoute: &gateway_api.HTTPRoute{
+			httpRoute: &gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -58,15 +58,15 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Delete LatticeService",
 
-			httpRoute: &gateway_api.HTTPRoute{
+			httpRoute: &gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway2",
 							},
@@ -83,13 +83,13 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Add LatticeService, return error need to retry",
 
-			httpRoute: &gateway_api.HTTPRoute{
+			httpRoute: &gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service3",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -106,15 +106,15 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Delete LatticeService, but need retry",
 
-			httpRoute: &gateway_api.HTTPRoute{
+			httpRoute: &gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service4",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway2",
 							},
@@ -131,13 +131,13 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Add LatticeService, getting error registering DNS",
 
-			httpRoute: &gateway_api.HTTPRoute{
+			httpRoute: &gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service3",
 				},
-				Spec: gateway_api.HTTPRouteSpec{
-					CommonRouteSpec: gateway_api.CommonRouteSpec{
-						ParentRefs: []gateway_api.ParentReference{
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -154,53 +154,54 @@ func Test_SynthesizeService(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		c := gomock.NewController(t)
-		defer c.Finish()
-		ctx := context.TODO()
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
 
-		ds := latticestore.NewLatticeDataStore()
+			ds := latticestore.NewLatticeDataStore()
 
-		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
 
-		mockSvcManager := NewMockServiceManager(c)
-		mockDnsManager := externaldns.NewMockDnsEndpointManager(c)
+			mockSvcManager := NewMockServiceManager(c)
+			mockDnsManager := externaldns.NewMockDnsEndpointManager(c)
 
-		pro := "HTTP"
-		protocols := []*string{&pro}
-		spec := latticemodel.ServiceSpec{
-			Name:      tt.httpRoute.Name,
-			Namespace: tt.httpRoute.Namespace,
-			Protocols: protocols,
-		}
+			pro := "HTTP"
+			protocols := []*string{&pro}
+			spec := model.ServiceSpec{
+				Name:      tt.httpRoute.Name,
+				Namespace: tt.httpRoute.Namespace,
+				Protocols: protocols,
+			}
 
-		if tt.httpRoute.DeletionTimestamp.IsZero() {
-			spec.IsDeleted = false
-		} else {
-			spec.IsDeleted = true
-		}
+			if tt.httpRoute.DeletionTimestamp.IsZero() {
+				spec.IsDeleted = false
+			} else {
+				spec.IsDeleted = true
+			}
 
-		latticeService := latticemodel.NewLatticeService(stack, "", spec)
-		fmt.Printf("latticeService :%v\n", latticeService)
+			latticeService := model.NewLatticeService(stack, "", spec)
+			fmt.Printf("latticeService :%v\n", latticeService)
 
-		if tt.httpRoute.DeletionTimestamp.IsZero() {
-			mockSvcManager.EXPECT().Create(ctx, latticeService).Return(latticemodel.ServiceStatus{Arn: tt.serviceARN, Id: tt.serviceID}, tt.mgrErr)
-		} else {
-			mockSvcManager.EXPECT().Delete(ctx, latticeService).Return(tt.mgrErr)
-		}
+			if tt.httpRoute.DeletionTimestamp.IsZero() {
+				mockSvcManager.EXPECT().Create(ctx, latticeService).Return(model.ServiceStatus{Arn: tt.serviceARN, Id: tt.serviceID}, tt.mgrErr)
+			} else {
+				mockSvcManager.EXPECT().Delete(ctx, latticeService).Return(tt.mgrErr)
+			}
 
-		if !spec.IsDeleted && tt.mgrErr == nil {
-			mockDnsManager.EXPECT().Create(ctx, gomock.Any()).Return(tt.dnsErr)
-		}
+			if !spec.IsDeleted && tt.mgrErr == nil {
+				mockDnsManager.EXPECT().Create(ctx, gomock.Any()).Return(tt.dnsErr)
+			}
 
-		synthesizer := NewServiceSynthesizer(gwlog.FallbackLogger, mockSvcManager, mockDnsManager, stack, ds)
+			synthesizer := NewServiceSynthesizer(gwlog.FallbackLogger, mockSvcManager, mockDnsManager, stack, ds)
 
-		err := synthesizer.Synthesize(ctx)
+			err := synthesizer.Synthesize(ctx)
 
-		if tt.wantErrIsNil {
-			assert.Nil(t, err)
-		} else {
-			assert.NotNil(t, err)
-		}
-
+			if tt.wantErrIsNil {
+				assert.Nil(t, err)
+			} else {
+				assert.NotNil(t, err)
+			}
+		})
 	}
 }

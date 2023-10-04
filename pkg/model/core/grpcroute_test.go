@@ -5,13 +5,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/pointer"
-	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func TestGRPCRouteSpec_Equals(t *testing.T) {
-	name1 := gateway_api_v1alpha2.ObjectName("name1")
-	name2 := gateway_api_v1alpha2.ObjectName("name2")
+	name1 := gwv1alpha2.ObjectName("name1")
+	name2 := gwv1alpha2.ObjectName("name2")
 
 	tests := []struct {
 		routeSpec1  *GRPCRouteSpec
@@ -27,27 +27,27 @@ func TestGRPCRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: gateway_api_v1alpha2.CommonRouteSpec{
-						ParentRefs: []gateway_api_v1alpha2.ParentReference{
+				s: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1alpha2.CommonRouteSpec{
+						ParentRefs: []gwv1alpha2.ParentReference{
 							{},
 						},
 					},
-					Hostnames: []gateway_api_v1alpha2.Hostname{"example.com"},
-					Rules: []gateway_api_v1alpha2.GRPCRouteRule{
+					Hostnames: []gwv1alpha2.Hostname{"example.com"},
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{},
 					},
 				},
 			},
 			routeSpec2: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: gateway_api_v1alpha2.CommonRouteSpec{
-						ParentRefs: []gateway_api_v1alpha2.ParentReference{
+				s: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1alpha2.CommonRouteSpec{
+						ParentRefs: []gwv1alpha2.ParentReference{
 							{},
 						},
 					},
-					Hostnames: []gateway_api_v1alpha2.Hostname{"example.com"},
-					Rules: []gateway_api_v1alpha2.GRPCRouteRule{
+					Hostnames: []gwv1alpha2.Hostname{"example.com"},
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{},
 					},
 				},
@@ -63,16 +63,16 @@ func TestGRPCRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: gateway_api_v1alpha2.CommonRouteSpec{
-						ParentRefs: []gateway_api_v1alpha2.ParentReference{{Name: "parent1"}},
+				s: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1alpha2.CommonRouteSpec{
+						ParentRefs: []gwv1alpha2.ParentReference{{Name: "parent1"}},
 					},
 				},
 			},
 			routeSpec2: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					CommonRouteSpec: gateway_api_v1alpha2.CommonRouteSpec{
-						ParentRefs: []gateway_api_v1alpha2.ParentReference{{Name: "parent2"}},
+				s: gwv1alpha2.GRPCRouteSpec{
+					CommonRouteSpec: gwv1alpha2.CommonRouteSpec{
+						ParentRefs: []gwv1alpha2.ParentReference{{Name: "parent2"}},
 					},
 				},
 			},
@@ -81,13 +81,13 @@ func TestGRPCRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					Hostnames: []gateway_api_v1alpha2.Hostname{"example1.com"},
+				s: gwv1alpha2.GRPCRouteSpec{
+					Hostnames: []gwv1alpha2.Hostname{"example1.com"},
 				},
 			},
 			routeSpec2: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					Hostnames: []gateway_api_v1alpha2.Hostname{"example2.com"},
+				s: gwv1alpha2.GRPCRouteSpec{
+					Hostnames: []gwv1alpha2.Hostname{"example2.com"},
 				},
 			},
 			expectEqual: false,
@@ -95,16 +95,16 @@ func TestGRPCRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					Rules: []gateway_api_v1alpha2.GRPCRouteRule{
+				s: gwv1alpha2.GRPCRouteSpec{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{},
 						{},
 					},
 				},
 			},
 			routeSpec2: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					Rules: []gateway_api_v1alpha2.GRPCRouteRule{
+				s: gwv1alpha2.GRPCRouteSpec{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{},
 					},
 				},
@@ -114,13 +114,13 @@ func TestGRPCRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					Rules: []gateway_api_v1alpha2.GRPCRouteRule{
+				s: gwv1alpha2.GRPCRouteSpec{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{
-							BackendRefs: []gateway_api_v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
-									BackendRef: gateway_api_v1alpha2.BackendRef{
-										BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+									BackendRef: gwv1alpha2.BackendRef{
+										BackendObjectReference: gwv1alpha2.BackendObjectReference{
 											Name: name1,
 										},
 									},
@@ -131,13 +131,13 @@ func TestGRPCRouteSpec_Equals(t *testing.T) {
 				},
 			},
 			routeSpec2: &GRPCRouteSpec{
-				s: gateway_api_v1alpha2.GRPCRouteSpec{
-					Rules: []gateway_api_v1alpha2.GRPCRouteRule{
+				s: gwv1alpha2.GRPCRouteSpec{
+					Rules: []gwv1alpha2.GRPCRouteRule{
 						{
-							BackendRefs: []gateway_api_v1alpha2.GRPCBackendRef{
+							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
-									BackendRef: gateway_api_v1alpha2.BackendRef{
-										BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+									BackendRef: gwv1alpha2.BackendRef{
+										BackendObjectReference: gwv1alpha2.BackendObjectReference{
 											Name: name2,
 										},
 									},
@@ -159,13 +159,15 @@ func TestGRPCRouteSpec_Equals(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		assert.Equal(t, test.expectEqual, test.routeSpec1.Equals(test.routeSpec2), test.description)
+		t.Run(test.description, func(t *testing.T) {
+			assert.Equal(t, test.expectEqual, test.routeSpec1.Equals(test.routeSpec2), test.description)
+		})
 	}
 }
 
 func TestGRPCRouteRule_Equals(t *testing.T) {
-	grpcMethodMatchType1 := gateway_api_v1alpha2.GRPCMethodMatchExact
-	grpcMethodMatchType2 := gateway_api_v1alpha2.GRPCMethodMatchRegularExpression
+	grpcMethodMatchType1 := gwv1alpha2.GRPCMethodMatchExact
+	grpcMethodMatchType2 := gwv1alpha2.GRPCMethodMatchRegularExpression
 
 	tests := []struct {
 		routeRule1  *GRPCRouteRule
@@ -181,21 +183,21 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					BackendRefs: []gateway_api_v1alpha2.GRPCBackendRef{
+				r: gwv1alpha2.GRPCRouteRule{
+					BackendRefs: []gwv1alpha2.GRPCBackendRef{
 						{},
 					},
-					Matches: []gateway_api_v1alpha2.GRPCRouteMatch{
+					Matches: []gwv1alpha2.GRPCRouteMatch{
 						{},
 					},
 				},
 			},
 			routeRule2: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					BackendRefs: []gateway_api_v1alpha2.GRPCBackendRef{
+				r: gwv1alpha2.GRPCRouteRule{
+					BackendRefs: []gwv1alpha2.GRPCBackendRef{
 						{},
 					},
-					Matches: []gateway_api_v1alpha2.GRPCRouteMatch{
+					Matches: []gwv1alpha2.GRPCRouteMatch{
 						{},
 					},
 				},
@@ -211,16 +213,16 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					BackendRefs: []gateway_api_v1alpha2.GRPCBackendRef{
+				r: gwv1alpha2.GRPCRouteRule{
+					BackendRefs: []gwv1alpha2.GRPCBackendRef{
 						{},
 						{},
 					},
 				},
 			},
 			routeRule2: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					BackendRefs: []gateway_api_v1alpha2.GRPCBackendRef{
+				r: gwv1alpha2.GRPCRouteRule{
+					BackendRefs: []gwv1alpha2.GRPCBackendRef{
 						{},
 					},
 				},
@@ -230,10 +232,10 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					BackendRefs: []gateway_api_v1alpha2.GRPCBackendRef{
+				r: gwv1alpha2.GRPCRouteRule{
+					BackendRefs: []gwv1alpha2.GRPCBackendRef{
 						{
-							BackendRef: gateway_api_v1alpha2.BackendRef{
+							BackendRef: gwv1alpha2.BackendRef{
 								Weight: pointer.Int32(1),
 							},
 						},
@@ -241,10 +243,10 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 				},
 			},
 			routeRule2: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					BackendRefs: []gateway_api_v1alpha2.GRPCBackendRef{
+				r: gwv1alpha2.GRPCRouteRule{
+					BackendRefs: []gwv1alpha2.GRPCBackendRef{
 						{
-							BackendRef: gateway_api_v1alpha2.BackendRef{
+							BackendRef: gwv1alpha2.BackendRef{
 								Weight: pointer.Int32(2),
 							},
 						},
@@ -256,16 +258,16 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					Matches: []gateway_api_v1alpha2.GRPCRouteMatch{
+				r: gwv1alpha2.GRPCRouteRule{
+					Matches: []gwv1alpha2.GRPCRouteMatch{
 						{},
 						{},
 					},
 				},
 			},
 			routeRule2: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					Matches: []gateway_api_v1alpha2.GRPCRouteMatch{
+				r: gwv1alpha2.GRPCRouteRule{
+					Matches: []gwv1alpha2.GRPCRouteMatch{
 						{},
 					},
 				},
@@ -275,10 +277,10 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					Matches: []gateway_api_v1alpha2.GRPCRouteMatch{
+				r: gwv1alpha2.GRPCRouteRule{
+					Matches: []gwv1alpha2.GRPCRouteMatch{
 						{
-							Method: &gateway_api_v1alpha2.GRPCMethodMatch{
+							Method: &gwv1alpha2.GRPCMethodMatch{
 								Type: &grpcMethodMatchType1,
 							},
 						},
@@ -286,10 +288,10 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 				},
 			},
 			routeRule2: &GRPCRouteRule{
-				r: gateway_api_v1alpha2.GRPCRouteRule{
-					Matches: []gateway_api_v1alpha2.GRPCRouteMatch{
+				r: gwv1alpha2.GRPCRouteRule{
+					Matches: []gwv1alpha2.GRPCRouteMatch{
 						{
-							Method: &gateway_api_v1alpha2.GRPCMethodMatch{
+							Method: &gwv1alpha2.GRPCMethodMatch{
 								Type: &grpcMethodMatchType2,
 							},
 						},
@@ -308,23 +310,25 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		assert.Equal(t, test.expectEqual, test.routeRule1.Equals(test.routeRule2), test.description)
+		t.Run(test.description, func(t *testing.T) {
+			assert.Equal(t, test.expectEqual, test.routeRule1.Equals(test.routeRule2), test.description)
+		})
 	}
 }
 
 func TestGRPCBackendRef_Equals(t *testing.T) {
 	weight1 := pointer.Int32(1)
 	weight2 := pointer.Int32(2)
-	group1 := gateway_api_v1alpha2.Group("group1")
-	group2 := gateway_api_v1alpha2.Group("group2")
-	kind1 := gateway_api_v1alpha2.Kind("kind1")
-	kind2 := gateway_api_v1alpha2.Kind("kind2")
-	name1 := gateway_api_v1alpha2.ObjectName("name1")
-	name2 := gateway_api_v1alpha2.ObjectName("name2")
-	namespace1 := gateway_api_v1alpha2.Namespace("namespace1")
-	namespace2 := gateway_api_v1alpha2.Namespace("namespace2")
-	port1 := gateway_api_v1alpha2.PortNumber(1)
-	port2 := gateway_api_v1alpha2.PortNumber(2)
+	group1 := gwv1alpha2.Group("group1")
+	group2 := gwv1alpha2.Group("group2")
+	kind1 := gwv1alpha2.Kind("kind1")
+	kind2 := gwv1alpha2.Kind("kind2")
+	name1 := gwv1alpha2.ObjectName("name1")
+	name2 := gwv1alpha2.ObjectName("name2")
+	namespace1 := gwv1alpha2.Namespace("namespace1")
+	namespace2 := gwv1alpha2.Namespace("namespace2")
+	port1 := gwv1alpha2.PortNumber(1)
+	port2 := gwv1alpha2.PortNumber(2)
 
 	tests := []struct {
 		backendRef1 *GRPCBackendRef
@@ -340,10 +344,10 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
 						Weight: weight1,
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Group:     &group1,
 							Kind:      &kind1,
 							Name:      name1,
@@ -354,10 +358,10 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 				},
 			},
 			backendRef2: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
 						Weight: weight1,
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Group:     &group1,
 							Kind:      &kind1,
 							Name:      name1,
@@ -378,15 +382,15 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
 						Weight: weight1,
 					},
 				},
 			},
 			backendRef2: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
 						Weight: weight2,
 					},
 				},
@@ -396,18 +400,18 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Group: &group1,
 						},
 					},
 				},
 			},
 			backendRef2: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Group: &group2,
 						},
 					},
@@ -418,18 +422,18 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Kind: &kind1,
 						},
 					},
 				},
 			},
 			backendRef2: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Kind: &kind2,
 						},
 					},
@@ -440,18 +444,18 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Name: name1,
 						},
 					},
 				},
 			},
 			backendRef2: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Name: name2,
 						},
 					},
@@ -462,18 +466,18 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Namespace: &namespace1,
 						},
 					},
 				},
 			},
 			backendRef2: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Namespace: &namespace2,
 						},
 					},
@@ -484,18 +488,18 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Port: &port1,
 						},
 					},
 				},
 			},
 			backendRef2: &GRPCBackendRef{
-				r: gateway_api_v1alpha2.GRPCBackendRef{
-					BackendRef: gateway_api_v1alpha2.BackendRef{
-						BackendObjectReference: gateway_api_v1alpha2.BackendObjectReference{
+				r: gwv1alpha2.GRPCBackendRef{
+					BackendRef: gwv1alpha2.BackendRef{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
 							Port: &port2,
 						},
 					},
@@ -513,15 +517,17 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		assert.Equal(t, test.expectEqual, test.backendRef1.Equals(test.backendRef2), test.description)
+		t.Run(test.description, func(t *testing.T) {
+			assert.Equal(t, test.expectEqual, test.backendRef1.Equals(test.backendRef2), test.description)
+		})
 	}
 }
 
 func TestGRPCHeaderMatch_Equals(t *testing.T) {
-	headerMatchType1 := gateway_api_v1beta1.HeaderMatchExact
-	headerMatchType2 := gateway_api_v1beta1.HeaderMatchRegularExpression
-	name1 := gateway_api_v1alpha2.GRPCHeaderName("name1")
-	name2 := gateway_api_v1alpha2.GRPCHeaderName("name2")
+	headerMatchType1 := gwv1beta1.HeaderMatchExact
+	headerMatchType2 := gwv1beta1.HeaderMatchRegularExpression
+	name1 := gwv1alpha2.GRPCHeaderName("name1")
+	name2 := gwv1alpha2.GRPCHeaderName("name2")
 	value1 := "value1"
 	value2 := "value2"
 
@@ -539,14 +545,14 @@ func TestGRPCHeaderMatch_Equals(t *testing.T) {
 		},
 		{
 			headerMatch1: &GRPCHeaderMatch{
-				m: gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCHeaderMatch{
 					Type:  &headerMatchType1,
 					Name:  name1,
 					Value: value1,
 				},
 			},
 			headerMatch2: &GRPCHeaderMatch{
-				m: gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCHeaderMatch{
 					Type:  &headerMatchType1,
 					Name:  name1,
 					Value: value1,
@@ -563,12 +569,12 @@ func TestGRPCHeaderMatch_Equals(t *testing.T) {
 		},
 		{
 			headerMatch1: &GRPCHeaderMatch{
-				m: gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCHeaderMatch{
 					Type: &headerMatchType1,
 				},
 			},
 			headerMatch2: &GRPCHeaderMatch{
-				m: gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCHeaderMatch{
 					Type: &headerMatchType2,
 				},
 			},
@@ -577,12 +583,12 @@ func TestGRPCHeaderMatch_Equals(t *testing.T) {
 		},
 		{
 			headerMatch1: &GRPCHeaderMatch{
-				m: gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCHeaderMatch{
 					Name: name1,
 				},
 			},
 			headerMatch2: &GRPCHeaderMatch{
-				m: gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCHeaderMatch{
 					Name: name2,
 				},
 			},
@@ -591,12 +597,12 @@ func TestGRPCHeaderMatch_Equals(t *testing.T) {
 		},
 		{
 			headerMatch1: &GRPCHeaderMatch{
-				m: gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCHeaderMatch{
 					Value: value1,
 				},
 			},
 			headerMatch2: &GRPCHeaderMatch{
-				m: gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCHeaderMatch{
 					Value: value2,
 				},
 			},
@@ -612,15 +618,17 @@ func TestGRPCHeaderMatch_Equals(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		assert.Equal(t, test.expectEqual, test.headerMatch1.Equals(test.headerMatch2), test.description)
+		t.Run(test.description, func(t *testing.T) {
+			assert.Equal(t, test.expectEqual, test.headerMatch1.Equals(test.headerMatch2), test.description)
+		})
 	}
 }
 
 func TestGRPCRouteMatch_Equals(t *testing.T) {
-	grpcMethodMatchType1 := gateway_api_v1alpha2.GRPCMethodMatchExact
-	grpcMethodMatchType2 := gateway_api_v1alpha2.GRPCMethodMatchRegularExpression
-	headerMatchType1 := gateway_api_v1beta1.HeaderMatchExact
-	headerMatchType2 := gateway_api_v1beta1.HeaderMatchRegularExpression
+	grpcMethodMatchType1 := gwv1alpha2.GRPCMethodMatchExact
+	grpcMethodMatchType2 := gwv1alpha2.GRPCMethodMatchRegularExpression
+	headerMatchType1 := gwv1beta1.HeaderMatchExact
+	headerMatchType2 := gwv1beta1.HeaderMatchRegularExpression
 
 	tests := []struct {
 		routeMatch1 *GRPCRouteMatch
@@ -636,17 +644,17 @@ func TestGRPCRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &GRPCRouteMatch{
-				m: gateway_api_v1alpha2.GRPCRouteMatch{
-					Method: &gateway_api_v1alpha2.GRPCMethodMatch{},
-					Headers: []gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCRouteMatch{
+					Method: &gwv1alpha2.GRPCMethodMatch{},
+					Headers: []gwv1alpha2.GRPCHeaderMatch{
 						{},
 					},
 				},
 			},
 			routeMatch2: &GRPCRouteMatch{
-				m: gateway_api_v1alpha2.GRPCRouteMatch{
-					Method: &gateway_api_v1alpha2.GRPCMethodMatch{},
-					Headers: []gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCRouteMatch{
+					Method: &gwv1alpha2.GRPCMethodMatch{},
+					Headers: []gwv1alpha2.GRPCHeaderMatch{
 						{},
 					},
 				},
@@ -662,15 +670,15 @@ func TestGRPCRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &GRPCRouteMatch{
-				m: gateway_api_v1alpha2.GRPCRouteMatch{
-					Method: &gateway_api_v1alpha2.GRPCMethodMatch{
+				m: gwv1alpha2.GRPCRouteMatch{
+					Method: &gwv1alpha2.GRPCMethodMatch{
 						Type: &grpcMethodMatchType1,
 					},
 				},
 			},
 			routeMatch2: &GRPCRouteMatch{
-				m: gateway_api_v1alpha2.GRPCRouteMatch{
-					Method: &gateway_api_v1alpha2.GRPCMethodMatch{
+				m: gwv1alpha2.GRPCRouteMatch{
+					Method: &gwv1alpha2.GRPCMethodMatch{
 						Type: &grpcMethodMatchType2,
 					},
 				},
@@ -680,16 +688,16 @@ func TestGRPCRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &GRPCRouteMatch{
-				m: gateway_api_v1alpha2.GRPCRouteMatch{
-					Headers: []gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCRouteMatch{
+					Headers: []gwv1alpha2.GRPCHeaderMatch{
 						{},
 						{},
 					},
 				},
 			},
 			routeMatch2: &GRPCRouteMatch{
-				m: gateway_api_v1alpha2.GRPCRouteMatch{
-					Headers: []gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCRouteMatch{
+					Headers: []gwv1alpha2.GRPCHeaderMatch{
 						{},
 					},
 				},
@@ -699,8 +707,8 @@ func TestGRPCRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &GRPCRouteMatch{
-				m: gateway_api_v1alpha2.GRPCRouteMatch{
-					Headers: []gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCRouteMatch{
+					Headers: []gwv1alpha2.GRPCHeaderMatch{
 						{
 							Type: &headerMatchType1,
 						},
@@ -708,8 +716,8 @@ func TestGRPCRouteMatch_Equals(t *testing.T) {
 				},
 			},
 			routeMatch2: &GRPCRouteMatch{
-				m: gateway_api_v1alpha2.GRPCRouteMatch{
-					Headers: []gateway_api_v1alpha2.GRPCHeaderMatch{
+				m: gwv1alpha2.GRPCRouteMatch{
+					Headers: []gwv1alpha2.GRPCHeaderMatch{
 						{
 							Type: &headerMatchType2,
 						},
@@ -728,6 +736,8 @@ func TestGRPCRouteMatch_Equals(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		assert.Equal(t, test.expectEqual, test.routeMatch1.Equals(test.routeMatch2), test.description)
+		t.Run(test.description, func(t *testing.T) {
+			assert.Equal(t, test.expectEqual, test.routeMatch1.Equals(test.routeMatch2), test.description)
+		})
 	}
 }
