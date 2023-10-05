@@ -45,7 +45,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/controllers"
 
 	//+kubebuilder:scaffold:imports
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
@@ -74,13 +74,16 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 	metav1.AddToGroupVersion(scheme, dnsEndpoint)
 
 	awsGatewayControllerCRDGroupVersion := schema.GroupVersion{
-		Group:   v1alpha1.GroupName,
+		Group:   anv1alpha1.GroupName,
 		Version: "v1alpha1",
 	}
-	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &v1alpha1.TargetGroupPolicy{}, &v1alpha1.TargetGroupPolicyList{})
+	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.TargetGroupPolicy{}, &anv1alpha1.TargetGroupPolicyList{})
 	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
 
-	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &v1alpha1.VpcAssociationPolicy{}, &v1alpha1.VpcAssociationPolicyList{})
+	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.VpcAssociationPolicy{}, &anv1alpha1.VpcAssociationPolicyList{})
+	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
+
+	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.AccessLogPolicy{}, &anv1alpha1.AccessLogPolicyList{})
 	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
 }
 
@@ -176,6 +179,11 @@ func main() {
 	err = controllers.RegisterServiceExportController(ctrlLog.Named("service-export"), cloud, latticeDataStore, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("serviceexport controller setup failed: %s", err)
+	}
+
+	err = controllers.RegisterAccessLogPolicyController(ctrlLog.Named("access-log-policy"), cloud, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("accesslogpolicy controller setup failed: %s", err)
 	}
 
 	go latticestore.GetDefaultLatticeDataStore().ServeIntrospection()

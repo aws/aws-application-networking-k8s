@@ -28,4 +28,7 @@ const (
 	ServiceImportEventReasonFailedAddFinalizer = "FailedAddFinalizer"
 	ServiceImportEventReasonFailedBuildModel   = "FailedBuildModel"
 	ServiceImportEventReasonFailedDeployModel  = "FailedDeployModel"
+
+	// AccessLogPolicy events
+	AccessLogPolicyEventReasonFailedAddFinalizer = "FailedAddFinalizer"
 )
