@@ -21,7 +21,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
@@ -43,11 +43,11 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 
 	s := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
 
-	stackService := latticemodel.NewLatticeService(s, "fake-service", latticemodel.ServiceSpec{})
-	latticemodel.NewTargetGroup(s, "fake-targetGroup", latticemodel.TargetGroupSpec{})
-	latticemodel.NewTargets(s, "fake-target", latticemodel.TargetsSpec{})
-	latticemodel.NewListener(s, "fake-listener", 8080, "HTTP", "service1", "default", latticemodel.DefaultAction{})
-	latticemodel.NewRule(s, "fake-rule", "fake-rule", "default", 80, "HTTP", latticemodel.RuleAction{}, latticemodel.RuleSpec{})
+	stackService := model.NewLatticeService(s, "fake-service", model.ServiceSpec{})
+	model.NewTargetGroup(s, "fake-targetGroup", model.TargetGroupSpec{})
+	model.NewTargets(s, "fake-target", model.TargetsSpec{})
+	model.NewListener(s, "fake-listener", 8080, "HTTP", "service1", "default", model.DefaultAction{})
+	model.NewRule(s, "fake-rule", "fake-rule", "default", 80, "HTTP", model.RuleAction{}, model.RuleSpec{})
 
 	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ServiceSummary{
@@ -112,7 +112,7 @@ func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
 
 	s := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
 
-	stackService := latticemodel.NewLatticeService(s, "fake-service", latticemodel.ServiceSpec{})
+	stackService := model.NewLatticeService(s, "fake-service", model.ServiceSpec{})
 
 	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ServiceSummary{
@@ -160,7 +160,7 @@ func Test_latticeServiceStackDeployer_DeleteService(t *testing.T) {
 
 	s := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
 
-	stackService := latticemodel.NewLatticeService(s, "fake-service", latticemodel.ServiceSpec{
+	stackService := model.NewLatticeService(s, "fake-service", model.ServiceSpec{
 		IsDeleted: true,
 	})
 
@@ -214,10 +214,10 @@ func Test_latticeServiceStackDeployer_DeleteAllResources(t *testing.T) {
 
 	s := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
 
-	stackService := latticemodel.NewLatticeService(s, "fake-service", latticemodel.ServiceSpec{
+	stackService := model.NewLatticeService(s, "fake-service", model.ServiceSpec{
 		IsDeleted: true,
 	})
-	latticemodel.NewTargetGroup(s, "fake-targetGroup", latticemodel.TargetGroupSpec{
+	model.NewTargetGroup(s, "fake-targetGroup", model.TargetGroupSpec{
 		IsDeleted: true,
 	})
 

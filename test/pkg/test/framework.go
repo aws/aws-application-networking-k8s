@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/onsi/gomega/format"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -84,12 +85,15 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 	scheme.AddKnownTypes(dnsEndpoint, &endpoint.DNSEndpoint{}, &endpoint.DNSEndpointList{})
 	metav1.AddToGroupVersion(scheme, dnsEndpoint)
 
-	targetGroupPolicy := schema.GroupVersion{
-		Group:   "application-networking.k8s.aws",
+	awsGatewayControllerCRDGroupVersion := schema.GroupVersion{
+		Group:   v1alpha1.GroupName,
 		Version: "v1alpha1",
 	}
-	scheme.AddKnownTypes(targetGroupPolicy, &v1alpha1.TargetGroupPolicy{}, &v1alpha1.TargetGroupPolicyList{})
-	metav1.AddToGroupVersion(scheme, targetGroupPolicy)
+	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &v1alpha1.TargetGroupPolicy{}, &v1alpha1.TargetGroupPolicyList{})
+	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
+
+	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &v1alpha1.VpcAssociationPolicy{}, &v1alpha1.VpcAssociationPolicyList{})
+	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
 }
 
 type Framework struct {
@@ -100,6 +104,7 @@ type Framework struct {
 	controllerRuntimeConfig *rest.Config
 	Log                     gwlog.Logger
 	LatticeClient           services.Lattice
+	Ec2Client               *ec2.EC2
 	GrpcurlRunner           *v1.Pod
 }
 
@@ -111,6 +116,7 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 	framework := &Framework{
 		Client:                  lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: testScheme})),
 		LatticeClient:           services.NewDefaultLattice(session.Must(session.NewSession()), config.Region), // region is currently hardcoded
+		Ec2Client:               ec2.New(session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)}))),
 		GrpcurlRunner:           &v1.Pod{},
 		ctx:                     ctx,
 		Log:                     log,
@@ -362,22 +368,22 @@ func (env *Framework) VerifyTargetGroupNotFound(tg *vpclattice.TargetGroupSummar
 	}).Should(Succeed())
 }
 
-func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *vpclattice.ServiceNetworkSummary) (bool, error) {
+func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *vpclattice.ServiceNetworkSummary) (bool, string, error) {
 	vpcAssociations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
 		ServiceNetworkIdentifier: serviceNetwork.Id,
 		VpcIdentifier:            &vpcId,
 	})
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	if len(vpcAssociations) != 1 {
-		return false, fmt.Errorf("Expect to have one VpcServiceNetworkAssociation len(vpcAssociations): %d", len(vpcAssociations))
+		return false, "", fmt.Errorf("Expect to have one VpcServiceNetworkAssociation len(vpcAssociations): %d", len(vpcAssociations))
 	}
 	association := vpcAssociations[0]
 	if *association.Status != vpclattice.ServiceNetworkVpcAssociationStatusActive {
-		return false, fmt.Errorf("Current cluster should have one Active status association *association.Status: %s, err: %w", *association.Status, err)
+		return false, "", fmt.Errorf("Current cluster should have one Active status association *association.Status: %s, err: %w", *association.Status, err)
 	}
-	return true, nil
+	return true, *association.Id, nil
 }
 
 func (env *Framework) AreAllLatticeTargetsHealthy(ctx context.Context, tg *vpclattice.TargetGroupSummary) (bool, error) {

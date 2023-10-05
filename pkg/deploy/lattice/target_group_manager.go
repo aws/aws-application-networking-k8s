@@ -59,11 +59,12 @@ func getLatticeTGName(targetGroup *model.TargetGroup) string {
 //
 // return errors.New(LATTICE_RETRY) when:
 //
-//	CreateTargetGroupWithContext returns
-//		TG is TargetGroupStatusUpdateInProgress
-//		TG is MeshVpcAssociationStatusFailed
-//		TG is TargetGroupStatusCreateInProgress
-//		TG is TargetGroupStatusFailed
+//		CreateTargetGroupWithContext returns
+//			TG is TargetGroupStatusUpdateInProgress
+//			TG is TargetGroupStatusCreateFailed
+//			TG is TargetGroupStatusCreateInProgress
+//			TG is TargetGroupStatusDeleteFailed
+//	        TG is TargetGroupStatusDeleteInProgress
 //
 // return nil when:
 //
