@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,9 +26,10 @@ const (
 var testFramework *test.Framework
 var ctx context.Context
 var testGateway *v1beta1.Gateway
+var testServiceNetwork *vpclattice.ServiceNetworkSummary
 var _ = BeforeSuite(func() {
-	vpcid := os.Getenv("CLUSTER_VPC_ID")
-	if vpcid == "" {
+	vpcId := os.Getenv("CLUSTER_VPC_ID")
+	if vpcId == "" {
 		Fail("CLUSTER_VPC_ID environment variable must be set to run integration tests")
 	}
 
@@ -44,11 +46,12 @@ var _ = BeforeSuite(func() {
 	testGateway = testFramework.NewGateway("test-gateway", k8snamespace)
 	testFramework.ExpectCreated(ctx, testGateway)
 
-	sn := testFramework.GetServiceNetwork(ctx, testGateway)
+	testServiceNetwork = testFramework.GetServiceNetwork(ctx, testGateway)
 
-	test.Logger(ctx).Infof("Expecting VPC %s and service network %s association", vpcid, *sn.Id)
+	test.Logger(ctx).Infof("Expecting VPC %s and service network %s association", vpcId, *testServiceNetwork.Id)
 	Eventually(func(g Gomega) {
-		g.Expect(testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcid, sn)).To(BeTrue())
+		associated, _, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcId, testServiceNetwork)
+		g.Expect(associated).To(BeTrue())
 	}).Should(Succeed())
 })
 
