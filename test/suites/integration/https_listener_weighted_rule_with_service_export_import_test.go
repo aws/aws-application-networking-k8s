@@ -122,7 +122,8 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 
 			pods := testFramework.GetPodsByDeploymentName(deployment0.Name, deployment0.Namespace)
 			Expect(len(pods)).To(BeEquivalentTo(1))
-			log.Println("client pod name:", pods[0].Name)
+			pod := pods[0]
+
 			protocols := []string{"http", "https"}
 			for _, protocol := range protocols {
 				// just make sure we can reach via both protocols
@@ -136,7 +137,7 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 				}
 
 				Eventually(func(g Gomega) {
-					stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, true)
+					stdout, _, err := testFramework.PodExec(pod, cmd)
 					g.Expect(err).To(BeNil())
 					g.Expect(stdout).To(ContainSubstring("handler pod"))
 				}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())

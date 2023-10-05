@@ -131,18 +131,18 @@ var _ = Describe("HTTPRoute path matches", func() {
 		//get the pods of deployment1
 		pods := testFramework.GetPodsByDeploymentName(deployment1.Name, deployment1.Namespace)
 		Expect(len(pods)).To(BeEquivalentTo(1))
-		log.Println("pods[0].Name:", pods[0].Name)
+		pod := pods[0]
 
 		Eventually(func(g Gomega) {
 			cmd := fmt.Sprintf("curl %s/pathmatch0", dnsName)
-			stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, true)
+			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-v1 handler pod"))
 		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
 
 		Eventually(func(g Gomega) {
 			cmd := fmt.Sprintf("curl %s/pathmatch1", dnsName)
-			stdout, _, err := testFramework.PodExec(pods[0].Namespace, pods[0].Name, cmd, true)
+			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-v2 handler pod"))
 		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())

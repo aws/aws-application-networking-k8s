@@ -2,7 +2,6 @@ package integration
 
 import (
 	"context"
-	"flag"
 	"os"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -48,7 +47,7 @@ var _ = BeforeSuite(func() {
 
 	testServiceNetwork = testFramework.GetServiceNetwork(ctx, testGateway)
 
-	test.Logger(ctx).Infof("Expecting VPC %s and service network %s association", vpcId, *testServiceNetwork.Id)
+	testFramework.Log.Infof("Expecting VPC %s and service network %s association", vpcId, *testServiceNetwork.Id)
 	Eventually(func(g Gomega) {
 		associated, _, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcId, testServiceNetwork)
 		g.Expect(associated).To(BeTrue())
@@ -56,11 +55,9 @@ var _ = BeforeSuite(func() {
 })
 
 func TestIntegration(t *testing.T) {
-	var debug bool
 	ctx = test.NewContext(t)
-	flag.BoolVar(&debug, "debug", false, "enable debug mode")
-	logger := gwlog.NewLogger(debug)
-	testFramework = test.NewFramework(ctx, logger.Named("framework"), k8snamespace)
+	logger := gwlog.NewLogger(true)
+	testFramework = test.NewFramework(ctx, logger, k8snamespace)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Integration")
 }
