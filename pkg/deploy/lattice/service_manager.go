@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -90,6 +91,7 @@ func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 	svcName := svc.LatticeServiceName()
 	req := &vpclattice.CreateServiceInput{
 		Name: &svcName,
+		Tags: m.cloud.DefaultTags(),
 	}
 
 	if svc.Spec.CustomerDomainName != "" {

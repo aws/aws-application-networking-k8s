@@ -104,7 +104,7 @@ func (d *defaultListenerManager) Create(
 		Port:              aws.Int64(listener.Spec.Port),
 		Protocol:          aws.String(listener.Spec.Protocol),
 		ServiceIdentifier: aws.String(*svc.Id),
-		Tags:              nil,
+		Tags:              d.cloud.DefaultTags(),
 	}
 
 	resp, err := d.cloud.Lattice().CreateListener(&listenerInput)

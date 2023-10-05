@@ -80,7 +80,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		// This means, the service network can only be deleted by the controller running in this VPC
 		serviceNetworkInput := vpclattice.CreateServiceNetworkInput{
 			Name: &serviceNetwork.Spec.Name,
-			Tags: make(map[string]*string),
+			Tags: m.cloud.DefaultTags(),
 		}
 		serviceNetworkInput.Tags[model.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 

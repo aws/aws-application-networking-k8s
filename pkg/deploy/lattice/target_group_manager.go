@@ -113,7 +113,7 @@ func (s *defaultTargetGroupManager) Create(
 		Config: tgConfig,
 		Name:   &latticeTGName,
 		Type:   &targetGroupType,
-		Tags:   make(map[string]*string),
+		Tags:   s.cloud.DefaultTags(),
 	}
 	createTargetGroupInput.Tags[model.K8SServiceNameKey] = &targetGroup.Spec.Config.K8SServiceName
 	createTargetGroupInput.Tags[model.K8SServiceNamespaceKey] = &targetGroup.Spec.Config.K8SServiceNamespace
