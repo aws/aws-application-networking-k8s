@@ -322,6 +322,21 @@ func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *v
 	return found
 }
 
+func (env *Framework) GetFullTargetGroupFromSummary(
+	ctx context.Context,
+	tgSummary *vpclattice.TargetGroupSummary) *vpclattice.GetTargetGroupOutput {
+
+	tg, err := env.LatticeClient.GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
+		TargetGroupIdentifier: tgSummary.Arn,
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return tg
+}
+
 // TODO: Create a new function that only verifying deployment len(podList.Items)==*deployment.Spec.Replicas, and don't do lattice.ListTargets() api call
 func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment) []*vpclattice.TargetSummary {
 	var found []*vpclattice.TargetSummary
