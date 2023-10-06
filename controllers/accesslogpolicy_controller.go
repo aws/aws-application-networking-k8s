@@ -26,14 +26,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	builder2 "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
@@ -50,6 +54,7 @@ type accessLogPolicyReconciler struct {
 	scheme           *runtime.Scheme
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
+	modelBuilder     gateway.AccessLogSubscriptionModelBuilder
 	stackDeployer    deploy.StackDeployer
 	cloud            aws.Cloud
 	stackMarshaller  deploy.StackMarshaller
@@ -65,7 +70,8 @@ func RegisterAccessLogPolicyController(
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("accesslogpolicy")
 
-	stackDeployer := deploy.NewServiceNetworkStackDeployer(log, cloud, mgrClient)
+	modelBuilder := gateway.NewAccessLogSubscriptionModelBuilder(log, mgrClient)
+	stackDeployer := deploy.NewAccessLogSubscriptionStackDeployer(log, cloud, mgrClient)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	r := &accessLogPolicyReconciler{
@@ -74,13 +80,14 @@ func RegisterAccessLogPolicyController(
 		scheme:           scheme,
 		finalizerManager: finalizerManager,
 		eventRecorder:    evtRec,
+		modelBuilder:     modelBuilder,
 		stackDeployer:    stackDeployer,
 		cloud:            cloud,
 		stackMarshaller:  stackMarshaller,
 	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&anv1alpha1.AccessLogPolicy{})
+		For(&anv1alpha1.AccessLogPolicy{}, builder2.WithPredicates(predicate.GenerationChangedPredicate{}))
 
 	return builder.Complete(r)
 }
@@ -133,16 +140,24 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 			alp.Spec.TargetRef.Kind, alp.Spec.TargetRef.Name)
 		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound)
 		if err != nil {
-			return fmt.Errorf("failed to update Access Log Policy status, %w", err)
+			return err
 		}
 		return nil
 	}
 
-	// TODO: Create VPC Lattice Access Log Subscription
-
-	err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonAccepted)
+	err := r.buildAndDeployModel(ctx, alp)
 	if err != nil {
-		return fmt.Errorf("failed to update Access Log Policy status, %w", err)
+		if services.IsConflictError(err) {
+			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonConflicted)
+		} else if services.IsInvalidError(err) {
+			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid)
+		}
+		return err
+	}
+
+	err = r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonAccepted)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -163,8 +178,8 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 
 	switch alp.Spec.TargetRef.Kind {
 	case "Gateway":
-		gateway := &gwv1beta1.Gateway{}
-		err = r.client.Get(ctx, targetRefNamespacedName, gateway)
+		gw := &gwv1beta1.Gateway{}
+		err = r.client.Get(ctx, targetRefNamespacedName, gw)
 	case "HTTPRoute":
 		httpRoute := &gwv1beta1.HTTPRoute{}
 		err = r.client.Get(ctx, targetRefNamespacedName, httpRoute)
@@ -177,6 +192,33 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 	}
 
 	return err == nil
+}
+
+func (r *accessLogPolicyReconciler) buildAndDeployModel(
+	ctx context.Context,
+	alp *anv1alpha1.AccessLogPolicy,
+) error {
+	stack, _, err := r.modelBuilder.Build(ctx, alp)
+	if err != nil {
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.AccessLogPolicyEventReasonFailedBuildModel,
+			fmt.Sprintf("Failed to build model due to %s", err))
+		return err
+	}
+
+	jsonStack, err := r.stackMarshaller.Marshal(stack)
+	if err != nil {
+		return err
+	}
+	r.log.Debugw("Successfully built model", "stack", jsonStack)
+
+	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		return err
+	}
+	r.log.Debugw("successfully deployed model",
+		"stack", stack.StackID().Name+":"+stack.StackID().Namespace,
+	)
+
+	return nil
 }
 
 func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(

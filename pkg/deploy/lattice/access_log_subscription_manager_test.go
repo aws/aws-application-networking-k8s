@@ -1,0 +1,403 @@
+package lattice
+
+import (
+	"context"
+	"testing"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	mockaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+)
+
+const (
+	sourceName               = "test"
+	serviceNetworkArn        = "arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-12345678901234567"
+	serviceArn               = "arn:aws:vpc-lattice:us-west-2:123456789012:service/svc-12345678901234567"
+	s3DestinationArn         = "arn:aws:s3:::test"
+	cloudWatchDestinationArn = "arn:aws:logs:us-west-2:123456789012:log-group:test:*"
+	firehoseDestinationArn   = "arn:aws:firehose:us-west-2:123456789012:deliverystream/test"
+	accessLogSubscriptionArn = "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567"
+	accessLogSubscriptionId  = "als-12345678901234567"
+)
+
+func Test_Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceNetworkSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
+	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
+		{
+			Arn:  aws.String(serviceNetworkArn),
+			Name: aws.String(sourceName),
+		},
+	}
+	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
+		ResourceIdentifier: aws.String(serviceNetworkArn),
+		DestinationArn:     aws.String(s3DestinationArn),
+	}
+	createALSOutput := &vpclattice.CreateAccessLogSubscriptionOutput{
+		Arn: aws.String(accessLogSubscriptionArn),
+		Id:  aws.String(accessLogSubscriptionId),
+	}
+
+	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(createALSOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, err)
+	assert.Equal(t, resp.Arn, accessLogSubscriptionArn)
+	assert.Equal(t, resp.Id, accessLogSubscriptionId)
+}
+
+func Test_Create_NewAccessLogSubscriptionForService_ReturnsSuccess(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServicesInput := &vpclattice.ListServicesInput{}
+	listServicesOutput := []*vpclattice.ServiceSummary{
+		{
+			Arn:  aws.String(serviceArn),
+			Name: aws.String(sourceName),
+		},
+	}
+	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
+		ResourceIdentifier: aws.String(serviceArn),
+		DestinationArn:     aws.String(s3DestinationArn),
+	}
+	createALSOutput := &vpclattice.CreateAccessLogSubscriptionOutput{
+		Arn: aws.String(accessLogSubscriptionArn),
+		Id:  aws.String(accessLogSubscriptionId),
+	}
+
+	mockLattice.EXPECT().ListServicesAsList(ctx, listServicesInput).Return(listServicesOutput, nil)
+	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(createALSOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, err)
+	assert.Equal(t, resp.Arn, accessLogSubscriptionArn)
+	assert.Equal(t, resp.Id, accessLogSubscriptionId)
+}
+
+func Test_Create_NewAccessLogSubscriptionForDeletedServiceNetwork_ReturnsNotFoundError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceNetworkSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
+	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
+		{
+			Arn:  aws.String(serviceNetworkArn),
+			Name: aws.String(sourceName),
+		},
+	}
+	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
+		ResourceIdentifier: aws.String(serviceNetworkArn),
+		DestinationArn:     aws.String(s3DestinationArn),
+	}
+	createALSErr := &vpclattice.ResourceNotFoundException{
+		ResourceType: aws.String("SERVICE_NETWORK"),
+		ResourceId:   aws.String(serviceNetworkArn),
+	}
+
+	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, resp)
+	assert.True(t, services.IsNotFoundError(err))
+}
+
+func Test_Create_NewAccessLogSubscriptionForDeletedService_ReturnsNotFoundError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServicesInput := &vpclattice.ListServicesInput{}
+	listServicesOutput := []*vpclattice.ServiceSummary{
+		{
+			Arn:  aws.String(serviceArn),
+			Name: aws.String(sourceName),
+		},
+	}
+	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
+		ResourceIdentifier: aws.String(serviceArn),
+		DestinationArn:     aws.String(s3DestinationArn),
+	}
+	createALSErr := &vpclattice.ResourceNotFoundException{
+		ResourceType: aws.String("SERVICE"),
+		ResourceId:   aws.String(serviceArn),
+	}
+
+	mockLattice.EXPECT().ListServicesAsList(ctx, listServicesInput).Return(listServicesOutput, nil)
+	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, resp)
+	assert.True(t, services.IsNotFoundError(err))
+}
+
+func Test_Create_NewAccessLogSubscriptionForMissingS3Destination_ReturnsInvalidError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceNetworkSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
+	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
+		{
+			Arn:  aws.String(serviceNetworkArn),
+			Name: aws.String(sourceName),
+		},
+	}
+	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
+		ResourceIdentifier: aws.String(serviceNetworkArn),
+		DestinationArn:     aws.String(s3DestinationArn),
+	}
+	createALSErr := &vpclattice.ResourceNotFoundException{
+		ResourceType: aws.String("BUCKET"),
+		ResourceId:   aws.String(s3DestinationArn),
+	}
+
+	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, resp)
+	assert.True(t, services.IsInvalidError(err))
+}
+
+func Test_Create_NewAccessLogSubscriptionForMissingCloudWatchDestination_ReturnsInvalidError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceNetworkSourceType,
+			SourceName:     sourceName,
+			DestinationArn: cloudWatchDestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
+	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
+		{
+			Arn:  aws.String(serviceNetworkArn),
+			Name: aws.String(sourceName),
+		},
+	}
+	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
+		ResourceIdentifier: aws.String(serviceNetworkArn),
+		DestinationArn:     aws.String(cloudWatchDestinationArn),
+	}
+	createALSErr := &vpclattice.ResourceNotFoundException{
+		ResourceType: aws.String("LOG_GROUP"),
+		ResourceId:   aws.String(cloudWatchDestinationArn),
+	}
+
+	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, resp)
+	assert.True(t, services.IsInvalidError(err))
+}
+
+func Test_Create_NewAccessLogSubscriptionForMissingFirehoseDestination_ReturnsInvalidError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceNetworkSourceType,
+			SourceName:     sourceName,
+			DestinationArn: firehoseDestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
+	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
+		{
+			Arn:  aws.String(serviceNetworkArn),
+			Name: aws.String(sourceName),
+		},
+	}
+	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
+		ResourceIdentifier: aws.String(serviceNetworkArn),
+		DestinationArn:     aws.String(firehoseDestinationArn),
+	}
+	createALSErr := &vpclattice.ResourceNotFoundException{
+		ResourceType: aws.String("DELIVERY_STREAM"),
+		ResourceId:   aws.String(firehoseDestinationArn),
+	}
+
+	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, resp)
+	assert.True(t, services.IsInvalidError(err))
+}
+
+func Test_Create_ConflictingAccessLogSubscriptionForSameResource_ReturnsConflictError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceNetworkSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
+	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
+		{
+			Arn:  aws.String(serviceNetworkArn),
+			Name: aws.String(sourceName),
+		},
+	}
+	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
+		ResourceIdentifier: aws.String(serviceNetworkArn),
+		DestinationArn:     aws.String(s3DestinationArn),
+	}
+	createALSErr := &vpclattice.ConflictException{
+		ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
+	}
+
+	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, resp)
+	assert.True(t, services.IsConflictError(err))
+}
+
+func Test_Create_NewAccessLogSubscriptionForMissingServiceNetwork_ReturnsNotFoundError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceNetworkSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
+	var listServiceNetworksOutput []*vpclattice.ServiceNetworkSummary
+
+	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, resp)
+	assert.True(t, services.IsNotFoundError(err))
+}
+
+func Test_Create_NewAccessLogSubscriptionForMissingService_ReturnsNotFoundError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := mockaws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			IsDeleted:      false,
+		},
+	}
+	listServicesInput := &vpclattice.ListServicesInput{}
+	var listServicesOutput []*vpclattice.ServiceSummary
+
+	mockLattice.EXPECT().ListServicesAsList(ctx, listServicesInput).Return(listServicesOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, resp)
+	assert.True(t, services.IsNotFoundError(err))
+}

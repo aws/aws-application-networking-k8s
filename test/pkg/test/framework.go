@@ -94,6 +94,9 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 
 	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &v1alpha1.VpcAssociationPolicy{}, &v1alpha1.VpcAssociationPolicyList{})
 	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
+
+	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &v1alpha1.AccessLogPolicy{}, &v1alpha1.AccessLogPolicyList{})
+	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
 }
 
 type Framework struct {
@@ -109,7 +112,6 @@ type Framework struct {
 }
 
 func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *Framework {
-
 	addOptionalCRDs(testScheme)
 	config.ConfigInit()
 	controllerRuntimeConfig := controllerruntime.GetConfigOrDie()

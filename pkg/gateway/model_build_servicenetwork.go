@@ -51,7 +51,6 @@ func (b *serviceNetworkModelBuilder) Build(ctx context.Context, gw *gateway_api.
 }
 
 func (t *serviceNetworkModelBuildTask) run(ctx context.Context) error {
-
 	err := t.buildModel(ctx)
 	return err
 }
@@ -107,8 +106,7 @@ type serviceNetworkModelBuildTask struct {
 	gateway              *gateway_api.Gateway
 	vpcAssociationPolicy *anv1alpha1.VpcAssociationPolicy
 	serviceNetwork       *model.ServiceNetwork
-
-	stack core.Stack
+	stack                core.Stack
 }
 
 func securityGroupIdsToStringPointersSlice(sgIds []anv1alpha1.SecurityGroupId) []*string {

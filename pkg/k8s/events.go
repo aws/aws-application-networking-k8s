@@ -31,4 +31,5 @@ const (
 
 	// AccessLogPolicy events
 	AccessLogPolicyEventReasonFailedAddFinalizer = "FailedAddFinalizer"
+	AccessLogPolicyEventReasonFailedBuildModel   = "FailedBuildModel"
 )

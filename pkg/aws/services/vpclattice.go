@@ -44,6 +44,42 @@ func IsNotFoundError(err error) bool {
 	return errors.As(err, &nfErr)
 }
 
+type ConflictError struct {
+	ResourceType string
+	Name         string
+	Message      string
+}
+
+func (e *ConflictError) Error() string {
+	return fmt.Sprintf("%s %s had a conflict: %s", e.ResourceType, e.Name, e.Message)
+}
+
+func NewConflictError(resourceType string, name string, message string) error {
+	return &ConflictError{resourceType, name, message}
+}
+
+func IsConflictError(err error) bool {
+	conflictErr := &ConflictError{}
+	return errors.As(err, &conflictErr)
+}
+
+type InvalidError struct {
+	Message string
+}
+
+func (e *InvalidError) Error() string {
+	return fmt.Sprintf("Invalid input: %s", e.Message)
+}
+
+func NewInvalidError(message string) error {
+	return &InvalidError{message}
+}
+
+func IsInvalidError(err error) bool {
+	invalidErr := &InvalidError{}
+	return errors.As(err, &invalidErr)
+}
+
 type Lattice interface {
 	vpclatticeiface.VPCLatticeAPI
 	ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error)
