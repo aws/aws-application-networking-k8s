@@ -41,15 +41,15 @@ spec:
           spec:
             description: IAMAuthPolicySpec defines the desired state of IAMAuthPolicy.
               When the controller handles IAMAuthPolicy creation, if the targetRef
-              k8s and lattice resource exists, the controller will change the auth_type
-              of that lattice resource to `AWS_IAM` and attach this policy When the
-              controller handles IAMAuthPolicy deletion, if the targetRef k8s and
-              lattice resource exists, the controller will change the auth_type of
-              that lattice resource to `NONE` and detach this policy
+              k8s and VPC Lattice resource exists, the controller will change the
+              auth_type of that VPC Lattice resource to AWS_IAM and attach this policy.
+              When the controller handles IAMAuthPolicy deletion, if the targetRef
+              k8s and VPC Lattice resource exists, the controller will change the
+              auth_type of that VPC Lattice resource to NONE and detach this policy.
             properties:
               policy:
                 description: IAM auth policy content. It is a JSON string that uses
-                  the same syntax as aws IAM policies. Please check the VPC Lattice
+                  the same syntax as AWS IAM policies. Please check the VPC Lattice
                   documentation to get [the common elements in an auth policy](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html#auth-policies-common-elements)
                 type: string
               targetRef:

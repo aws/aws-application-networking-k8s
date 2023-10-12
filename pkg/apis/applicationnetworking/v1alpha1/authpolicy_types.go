@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -20,8 +20,8 @@ const (
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:subresource:status
 type IAMAuthPolicy struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	apimachineryv1.TypeMeta   `json:",inline"`
+	apimachineryv1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec IAMAuthPolicySpec `json:"spec"`
 
@@ -34,17 +34,18 @@ type IAMAuthPolicy struct {
 // +kubebuilder:object:root=true
 // IAMAuthPolicyList contains a list of IAMAuthPolicies.
 type IAMAuthPolicyList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []IAMAuthPolicy `json:"items"`
+	apimachineryv1.TypeMeta `json:",inline"`
+	apimachineryv1.ListMeta `json:"metadata,omitempty"`
+	Items                   []IAMAuthPolicy `json:"items"`
 }
 
 // IAMAuthPolicySpec defines the desired state of IAMAuthPolicy.
-// When the controller handles IAMAuthPolicy creation, if the targetRef k8s and lattice resource exists, the controller will change the auth_type of that lattice resource to `AWS_IAM` and attach this policy
-// When the controller handles IAMAuthPolicy deletion, if the targetRef k8s and lattice resource exists, the controller will change the auth_type of that lattice resource to `NONE` and detach this policy
+// When the controller handles IAMAuthPolicy creation, if the targetRef k8s and VPC Lattice resource exists, the controller will change the auth_type of that VPC Lattice resource to AWS_IAM and attach this policy.
+// When the controller handles IAMAuthPolicy deletion, if the targetRef k8s and VPC Lattice resource exists, the controller will change the auth_type of that VPC Lattice resource to NONE and detach this policy.
 type IAMAuthPolicySpec struct {
 
-	// IAM auth policy content. It is a JSON string that uses the same syntax as aws IAM policies. Please check the VPC Lattice documentation to get [the common elements in an auth policy](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html#auth-policies-common-elements)
+	// IAM auth policy content. It is a JSON string that uses the same syntax as AWS IAM policies. Please check the VPC Lattice documentation to get [the common elements in an auth policy](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html#auth-policies-common-elements)
+	// +optional
 	Policy *string `json:"policy,omitempty"`
 
 	// TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.
@@ -72,18 +73,18 @@ type IAMAuthPolicyStatus struct {
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=8
 	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Conditions []apimachineryv1.Condition `json:"conditions,omitempty"`
 }
 
 func (p *IAMAuthPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
 	return p.Spec.TargetRef
 }
 
-func (p *IAMAuthPolicy) GetStatusConditions() []metav1.Condition {
+func (p *IAMAuthPolicy) GetStatusConditions() []apimachineryv1.Condition {
 	return p.Status.Conditions
 }
 
-func (p *IAMAuthPolicy) SetStatusConditions(conditions []metav1.Condition) {
+func (p *IAMAuthPolicy) SetStatusConditions(conditions []apimachineryv1.Condition) {
 	p.Status.Conditions = conditions
 }
 
