@@ -194,13 +194,22 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
 
 			// Service Network should have Access Log Subscription with S3 Bucket destination
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
-			})
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
-			g.Expect(len(output.Items)).To(BeEquivalentTo(1))
-			g.Expect(output.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
-			g.Expect(*output.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+
+			// Access Log Subscription should have default tags applied
+			listTagsInput := &vpclattice.ListTagsForResourceInput{
+				ResourceArn: listALSOutput.Items[0].Arn,
+			}
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(testFramework.DefaultTags))
 		}).Should(Succeed())
 	})
 
@@ -239,13 +248,22 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 
 			// VPC Lattice Service should have Access Log Subscription with S3 Bucket destination
 			latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
-			})
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
-			g.Expect(len(output.Items)).To(BeEquivalentTo(1))
-			g.Expect(output.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
-			g.Expect(*output.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+
+			// Access Log Subscription should have default tags applied
+			listTagsInput := &vpclattice.ListTagsForResourceInput{
+				ResourceArn: listALSOutput.Items[0].Arn,
+			}
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(testFramework.DefaultTags))
 		}).Should(Succeed())
 	})
 
@@ -284,13 +302,22 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 
 			// VPC Lattice Service should have Access Log Subscription with S3 Bucket destination
 			latticeService := testFramework.GetVpcLatticeService(ctx, core.NewGRPCRoute(*grpcRoute))
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
-			})
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
-			g.Expect(len(output.Items)).To(BeEquivalentTo(1))
-			g.Expect(output.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
-			g.Expect(*output.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+
+			// Access Log Subscription should have default tags applied
+			listTagsInput := &vpclattice.ListTagsForResourceInput{
+				ResourceArn: listALSOutput.Items[0].Arn,
+			}
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(testFramework.DefaultTags))
 		}).Should(Succeed())
 	})
 
@@ -604,17 +631,25 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		Expect(err).To(BeNil())
 
 		// Delete Firehose Delivery Stream
-		Eventually(func(g Gomega) {
-			describeDeliveryStreamOutput, err := firehoseClient.DescribeDeliveryStreamWithContext(ctx, &firehose.DescribeDeliveryStreamInput{
+		Eventually(func() (string, error) {
+			describeInput := &firehose.DescribeDeliveryStreamInput{
 				DeliveryStreamName: aws.String(deliveryStreamName),
-			})
-			Expect(err).To(BeNil())
-			Expect(*describeDeliveryStreamOutput.DeliveryStreamDescription.DeliveryStreamStatus).To(BeEquivalentTo(firehose.DeliveryStreamStatusActive))
+			}
+			describeOutput, err := firehoseClient.DescribeDeliveryStreamWithContext(ctx, describeInput)
+			if err != nil {
+				return "", err
+			}
+
+			status := *describeOutput.DeliveryStreamDescription.DeliveryStreamStatus
+			if status != firehose.DeliveryStreamStatusActive {
+				return status, fmt.Errorf("expected status to be ACTIVE, got %s", status)
+			}
+
 			_, err = firehoseClient.DeleteDeliveryStreamWithContext(ctx, &firehose.DeleteDeliveryStreamInput{
 				DeliveryStreamName: aws.String(deliveryStreamName),
 			})
-			Expect(err).To(BeNil())
-		}).Should(Succeed())
+			return status, err
+		}, 5*time.Minute, time.Minute).Should(Equal(firehose.DeliveryStreamStatusActive))
 
 		// Detach managed policies from IAM Role
 		policies, err := iamClient.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{

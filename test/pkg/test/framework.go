@@ -40,6 +40,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -109,12 +110,19 @@ type Framework struct {
 	LatticeClient           services.Lattice
 	Ec2Client               *ec2.EC2
 	GrpcurlRunner           *v1.Pod
+	DefaultTags             services.Tags
 }
 
 func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *Framework {
 	addOptionalCRDs(testScheme)
 	config.ConfigInit()
 	controllerRuntimeConfig := controllerruntime.GetConfigOrDie()
+	cloudConfig := an_aws.CloudConfig{
+		VpcId:       config.VpcID,
+		AccountId:   config.AccountID,
+		Region:      config.Region,
+		ClusterName: config.ClusterName,
+	}
 	framework := &Framework{
 		Client:                  lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: testScheme})),
 		LatticeClient:           services.NewDefaultLattice(session.Must(session.NewSession()), config.Region), // region is currently hardcoded
@@ -125,6 +133,7 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 		k8sScheme:               testScheme,
 		namespace:               testNamespace,
 		controllerRuntimeConfig: controllerRuntimeConfig,
+		DefaultTags:             an_aws.NewDefaultCloud(nil, cloudConfig).DefaultTags(),
 	}
 	SetDefaultEventuallyTimeout(3 * time.Minute)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)

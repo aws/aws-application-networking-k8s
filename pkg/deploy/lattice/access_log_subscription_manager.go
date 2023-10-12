@@ -62,6 +62,7 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
 		ResourceIdentifier: &resourceIdentifier,
 		DestinationArn:     &accessLogSubscription.Spec.DestinationArn,
+		Tags:               m.cloud.DefaultTags(),
 	}
 
 	createALSOutput, err := vpcLatticeSess.CreateAccessLogSubscriptionWithContext(ctx, createALSInput)
