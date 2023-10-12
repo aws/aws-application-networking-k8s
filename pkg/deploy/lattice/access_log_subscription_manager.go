@@ -49,7 +49,7 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 		}
 		resourceIdentifier = *serviceNetwork.SvcNetwork.Arn
 	case lattice.ServiceSourceType:
-		serviceNameProvider := services.NewLatticeServiceNameProvider(accessLogSubscription.Spec.SourceName)
+		serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(accessLogSubscription.Spec.SourceName)
 		service, err := vpcLatticeSess.FindService(ctx, serviceNameProvider)
 		if err != nil {
 			return nil, err

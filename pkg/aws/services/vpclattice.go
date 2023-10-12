@@ -30,7 +30,7 @@ type defaultLatticeServiceNameProvider struct {
 	name string
 }
 
-func NewLatticeServiceNameProvider(name string) LatticeServiceNameProvider {
+func NewDefaultLatticeServiceNameProvider(name string) *defaultLatticeServiceNameProvider {
 	return &defaultLatticeServiceNameProvider{
 		name: name,
 	}

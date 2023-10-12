@@ -82,7 +82,7 @@ func Test_Create_NewAccessLogSubscriptionForService_ReturnsSuccess(t *testing.T)
 			IsDeleted:      false,
 		},
 	}
-	serviceNameProvider := services.NewLatticeServiceNameProvider(sourceName)
+	serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
 	findServiceOutput := &vpclattice.ServiceSummary{
 		Arn:  aws.String(serviceArn),
 		Name: aws.String(sourceName),
@@ -160,7 +160,7 @@ func Test_Create_NewAccessLogSubscriptionForDeletedService_ReturnsNotFoundError(
 			IsDeleted:      false,
 		},
 	}
-	serviceNameProvider := services.NewLatticeServiceNameProvider(sourceName)
+	serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
 	findServiceOutput := &vpclattice.ServiceSummary{
 		Arn:  aws.String(serviceArn),
 		Name: aws.String(sourceName),
@@ -380,7 +380,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingService_ReturnsNotFoundError(
 		},
 	}
 	notFoundErr := services.NewNotFoundError("", "")
-	serviceNameProvider := services.NewLatticeServiceNameProvider(sourceName)
+	serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
 
 	mockLattice.EXPECT().FindService(ctx, serviceNameProvider).Return(nil, notFoundErr)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
