@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 
 	"github.com/golang/mock/gomock"
@@ -528,12 +528,11 @@ func Test_CreateRule(t *testing.T) {
 			ctx := context.TODO()
 
 			mockLattice := mocks.NewMockLattice(c)
-			mockCloud := mocks_aws.NewMockCloud(c)
-			mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+			cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
 			latticeDataStore := latticestore.NewLatticeDataStore()
 
-			ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
+			ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
 
 			if !tt.noServiceID {
 				mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
@@ -660,6 +659,7 @@ func Test_CreateRule(t *testing.T) {
 						Match: &vpclattice.RuleMatch{
 							HttpMatch: &httpMatch,
 						},
+						Tags: cloud.DefaultTags(),
 					}
 					ruleOutput := vpclattice.CreateRuleOutput{
 						Id: aws.String(ruleID),
@@ -754,12 +754,11 @@ func Test_UpdateRule(t *testing.T) {
 			ctx := context.TODO()
 
 			mockLattice := mocks.NewMockLattice(c)
-			mockCloud := mocks_aws.NewMockCloud(c)
-			mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+			cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
 			latticeDataStore := latticestore.NewLatticeDataStore()
 
-			ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
+			ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
 
 			var i = 0
 			if !tt.noServiceID {
@@ -824,7 +823,7 @@ func Test_List(t *testing.T) {
 	ctx := context.TODO()
 
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
 	serviceID := "service1-ID"
 	listenerID := "listener-ID"
@@ -851,9 +850,8 @@ func Test_List(t *testing.T) {
 	latticeDataStore := latticestore.NewLatticeDataStore()
 
 	mockLattice.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
+	ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
 
 	resp, err := ruleManager.List(ctx, serviceID, listenerID)
 
@@ -874,7 +872,7 @@ func Test_GetRule(t *testing.T) {
 	ctx := context.TODO()
 
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
 	serviceID := "service1-ID"
 	listenerID := "listener-ID"
@@ -897,9 +895,8 @@ func Test_GetRule(t *testing.T) {
 	}
 
 	mockLattice.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
+	ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
 
 	resp, err := ruleManager.Get(ctx, serviceID, listenerID, ruleID)
 
@@ -916,7 +913,7 @@ func Test_DeleteRule(t *testing.T) {
 	ctx := context.TODO()
 
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
 	serviceID := "service1-ID"
 	listenerID := "listener-ID"
@@ -932,9 +929,8 @@ func Test_DeleteRule(t *testing.T) {
 
 	ruleDeleteOuput := vpclattice.DeleteRuleOutput{}
 	mockLattice.EXPECT().DeleteRule(&ruleDeleteInput).Return(&ruleDeleteOuput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	ruleManager := NewRuleManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
+	ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
 
 	ruleManager.Delete(ctx, ruleID, listenerID, serviceID)
 

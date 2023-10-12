@@ -242,6 +242,7 @@ func (r *defaultRuleManager) Create(ctx context.Context, rule *model.Rule) (mode
 		Name:              aws.String(ruleName),
 		Priority:          aws.Int64(ruleStatus.Priority),
 		ServiceIdentifier: aws.String(*latticeService.Id),
+		Tags:              r.cloud.DefaultTags(),
 	}
 
 	resp, err := r.cloud.Lattice().CreateRule(&ruleInput)

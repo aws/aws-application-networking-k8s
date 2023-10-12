@@ -14,13 +14,19 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 // ServiceNetwork does not exist before, happy case.
 func Test_CreateOrUpdateServiceNetwork_SnNotExist_NoNeedToAssociate(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	snCreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:           "test",
@@ -39,19 +45,13 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NoNeedToAssociate(t *testing.T
 	}
 	createServiceNetworkInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
-		Tags: make(map[string]*string),
+		Tags: cloud.DefaultTags(),
 	}
 	createServiceNetworkInput.Tags[model.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockCloud := mocks_aws.NewMockCloud(c)
-	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(snCreateOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{}).Times(1)
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.Nil(t, err)
@@ -60,6 +60,12 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NoNeedToAssociate(t *testing.T
 }
 
 func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	snCreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:           "test",
@@ -79,15 +85,9 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) 
 
 	createServiceNetworkInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
-		Tags: make(map[string]*string),
+		Tags: cloud.DefaultTags(),
 	}
 	createServiceNetworkInput.Tags[model.K8SServiceNetworkOwnedByVPC] = &config.VpcID
-
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockCloud := mocks_aws.NewMockCloud(c)
-	mockLattice := mocks.NewMockLattice(c)
 
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(snCreateOutput, nil)
 	snId := "12345678912345678912"
@@ -106,9 +106,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) 
 	mockLattice.EXPECT().
 		FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
 
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
-
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.Nil(t, err)
@@ -118,6 +116,12 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) 
 
 // List and find sn does not work.
 func Test_CreateOrUpdateServiceNetwork_ListFailed(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	snCreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:    "test",
@@ -126,16 +130,9 @@ func Test_CreateOrUpdateServiceNetwork_ListFailed(t *testing.T) {
 		Status: &model.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
-
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, errors.New("ERROR"))
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.NotNil(t, err)
@@ -146,6 +143,12 @@ func Test_CreateOrUpdateServiceNetwork_ListFailed(t *testing.T) {
 // ServiceNetwork already exists, association is in ServiceNetworkVpcAssociationStatusCreateInProgress.
 
 func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	snCreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:           "test",
@@ -174,20 +177,14 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	}
 	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.NotNil(t, err)
@@ -199,6 +196,12 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 // ServiceNetwork already exists, association is in ServiceNetworkVpcAssociationStatusDeleteInProgress.
 
 func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	snCreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:    "test",
@@ -226,20 +229,14 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	}
 	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.NotNil(t, err)
@@ -250,6 +247,12 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 
 // ServiceNetwork already exists, association is ServiceNetworkVpcAssociationStatusActive.
 func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociationStatusActive(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	snCreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:           "test",
@@ -278,11 +281,6 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	}
 	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
@@ -297,9 +295,8 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.Nil(t, err)
@@ -341,7 +338,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Update
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
@@ -364,8 +361,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Update
 		Status:           aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
 	}, nil)
 
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.Equal(t, err, nil)
@@ -408,7 +404,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Securi
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
@@ -426,8 +422,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Securi
 	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
 
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &desiredSn)
 
 	assert.Equal(t, err, nil)
@@ -468,7 +463,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgr
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
@@ -479,8 +474,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgr
 	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
 
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &desiredSn)
 
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
@@ -521,7 +515,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Cannot
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	mockCloud := pkg_aws.NewMockCloud(c)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
@@ -581,7 +575,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_AssociateToNotAssociate(t 
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
@@ -593,9 +587,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_AssociateToNotAssociate(t 
 
 	mockLattice.EXPECT().DeleteServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(deleteServiceNetworkVpcAssociationOutput, nil)
 
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
-
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	_, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.Equal(t, err, errors.New(LATTICE_RETRY))
@@ -645,7 +637,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
 		Tags: make(map[string]*string),
@@ -657,9 +649,8 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 			Tags:       snTagsOuput.Tags,
 		}, nil)
 	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.Nil(t, err)
@@ -710,7 +701,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_SnAssociatedWithOtherVPC(t
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
 		Tags: make(map[string]*string),
@@ -723,9 +714,8 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_SnAssociatedWithOtherVPC(t
 			Tags:       snTagsOuput.Tags,
 		}, nil)
 	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.Nil(t, err)
@@ -735,6 +725,12 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_SnAssociatedWithOtherVPC(t
 
 // ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusFailed.
 func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationStatusFailed(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	CreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:           "test",
@@ -758,7 +754,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationSt
 	}
 	snCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
-		Tags: make(map[string]*string),
+		Tags: cloud.DefaultTags(),
 	}
 	snCreateInput.Tags[model.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 
@@ -767,17 +763,11 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationSt
 		VpcIdentifier:            &config.VpcID,
 	}
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, snCreateInput).Return(snCreateOutput, nil)
 	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -788,6 +778,12 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationSt
 
 // ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusCreateInProgress.
 func Test_CreateOrUpdateServiceNetwork_SnNOTExist_ServiceNetworkVpcAssociationStatusCreateInProgress(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	CreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:           "test",
@@ -810,7 +806,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNOTExist_ServiceNetworkVpcAssociationSt
 	}
 	snCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
-		Tags: make(map[string]*string),
+		Tags: cloud.DefaultTags(),
 	}
 	snCreateInput.Tags[model.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
@@ -818,17 +814,11 @@ func Test_CreateOrUpdateServiceNetwork_SnNOTExist_ServiceNetworkVpcAssociationSt
 		VpcIdentifier:            &config.VpcID,
 	}
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, snCreateInput).Return(snCreateOutput, nil)
 	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -839,6 +829,12 @@ func Test_CreateOrUpdateServiceNetwork_SnNOTExist_ServiceNetworkVpcAssociationSt
 
 // ServiceNetwork does not exists, association is ServiceNetworkVpcAssociationStatusDeleteInProgress.
 func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationStatusDeleteInProgress(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	CreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:           "test",
@@ -861,7 +857,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationSt
 	}
 	snCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
-		Tags: make(map[string]*string),
+		Tags: cloud.DefaultTags(),
 	}
 	snCreateInput.Tags[model.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
@@ -869,17 +865,11 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationSt
 		VpcIdentifier:            &config.VpcID,
 	}
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, snCreateInput).Return(snCreateOutput, nil)
 	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -890,6 +880,12 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationSt
 
 // ServiceNetwork does not exists, association returns Error.
 func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationReturnsError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	CreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:           "test",
@@ -909,7 +905,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationRe
 	}
 	snCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
-		Tags: make(map[string]*string),
+		Tags: cloud.DefaultTags(),
 	}
 	snCreateInput.Tags[model.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
@@ -917,17 +913,11 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationRe
 		VpcIdentifier:            &config.VpcID,
 	}
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, snCreateInput).Return(snCreateOutput, nil)
 	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, errors.New("ERROR"))
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -938,6 +928,12 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationRe
 
 // Sn does not exist and failed to create.
 func Test_CreateSn_SnNotExist_SnCreateFailed(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
 	CreateInput := model.ServiceNetwork{
 		Spec: model.ServiceNetworkSpec{
 			Name:    "test",
@@ -955,21 +951,15 @@ func Test_CreateSn_SnNotExist_SnCreateFailed(t *testing.T) {
 	}
 	snCreateInput := &vpclattice.CreateServiceNetworkInput{
 		Name: &name,
-		Tags: make(map[string]*string),
+		Tags: cloud.DefaultTags(),
 	}
 
 	snCreateInput.Tags[model.K8SServiceNetworkOwnedByVPC] = &config.VpcID
 
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, snCreateInput).Return(snCreateOutput, errors.New("ERROR"))
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &CreateInput)
 
 	assert.NotNil(t, err)
@@ -984,11 +974,10 @@ func Test_DeleteSn_SnNotExist(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{})
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	err := snMgr.Delete(ctx, "test")
 
 	assert.Nil(t, err)
@@ -1014,7 +1003,7 @@ func Test_DeleteSn_SnExistsNoAssociation(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 
 	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
@@ -1027,9 +1016,8 @@ func Test_DeleteSn_SnExistsNoAssociation(t *testing.T) {
 			Tags:       snTagsOuput.Tags,
 		}, nil)
 	mockLattice.EXPECT().DeleteServiceNetworkWithContext(ctx, deleteSnInout).Return(deleteSnOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	err := snMgr.Delete(ctx, "test")
 
 	assert.Nil(t, err)
@@ -1071,7 +1059,7 @@ func Test_DeleteSn_SnExistsAssociatedWithVPC_Deleting(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 
 	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
@@ -1084,9 +1072,8 @@ func Test_DeleteSn_SnExistsAssociatedWithVPC_Deleting(t *testing.T) {
 			Tags:       snTagsOuput.Tags,
 		}, nil)
 	mockLattice.EXPECT().DeleteServiceNetworkVpcAssociationWithContext(ctx, deleteServiceNetworkVpcAssociationInput).Return(deleteServiceNetworkVpcAssociationOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	err := snMgr.Delete(ctx, "test")
 
 	assert.NotNil(t, err)
@@ -1122,7 +1109,7 @@ func Test_DeleteSn_SnExistsAssociatedWithOtherVPC(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 
 	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
@@ -1134,9 +1121,8 @@ func Test_DeleteSn_SnExistsAssociatedWithOtherVPC(t *testing.T) {
 			SvcNetwork: item,
 			Tags:       snTagsOuput.Tags,
 		}, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	err := snMgr.Delete(ctx, "test")
 
 	assert.NotNil(t, err)
@@ -1172,16 +1158,15 @@ func Test_DeleteSn_SnExistsAssociatedWithOtherVPC_NotCreatedByVPC(t *testing.T) 
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	err := snMgr.Delete(ctx, "test")
 
 	assert.Nil(t, err)
@@ -1216,7 +1201,7 @@ func Test_DeleteSn_SnExistsAssociatedWithOtherVPC_CreatedByVPC(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	snTagsOutput := &vpclattice.ListTagsForResourceOutput{
 		Tags: make(map[string]*string),
@@ -1227,9 +1212,8 @@ func Test_DeleteSn_SnExistsAssociatedWithOtherVPC_CreatedByVPC(t *testing.T) {
 			SvcNetwork: item,
 			Tags:       snTagsOutput.Tags,
 		}, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	err := snMgr.Delete(ctx, "test")
 
 	assert.NotNil(t, err)
@@ -1257,11 +1241,10 @@ func Test_ListSn_SnExists(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice)
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	snList, err := snMgr.List(ctx)
 
 	assert.Nil(t, err)
@@ -1275,11 +1258,10 @@ func Test_ListSn_NoSn(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, gomock.Any()).Return(listServiceNetworkOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice)
 
-	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, mockCloud)
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	snList, err := snMgr.List(ctx)
 
 	assert.Nil(t, err)
