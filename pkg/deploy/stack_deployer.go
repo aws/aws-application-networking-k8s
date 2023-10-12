@@ -236,10 +236,10 @@ func (d *latticeTargetsStackDeployer) Deploy(ctx context.Context, stack core.Sta
 }
 
 type accessLogSubscriptionStackDeployer struct {
-	log                          gwlog.Logger
-	k8sClient                    client.Client
-	stack                        core.Stack
-	accessLogSubscriptionManager lattice.AccessLogSubscriptionManager
+	log       gwlog.Logger
+	k8sClient client.Client
+	stack     core.Stack
+	manager   lattice.AccessLogSubscriptionManager
 }
 
 func NewAccessLogSubscriptionStackDeployer(
@@ -248,15 +248,15 @@ func NewAccessLogSubscriptionStackDeployer(
 	k8sClient client.Client,
 ) *accessLogSubscriptionStackDeployer {
 	return &accessLogSubscriptionStackDeployer{
-		log:                          log,
-		k8sClient:                    k8sClient,
-		accessLogSubscriptionManager: lattice.NewAccessLogSubscriptionManager(log, cloud),
+		log:       log,
+		k8sClient: k8sClient,
+		manager:   lattice.NewAccessLogSubscriptionManager(log, cloud),
 	}
 }
 
 func (d *accessLogSubscriptionStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	synthesizers := []ResourceSynthesizer{
-		lattice.NewAccessLogSubscriptionSynthesizer(d.log, d.k8sClient, d.accessLogSubscriptionManager, stack),
+		lattice.NewAccessLogSubscriptionSynthesizer(d.log, d.k8sClient, d.manager, stack),
 	}
 	return deploy(ctx, stack, synthesizers)
 }

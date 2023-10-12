@@ -39,7 +39,7 @@ func NewAccessLogSubscription(
 	isDeleted bool,
 ) *AccessLogSubscription {
 	id := fmt.Sprintf("%s-%s-%s", sourceType, sourceName, destinationArn)
-	als := &AccessLogSubscription{
+	return &AccessLogSubscription{
 		ResourceMeta: core.NewResourceMeta(stack, "AWS::VPCServiceNetwork::AccessLogSubscription", id),
 		Spec: AccessLogSubscriptionSpec{
 			SourceType:     sourceType,
@@ -49,8 +49,4 @@ func NewAccessLogSubscription(
 		},
 		Status: nil,
 	}
-
-	stack.AddResource(als)
-
-	return als
 }

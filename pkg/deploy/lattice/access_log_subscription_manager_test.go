@@ -11,6 +11,7 @@ import (
 
 	mockaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -41,9 +42,8 @@ func Test_Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess(t *tes
 			IsDeleted:      false,
 		},
 	}
-	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
-	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
-		{
+	serviceNetworkInfo := &services.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{
 			Arn:  aws.String(serviceNetworkArn),
 			Name: aws.String(sourceName),
 		},
@@ -57,7 +57,7 @@ func Test_Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess(t *tes
 		Id:  aws.String(accessLogSubscriptionId),
 	}
 
-	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
 	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(createALSOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
@@ -82,12 +82,10 @@ func Test_Create_NewAccessLogSubscriptionForService_ReturnsSuccess(t *testing.T)
 			IsDeleted:      false,
 		},
 	}
-	listServicesInput := &vpclattice.ListServicesInput{}
-	listServicesOutput := []*vpclattice.ServiceSummary{
-		{
-			Arn:  aws.String(serviceArn),
-			Name: aws.String(sourceName),
-		},
+	serviceNameProvider := services.NewLatticeServiceNameProvider(sourceName)
+	findServiceOutput := &vpclattice.ServiceSummary{
+		Arn:  aws.String(serviceArn),
+		Name: aws.String(sourceName),
 	}
 	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
 		ResourceIdentifier: aws.String(serviceArn),
@@ -98,7 +96,7 @@ func Test_Create_NewAccessLogSubscriptionForService_ReturnsSuccess(t *testing.T)
 		Id:  aws.String(accessLogSubscriptionId),
 	}
 
-	mockLattice.EXPECT().ListServicesAsList(ctx, listServicesInput).Return(listServicesOutput, nil)
+	mockLattice.EXPECT().FindService(ctx, serviceNameProvider).Return(findServiceOutput, nil)
 	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(createALSOutput, nil)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
@@ -123,9 +121,8 @@ func Test_Create_NewAccessLogSubscriptionForDeletedServiceNetwork_ReturnsNotFoun
 			IsDeleted:      false,
 		},
 	}
-	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
-	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
-		{
+	serviceNetworkInfo := &services.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{
 			Arn:  aws.String(serviceNetworkArn),
 			Name: aws.String(sourceName),
 		},
@@ -139,7 +136,7 @@ func Test_Create_NewAccessLogSubscriptionForDeletedServiceNetwork_ReturnsNotFoun
 		ResourceId:   aws.String(serviceNetworkArn),
 	}
 
-	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
 	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
@@ -163,12 +160,10 @@ func Test_Create_NewAccessLogSubscriptionForDeletedService_ReturnsNotFoundError(
 			IsDeleted:      false,
 		},
 	}
-	listServicesInput := &vpclattice.ListServicesInput{}
-	listServicesOutput := []*vpclattice.ServiceSummary{
-		{
-			Arn:  aws.String(serviceArn),
-			Name: aws.String(sourceName),
-		},
+	serviceNameProvider := services.NewLatticeServiceNameProvider(sourceName)
+	findServiceOutput := &vpclattice.ServiceSummary{
+		Arn:  aws.String(serviceArn),
+		Name: aws.String(sourceName),
 	}
 	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
 		ResourceIdentifier: aws.String(serviceArn),
@@ -179,7 +174,7 @@ func Test_Create_NewAccessLogSubscriptionForDeletedService_ReturnsNotFoundError(
 		ResourceId:   aws.String(serviceArn),
 	}
 
-	mockLattice.EXPECT().ListServicesAsList(ctx, listServicesInput).Return(listServicesOutput, nil)
+	mockLattice.EXPECT().FindService(ctx, serviceNameProvider).Return(findServiceOutput, nil)
 	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
@@ -203,9 +198,8 @@ func Test_Create_NewAccessLogSubscriptionForMissingS3Destination_ReturnsInvalidE
 			IsDeleted:      false,
 		},
 	}
-	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
-	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
-		{
+	serviceNetworkInfo := &services.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{
 			Arn:  aws.String(serviceNetworkArn),
 			Name: aws.String(sourceName),
 		},
@@ -219,7 +213,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingS3Destination_ReturnsInvalidE
 		ResourceId:   aws.String(s3DestinationArn),
 	}
 
-	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
 	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
@@ -243,9 +237,8 @@ func Test_Create_NewAccessLogSubscriptionForMissingCloudWatchDestination_Returns
 			IsDeleted:      false,
 		},
 	}
-	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
-	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
-		{
+	serviceNetworkInfo := &services.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{
 			Arn:  aws.String(serviceNetworkArn),
 			Name: aws.String(sourceName),
 		},
@@ -259,7 +252,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingCloudWatchDestination_Returns
 		ResourceId:   aws.String(cloudWatchDestinationArn),
 	}
 
-	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
 	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
@@ -283,9 +276,8 @@ func Test_Create_NewAccessLogSubscriptionForMissingFirehoseDestination_ReturnsIn
 			IsDeleted:      false,
 		},
 	}
-	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
-	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
-		{
+	serviceNetworkInfo := &services.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{
 			Arn:  aws.String(serviceNetworkArn),
 			Name: aws.String(sourceName),
 		},
@@ -299,7 +291,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingFirehoseDestination_ReturnsIn
 		ResourceId:   aws.String(firehoseDestinationArn),
 	}
 
-	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
 	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
@@ -323,9 +315,8 @@ func Test_Create_ConflictingAccessLogSubscriptionForSameResource_ReturnsConflict
 			IsDeleted:      false,
 		},
 	}
-	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
-	listServiceNetworksOutput := []*vpclattice.ServiceNetworkSummary{
-		{
+	serviceNetworkInfo := &services.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{
 			Arn:  aws.String(serviceNetworkArn),
 			Name: aws.String(sourceName),
 		},
@@ -338,7 +329,7 @@ func Test_Create_ConflictingAccessLogSubscriptionForSameResource_ReturnsConflict
 		ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 	}
 
-	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
 	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
@@ -354,7 +345,6 @@ func Test_Create_NewAccessLogSubscriptionForMissingServiceNetwork_ReturnsNotFoun
 	ctx := context.TODO()
 	mockCloud := mockaws.NewMockCloud(c)
 	mockLattice := services.NewMockLattice(c)
-
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
 			SourceType:     lattice.ServiceNetworkSourceType,
@@ -363,10 +353,9 @@ func Test_Create_NewAccessLogSubscriptionForMissingServiceNetwork_ReturnsNotFoun
 			IsDeleted:      false,
 		},
 	}
-	listServiceNetworksInput := &vpclattice.ListServiceNetworksInput{}
-	var listServiceNetworksOutput []*vpclattice.ServiceNetworkSummary
+	notFoundErr := services.NewNotFoundError("", "")
 
-	mockLattice.EXPECT().ListServiceNetworksAsList(ctx, listServiceNetworksInput).Return(listServiceNetworksOutput, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(nil, notFoundErr)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
@@ -390,10 +379,10 @@ func Test_Create_NewAccessLogSubscriptionForMissingService_ReturnsNotFoundError(
 			IsDeleted:      false,
 		},
 	}
-	listServicesInput := &vpclattice.ListServicesInput{}
-	var listServicesOutput []*vpclattice.ServiceSummary
+	notFoundErr := services.NewNotFoundError("", "")
+	serviceNameProvider := services.NewLatticeServiceNameProvider(sourceName)
 
-	mockLattice.EXPECT().ListServicesAsList(ctx, listServicesInput).Return(listServicesOutput, nil)
+	mockLattice.EXPECT().FindService(ctx, serviceNameProvider).Return(nil, notFoundErr)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
 	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)

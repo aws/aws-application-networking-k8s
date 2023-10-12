@@ -8,11 +8,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -49,7 +49,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			input: &anv1alpha1.AccessLogPolicy{
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &v1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
 						Kind: gatewayKind,
 						Name: name,
 					},
@@ -71,10 +71,10 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			input: &anv1alpha1.AccessLogPolicy{
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &v1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
 						Kind:      gatewayKind,
 						Name:      name,
-						Namespace: (*v1alpha2.Namespace)(aws.String(namespace)),
+						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
 					},
 				},
 			},
@@ -90,36 +90,16 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedError:    nil,
 		},
 		{
-			description: "Policy on HTTPRoute without namespace maps to ALS on Service with HTTPRoute name + default namespace",
+			description: "Policy on HTTPRoute without namespace maps to ALS on Service with HTTPRoute name + Policy's namespace",
 			input: &anv1alpha1.AccessLogPolicy{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Namespace: namespace,
+				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &v1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
 						Kind: httpRouteKind,
 						Name: name,
-					},
-				},
-			},
-			expectedOutput: &lattice.AccessLogSubscription{
-				Spec: lattice.AccessLogSubscriptionSpec{
-					SourceType:     lattice.ServiceSourceType,
-					SourceName:     fmt.Sprintf("%s-default", name),
-					DestinationArn: s3DestinationArn,
-					IsDeleted:      false,
-				},
-			},
-			onlyCompareSpecs: true,
-			expectedError:    nil,
-		},
-		{
-			description: "Policy on HTTPRoute with namespace maps to ALS on Service Network with HTTPRoute name + namespace",
-			input: &anv1alpha1.AccessLogPolicy{
-				Spec: anv1alpha1.AccessLogPolicySpec{
-					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &v1alpha2.PolicyTargetReference{
-						Kind:      httpRouteKind,
-						Name:      name,
-						Namespace: (*v1alpha2.Namespace)(aws.String(namespace)),
 					},
 				},
 			},
@@ -135,11 +115,37 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedError:    nil,
 		},
 		{
-			description: "Policy on GRPCRoute without namespace maps to ALS on Service with GRPCRoute name + default namespace",
+			description: "Policy on HTTPRoute with namespace maps to ALS on Service Network with HTTPRoute name + namespace",
 			input: &anv1alpha1.AccessLogPolicy{
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &v1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
+						Kind:      httpRouteKind,
+						Name:      name,
+						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
+					},
+				},
+			},
+			expectedOutput: &lattice.AccessLogSubscription{
+				Spec: lattice.AccessLogSubscriptionSpec{
+					SourceType:     lattice.ServiceSourceType,
+					SourceName:     fmt.Sprintf("%s-%s", name, namespace),
+					DestinationArn: s3DestinationArn,
+					IsDeleted:      false,
+				},
+			},
+			onlyCompareSpecs: true,
+			expectedError:    nil,
+		},
+		{
+			description: "Policy on GRPCRoute without namespace maps to ALS on Service with GRPCRoute name + Policy's namespace",
+			input: &anv1alpha1.AccessLogPolicy{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Namespace: namespace,
+				},
+				Spec: anv1alpha1.AccessLogPolicySpec{
+					DestinationArn: aws.String(s3DestinationArn),
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
 						Kind: grpcRouteKind,
 						Name: name,
 					},
@@ -148,7 +154,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedOutput: &lattice.AccessLogSubscription{
 				Spec: lattice.AccessLogSubscriptionSpec{
 					SourceType:     lattice.ServiceSourceType,
-					SourceName:     fmt.Sprintf("%s-default", name),
+					SourceName:     fmt.Sprintf("%s-%s", name, namespace),
 					DestinationArn: s3DestinationArn,
 					IsDeleted:      false,
 				},
@@ -161,10 +167,10 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			input: &anv1alpha1.AccessLogPolicy{
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &v1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
 						Kind:      grpcRouteKind,
 						Name:      name,
-						Namespace: (*v1alpha2.Namespace)(aws.String(namespace)),
+						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
 					},
 				},
 			},
@@ -182,12 +188,12 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 		{
 			description: "Policy on Gateway with deletion timestamp is marked as deleted",
 			input: &anv1alpha1.AccessLogPolicy{
-				ObjectMeta: v1.ObjectMeta{
-					DeletionTimestamp: &v1.Time{},
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					DeletionTimestamp: &apimachineryv1.Time{},
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &v1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
 						Kind: gatewayKind,
 						Name: name,
 					},
@@ -208,10 +214,10 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			description: "Policy missing destinationArn results in error",
 			input: &anv1alpha1.AccessLogPolicy{
 				Spec: anv1alpha1.AccessLogPolicySpec{
-					TargetRef: &v1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
 						Kind:      grpcRouteKind,
 						Name:      name,
-						Namespace: (*v1alpha2.Namespace)(aws.String(namespace)),
+						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
 					},
 				},
 			},

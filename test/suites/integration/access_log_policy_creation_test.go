@@ -160,7 +160,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		testFramework.ExpectCreated(ctx, grpcRoute, grpcDeployment, grpcK8sService)
 	})
 
-	It("creates an access log subscription for Service Network when targetRef is Gateway", func() {
+	It("creates an access log subscription for the corresponding Service Network when the targetRef's Kind is Gateway", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -192,7 +192,6 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
 			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
-			g.Expect(alp.Status.Conditions[0].Message).To(BeEquivalentTo(config.LatticeGatewayControllerName))
 
 			// Service Network should have Access Log Subscription with S3 Bucket destination
 			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
@@ -205,7 +204,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("creates an access log subscription for VPC Lattice Service when targetRef is HTTPRoute", func() {
+	It("creates an access log subscription for the corresponding VPC Lattice Service when the targetRef's Kind is HTTPRoute", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -237,7 +236,6 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
 			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
-			g.Expect(alp.Status.Conditions[0].Message).To(BeEquivalentTo(config.LatticeGatewayControllerName))
 
 			// VPC Lattice Service should have Access Log Subscription with S3 Bucket destination
 			latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
@@ -251,7 +249,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("creates an access log subscription for VPC Lattice Service when targetRef is GRPCRoute", func() {
+	It("creates an access log subscription for the corresponding VPC Lattice Service when the targetRef's Kind is GRPCRoute", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -283,7 +281,6 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
 			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
-			g.Expect(alp.Status.Conditions[0].Message).To(BeEquivalentTo(config.LatticeGatewayControllerName))
 
 			// VPC Lattice Service should have Access Log Subscription with S3 Bucket destination
 			latticeService := testFramework.GetVpcLatticeService(ctx, core.NewGRPCRoute(*grpcRoute))
@@ -383,7 +380,6 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
 			Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
-			Expect(alp.Status.Conditions[0].Message).To(BeEquivalentTo(config.LatticeGatewayControllerName))
 		}
 	})
 
@@ -436,7 +432,6 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
 			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonConflicted)))
-			g.Expect(alp.Status.Conditions[0].Message).To(BeEquivalentTo(config.LatticeGatewayControllerName))
 		}).Should(Succeed())
 	})
 
@@ -472,7 +467,76 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
 			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
-			g.Expect(alp.Status.Conditions[0].Message).To(BeEquivalentTo(config.LatticeGatewayControllerName))
+		}).Should(Succeed())
+	})
+
+	It("sets Access Log Policy status to Invalid when the targetRef's Group is not gateway.networking.k8s.io", func() {
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.PolicyTargetReference{
+					Group:     "invalid",
+					Kind:      "Gateway",
+					Name:      gwv1alpha2.ObjectName(testGateway.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		// Policy status should be Invalid
+		Eventually(func(g Gomega) {
+			alpNamespacedName := types.NamespacedName{
+				Name:      accessLogPolicy.Name,
+				Namespace: accessLogPolicy.Namespace,
+			}
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+		}).Should(Succeed())
+	})
+
+	It("sets Access Log Policy status to Invalid when the targetRef's Kind is not Gateway, HTTPRoute, or GRPCRoute", func() {
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.PolicyTargetReference{
+					Group:     gwv1beta1.GroupName,
+					Kind:      "Service",
+					Name:      gwv1alpha2.ObjectName(testGateway.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		// Policy status should be Invalid
+		Eventually(func(g Gomega) {
+			alpNamespacedName := types.NamespacedName{
+				Name:      accessLogPolicy.Name,
+				Namespace: accessLogPolicy.Namespace,
+			}
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
 		}).Should(Succeed())
 	})
 
@@ -546,11 +610,11 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			})
 			Expect(err).To(BeNil())
 			Expect(*describeDeliveryStreamOutput.DeliveryStreamDescription.DeliveryStreamStatus).To(BeEquivalentTo(firehose.DeliveryStreamStatusActive))
-		})
-		_, err = firehoseClient.DeleteDeliveryStreamWithContext(ctx, &firehose.DeleteDeliveryStreamInput{
-			DeliveryStreamName: aws.String(deliveryStreamName),
-		})
-		Expect(err).To(BeNil())
+			_, err = firehoseClient.DeleteDeliveryStreamWithContext(ctx, &firehose.DeleteDeliveryStreamInput{
+				DeliveryStreamName: aws.String(deliveryStreamName),
+			})
+			Expect(err).To(BeNil())
+		}).Should(Succeed())
 
 		// Detach managed policies from IAM Role
 		policies, err := iamClient.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{

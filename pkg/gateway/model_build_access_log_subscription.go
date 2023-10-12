@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -36,6 +37,7 @@ func (b *accessLogSubscriptionModelBuilder) Build(
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(accessLogPolicy)))
 
 	task := accessLogSubscriptionModelBuildTask{
+		log:             b.log,
 		stack:           stack,
 		accessLogPolicy: accessLogPolicy,
 	}
@@ -48,6 +50,7 @@ func (b *accessLogSubscriptionModelBuilder) Build(
 }
 
 type accessLogSubscriptionModelBuildTask struct {
+	log                   gwlog.Logger
 	stack                 core.Stack
 	accessLogPolicy       *anv1alpha1.AccessLogPolicy
 	accessLogSubscription *model.AccessLogSubscription
@@ -59,18 +62,9 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 		sourceType = model.ServiceNetworkSourceType
 	}
 
-	/*
-	 * For Service Network, the name is just the Gateway's name.
-	 * For Service, the name is Route's name, followed by hyphen (-), then the Route's namespace.
-	 */
-	sourceName := string(t.accessLogPolicy.Spec.TargetRef.Name)
-	if sourceType == model.ServiceSourceType {
-		namespace := t.accessLogPolicy.Spec.TargetRef.Namespace
-		if namespace != nil {
-			sourceName = fmt.Sprintf("%s-%s", sourceName, string(*namespace))
-		} else {
-			sourceName = fmt.Sprintf("%s-default", sourceName)
-		}
+	sourceName, err := utils.TargetRefToLatticeResourceName(t.accessLogPolicy.Spec.TargetRef, t.accessLogPolicy.Namespace)
+	if err != nil {
+		return err
 	}
 
 	destinationArn := t.accessLogPolicy.Spec.DestinationArn
@@ -81,6 +75,10 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 	isDeleted := t.accessLogPolicy.DeletionTimestamp != nil
 
 	t.accessLogSubscription = model.NewAccessLogSubscription(t.stack, sourceType, sourceName, *destinationArn, isDeleted)
+	err = t.stack.AddResource(t.accessLogSubscription)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

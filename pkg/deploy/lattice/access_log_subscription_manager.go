@@ -2,11 +2,13 @@ package lattice
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -39,18 +41,22 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 	vpcLatticeSess := m.cloud.Lattice()
 
 	var resourceIdentifier string
-	if accessLogSubscription.Spec.SourceType == lattice.ServiceNetworkSourceType {
-		serviceNetwork, err := getServiceNetworkWithName(ctx, vpcLatticeSess, accessLogSubscription.Spec.SourceName)
+	switch accessLogSubscription.Spec.SourceType {
+	case lattice.ServiceNetworkSourceType:
+		serviceNetwork, err := vpcLatticeSess.FindServiceNetwork(ctx, accessLogSubscription.Spec.SourceName, config.AccountID)
 		if err != nil {
 			return nil, err
 		}
-		resourceIdentifier = *serviceNetwork.Arn
-	} else {
-		service, err := getServiceWithName(ctx, vpcLatticeSess, accessLogSubscription.Spec.SourceName)
+		resourceIdentifier = *serviceNetwork.SvcNetwork.Arn
+	case lattice.ServiceSourceType:
+		serviceNameProvider := services.NewLatticeServiceNameProvider(accessLogSubscription.Spec.SourceName)
+		service, err := vpcLatticeSess.FindService(ctx, serviceNameProvider)
 		if err != nil {
 			return nil, err
 		}
 		resourceIdentifier = *service.Arn
+	default:
+		return nil, fmt.Errorf("unsupported source type: %s", accessLogSubscription.Spec.SourceType)
 	}
 
 	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
@@ -60,47 +66,23 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 
 	createALSOutput, err := vpcLatticeSess.CreateAccessLogSubscriptionWithContext(ctx, createALSInput)
 	if err != nil {
-		if e, ok := err.(*vpclattice.ConflictException); ok {
+		switch e := err.(type) {
+		case *vpclattice.ConflictException:
 			return nil, services.NewConflictError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName, e.Message())
-		} else if e, ok := err.(*vpclattice.AccessDeniedException); ok {
+		case *vpclattice.AccessDeniedException:
 			return nil, services.NewInvalidError(e.Message())
-		} else if e, ok := err.(*vpclattice.ResourceNotFoundException); ok {
+		case *vpclattice.ResourceNotFoundException:
 			if *e.ResourceType == "SERVICE_NETWORK" || *e.ResourceType == "SERVICE" {
 				return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
 			}
 			return nil, services.NewInvalidError(e.Message())
+		default:
+			return nil, err
 		}
-		return nil, err
 	}
 
 	return &lattice.AccessLogSubscriptionStatus{
 		Arn: *createALSOutput.Arn,
 		Id:  *createALSOutput.Id,
 	}, nil
-}
-
-func getServiceNetworkWithName(ctx context.Context, vpcLatticeSess services.Lattice, name string) (*vpclattice.ServiceNetworkSummary, error) {
-	serviceNetworkSummaries, err := vpcLatticeSess.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
-	if err != nil {
-		return nil, err
-	}
-	for _, serviceNetworkSummary := range serviceNetworkSummaries {
-		if *serviceNetworkSummary.Name == name {
-			return serviceNetworkSummary, nil
-		}
-	}
-	return nil, services.NewNotFoundError("ServiceNetwork", name)
-}
-
-func getServiceWithName(ctx context.Context, vpcLatticeSess services.Lattice, name string) (*vpclattice.ServiceSummary, error) {
-	serviceSummaries, err := vpcLatticeSess.ListServicesAsList(ctx, &vpclattice.ListServicesInput{})
-	if err != nil {
-		return nil, err
-	}
-	for _, serviceSummary := range serviceSummaries {
-		if *serviceSummary.Name == name {
-			return serviceSummary, nil
-		}
-	}
-	return nil, services.NewNotFoundError("Service", name)
 }

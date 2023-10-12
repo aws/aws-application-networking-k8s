@@ -26,6 +26,20 @@ type LatticeServiceNameProvider interface {
 	LatticeServiceName() string
 }
 
+type defaultLatticeServiceNameProvider struct {
+	name string
+}
+
+func NewLatticeServiceNameProvider(name string) LatticeServiceNameProvider {
+	return &defaultLatticeServiceNameProvider{
+		name: name,
+	}
+}
+
+func (p *defaultLatticeServiceNameProvider) LatticeServiceName() string {
+	return p.name
+}
+
 type NotFoundError struct {
 	ResourceType string
 	Name         string
