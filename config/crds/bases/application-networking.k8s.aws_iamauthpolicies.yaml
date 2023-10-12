@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: vpcassociationpolicies.application-networking.k8s.aws
+  name: iamauthpolicies.application-networking.k8s.aws
 spec:
   group: application-networking.k8s.aws
   names:
     categories:
     - gateway-api
-    kind: VpcAssociationPolicy
-    listKind: VpcAssociationPolicyList
-    plural: vpcassociationpolicies
+    kind: IAMAuthPolicy
+    listKind: IAMAuthPolicyList
+    plural: iamauthpolicies
     shortNames:
-    - vap
-    singular: vpcassociationpolicy
+    - iap
+    singular: iamauthpolicy
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -39,32 +39,24 @@ spec:
           metadata:
             type: object
           spec:
-            description: VpcAssociationPolicySpec defines the desired state of VpcAssociationPolicy.
+            description: IAMAuthPolicySpec defines the desired state of IAMAuthPolicy.
+              When the controller handles IAMAuthPolicy creation, if the targetRef
+              k8s and lattice resource exists, the controller will change the auth_type
+              of that lattice resource to `AWS_IAM` and attach this policy When the
+              controller handles IAMAuthPolicy deletion, if the targetRef k8s and
+              lattice resource exists, the controller will change the auth_type of
+              that lattice resource to `NONE` and detach this policy
             properties:
-              associateWithVpc:
-                description: "AssociateWithVpc indicates whether the VpcServiceNetworkAssociation
-                  should be created for the current VPC of k8s cluster. \n Both this
-                  flag and Gateway annotation \"application-networking.k8s.aws/lattice-vpc-association\"
-                  are reserved tentatively for backward compatibility. Either one
-                  of them set to true or both of them undefined will result in the
-                  VpcServiceNetworkAssociation created."
-                type: boolean
-              securityGroupIds:
-                description: "SecurityGroupIds defines the security groups enforced
-                  on the VpcServiceNetworkAssociation. Security groups does not take
-                  effect if AssociateWithVpc is set to false. \n For more details,
-                  please check the VPC Lattice documentation https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html"
-                items:
-                  maxLength: 32
-                  minLength: 3
-                  pattern: ^sg-[0-9a-z]+$
-                  type: string
-                minItems: 1
-                type: array
+              policy:
+                description: IAM auth policy content. It is a JSON string that uses
+                  the same syntax as aws IAM policies. Please check the VPC Lattice
+                  documentation to get [the common elements in an auth policy](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html#auth-policies-common-elements)
+                type: string
               targetRef:
-                description: "TargetRef points to the kubernetes Gateway resource
-                  that will have this policy attached. \n This field is following
-                  the guidelines of Kubernetes Gateway API policy attachment."
+                description: "TargetRef points to the Kubernetes Gateway, HTTPRoute,
+                  or GRPCRoute resource that will have this policy attached. \n This
+                  field is following the guidelines of Kubernetes Gateway API policy
+                  attachment."
                 properties:
                   group:
                     description: Group is the group of the target resource.
@@ -100,8 +92,14 @@ spec:
             - targetRef
             type: object
           status:
-            description: VpcAssociationPolicyStatus defines the observed state of
-              AccessLogPolicy.
+            default:
+              conditions:
+              - lastTransitionTime: "1970-01-01T00:00:00Z"
+                message: Waiting for controller
+                reason: NotReconciled
+                status: Unknown
+                type: Accepted
+            description: Status defines the current state of IAMAuthPolicy.
             properties:
               conditions:
                 default:
@@ -115,12 +113,12 @@ spec:
                   reason: Pending
                   status: Unknown
                   type: Programmed
-                description: "Conditions describe the current conditions of the AccessLogPolicy.
+                description: "Conditions describe the current conditions of the IAMAuthPolicy.
                   \n Implementations should prefer to express Policy conditions using
                   the `PolicyConditionType` and `PolicyConditionReason` constants
                   so that operators and tools can converge on a common vocabulary
-                  to describe AccessLogPolicy state. \n Known condition types are:
-                  \n * \"Accepted\" * \"Ready\""
+                  to describe IAMAuthPolicy state. \n Known condition types are: \n
+                  * \"Accepted\" * \"Ready\""
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -198,4 +196,5 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}

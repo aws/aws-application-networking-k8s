@@ -10,44 +10,42 @@ import (
 )
 
 const (
-	AccessLogPolicyKind = "AccessLogPolicy"
+	IAMAuthPolicyKind = "IAMAuthPolicy"
 )
 
 // +genclient
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:categories=gateway-api,shortName=alp
+// +kubebuilder:resource:categories=gateway-api,shortName=iap
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:subresource:status
-type AccessLogPolicy struct {
+type IAMAuthPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec AccessLogPolicySpec `json:"spec"`
+	Spec IAMAuthPolicySpec `json:"spec"`
 
-	// Status defines the current state of AccessLogPolicy.
+	// Status defines the current state of IAMAuthPolicy.
 	//
 	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", reason:"NotReconciled", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
-	Status AccessLogPolicyStatus `json:"status,omitempty"`
+	Status IAMAuthPolicyStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
-// AccessLogPolicyList contains a list of AccessLogPolicies.
-type AccessLogPolicyList struct {
+// IAMAuthPolicyList contains a list of IAMAuthPolicies.
+type IAMAuthPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []AccessLogPolicy `json:"items"`
+	Items           []IAMAuthPolicy `json:"items"`
 }
 
-// AccessLogPolicySpec defines the desired state of AccessLogPolicy.
-type AccessLogPolicySpec struct {
-	// The Amazon Resource Name (ARN) of the destination that will store access logs.
-	// Supported values are S3 Bucket, CloudWatch Log Group, and Firehose Delivery Stream ARNs.
-	//
-	// Changes to this value results in replacement of the VPC Lattice Access Log Subscription.
-	// +optional
-	// +kubebuilder:validation:Pattern=`^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:([^/].*)?`
-	DestinationArn *string `json:"destinationArn,omitempty"`
+// IAMAuthPolicySpec defines the desired state of IAMAuthPolicy.
+// When the controller handles IAMAuthPolicy creation, if the targetRef k8s and lattice resource exists, the controller will change the auth_type of that lattice resource to `AWS_IAM` and attach this policy
+// When the controller handles IAMAuthPolicy deletion, if the targetRef k8s and lattice resource exists, the controller will change the auth_type of that lattice resource to `NONE` and detach this policy
+type IAMAuthPolicySpec struct {
+
+	// IAM auth policy content. It is a JSON string that uses the same syntax as aws IAM policies. Please check the VPC Lattice documentation to get [the common elements in an auth policy](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html#auth-policies-common-elements)
+	Policy *string `json:"policy,omitempty"`
 
 	// TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.
 	//
@@ -55,14 +53,14 @@ type AccessLogPolicySpec struct {
 	TargetRef *v1alpha2.PolicyTargetReference `json:"targetRef"`
 }
 
-// AccessLogPolicyStatus defines the observed state of AccessLogPolicy.
-type AccessLogPolicyStatus struct {
-	// Conditions describe the current conditions of the AccessLogPolicy.
+// IAMAuthPolicyStatus defines the observed state of IAMAuthPolicy.
+type IAMAuthPolicyStatus struct {
+	// Conditions describe the current conditions of the IAMAuthPolicy.
 	//
 	// Implementations should prefer to express Policy conditions
 	// using the `PolicyConditionType` and `PolicyConditionReason`
 	// constants so that operators and tools can converge on a common
-	// vocabulary to describe AccessLogPolicy state.
+	// vocabulary to describe IAMAuthPolicy state.
 	//
 	// Known condition types are:
 	//
@@ -77,23 +75,23 @@ type AccessLogPolicyStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-func (p *AccessLogPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
+func (p *IAMAuthPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
 	return p.Spec.TargetRef
 }
 
-func (p *AccessLogPolicy) GetStatusConditions() []metav1.Condition {
+func (p *IAMAuthPolicy) GetStatusConditions() []metav1.Condition {
 	return p.Status.Conditions
 }
 
-func (p *AccessLogPolicy) SetStatusConditions(conditions []metav1.Condition) {
+func (p *IAMAuthPolicy) SetStatusConditions(conditions []metav1.Condition) {
 	p.Status.Conditions = conditions
 }
 
-func (p *AccessLogPolicy) GetNamespacedName() types.NamespacedName {
+func (p *IAMAuthPolicy) GetNamespacedName() types.NamespacedName {
 	return k8s.NamespacedName(p)
 }
 
-func (pl *AccessLogPolicyList) GetItems() []core.Policy {
+func (pl *IAMAuthPolicyList) GetItems() []core.Policy {
 	items := make([]core.Policy, len(pl.Items))
 	for i, item := range pl.Items {
 		items[i] = &item

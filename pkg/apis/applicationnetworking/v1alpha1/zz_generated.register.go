@@ -59,6 +59,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&AccessLogPolicy{},
 		&AccessLogPolicyList{},
+		&IAMAuthPolicy{},
+		&IAMAuthPolicyList{},
 		&TargetGroupPolicy{},
 		&TargetGroupPolicyList{},
 		&VpcAssociationPolicy{},
