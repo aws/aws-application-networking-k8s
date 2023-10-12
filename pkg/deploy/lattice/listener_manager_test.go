@@ -17,7 +17,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 
-	mocks_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 
 	"github.com/golang/mock/gomock"
@@ -108,11 +108,10 @@ func Test_AddListener(t *testing.T) {
 			ctx := context.TODO()
 
 			mockLattice := mocks.NewMockLattice(c)
-			mockCloud := mocks_aws.NewMockCloud(c)
-			mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+			cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
 			latticeDataStore := latticestore.NewLatticeDataStore()
-			listenerManager := NewListenerManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
+			listenerManager := NewListenerManager(gwlog.FallbackLogger, cloud, latticeDataStore)
 
 			var serviceID = "serviceID"
 			var serviceARN = "serviceARN"
@@ -167,6 +166,7 @@ func Test_AddListener(t *testing.T) {
 					ServiceIdentifier: &serviceID,
 					Protocol:          aws.String("HTTP"),
 					Port:              aws.Int64(listenerSummaries[0].Port),
+					Tags:              cloud.DefaultTags(),
 				}
 				listenerOutput = vpclattice.CreateListenerOutput{
 					Arn:           &listenerSummaries[0].Arn,
@@ -234,11 +234,10 @@ func Test_ListListener(t *testing.T) {
 			ctx := context.TODO()
 
 			mockLattice := mocks.NewMockLattice(c)
-			mockCloud := mocks_aws.NewMockCloud(c)
-			mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+			cloud := pkg_aws.NewDefaultCloud(mockLattice, pkg_aws.CloudConfig{})
 
 			latticeDataStore := latticestore.NewLatticeDataStore()
-			listenerManager := NewListenerManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
+			listenerManager := NewListenerManager(gwlog.FallbackLogger, cloud, latticeDataStore)
 
 			serviceID := "service1-ID"
 			listenerListInput := vpclattice.ListListenersInput{
@@ -268,7 +267,7 @@ func Test_DeleteListener(t *testing.T) {
 	ctx := context.TODO()
 
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := mocks_aws.NewMockCloud(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
 	serviceID := "service1-ID"
 	listenerID := "listener-ID"
@@ -282,9 +281,8 @@ func Test_DeleteListener(t *testing.T) {
 
 	listenerDeleteOutput := vpclattice.DeleteListenerOutput{}
 	mockLattice.EXPECT().DeleteListener(&listenerDeleteInput).Return(&listenerDeleteOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	listenerManager := NewListenerManager(gwlog.FallbackLogger, mockCloud, latticeDataStore)
+	listenerManager := NewListenerManager(gwlog.FallbackLogger, cloud, latticeDataStore)
 
 	err := listenerManager.Delete(ctx, listenerID, serviceID)
 	assert.Nil(t, err)
