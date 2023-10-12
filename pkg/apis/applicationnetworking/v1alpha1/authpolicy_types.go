@@ -45,8 +45,7 @@ type IAMAuthPolicyList struct {
 type IAMAuthPolicySpec struct {
 
 	// IAM auth policy content. It is a JSON string that uses the same syntax as AWS IAM policies. Please check the VPC Lattice documentation to get [the common elements in an auth policy](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html#auth-policies-common-elements)
-	// +optional
-	Policy *string `json:"policy,omitempty"`
+	Policy string `json:"policy"`
 
 	// TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.
 	//

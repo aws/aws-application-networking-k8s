@@ -89,6 +89,7 @@ spec:
                 - name
                 type: object
             required:
+            - policy
             - targetRef
             type: object
           status:
