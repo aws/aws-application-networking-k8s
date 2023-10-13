@@ -1,6 +1,10 @@
 package core
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core/graph"
 	"github.com/pkg/errors"
 	"reflect"
@@ -13,6 +17,9 @@ type Stack interface {
 
 	// Add a resource into stack.
 	AddResource(res Resource) error
+
+	// Get a resource by its id and type
+	GetResource(id string, resType Resource) (Resource, error)
 
 	// Add a dependency relationship between resources.
 	AddDependency(dependee Resource, depender Resource) error
@@ -34,8 +41,6 @@ func NewDefaultStack(stackID StackID) *defaultStack {
 		resourceGraph: graph.NewDefaultResourceGraph(),
 	}
 }
-
-var _ Stack = &defaultStack{}
 
 // default implementation for stack.
 type defaultStack struct {
@@ -60,6 +65,20 @@ func (s *defaultStack) AddResource(res Resource) error {
 	return nil
 }
 
+// Get a resource from the pointer, then return the result
+func (s *defaultStack) GetResource(id string, resType Resource) (Resource, error) {
+	resUID := graph.ResourceUID{
+		ResType: reflect.TypeOf(resType),
+		ResID:   id,
+	}
+
+	if r, ok := s.resources[resUID]; ok {
+		return r, nil
+	}
+
+	return nil, fmt.Errorf("resource %s not found", id)
+}
+
 // Add a dependency relationship between resources.
 func (s *defaultStack) AddDependency(dependee Resource, depender Resource) error {
 	dependeeResUID := s.computeResourceUID(dependee)
@@ -76,6 +95,8 @@ func (s *defaultStack) AddDependency(dependee Resource, depender Resource) error
 
 // ListResources list all resources for specific type.
 // pResourceSlice must be a pointer to a slice of resources, which will be filled.
+// note this list is ORDERED according to the order in which resources were added
+// this is to increase predictability, issue reproducibility, and for ease of testing
 func (s *defaultStack) ListResources(pResourceSlice interface{}) error {
 	v := reflect.ValueOf(pResourceSlice)
 	if v.Kind() != reflect.Ptr {
@@ -87,8 +108,9 @@ func (s *defaultStack) ListResources(pResourceSlice interface{}) error {
 	}
 	resType := v.Type().Elem()
 	var resForType []Resource
-	for resID, res := range s.resources {
-		if resID.ResType == resType {
+	for _, node := range s.resourceGraph.Nodes() {
+		if node.ResType == resType {
+			res, _ := s.resources[node]
 			resForType = append(resForType, res)
 		}
 	}
@@ -96,6 +118,7 @@ func (s *defaultStack) ListResources(pResourceSlice interface{}) error {
 	for i := range resForType {
 		v.Index(i).Set(reflect.ValueOf(resForType[i]))
 	}
+
 	return nil
 }
 
@@ -111,4 +134,15 @@ func (s *defaultStack) computeResourceUID(res Resource) graph.ResourceUID {
 		ResType: reflect.TypeOf(res),
 		ResID:   res.ID(),
 	}
+}
+
+func IdFromHash(res any) (string, error) {
+	bytes, err := json.Marshal(res)
+	if err != nil {
+		return "", err
+	}
+
+	hash := sha256.Sum256(bytes)
+	id := fmt.Sprintf("id-%s", hex.EncodeToString(hash[:]))
+	return id, nil
 }

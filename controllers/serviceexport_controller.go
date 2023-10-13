@@ -36,7 +36,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -49,7 +48,6 @@ type serviceExportReconciler struct {
 	eventRecorder    record.EventRecorder
 	modelBuilder     gateway.SvcExportTargetGroupModelBuilder
 	stackDeployer    deploy.StackDeployer
-	latticeDataStore *latticestore.LatticeDataStore
 	stackMarshaller  deploy.StackMarshaller
 }
 
@@ -60,7 +58,6 @@ const (
 func RegisterServiceExportController(
 	log gwlog.Logger,
 	cloud aws.Cloud,
-	latticeDataStore *latticestore.LatticeDataStore,
 	finalizerManager k8s.FinalizerManager,
 	mgr ctrl.Manager,
 ) error {
@@ -68,8 +65,8 @@ func RegisterServiceExportController(
 	scheme := mgr.GetScheme()
 	eventRecorder := mgr.GetEventRecorderFor("serviceExport")
 
-	modelBuilder := gateway.NewSvcExportTargetGroupBuilder(log, mgrClient, latticeDataStore, cloud)
-	stackDeploy := deploy.NewTargetGroupStackDeploy(log, cloud, mgrClient, latticeDataStore)
+	modelBuilder := gateway.NewSvcExportTargetGroupBuilder(log, mgrClient)
+	stackDeploy := deploy.NewTargetGroupStackDeploy(log, cloud, mgrClient)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	r := &serviceExportReconciler{
@@ -80,7 +77,6 @@ func RegisterServiceExportController(
 		modelBuilder:     modelBuilder,
 		stackDeployer:    stackDeploy,
 		eventRecorder:    eventRecorder,
-		latticeDataStore: latticeDataStore,
 		stackMarshaller:  stackMarshaller,
 	}
 
@@ -152,7 +148,7 @@ func (r *serviceExportReconciler) buildAndDeployModel(
 	ctx context.Context,
 	srvExport *mcsv1alpha1.ServiceExport,
 ) error {
-	stack, _, err := r.modelBuilder.Build(ctx, srvExport)
+	stack, err := r.modelBuilder.Build(ctx, srvExport)
 
 	if err != nil {
 		r.log.Debugf("Failed to buildAndDeployModel for service export %s-%s due to %s",
@@ -162,16 +158,14 @@ func (r *serviceExportReconciler) buildAndDeployModel(
 			k8s.GatewayEventReasonFailedBuildModel,
 			fmt.Sprintf("Failed BuildModel due to %s", err))
 
-		// Build failed means the K8S serviceexport, service are NOT ready to be deployed to lattice
-		// return nil  to complete controller loop for current change.
-		// TODO continue deploy to trigger reconcile of stale SDK objects
-		//return stack, targetGroup, nil
+		return err
 	}
 
-	_, err = r.stackMarshaller.Marshal(stack)
+	json, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
 		r.log.Errorf("Error on marshalling model for service export %s-%s", srvExport.Name, srvExport.Namespace)
 	}
+	r.log.Debugf("stack: %s", json)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,

@@ -106,3 +106,19 @@ func Test_defaultStack_ListResources(t *testing.T) {
 		})
 	}
 }
+
+func Test_Get(t *testing.T) {
+	stack := NewDefaultStack(StackID{Namespace: "namespace", Name: "name"})
+	fr := FakeResource{
+		ResourceMeta: ResourceMeta{
+			resType: "fake",
+			id:      "id-B",
+		},
+		Spec:   FakeResourceSpec{},
+		Status: nil,
+	}
+	stack.AddResource(&fr)
+	gr, err := stack.GetResource(fr.ID(), &FakeResource{})
+	assert.NoError(t, err)
+	assert.Equal(t, &fr, gr)
+}

@@ -1037,7 +1037,7 @@ func (mr *MockLatticeMockRecorder) DeregisterTargetsWithContext(arg0, arg1 inter
 }
 
 // FindService mocks base method.
-func (m *MockLattice) FindService(arg0 context.Context, arg1 LatticeServiceNameProvider) (*vpclattice.ServiceSummary, error) {
+func (m *MockLattice) FindService(arg0 context.Context, arg1 string) (*vpclattice.ServiceSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindService", arg0, arg1)
 	ret0, _ := ret[0].(*vpclattice.ServiceSummary)
@@ -1049,21 +1049,6 @@ func (m *MockLattice) FindService(arg0 context.Context, arg1 LatticeServiceNameP
 func (mr *MockLatticeMockRecorder) FindService(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindService", reflect.TypeOf((*MockLattice)(nil).FindService), arg0, arg1)
-}
-
-// FindServiceByK8sName mocks base method.
-func (m *MockLattice) FindServiceByK8sName(arg0 context.Context, arg1 string) (*vpclattice.ServiceSummary, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindServiceByK8sName", arg0, arg1)
-	ret0, _ := ret[0].(*vpclattice.ServiceSummary)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindServiceByK8sName indicates an expected call of FindServiceByK8sName.
-func (mr *MockLatticeMockRecorder) FindServiceByK8sName(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindServiceByK8sName", reflect.TypeOf((*MockLattice)(nil).FindServiceByK8sName), arg0, arg1)
 }
 
 // FindServiceNetwork mocks base method.
@@ -1079,21 +1064,6 @@ func (m *MockLattice) FindServiceNetwork(arg0 context.Context, arg1, arg2 string
 func (mr *MockLatticeMockRecorder) FindServiceNetwork(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindServiceNetwork", reflect.TypeOf((*MockLattice)(nil).FindServiceNetwork), arg0, arg1, arg2)
-}
-
-// FindServiceNetworkByK8sName mocks base method.
-func (m *MockLattice) FindServiceNetworkByK8sName(arg0 context.Context, arg1 string) (*ServiceNetworkInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindServiceNetworkByK8sName", arg0, arg1)
-	ret0, _ := ret[0].(*ServiceNetworkInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindServiceNetworkByK8sName indicates an expected call of FindServiceNetworkByK8sName.
-func (mr *MockLatticeMockRecorder) FindServiceNetworkByK8sName(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindServiceNetworkByK8sName", reflect.TypeOf((*MockLattice)(nil).FindServiceNetworkByK8sName), arg0, arg1)
 }
 
 // GetAccessLogSubscription mocks base method.
@@ -1344,6 +1314,21 @@ func (mr *MockLatticeMockRecorder) GetRuleWithContext(arg0, arg1 interface{}, ar
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRuleWithContext", reflect.TypeOf((*MockLattice)(nil).GetRuleWithContext), varargs...)
+}
+
+// GetRulesAsList mocks base method.
+func (m *MockLattice) GetRulesAsList(arg0 context.Context, arg1 *vpclattice.ListRulesInput) ([]*vpclattice.GetRuleOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRulesAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*vpclattice.GetRuleOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRulesAsList indicates an expected call of GetRulesAsList.
+func (mr *MockLatticeMockRecorder) GetRulesAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRulesAsList", reflect.TypeOf((*MockLattice)(nil).GetRulesAsList), arg0, arg1)
 }
 
 // GetService mocks base method.
@@ -1775,6 +1760,21 @@ func (m *MockLattice) ListRules(arg0 *vpclattice.ListRulesInput) (*vpclattice.Li
 func (mr *MockLatticeMockRecorder) ListRules(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRules", reflect.TypeOf((*MockLattice)(nil).ListRules), arg0)
+}
+
+// ListRulesAsList mocks base method.
+func (m *MockLattice) ListRulesAsList(arg0 context.Context, arg1 *vpclattice.ListRulesInput) ([]*vpclattice.RuleSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListRulesAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*vpclattice.RuleSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListRulesAsList indicates an expected call of ListRulesAsList.
+func (mr *MockLatticeMockRecorder) ListRulesAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListRulesAsList", reflect.TypeOf((*MockLattice)(nil).ListRulesAsList), arg0, arg1)
 }
 
 // ListRulesPages mocks base method.

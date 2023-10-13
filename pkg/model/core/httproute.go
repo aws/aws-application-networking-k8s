@@ -204,6 +204,10 @@ type HTTPBackendRef struct {
 	r gwv1beta1.HTTPBackendRef
 }
 
+func NewHTTPBackendRef(r gwv1beta1.HTTPBackendRef) HTTPBackendRef {
+	return HTTPBackendRef{r: r}
+}
+
 func (r *HTTPBackendRef) Weight() *int32 {
 	return r.r.Weight
 }

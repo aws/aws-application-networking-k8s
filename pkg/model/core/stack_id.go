@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// stackID is the identifier of a stack, it must be compatible with Kubernetes namespaced name.
+// stackId is the identifier of a stack, it must be compatible with Kubernetes namespaced name.
 type StackID types.NamespacedName
 
 // String returns the string representation of a StackID.

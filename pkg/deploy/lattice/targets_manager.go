@@ -3,125 +3,130 @@ package lattice
 import (
 	"context"
 	"errors"
-
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type TargetsManager interface {
-	Create(ctx context.Context, targets *model.Targets) error
+	Update(ctx context.Context, modelTargets *model.Targets, modelTg *model.TargetGroup) error
 }
 
 type defaultTargetsManager struct {
-	log       gwlog.Logger
-	cloud     pkg_aws.Cloud
-	datastore *latticestore.LatticeDataStore
+	log   gwlog.Logger
+	cloud pkg_aws.Cloud
 }
 
 func NewTargetsManager(
 	log gwlog.Logger,
 	cloud pkg_aws.Cloud,
-	datastore *latticestore.LatticeDataStore,
 ) *defaultTargetsManager {
 	return &defaultTargetsManager{
-		log:       log,
-		cloud:     cloud,
-		datastore: datastore,
+		log:   log,
+		cloud: cloud,
 	}
 }
 
-// Create will try to register targets to the target group
-// return Retry when:
-//
-//		Target group does not exist
-//		nonempty unsuccessfully registered targets list
-//	otherwise:
-//	nil
-func (s *defaultTargetsManager) Create(ctx context.Context, targets *model.Targets) error {
-	s.log.Debugf("Creating targets for target group %s-%s", targets.Spec.Name, targets.Spec.Namespace)
-
-	// Need to find TargetGroup ID from datastore
-	tgName := latticestore.TargetGroupName(targets.Spec.Name, targets.Spec.Namespace)
-	tg, err := s.datastore.GetTargetGroup(tgName, targets.Spec.RouteName, false) // isServiceImport=false
-	if err != nil {
-		s.log.Debugf("Failed to Create targets, service %s-%s was not found, will retry later",
-			targets.Spec.Name, targets.Spec.Namespace)
-		return errors.New(LATTICE_RETRY)
+func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.Targets, modelTg *model.TargetGroup) error {
+	if modelTg.Status == nil || modelTg.Status.Id == "" {
+		return errors.New("model target group is missing id")
+	}
+	if modelTargets.Spec.StackTargetGroupId != modelTg.ID() {
+		return fmt.Errorf("target group ID %s does not match target reference ID %s",
+			modelTg.ID(), modelTargets.Spec.StackTargetGroupId)
 	}
 
-	vpcLatticeSess := s.cloud.Lattice()
+	s.log.Debugf("Creating targets for target group %s", modelTg.Status.Id)
+
+	lattice := s.cloud.Lattice()
 	listTargetsInput := vpclattice.ListTargetsInput{
-		TargetGroupIdentifier: &tg.ID,
+		TargetGroupIdentifier: &modelTg.Status.Id,
 	}
-	var delTargetsList []*vpclattice.Target
-	listTargetsOutput, err := vpcLatticeSess.ListTargetsAsList(ctx, &listTargetsInput)
+	listTargetsOutput, err := lattice.ListTargetsAsList(ctx, &listTargetsInput)
 	if err != nil {
 		return err
 	}
 
-	for _, sdkT := range listTargetsOutput {
-		// check if sdkT is in input target list
-		isStale := true
-		for _, t := range targets.Spec.TargetIPList {
-			if (aws.StringValue(sdkT.Id) == t.TargetIP) && (aws.Int64Value(sdkT.Port) == t.Port) {
-				isStale = false
-				break
-			}
-		}
-		if isStale {
-			delTargetsList = append(delTargetsList, &vpclattice.Target{Id: sdkT.Id, Port: sdkT.Port})
-		}
-	}
+	s.deregisterStaleTargets(ctx, modelTargets, modelTg, listTargetsOutput)
+	return s.registerTargets(ctx, modelTargets, modelTg)
+}
 
-	if len(delTargetsList) > 0 {
-		deRegisterTargetsInput := vpclattice.DeregisterTargetsInput{
-			TargetGroupIdentifier: &tg.ID,
-			Targets:               delTargetsList,
-		}
-		_, err := vpcLatticeSess.DeregisterTargetsWithContext(ctx, &deRegisterTargetsInput)
-		if err != nil {
-			s.log.Errorf("Deregistering targets for target group %s failed due to %s", tg.ID, err)
-		}
-	}
-
-	// TODO following should be done at model level
-	var targetList []*vpclattice.Target
-	for _, target := range targets.Spec.TargetIPList {
-		port := target.Port
-		targetIP := target.TargetIP
+func (s *defaultTargetsManager) registerTargets(
+	ctx context.Context,
+	modelTargets *model.Targets,
+	modelTg *model.TargetGroup,
+) error {
+	var latticeTargets []*vpclattice.Target
+	for _, modelTarget := range modelTargets.Spec.TargetList {
+		port := modelTarget.Port
+		targetIP := modelTarget.TargetIP
 		t := vpclattice.Target{
 			Id:   &targetIP,
 			Port: &port,
 		}
-		targetList = append(targetList, &t)
+		latticeTargets = append(latticeTargets, &t)
 	}
 
 	// No targets to register
-	if len(targetList) == 0 {
+	if len(latticeTargets) == 0 {
 		return nil
 	}
 
 	registerRouteInput := vpclattice.RegisterTargetsInput{
-		TargetGroupIdentifier: &tg.ID,
-		Targets:               targetList,
+		TargetGroupIdentifier: &modelTg.Status.Id,
+		Targets:               latticeTargets,
 	}
 
-	resp, err := vpcLatticeSess.RegisterTargetsWithContext(ctx, &registerRouteInput)
+	resp, err := s.cloud.Lattice().RegisterTargetsWithContext(ctx, &registerRouteInput)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed RegisterTargets %s due to %s", modelTg.Status.Id, err)
 	}
 
-	isTargetRegisteredUnsuccessful := len(resp.Unsuccessful) > 0
-	if isTargetRegisteredUnsuccessful {
-		s.log.Debugf("Failed to register targets for target group %s, will retry later", tg.ID)
+	if len(resp.Unsuccessful) > 0 {
+		s.log.Infof("Failed RegisterTargets (Unsuccessful=%d) %s, will retry",
+			len(resp.Unsuccessful), modelTg.Status.Id)
 		return errors.New(LATTICE_RETRY)
 	}
 
-	s.log.Debugf("Successfully registered targets for target group %s", tg.ID)
+	s.log.Infof("Success RegisterTargets %d, %s", len(resp.Successful), modelTg.Status.Id)
 	return nil
+}
+
+func (s *defaultTargetsManager) deregisterStaleTargets(
+	ctx context.Context,
+	modelTargets *model.Targets,
+	modelTg *model.TargetGroup,
+	listTargetsOutput []*vpclattice.TargetSummary,
+) {
+	var targetsToDeregister []*vpclattice.Target
+	for _, latticeTarget := range listTargetsOutput {
+		isStale := true
+		for _, t := range modelTargets.Spec.TargetList {
+			if (aws.StringValue(latticeTarget.Id) == t.TargetIP) && (aws.Int64Value(latticeTarget.Port) == t.Port) {
+				isStale = false
+				break
+			}
+		}
+
+		if isStale {
+			targetsToDeregister = append(targetsToDeregister, &vpclattice.Target{Id: latticeTarget.Id, Port: latticeTarget.Port})
+		}
+	}
+
+	if len(targetsToDeregister) > 0 {
+		deregisterTargetsInput := vpclattice.DeregisterTargetsInput{
+			TargetGroupIdentifier: &modelTg.Status.Id,
+			Targets:               targetsToDeregister,
+		}
+		_, err := s.cloud.Lattice().DeregisterTargetsWithContext(ctx, &deregisterTargetsInput)
+		if err != nil {
+			s.log.Infof("Failed DeregisterTargets %s due to %s", modelTg.Status.Id, err)
+		} else {
+			s.log.Infof("Success DeregisterTargets %s", modelTg.Status.Id)
+		}
+	}
 }

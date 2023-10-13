@@ -35,16 +35,16 @@ func (m *MockTargetsManager) EXPECT() *MockTargetsManagerMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method.
-func (m *MockTargetsManager) Create(ctx context.Context, targets *lattice.Targets) error {
+// Update mocks base method.
+func (m *MockTargetsManager) Update(ctx context.Context, modelTargets *lattice.Targets, modelTg *lattice.TargetGroup) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", ctx, targets)
+	ret := m.ctrl.Call(m, "Update", ctx, modelTargets, modelTg)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Create indicates an expected call of Create.
-func (mr *MockTargetsManagerMockRecorder) Create(ctx, targets interface{}) *gomock.Call {
+// Update indicates an expected call of Update.
+func (mr *MockTargetsManagerMockRecorder) Update(ctx, modelTargets, modelTg interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockTargetsManager)(nil).Create), ctx, targets)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockTargetsManager)(nil).Update), ctx, modelTargets, modelTg)
 }

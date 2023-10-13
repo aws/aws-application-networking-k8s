@@ -2,10 +2,10 @@ package lattice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -16,23 +16,20 @@ func NewTargetsSynthesizer(
 	cloud pkg_aws.Cloud,
 	tgManager TargetsManager,
 	stack core.Stack,
-	latticeDataStore *latticestore.LatticeDataStore,
 ) *targetsSynthesizer {
 	return &targetsSynthesizer{
-		log:              log,
-		cloud:            cloud,
-		targetsManager:   tgManager,
-		stack:            stack,
-		latticeDataStore: latticeDataStore,
+		log:            log,
+		cloud:          cloud,
+		targetsManager: tgManager,
+		stack:          stack,
 	}
 }
 
 type targetsSynthesizer struct {
-	log              gwlog.Logger
-	cloud            pkg_aws.Cloud
-	targetsManager   TargetsManager
-	stack            core.Stack
-	latticeDataStore *latticestore.LatticeDataStore
+	log            gwlog.Logger
+	cloud          pkg_aws.Cloud
+	targetsManager TargetsManager
+	stack          core.Stack
 }
 
 func (t *targetsSynthesizer) Synthesize(ctx context.Context) error {
@@ -41,34 +38,27 @@ func (t *targetsSynthesizer) Synthesize(ctx context.Context) error {
 	if err != nil {
 		t.log.Errorf("Failed to list targets due to %s", err)
 	}
-	return t.SynthesizeTargets(ctx, resTargets)
-}
 
-func (t *targetsSynthesizer) SynthesizeTargets(ctx context.Context, resTargets []*model.Targets) error {
 	for _, targets := range resTargets {
-		err := t.targetsManager.Create(ctx, targets)
+		resTg, err := t.stack.GetResource(targets.Spec.StackTargetGroupId, &model.TargetGroup{})
 		if err != nil {
-			return fmt.Errorf("failed to synthesize targets due to %s", err)
+			return err
 		}
 
-		tgName := latticestore.TargetGroupName(targets.Spec.Name, targets.Spec.Namespace)
-		var targetList []latticestore.Target
-		for _, target := range targets.Spec.TargetIPList {
-			targetList = append(targetList, latticestore.Target{
-				TargetIP:   target.TargetIP,
-				TargetPort: target.Port,
-			})
+		tg, ok := resTg.(*model.TargetGroup)
+		if !ok {
+			return errors.New("unexpected type conversion failure for target group stack object")
 		}
 
-		err = t.latticeDataStore.UpdateTargetsForTargetGroup(tgName, targets.Spec.RouteName, targetList)
+		err = t.targetsManager.Update(ctx, targets, tg)
 		if err != nil {
-			t.log.Errorf("Failed to update targets for target group %s due to %s", tgName, err)
+			identifier := model.TgNamePrefix(tg.Spec)
+			if tg.Status != nil && tg.Status.Id != "" {
+				identifier = tg.Status.Id
+			}
+			return fmt.Errorf("failed to synthesize targets %s due to %s", identifier, err)
 		}
 	}
-	return nil
-}
-
-func (t *targetsSynthesizer) synthesizeSDKTargets(ctx context.Context) error {
 	return nil
 }
 

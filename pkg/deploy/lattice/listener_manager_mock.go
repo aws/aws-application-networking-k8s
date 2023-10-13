@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
 	gomock "github.com/golang/mock/gomock"
@@ -37,47 +36,18 @@ func (m *MockListenerManager) EXPECT() *MockListenerManagerMockRecorder {
 	return m.recorder
 }
 
-// Cloud mocks base method.
-func (m *MockListenerManager) Cloud() aws.Cloud {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Cloud")
-	ret0, _ := ret[0].(aws.Cloud)
-	return ret0
-}
-
-// Cloud indicates an expected call of Cloud.
-func (mr *MockListenerManagerMockRecorder) Cloud() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockListenerManager)(nil).Cloud))
-}
-
-// Create mocks base method.
-func (m *MockListenerManager) Create(ctx context.Context, service *lattice.Listener) (lattice.ListenerStatus, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", ctx, service)
-	ret0, _ := ret[0].(lattice.ListenerStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockListenerManagerMockRecorder) Create(ctx, service interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockListenerManager)(nil).Create), ctx, service)
-}
-
 // Delete mocks base method.
-func (m *MockListenerManager) Delete(ctx context.Context, listenerID, serviceID string) error {
+func (m *MockListenerManager) Delete(ctx context.Context, modelListener *lattice.Listener) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", ctx, listenerID, serviceID)
+	ret := m.ctrl.Call(m, "Delete", ctx, modelListener)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockListenerManagerMockRecorder) Delete(ctx, listenerID, serviceID interface{}) *gomock.Call {
+func (mr *MockListenerManagerMockRecorder) Delete(ctx, modelListener interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockListenerManager)(nil).Delete), ctx, listenerID, serviceID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockListenerManager)(nil).Delete), ctx, modelListener)
 }
 
 // List mocks base method.
@@ -93,4 +63,19 @@ func (m *MockListenerManager) List(ctx context.Context, serviceID string) ([]*vp
 func (mr *MockListenerManagerMockRecorder) List(ctx, serviceID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockListenerManager)(nil).List), ctx, serviceID)
+}
+
+// Upsert mocks base method.
+func (m *MockListenerManager) Upsert(ctx context.Context, modelListener *lattice.Listener, modelSvc *lattice.Service) (lattice.ListenerStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Upsert", ctx, modelListener, modelSvc)
+	ret0, _ := ret[0].(lattice.ListenerStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Upsert indicates an expected call of Upsert.
+func (mr *MockListenerManagerMockRecorder) Upsert(ctx, modelListener, modelSvc interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockListenerManager)(nil).Upsert), ctx, modelListener, modelSvc)
 }

@@ -4,128 +4,137 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type listenerSynthesizer struct {
-	log          gwlog.Logger
-	listenerMgr  ListenerManager
-	stack        core.Stack
-	latticestore *latticestore.LatticeDataStore
+	log         gwlog.Logger
+	listenerMgr ListenerManager
+	stack       core.Stack
 }
 
 func NewListenerSynthesizer(
 	log gwlog.Logger,
 	ListenerManager ListenerManager,
 	stack core.Stack,
-	store *latticestore.LatticeDataStore,
 ) *listenerSynthesizer {
 	return &listenerSynthesizer{
-		log:          log,
-		listenerMgr:  ListenerManager,
-		stack:        stack,
-		latticestore: store,
+		log:         log,
+		listenerMgr: ListenerManager,
+		stack:       stack,
 	}
 }
 
 func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
-	var resListener []*model.Listener
+	var stackListeners []*model.Listener
 
-	err := l.stack.ListResources(&resListener)
+	err := l.stack.ListResources(&stackListeners)
 	if err != nil {
-		l.log.Errorf("Failed to list stack Listeners during Listener synthesis due to err %s", err)
+		return err
 	}
 
-	for _, listener := range resListener {
-		l.log.Debugf("Attempting to synthesize listener %s-%s", listener.Spec.Name, listener.Spec.Namespace)
-		status, err := l.listenerMgr.Create(ctx, listener)
+	for _, listener := range stackListeners {
+		resSvc, err := l.stack.GetResource(listener.Spec.StackServiceId, &model.Service{})
 		if err != nil {
-			errmsg := fmt.Sprintf("failed to create listener %s-%s during synthesis due to err %s",
-				listener.Spec.Name, listener.Spec.Namespace, err)
-			return errors.New(errmsg)
+			return err
 		}
 
-		l.log.Debugf("Successfully synthesized listener %s-%s", listener.Spec.Name, listener.Spec.Namespace)
-		l.latticestore.AddListener(listener.Spec.Name, listener.Spec.Namespace, listener.Spec.Port,
-			listener.Spec.Protocol, status.ListenerARN, status.ListenerID)
+		svc, ok := resSvc.(*model.Service)
+		if !ok {
+			return errors.New("unexpected type conversion failure for service stack object")
+		}
+
+		// deletes are deferred to the later logic comparing existing listeners
+		// to current listeners.
+		if !listener.IsDeleted {
+			status, err := l.listenerMgr.Upsert(ctx, listener, svc)
+			if err != nil {
+				return fmt.Errorf("Failed ListenerManager.Upsert %s-%s due to err %s",
+					listener.Spec.K8SRouteName, listener.Spec.K8SRouteNamespace, err)
+			}
+
+			listener.Status = &status
+		}
 	}
 
-	// handle delete
-	sdkListeners, err := l.getSDKListeners(ctx)
+	// All deletions happen here, we fetch all listeners for NON-deleted
+	// services, since service deletion will delete its listeners
+	latticeListenersAsModel, err := l.getLatticeListenersAsModels(ctx)
 	if err != nil {
-		l.log.Debugf("Failed to get SDK Listeners during Listener synthesis due to err %s", err)
+		return err
 	}
 
-	for _, sdkListener := range sdkListeners {
-		_, err := l.findMatchListener(ctx, sdkListener, resListener)
-		if err == nil {
-			continue
+	for _, latticeListenerAsModel := range latticeListenersAsModel {
+		if l.shouldDelete(latticeListenerAsModel, stackListeners) {
+			err = l.listenerMgr.Delete(ctx, latticeListenerAsModel)
+			if err != nil {
+				l.log.Infof("Failed ListenerManager.Delete %s due to %s", latticeListenerAsModel.Status.Id, err)
+			}
 		}
-
-		l.log.Debugf("Deleting stale SDK Listener %s-%s", sdkListener.Name, sdkListener.Namespace)
-		err = l.listenerMgr.Delete(ctx, sdkListener.ListenerID, sdkListener.ServiceID)
-		if err != nil {
-			l.log.Errorf("Failed to delete SDK Listener %s", sdkListener.ListenerID)
-		}
-
-		k8sName, k8sNamespace := latticeName2k8s(sdkListener.Name)
-		l.latticestore.DelListener(k8sName, k8sNamespace, sdkListener.Port, sdkListener.Protocol)
 	}
 
 	return nil
 }
 
-func (l *listenerSynthesizer) findMatchListener(
-	ctx context.Context,
-	sdkListener *model.ListenerStatus,
-	resListener []*model.Listener,
-) (model.Listener, error) {
-	for _, moduleListener := range resListener {
-		if moduleListener.Spec.Port == sdkListener.Port && moduleListener.Spec.Protocol == sdkListener.Protocol {
-			return *moduleListener, nil
+func (l *listenerSynthesizer) shouldDelete(listenerToFind *model.Listener, stackListeners []*model.Listener) bool {
+	for _, candidate := range stackListeners {
+		if candidate.Spec.Port == listenerToFind.Spec.Port && candidate.Spec.Protocol == listenerToFind.Spec.Protocol {
+			// found a match, delete if match is deleted
+			return candidate.IsDeleted
 		}
 	}
-	return model.Listener{}, errors.New("failed to find matching listener in model")
+	// there is no matching listener
+	return true
 }
 
-func (l *listenerSynthesizer) getSDKListeners(ctx context.Context) ([]*model.ListenerStatus, error) {
-	var sdkListeners []*model.ListenerStatus
+// retrieves all the listeners for all the non-deleted services currently in the stack
+func (l *listenerSynthesizer) getLatticeListenersAsModels(ctx context.Context) ([]*model.Listener, error) {
+	var latticeListenersAsModel []*model.Listener
+	var modelSvcs []*model.Service
 
-	var resService []*model.Service
-
-	err := l.stack.ListResources(&resService)
+	err := l.stack.ListResources(&modelSvcs)
 	if err != nil {
-		l.log.Debugf("Ignoring error when listing services %s", err)
+		return latticeListenersAsModel, err
 	}
 
-	for _, service := range resService {
-		latticeService, err := l.listenerMgr.Cloud().Lattice().FindService(ctx, service)
-		if err != nil {
-			errMessage := fmt.Sprintf("failed to find service in store for service %s-%s due to err %s",
-				service.Spec.Name, service.Spec.Namespace, err)
-			return sdkListeners, errors.New(errMessage)
+	// get the listeners for each service
+	for _, modelSvc := range modelSvcs {
+		if modelSvc.IsDeleted {
+			l.log.Debugf("Ignoring deleted service %s", modelSvc.LatticeServiceName())
+			continue
 		}
 
-		listenerSummaries, err := l.listenerMgr.List(ctx, aws.StringValue(latticeService.Id))
-		for _, listenerSummary := range listenerSummaries {
-			sdkListeners = append(sdkListeners, &model.ListenerStatus{
-				Name:        aws.StringValue(listenerSummary.Name),
-				ListenerARN: aws.StringValue(listenerSummary.Arn),
-				ListenerID:  aws.StringValue(listenerSummary.Id),
-				ServiceID:   aws.StringValue(latticeService.Id),
-				Port:        aws.Int64Value(listenerSummary.Port),
-				Protocol:    aws.StringValue(listenerSummary.Protocol),
+		listenerSummaries, err := l.listenerMgr.List(ctx, modelSvc.Status.Id)
+		if err != nil {
+			l.log.Infof("Ignoring error when listing listeners %s", err)
+			continue
+		}
+		for _, latticeListener := range listenerSummaries {
+
+			spec := model.ListenerSpec{
+				StackServiceId: modelSvc.ID(),
+				Port:           aws.Int64Value(latticeListener.Port),
+				Protocol:       aws.StringValue(latticeListener.Protocol),
+			}
+			status := model.ListenerStatus{
+				Name:        aws.StringValue(latticeListener.Name),
+				ListenerArn: aws.StringValue(latticeListener.Arn),
+				Id:          aws.StringValue(latticeListener.Id),
+				ServiceId:   modelSvc.Status.Id,
+			}
+
+			latticeListenersAsModel = append(latticeListenersAsModel, &model.Listener{
+				Spec:   spec,
+				Status: &status,
 			})
 		}
 	}
 
-	return sdkListeners, nil
+	return latticeListenersAsModel, nil
 }
 
 func (l *listenerSynthesizer) PostSynthesize(ctx context.Context) error {

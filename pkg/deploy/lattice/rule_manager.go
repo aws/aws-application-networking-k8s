@@ -4,11 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-
-	"strings"
+	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -16,47 +13,30 @@ import (
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 type RuleManager interface {
-	Cloud() pkg_aws.Cloud
-	Create(ctx context.Context, rule *model.Rule) (model.RuleStatus, error)
-	Delete(ctx context.Context, ruleId string, listenerId string, serviceId string) error
-	Update(ctx context.Context, rules []*model.Rule) error
-	List(ctx context.Context, serviceId string, listenerId string) ([]*model.RuleStatus, error)
+	Upsert(ctx context.Context, modelRule *model.Rule, modelListener *model.Listener, modelSvc *model.Service) (model.RuleStatus, error)
+	Delete(ctx context.Context, ruleId string, serviceId string, listenerId string) error
+	UpdatePriorities(ctx context.Context, svcId string, listenerId string, rules []*model.Rule) error
+	List(ctx context.Context, serviceId string, listenerId string) ([]*vpclattice.RuleSummary, error)
 	Get(ctx context.Context, serviceId string, listenerId string, ruleId string) (*vpclattice.GetRuleOutput, error)
 }
 
 type defaultRuleManager struct {
-	log              gwlog.Logger
-	cloud            pkg_aws.Cloud
-	latticeDataStore *latticestore.LatticeDataStore
+	log   gwlog.Logger
+	cloud pkg_aws.Cloud
 }
 
 func NewRuleManager(
 	log gwlog.Logger,
 	cloud pkg_aws.Cloud,
-	store *latticestore.LatticeDataStore,
 ) *defaultRuleManager {
 	return &defaultRuleManager{
-		log:              log,
-		cloud:            cloud,
-		latticeDataStore: store,
+		log:   log,
+		cloud: cloud,
 	}
-}
-
-func (r *defaultRuleManager) Cloud() pkg_aws.Cloud {
-	return r.cloud
-}
-
-type RuleLSNProvider struct {
-	rule *model.Rule
-}
-
-func (r *RuleLSNProvider) LatticeServiceName() string {
-	return utils.LatticeServiceName(r.rule.Spec.ServiceName, r.rule.Spec.ServiceNamespace)
 }
 
 func (r *defaultRuleManager) Get(ctx context.Context, serviceId string, listenerId string, ruleId string) (*vpclattice.GetRuleOutput, error) {
@@ -66,62 +46,26 @@ func (r *defaultRuleManager) Get(ctx context.Context, serviceId string, listener
 		RuleIdentifier:     aws.String(ruleId),
 	}
 
-	resp, err := r.cloud.Lattice().GetRule(&getRuleInput)
+	resp, err := r.cloud.Lattice().GetRuleWithContext(ctx, &getRuleInput)
 	return resp, err
 }
 
-// find out all rules in SDK lattice under a single service
-func (r *defaultRuleManager) List(ctx context.Context, service string, listener string) ([]*model.RuleStatus, error) {
-	var sdkRules []*model.RuleStatus = nil
-
+func (r *defaultRuleManager) List(ctx context.Context, svcId string, listenerId string) ([]*vpclattice.RuleSummary, error) {
 	ruleListInput := vpclattice.ListRulesInput{
-		ListenerIdentifier: aws.String(listener),
-		ServiceIdentifier:  aws.String(service),
+		ServiceIdentifier:  aws.String(svcId),
+		ListenerIdentifier: aws.String(listenerId),
 	}
 
-	var resp *vpclattice.ListRulesOutput
-	resp, err := r.cloud.Lattice().ListRules(&ruleListInput)
-	if err != nil {
-		return sdkRules, err
-	}
-
-	for _, ruleSum := range resp.Items {
-		if !aws.BoolValue(ruleSum.IsDefault) {
-			sdkRules = append(sdkRules, &model.RuleStatus{
-				RuleID:     aws.StringValue(ruleSum.Id),
-				ServiceID:  service,
-				ListenerID: listener,
-			})
-		}
-	}
-
-	return sdkRules, nil
+	return r.cloud.Lattice().ListRulesAsList(ctx, &ruleListInput)
 }
 
-// today, it only batch update the priority
-func (r *defaultRuleManager) Update(ctx context.Context, rules []*model.Rule) error {
-	firstRuleSpec := rules[0].Spec
+func (r *defaultRuleManager) UpdatePriorities(ctx context.Context, svcId string, listenerId string, rules []*model.Rule) error {
 	var ruleUpdateList []*vpclattice.RuleUpdate
 
-	latticeService, err := r.cloud.Lattice().FindService(ctx, &RuleLSNProvider{rules[0]})
-	if err != nil {
-		return fmt.Errorf("service %s-%s not found during rule creation",
-			firstRuleSpec.ServiceName, firstRuleSpec.ServiceNamespace)
-	}
-
-	listener, err := r.latticeDataStore.GetlListener(firstRuleSpec.ServiceName, firstRuleSpec.ServiceNamespace,
-		firstRuleSpec.ListenerPort, firstRuleSpec.ListenerProtocol)
-
-	if err != nil {
-		return fmt.Errorf("listener not found during rule creation for service %s-%s, port %d, protocol %s",
-			firstRuleSpec.ServiceName, firstRuleSpec.ServiceNamespace, firstRuleSpec.ListenerPort, firstRuleSpec.ListenerProtocol)
-	}
-
 	for _, rule := range rules {
-		priority, _ := ruleID2Priority(rule.Spec.RuleID)
 		ruleUpdate := vpclattice.RuleUpdate{
-			RuleIdentifier: aws.String(rule.Status.RuleID),
-			Priority:       aws.Int64(priority),
+			RuleIdentifier: aws.String(rule.Status.Id),
+			Priority:       aws.Int64(rule.Spec.Priority),
 		}
 
 		ruleUpdateList = append(ruleUpdateList, &ruleUpdate)
@@ -129,145 +73,233 @@ func (r *defaultRuleManager) Update(ctx context.Context, rules []*model.Rule) er
 
 	// BatchUpdate rules using right priority
 	batchRuleInput := vpclattice.BatchUpdateRuleInput{
-		ListenerIdentifier: aws.String(listener.ID),
-		ServiceIdentifier:  aws.String(*latticeService.Id),
+		ServiceIdentifier:  aws.String(svcId),
+		ListenerIdentifier: aws.String(listenerId),
 		Rules:              ruleUpdateList,
 	}
 
-	_, err = r.cloud.Lattice().BatchUpdateRule(&batchRuleInput)
-	return err
+	_, err := r.cloud.Lattice().BatchUpdateRuleWithContext(ctx, &batchRuleInput)
+	if err != nil {
+		r.log.Infof("Failed BatchUpdateRule %s, %s, due to %s", svcId, listenerId, err)
+		return err
+	}
+
+	r.log.Infof("Success BatchUpdateRule %s, %s", svcId, listenerId)
+	return nil
 }
 
-func (r *defaultRuleManager) Create(ctx context.Context, rule *model.Rule) (model.RuleStatus, error) {
-	r.log.Debugf("Creating rule %s for service %s-%s and listener port %d and protocol %s",
-		rule.Spec.RuleID, rule.Spec.ServiceName, rule.Spec.ServiceNamespace,
-		rule.Spec.ListenerPort, rule.Spec.ListenerProtocol)
-
-	latticeService, err := r.cloud.Lattice().FindService(ctx, &RuleLSNProvider{rule})
-	if err != nil {
-		return model.RuleStatus{}, err
-	}
-
-	listener, err := r.latticeDataStore.GetlListener(rule.Spec.ServiceName, rule.Spec.ServiceNamespace,
-		rule.Spec.ListenerPort, rule.Spec.ListenerProtocol)
-	if err != nil {
-		return model.RuleStatus{}, err
-	}
-
-	priority, err := ruleID2Priority(rule.Spec.RuleID)
-	if err != nil {
-		return model.RuleStatus{}, fmt.Errorf("failed to create rule due to invalid ruleId, err: %s", err)
-	}
-	r.log.Debugf("Converted rule id %s to priority %d", rule.Spec.RuleID, priority)
-
-	ruleStatus, err := r.findMatchingRule(ctx, rule, *latticeService.Id, listener.ID)
-	if err == nil && !ruleStatus.UpdateTGsNeeded {
-		if ruleStatus.Priority != priority {
-			r.log.Debugf("Need to BatchUpdate priority for rule %s", rule.Spec.RuleID)
-			ruleStatus.UpdatePriorityNeeded = true
-		}
-		return ruleStatus, nil
-	}
-
-	// if not found, ruleStatus contains the next available priority
-
-	var latticeTGs []*vpclattice.WeightedTargetGroup
-
-	for _, tgRule := range rule.Spec.Action.TargetGroups {
-		tgName := latticestore.TargetGroupName(tgRule.Name, tgRule.Namespace)
-
-		tg, err := r.latticeDataStore.GetTargetGroup(tgName, tgRule.RouteName, tgRule.IsServiceImport)
-		if err != nil {
-			return model.RuleStatus{}, err
-		}
-
-		latticeTG := vpclattice.WeightedTargetGroup{
-			TargetGroupIdentifier: aws.String(tg.ID),
-			Weight:                aws.Int64(tgRule.Weight),
-		}
-
-		latticeTGs = append(latticeTGs, &latticeTG)
-	}
-
-	ruleName := fmt.Sprintf("k8s-%d-%s", rule.Spec.CreateTime.Unix(), rule.Spec.RuleID)
-
-	if ruleStatus.UpdateTGsNeeded {
-		httpMatch := vpclattice.HttpMatch{}
-
-		updateSDKhttpMatch(&httpMatch, rule)
-
-		updateRuleInput := vpclattice.UpdateRuleInput{
-			Action: &vpclattice.RuleAction{
-				Forward: &vpclattice.ForwardAction{
-					TargetGroups: latticeTGs,
-				},
-			},
-			ListenerIdentifier: aws.String(listener.ID),
-			Match: &vpclattice.RuleMatch{
-				HttpMatch: &httpMatch,
-			},
-			Priority:          aws.Int64(ruleStatus.Priority),
-			ServiceIdentifier: aws.String(*latticeService.Id),
-			RuleIdentifier:    aws.String(ruleStatus.RuleID),
-		}
-
-		resp, err := r.cloud.Lattice().UpdateRule(&updateRuleInput)
-		if err != nil {
-			r.log.Errorf("Error updating rule, %s", err)
-		}
-
-		return model.RuleStatus{
-			RuleID:               aws.StringValue(resp.Id),
-			UpdatePriorityNeeded: ruleStatus.UpdatePriorityNeeded,
-			ServiceID:            aws.StringValue(latticeService.Id),
-			ListenerID:           listener.ID,
-		}, nil
+func (r *defaultRuleManager) buildLatticeRule(modelRule *model.Rule) (*vpclattice.GetRuleOutput, error) {
+	gro := vpclattice.GetRuleOutput{
+		IsDefault: aws.Bool(false),
+		Priority:  aws.Int64(modelRule.Spec.Priority),
 	}
 
 	httpMatch := vpclattice.HttpMatch{}
+	updateMatchFromRule(&httpMatch, modelRule)
+	gro.Match = &vpclattice.RuleMatch{HttpMatch: &httpMatch}
 
-	updateSDKhttpMatch(&httpMatch, rule)
+	if len(modelRule.Spec.Action.TargetGroups) > 0 {
+		var latticeTGs []*vpclattice.WeightedTargetGroup
+		for _, ruleTg := range modelRule.Spec.Action.TargetGroups {
+			latticeTG := vpclattice.WeightedTargetGroup{
+				TargetGroupIdentifier: aws.String(ruleTg.LatticeTgId),
+				Weight:                aws.Int64(ruleTg.Weight),
+			}
 
-	ruleInput := vpclattice.CreateRuleInput{
-		Action: &vpclattice.RuleAction{
+			latticeTGs = append(latticeTGs, &latticeTG)
+		}
+
+		gro.Action = &vpclattice.RuleAction{
 			Forward: &vpclattice.ForwardAction{
 				TargetGroups: latticeTGs,
 			},
-		},
-		ClientToken:        nil,
-		ListenerIdentifier: aws.String(listener.ID),
-		Match: &vpclattice.RuleMatch{
-			HttpMatch: &httpMatch,
-		},
-		Name:              aws.String(ruleName),
-		Priority:          aws.Int64(ruleStatus.Priority),
-		ServiceIdentifier: aws.String(*latticeService.Id),
-		Tags:              r.cloud.DefaultTags(),
+		}
+	} else {
+		r.log.Debugf("There are no target groups, defaulting to 404 Fixed response")
+		gro.Action = &vpclattice.RuleAction{
+			FixedResponse: &vpclattice.FixedResponseAction{
+				StatusCode: aws.Int64(404),
+			},
+		}
 	}
 
-	resp, err := r.cloud.Lattice().CreateRule(&ruleInput)
+	gro.Name = aws.String(fmt.Sprintf("k8s-%d-rule-%d", modelRule.Spec.CreateTime.Unix(), modelRule.Spec.Priority))
+	return &gro, nil
+}
+
+func (r *defaultRuleManager) update(ctx context.Context,
+	latticeRule *vpclattice.GetRuleOutput, latticeSvcId, latticeListenerId string) error {
+
+	uri := vpclattice.UpdateRuleInput{
+		Action:             latticeRule.Action,
+		ServiceIdentifier:  aws.String(latticeSvcId),
+		ListenerIdentifier: aws.String(latticeListenerId),
+		RuleIdentifier:     latticeRule.Id,
+		Match:              latticeRule.Match,
+		Priority:           latticeRule.Priority,
+	}
+
+	res, err := r.cloud.Lattice().UpdateRuleWithContext(ctx, &uri)
+	if err != nil {
+		r.log.Infof("Failed UpdateRule %s due to %s", aws.StringValue(latticeRule.Id), err)
+		return err
+	}
+
+	r.log.Infof("Succcess UpdateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
+	return nil
+}
+
+func (r *defaultRuleManager) Upsert(
+	ctx context.Context,
+	modelRule *model.Rule,
+	modelListener *model.Listener,
+	modelSvc *model.Service,
+) (model.RuleStatus, error) {
+	if modelListener.Status == nil || modelListener.Status.Id == "" {
+		return model.RuleStatus{}, errors.New("listener is missing id")
+	}
+	if modelSvc.Status == nil || modelSvc.Status.Id == "" {
+		return model.RuleStatus{}, errors.New("model service is missing id")
+	}
+	for i, mtg := range modelRule.Spec.Action.TargetGroups {
+		if mtg.LatticeTgId == "" {
+			return model.RuleStatus{}, fmt.Errorf("rule %d action %d is missing lattice target group id", modelRule.Spec.Priority, i)
+		}
+	}
+	latticeServiceId := modelSvc.Status.Id
+	latticeListenerId := modelListener.Status.Id
+
+	// this allows us to make apples to apples comparisons with what's in Lattice already
+	latticeRuleFromModel, err := r.buildLatticeRule(modelRule)
 	if err != nil {
 		return model.RuleStatus{}, err
 	}
 
+	r.log.Debugf("Upsert rule %s for service %s-%s and listener port %d and protocol %s",
+		aws.StringValue(latticeRuleFromModel.Name), latticeServiceId, latticeListenerId,
+		modelListener.Spec.Port, modelListener.Spec.Protocol)
+
+	lri := vpclattice.ListRulesInput{
+		ServiceIdentifier:  aws.String(modelSvc.Status.Id),
+		ListenerIdentifier: aws.String(modelListener.Status.Id),
+	}
+	// TODO: fetching all rules every time is not efficient - maybe have a separate public method to prepopulate?
+	currentLatticeRules, err := r.cloud.Lattice().GetRulesAsList(ctx, &lri)
+
+	var matchingRule *vpclattice.GetRuleOutput
+	for _, clr := range currentLatticeRules {
+		if isMatchEqual(latticeRuleFromModel, clr) {
+			matchingRule = clr
+			break
+		}
+	}
+
+	if matchingRule == nil {
+		return r.create(ctx, currentLatticeRules, latticeRuleFromModel, latticeServiceId, latticeListenerId)
+	} else {
+		return r.updateIfNeeded(ctx, latticeRuleFromModel, matchingRule, latticeServiceId, latticeListenerId)
+	}
+}
+
+func (r *defaultRuleManager) updateIfNeeded(
+	ctx context.Context,
+	ruleToUpdate *vpclattice.GetRuleOutput,
+	matchingRule *vpclattice.GetRuleOutput,
+	latticeSvcId string,
+	latticeListenerId string,
+) (model.RuleStatus, error) {
+	updatedRuleStatus := model.RuleStatus{
+		Name:       aws.StringValue(matchingRule.Name),
+		Arn:        aws.StringValue(matchingRule.Arn),
+		Id:         aws.StringValue(matchingRule.Id),
+		ListenerId: latticeListenerId,
+		ServiceId:  latticeSvcId,
+		Priority:   aws.Int64Value(matchingRule.Priority),
+	}
+
+	// we already validated Match, if Action is also the same then no updates required
+	updateNeeded := !reflect.DeepEqual(ruleToUpdate.Action, matchingRule.Action)
+	if !updateNeeded {
+		r.log.Debugf("rule unchanged, no updates required")
+		return updatedRuleStatus, nil
+	}
+
+	// when we update a rule, we use the priority of the existing rule to avoid conflicts
+	ruleToUpdate.Priority = matchingRule.Priority
+	ruleToUpdate.Id = matchingRule.Id
+
+	uri := vpclattice.UpdateRuleInput{
+		Action:             ruleToUpdate.Action,
+		ServiceIdentifier:  aws.String(latticeSvcId),
+		ListenerIdentifier: aws.String(latticeListenerId),
+		RuleIdentifier:     ruleToUpdate.Id,
+		Match:              ruleToUpdate.Match,
+		Priority:           ruleToUpdate.Priority,
+	}
+
+	_, err := r.cloud.Lattice().UpdateRuleWithContext(ctx, &uri)
+	if err != nil {
+		return model.RuleStatus{}, fmt.Errorf("Failed UpdateRule %d for %s, %s due to %s",
+			ruleToUpdate.Priority, latticeListenerId, latticeSvcId, err)
+	}
+
+	r.log.Infof("Success UpdateRule %d for %s, %s", ruleToUpdate.Priority, latticeListenerId, latticeSvcId)
+	return updatedRuleStatus, nil
+}
+
+func (r *defaultRuleManager) create(
+	ctx context.Context,
+	currentLatticeRules []*vpclattice.GetRuleOutput,
+	ruleToCreate *vpclattice.GetRuleOutput,
+	latticeSvcId string,
+	latticeListenerId string,
+) (model.RuleStatus, error) {
+	// when we create a rule, we just pick an available priority so we can
+	// successfully create the rule. After all rules are created, we update
+	// priorities based on the order they appear in the Route. Note, this
+	// approach is not fully compliant with the gw spec
+	priority, err := r.nextAvailablePriority(currentLatticeRules)
+	if err != nil {
+		return model.RuleStatus{}, err
+	}
+	ruleToCreate.Priority = aws.Int64(priority)
+
+	cri := vpclattice.CreateRuleInput{
+		Action:             ruleToCreate.Action,
+		ServiceIdentifier:  aws.String(latticeSvcId),
+		ListenerIdentifier: aws.String(latticeListenerId),
+		Match:              ruleToCreate.Match,
+		Name:               ruleToCreate.Name,
+		Priority:           ruleToCreate.Priority,
+		Tags:               r.cloud.DefaultTags(),
+	}
+
+	res, err := r.cloud.Lattice().CreateRuleWithContext(ctx, &cri)
+	if err != nil {
+		return model.RuleStatus{}, fmt.Errorf("Failed CreateRule %s, %s due to %s", latticeListenerId, latticeSvcId, err)
+	}
+
+	r.log.Infof("Succcess CreateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
+
 	return model.RuleStatus{
-		RuleID:               *resp.Id,
-		ListenerID:           listener.ID,
-		ServiceID:            aws.StringValue(latticeService.Id),
-		UpdatePriorityNeeded: ruleStatus.UpdatePriorityNeeded,
-		UpdateTGsNeeded:      ruleStatus.UpdatePriorityNeeded,
+		Name:       aws.StringValue(res.Name),
+		Arn:        aws.StringValue(res.Arn),
+		Id:         aws.StringValue(res.Id),
+		ServiceId:  latticeSvcId,
+		ListenerId: latticeListenerId,
+		Priority:   aws.Int64Value(res.Priority),
 	}, nil
 }
 
-func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *model.Rule) {
+func updateMatchFromRule(httpMatch *vpclattice.HttpMatch, modelRule *model.Rule) {
 	// setup path based
-	if rule.Spec.PathMatchExact || rule.Spec.PathMatchPrefix {
+	if modelRule.Spec.PathMatchExact || modelRule.Spec.PathMatchPrefix {
 		matchType := vpclattice.PathMatchType{}
-		if rule.Spec.PathMatchExact {
-			matchType.Exact = aws.String(rule.Spec.PathMatchValue)
+		if modelRule.Spec.PathMatchExact {
+			matchType.Exact = aws.String(modelRule.Spec.PathMatchValue)
 		}
-		if rule.Spec.PathMatchPrefix {
-			matchType.Prefix = aws.String(rule.Spec.PathMatchValue)
+		if modelRule.Spec.PathMatchPrefix {
+			matchType.Prefix = aws.String(modelRule.Spec.PathMatchValue)
 		}
 
 		httpMatch.PathMatch = &vpclattice.PathMatch{
@@ -275,262 +307,58 @@ func updateSDKhttpMatch(httpMatch *vpclattice.HttpMatch, rule *model.Rule) {
 		}
 	}
 
-	httpMatch.Method = &rule.Spec.Method
+	httpMatch.Method = &modelRule.Spec.Method
 
-	if rule.Spec.NumOfHeaderMatches > 0 {
-		for i := 0; i < rule.Spec.NumOfHeaderMatches; i++ {
-			headerMatch := vpclattice.HeaderMatch{
-				Match: rule.Spec.MatchedHeaders[i].Match,
-				Name:  rule.Spec.MatchedHeaders[i].Name,
-			}
-			httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
+	for i := 0; i < len(modelRule.Spec.MatchedHeaders); i++ {
+		headerMatch := vpclattice.HeaderMatch{
+			Match: modelRule.Spec.MatchedHeaders[i].Match,
+			Name:  modelRule.Spec.MatchedHeaders[i].Name,
 		}
+		httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
 	}
 }
 
-func isRulesSame(log gwlog.Logger, modelRule *model.Rule, sdkRuleDetail *vpclattice.GetRuleOutput) bool {
-	// Exact Path Match
-	if modelRule.Spec.PathMatchExact {
-		if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
-			sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
-			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact == nil {
-			log.Debugf("no sdk PathMatchExact match")
-			return false
-		}
-
-		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact) != modelRule.Spec.PathMatchValue {
-			log.Debugf("Match.Exact mismatch")
-			return false
-		}
-
-	} else {
-		if sdkRuleDetail.Match.HttpMatch.PathMatch != nil &&
-			sdkRuleDetail.Match.HttpMatch.PathMatch.Match != nil &&
-			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Exact != nil {
-			log.Debugf("no sdk PathMatchExact match")
-			return false
-		}
-	}
-
-	// Path Prefix
-	if modelRule.Spec.PathMatchPrefix {
-		if sdkRuleDetail.Match.HttpMatch.PathMatch == nil ||
-			sdkRuleDetail.Match.HttpMatch.PathMatch.Match == nil ||
-			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix == nil {
-			log.Debugf("no sdk HTTP PathPrefix")
-			return false
-		}
-
-		if aws.StringValue(sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix) != modelRule.Spec.PathMatchValue {
-			log.Debugf("PathMatchPrefix mismatch ")
-			return false
-		}
-	} else {
-		if sdkRuleDetail.Match.HttpMatch.PathMatch != nil &&
-			sdkRuleDetail.Match.HttpMatch.PathMatch.Match != nil &&
-			sdkRuleDetail.Match.HttpMatch.PathMatch.Match.Prefix != nil {
-			log.Debugf("no sdk HTTP PathPrefix")
-			return false
-		}
-	}
-
-	// Method match
-	if aws.StringValue(sdkRuleDetail.Match.HttpMatch.Method) != modelRule.Spec.Method {
-		log.Debugf("Method mismatch '%s' != '%s'", modelRule.Spec.Method, *sdkRuleDetail.Match.HttpMatch.Method)
-		return false
-	}
-
-	// Header Match
-	if modelRule.Spec.NumOfHeaderMatches > 0 {
-		if len(sdkRuleDetail.Match.HttpMatch.HeaderMatches) != modelRule.Spec.NumOfHeaderMatches {
-			log.Debugf("header match number mismatch")
-			return false
-		}
-
-		misMatch := false
-
-		// compare 2 array
-		for _, sdkHeader := range sdkRuleDetail.Match.HttpMatch.HeaderMatches {
-			matchFound := false
-			// check if this is in module
-			for i := 0; i < modelRule.Spec.NumOfHeaderMatches; i++ {
-				// compare header
-				if aws.StringValue(modelRule.Spec.MatchedHeaders[i].Name) ==
-					aws.StringValue(sdkHeader.Name) &&
-					aws.StringValue(modelRule.Spec.MatchedHeaders[i].Match.Exact) ==
-						aws.StringValue(sdkHeader.Match.Exact) {
-					matchFound = true
-					break
-				}
-
-			}
-
-			if !matchFound {
-				misMatch = true
-				log.Debugf("header %s not found", *sdkHeader)
-				break
-			}
-		}
-
-		if misMatch {
-			log.Debugf("mismatch header")
-			return false
-		}
-	}
-
-	return true
+func isMatchEqual(lr1, lr2 *vpclattice.GetRuleOutput) bool {
+	return reflect.DeepEqual(lr1.Match, lr2.Match)
 }
 
-// Determine if rule spec is same
-// If rule spec is same, then determine if there is any changes on target groups
-func (r *defaultRuleManager) findMatchingRule(
-	ctx context.Context,
-	rule *model.Rule,
-	serviceId string,
-	listenerId string,
-) (model.RuleStatus, error) {
-	var priorityMap [100]bool
-
-	for i := 1; i < 100; i++ {
-		priorityMap[i] = false
-
+func (r *defaultRuleManager) nextAvailablePriority(latticeRules []*vpclattice.GetRuleOutput) (int64, error) {
+	var priorities [model.MaxRulePriority]bool
+	for i := 0; i < model.MaxRulePriority; i++ {
+		priorities[i] = false
 	}
 
-	ruleListInput := vpclattice.ListRulesInput{
-		ListenerIdentifier: aws.String(listenerId),
-		ServiceIdentifier:  aws.String(serviceId),
+	for _, lr := range latticeRules {
+		if lr.IsDefault != nil && aws.BoolValue(lr.IsDefault) {
+			continue
+		}
+		// priority range is 1 -> 100
+		priorities[aws.Int64Value(lr.Priority)-1] = true
 	}
 
-	var resp *vpclattice.ListRulesOutput
-	resp, err := r.cloud.Lattice().ListRules(&ruleListInput)
-	if err != nil {
-		return model.RuleStatus{}, err
-	}
-
-	var matchRule *vpclattice.GetRuleOutput = nil
-	var updateTGsNeeded = false
-	for _, ruleSum := range resp.Items {
-		if aws.BoolValue(ruleSum.IsDefault) {
-			// Ignore the default
-			continue
-		}
-
-		// retrieve action
-		ruleInput := vpclattice.GetRuleInput{
-			ListenerIdentifier: &listenerId,
-			ServiceIdentifier:  &serviceId,
-			RuleIdentifier:     ruleSum.Id,
-		}
-
-		var ruleResp *vpclattice.GetRuleOutput
-
-		ruleResp, err := r.cloud.Lattice().GetRule(&ruleInput)
-		if err != nil {
-			r.log.Debugf("Matching rule not found, err %s", err)
-			continue
-		}
-
-		priorityMap[aws.Int64Value(ruleResp.Priority)] = true
-
-		ruleIsSame := isRulesSame(r.log, rule, ruleResp)
-		if !ruleIsSame {
-			continue
-		}
-
-		matchRule = ruleResp
-
-		if len(ruleResp.Action.Forward.TargetGroups) != len(rule.Spec.Action.TargetGroups) {
-			r.log.Debugf("Skipping rule due to mismatched number of target groups to forward to")
-			updateTGsNeeded = true
-			continue
-		}
-
-		if len(ruleResp.Action.Forward.TargetGroups) == 0 {
-			r.log.Debugf("Skipping rule due to 0 targetGroups to forward to")
-			continue
-		}
-
-		for _, tg := range ruleResp.Action.Forward.TargetGroups {
-			for _, k8sTG := range rule.Spec.Action.TargetGroups {
-				// get k8sTG id
-				tgName := latticestore.TargetGroupName(k8sTG.Name, k8sTG.Namespace)
-				k8sTGinStore, err := r.latticeDataStore.GetTargetGroup(tgName, rule.Spec.ServiceName, k8sTG.IsServiceImport)
-
-				if err != nil {
-					r.log.Debugf("Failed to find k8s tg %s-%s in datastore", k8sTG.Name, k8sTG.Namespace)
-					updateTGsNeeded = true
-					continue
-				}
-
-				if aws.StringValue(tg.TargetGroupIdentifier) != k8sTGinStore.ID {
-					r.log.Debugf("target group id mismatch in datastore, %s vs. %s",
-						aws.StringValue(tg.TargetGroupIdentifier), k8sTGinStore.ID)
-					updateTGsNeeded = true
-					continue
-
-				}
-
-				if k8sTG.Weight != aws.Int64Value(tg.Weight) {
-					r.log.Debugf("Weight has changed for tg %s, old %d vs. new %d",
-						aws.StringValue(tg.TargetGroupIdentifier), aws.Int64Value(tg.Weight), k8sTG.Weight)
-					updateTGsNeeded = true
-					continue
-				}
-
-				break
-			}
-
-			if updateTGsNeeded {
-				break
-			}
+	for i := 0; i < model.MaxRulePriority; i++ {
+		if !priorities[i] {
+			return int64(i + 1), nil
 		}
 	}
 
-	if matchRule != nil {
-		inputRulePriority, _ := ruleID2Priority(rule.Spec.RuleID)
-
-		UpdatePriority := false
-		if inputRulePriority != aws.Int64Value(matchRule.Priority) {
-			UpdatePriority = true
-		}
-
-		return model.RuleStatus{
-			RuleARN:              aws.StringValue(matchRule.Arn),
-			RuleID:               aws.StringValue(matchRule.Id),
-			Priority:             aws.Int64Value(matchRule.Priority),
-			UpdateTGsNeeded:      updateTGsNeeded,
-			UpdatePriorityNeeded: UpdatePriority,
-		}, nil
-	} else {
-		var nextPriority int64 = 0
-		// find available priority
-		for i := 1; i < 100; i++ {
-			if !priorityMap[i] {
-				nextPriority = int64(i)
-				break
-			}
-
-		}
-		return model.RuleStatus{Priority: nextPriority}, errors.New("rule not found")
-	}
+	return 0, errors.New("no available priorities")
 }
 
-func ruleID2Priority(ruleId string) (int64, error) {
-	var priority int
-	ruleIDName := strings.NewReader(ruleId)
-	_, err := fmt.Fscanf(ruleIDName, "rule-%d", &priority)
-	return int64(priority), err
-}
-
-func (r *defaultRuleManager) Delete(ctx context.Context, ruleId string, listenerId string, serviceId string) error {
+func (r *defaultRuleManager) Delete(ctx context.Context, ruleId string, serviceId string, listenerId string) error {
 	r.log.Debugf("Deleting rule %s for listener %s and service %s", ruleId, listenerId, serviceId)
 
 	deleteInput := vpclattice.DeleteRuleInput{
-		RuleIdentifier:     aws.String(ruleId),
-		ListenerIdentifier: aws.String(listenerId),
 		ServiceIdentifier:  aws.String(serviceId),
+		ListenerIdentifier: aws.String(listenerId),
+		RuleIdentifier:     aws.String(ruleId),
 	}
 
-	_, err := r.cloud.Lattice().DeleteRule(&deleteInput)
-	return err
+	_, err := r.cloud.Lattice().DeleteRuleWithContext(ctx, &deleteInput)
+	if err != nil {
+		return fmt.Errorf("Failed DeleteRule %s/%s/%s due to %s", serviceId, listenerId, ruleId, err)
+	}
+
+	r.log.Infof("Succcess DeleteRule %s/%s/%s", serviceId, listenerId, ruleId)
+	return nil
 }

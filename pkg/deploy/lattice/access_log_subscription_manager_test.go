@@ -108,13 +108,12 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	t.Run("Create_NewALSForService_ReturnsNewALSStatus", func(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
 		accessLogSubscription.Spec.SourceType = lattice.ServiceSourceType
-		serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
 		findServiceOutput := &vpclattice.ServiceSummary{
 			Arn:  aws.String(serviceArn),
 			Name: aws.String(sourceName),
 		}
 
-		mockLattice.EXPECT().FindService(ctx, serviceNameProvider).Return(findServiceOutput, nil)
+		mockLattice.EXPECT().FindService(ctx, sourceName).Return(findServiceOutput, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSvcInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -142,7 +141,6 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	t.Run("Create_NewALSForDeletedService_ReturnsNotFoundError", func(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
 		accessLogSubscription.Spec.SourceType = lattice.ServiceSourceType
-		serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
 		findServiceOutput := &vpclattice.ServiceSummary{
 			Arn:  aws.String(serviceArn),
 			Name: aws.String(sourceName),
@@ -152,7 +150,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			ResourceId:   aws.String(serviceArn),
 		}
 
-		mockLattice.EXPECT().FindService(ctx, serviceNameProvider).Return(findServiceOutput, nil)
+		mockLattice.EXPECT().FindService(ctx, sourceName).Return(findServiceOutput, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSvcInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -309,9 +307,8 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
 		accessLogSubscription.Spec.SourceType = lattice.ServiceSourceType
 		notFoundErr := services.NewNotFoundError("", "")
-		serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
 
-		mockLattice.EXPECT().FindService(ctx, serviceNameProvider).Return(nil, notFoundErr)
+		mockLattice.EXPECT().FindService(ctx, sourceName).Return(nil, notFoundErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)

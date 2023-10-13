@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"golang.org/x/exp/slices"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -122,16 +121,12 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 			}
 
 			serviceNetworkVpcAssociationStatus := aws.StringValue(resp.Status)
-			switch serviceNetworkVpcAssociationStatus {
-			case vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress:
-				return model.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
-			case vpclattice.ServiceNetworkVpcAssociationStatusActive:
+			if serviceNetworkVpcAssociationStatus == vpclattice.ServiceNetworkVpcAssociationStatusActive {
 				return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
-			case vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed:
-				return model.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
-			case vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed:
-				return model.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
-			case vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress:
+			} else {
+				m.log.Infof("Service network/vpc association is not in the active state. State is %s, will retry",
+					serviceNetworkVpcAssociationStatus)
+
 				return model.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, errors.New(LATTICE_RETRY)
 			}
 		}

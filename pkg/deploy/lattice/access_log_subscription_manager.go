@@ -205,8 +205,7 @@ func (m *defaultAccessLogSubscriptionManager) getSourceArn(
 		}
 		return serviceNetwork.SvcNetwork.Arn, nil
 	case lattice.ServiceSourceType:
-		serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
-		service, err := vpcLatticeSess.FindService(ctx, serviceNameProvider)
+		service, err := vpcLatticeSess.FindService(ctx, sourceName)
 		if err != nil {
 			return nil, err
 		}

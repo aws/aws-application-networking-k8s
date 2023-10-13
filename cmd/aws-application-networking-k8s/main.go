@@ -48,7 +48,6 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 var (
@@ -112,9 +111,8 @@ func main() {
 	setupLog.Infow("init config",
 		"VpcId", config.VpcID,
 		"Region", config.Region,
-		"AccoundId", config.AccountID,
+		"AccountId", config.AccountID,
 		"DefaultServiceNetwork", config.DefaultServiceNetwork,
-		"UseLongTgName", config.UseLongTGName,
 		"ClusterName", config.ClusterName,
 	)
 
@@ -141,7 +139,6 @@ func main() {
 	}
 
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient())
-	latticeDataStore := latticestore.NewLatticeDataStoreWithLog(log.Named("datastore"))
 
 	// parent logging scope for all controllers
 	ctrlLog := log.Named("controller")
@@ -151,7 +148,7 @@ func main() {
 		setupLog.Fatalf("pod controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterServiceController(ctrlLog.Named("service"), cloud, latticeDataStore, finalizerManager, mgr)
+	err = controllers.RegisterServiceController(ctrlLog.Named("service"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("service controller setup failed: %s", err)
 	}
@@ -166,17 +163,17 @@ func main() {
 		setupLog.Fatalf("gateway controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterAllRouteControllers(ctrlLog.Named("route"), cloud, latticeDataStore, finalizerManager, mgr)
+	err = controllers.RegisterAllRouteControllers(ctrlLog.Named("route"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("route controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterServiceImportController(ctrlLog.Named("service-import"), mgr, latticeDataStore, finalizerManager)
+	err = controllers.RegisterServiceImportController(ctrlLog.Named("service-import"), mgr, finalizerManager)
 	if err != nil {
 		setupLog.Fatalf("serviceimport controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterServiceExportController(ctrlLog.Named("service-export"), cloud, latticeDataStore, finalizerManager, mgr)
+	err = controllers.RegisterServiceExportController(ctrlLog.Named("service-export"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("serviceexport controller setup failed: %s", err)
 	}
@@ -190,9 +187,6 @@ func main() {
 	if err != nil {
 		setupLog.Fatalf("iam auth policy controller setup failed: %s", err)
 	}
-
-	go latticestore.GetDefaultLatticeDataStore().ServeIntrospection()
-
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

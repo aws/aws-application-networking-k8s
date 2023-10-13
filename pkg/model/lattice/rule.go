@@ -1,9 +1,8 @@
 package lattice
 
 import (
-	"time"
-
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"time"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
@@ -15,23 +14,19 @@ type Rule struct {
 }
 
 const (
-	MAX_NUM_OF_MATCHED_HEADERS = 5
+	MaxRulePriority = 100
 )
 
 type RuleSpec struct {
-	ServiceName        string `json:"name"`
-	ServiceNamespace   string `json:"namespace"`
-	ListenerPort       int64  `json:"port"`
-	ListenerProtocol   string `json:"protocol"`
-	PathMatchValue     string `json:"pathmatchvalue"`
-	PathMatchExact     bool   `json:"pathmatchexact"`
-	PathMatchPrefix    bool   `json:"pathmatchprefix"`
-	NumOfHeaderMatches int    `json:"numofheadermatches"`
-	MatchedHeaders     [MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch
-	Method             string     `json:"method"`
-	RuleID             string     `json:"id"`
-	Action             RuleAction `json:"action"`
-	CreateTime         time.Time  `json:"time"`
+	StackListenerId string                   `json:"stacklistenerid"`
+	PathMatchValue  string                   `json:"pathmatchvalue"`
+	PathMatchExact  bool                     `json:"pathmatchexact"`
+	PathMatchPrefix bool                     `json:"pathmatchprefix"`
+	MatchedHeaders  []vpclattice.HeaderMatch `json:"matchedheaders"`
+	Method          string                   `json:"method"`
+	Priority        int64                    `json:"priority"`
+	Action          RuleAction               `json:"action"`
+	CreateTime      time.Time                `json:"createtime"`
 }
 
 type RuleAction struct {
@@ -39,39 +34,48 @@ type RuleAction struct {
 }
 
 type RuleTargetGroup struct {
-	Name            string `json:"name"`
-	Namespace       string `json:"namespace"`
-	RouteName       string `json:"routename"`
-	IsServiceImport bool   `json:"isServiceImport"`
-	Weight          int64  `json:"weight"`
+	StackTargetGroupId string                `json:"stacktargetgroupid"`
+	SvcImportTG        *SvcImportTargetGroup `json:"svcimporttg"`
+	LatticeTgId        string                `json:"latticetgid"`
+	Weight             int64                 `json:"weight"`
+}
+
+type SvcImportTargetGroup struct {
+	EKSClusterName      string `json:"eksclustername"`
+	K8SServiceName      string `json:"k8sservicename"`
+	K8SServiceNamespace string `json:"k8sservicenamespace"`
+	VpcId               string `json:"vpcid"`
 }
 
 type RuleStatus struct {
-	RuleARN              string `json:"ARN"`
-	RuleID               string `json:"ID"`
-	Priority             int64  `json:"priority"`
-	ListenerID           string `json:"Listner"`
-	ServiceID            string `json:"Service"`
-	UpdatePriorityNeeded bool   `json:"updatepriorityneeded"`
-	UpdateTGsNeeded      bool   `json:"updateTGneeded"`
+	Name       string `json:"name"`
+	Arn        string `json:"arn"`
+	Id         string `json:"id"`
+	ServiceId  string `json:"serviceid"`
+	ListenerId string `json:"listenerid"`
+	// we submit priority updates as a batch after all rules have been created/modified
+	// this ensures we do not set the same priority on two rules at the same time
+	// we have the Priority field here for convenience in these scenarios,
+	// so we can check for differences and update as a batch when needed
+	Priority int64 `json:"priority"`
 }
 
-func NewRule(stack core.Stack, id string, name string, namespace string, port int64,
-	protocol string, action RuleAction, ruleSpec RuleSpec) *Rule {
+func NewRule(stack core.Stack, spec RuleSpec) (*Rule, error) {
+	id, err := core.IdFromHash(spec)
+	if err != nil {
+		return nil, err
+	}
 
-	ruleSpec.ServiceName = name
-	ruleSpec.ServiceNamespace = namespace
-	ruleSpec.ListenerPort = port
-	ruleSpec.ListenerProtocol = protocol
-	ruleSpec.RuleID = id
-	ruleSpec.Action = action
-	ruleSpec.CreateTime = time.Now()
+	if spec.CreateTime.IsZero() {
+		spec.CreateTime = time.Now()
+	}
+
 	rule := &Rule{
 		ResourceMeta: core.NewResourceMeta(stack, "AWS::VPCServiceNetwork::Rule", id),
-		Spec:         ruleSpec,
+		Spec:         spec,
 		Status:       nil,
 	}
 
 	stack.AddResource(rule)
-	return rule
+	return rule, nil
 }

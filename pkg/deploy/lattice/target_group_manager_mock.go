@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -35,55 +36,40 @@ func (m *MockTargetGroupManager) EXPECT() *MockTargetGroupManagerMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method.
-func (m *MockTargetGroupManager) Create(ctx context.Context, targetGroup *lattice.TargetGroup) (lattice.TargetGroupStatus, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", ctx, targetGroup)
-	ret0, _ := ret[0].(lattice.TargetGroupStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockTargetGroupManagerMockRecorder) Create(ctx, targetGroup interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockTargetGroupManager)(nil).Create), ctx, targetGroup)
-}
-
 // Delete mocks base method.
-func (m *MockTargetGroupManager) Delete(ctx context.Context, targetGroup *lattice.TargetGroup) error {
+func (m *MockTargetGroupManager) Delete(ctx context.Context, modelTg *lattice.TargetGroup) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", ctx, targetGroup)
+	ret := m.ctrl.Call(m, "Delete", ctx, modelTg)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockTargetGroupManagerMockRecorder) Delete(ctx, targetGroup interface{}) *gomock.Call {
+func (mr *MockTargetGroupManagerMockRecorder) Delete(ctx, modelTg interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTargetGroupManager)(nil).Delete), ctx, targetGroup)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTargetGroupManager)(nil).Delete), ctx, modelTg)
 }
 
-// Get mocks base method.
-func (m *MockTargetGroupManager) Get(tx context.Context, targetGroup *lattice.TargetGroup) (lattice.TargetGroupStatus, error) {
+// IsTargetGroupMatch mocks base method.
+func (m *MockTargetGroupManager) IsTargetGroupMatch(ctx context.Context, modelTg *lattice.TargetGroup, latticeTg *vpclattice.TargetGroupSummary, latticeTags *lattice.TargetGroupTagFields) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", tx, targetGroup)
-	ret0, _ := ret[0].(lattice.TargetGroupStatus)
+	ret := m.ctrl.Call(m, "IsTargetGroupMatch", ctx, modelTg, latticeTg, latticeTags)
+	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Get indicates an expected call of Get.
-func (mr *MockTargetGroupManagerMockRecorder) Get(tx, targetGroup interface{}) *gomock.Call {
+// IsTargetGroupMatch indicates an expected call of IsTargetGroupMatch.
+func (mr *MockTargetGroupManagerMockRecorder) IsTargetGroupMatch(ctx, modelTg, latticeTg, latticeTags interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTargetGroupManager)(nil).Get), tx, targetGroup)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsTargetGroupMatch", reflect.TypeOf((*MockTargetGroupManager)(nil).IsTargetGroupMatch), ctx, modelTg, latticeTg, latticeTags)
 }
 
 // List mocks base method.
-func (m *MockTargetGroupManager) List(ctx context.Context) ([]targetGroupOutput, error) {
+func (m *MockTargetGroupManager) List(ctx context.Context) ([]tgListOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", ctx)
-	ret0, _ := ret[0].([]targetGroupOutput)
+	ret0, _ := ret[0].([]tgListOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -92,4 +78,19 @@ func (m *MockTargetGroupManager) List(ctx context.Context) ([]targetGroupOutput,
 func (mr *MockTargetGroupManagerMockRecorder) List(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockTargetGroupManager)(nil).List), ctx)
+}
+
+// Upsert mocks base method.
+func (m *MockTargetGroupManager) Upsert(ctx context.Context, modelTg *lattice.TargetGroup) (lattice.TargetGroupStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Upsert", ctx, modelTg)
+	ret0, _ := ret[0].(lattice.TargetGroupStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Upsert indicates an expected call of Upsert.
+func (mr *MockTargetGroupManagerMockRecorder) Upsert(ctx, modelTg interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockTargetGroupManager)(nil).Upsert), ctx, modelTg)
 }

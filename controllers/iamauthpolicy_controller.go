@@ -122,7 +122,7 @@ func (c *IAMAuthPolicyController) deleteGatewayPolicy(ctx context.Context, k8sPo
 
 func (c *IAMAuthPolicyController) findSnId(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) (string, error) {
 	tr := k8sPolicy.Spec.TargetRef
-	snInfo, err := c.policyMgr.Cloud.Lattice().FindServiceNetworkByK8sName(ctx, string(tr.Name))
+	snInfo, err := c.policyMgr.Cloud.Lattice().FindServiceNetwork(ctx, string(tr.Name), "")
 	if err != nil {
 		return "", err
 	}
@@ -149,7 +149,7 @@ func (c *IAMAuthPolicyController) upsertGatewayPolicy(ctx context.Context, k8sPo
 func (c *IAMAuthPolicyController) findSvcId(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) (string, error) {
 	tr := k8sPolicy.Spec.TargetRef
 	svcName := utils.LatticeServiceName(string(tr.Name), k8sPolicy.Namespace)
-	svcInfo, err := c.policyMgr.Cloud.Lattice().FindServiceByK8sName(ctx, svcName)
+	svcInfo, err := c.policyMgr.Cloud.Lattice().FindService(ctx, svcName)
 	if err != nil {
 		return "", err
 	}

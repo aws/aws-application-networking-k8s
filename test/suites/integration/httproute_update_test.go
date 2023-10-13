@@ -1,9 +1,9 @@
 package integration
 
 import (
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/types"
-	"log"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"github.com/aws/aws-sdk-go/aws"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -13,100 +13,95 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"strings"
 )
 
 var _ = Describe("HTTPRoute Update", func() {
 
 	var (
-		pathMatchHttpRouteOne *v1beta1.HTTPRoute
-		pathMatchHttpRouteTwo *v1beta1.HTTPRoute
-		deployment1           *appsv1.Deployment
-		service1              *corev1.Service
-		deployment2           *appsv1.Deployment
-		service2              *corev1.Service
+		route1      *v1beta1.HTTPRoute
+		route2      *v1beta1.HTTPRoute
+		deployment1 *appsv1.Deployment
+		service1    *corev1.Service
+		tg1         *vpclattice.TargetGroupSummary
+		tg2         *vpclattice.TargetGroupSummary
+		err         error
 	)
 
-	Context("Create a HTTPRoute with backendref to service1, then update the HTTPRoute with backendref to service1 "+
-		"and service2, then update the HTTPRoute with backendref to just service2", func() {
-
-		It("Updates rules correctly with corresponding target groups after each update", func() {
+	Context("BackendRefs to the same service use different target groups", func() {
+		It("Target groups for the same service are different for different routes", func() {
 			deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
-			deployment2, service2 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2", Namespace: k8snamespace})
+			route1 = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1}, "http",
+				"route-one", k8snamespace)
+			route2 = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1}, "http",
+				"route-two", k8snamespace)
 
-			pathMatchHttpRouteOne = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1}, "http",
-				"", k8snamespace)
-			pathMatchHttpRouteTwo = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1, service2}, "http",
-				"", k8snamespace)
+			r1TgSpec := model.TargetGroupSpec{
+				Protocol:        vpclattice.TargetGroupProtocolHttp,
+				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+				TargetGroupTagFields: model.TargetGroupTagFields{
+					K8SServiceName:      service1.Name,
+					K8SServiceNamespace: service1.Namespace,
+					K8SRouteName:        route1.Name,
+					K8SRouteNamespace:   route1.Namespace,
+				},
+			}
+			r2TgSpec := model.TargetGroupSpec{
+				Protocol:        vpclattice.TargetGroupProtocolHttp,
+				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+				TargetGroupTagFields: model.TargetGroupTagFields{
+					K8SServiceName:      service1.Name,
+					K8SServiceNamespace: service1.Namespace,
+					K8SRouteName:        route2.Name,
+					K8SRouteNamespace:   route2.Namespace,
+				},
+			}
 
 			// Create Kubernetes Resources
 			testFramework.ExpectCreated(ctx,
-				pathMatchHttpRouteOne,
-				deployment1,
 				service1,
-				deployment2,
-				service2,
+				deployment1,
+				route1,
+				route2,
 			)
 
-			log.Println("Set the pathMatchHttpRoute to backendRefs to just service1")
-			checkTgs(service1, service2, true, false)
+			// we want two separate target groups
+			Eventually(func(g Gomega) {
+				tg1, err = testFramework.FindTargetGroupFromSpec(ctx, r1TgSpec)
+				g.Expect(err).To(BeNil())
+				g.Expect(tg1).ToNot(BeNil())
+				tg2, err = testFramework.FindTargetGroupFromSpec(ctx, r2TgSpec)
+				g.Expect(err).To(BeNil())
+				g.Expect(tg2).ToNot(BeNil())
 
-			testFramework.ExpectCreated(ctx,
-				pathMatchHttpRouteTwo,
-			)
-			testFramework.Get(ctx, types.NamespacedName{Name: pathMatchHttpRouteTwo.Name, Namespace: pathMatchHttpRouteTwo.Namespace}, pathMatchHttpRouteTwo)
-			testFramework.Update(ctx, pathMatchHttpRouteTwo)
+				// without this we end up trying to delete while the tgs are still creating
+				g.Expect(*tg1.Status).To(Equal(vpclattice.TargetGroupStatusActive))
+				g.Expect(*tg2.Status).To(Equal(vpclattice.TargetGroupStatusActive))
+			}).WithPolling(15 * time.Second).WithTimeout(2 * time.Minute).Should(Succeed())
 
-			log.Println("Updated the pathMatchHttpRoute to backendRefs to service1 and service2")
-			checkTgs(service1, service2, true, true)
+			gwlog.FallbackLogger.Infof("Found TG1 %s and TG2 %s", aws.StringValue(tg1.Id), aws.StringValue(tg2.Id))
+			Expect(aws.StringValue(tg1.Id) != aws.StringValue(tg2.Id)).To(BeTrue())
 
-			testFramework.Get(ctx, types.NamespacedName{Name: pathMatchHttpRouteOne.Name, Namespace: pathMatchHttpRouteOne.Namespace}, pathMatchHttpRouteOne)
-			testFramework.Update(ctx, pathMatchHttpRouteOne) // Remove pathMatchHttpRouteTwo for service2 so service is free to use again
-			testFramework.ExpectDeleted(ctx, pathMatchHttpRouteTwo)
-			testFramework.EventuallyExpectNotFound(ctx, pathMatchHttpRouteTwo)
-			pathMatchHttpRouteOne.Spec.Rules[0].BackendRefs[0].BackendObjectReference.Name = v1beta1.ObjectName(service2.Name)
-			testFramework.Update(ctx, pathMatchHttpRouteOne)
-
-			log.Println("Updated the pathMatchHttpRoute to backendRefs to just service2")
-			checkTgs(service1, service2, false, true)
+			// deletion of one should not affect the other
+			testFramework.ExpectDeleted(ctx, route1)
+			Eventually(func(g Gomega) {
+				tg1, err = testFramework.FindTargetGroupFromSpec(ctx, r1TgSpec)
+				g.Expect(err).To(BeNil())
+				g.Expect(tg1).To(BeNil())
+				tg2, err = testFramework.FindTargetGroupFromSpec(ctx, r2TgSpec)
+				g.Expect(err).To(BeNil())
+				g.Expect(tg2).ToNot(BeNil())
+			}).WithPolling(15 * time.Second).WithTimeout(2 * time.Minute).Should(Succeed())
 		})
 	})
 
 	AfterEach(func() {
-		testFramework.ExpectDeleted(ctx, pathMatchHttpRouteOne, pathMatchHttpRouteTwo)
-		testFramework.SleepForRouteDeletion()
-
 		testFramework.ExpectDeletedThenNotFound(ctx,
-			pathMatchHttpRouteOne,
-			pathMatchHttpRouteTwo,
+			route1,
+			route2,
 			deployment1,
 			service1,
-			deployment2,
-			service2,
 		)
 	})
 })
-
-func checkTgs(service1 *corev1.Service, service2 *corev1.Service, expectedService1TgFound bool, expectedService2TgFound bool) {
-	Eventually(func(g Gomega) bool {
-		var service1TgFound = false
-		var service2TgFound = false
-
-		targetGroups, err := testFramework.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
-		Expect(err).To(BeNil())
-
-		for _, targetGroup := range targetGroups {
-			if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service1.Name, service1.Namespace)) {
-				service1TgFound = true
-			}
-			if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service2.Name, service2.Namespace)) {
-				service2TgFound = true
-			}
-		}
-
-		return service1TgFound == expectedService1TgFound && service2TgFound == expectedService2TgFound
-	}).WithPolling(15 * time.Second).WithTimeout(2 * time.Minute).Should(BeTrue())
-}

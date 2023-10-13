@@ -115,8 +115,6 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		Expect(err).To(BeNil())
 		log.Infof("deleted route53 hosted zone, id: %s", hostedZoneId)
 
-		testFramework.ExpectDeleted(context.TODO(), httpRoute, service, deployment)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(context.TODO(), httpRoute, service, deployment)
 
 		removeGatewayBYOCListener()

@@ -9,37 +9,45 @@ type Service struct {
 	core.ResourceMeta `json:"-"`
 	Spec              ServiceSpec    `json:"spec"`
 	Status            *ServiceStatus `json:"status,omitempty"`
+	IsDeleted         bool           `json:"isdeleted"`
 }
 
 type ServiceSpec struct {
-	Name                string `json:"name"`
-	Namespace           string `json:"namespace"`
-	RouteType           core.RouteType
-	Protocols           []*string `json:"protocols"`
-	ServiceNetworkNames []string  `json:"servicenetworkhname"`
-	CustomerDomainName  string    `json:"customerdomainname"`
-	CustomerCertARN     string    `json:"customercertarn"`
-	IsDeleted           bool
+	Name                string         `json:"name"`
+	Namespace           string         `json:"namespace"`
+	RouteType           core.RouteType `json:"routetype"`
+	ServiceNetworkNames []string       `json:"servicenetworkhnames"`
+	CustomerDomainName  string         `json:"customerdomainname"`
+	CustomerCertARN     string         `json:"customercertarn"`
 }
 
 type ServiceStatus struct {
-	Arn string `json:"latticeServiceARN"`
-	Id  string `json:"latticeServiceID"`
-	Dns string `json:"latticeServiceDNS"`
+	Arn string `json:"arn"`
+	Id  string `json:"id"`
+	Dns string `json:"dns"`
 }
 
-func NewLatticeService(stack core.Stack, id string, spec ServiceSpec) *Service {
+func NewLatticeService(stack core.Stack, spec ServiceSpec) (*Service, error) {
+	id := spec.LatticeServiceName()
+
 	service := &Service{
 		ResourceMeta: core.NewResourceMeta(stack, "AWS::VPCServiceNetwork::Service", id),
 		Spec:         spec,
 		Status:       nil,
 	}
 
-	stack.AddResource(service)
+	err := stack.AddResource(service)
+	if err != nil {
+		return nil, err
+	}
 
-	return service
+	return service, nil
 }
 
 func (s *Service) LatticeServiceName() string {
-	return utils.LatticeServiceName(s.Spec.Name, s.Spec.Namespace)
+	return s.Spec.LatticeServiceName()
+}
+
+func (s *ServiceSpec) LatticeServiceName() string {
+	return utils.LatticeServiceName(s.Name, s.Namespace)
 }
