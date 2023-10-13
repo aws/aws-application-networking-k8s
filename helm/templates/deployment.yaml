@@ -82,6 +82,11 @@ spec:
               configMapKeyRef:
                 name: env-config
                 key: clusterVpcId
+          - name: CLUSTER_NAME
+            valueFrom:
+              configMapKeyRef:
+                name: env-config
+                key: clusterName
 
       terminationGracePeriodSeconds: 10
       nodeSelector: {{ toYaml .Values.deployment.nodeSelector | nindent 8 }}

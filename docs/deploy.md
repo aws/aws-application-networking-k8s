@@ -81,9 +81,10 @@ Run through them again for a second cluster to use with the extended example sho
       oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
       --version=v0.0.17 \
       --set=serviceAccount.create=false --namespace aws-application-networking-system \
-      # Region, clusterVpcId, awsAccountId are required for case where IMDS is NOT AVAILABLE, e.g Fargate
+      # awsRegion, clusterVpcId,clusterName, awsAccountId are required for case where IMDS is NOT AVAILABLE, e.g Fargate, self-managed clusters with IMDS access blocked 
       --set=awsRegion= \
       --set=clusterVpcId= \
+      --set=clusterName= \
       --set=awsAccountId= \
 
    ```
