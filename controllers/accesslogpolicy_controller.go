@@ -20,20 +20,26 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
@@ -50,6 +56,7 @@ type accessLogPolicyReconciler struct {
 	scheme           *runtime.Scheme
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
+	modelBuilder     gateway.AccessLogSubscriptionModelBuilder
 	stackDeployer    deploy.StackDeployer
 	cloud            aws.Cloud
 	stackMarshaller  deploy.StackMarshaller
@@ -65,7 +72,8 @@ func RegisterAccessLogPolicyController(
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("accesslogpolicy")
 
-	stackDeployer := deploy.NewServiceNetworkStackDeployer(log, cloud, mgrClient)
+	modelBuilder := gateway.NewAccessLogSubscriptionModelBuilder(log, mgrClient)
+	stackDeployer := deploy.NewAccessLogSubscriptionStackDeployer(log, cloud, mgrClient)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	r := &accessLogPolicyReconciler{
@@ -74,13 +82,14 @@ func RegisterAccessLogPolicyController(
 		scheme:           scheme,
 		finalizerManager: finalizerManager,
 		eventRecorder:    evtRec,
+		modelBuilder:     modelBuilder,
 		stackDeployer:    stackDeployer,
 		cloud:            cloud,
 		stackMarshaller:  stackMarshaller,
 	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&anv1alpha1.AccessLogPolicy{})
+		For(&anv1alpha1.AccessLogPolicy{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 
 	return builder.Complete(r)
 }
@@ -103,6 +112,24 @@ func (r *accessLogPolicyReconciler) reconcile(ctx context.Context, req ctrl.Requ
 	alp := &anv1alpha1.AccessLogPolicy{}
 	if err := r.client.Get(ctx, req.NamespacedName, alp); err != nil {
 		return client.IgnoreNotFound(err)
+	}
+
+	if alp.Spec.TargetRef.Group != gwv1beta1.GroupName {
+		message := "The targetRef's Group must be " + gwv1beta1.GroupName
+		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if !slices.Contains([]string{"Gateway", "HTTPRoute", "GRPCRoute"}, string(alp.Spec.TargetRef.Kind)) {
+		message := "The targetRef's Kind must be Gateway, HTTPRoute, or GRPCRoute"
+		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	if !alp.DeletionTimestamp.IsZero() {
@@ -128,27 +155,40 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
-	if !r.targetRefExists(ctx, alp) {
-		r.log.Infof("Could not find Acces Log Policy targetRef %s %s",
-			alp.Spec.TargetRef.Kind, alp.Spec.TargetRef.Name)
-		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound)
+	targetRefExists, err := r.targetRefExists(ctx, alp)
+	if err != nil {
+		return err
+	}
+	if !targetRefExists {
+		message := "The targetRef could not be found"
+		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
 		if err != nil {
-			return fmt.Errorf("failed to update Access Log Policy status, %w", err)
+			return err
 		}
 		return nil
 	}
 
-	// TODO: Create VPC Lattice Access Log Subscription
-
-	err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonAccepted)
+	err = r.buildAndDeployModel(ctx, alp)
 	if err != nil {
-		return fmt.Errorf("failed to update Access Log Policy status, %w", err)
+		if services.IsConflictError(err) {
+			message := "An Access Log Policy with a destinationArn for the same destination type already exists for this targetRef"
+			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonConflicted, message)
+		} else if services.IsInvalidError(err) {
+			message := "The AWS resource with the provided destinationArn could not be found"
+			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+		}
+		return err
+	}
+
+	err = r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonAccepted, config.LatticeGatewayControllerName)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) bool {
+func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) (bool, error) {
 	targetRefNamespace := alp.Namespace
 	if alp.Spec.TargetRef.Namespace != nil {
 		targetRefNamespace = string(*alp.Spec.TargetRef.Namespace)
@@ -163,8 +203,8 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 
 	switch alp.Spec.TargetRef.Kind {
 	case "Gateway":
-		gateway := &gwv1beta1.Gateway{}
-		err = r.client.Get(ctx, targetRefNamespacedName, gateway)
+		gw := &gwv1beta1.Gateway{}
+		err = r.client.Get(ctx, targetRefNamespacedName, gw)
 	case "HTTPRoute":
 		httpRoute := &gwv1beta1.HTTPRoute{}
 		err = r.client.Get(ctx, targetRefNamespacedName, httpRoute)
@@ -172,17 +212,47 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 		grpcRoute := &gwv1alpha2.GRPCRoute{}
 		err = r.client.Get(ctx, targetRefNamespacedName, grpcRoute)
 	default:
-		r.log.Infof("Access Log Policy targetRef is for an unsupported Kind: %s", alp.Spec.TargetRef.Kind)
-		return false
+		return false, fmt.Errorf("access Log Policy targetRef is for an unsupported Kind: %s",
+			alp.Spec.TargetRef.Kind)
 	}
 
-	return err == nil
+	if err != nil && !errors.IsNotFound(err) {
+		return false, err
+	}
+
+	return err == nil, nil
+}
+
+func (r *accessLogPolicyReconciler) buildAndDeployModel(
+	ctx context.Context,
+	alp *anv1alpha1.AccessLogPolicy,
+) error {
+	stack, _, err := r.modelBuilder.Build(ctx, alp)
+	if err != nil {
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.AccessLogPolicyEventReasonFailedBuildModel,
+			fmt.Sprintf("Failed to build model due to %s", err))
+		return err
+	}
+
+	jsonStack, err := r.stackMarshaller.Marshal(stack)
+	if err != nil {
+		return err
+	}
+	r.log.Debugw("Successfully built model", "stack", jsonStack)
+
+	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		return err
+	}
+	r.log.Debugf("successfully deployed model for stack %s:%s", stack.StackID().Name, stack.StackID().Namespace)
+
+	return nil
 }
 
 func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(
 	ctx context.Context,
 	alp *anv1alpha1.AccessLogPolicy,
 	reason gwv1alpha2.PolicyConditionReason,
+	message string,
 ) error {
 	status := metav1.ConditionTrue
 	if reason != gwv1alpha2.PolicyReasonAccepted {
@@ -192,7 +262,7 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(
 	alp.Status.Conditions = utils.GetNewConditions(alp.Status.Conditions, metav1.Condition{
 		Type:               string(gwv1alpha2.PolicyConditionAccepted),
 		ObservedGeneration: alp.Generation,
-		Message:            config.LatticeGatewayControllerName,
+		Message:            message,
 		Status:             status,
 		Reason:             string(reason),
 	})

@@ -26,6 +26,20 @@ type LatticeServiceNameProvider interface {
 	LatticeServiceName() string
 }
 
+type defaultLatticeServiceNameProvider struct {
+	name string
+}
+
+func NewDefaultLatticeServiceNameProvider(name string) *defaultLatticeServiceNameProvider {
+	return &defaultLatticeServiceNameProvider{
+		name: name,
+	}
+}
+
+func (p *defaultLatticeServiceNameProvider) LatticeServiceName() string {
+	return p.name
+}
+
 type NotFoundError struct {
 	ResourceType string
 	Name         string
@@ -42,6 +56,42 @@ func NewNotFoundError(resourceType string, name string) error {
 func IsNotFoundError(err error) bool {
 	nfErr := &NotFoundError{}
 	return errors.As(err, &nfErr)
+}
+
+type ConflictError struct {
+	ResourceType string
+	Name         string
+	Message      string
+}
+
+func (e *ConflictError) Error() string {
+	return fmt.Sprintf("%s %s had a conflict: %s", e.ResourceType, e.Name, e.Message)
+}
+
+func NewConflictError(resourceType string, name string, message string) error {
+	return &ConflictError{resourceType, name, message}
+}
+
+func IsConflictError(err error) bool {
+	conflictErr := &ConflictError{}
+	return errors.As(err, &conflictErr)
+}
+
+type InvalidError struct {
+	Message string
+}
+
+func (e *InvalidError) Error() string {
+	return fmt.Sprintf("Invalid input: %s", e.Message)
+}
+
+func NewInvalidError(message string) error {
+	return &InvalidError{message}
+}
+
+func IsInvalidError(err error) bool {
+	invalidErr := &InvalidError{}
+	return errors.As(err, &invalidErr)
 }
 
 type Lattice interface {

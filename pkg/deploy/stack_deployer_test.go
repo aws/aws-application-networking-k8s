@@ -69,7 +69,7 @@ func Test_latticeServiceStackDeployer_createAllResources(t *testing.T) {
 	mockRuleManager.EXPECT().Create(gomock.Any(), gomock.Any())
 	mockDnsManager.EXPECT().Create(gomock.Any(), gomock.Any())
 
-	deployer := &LatticeServiceStackDeployer{
+	deployer := &latticeServiceStackDeployer{
 		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
 		k8sClient:             mockClient,
@@ -124,7 +124,7 @@ func Test_latticeServiceStackDeployer_CreateJustService(t *testing.T) {
 	mockRuleManager.EXPECT().Cloud().Return(mockCloud).AnyTimes()
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	deployer := &LatticeServiceStackDeployer{
+	deployer := &latticeServiceStackDeployer{
 		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
 		k8sClient:             mockClient,
@@ -179,7 +179,7 @@ func Test_latticeServiceStackDeployer_DeleteService(t *testing.T) {
 
 	mockServiceManager.EXPECT().Delete(gomock.Any(), gomock.Any())
 
-	deployer := &LatticeServiceStackDeployer{
+	deployer := &latticeServiceStackDeployer{
 		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
 		k8sClient:             mockClient,
@@ -237,7 +237,7 @@ func Test_latticeServiceStackDeployer_DeleteAllResources(t *testing.T) {
 	mockServiceManager.EXPECT().Delete(gomock.Any(), gomock.Any())
 	mockTargetGroupManager.EXPECT().Delete(gomock.Any(), gomock.Any())
 
-	deployer := &LatticeServiceStackDeployer{
+	deployer := &latticeServiceStackDeployer{
 		log:                   gwlog.FallbackLogger,
 		cloud:                 mockCloud,
 		k8sClient:             mockClient,
