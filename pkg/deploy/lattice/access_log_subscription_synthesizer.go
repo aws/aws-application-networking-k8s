@@ -2,6 +2,8 @@ package lattice
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -38,14 +40,14 @@ func (s *accessLogSubscriptionSynthesizer) Synthesize(ctx context.Context) error
 		return err
 	}
 
-	var ret error = nil
+	var errs []string
 	for _, als := range accessLogSubscriptions {
 		if !als.Spec.IsDeleted {
 			s.log.Debugf("Started creating or updating access log subscription %s", als.ID())
 			_, err := s.accessLogSubscriptionManager.Create(ctx, als)
 			if err != nil {
-				s.log.Debugf("Synthesizing access log subscription %s failed due to %s", als.ID(), err)
-				ret = err
+				errMsg := fmt.Sprintf("synthesizing access log subscription %s failed due to: %s", als.ID(), err)
+				errs = append(errs, errMsg)
 			}
 		} else {
 			s.log.Debugf("Started deleting access log subscription %s", als.ID())
@@ -53,7 +55,11 @@ func (s *accessLogSubscriptionSynthesizer) Synthesize(ctx context.Context) error
 		}
 	}
 
-	return ret
+	if len(errs) > 0 {
+		return fmt.Errorf(strings.Join(errs, "; "))
+	}
+
+	return nil
 }
 
 func (s *accessLogSubscriptionSynthesizer) PostSynthesize(ctx context.Context) error {
