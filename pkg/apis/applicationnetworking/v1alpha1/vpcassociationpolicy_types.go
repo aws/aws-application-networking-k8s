@@ -23,6 +23,8 @@ type VpcAssociationPolicy struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec VpcAssociationPolicySpec `json:"spec"`
+
+	Status VpcAssociationPolicyStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -63,8 +65,38 @@ type VpcAssociationPolicySpec struct {
 	TargetRef *v1alpha2.PolicyTargetReference `json:"targetRef"`
 }
 
+// VpcAssociationPolicyStatus defines the observed state of AccessLogPolicy.
+type VpcAssociationPolicyStatus struct {
+	// Conditions describe the current conditions of the AccessLogPolicy.
+	//
+	// Implementations should prefer to express Policy conditions
+	// using the `PolicyConditionType` and `PolicyConditionReason`
+	// constants so that operators and tools can converge on a common
+	// vocabulary to describe AccessLogPolicy state.
+	//
+	// Known condition types are:
+	//
+	// * "Accepted"
+	// * "Ready"
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
 func (p *VpcAssociationPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
 	return p.Spec.TargetRef
+}
+
+func (p *VpcAssociationPolicy) GetStatusConditions() []metav1.Condition {
+	return p.Status.Conditions
+}
+
+func (p *VpcAssociationPolicy) SetStatusConditions(conditions []metav1.Condition) {
+	p.Status.Conditions = conditions
 }
 
 func (p *VpcAssociationPolicy) GetNamespacedName() types.NamespacedName {

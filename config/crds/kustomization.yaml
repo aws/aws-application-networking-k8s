@@ -8,3 +8,4 @@ resources:
   - bases/application-networking.k8s.aws_targetgrouppolicies.yaml
   - bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
   - bases/application-networking.k8s.aws_accesslogpolicies.yaml
+  - bases/application-networking.k8s.aws_iamauthpolicies.yaml

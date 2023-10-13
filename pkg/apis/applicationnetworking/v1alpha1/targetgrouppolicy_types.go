@@ -23,6 +23,8 @@ type TargetGroupPolicy struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec TargetGroupPolicySpec `json:"spec"`
+
+	Status TargetGroupPolicyStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -114,6 +116,28 @@ type HealthCheckConfig struct {
 	ProtocolVersion *HealthCheckProtocolVersion `json:"protocolVersion,omitempty"`
 }
 
+// TargetGroupPolicyStatus defines the observed state of AccessLogPolicy.
+type TargetGroupPolicyStatus struct {
+	// Conditions describe the current conditions of the AccessLogPolicy.
+	//
+	// Implementations should prefer to express Policy conditions
+	// using the `PolicyConditionType` and `PolicyConditionReason`
+	// constants so that operators and tools can converge on a common
+	// vocabulary to describe AccessLogPolicy state.
+	//
+	// Known condition types are:
+	//
+	// * "Accepted"
+	// * "Ready"
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
 // +kubebuilder:validation:Enum=HTTP;HTTPS
 type HealthCheckProtocol string
 
@@ -136,6 +160,14 @@ func (p *TargetGroupPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
 
 func (p *TargetGroupPolicy) GetNamespacedName() types.NamespacedName {
 	return k8s.NamespacedName(p)
+}
+
+func (p *TargetGroupPolicy) GetStatusConditions() []metav1.Condition {
+	return p.Status.Conditions
+}
+
+func (p *TargetGroupPolicy) SetStatusConditions(conditions []metav1.Condition) {
+	p.Status.Conditions = conditions
 }
 
 func (pl *TargetGroupPolicyList) GetItems() []core.Policy {

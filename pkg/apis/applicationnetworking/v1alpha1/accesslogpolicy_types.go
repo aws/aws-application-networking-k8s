@@ -81,6 +81,14 @@ func (p *AccessLogPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
 	return p.Spec.TargetRef
 }
 
+func (p *AccessLogPolicy) GetStatusConditions() []metav1.Condition {
+	return p.Status.Conditions
+}
+
+func (p *AccessLogPolicy) SetStatusConditions(conditions []metav1.Condition) {
+	p.Status.Conditions = conditions
+}
+
 func (p *AccessLogPolicy) GetNamespacedName() types.NamespacedName {
 	return k8s.NamespacedName(p)
 }
