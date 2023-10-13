@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	AccessLogPolicyKind = "AccessLogPolicy"
+	AccessLogPolicyKind                = "AccessLogPolicy"
+	AccessLogSubscriptionAnnotationKey = "VpcLatticeAccessLogSubscription"
 )
 
 // +genclient
@@ -45,9 +46,8 @@ type AccessLogPolicySpec struct {
 	// Supported values are S3 Bucket, CloudWatch Log Group, and Firehose Delivery Stream ARNs.
 	//
 	// Changes to this value results in replacement of the VPC Lattice Access Log Subscription.
-	// +optional
 	// +kubebuilder:validation:Pattern=`^arn(:[a-z0-9]+([.-][a-z0-9]+)*){2}(:([a-z0-9]+([.-][a-z0-9]+)*)?){2}:([^/].*)?`
-	DestinationArn *string `json:"destinationArn,omitempty"`
+	DestinationArn *string `json:"destinationArn"`
 
 	// TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.
 	//

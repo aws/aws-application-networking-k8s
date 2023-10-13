@@ -23,12 +23,11 @@ type AccessLogSubscriptionSpec struct {
 	SourceType     SourceType
 	SourceName     string
 	DestinationArn string
-	IsDeleted      bool
+	EventType      core.EventType
 }
 
 type AccessLogSubscriptionStatus struct {
-	Arn string `json:"arn"`
-	Id  string `json:"id"`
+	Arn *string `json:"arn"`
 }
 
 func NewAccessLogSubscription(
@@ -36,7 +35,8 @@ func NewAccessLogSubscription(
 	sourceType SourceType,
 	sourceName string,
 	destinationArn string,
-	isDeleted bool,
+	eventType core.EventType,
+	status *AccessLogSubscriptionStatus,
 ) *AccessLogSubscription {
 	id := fmt.Sprintf("%s-%s-%s", sourceType, sourceName, destinationArn)
 	return &AccessLogSubscription{
@@ -45,8 +45,8 @@ func NewAccessLogSubscription(
 			SourceType:     sourceType,
 			SourceName:     sourceName,
 			DestinationArn: destinationArn,
-			IsDeleted:      isDeleted,
+			EventType:      eventType,
 		},
-		Status: nil,
+		Status: status,
 	}
 }

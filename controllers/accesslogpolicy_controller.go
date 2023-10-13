@@ -41,6 +41,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -140,7 +142,12 @@ func (r *accessLogPolicyReconciler) reconcile(ctx context.Context, req ctrl.Requ
 }
 
 func (r *accessLogPolicyReconciler) reconcileDelete(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) error {
-	err := r.finalizerManager.RemoveFinalizers(ctx, alp, accessLogPolicyFinalizer)
+	_, err := r.buildAndDeployModel(ctx, alp)
+	if err != nil {
+		return err
+	}
+
+	err = r.finalizerManager.RemoveFinalizers(ctx, alp, accessLogPolicyFinalizer)
 	if err != nil {
 		return err
 	}
@@ -168,15 +175,20 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return nil
 	}
 
-	err = r.buildAndDeployModel(ctx, alp)
+	stack, err := r.buildAndDeployModel(ctx, alp)
 	if err != nil {
 		if services.IsConflictError(err) {
-			message := "An Access Log Policy with a destinationArn for the same destination type already exists for this targetRef"
+			message := "An Access Log Policy with a Destination Arn for the same destination type already exists for this targetRef"
 			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonConflicted, message)
 		} else if services.IsInvalidError(err) {
-			message := "The AWS resource with the provided destinationArn could not be found"
+			message := "The AWS resource with the provided Destination Arn could not be found"
 			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 		}
+		return err
+	}
+
+	err = r.updateAccessLogPolicyAnnotations(ctx, alp, *stack)
+	if err != nil {
 		return err
 	}
 
@@ -226,24 +238,54 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 func (r *accessLogPolicyReconciler) buildAndDeployModel(
 	ctx context.Context,
 	alp *anv1alpha1.AccessLogPolicy,
-) error {
+) (*core.Stack, error) {
 	stack, _, err := r.modelBuilder.Build(ctx, alp)
 	if err != nil {
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.AccessLogPolicyEventReasonFailedBuildModel,
 			fmt.Sprintf("Failed to build model due to %s", err))
-		return err
+		return nil, err
 	}
 
 	jsonStack, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	r.log.Debugw("Successfully built model", "stack", jsonStack)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
-		return err
+		return nil, err
 	}
 	r.log.Debugf("successfully deployed model for stack %s:%s", stack.StackID().Name, stack.StackID().Namespace)
+
+	return &stack, nil
+}
+
+func (r *accessLogPolicyReconciler) updateAccessLogPolicyAnnotations(
+	ctx context.Context,
+	alp *anv1alpha1.AccessLogPolicy,
+	stack core.Stack,
+) error {
+	var accessLogSubscriptions []*model.AccessLogSubscription
+	err := stack.ListResources(&accessLogSubscriptions)
+	if err != nil {
+		return err
+	}
+
+	// Assume we only reconcile one Access Log Policy creation at a time
+	if len(accessLogSubscriptions) == 1 {
+		als := accessLogSubscriptions[0]
+		if als.Spec.EventType == core.CreateEvent {
+			oldAlp := alp.DeepCopy()
+			if alp.ObjectMeta.Annotations == nil {
+				alp.ObjectMeta.Annotations = make(map[string]string)
+			}
+			alp.ObjectMeta.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey] = *als.Status.Arn
+			if err := r.client.Patch(ctx, alp, client.MergeFrom(oldAlp)); err != nil {
+				return fmt.Errorf("failed to add annotation to Access Log Policy %s-%s, %w",
+					alp.Name, alp.Namespace, err)
+			}
+		}
+	}
 
 	return nil
 }

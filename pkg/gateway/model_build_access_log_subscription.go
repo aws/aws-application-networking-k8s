@@ -72,9 +72,23 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 		return fmt.Errorf("access log policy's destinationArn cannot be nil")
 	}
 
-	isDeleted := t.accessLogPolicy.DeletionTimestamp != nil
+	var eventType = core.CreateEvent
+	if t.accessLogPolicy.DeletionTimestamp != nil {
+		eventType = core.DeleteEvent
+	} else if _, ok := t.accessLogPolicy.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]; ok {
+		eventType = core.UpdateEvent
+	}
 
-	t.accessLogSubscription = model.NewAccessLogSubscription(t.stack, sourceType, sourceName, *destinationArn, isDeleted)
+	var status *model.AccessLogSubscriptionStatus
+	if eventType != core.CreateEvent {
+		status = &model.AccessLogSubscriptionStatus{}
+		value, exists := t.accessLogPolicy.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
+		if exists {
+			status.Arn = &value
+		}
+	}
+
+	t.accessLogSubscription = model.NewAccessLogSubscription(t.stack, sourceType, sourceName, *destinationArn, eventType, status)
 	err = t.stack.AddResource(t.accessLogSubscription)
 	if err != nil {
 		return err

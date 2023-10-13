@@ -15,6 +15,7 @@ import (
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -60,7 +61,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 					SourceType:     lattice.ServiceNetworkSourceType,
 					SourceName:     name,
 					DestinationArn: s3DestinationArn,
-					IsDeleted:      false,
+					EventType:      core.CreateEvent,
 				},
 			},
 			onlyCompareSpecs: true,
@@ -83,7 +84,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 					SourceType:     lattice.ServiceNetworkSourceType,
 					SourceName:     name,
 					DestinationArn: s3DestinationArn,
-					IsDeleted:      false,
+					EventType:      core.CreateEvent,
 				},
 			},
 			onlyCompareSpecs: true,
@@ -108,7 +109,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 					SourceType:     lattice.ServiceSourceType,
 					SourceName:     fmt.Sprintf("%s-%s", name, namespace),
 					DestinationArn: s3DestinationArn,
-					IsDeleted:      false,
+					EventType:      core.CreateEvent,
 				},
 			},
 			onlyCompareSpecs: true,
@@ -131,7 +132,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 					SourceType:     lattice.ServiceSourceType,
 					SourceName:     fmt.Sprintf("%s-%s", name, namespace),
 					DestinationArn: s3DestinationArn,
-					IsDeleted:      false,
+					EventType:      core.CreateEvent,
 				},
 			},
 			onlyCompareSpecs: true,
@@ -156,7 +157,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 					SourceType:     lattice.ServiceSourceType,
 					SourceName:     fmt.Sprintf("%s-%s", name, namespace),
 					DestinationArn: s3DestinationArn,
-					IsDeleted:      false,
+					EventType:      core.CreateEvent,
 				},
 			},
 			onlyCompareSpecs: true,
@@ -179,7 +180,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 					SourceType:     lattice.ServiceSourceType,
 					SourceName:     fmt.Sprintf("%s-%s", name, namespace),
 					DestinationArn: s3DestinationArn,
-					IsDeleted:      false,
+					EventType:      core.CreateEvent,
 				},
 			},
 			onlyCompareSpecs: true,
@@ -204,7 +205,34 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 					SourceType:     lattice.ServiceNetworkSourceType,
 					SourceName:     name,
 					DestinationArn: s3DestinationArn,
-					IsDeleted:      true,
+					EventType:      core.DeleteEvent,
+				},
+			},
+			onlyCompareSpecs: true,
+			expectedError:    nil,
+		},
+		{
+			description: "Policy on Gateway with Access Log Subscription annotation present is marked as updated",
+			input: &anv1alpha1.AccessLogPolicy{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Annotations: map[string]string{
+						anv1alpha1.AccessLogSubscriptionAnnotationKey: "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567",
+					},
+				},
+				Spec: anv1alpha1.AccessLogPolicySpec{
+					DestinationArn: aws.String(s3DestinationArn),
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
+						Kind: gatewayKind,
+						Name: name,
+					},
+				},
+			},
+			expectedOutput: &lattice.AccessLogSubscription{
+				Spec: lattice.AccessLogSubscriptionSpec{
+					SourceType:     lattice.ServiceNetworkSourceType,
+					SourceName:     name,
+					DestinationArn: s3DestinationArn,
+					EventType:      core.UpdateEvent,
 				},
 			},
 			onlyCompareSpecs: true,

@@ -12,6 +12,7 @@ import (
 	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -39,7 +40,7 @@ func Test_Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess(t *tes
 			SourceType:     lattice.ServiceNetworkSourceType,
 			SourceName:     sourceName,
 			DestinationArn: s3DestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	serviceNetworkInfo := &services.ServiceNetworkInfo{
@@ -64,8 +65,7 @@ func Test_Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess(t *tes
 	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 	resp, err := mgr.Create(ctx, accessLogSubscription)
 	assert.Nil(t, err)
-	assert.Equal(t, resp.Arn, accessLogSubscriptionArn)
-	assert.Equal(t, resp.Id, accessLogSubscriptionId)
+	assert.Equal(t, accessLogSubscriptionArn, *resp.Arn)
 }
 
 func Test_Create_NewAccessLogSubscriptionForService_ReturnsSuccess(t *testing.T) {
@@ -80,7 +80,7 @@ func Test_Create_NewAccessLogSubscriptionForService_ReturnsSuccess(t *testing.T)
 			SourceType:     lattice.ServiceSourceType,
 			SourceName:     sourceName,
 			DestinationArn: s3DestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
@@ -104,8 +104,7 @@ func Test_Create_NewAccessLogSubscriptionForService_ReturnsSuccess(t *testing.T)
 	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 	resp, err := mgr.Create(ctx, accessLogSubscription)
 	assert.Nil(t, err)
-	assert.Equal(t, resp.Arn, accessLogSubscriptionArn)
-	assert.Equal(t, resp.Id, accessLogSubscriptionId)
+	assert.Equal(t, accessLogSubscriptionArn, *resp.Arn)
 }
 
 func Test_Create_NewAccessLogSubscriptionForDeletedServiceNetwork_ReturnsNotFoundError(t *testing.T) {
@@ -120,7 +119,7 @@ func Test_Create_NewAccessLogSubscriptionForDeletedServiceNetwork_ReturnsNotFoun
 			SourceType:     lattice.ServiceNetworkSourceType,
 			SourceName:     sourceName,
 			DestinationArn: s3DestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	serviceNetworkInfo := &services.ServiceNetworkInfo{
@@ -160,7 +159,7 @@ func Test_Create_NewAccessLogSubscriptionForDeletedService_ReturnsNotFoundError(
 			SourceType:     lattice.ServiceSourceType,
 			SourceName:     sourceName,
 			DestinationArn: s3DestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
@@ -199,7 +198,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingS3Destination_ReturnsInvalidE
 			SourceType:     lattice.ServiceNetworkSourceType,
 			SourceName:     sourceName,
 			DestinationArn: s3DestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	serviceNetworkInfo := &services.ServiceNetworkInfo{
@@ -239,7 +238,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingCloudWatchDestination_Returns
 			SourceType:     lattice.ServiceNetworkSourceType,
 			SourceName:     sourceName,
 			DestinationArn: cloudWatchDestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	serviceNetworkInfo := &services.ServiceNetworkInfo{
@@ -279,7 +278,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingFirehoseDestination_ReturnsIn
 			SourceType:     lattice.ServiceNetworkSourceType,
 			SourceName:     sourceName,
 			DestinationArn: firehoseDestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	serviceNetworkInfo := &services.ServiceNetworkInfo{
@@ -319,7 +318,7 @@ func Test_Create_ConflictingAccessLogSubscriptionForSameResource_ReturnsConflict
 			SourceType:     lattice.ServiceNetworkSourceType,
 			SourceName:     sourceName,
 			DestinationArn: s3DestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	serviceNetworkInfo := &services.ServiceNetworkInfo{
@@ -358,7 +357,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingServiceNetwork_ReturnsNotFoun
 			SourceType:     lattice.ServiceNetworkSourceType,
 			SourceName:     sourceName,
 			DestinationArn: s3DestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	notFoundErr := services.NewNotFoundError("", "")
@@ -383,7 +382,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingService_ReturnsNotFoundError(
 			SourceType:     lattice.ServiceSourceType,
 			SourceName:     sourceName,
 			DestinationArn: s3DestinationArn,
-			IsDeleted:      false,
+			EventType:      core.CreateEvent,
 		},
 	}
 	notFoundErr := services.NewNotFoundError("", "")
@@ -395,4 +394,68 @@ func Test_Create_NewAccessLogSubscriptionForMissingService_ReturnsNotFoundError(
 	resp, err := mgr.Create(ctx, accessLogSubscription)
 	assert.Nil(t, resp)
 	assert.True(t, services.IsNotFoundError(err))
+}
+
+func Test_Delete_AccessLogSubscriptionExists_ReturnsSuccess(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := an_aws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceNetworkSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			EventType:      core.DeleteEvent,
+		},
+		Status: &lattice.AccessLogSubscriptionStatus{
+			Arn: aws.String(accessLogSubscriptionArn),
+		},
+	}
+	deleteALSInput := &vpclattice.DeleteAccessLogSubscriptionInput{
+		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+	}
+	deleteALSOutput := &vpclattice.DeleteAccessLogSubscriptionOutput{}
+
+	mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(deleteALSOutput, nil)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	err := mgr.Delete(ctx, accessLogSubscription)
+	assert.Nil(t, err)
+}
+
+func Test_Delete_AccessLogSubscriptionDoesNotExist_ReturnsSuccess(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockCloud := an_aws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:     lattice.ServiceNetworkSourceType,
+			SourceName:     sourceName,
+			DestinationArn: s3DestinationArn,
+			EventType:      core.DeleteEvent,
+		},
+		Status: &lattice.AccessLogSubscriptionStatus{
+			Arn: aws.String(accessLogSubscriptionArn),
+		},
+	}
+	deleteALSInput := &vpclattice.DeleteAccessLogSubscriptionInput{
+		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+	}
+	deleteALSErr := &vpclattice.ResourceNotFoundException{
+		ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
+	}
+
+	mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(nil, deleteALSErr)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	err := mgr.Delete(ctx, accessLogSubscription)
+	assert.Nil(t, err)
 }

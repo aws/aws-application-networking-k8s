@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	anaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -17,16 +17,17 @@ import (
 
 type AccessLogSubscriptionManager interface {
 	Create(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) (*lattice.AccessLogSubscriptionStatus, error)
+	Delete(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) error
 }
 
 type defaultAccessLogSubscriptionManager struct {
 	log   gwlog.Logger
-	cloud aws.Cloud
+	cloud anaws.Cloud
 }
 
 func NewAccessLogSubscriptionManager(
 	log gwlog.Logger,
-	cloud aws.Cloud,
+	cloud anaws.Cloud,
 ) *defaultAccessLogSubscriptionManager {
 	return &defaultAccessLogSubscriptionManager{
 		log:   log,
@@ -83,7 +84,23 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 	}
 
 	return &lattice.AccessLogSubscriptionStatus{
-		Arn: *createALSOutput.Arn,
-		Id:  *createALSOutput.Id,
+		Arn: createALSOutput.Arn,
 	}, nil
+}
+
+func (m *defaultAccessLogSubscriptionManager) Delete(
+	ctx context.Context,
+	accessLogSubscription *lattice.AccessLogSubscription,
+) error {
+	vpcLatticeSess := m.cloud.Lattice()
+	deleteALSInput := &vpclattice.DeleteAccessLogSubscriptionInput{
+		AccessLogSubscriptionIdentifier: accessLogSubscription.Status.Arn,
+	}
+	_, err := vpcLatticeSess.DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput)
+	if err != nil {
+		if _, ok := err.(*vpclattice.ResourceNotFoundException); !ok {
+			return err
+		}
+	}
+	return nil
 }

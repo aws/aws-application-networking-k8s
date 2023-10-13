@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	mockclient "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
@@ -73,6 +74,64 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 
 		k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(nil, errors.New("mock error")).AnyTimes()
+
+		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
+		err := synthesizer.Synthesize(ctx)
+		assert.NotNil(t, err)
+	})
+
+	t.Run("SpecIsDeleted_DeletesAccessLogSubscription", func(t *testing.T) {
+		ctx, c, mockManager, k8sClient, builder := setup()
+		defer c.Finish()
+		input := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					anv1alpha1.AccessLogSubscriptionAnnotationKey: "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567",
+				},
+				DeletionTimestamp: &metav1.Time{},
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(s3DestinationArn),
+				TargetRef: &v1alpha2.PolicyTargetReference{
+					Kind: "Gateway",
+					Name: "TestName",
+				},
+			},
+		}
+
+		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
+
+		k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(nil).AnyTimes()
+
+		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
+		err := synthesizer.Synthesize(ctx)
+		assert.Nil(t, err)
+	})
+
+	t.Run("SpecIsDeletedButErrorOccurs_ReturnsError", func(t *testing.T) {
+		ctx, c, mockManager, k8sClient, builder := setup()
+		defer c.Finish()
+		input := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					anv1alpha1.AccessLogSubscriptionAnnotationKey: "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567",
+				},
+				DeletionTimestamp: &metav1.Time{},
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(s3DestinationArn),
+				TargetRef: &v1alpha2.PolicyTargetReference{
+					Kind: "Gateway",
+					Name: "TestName",
+				},
+			},
+		}
+
+		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
+
+		k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(errors.New("mock error")).AnyTimes()
 
 		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
 		err := synthesizer.Synthesize(ctx)

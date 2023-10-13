@@ -28,7 +28,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
-var _ = Describe("Creating Access Log Policy", Ordered, func() {
+var _ = Describe("Access Log Policy", Ordered, func() {
 	const (
 		k8sResourceName          = "test-access-log-policy"
 		bucketName               = "k8s-test-lattice-bucket"
@@ -160,7 +160,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		testFramework.ExpectCreated(ctx, grpcRoute, grpcDeployment, grpcK8sService)
 	})
 
-	It("creates an access log subscription for the corresponding Service Network when the targetRef's Kind is Gateway", func() {
+	It("creation produces an Access Log Subscription for the corresponding Service Network when the targetRef's Kind is Gateway", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -203,6 +203,9 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
 			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
 
+			// Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+
 			// Access Log Subscription should have default tags applied
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
@@ -213,7 +216,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("creates an access log subscription for the corresponding VPC Lattice Service when the targetRef's Kind is HTTPRoute", func() {
+	It("creation produces an Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is HTTPRoute", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -257,6 +260,9 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
 			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
 
+			// Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+
 			// Access Log Subscription should have default tags applied
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
@@ -267,7 +273,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("creates an access log subscription for the corresponding VPC Lattice Service when the targetRef's Kind is GRPCRoute", func() {
+	It("creation produces an Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is GRPCRoute", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -311,6 +317,9 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
 			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
 
+			// Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+
 			// Access Log Subscription should have default tags applied
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
@@ -321,7 +330,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("creates access log subscriptions with Bucket, Log Group, and Delivery Stream destinations on the same targetRef", func() {
+	It("creation produces Access Log Subscriptions with Bucket, Log Group, and Delivery Stream destinations on the same targetRef", func() {
 		// Create Access Log Policy for S3 Bucket
 		s3AccessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -410,7 +419,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}
 	})
 
-	It("sets Access Log Policy status to Conflicted when creating a new policy for the same targetRef and destination type", func() {
+	It("creation sets Access Log Policy status to Conflicted when creating a new policy for the same targetRef and destination type", func() {
 		accessLogPolicy1 := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName + "-1",
@@ -462,7 +471,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("sets Access Log Policy status to Invalid when the destination does not exist", func() {
+	It("creation sets Access Log Policy status to Invalid when the destination does not exist", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -497,7 +506,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("sets Access Log Policy status to Invalid when the targetRef's Group is not gateway.networking.k8s.io", func() {
+	It("creation sets Access Log Policy status to Invalid when the targetRef's Group is not gateway.networking.k8s.io", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -532,7 +541,7 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("sets Access Log Policy status to Invalid when the targetRef's Kind is not Gateway, HTTPRoute, or GRPCRoute", func() {
+	It("creation sets Access Log Policy status to Invalid when the targetRef's Kind is not Gateway, HTTPRoute, or GRPCRoute", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -567,25 +576,140 @@ var _ = Describe("Creating Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	AfterEach(func() {
-		// TODO: Remove this block when DeleteAccessLogPolicy reconciliation is added
-		// Delete Access Log Subscriptions on test Service Network
-		listInput := &vpclattice.ListAccessLogSubscriptionsInput{
-			ResourceIdentifier: testServiceNetwork.Arn,
+	It("deletion removes the Access Log Subscription for the corresponding Service Network when the targetRef's Kind is Gateway", func() {
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.PolicyTargetReference{
+					Group:     gwv1beta1.GroupName,
+					Kind:      "Gateway",
+					Name:      gwv1alpha2.ObjectName(testGateway.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
 		}
-		output, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listInput)
-		Expect(err).To(BeNil())
-		for _, als := range output.Items {
-			deleteInput := &vpclattice.DeleteAccessLogSubscriptionInput{
-				AccessLogSubscriptionIdentifier: als.Arn,
-			}
-			_, err := testFramework.LatticeClient.DeleteAccessLogSubscriptionWithContext(ctx, deleteInput)
-			Expect(err).To(BeNil())
-		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
 
+		Eventually(func(g Gomega) {
+			// Service Network should have an Access Log Subscription
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: testServiceNetwork.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(output.Items)).To(BeEquivalentTo(1))
+		}).Should(Succeed())
+
+		testFramework.ExpectDeleted(ctx, accessLogPolicy)
+
+		// Wait a moment for eventual consistency
+		time.Sleep(1)
+
+		Eventually(func(g Gomega) {
+			// Service Network should no longer have an Access Log Subscription
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: testServiceNetwork.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(output.Items)).To(BeEquivalentTo(0))
+		}).Should(Succeed())
+	})
+
+	It("deletion removes the Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is HTTPRoute", func() {
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.PolicyTargetReference{
+					Group:     gwv1beta1.GroupName,
+					Kind:      "HTTPRoute",
+					Name:      gwv1alpha2.ObjectName(httpRoute.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
+
+		Eventually(func(g Gomega) {
+			// VPC Lattice Service should have an Access Log Subscription
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(output.Items)).To(BeEquivalentTo(1))
+		}).Should(Succeed())
+
+		testFramework.ExpectDeleted(ctx, accessLogPolicy)
+
+		// Wait a moment for eventual consistency
+		time.Sleep(1)
+
+		Eventually(func(g Gomega) {
+			// VPC Lattice Service should no longer have an Access Log Subscription
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(output.Items)).To(BeEquivalentTo(0))
+		}).Should(Succeed())
+	})
+
+	It("deletion removes the Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is GRPCRoute", func() {
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.PolicyTargetReference{
+					Group:     gwv1beta1.GroupName,
+					Kind:      "GRPCRoute",
+					Name:      gwv1alpha2.ObjectName(grpcRoute.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewGRPCRoute(*grpcRoute))
+
+		Eventually(func(g Gomega) {
+			// VPC Lattice Service should have an Access Log Subscription
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(output.Items)).To(BeEquivalentTo(1))
+		}).Should(Succeed())
+
+		testFramework.ExpectDeleted(ctx, accessLogPolicy)
+
+		// Wait a moment for eventual consistency
+		time.Sleep(1)
+
+		Eventually(func(g Gomega) {
+			// VPC Lattice Service should no longer have an Access Log Subscription
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(output.Items)).To(BeEquivalentTo(0))
+		}).Should(Succeed())
+	})
+
+	AfterEach(func() {
 		// Delete Access Log Policies in test namespace
 		alps := &anv1alpha1.AccessLogPolicyList{}
-		err = testFramework.Client.List(ctx, alps, client.InNamespace(k8snamespace))
+		err := testFramework.Client.List(ctx, alps, client.InNamespace(k8snamespace))
 		Expect(err).To(BeNil())
 		for _, alp := range alps.Items {
 			testFramework.ExpectDeletedThenNotFound(ctx, &alp)
