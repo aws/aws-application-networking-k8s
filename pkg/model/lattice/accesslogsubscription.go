@@ -3,8 +3,13 @@ package lattice
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
+
+const AccessLogPolicyTagKey = aws.TagBase + "AccessLogPolicy"
 
 type SourceType string
 
@@ -20,10 +25,11 @@ type AccessLogSubscription struct {
 }
 
 type AccessLogSubscriptionSpec struct {
-	SourceType     SourceType
-	SourceName     string
-	DestinationArn string
-	EventType      core.EventType
+	SourceType        SourceType
+	SourceName        string
+	DestinationArn    string
+	ALPNamespacedName types.NamespacedName
+	EventType         core.EventType
 }
 
 type AccessLogSubscriptionStatus struct {
@@ -35,6 +41,7 @@ func NewAccessLogSubscription(
 	sourceType SourceType,
 	sourceName string,
 	destinationArn string,
+	alpNamespacedName types.NamespacedName,
 	eventType core.EventType,
 	status *AccessLogSubscriptionStatus,
 ) *AccessLogSubscription {
@@ -42,10 +49,11 @@ func NewAccessLogSubscription(
 	return &AccessLogSubscription{
 		ResourceMeta: core.NewResourceMeta(stack, "AWS::VPCServiceNetwork::AccessLogSubscription", id),
 		Spec: AccessLogSubscriptionSpec{
-			SourceType:     sourceType,
-			SourceName:     sourceName,
-			DestinationArn: destinationArn,
-			EventType:      eventType,
+			SourceType:        sourceType,
+			SourceName:        sourceName,
+			DestinationArn:    destinationArn,
+			ALPNamespacedName: alpNamespacedName,
+			EventType:         eventType,
 		},
 		Status: status,
 	}
