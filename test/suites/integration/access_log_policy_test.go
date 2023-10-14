@@ -25,6 +25,7 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
@@ -206,13 +207,15 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			// Access Log Subscription ARN should be in the Access Log Policy's annotations
 			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
 
-			// Access Log Subscription should have default tags applied
+			// Access Log Subscription should have default tags and Access Log Policy tag applied
+			expectedTags := testFramework.CopyDefaultTags()
+			expectedTags[lattice.AccessLogPolicyTagKey] = aws.String(alpNamespacedName.String())
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
 			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
 			g.Expect(err).To(BeNil())
-			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(testFramework.DefaultTags))
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
 		}).Should(Succeed())
 	})
 
@@ -263,13 +266,15 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			// Access Log Subscription ARN should be in the Access Log Policy's annotations
 			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
 
-			// Access Log Subscription should have default tags applied
+			// Access Log Subscription should have default tags and Access Log Policy tag applied
+			expectedTags := testFramework.CopyDefaultTags()
+			expectedTags[lattice.AccessLogPolicyTagKey] = aws.String(alpNamespacedName.String())
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
 			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
 			g.Expect(err).To(BeNil())
-			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(testFramework.DefaultTags))
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
 		}).Should(Succeed())
 	})
 
@@ -320,13 +325,15 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			// Access Log Subscription ARN should be in the Access Log Policy's annotations
 			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
 
-			// Access Log Subscription should have default tags applied
+			// Access Log Subscription should have default tags and Access Log Policy tag applied
+			expectedTags := testFramework.CopyDefaultTags()
+			expectedTags[lattice.AccessLogPolicyTagKey] = aws.String(alpNamespacedName.String())
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
 			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
 			g.Expect(err).To(BeNil())
-			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(testFramework.DefaultTags))
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
 		}).Should(Succeed())
 	})
 

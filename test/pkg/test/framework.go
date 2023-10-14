@@ -519,3 +519,11 @@ func (env *Framework) RunGrpcurlCmd(opts RunGrpcurlCmdOptions) (string, string, 
 func (env *Framework) SleepForRouteDeletion() {
 	time.Sleep(30 * time.Second)
 }
+
+func (env *Framework) CopyDefaultTags() services.Tags {
+	tags := make(map[string]*string)
+	for k, v := range env.DefaultTags {
+		tags[k] = v
+	}
+	return tags
+}
