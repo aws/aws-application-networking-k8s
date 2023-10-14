@@ -27,7 +27,7 @@ type AccessLogSubscriptionSpec struct {
 }
 
 type AccessLogSubscriptionStatus struct {
-	Arn *string `json:"arn"`
+	Arn string `json:"arn"`
 }
 
 func NewAccessLogSubscription(

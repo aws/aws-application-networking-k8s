@@ -271,15 +271,13 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyAnnotations(
 		return err
 	}
 
-	// Assume we only reconcile one Access Log Policy creation at a time
-	if len(accessLogSubscriptions) == 1 {
-		als := accessLogSubscriptions[0]
+	for _, als := range accessLogSubscriptions {
 		if als.Spec.EventType == core.CreateEvent {
 			oldAlp := alp.DeepCopy()
 			if alp.ObjectMeta.Annotations == nil {
 				alp.ObjectMeta.Annotations = make(map[string]string)
 			}
-			alp.ObjectMeta.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey] = *als.Status.Arn
+			alp.ObjectMeta.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey] = als.Status.Arn
 			if err := r.client.Patch(ctx, alp, client.MergeFrom(oldAlp)); err != nil {
 				return fmt.Errorf("failed to add annotation to Access Log Policy %s-%s, %w",
 					alp.Name, alp.Namespace, err)

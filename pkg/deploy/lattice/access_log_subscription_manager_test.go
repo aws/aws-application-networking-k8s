@@ -28,12 +28,21 @@ const (
 	accessLogSubscriptionId  = "als-12345678901234567"
 )
 
-func Test_Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess(t *testing.T) {
+func setup(t *testing.T) (
+	context.Context,
+	*services.MockLattice,
+	an_aws.Cloud,
+) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := services.NewMockLattice(c)
 	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	return ctx, mockLattice, cloud
+}
+
+func Test_Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess(t *testing.T) {
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -65,15 +74,11 @@ func Test_Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess(t *tes
 	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 	resp, err := mgr.Create(ctx, accessLogSubscription)
 	assert.Nil(t, err)
-	assert.Equal(t, accessLogSubscriptionArn, *resp.Arn)
+	assert.Equal(t, accessLogSubscriptionArn, resp.Arn)
 }
 
 func Test_Create_NewAccessLogSubscriptionForService_ReturnsSuccess(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -104,15 +109,11 @@ func Test_Create_NewAccessLogSubscriptionForService_ReturnsSuccess(t *testing.T)
 	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 	resp, err := mgr.Create(ctx, accessLogSubscription)
 	assert.Nil(t, err)
-	assert.Equal(t, accessLogSubscriptionArn, *resp.Arn)
+	assert.Equal(t, accessLogSubscriptionArn, resp.Arn)
 }
 
 func Test_Create_NewAccessLogSubscriptionForDeletedServiceNetwork_ReturnsNotFoundError(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -148,11 +149,7 @@ func Test_Create_NewAccessLogSubscriptionForDeletedServiceNetwork_ReturnsNotFoun
 }
 
 func Test_Create_NewAccessLogSubscriptionForDeletedService_ReturnsNotFoundError(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -187,11 +184,7 @@ func Test_Create_NewAccessLogSubscriptionForDeletedService_ReturnsNotFoundError(
 }
 
 func Test_Create_NewAccessLogSubscriptionForMissingS3Destination_ReturnsInvalidError(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -227,11 +220,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingS3Destination_ReturnsInvalidE
 }
 
 func Test_Create_NewAccessLogSubscriptionForMissingCloudWatchDestination_ReturnsInvalidError(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -267,11 +256,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingCloudWatchDestination_Returns
 }
 
 func Test_Create_NewAccessLogSubscriptionForMissingFirehoseDestination_ReturnsInvalidError(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -307,11 +292,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingFirehoseDestination_ReturnsIn
 }
 
 func Test_Create_ConflictingAccessLogSubscriptionForSameResource_ReturnsConflictError(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -346,11 +327,7 @@ func Test_Create_ConflictingAccessLogSubscriptionForSameResource_ReturnsConflict
 }
 
 func Test_Create_NewAccessLogSubscriptionForMissingServiceNetwork_ReturnsNotFoundError(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -371,11 +348,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingServiceNetwork_ReturnsNotFoun
 }
 
 func Test_Create_NewAccessLogSubscriptionForMissingService_ReturnsNotFoundError(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -397,11 +370,7 @@ func Test_Create_NewAccessLogSubscriptionForMissingService_ReturnsNotFoundError(
 }
 
 func Test_Delete_AccessLogSubscriptionExists_ReturnsSuccess(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockCloud := an_aws.NewMockCloud(c)
-	mockLattice := services.NewMockLattice(c)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -411,7 +380,7 @@ func Test_Delete_AccessLogSubscriptionExists_ReturnsSuccess(t *testing.T) {
 			EventType:      core.DeleteEvent,
 		},
 		Status: &lattice.AccessLogSubscriptionStatus{
-			Arn: aws.String(accessLogSubscriptionArn),
+			Arn: accessLogSubscriptionArn,
 		},
 	}
 	deleteALSInput := &vpclattice.DeleteAccessLogSubscriptionInput{
@@ -420,19 +389,14 @@ func Test_Delete_AccessLogSubscriptionExists_ReturnsSuccess(t *testing.T) {
 	deleteALSOutput := &vpclattice.DeleteAccessLogSubscriptionOutput{}
 
 	mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(deleteALSOutput, nil)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 	err := mgr.Delete(ctx, accessLogSubscription)
 	assert.Nil(t, err)
 }
 
 func Test_Delete_AccessLogSubscriptionDoesNotExist_ReturnsSuccess(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockCloud := an_aws.NewMockCloud(c)
-	mockLattice := services.NewMockLattice(c)
+	ctx, mockLattice, cloud := setup(t)
 
 	accessLogSubscription := &lattice.AccessLogSubscription{
 		Spec: lattice.AccessLogSubscriptionSpec{
@@ -442,7 +406,7 @@ func Test_Delete_AccessLogSubscriptionDoesNotExist_ReturnsSuccess(t *testing.T) 
 			EventType:      core.DeleteEvent,
 		},
 		Status: &lattice.AccessLogSubscriptionStatus{
-			Arn: aws.String(accessLogSubscriptionArn),
+			Arn: accessLogSubscriptionArn,
 		},
 	}
 	deleteALSInput := &vpclattice.DeleteAccessLogSubscriptionInput{
@@ -453,9 +417,8 @@ func Test_Delete_AccessLogSubscriptionDoesNotExist_ReturnsSuccess(t *testing.T) 
 	}
 
 	mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(nil, deleteALSErr)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 
-	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, mockCloud)
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 	err := mgr.Delete(ctx, accessLogSubscription)
 	assert.Nil(t, err)
 }

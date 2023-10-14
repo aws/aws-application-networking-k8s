@@ -81,10 +81,11 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 
 	var status *model.AccessLogSubscriptionStatus
 	if eventType != core.CreateEvent {
-		status = &model.AccessLogSubscriptionStatus{}
 		value, exists := t.accessLogPolicy.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
 		if exists {
-			status.Arn = &value
+			status = &model.AccessLogSubscriptionStatus{
+				Arn: value,
+			}
 		}
 	}
 
