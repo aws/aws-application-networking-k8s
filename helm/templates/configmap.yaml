@@ -6,3 +6,5 @@ data:
     awsRegion: {{ .Values.awsRegion | quote }}
     awsAccountId: {{ .Values.awsAccountId | quote }}
     clusterVpcId: {{ .Values.clusterVpcId | quote }}
+    clusterName: {{ .Values.clusterName | quote }}
+
