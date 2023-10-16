@@ -31,9 +31,13 @@ import (
 	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	gwvv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -88,8 +92,15 @@ func RegisterAccessLogPolicyController(
 		stackMarshaller:  stackMarshaller,
 	}
 
+	gatewayEventHandler := eventhandlers.NewGatewayEventHandler(log, mgrClient)
+	httpRouteEventHandler := eventhandlers.NewHTTPRouteEventHandler(log, mgrClient)
+	grpcRouteEventHandler := eventhandlers.NewGRPCRouteEventHandler(log, mgrClient)
+
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&anv1alpha1.AccessLogPolicy{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+		For(&anv1alpha1.AccessLogPolicy{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&source.Kind{Type: &gwvv1beta1.Gateway{}}, gatewayEventHandler.MapToAccessLogPolicies(), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&source.Kind{Type: &gwvv1beta1.HTTPRoute{}}, httpRouteEventHandler.MapToAccessLogPolicies(), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&source.Kind{Type: &gwv1alpha2.GRPCRoute{}}, grpcRouteEventHandler.MapToAccessLogPolicies(), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 
 	return builder.Complete(r)
 }

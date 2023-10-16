@@ -150,15 +150,19 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForServiceExportCre
 		return nil, err
 	}
 
-	tgp, err := GetAttachedPolicy(ctx, t.client, k8s.NamespacedName(t.serviceExport), &anv1alpha1.TargetGroupPolicy{})
+	tgps, err := GetAttachedPolicies(ctx, t.client, k8s.NamespacedName(t.serviceExport), &anv1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return nil, err
 	}
-
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
 	var healthCheckConfig *vpclattice.HealthCheckConfig
-	if tgp != nil {
+	if len(tgps) >= 1 {
+		tgp := tgps[0]
+		if len(tgps) > 1 {
+			t.log.Errorf("More than one TargetGroupPolicy is attached to the serviceExport %s, "+
+				"only the first one TargetGroupPolicy [%s/%s] will take effect, other TargetGroupPolicies will be ignored", k8s.NamespacedName(t.serviceExport), tgp.Namespace, tgp.Name)
+		}
 		if tgp.Spec.Protocol != nil {
 			protocol = *tgp.Spec.Protocol
 		}
@@ -390,10 +394,17 @@ func (t *latticeServiceModelBuildTask) buildTargetGroupSpec(
 		Namespace: namespace,
 		Name:      string(backendRef.Name()),
 	}
-	tgp, err := GetAttachedPolicy(ctx, t.client, refObjNamespacedName, &anv1alpha1.TargetGroupPolicy{})
-
+	tgps, err := GetAttachedPolicies(ctx, t.client, refObjNamespacedName, &anv1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return model.TargetGroupSpec{}, err
+	}
+	var tgp *anv1alpha1.TargetGroupPolicy
+	if len(tgps) >= 1 {
+		tgp = tgps[0]
+		if len(tgps) > 1 {
+			t.log.Errorf("More than one TargetGroupPolicy is attached to the k8sService %s, "+
+				"only the first one TargetGroupPolicy [%s/%s] will take effect, other TargetGroupPolicies will be ignored", refObjNamespacedName, tgp.Namespace, tgp.Name)
+		}
 	}
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1

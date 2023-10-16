@@ -12,6 +12,9 @@ import (
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -71,6 +74,36 @@ func (r *resourceMapper) TargetGroupPolicyToService(ctx context.Context, tgp *v1
 
 func (r *resourceMapper) VpcAssociationPolicyToGateway(ctx context.Context, vap *v1alpha1.VpcAssociationPolicy) *gateway_api.Gateway {
 	return policyToTargetRefObj(r, ctx, vap, &gateway_api.Gateway{})
+}
+
+func (r *resourceMapper) GatewayToIAMAuthPolicies(ctx context.Context, gw *gateway_api.Gateway) []*anv1alpha1.IAMAuthPolicy {
+	policies, _ := gateway.GetAttachedPolicies(ctx, r.client, k8s.NamespacedName(gw), &anv1alpha1.IAMAuthPolicy{})
+	return policies
+}
+
+func (r *resourceMapper) GatewayToAccessLogPolicies(ctx context.Context, gw *gateway_api.Gateway) []*anv1alpha1.AccessLogPolicy {
+	policies, _ := gateway.GetAttachedPolicies(ctx, r.client, k8s.NamespacedName(gw), &anv1alpha1.AccessLogPolicy{})
+	return policies
+}
+
+func (r *resourceMapper) HTTPRouteToIAMAuthPolicies(ctx context.Context, route *gateway_api.HTTPRoute) []*anv1alpha1.IAMAuthPolicy {
+	policy, _ := gateway.GetAttachedPolicies(ctx, r.client, k8s.NamespacedName(route), &anv1alpha1.IAMAuthPolicy{})
+	return policy
+}
+
+func (r *resourceMapper) HTTPRouteToAccessLogPolicies(ctx context.Context, route *gateway_api.HTTPRoute) []*anv1alpha1.AccessLogPolicy {
+	policies, _ := gateway.GetAttachedPolicies(ctx, r.client, k8s.NamespacedName(route), &anv1alpha1.AccessLogPolicy{})
+	return policies
+}
+
+func (r *resourceMapper) GRPCRouteToIAMAuthPolicies(ctx context.Context, route *gateway_api_v1alpha2.GRPCRoute) []*anv1alpha1.IAMAuthPolicy {
+	policies, _ := gateway.GetAttachedPolicies(ctx, r.client, k8s.NamespacedName(route), &anv1alpha1.IAMAuthPolicy{})
+	return policies
+}
+
+func (r *resourceMapper) GRPCRouteToAccessLogPolicies(ctx context.Context, route *gateway_api_v1alpha2.GRPCRoute) []*anv1alpha1.AccessLogPolicy {
+	policies, _ := gateway.GetAttachedPolicies(ctx, r.client, k8s.NamespacedName(route), &anv1alpha1.AccessLogPolicy{})
+	return policies
 }
 
 func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Context, policy core.Policy, retObj T) T {

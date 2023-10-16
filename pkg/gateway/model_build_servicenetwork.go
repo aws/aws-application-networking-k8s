@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 const (
@@ -33,13 +34,21 @@ func NewServiceNetworkModelBuilder(client client.Client) *serviceNetworkModelBui
 }
 func (b *serviceNetworkModelBuilder) Build(ctx context.Context, gw *gateway_api.Gateway) (core.Stack, *model.ServiceNetwork, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
-	vpcAssociationPolicy, err := GetAttachedPolicy(ctx, b.client, k8s.NamespacedName(gw), &anv1alpha1.VpcAssociationPolicy{})
+	vpcAssociationPolicies, err := GetAttachedPolicies(ctx, b.client, k8s.NamespacedName(gw), &anv1alpha1.VpcAssociationPolicy{})
 	if err != nil {
 		return nil, nil, err
 	}
+	var vap *anv1alpha1.VpcAssociationPolicy
+	if len(vpcAssociationPolicies) >= 1 {
+		vap = vpcAssociationPolicies[0]
+		if len(vpcAssociationPolicies) > 1 {
+			gwlog.FallbackLogger.Errorf("More than one VpcAssociationPolicy is attached to the gateway [%s/%s], "+
+				"only the first one VpcAssociationPolicy [%s/%s] will take effect, other VpcAssociationPolicies will be ignored", gw.Namespace, gw.Name, vap.Namespace, vap.Name)
+		}
+	}
 	task := &serviceNetworkModelBuildTask{
 		gateway:              gw,
-		vpcAssociationPolicy: vpcAssociationPolicy,
+		vpcAssociationPolicy: vap,
 		stack:                stack,
 	}
 

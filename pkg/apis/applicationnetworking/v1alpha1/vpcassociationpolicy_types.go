@@ -105,8 +105,8 @@ func (p *VpcAssociationPolicy) GetNamespacedName() types.NamespacedName {
 
 func (pl *VpcAssociationPolicyList) GetItems() []core.Policy {
 	items := make([]core.Policy, len(pl.Items))
-	for i, item := range pl.Items {
-		items[i] = &item
+	for i := range pl.Items {
+		items[i] = &pl.Items[i]
 	}
 	return items
 }

@@ -33,14 +33,14 @@ func Test_SNModelBuild(t *testing.T) {
 		},
 	}
 	tests := []struct {
-		name                 string
-		gw                   *gwv1beta1.Gateway
-		vpcAssociationPolicy *anv1alpha1.VpcAssociationPolicy
-		wantErr              error
-		wantName             string
-		wantNamespace        string
-		wantIsDeleted        bool
-		associateToVPC       bool
+		name                   string
+		gw                     *gwv1beta1.Gateway
+		vpcAssociationPolicies []*anv1alpha1.VpcAssociationPolicy
+		wantErr                error
+		wantName               string
+		wantNamespace          string
+		wantIsDeleted          bool
+		associateToVPC         bool
 	}{
 		{
 			name: "Adding SN in default namespace, no annotation on VPC association, associate to VPC by default",
@@ -120,17 +120,32 @@ func Test_SNModelBuild(t *testing.T) {
 					Finalizers: []string{"gateway.k8s.aws/resources"},
 				},
 			},
-			vpcAssociationPolicy: &anv1alpha1.VpcAssociationPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-vpc-association-policy",
-				},
-				Spec: anv1alpha1.VpcAssociationPolicySpec{
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
-						Group: gwv1beta1.GroupName,
-						Kind:  "Gateway",
-						Name:  "gw1",
+			vpcAssociationPolicies: []*anv1alpha1.VpcAssociationPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-vpc-association-policy",
 					},
-					SecurityGroupIds: []anv1alpha1.SecurityGroupId{"sg-123456", "sg-654321"},
+					Spec: anv1alpha1.VpcAssociationPolicySpec{
+						TargetRef: &gwv1alpha2.PolicyTargetReference{
+							Group: gwv1beta1.GroupName,
+							Kind:  "Gateway",
+							Name:  "gw1",
+						},
+						SecurityGroupIds: []anv1alpha1.SecurityGroupId{"sg-123456", "sg-654321"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "the-second-vpc-association-policy-will-not-take-effect",
+					},
+					Spec: anv1alpha1.VpcAssociationPolicySpec{
+						TargetRef: &gwv1alpha2.PolicyTargetReference{
+							Group: gwv1beta1.GroupName,
+							Kind:  "Gateway",
+							Name:  "gw1",
+						},
+						SecurityGroupIds: []anv1alpha1.SecurityGroupId{"sg-will-not-take-effect"},
+					},
 				},
 			},
 			wantErr:        nil,
@@ -147,17 +162,19 @@ func Test_SNModelBuild(t *testing.T) {
 					Finalizers: []string{"gateway.k8s.aws/resources"},
 				},
 			},
-			vpcAssociationPolicy: &anv1alpha1.VpcAssociationPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-vpc-association-policy",
-				},
-				Spec: anv1alpha1.VpcAssociationPolicySpec{
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
-						Group: gwv1beta1.GroupName,
-						Kind:  "Gateway",
-						Name:  "gw1",
+			vpcAssociationPolicies: []*anv1alpha1.VpcAssociationPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-vpc-association-policy",
 					},
-					AssociateWithVpc: &trueBool,
+					Spec: anv1alpha1.VpcAssociationPolicySpec{
+						TargetRef: &gwv1alpha2.PolicyTargetReference{
+							Group: gwv1beta1.GroupName,
+							Kind:  "Gateway",
+							Name:  "gw1",
+						},
+						AssociateWithVpc: &trueBool,
+					},
 				},
 			},
 			wantErr:        nil,
@@ -174,17 +191,19 @@ func Test_SNModelBuild(t *testing.T) {
 					Finalizers: []string{"gateway.k8s.aws/resources"},
 				},
 			},
-			vpcAssociationPolicy: &anv1alpha1.VpcAssociationPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-vpc-association-policy",
-				},
-				Spec: anv1alpha1.VpcAssociationPolicySpec{
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
-						Group: gwv1beta1.GroupName,
-						Kind:  "Gateway",
-						Name:  "gw1",
+			vpcAssociationPolicies: []*anv1alpha1.VpcAssociationPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-vpc-association-policy",
 					},
-					AssociateWithVpc: &falseBool,
+					Spec: anv1alpha1.VpcAssociationPolicySpec{
+						TargetRef: &gwv1alpha2.PolicyTargetReference{
+							Group: gwv1beta1.GroupName,
+							Kind:  "Gateway",
+							Name:  "gw1",
+						},
+						AssociateWithVpc: &falseBool,
+					},
 				},
 			},
 			wantErr:        nil,
@@ -204,8 +223,8 @@ func Test_SNModelBuild(t *testing.T) {
 			mockClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(ctx context.Context, policyList *anv1alpha1.VpcAssociationPolicyList, arg3 ...interface{}) error {
 					policyList.Items = append(policyList.Items, notRelatedVpcAssociationPolicy)
-					if tt.vpcAssociationPolicy != nil {
-						policyList.Items = append(policyList.Items, *tt.vpcAssociationPolicy)
+					for _, p := range tt.vpcAssociationPolicies {
+						policyList.Items = append(policyList.Items, *p)
 					}
 					return nil
 				},
@@ -220,8 +239,8 @@ func Test_SNModelBuild(t *testing.T) {
 				assert.Equal(t, tt.wantNamespace, got.Spec.Namespace)
 				assert.Equal(t, tt.wantIsDeleted, got.Spec.IsDeleted)
 				assert.Equal(t, tt.associateToVPC, got.Spec.AssociateToVPC)
-				if tt.vpcAssociationPolicy != nil {
-					assert.Equal(t, securityGroupIdsToStringPointersSlice(tt.vpcAssociationPolicy.Spec.SecurityGroupIds), got.Spec.SecurityGroupIds)
+				if tt.vpcAssociationPolicies != nil {
+					assert.Equal(t, securityGroupIdsToStringPointersSlice(tt.vpcAssociationPolicies[0].Spec.SecurityGroupIds), got.Spec.SecurityGroupIds)
 				}
 			}
 		})

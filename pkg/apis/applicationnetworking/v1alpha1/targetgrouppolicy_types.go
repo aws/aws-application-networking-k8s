@@ -172,8 +172,8 @@ func (p *TargetGroupPolicy) SetStatusConditions(conditions []metav1.Condition) {
 
 func (pl *TargetGroupPolicyList) GetItems() []core.Policy {
 	items := make([]core.Policy, len(pl.Items))
-	for i, item := range pl.Items {
-		items[i] = &item
+	for i := range pl.Items {
+		items[i] = &pl.Items[i]
 	}
 	return items
 }

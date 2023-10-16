@@ -78,12 +78,10 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 		Version: "v1alpha1",
 	}
 	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.TargetGroupPolicy{}, &anv1alpha1.TargetGroupPolicyList{})
-	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
-
 	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.VpcAssociationPolicy{}, &anv1alpha1.VpcAssociationPolicyList{})
-	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
-
 	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.AccessLogPolicy{}, &anv1alpha1.AccessLogPolicyList{})
+	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.IAMAuthPolicy{}, &anv1alpha1.IAMAuthPolicyList{})
+
 	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
 }
 
@@ -184,6 +182,11 @@ func main() {
 	err = controllers.RegisterAccessLogPolicyController(ctrlLog.Named("access-log-policy"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("accesslogpolicy controller setup failed: %s", err)
+	}
+
+	err = controllers.RegisterIAMAuthPolicyController(ctrlLog.Named("iam-auth-policy"), cloud, latticeDataStore, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("iamauthpolicy controller setup failed: %s", err)
 	}
 
 	go latticestore.GetDefaultLatticeDataStore().ServeIntrospection()

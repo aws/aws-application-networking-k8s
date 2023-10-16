@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 )
 
+// TODO: Remove `enqueueRequestsForGatewayEvent`, and use `gatewayEventHandler` only
 type enqueueRequestsForGatewayEvent struct {
 	log    gwlog.Logger
 	client client.Client
@@ -118,4 +120,43 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(queue workqueue.R
 			})
 		}
 	}
+}
+
+type gatewayEventHandler struct {
+	log    gwlog.Logger
+	client client.Client
+	mapper *resourceMapper
+}
+
+func NewGatewayEventHandler(log gwlog.Logger, client client.Client) *gatewayEventHandler {
+	return &gatewayEventHandler{log: log, client: client,
+		mapper: &resourceMapper{log: log, client: client}}
+}
+
+func (h *gatewayEventHandler) MapToIAMAuthPolicies() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+		var requests []reconcile.Request
+		if gw, ok := obj.(*gateway_api.Gateway); ok {
+			policies := h.mapper.GatewayToIAMAuthPolicies(context.Background(), gw)
+			for _, p := range policies {
+				h.log.Infof("Gateway [%s/%s] resource change triggers IAMAuthPolicy [%s/%s] resource change", gw.Namespace, gw.Name, p.Namespace, p.Name)
+				requests = append(requests, reconcile.Request{NamespacedName: k8s.NamespacedName(p)})
+			}
+		}
+		return requests
+	})
+}
+
+func (h *gatewayEventHandler) MapToAccessLogPolicies() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+		var requests []reconcile.Request
+		if gw, ok := obj.(*gateway_api.Gateway); ok {
+			policies := h.mapper.GatewayToAccessLogPolicies(context.Background(), gw)
+			for _, p := range policies {
+				h.log.Infof("Gateway [%s/%s] resource change triggers AccessLogPolicy [%s/%s] resource change", gw.Namespace, gw.Name, p.Namespace, p.Name)
+				requests = append(requests, reconcile.Request{NamespacedName: k8s.NamespacedName(p)})
+			}
+		}
+		return requests
+	})
 }
