@@ -22,10 +22,7 @@ import (
 
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
@@ -42,8 +39,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	utils_policy "github.com/aws/aws-application-networking-k8s/pkg/utils/policy"
 )
 
 const (
@@ -116,7 +113,7 @@ func (r *accessLogPolicyReconciler) reconcile(ctx context.Context, req ctrl.Requ
 
 	if alp.Spec.TargetRef.Group != gwv1beta1.GroupName {
 		message := "The targetRef's Group must be " + gwv1beta1.GroupName
-		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+		err := utils_policy.UpdatePolicyStatus(ctx, r.client, alp, gwv1alpha2.PolicyReasonInvalid, message)
 		if err != nil {
 			return err
 		}
@@ -125,7 +122,7 @@ func (r *accessLogPolicyReconciler) reconcile(ctx context.Context, req ctrl.Requ
 
 	if !slices.Contains([]string{"Gateway", "HTTPRoute", "GRPCRoute"}, string(alp.Spec.TargetRef.Kind)) {
 		message := "The targetRef's Kind must be Gateway, HTTPRoute, or GRPCRoute"
-		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+		err := utils_policy.UpdatePolicyStatus(ctx, r.client, alp, gwv1alpha2.PolicyReasonInvalid, message)
 		if err != nil {
 			return err
 		}
@@ -155,13 +152,13 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
-	targetRefExists, err := r.targetRefExists(ctx, alp)
+	targetRefExists, err := utils_policy.AccessLogPolicyTargetRefExists(ctx, r.client, r.log, alp)
 	if err != nil {
 		return err
 	}
 	if !targetRefExists {
 		message := "The targetRef could not be found"
-		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
+		err := utils_policy.UpdatePolicyStatus(ctx, r.client, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
 		if err != nil {
 			return err
 		}
@@ -172,55 +169,20 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 	if err != nil {
 		if services.IsConflictError(err) {
 			message := "An Access Log Policy with a destinationArn for the same destination type already exists for this targetRef"
-			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonConflicted, message)
+			return utils_policy.UpdatePolicyStatus(ctx, r.client, alp, gwv1alpha2.PolicyReasonConflicted, message)
 		} else if services.IsInvalidError(err) {
 			message := "The AWS resource with the provided destinationArn could not be found"
-			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+			return utils_policy.UpdatePolicyStatus(ctx, r.client, alp, gwv1alpha2.PolicyReasonInvalid, message)
 		}
 		return err
 	}
 
-	err = r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonAccepted, config.LatticeGatewayControllerName)
+	err = utils_policy.UpdatePolicyStatus(ctx, r.client, alp, gwv1alpha2.PolicyReasonAccepted, config.LatticeGatewayControllerName)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) (bool, error) {
-	targetRefNamespace := alp.Namespace
-	if alp.Spec.TargetRef.Namespace != nil {
-		targetRefNamespace = string(*alp.Spec.TargetRef.Namespace)
-	}
-
-	targetRefNamespacedName := types.NamespacedName{
-		Name:      string(alp.Spec.TargetRef.Name),
-		Namespace: targetRefNamespace,
-	}
-
-	var err error
-
-	switch alp.Spec.TargetRef.Kind {
-	case "Gateway":
-		gw := &gwv1beta1.Gateway{}
-		err = r.client.Get(ctx, targetRefNamespacedName, gw)
-	case "HTTPRoute":
-		httpRoute := &gwv1beta1.HTTPRoute{}
-		err = r.client.Get(ctx, targetRefNamespacedName, httpRoute)
-	case "GRPCRoute":
-		grpcRoute := &gwv1alpha2.GRPCRoute{}
-		err = r.client.Get(ctx, targetRefNamespacedName, grpcRoute)
-	default:
-		return false, fmt.Errorf("access Log Policy targetRef is for an unsupported Kind: %s",
-			alp.Spec.TargetRef.Kind)
-	}
-
-	if err != nil && !errors.IsNotFound(err) {
-		return false, err
-	}
-
-	return err == nil, nil
 }
 
 func (r *accessLogPolicyReconciler) buildAndDeployModel(
@@ -244,33 +206,6 @@ func (r *accessLogPolicyReconciler) buildAndDeployModel(
 		return err
 	}
 	r.log.Debugf("successfully deployed model for stack %s:%s", stack.StackID().Name, stack.StackID().Namespace)
-
-	return nil
-}
-
-func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(
-	ctx context.Context,
-	alp *anv1alpha1.AccessLogPolicy,
-	reason gwv1alpha2.PolicyConditionReason,
-	message string,
-) error {
-	status := metav1.ConditionTrue
-	if reason != gwv1alpha2.PolicyReasonAccepted {
-		status = metav1.ConditionFalse
-	}
-
-	alp.Status.Conditions = utils.GetNewConditions(alp.Status.Conditions, metav1.Condition{
-		Type:               string(gwv1alpha2.PolicyConditionAccepted),
-		ObservedGeneration: alp.Generation,
-		Message:            message,
-		Status:             status,
-		Reason:             string(reason),
-	})
-
-	if err := r.client.Status().Update(ctx, alp); err != nil {
-		return fmt.Errorf("failed to set Access Log Policy Accepted status to %s and reason to %s, %w",
-			status, reason, err)
-	}
 
 	return nil
 }
