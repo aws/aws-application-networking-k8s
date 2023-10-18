@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -17,16 +18,17 @@ import (
 
 type AccessLogSubscriptionManager interface {
 	Create(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) (*lattice.AccessLogSubscriptionStatus, error)
+	Delete(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) error
 }
 
 type defaultAccessLogSubscriptionManager struct {
 	log   gwlog.Logger
-	cloud aws.Cloud
+	cloud an_aws.Cloud
 }
 
 func NewAccessLogSubscriptionManager(
 	log gwlog.Logger,
-	cloud aws.Cloud,
+	cloud an_aws.Cloud,
 ) *defaultAccessLogSubscriptionManager {
 	return &defaultAccessLogSubscriptionManager{
 		log:   log,
@@ -59,17 +61,19 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 		return nil, fmt.Errorf("unsupported source type: %s", accessLogSubscription.Spec.SourceType)
 	}
 
+	tags := m.cloud.DefaultTagsMergedWith(services.Tags{
+		lattice.AccessLogPolicyTagKey: aws.String(accessLogSubscription.Spec.ALPNamespacedName.String()),
+	})
+
 	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
 		ResourceIdentifier: &resourceIdentifier,
 		DestinationArn:     &accessLogSubscription.Spec.DestinationArn,
-		Tags:               m.cloud.DefaultTags(),
+		Tags:               tags,
 	}
 
 	createALSOutput, err := vpcLatticeSess.CreateAccessLogSubscriptionWithContext(ctx, createALSInput)
 	if err != nil {
 		switch e := err.(type) {
-		case *vpclattice.ConflictException:
-			return nil, services.NewConflictError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName, e.Message())
 		case *vpclattice.AccessDeniedException:
 			return nil, services.NewInvalidError(e.Message())
 		case *vpclattice.ResourceNotFoundException:
@@ -77,6 +81,41 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 				return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
 			}
 			return nil, services.NewInvalidError(e.Message())
+		case *vpclattice.ConflictException:
+			/*
+			 * Conflict may arise if we retry creation due to a failure elsewhere in the controller,
+			 * so we check if the conflicting ALS was created for the same ALP via its tags.
+			 * If it is the same ALP, return success. Else, return ConflictError.
+			 */
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: &resourceIdentifier,
+			}
+			listALSOutput, err := vpcLatticeSess.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			if err != nil {
+				return nil, err
+			}
+			for _, als := range listALSOutput.Items {
+				if *als.DestinationArn == accessLogSubscription.Spec.DestinationArn {
+					listTagsInput := &vpclattice.ListTagsForResourceInput{
+						ResourceArn: als.Arn,
+					}
+					listTagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, listTagsInput)
+					if err != nil {
+						return nil, err
+					}
+					value, exists := listTagsOutput.Tags[lattice.AccessLogPolicyTagKey]
+					if exists && *value == accessLogSubscription.Spec.ALPNamespacedName.String() {
+						return &lattice.AccessLogSubscriptionStatus{
+							Arn: *als.Arn,
+						}, nil
+					}
+				}
+			}
+			return nil, services.NewConflictError(
+				string(accessLogSubscription.Spec.SourceType),
+				accessLogSubscription.Spec.SourceName,
+				e.Message(),
+			)
 		default:
 			return nil, err
 		}
@@ -84,6 +123,22 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 
 	return &lattice.AccessLogSubscriptionStatus{
 		Arn: *createALSOutput.Arn,
-		Id:  *createALSOutput.Id,
 	}, nil
+}
+
+func (m *defaultAccessLogSubscriptionManager) Delete(
+	ctx context.Context,
+	accessLogSubscription *lattice.AccessLogSubscription,
+) error {
+	vpcLatticeSess := m.cloud.Lattice()
+	deleteALSInput := &vpclattice.DeleteAccessLogSubscriptionInput{
+		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscription.Status.Arn),
+	}
+	_, err := vpcLatticeSess.DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput)
+	if err != nil {
+		if _, ok := err.(*vpclattice.ResourceNotFoundException); !ok {
+			return err
+		}
+	}
+	return nil
 }

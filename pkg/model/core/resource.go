@@ -44,3 +44,11 @@ func (m *ResourceMeta) ID() string {
 type ResourceVisitor interface {
 	Visit(res Resource) error
 }
+
+type EventType string
+
+const (
+	CreateEvent EventType = "Create"
+	UpdateEvent EventType = "Update"
+	DeleteEvent EventType = "Delete"
+)

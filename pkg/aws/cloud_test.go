@@ -4,10 +4,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 )
 
 func TestGetManagedByTag(t *testing.T) {
@@ -78,5 +80,52 @@ func TestIsArnManaged(t *testing.T) {
 		managed, err := cl.IsArnManaged("arn")
 		assert.Nil(t, err)
 		assert.False(t, managed)
+	})
+}
+
+func Test_DefaultTagsMergedWith(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := services.NewMockLattice(c)
+	cfg := CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+	cloud := NewDefaultCloud(mockLattice, cfg)
+
+	t.Run("Given non-overlapping tags, returns default tags merged with new tags", func(t *testing.T) {
+		input := services.Tags{
+			"Key1": aws.String("Value1"),
+			"Key2": aws.String("Value2"),
+			"Key3": aws.String("Value3"),
+		}
+		expected := cloud.DefaultTags()
+		expected["Key1"] = aws.String("Value1")
+		expected["Key2"] = aws.String("Value2")
+		expected["Key3"] = aws.String("Value3")
+		actual := cloud.DefaultTagsMergedWith(input)
+		assert.Equal(t, expected, actual)
+	})
+
+	t.Run("Given overlapping tags, returns default tags overwritten by new tags", func(t *testing.T) {
+		input := services.Tags{}
+		expected := cloud.DefaultTags()
+		for k, _ := range expected {
+			input[k] = aws.String("TestValue")
+			expected[k] = aws.String("TestValue")
+		}
+		actual := cloud.DefaultTagsMergedWith(input)
+		assert.Equal(t, expected, actual)
+	})
+
+	t.Run("Given empty tags, returns only default tags", func(t *testing.T) {
+		input := services.Tags{}
+		expected := cloud.DefaultTags()
+		actual := cloud.DefaultTagsMergedWith(input)
+		assert.Equal(t, expected, actual)
+	})
+
+	t.Run("Given nil tags, returns only default tags", func(t *testing.T) {
+		expected := cloud.DefaultTags()
+		actual := cloud.DefaultTagsMergedWith(nil)
+		assert.Equal(t, expected, actual)
 	})
 }

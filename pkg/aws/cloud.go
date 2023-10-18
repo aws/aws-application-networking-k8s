@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"golang.org/x/exp/maps"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -31,6 +32,9 @@ type Cloud interface {
 
 	// creates lattice tags with default values populated
 	DefaultTags() services.Tags
+
+	// creates lattice tags with default values populated and merges them with provided tags
+	DefaultTagsMergedWith(services.Tags) services.Tags
 
 	// check if tags map has managedBy tag
 	ContainsManagedBy(tags services.Tags) bool
@@ -95,6 +99,12 @@ func (c *defaultCloud) DefaultTags() services.Tags {
 	tags := services.Tags{}
 	tags[TagManagedBy] = &c.managedByTag
 	return tags
+}
+
+func (c *defaultCloud) DefaultTagsMergedWith(tags services.Tags) services.Tags {
+	newTags := c.DefaultTags()
+	maps.Copy(newTags, tags)
+	return newTags
 }
 
 func (c *defaultCloud) ContainsManagedBy(tags services.Tags) bool {

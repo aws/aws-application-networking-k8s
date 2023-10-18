@@ -110,7 +110,7 @@ type Framework struct {
 	LatticeClient           services.Lattice
 	Ec2Client               *ec2.EC2
 	GrpcurlRunner           *v1.Pod
-	DefaultTags             services.Tags
+	Cloud                   an_aws.Cloud
 }
 
 func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *Framework {
@@ -133,7 +133,7 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 		k8sScheme:               testScheme,
 		namespace:               testNamespace,
 		controllerRuntimeConfig: controllerRuntimeConfig,
-		DefaultTags:             an_aws.NewDefaultCloud(nil, cloudConfig).DefaultTags(),
+		Cloud:                   an_aws.NewDefaultCloud(nil, cloudConfig),
 	}
 	SetDefaultEventuallyTimeout(3 * time.Minute)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
