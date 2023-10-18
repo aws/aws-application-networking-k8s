@@ -92,6 +92,30 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
+	t.Run("SpecIsDeletedButAnnotationIsMissing_IgnoresAccessLogSubscription", func(t *testing.T) {
+		input := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations:       map[string]string{},
+				DeletionTimestamp: &metav1.Time{},
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(s3DestinationArn),
+				TargetRef: &v1alpha2.PolicyTargetReference{
+					Kind: "Gateway",
+					Name: "TestName",
+				},
+			},
+		}
+
+		stack, _, _ := builder.Build(context.Background(), input)
+
+		mockManager.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).Times(0)
+
+		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
+		err := synthesizer.Synthesize(ctx)
+		assert.Nil(t, err)
+	})
+
 	t.Run("SpecIsDeletedButErrorOccurs_ReturnsError", func(t *testing.T) {
 		input := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
