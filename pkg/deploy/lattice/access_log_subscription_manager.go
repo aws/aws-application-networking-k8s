@@ -61,8 +61,9 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 		return nil, fmt.Errorf("unsupported source type: %s", accessLogSubscription.Spec.SourceType)
 	}
 
-	tags := m.cloud.DefaultTags()
-	tags[lattice.AccessLogPolicyTagKey] = aws.String(accessLogSubscription.Spec.ALPNamespacedName.String())
+	tags := m.cloud.DefaultTagsMergedWith(services.Tags{
+		lattice.AccessLogPolicyTagKey: aws.String(accessLogSubscription.Spec.ALPNamespacedName.String()),
+	})
 
 	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
 		ResourceIdentifier: &resourceIdentifier,

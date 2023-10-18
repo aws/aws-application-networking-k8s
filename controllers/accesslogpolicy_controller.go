@@ -187,7 +187,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
-	err = r.updateAccessLogPolicyAnnotations(ctx, alp, *stack)
+	err = r.updateAccessLogPolicyAnnotations(ctx, alp, stack)
 	if err != nil {
 		return err
 	}
@@ -238,7 +238,7 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 func (r *accessLogPolicyReconciler) buildAndDeployModel(
 	ctx context.Context,
 	alp *anv1alpha1.AccessLogPolicy,
-) (*core.Stack, error) {
+) (core.Stack, error) {
 	stack, _, err := r.modelBuilder.Build(ctx, alp)
 	if err != nil {
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.AccessLogPolicyEventReasonFailedBuildModel,
@@ -257,7 +257,7 @@ func (r *accessLogPolicyReconciler) buildAndDeployModel(
 	}
 	r.log.Debugf("successfully deployed model for stack %s:%s", stack.StackID().Name, stack.StackID().Namespace)
 
-	return &stack, nil
+	return stack, nil
 }
 
 func (r *accessLogPolicyReconciler) updateAccessLogPolicyAnnotations(

@@ -23,6 +23,7 @@ import (
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -208,8 +209,9 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
 
 			// Access Log Subscription should have default tags and Access Log Policy tag applied
-			expectedTags := testFramework.CopyDefaultTags()
-			expectedTags[lattice.AccessLogPolicyTagKey] = aws.String(alpNamespacedName.String())
+			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
+				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+			})
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
@@ -267,8 +269,9 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
 
 			// Access Log Subscription should have default tags and Access Log Policy tag applied
-			expectedTags := testFramework.CopyDefaultTags()
-			expectedTags[lattice.AccessLogPolicyTagKey] = aws.String(alpNamespacedName.String())
+			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
+				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+			})
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
@@ -326,8 +329,9 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
 
 			// Access Log Subscription should have default tags and Access Log Policy tag applied
-			expectedTags := testFramework.CopyDefaultTags()
-			expectedTags[lattice.AccessLogPolicyTagKey] = aws.String(alpNamespacedName.String())
+			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
+				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+			})
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
@@ -613,7 +617,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectDeleted(ctx, accessLogPolicy)
 
 		// Wait a moment for eventual consistency
-		time.Sleep(1)
+		time.Sleep(1 * time.Second)
 
 		Eventually(func(g Gomega) {
 			// Service Network should no longer have an Access Log Subscription
@@ -657,7 +661,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectDeleted(ctx, accessLogPolicy)
 
 		// Wait a moment for eventual consistency
-		time.Sleep(1)
+		time.Sleep(1 * time.Second)
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should no longer have an Access Log Subscription
@@ -701,7 +705,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectDeleted(ctx, accessLogPolicy)
 
 		// Wait a moment for eventual consistency
-		time.Sleep(1)
+		time.Sleep(1 * time.Second)
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should no longer have an Access Log Subscription

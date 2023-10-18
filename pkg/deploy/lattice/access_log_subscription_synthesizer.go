@@ -45,9 +45,8 @@ func (s *accessLogSubscriptionSynthesizer) Synthesize(ctx context.Context) error
 			alsStatus, err := s.accessLogSubscriptionManager.Create(ctx, als)
 			if err != nil {
 				return err
-			} else {
-				als.Status = alsStatus
 			}
+			als.Status = alsStatus
 		case core.UpdateEvent:
 			s.log.Debugf("Started updating Access Log Subscription %s", als.ID())
 			// TODO

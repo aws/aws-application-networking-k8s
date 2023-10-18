@@ -38,23 +38,13 @@ type AccessLogSubscriptionStatus struct {
 
 func NewAccessLogSubscription(
 	stack core.Stack,
-	sourceType SourceType,
-	sourceName string,
-	destinationArn string,
-	alpNamespacedName types.NamespacedName,
-	eventType core.EventType,
+	spec AccessLogSubscriptionSpec,
 	status *AccessLogSubscriptionStatus,
 ) *AccessLogSubscription {
-	id := fmt.Sprintf("%s-%s-%s", sourceType, sourceName, destinationArn)
+	id := fmt.Sprintf("%s-%s-%s", spec.SourceType, spec.SourceName, spec.DestinationArn)
 	return &AccessLogSubscription{
 		ResourceMeta: core.NewResourceMeta(stack, "AWS::VPCServiceNetwork::AccessLogSubscription", id),
-		Spec: AccessLogSubscriptionSpec{
-			SourceType:        sourceType,
-			SourceName:        sourceName,
-			DestinationArn:    destinationArn,
-			ALPNamespacedName: alpNamespacedName,
-			EventType:         eventType,
-		},
-		Status: status,
+		Spec:         spec,
+		Status:       status,
 	}
 }

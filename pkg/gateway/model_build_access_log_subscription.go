@@ -89,8 +89,14 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 		}
 	}
 
-	t.accessLogSubscription = model.NewAccessLogSubscription(
-		t.stack, sourceType, sourceName, *destinationArn, t.accessLogPolicy.GetNamespacedName(), eventType, status)
+	alsSpec := model.AccessLogSubscriptionSpec{
+		SourceType:        sourceType,
+		SourceName:        sourceName,
+		DestinationArn:    *destinationArn,
+		ALPNamespacedName: t.accessLogPolicy.GetNamespacedName(),
+		EventType:         eventType,
+	}
+	t.accessLogSubscription = model.NewAccessLogSubscription(t.stack, alsSpec, status)
 	err = t.stack.AddResource(t.accessLogSubscription)
 	if err != nil {
 		return err
