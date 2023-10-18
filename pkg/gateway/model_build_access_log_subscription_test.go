@@ -222,6 +222,9 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 					Namespace:         namespace,
 					Name:              name,
 					DeletionTimestamp: &apimachineryv1.Time{},
+					Annotations: map[string]string{
+						anv1alpha1.AccessLogSubscriptionAnnotationKey: "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567",
+					},
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
@@ -276,6 +279,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		fmt.Printf("Testing: %s\n", tt.description)
 		_, als, err := modelBuilder.Build(ctx, tt.input)
 		if tt.onlyCompareSpecs {
 			assert.Equal(t, tt.expectedOutput.Spec, als.Spec, tt.description)

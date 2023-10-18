@@ -82,10 +82,12 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 	var status *model.AccessLogSubscriptionStatus
 	if eventType != core.CreateEvent {
 		value, exists := t.accessLogPolicy.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
-		if exists {
-			status = &model.AccessLogSubscriptionStatus{
-				Arn: value,
-			}
+		if !exists {
+			return fmt.Errorf("access log policy is missing %s annotation during %s event",
+				anv1alpha1.AccessLogSubscriptionAnnotationKey, eventType)
+		}
+		status = &model.AccessLogSubscriptionStatus{
+			Arn: value,
 		}
 	}
 

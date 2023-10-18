@@ -40,8 +40,9 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := services.NewMockLattice(c)
 	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-	expectedTags := cloud.DefaultTags()
-	expectedTags[lattice.AccessLogPolicyTagKey] = aws.String(accessLogPolicyNamespacedName.String())
+	expectedTags := cloud.DefaultTagsMergedWith(services.Tags{
+		lattice.AccessLogPolicyTagKey: aws.String(accessLogPolicyNamespacedName.String()),
+	})
 
 	t.Run("Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{

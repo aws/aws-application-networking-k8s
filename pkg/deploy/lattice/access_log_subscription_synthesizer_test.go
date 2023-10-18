@@ -19,24 +19,14 @@ import (
 )
 
 func TestSynthesizeAccessLogSubscription(t *testing.T) {
-	setup := func() (
-		context.Context,
-		*gomock.Controller,
-		*MockAccessLogSubscriptionManager,
-		*mockclient.MockClient,
-		gateway.AccessLogSubscriptionModelBuilder,
-	) {
-		ctx := context.TODO()
-		c := gomock.NewController(t)
-		mockManager := NewMockAccessLogSubscriptionManager(c)
-		k8sClient := mockclient.NewMockClient(c)
-		builder := gateway.NewAccessLogSubscriptionModelBuilder(gwlog.FallbackLogger, k8sClient)
-		return ctx, c, mockManager, k8sClient, builder
-	}
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockManager := NewMockAccessLogSubscriptionManager(c)
+	k8sClient := mockclient.NewMockClient(c)
+	builder := gateway.NewAccessLogSubscriptionModelBuilder(gwlog.FallbackLogger, k8sClient)
 
 	t.Run("SpecIsNotDeleted_CreatesAccessLogSubscription", func(t *testing.T) {
-		ctx, c, mockManager, k8sClient, builder := setup()
-		defer c.Finish()
 		input := &anv1alpha1.AccessLogPolicy{
 			Spec: anv1alpha1.AccessLogPolicySpec{
 				DestinationArn: aws.String(s3DestinationArn),
@@ -49,8 +39,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 
 		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
 
-		k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(&lattice.AccessLogSubscriptionStatus{}, nil).AnyTimes()
+		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(&lattice.AccessLogSubscriptionStatus{}, nil).Times(1)
 
 		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
 		err := synthesizer.Synthesize(ctx)
@@ -58,8 +47,6 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 	})
 
 	t.Run("SpecIsNotDeletedButErrorOccurs_ReturnsError", func(t *testing.T) {
-		ctx, c, mockManager, k8sClient, builder := setup()
-		defer c.Finish()
 		input := &anv1alpha1.AccessLogPolicy{
 			Spec: anv1alpha1.AccessLogPolicySpec{
 				DestinationArn: aws.String(s3DestinationArn),
@@ -72,8 +59,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 
 		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
 
-		k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(nil, errors.New("mock error")).AnyTimes()
+		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(nil, errors.New("mock error")).Times(1)
 
 		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
 		err := synthesizer.Synthesize(ctx)
@@ -81,8 +67,6 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 	})
 
 	t.Run("SpecIsDeleted_DeletesAccessLogSubscription", func(t *testing.T) {
-		ctx, c, mockManager, k8sClient, builder := setup()
-		defer c.Finish()
 		input := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
@@ -101,8 +85,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 
 		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
 
-		k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(nil).AnyTimes()
+		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(nil).Times(1)
 
 		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
 		err := synthesizer.Synthesize(ctx)
@@ -110,8 +93,6 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 	})
 
 	t.Run("SpecIsDeletedButErrorOccurs_ReturnsError", func(t *testing.T) {
-		ctx, c, mockManager, k8sClient, builder := setup()
-		defer c.Finish()
 		input := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
@@ -130,8 +111,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 
 		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
 
-		k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(errors.New("mock error")).AnyTimes()
+		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(errors.New("mock error")).Times(1)
 
 		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
 		err := synthesizer.Synthesize(ctx)
