@@ -49,8 +49,11 @@ func (s *accessLogSubscriptionSynthesizer) Synthesize(ctx context.Context) error
 			als.Status = alsStatus
 		case core.UpdateEvent:
 			s.log.Debugf("Started updating Access Log Subscription %s", als.ID())
-			// TODO
-			return nil
+			alsStatus, err := s.accessLogSubscriptionManager.Update(ctx, als)
+			if err != nil {
+				return err
+			}
+			als.Status = alsStatus
 		case core.DeleteEvent:
 			s.log.Debugf("Started deleting Access Log Subscription %s", als.ID())
 			if als.Status == nil {

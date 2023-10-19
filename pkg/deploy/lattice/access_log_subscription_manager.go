@@ -18,6 +18,7 @@ import (
 
 type AccessLogSubscriptionManager interface {
 	Create(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) (*lattice.AccessLogSubscriptionStatus, error)
+	Update(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) (*lattice.AccessLogSubscriptionStatus, error)
 	Delete(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) error
 }
 
@@ -72,58 +73,101 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 	}
 
 	createALSOutput, err := vpcLatticeSess.CreateAccessLogSubscriptionWithContext(ctx, createALSInput)
-	if err != nil {
-		switch e := err.(type) {
-		case *vpclattice.AccessDeniedException:
-			return nil, services.NewInvalidError(e.Message())
-		case *vpclattice.ResourceNotFoundException:
-			if *e.ResourceType == "SERVICE_NETWORK" || *e.ResourceType == "SERVICE" {
-				return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
-			}
-			return nil, services.NewInvalidError(e.Message())
-		case *vpclattice.ConflictException:
-			/*
-			 * Conflict may arise if we retry creation due to a failure elsewhere in the controller,
-			 * so we check if the conflicting ALS was created for the same ALP via its tags.
-			 * If it is the same ALP, return success. Else, return ConflictError.
-			 */
-			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
-				ResourceIdentifier: &resourceIdentifier,
-			}
-			listALSOutput, err := vpcLatticeSess.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
-			if err != nil {
-				return nil, err
-			}
-			for _, als := range listALSOutput.Items {
-				if *als.DestinationArn == accessLogSubscription.Spec.DestinationArn {
-					listTagsInput := &vpclattice.ListTagsForResourceInput{
-						ResourceArn: als.Arn,
-					}
-					listTagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, listTagsInput)
-					if err != nil {
-						return nil, err
-					}
-					value, exists := listTagsOutput.Tags[lattice.AccessLogPolicyTagKey]
-					if exists && *value == accessLogSubscription.Spec.ALPNamespacedName.String() {
-						return &lattice.AccessLogSubscriptionStatus{
-							Arn: *als.Arn,
-						}, nil
-					}
-				}
-			}
-			return nil, services.NewConflictError(
-				string(accessLogSubscription.Spec.SourceType),
-				accessLogSubscription.Spec.SourceName,
-				e.Message(),
-			)
-		default:
-			return nil, err
-		}
+	if err == nil {
+		return &lattice.AccessLogSubscriptionStatus{
+			Arn: *createALSOutput.Arn,
+		}, nil
 	}
 
-	return &lattice.AccessLogSubscriptionStatus{
-		Arn: *createALSOutput.Arn,
-	}, nil
+	switch e := err.(type) {
+	case *vpclattice.AccessDeniedException:
+		return nil, services.NewInvalidError(e.Message())
+	case *vpclattice.ResourceNotFoundException:
+		if *e.ResourceType == "SERVICE_NETWORK" || *e.ResourceType == "SERVICE" {
+			return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
+		}
+		return nil, services.NewInvalidError(e.Message())
+	case *vpclattice.ConflictException:
+		/*
+		 * Conflict may arise if we retry creation due to a failure elsewhere in the controller,
+		 * so we check if the conflicting ALS was created for the same ALP via its tags.
+		 * If it is the same ALP, return success. Else, return ConflictError.
+		 */
+		listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+			ResourceIdentifier: &resourceIdentifier,
+		}
+		listALSOutput, err := vpcLatticeSess.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+		if err != nil {
+			return nil, err
+		}
+		for _, als := range listALSOutput.Items {
+			if *als.DestinationArn == accessLogSubscription.Spec.DestinationArn {
+				listTagsInput := &vpclattice.ListTagsForResourceInput{
+					ResourceArn: als.Arn,
+				}
+				listTagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, listTagsInput)
+				if err != nil {
+					return nil, err
+				}
+				value, exists := listTagsOutput.Tags[lattice.AccessLogPolicyTagKey]
+				if exists && *value == accessLogSubscription.Spec.ALPNamespacedName.String() {
+					return &lattice.AccessLogSubscriptionStatus{
+						Arn: *als.Arn,
+					}, nil
+				}
+			}
+		}
+		return nil, services.NewConflictError(
+			string(accessLogSubscription.Spec.SourceType),
+			accessLogSubscription.Spec.SourceName,
+			e.Message(),
+		)
+	default:
+		return nil, err
+	}
+}
+
+func (m *defaultAccessLogSubscriptionManager) Update(
+	ctx context.Context,
+	accessLogSubscription *lattice.AccessLogSubscription,
+) (*lattice.AccessLogSubscriptionStatus, error) {
+	vpcLatticeSess := m.cloud.Lattice()
+	updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
+		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscription.Status.Arn),
+		DestinationArn:                  aws.String(accessLogSubscription.Spec.DestinationArn),
+	}
+	updateALSOutput, err := vpcLatticeSess.UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput)
+	if err == nil {
+		return &lattice.AccessLogSubscriptionStatus{
+			Arn: *updateALSOutput.Arn,
+		}, nil
+	}
+
+	switch e := err.(type) {
+	case *vpclattice.AccessDeniedException:
+		return nil, services.NewInvalidError(e.Message())
+	case *vpclattice.ResourceNotFoundException:
+		if *e.ResourceType == "SERVICE_NETWORK" || *e.ResourceType == "SERVICE" {
+			return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
+		}
+		return nil, services.NewInvalidError(e.Message())
+	case *vpclattice.ConflictException:
+		/*
+		 * A conflict can happen when the destination type of the new ALS is different from the original.
+		 * To gracefully handle this, we create a new ALS with the new destination, then delete the old one.
+		 */
+		alsStatus, err := m.Create(ctx, accessLogSubscription)
+		if err != nil {
+			return nil, err
+		}
+		err = m.Delete(ctx, accessLogSubscription)
+		if err != nil {
+			return nil, err
+		}
+		return alsStatus, nil
+	default:
+		return nil, err
+	}
 }
 
 func (m *defaultAccessLogSubscriptionManager) Delete(

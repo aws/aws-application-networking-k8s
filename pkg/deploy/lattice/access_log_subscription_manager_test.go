@@ -26,7 +26,6 @@ const (
 	cloudWatchDestinationArn = "arn:aws:logs:us-west-2:123456789012:log-group:test:*"
 	firehoseDestinationArn   = "arn:aws:firehose:us-west-2:123456789012:deliverystream/test"
 	accessLogSubscriptionArn = "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567"
-	accessLogSubscriptionId  = "als-12345678901234567"
 )
 
 var accessLogPolicyNamespacedName = types.NamespacedName{
@@ -44,7 +43,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		lattice.AccessLogPolicyTagKey: aws.String(accessLogPolicyNamespacedName.String()),
 	})
 
-	t.Run("Create_NewAccessLogSubscriptionForServiceNetwork_ReturnsSuccess", func(t *testing.T) {
+	t.Run("Create_NewALSForServiceNetwork_ReturnsNewALSStatus", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceNetworkSourceType,
@@ -67,7 +66,6 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		}
 		createALSOutput := &vpclattice.CreateAccessLogSubscriptionOutput{
 			Arn: aws.String(accessLogSubscriptionArn),
-			Id:  aws.String(accessLogSubscriptionId),
 		}
 
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
@@ -79,7 +77,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.Equal(t, accessLogSubscriptionArn, resp.Arn)
 	})
 
-	t.Run("Create_NewAccessLogSubscriptionForService_ReturnsSuccess", func(t *testing.T) {
+	t.Run("Create_NewALSForService_ReturnsNewALSStatus", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceSourceType,
@@ -101,7 +99,6 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		}
 		createALSOutput := &vpclattice.CreateAccessLogSubscriptionOutput{
 			Arn: aws.String(accessLogSubscriptionArn),
-			Id:  aws.String(accessLogSubscriptionId),
 		}
 
 		mockLattice.EXPECT().FindService(ctx, serviceNameProvider).Return(findServiceOutput, nil)
@@ -113,7 +110,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.Equal(t, accessLogSubscriptionArn, resp.Arn)
 	})
 
-	t.Run("Create_NewAccessLogSubscriptionForDeletedServiceNetwork_ReturnsNotFoundError", func(t *testing.T) {
+	t.Run("Create_NewALSForDeletedServiceNetwork_ReturnsNotFoundError", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceNetworkSourceType,
@@ -148,7 +145,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.True(t, services.IsNotFoundError(err))
 	})
 
-	t.Run("Create_NewAccessLogSubscriptionForDeletedService_ReturnsNotFoundError", func(t *testing.T) {
+	t.Run("Create_NewALSForDeletedService_ReturnsNotFoundError", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceSourceType,
@@ -182,7 +179,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.True(t, services.IsNotFoundError(err))
 	})
 
-	t.Run("Create_NewAccessLogSubscriptionForMissingS3Destination_ReturnsInvalidError", func(t *testing.T) {
+	t.Run("Create_NewALSForMissingS3Destination_ReturnsInvalidError", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceNetworkSourceType,
@@ -217,7 +214,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.True(t, services.IsInvalidError(err))
 	})
 
-	t.Run("Create_NewAccessLogSubscriptionForMissingCloudWatchDestination_ReturnsInvalidError", func(t *testing.T) {
+	t.Run("Create_NewALSForMissingCloudWatchDestination_ReturnsInvalidError", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceNetworkSourceType,
@@ -252,7 +249,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.True(t, services.IsInvalidError(err))
 	})
 
-	t.Run("Create_NewAccessLogSubscriptionForMissingFirehoseDestination_ReturnsInvalidError", func(t *testing.T) {
+	t.Run("Create_NewALSForMissingFirehoseDestination_ReturnsInvalidError", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceNetworkSourceType,
@@ -287,7 +284,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.True(t, services.IsInvalidError(err))
 	})
 
-	t.Run("Create_ConflictingAccessLogSubscriptionForSameResourceFromDifferentPolicy_ReturnsConflictError", func(t *testing.T) {
+	t.Run("Create_ConflictingALSForSameResourceFromDifferentPolicy_ReturnsConflictError", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceNetworkSourceType,
@@ -342,7 +339,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.True(t, services.IsConflictError(err))
 	})
 
-	t.Run("Create_ConflictingAccessLogSubscriptionForSameResourceFromSamePolicy_ReturnsSuccess", func(t *testing.T) {
+	t.Run("Create_ConflictingALSForSameResourceFromSamePolicy_ReturnsNewALSStatus", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceNetworkSourceType,
@@ -438,6 +435,200 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.True(t, services.IsNotFoundError(err))
 	})
 
+	t.Run("Update_ALSWithSameDestinationType_UpdatesALSAndReturnsSuccess", func(t *testing.T) {
+		accessLogSubscription := &lattice.AccessLogSubscription{
+			Spec: lattice.AccessLogSubscriptionSpec{
+				SourceType:        lattice.ServiceNetworkSourceType,
+				SourceName:        sourceName,
+				DestinationArn:    s3DestinationArn,
+				ALPNamespacedName: accessLogPolicyNamespacedName,
+				EventType:         core.UpdateEvent,
+			},
+			Status: &lattice.AccessLogSubscriptionStatus{
+				Arn: accessLogSubscriptionArn,
+			},
+		}
+		updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
+			AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+			DestinationArn:                  aws.String(s3DestinationArn),
+		}
+		updateALSOutput := &vpclattice.UpdateAccessLogSubscriptionOutput{
+			Arn: aws.String(accessLogSubscriptionArn),
+		}
+
+		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
+
+		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+		resp, err := mgr.Update(ctx, accessLogSubscription)
+		assert.Nil(t, err)
+		assert.Equal(t, accessLogSubscriptionArn, resp.Arn)
+	})
+
+	t.Run("Update_ALSWithDifferentDestinationType_CreatesNewALSThenDeletesOldALSAndReturnsNewALSStatus", func(t *testing.T) {
+		newAccessLogSubscriptionArn := accessLogSubscriptionArn + "new"
+		accessLogSubscription := &lattice.AccessLogSubscription{
+			Spec: lattice.AccessLogSubscriptionSpec{
+				SourceType:        lattice.ServiceNetworkSourceType,
+				SourceName:        sourceName,
+				DestinationArn:    s3DestinationArn,
+				ALPNamespacedName: accessLogPolicyNamespacedName,
+				EventType:         core.UpdateEvent,
+			},
+			Status: &lattice.AccessLogSubscriptionStatus{
+				Arn: accessLogSubscriptionArn,
+			},
+		}
+		updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
+			AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+			DestinationArn:                  aws.String(s3DestinationArn),
+		}
+		updateALSErr := &vpclattice.ConflictException{
+			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
+		}
+		serviceNetworkInfo := &services.ServiceNetworkInfo{
+			SvcNetwork: vpclattice.ServiceNetworkSummary{
+				Arn:  aws.String(serviceNetworkArn),
+				Name: aws.String(sourceName),
+			},
+		}
+		createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
+			ResourceIdentifier: aws.String(serviceNetworkArn),
+			DestinationArn:     aws.String(s3DestinationArn),
+			Tags:               expectedTags,
+		}
+		createALSOutput := &vpclattice.CreateAccessLogSubscriptionOutput{
+			Arn: aws.String(newAccessLogSubscriptionArn),
+		}
+		deleteALSInput := &vpclattice.DeleteAccessLogSubscriptionInput{
+			AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+		}
+		deleteALSOutput := &vpclattice.DeleteAccessLogSubscriptionOutput{}
+
+		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSErr)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(createALSOutput, nil)
+		mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(deleteALSOutput, nil)
+
+		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+		resp, err := mgr.Update(ctx, accessLogSubscription)
+		assert.Nil(t, err)
+		assert.Equal(t, newAccessLogSubscriptionArn, resp.Arn)
+	})
+
+	t.Run("Update_ALSDoesNotExist_ReturnsInvalidError", func(t *testing.T) {
+		accessLogSubscription := &lattice.AccessLogSubscription{
+			Spec: lattice.AccessLogSubscriptionSpec{
+				SourceType:        lattice.ServiceNetworkSourceType,
+				SourceName:        sourceName,
+				DestinationArn:    s3DestinationArn,
+				ALPNamespacedName: accessLogPolicyNamespacedName,
+				EventType:         core.UpdateEvent,
+			},
+			Status: &lattice.AccessLogSubscriptionStatus{
+				Arn: accessLogSubscriptionArn,
+			},
+		}
+		updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
+			AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+			DestinationArn:                  aws.String(s3DestinationArn),
+		}
+		updateALSError := &vpclattice.ResourceNotFoundException{
+			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
+		}
+
+		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
+
+		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+		resp, err := mgr.Update(ctx, accessLogSubscription)
+		assert.Nil(t, resp)
+		assert.True(t, services.IsInvalidError(err))
+	})
+
+	t.Run("Update_AccessDeniedExceptionReceived_ReturnsInvalidError", func(t *testing.T) {
+		accessLogSubscription := &lattice.AccessLogSubscription{
+			Spec: lattice.AccessLogSubscriptionSpec{
+				SourceType:        lattice.ServiceNetworkSourceType,
+				SourceName:        sourceName,
+				DestinationArn:    s3DestinationArn,
+				ALPNamespacedName: accessLogPolicyNamespacedName,
+				EventType:         core.UpdateEvent,
+			},
+			Status: &lattice.AccessLogSubscriptionStatus{
+				Arn: accessLogSubscriptionArn,
+			},
+		}
+		updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
+			AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+			DestinationArn:                  aws.String(s3DestinationArn),
+		}
+		updateALSError := &vpclattice.AccessDeniedException{}
+
+		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
+
+		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+		resp, err := mgr.Update(ctx, accessLogSubscription)
+		assert.Nil(t, resp)
+		assert.True(t, services.IsInvalidError(err))
+	})
+
+	t.Run("Update_ServiceNetworkDoesNotExist_ReturnsNotFoundError", func(t *testing.T) {
+		accessLogSubscription := &lattice.AccessLogSubscription{
+			Spec: lattice.AccessLogSubscriptionSpec{
+				SourceType:        lattice.ServiceNetworkSourceType,
+				SourceName:        sourceName,
+				DestinationArn:    s3DestinationArn,
+				ALPNamespacedName: accessLogPolicyNamespacedName,
+				EventType:         core.UpdateEvent,
+			},
+			Status: &lattice.AccessLogSubscriptionStatus{
+				Arn: accessLogSubscriptionArn,
+			},
+		}
+		updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
+			AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+			DestinationArn:                  aws.String(s3DestinationArn),
+		}
+		updateALSError := &vpclattice.ResourceNotFoundException{
+			ResourceType: aws.String("SERVICE_NETWORK"),
+		}
+
+		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
+
+		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+		resp, err := mgr.Update(ctx, accessLogSubscription)
+		assert.Nil(t, resp)
+		assert.True(t, services.IsNotFoundError(err))
+	})
+
+	t.Run("Update_ServiceDoesNotExist_ReturnsNotFoundError", func(t *testing.T) {
+		accessLogSubscription := &lattice.AccessLogSubscription{
+			Spec: lattice.AccessLogSubscriptionSpec{
+				SourceType:        lattice.ServiceNetworkSourceType,
+				SourceName:        sourceName,
+				DestinationArn:    s3DestinationArn,
+				ALPNamespacedName: accessLogPolicyNamespacedName,
+				EventType:         core.UpdateEvent,
+			},
+			Status: &lattice.AccessLogSubscriptionStatus{
+				Arn: accessLogSubscriptionArn,
+			},
+		}
+		updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
+			AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+			DestinationArn:                  aws.String(s3DestinationArn),
+		}
+		updateALSError := &vpclattice.ResourceNotFoundException{
+			ResourceType: aws.String("SERVICE"),
+		}
+
+		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
+
+		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+		resp, err := mgr.Update(ctx, accessLogSubscription)
+		assert.Nil(t, resp)
+		assert.True(t, services.IsNotFoundError(err))
+	})
+
 	t.Run("Test_Delete_AccessLogSubscriptionExists_ReturnsSuccess", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
@@ -463,7 +654,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
-	t.Run("Test_Delete_AccessLogSubscriptionDoesNotExist_ReturnsSuccess", func(t *testing.T) {
+	t.Run("Delete_ALSDoesNotExist_ReturnsSuccess", func(t *testing.T) {
 		accessLogSubscription := &lattice.AccessLogSubscription{
 			Spec: lattice.AccessLogSubscriptionSpec{
 				SourceType:        lattice.ServiceNetworkSourceType,

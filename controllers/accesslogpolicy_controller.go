@@ -272,7 +272,7 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyAnnotations(
 	}
 
 	for _, als := range accessLogSubscriptions {
-		if als.Spec.EventType == core.CreateEvent {
+		if als.Spec.EventType != core.DeleteEvent {
 			oldAlp := alp.DeepCopy()
 			if alp.ObjectMeta.Annotations == nil {
 				alp.ObjectMeta.Annotations = make(map[string]string)
