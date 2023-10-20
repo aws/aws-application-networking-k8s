@@ -39,7 +39,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 
 		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
 
-		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(&lattice.AccessLogSubscriptionStatus{}, nil).Times(1)
+		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(&lattice.AccessLogSubscriptionStatus{}, nil)
 
 		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
 		err := synthesizer.Synthesize(ctx)
@@ -59,7 +59,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 
 		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
 
-		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(nil, errors.New("mock error")).Times(1)
+		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(nil, errors.New("mock error"))
 
 		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
 		err := synthesizer.Synthesize(ctx)
@@ -137,7 +137,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 
 		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
 
-		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(nil).Times(1)
+		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(nil)
 
 		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
 		err := synthesizer.Synthesize(ctx)
@@ -187,7 +187,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 
 		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
 
-		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(errors.New("mock error")).Times(1)
+		mockManager.EXPECT().Delete(ctx, accessLogSubscription).Return(errors.New("mock error"))
 
 		synthesizer := NewAccessLogSubscriptionSynthesizer(gwlog.FallbackLogger, k8sClient, mockManager, stack)
 		err := synthesizer.Synthesize(ctx)

@@ -150,7 +150,11 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 		if *e.ResourceType == "SERVICE_NETWORK" || *e.ResourceType == "SERVICE" {
 			return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
 		}
-		return nil, services.NewInvalidError(e.Message())
+		alsStatus, err := m.Create(ctx, accessLogSubscription)
+		if err != nil {
+			return nil, err
+		}
+		return alsStatus, nil
 	case *vpclattice.ConflictException:
 		/*
 		 * A conflict can happen when the destination type of the new ALS is different from the original.

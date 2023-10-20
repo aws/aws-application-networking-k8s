@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +31,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -91,7 +95,10 @@ func RegisterAccessLogPolicyController(
 	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&anv1alpha1.AccessLogPolicy{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+		For(&anv1alpha1.AccessLogPolicy{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&source.Kind{Type: &gwv1beta1.Gateway{}}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&source.Kind{Type: &gwv1beta1.HTTPRoute{}}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&source.Kind{Type: &gwv1alpha2.GRPCRoute{}}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 
 	return builder.Complete(r)
 }
@@ -162,17 +169,18 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
+	if alp.Spec.TargetRef.Namespace != nil && string(*alp.Spec.TargetRef.Namespace) != alp.Namespace {
+		message := "The targetRef's namespace does not match the access log policy's namespace"
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+	}
+
 	targetRefExists, err := r.targetRefExists(ctx, alp)
 	if err != nil {
 		return err
 	}
 	if !targetRefExists {
 		message := "The targetRef could not be found"
-		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
-		if err != nil {
-			return err
-		}
-		return nil
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
 	}
 
 	stack, err := r.buildAndDeployModel(ctx, alp)
@@ -313,4 +321,41 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(
 	}
 
 	return nil
+}
+
+func (r *accessLogPolicyReconciler) findImpactedAccessLogPolicies(eventObj client.Object) []reconcile.Request {
+	listOptions := &client.ListOptions{
+		Namespace: eventObj.GetNamespace(),
+	}
+
+	alps := &anv1alpha1.AccessLogPolicyList{}
+	err := r.client.List(context.TODO(), alps, listOptions)
+	if err != nil {
+		r.log.Errorf("Failed to list all Access Log Policies, %s", err)
+		return []reconcile.Request{}
+	}
+
+	requests := make([]reconcile.Request, 0, len(alps.Items))
+	for _, alp := range alps.Items {
+		r.log.Infof("FOUND ALP %+v", alp)
+		if string(alp.Spec.TargetRef.Name) != eventObj.GetName() {
+			continue
+		}
+
+		targetRefKind := string(alp.Spec.TargetRef.Kind)
+		eventObjKind := reflect.TypeOf(eventObj).Elem().Name()
+		if targetRefKind != eventObjKind {
+			continue
+		}
+
+		r.log.Debugf("Adding Access Log Policy %s/%s to queue due to Gateway event", alp.Namespace, alp.Name)
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: alp.Namespace,
+				Name:      alp.Name,
+			},
+		})
+	}
+
+	return requests
 }
