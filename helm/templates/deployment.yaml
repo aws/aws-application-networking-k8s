@@ -87,6 +87,11 @@ spec:
               configMapKeyRef:
                 name: env-config
                 key: clusterName
+          - name: LATTICE_ENDPOINT
+            valueFrom:
+              configMapKeyRef:
+                name: env-config
+                key: latticeEndpoint
 
       terminationGracePeriodSeconds: 10
       nodeSelector: {{ toYaml .Values.deployment.nodeSelector | nindent 8 }}
