@@ -33,8 +33,10 @@ import (
 var _ = Describe("Access Log Policy", Ordered, func() {
 	const (
 		k8sResourceName          = "test-access-log-policy"
+		k8sResource2Name         = "test-access-log-policy-secondary"
 		bucketName               = "k8s-test-lattice-bucket"
 		logGroupName             = "k8s-test-lattice-log-group"
+		logGroup2Name            = "k8s-test-lattice-log-group-secondary"
 		deliveryStreamName       = "k8s-test-lattice-delivery-stream"
 		deliveryStreamRoleName   = "k8s-test-lattice-delivery-stream-role"
 		deliveryStreamRolePolicy = `{
@@ -74,6 +76,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		grpcRoute         *gwv1alpha2.GRPCRoute
 		bucketArn         string
 		logGroupArn       string
+		logGroup2Arn      string
 		deliveryStreamArn string
 		roleArn           string
 	)
@@ -94,6 +97,13 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		})
 		Expect(err).To(BeNil())
 		logGroupArn = fmt.Sprintf("arn:aws:logs:%s:%s:log-group:%s:*", config.Region, config.AccountID, logGroupName)
+
+		// Create secondary CloudWatch Log Group
+		_, err = logsClient.CreateLogGroupWithContext(ctx, &cloudwatchlogs.CreateLogGroupInput{
+			LogGroupName: aws.String(logGroup2Name),
+		})
+		Expect(err).To(BeNil())
+		logGroup2Arn = fmt.Sprintf("arn:aws:logs:%s:%s:log-group:%s:*", config.Region, config.AccountID, logGroup2Name)
 
 		// Create IAM Role for Firehose Delivery Stream
 		iamClient = iam.New(session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)})))
@@ -587,6 +597,392 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
+	It("update properly changes or replaces Access Log Subscription and sets Access Log Policy status", func() {
+		originalAlsArn := ""
+		currentAlsArn := ""
+		expectedGeneration := 1
+		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(logGroupArn),
+				TargetRef: &gwv1alpha2.PolicyTargetReference{
+					Group:     gwv1beta1.GroupName,
+					Kind:      "Gateway",
+					Name:      gwv1alpha2.ObjectName(testGateway.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		alpNamespacedName := types.NamespacedName{
+			Name:      accessLogPolicy.Name,
+			Namespace: accessLogPolicy.Namespace,
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		Eventually(func(g Gomega) {
+			// Policy status should be Accepted
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+
+			// Service Network should have 1 Access Log Subscription with CloudWatch Log Group destination
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: testServiceNetwork.Arn,
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(logGroupArn))
+
+			// Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+
+			currentAlsArn = alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
+			originalAlsArn = alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
+		}).Should(Succeed())
+
+		// Update to different destination of same type
+		alp := &anv1alpha1.AccessLogPolicy{}
+		err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+		Expect(err).To(BeNil())
+		alp.Spec.DestinationArn = aws.String(logGroup2Arn)
+		testFramework.ExpectUpdated(ctx, alp)
+		expectedGeneration = expectedGeneration + 1
+
+		Eventually(func(g Gomega) {
+			// Policy status should be Accepted
+			alpNamespacedName := types.NamespacedName{
+				Name:      accessLogPolicy.Name,
+				Namespace: accessLogPolicy.Namespace,
+			}
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+
+			// Service Network should have 1 Access Log Subscription with updated CloudWatch Log Group destination
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: testServiceNetwork.Arn,
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(logGroup2Arn))
+
+			// Access Log Subscription ARN should be unchanged
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(originalAlsArn))
+
+			// Access Log Subscription should have default tags and Access Log Policy tag applied
+			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
+				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+			})
+			listTagsInput := &vpclattice.ListTagsForResourceInput{
+				ResourceArn: listALSOutput.Items[0].Arn,
+			}
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
+		}).Should(Succeed())
+
+		// Update to different destination of different type
+		alp = &anv1alpha1.AccessLogPolicy{}
+		err = testFramework.Client.Get(ctx, alpNamespacedName, alp)
+		Expect(err).To(BeNil())
+		alp.Spec.DestinationArn = aws.String(bucketArn)
+		testFramework.ExpectUpdated(ctx, alp)
+		expectedGeneration = expectedGeneration + 1
+
+		Eventually(func(g Gomega) {
+			// Policy status should be Accepted
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+
+			// Service Network should only have 1 Access Log Subscription, with S3 Bucket destination
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: testServiceNetwork.Arn,
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+
+			// New Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).ToNot(BeEquivalentTo(originalAlsArn))
+			currentAlsArn = alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
+
+			// New Access Log Subscription should have default tags and Access Log Policy tag applied
+			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
+				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+			})
+			listTagsInput := &vpclattice.ListTagsForResourceInput{
+				ResourceArn: listALSOutput.Items[0].Arn,
+			}
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
+		}).Should(Succeed())
+
+		// Update to different targetRef
+		alp = &anv1alpha1.AccessLogPolicy{}
+		err = testFramework.Client.Get(ctx, alpNamespacedName, alp)
+		Expect(err).To(BeNil())
+		alp.Spec.TargetRef = &gwv1alpha2.PolicyTargetReference{
+			Group:     gwv1beta1.GroupName,
+			Kind:      "HTTPRoute",
+			Name:      gwv1alpha2.ObjectName(httpRoute.Name),
+			Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+		}
+		testFramework.ExpectUpdated(ctx, alp)
+		expectedGeneration = expectedGeneration + 1
+
+		Eventually(func(g Gomega) {
+			// Policy status should be Accepted
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+
+			// Service Network should have 0 Access Log Subscriptions
+			listALSForSNInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: testServiceNetwork.Arn,
+			}
+			listALSForSNOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSForSNInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSForSNOutput.Items)).To(BeEquivalentTo(0))
+
+			// VPC Lattice Service should have 1 Access Log Subscription, with S3 Bucket destination
+			listALSForSvcInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			}
+			listALSForSvcOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSForSvcInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSForSvcOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(*listALSForSvcOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+			g.Expect(listALSForSvcOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
+
+			// New Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSForSvcOutput.Items[0].Arn))
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).ToNot(BeEquivalentTo(originalAlsArn))
+			currentAlsArn = alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
+
+			// New Access Log Subscription should have default tags and Access Log Policy tag applied
+			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
+				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+			})
+			listTagsInput := &vpclattice.ListTagsForResourceInput{
+				ResourceArn: listALSForSvcOutput.Items[0].Arn,
+			}
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
+		}).Should(Succeed())
+
+		// Update to destination that does not exist
+		alp = &anv1alpha1.AccessLogPolicy{}
+		err = testFramework.Client.Get(ctx, alpNamespacedName, alp)
+		Expect(err).To(BeNil())
+		alp.Spec.DestinationArn = aws.String(bucketArn + "doesnotexist")
+		testFramework.ExpectUpdated(ctx, alp)
+		expectedGeneration = expectedGeneration + 1
+
+		Eventually(func(g Gomega) {
+			// Policy status should be Invalid
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+
+			// VPC Lattice Service should still have previous Access Log Subscription
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+
+			// Same Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(currentAlsArn))
+		}).Should(Succeed())
+
+		// Update to targetRef that does not exist
+		alp = &anv1alpha1.AccessLogPolicy{}
+		err = testFramework.Client.Get(ctx, alpNamespacedName, alp)
+		Expect(err).To(BeNil())
+		alp.Spec.DestinationArn = aws.String(bucketArn)
+		alp.Spec.TargetRef = &gwv1alpha2.PolicyTargetReference{
+			Group:     gwv1beta1.GroupName,
+			Kind:      "Gateway",
+			Name:      "doesnotexist",
+			Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+		}
+		testFramework.ExpectUpdated(ctx, alp)
+		expectedGeneration = expectedGeneration + 1
+
+		Eventually(func(g Gomega) {
+			// Policy status should be TargetNotFound
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonTargetNotFound)))
+
+			// VPC Lattice Service should still have previous Access Log Subscription
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+
+			// Same Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(currentAlsArn))
+		}).Should(Succeed())
+
+		// Update to targetRef with wrong namespace
+		alp = &anv1alpha1.AccessLogPolicy{}
+		err = testFramework.Client.Get(ctx, alpNamespacedName, alp)
+		Expect(err).To(BeNil())
+		alp.Spec.DestinationArn = aws.String(bucketArn)
+		alp.Spec.TargetRef.Namespace = (*gwv1alpha2.Namespace)(aws.String("invalid"))
+		testFramework.ExpectUpdated(ctx, alp)
+		expectedGeneration = expectedGeneration + 1
+
+		Eventually(func(g Gomega) {
+			// Policy status should be Invalid
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+
+			// VPC Lattice Service should still have previous Access Log Subscription
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+
+			// Same Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(currentAlsArn))
+		}).Should(Succeed())
+
+		// Create second Access Log Policy for original destination
+		accessLogPolicy2 := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResource2Name,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(logGroupArn),
+				TargetRef: &gwv1alpha2.PolicyTargetReference{
+					Group:     gwv1beta1.GroupName,
+					Kind:      "HTTPRoute",
+					Name:      gwv1alpha2.ObjectName(httpRoute.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy2)
+
+		Eventually(func(g Gomega) {
+			// Policy status should be Accepted
+			alpNamespacedName := types.NamespacedName{
+				Name:      accessLogPolicy2.Name,
+				Namespace: accessLogPolicy2.Namespace,
+			}
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+		}).Should(Succeed())
+
+		// Attempt to update first Access Log Policy to use the original destination
+		alp = &anv1alpha1.AccessLogPolicy{}
+		err = testFramework.Client.Get(ctx, alpNamespacedName, alp)
+		Expect(err).To(BeNil())
+		alp.Spec = anv1alpha1.AccessLogPolicySpec{
+			DestinationArn: aws.String(logGroupArn),
+			TargetRef: &gwv1alpha2.PolicyTargetReference{
+				Group:     gwv1beta1.GroupName,
+				Kind:      "HTTPRoute",
+				Name:      gwv1alpha2.ObjectName(httpRoute.Name),
+				Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+			},
+		}
+		testFramework.ExpectUpdated(ctx, alp)
+		expectedGeneration = expectedGeneration + 1
+
+		Eventually(func(g Gomega) {
+			// Policy status should be Conflicted
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonConflicted)))
+
+			// VPC Lattice Service should now have the old and new Access Log Subscriptions
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(2))
+
+			// Same Access Log Subscription ARN should be in the first Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(currentAlsArn))
+		}).Should(Succeed())
+	})
+
 	It("deletion removes the Access Log Subscription for the corresponding Service Network when the targetRef's Kind is Gateway", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -759,9 +1155,13 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		})
 		Expect(err).To(BeNil())
 
-		// Delete CloudWatch Log Group
+		// Delete CloudWatch Log Groups
 		_, err = logsClient.DeleteLogGroupWithContext(ctx, &cloudwatchlogs.DeleteLogGroupInput{
 			LogGroupName: aws.String(logGroupName),
+		})
+		Expect(err).To(BeNil())
+		_, err = logsClient.DeleteLogGroupWithContext(ctx, &cloudwatchlogs.DeleteLogGroupInput{
+			LogGroupName: aws.String(logGroup2Name),
 		})
 		Expect(err).To(BeNil())
 

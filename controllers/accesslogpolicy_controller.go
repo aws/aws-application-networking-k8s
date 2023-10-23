@@ -162,17 +162,18 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
+	if alp.Spec.TargetRef.Namespace != nil && string(*alp.Spec.TargetRef.Namespace) != alp.Namespace {
+		message := "The targetRef's namespace does not match the access log policy's namespace"
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+	}
+
 	targetRefExists, err := r.targetRefExists(ctx, alp)
 	if err != nil {
 		return err
 	}
 	if !targetRefExists {
 		message := "The targetRef could not be found"
-		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
-		if err != nil {
-			return err
-		}
-		return nil
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
 	}
 
 	stack, err := r.buildAndDeployModel(ctx, alp)
@@ -272,7 +273,7 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyAnnotations(
 	}
 
 	for _, als := range accessLogSubscriptions {
-		if als.Spec.EventType == core.CreateEvent {
+		if als.Spec.EventType != core.DeleteEvent {
 			oldAlp := alp.DeepCopy()
 			if alp.ObjectMeta.Annotations == nil {
 				alp.ObjectMeta.Annotations = make(map[string]string)
