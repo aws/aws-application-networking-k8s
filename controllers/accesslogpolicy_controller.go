@@ -337,7 +337,6 @@ func (r *accessLogPolicyReconciler) findImpactedAccessLogPolicies(eventObj clien
 
 	requests := make([]reconcile.Request, 0, len(alps.Items))
 	for _, alp := range alps.Items {
-		r.log.Infof("FOUND ALP %+v", alp)
 		if string(alp.Spec.TargetRef.Name) != eventObj.GetName() {
 			continue
 		}
@@ -348,7 +347,7 @@ func (r *accessLogPolicyReconciler) findImpactedAccessLogPolicies(eventObj clien
 			continue
 		}
 
-		r.log.Debugf("Adding Access Log Policy %s/%s to queue due to Gateway event", alp.Namespace, alp.Name)
+		r.log.Debugf("Adding Access Log Policy %s/%s to queue due to %s event", alp.Namespace, alp.Name, targetRefKind)
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: alp.Namespace,

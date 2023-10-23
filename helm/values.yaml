@@ -75,3 +75,4 @@ awsRegion:
 awsAccountId:
 clusterVpcId:
 clusterName:
+latticeEndpoint:

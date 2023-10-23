@@ -19,7 +19,7 @@ import (
 type AccessLogSubscriptionManager interface {
 	Create(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) (*lattice.AccessLogSubscriptionStatus, error)
 	Update(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) (*lattice.AccessLogSubscriptionStatus, error)
-	Delete(ctx context.Context, accessLogSubscription *lattice.AccessLogSubscription) error
+	Delete(ctx context.Context, accessLogSubscriptionArn string) error
 }
 
 type defaultAccessLogSubscriptionManager struct {
@@ -43,23 +43,9 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 ) (*lattice.AccessLogSubscriptionStatus, error) {
 	vpcLatticeSess := m.cloud.Lattice()
 
-	var resourceIdentifier string
-	switch accessLogSubscription.Spec.SourceType {
-	case lattice.ServiceNetworkSourceType:
-		serviceNetwork, err := vpcLatticeSess.FindServiceNetwork(ctx, accessLogSubscription.Spec.SourceName, config.AccountID)
-		if err != nil {
-			return nil, err
-		}
-		resourceIdentifier = *serviceNetwork.SvcNetwork.Arn
-	case lattice.ServiceSourceType:
-		serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(accessLogSubscription.Spec.SourceName)
-		service, err := vpcLatticeSess.FindService(ctx, serviceNameProvider)
-		if err != nil {
-			return nil, err
-		}
-		resourceIdentifier = *service.Arn
-	default:
-		return nil, fmt.Errorf("unsupported source type: %s", accessLogSubscription.Spec.SourceType)
+	sourceArn, err := m.getSourceArn(ctx, accessLogSubscription.Spec.SourceType, accessLogSubscription.Spec.SourceName)
+	if err != nil {
+		return nil, err
 	}
 
 	tags := m.cloud.DefaultTagsMergedWith(services.Tags{
@@ -67,7 +53,7 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 	})
 
 	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
-		ResourceIdentifier: &resourceIdentifier,
+		ResourceIdentifier: sourceArn,
 		DestinationArn:     &accessLogSubscription.Spec.DestinationArn,
 		Tags:               tags,
 	}
@@ -94,7 +80,7 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 		 * If it is the same ALP, return success. Else, return ConflictError.
 		 */
 		listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
-			ResourceIdentifier: &resourceIdentifier,
+			ResourceIdentifier: sourceArn,
 		}
 		listALSOutput, err := vpcLatticeSess.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
 		if err != nil {
@@ -132,6 +118,31 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 	accessLogSubscription *lattice.AccessLogSubscription,
 ) (*lattice.AccessLogSubscriptionStatus, error) {
 	vpcLatticeSess := m.cloud.Lattice()
+
+	// If the source is modified, we need to replace the ALS
+	getALSInput := &vpclattice.GetAccessLogSubscriptionInput{
+		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscription.Status.Arn),
+	}
+	getALSOutput, err := vpcLatticeSess.GetAccessLogSubscriptionWithContext(ctx, getALSInput)
+	if err != nil {
+		switch e := err.(type) {
+		case *vpclattice.AccessDeniedException:
+			return nil, services.NewInvalidError(e.Message())
+		case *vpclattice.ResourceNotFoundException:
+			return m.Create(ctx, accessLogSubscription)
+		default:
+			return nil, err
+		}
+	}
+	sourceArn, err := m.getSourceArn(ctx, accessLogSubscription.Spec.SourceType, accessLogSubscription.Spec.SourceName)
+	if err != nil {
+		return nil, err
+	}
+	if *getALSOutput.ResourceArn != *sourceArn {
+		return m.replaceAccessLogSubscription(ctx, accessLogSubscription)
+	}
+
+	// Source is not modified, try to update destinationArn in the existing ALS
 	updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
 		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscription.Status.Arn),
 		DestinationArn:                  aws.String(accessLogSubscription.Spec.DestinationArn),
@@ -150,25 +161,13 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 		if *e.ResourceType == "SERVICE_NETWORK" || *e.ResourceType == "SERVICE" {
 			return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
 		}
-		alsStatus, err := m.Create(ctx, accessLogSubscription)
-		if err != nil {
-			return nil, err
-		}
-		return alsStatus, nil
+		return m.Create(ctx, accessLogSubscription)
 	case *vpclattice.ConflictException:
 		/*
 		 * A conflict can happen when the destination type of the new ALS is different from the original.
 		 * To gracefully handle this, we create a new ALS with the new destination, then delete the old one.
 		 */
-		alsStatus, err := m.Create(ctx, accessLogSubscription)
-		if err != nil {
-			return nil, err
-		}
-		err = m.Delete(ctx, accessLogSubscription)
-		if err != nil {
-			return nil, err
-		}
-		return alsStatus, nil
+		return m.replaceAccessLogSubscription(ctx, accessLogSubscription)
 	default:
 		return nil, err
 	}
@@ -176,11 +175,11 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 
 func (m *defaultAccessLogSubscriptionManager) Delete(
 	ctx context.Context,
-	accessLogSubscription *lattice.AccessLogSubscription,
+	accessLogSubscriptionArn string,
 ) error {
 	vpcLatticeSess := m.cloud.Lattice()
 	deleteALSInput := &vpclattice.DeleteAccessLogSubscriptionInput{
-		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscription.Status.Arn),
+		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
 	}
 	_, err := vpcLatticeSess.DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput)
 	if err != nil {
@@ -189,4 +188,45 @@ func (m *defaultAccessLogSubscriptionManager) Delete(
 		}
 	}
 	return nil
+}
+
+func (m *defaultAccessLogSubscriptionManager) getSourceArn(
+	ctx context.Context,
+	sourceType lattice.SourceType,
+	sourceName string,
+) (*string, error) {
+	vpcLatticeSess := m.cloud.Lattice()
+
+	switch sourceType {
+	case lattice.ServiceNetworkSourceType:
+		serviceNetwork, err := vpcLatticeSess.FindServiceNetwork(ctx, sourceName, config.AccountID)
+		if err != nil {
+			return nil, err
+		}
+		return serviceNetwork.SvcNetwork.Arn, nil
+	case lattice.ServiceSourceType:
+		serviceNameProvider := services.NewDefaultLatticeServiceNameProvider(sourceName)
+		service, err := vpcLatticeSess.FindService(ctx, serviceNameProvider)
+		if err != nil {
+			return nil, err
+		}
+		return service.Arn, nil
+	default:
+		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
+	}
+}
+
+func (m *defaultAccessLogSubscriptionManager) replaceAccessLogSubscription(
+	ctx context.Context,
+	accessLogSubscription *lattice.AccessLogSubscription,
+) (*lattice.AccessLogSubscriptionStatus, error) {
+	newAlsStatus, err := m.Create(ctx, accessLogSubscription)
+	if err != nil {
+		return nil, err
+	}
+	err = m.Delete(ctx, accessLogSubscription.Status.Arn)
+	if err != nil {
+		return nil, err
+	}
+	return newAlsStatus, nil
 }

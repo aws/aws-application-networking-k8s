@@ -60,7 +60,7 @@ func (s *accessLogSubscriptionSynthesizer) Synthesize(ctx context.Context) error
 				s.log.Debugf("Ignoring deletion of Access Log Subscription because als %s has no ARN", als.ID())
 				return nil
 			}
-			err := s.accessLogSubscriptionManager.Delete(ctx, als)
+			err := s.accessLogSubscriptionManager.Delete(ctx, als.Status.Arn)
 			if err != nil {
 				return err
 			}

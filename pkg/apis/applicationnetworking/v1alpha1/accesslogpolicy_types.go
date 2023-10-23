@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	AccessLogPolicyKind                = "AccessLogPolicy"
 	AccessLogSubscriptionAnnotationKey = "VpcLatticeAccessLogSubscription"
 )
 
