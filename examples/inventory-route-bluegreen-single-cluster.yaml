@@ -14,5 +14,5 @@ spec:
       weight: 50
     - name: inventory-ver2
       kind: Service
-      port: 8090
+      port: 80
       weight: 50
