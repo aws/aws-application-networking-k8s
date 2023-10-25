@@ -8,6 +8,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const AnnotationPrefix = "application-networking.k8s.aws/"
+
 type NamespacedAndNamed interface {
 	GetNamespace() string
 	GetName() string
