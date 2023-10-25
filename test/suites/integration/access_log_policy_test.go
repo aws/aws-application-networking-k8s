@@ -33,7 +33,7 @@ import (
 var _ = Describe("Access Log Policy", Ordered, func() {
 	const (
 		k8sResourceName          = "test-access-log-policy"
-		k8sResource2Name         = "test-access-log-policy-secondary"
+		k8sResourceName2         = "test-access-log-policy-secondary"
 		bucketName               = "k8s-test-lattice-bucket"
 		logGroupName             = "k8s-test-lattice-log-group"
 		logGroup2Name            = "k8s-test-lattice-log-group-secondary"
@@ -912,7 +912,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		// Create second Access Log Policy for original destination
 		accessLogPolicy2 := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      k8sResource2Name,
+				Name:      k8sResourceName2,
 				Namespace: k8snamespace,
 			},
 			Spec: anv1alpha1.AccessLogPolicySpec{
@@ -1110,6 +1110,140 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(len(output.Items)).To(BeEquivalentTo(0))
+		}).Should(Succeed())
+	})
+
+	It("status is updated when targetRef is deleted and recreated", func() {
+		// Create HTTPRoute, Service, and Deployment
+		deployment, k8sService := testFramework.NewNginxApp(test.ElasticSearchOptions{
+			Name:      k8sResourceName2,
+			Namespace: k8snamespace,
+		})
+		route := testFramework.NewHttpRoute(testGateway, k8sService, "Service")
+		route.Name = "test-access-log-policies"
+		testFramework.ExpectCreated(ctx, route, deployment, k8sService)
+
+		// Delete HTTPRoute, Service, and Deployment
+		defer func() {
+			testFramework.ExpectDeleted(ctx, route)
+			testFramework.SleepForRouteDeletion()
+			testFramework.ExpectDeletedThenNotFound(ctx, route, k8sService, deployment)
+		}()
+
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.PolicyTargetReference{
+					Group:     gwv1beta1.GroupName,
+					Kind:      "HTTPRoute",
+					Name:      gwv1alpha2.ObjectName(route.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+		expectedGeneration := 1
+		alpNamespacedName := types.NamespacedName{
+			Name:      accessLogPolicy.Name,
+			Namespace: accessLogPolicy.Namespace,
+		}
+
+		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*route))
+
+		Eventually(func(g Gomega) {
+			// VPC Lattice Service should have an Access Log Subscription
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(output.Items)).To(BeEquivalentTo(1))
+		}).Should(Succeed())
+
+		// Delete HTTPRoute
+		testFramework.ExpectDeleted(ctx, route)
+		testFramework.SleepForRouteDeletion()
+		testFramework.ExpectDeletedThenNotFound(ctx, route)
+
+		Eventually(func(g Gomega) {
+			// Policy status should be TargetNotFound
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonTargetNotFound)))
+		}).Should(Succeed())
+
+		// Recreate HTTPRoute
+		route = testFramework.NewHttpRoute(testGateway, k8sService, "Service")
+		route.Name = "test-access-log-policies"
+		testFramework.ExpectCreated(ctx, route)
+
+		var originalALSArn string
+		Eventually(func(g Gomega) {
+			// Policy status should be Accepted
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			originalALSArn = alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
+		}).Should(Succeed())
+
+		// Delete HTTPRoute
+		testFramework.ExpectDeleted(ctx, route)
+		testFramework.SleepForRouteDeletion()
+		testFramework.ExpectDeletedThenNotFound(ctx, route)
+
+		// Change ALP destination type
+		alp := &anv1alpha1.AccessLogPolicy{}
+		err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+		Expect(err).To(BeNil())
+		alp.Spec.DestinationArn = aws.String(logGroupArn)
+		testFramework.ExpectUpdated(ctx, alp)
+		expectedGeneration = expectedGeneration + 1
+
+		Eventually(func(g Gomega) {
+			// Policy status should be TargetNotFound
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonTargetNotFound)))
+		}).Should(Succeed())
+
+		// Recreate HTTPRoute
+		route = testFramework.NewHttpRoute(testGateway, k8sService, "Service")
+		route.Name = "test-access-log-policies"
+		testFramework.ExpectCreated(ctx, route)
+
+		var newALSArn string
+		Eventually(func(g Gomega) {
+			// Policy status should be Accepted
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+
+			// Changing destination type should have resulted in ALS replacement
+			newALSArn = alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
+			g.Expect(newALSArn).ToNot(BeEquivalentTo(originalALSArn))
 		}).Should(Succeed())
 	})
 

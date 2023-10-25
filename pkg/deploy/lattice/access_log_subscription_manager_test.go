@@ -397,7 +397,8 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.Equal(t, newAccessLogSubscriptionArn, resp.Arn)
 	})
 
-	t.Run("Update_ALSDoesNotExistOnGet_ReturnsInvalidError", func(t *testing.T) {
+	t.Run("Update_ALSDoesNotExistOnGet_CreatesNewALS", func(t *testing.T) {
+		newAccessLogSubscriptionArn := accessLogSubscriptionArn + "new"
 		accessLogSubscription := simpleAccessLogSubscription(core.UpdateEvent)
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
@@ -405,16 +406,20 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		getALSError := &vpclattice.ResourceNotFoundException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
+		createALSOutput.Arn = aws.String(newAccessLogSubscriptionArn)
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(nil, getALSError)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
-		assert.Nil(t, resp)
-		assert.True(t, services.IsInvalidError(err))
+		assert.Nil(t, err)
+		assert.Equal(t, newAccessLogSubscriptionArn, resp.Arn)
 	})
 
-	t.Run("Update_ALSDoesNotExistOnUpdate_ReturnsInvalidError", func(t *testing.T) {
+	t.Run("Update_ALSDoesNotExistOnUpdate_CreatesNewALS", func(t *testing.T) {
+		newAccessLogSubscriptionArn := accessLogSubscriptionArn + "new"
 		accessLogSubscription := simpleAccessLogSubscription(core.UpdateEvent)
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
@@ -422,15 +427,18 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		updateALSError := &vpclattice.ResourceNotFoundException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
+		createALSOutput.Arn = aws.String(newAccessLogSubscriptionArn)
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
-		assert.Nil(t, resp)
-		assert.True(t, services.IsInvalidError(err))
+		assert.Nil(t, err)
+		assert.Equal(t, newAccessLogSubscriptionArn, resp.Arn)
 	})
 
 	t.Run("Update_AccessDeniedExceptionReceivedOnGet_ReturnsInvalidError", func(t *testing.T) {

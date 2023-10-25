@@ -129,7 +129,7 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 		case *vpclattice.AccessDeniedException:
 			return nil, services.NewInvalidError(e.Message())
 		case *vpclattice.ResourceNotFoundException:
-			return nil, services.NewInvalidError(e.Message())
+			return m.Create(ctx, accessLogSubscription)
 		default:
 			return nil, err
 		}
@@ -161,7 +161,7 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 		if *e.ResourceType == "SERVICE_NETWORK" || *e.ResourceType == "SERVICE" {
 			return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
 		}
-		return nil, services.NewInvalidError(e.Message())
+		return m.Create(ctx, accessLogSubscription)
 	case *vpclattice.ConflictException:
 		/*
 		 * A conflict can happen when the destination type of the new ALS is different from the original.
