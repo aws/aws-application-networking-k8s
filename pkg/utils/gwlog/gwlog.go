@@ -17,6 +17,7 @@ func NewLogger(debug bool) Logger {
 	} else {
 		zc = zap.NewProductionConfig()
 		zc.DisableStacktrace = true
+		zc.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 	z, err := zc.Build()
 	if err != nil {
