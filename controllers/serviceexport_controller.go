@@ -107,7 +107,12 @@ func RegisterServiceExportController(
 //+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceexports/finalizers,verbs=update
 
 func (r *serviceExportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
+	r.log.Infow("reconcile", "name", req.Name)
+	recErr := r.reconcile(ctx, req)
+	if recErr != nil {
+		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+	}
+	return lattice_runtime.HandleReconcileError(recErr)
 }
 
 func (r *serviceExportReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
