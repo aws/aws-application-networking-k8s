@@ -106,6 +106,9 @@ func RegisterAccessLogPolicyController(
 func (r *accessLogPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.Infow("reconcile", "name", req.Name)
 	recErr := r.reconcile(ctx, req)
+	if recErr != nil {
+		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+	}
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
 		r.log.Infow("requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)

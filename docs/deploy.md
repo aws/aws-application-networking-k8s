@@ -37,7 +37,13 @@ Run through them again for a second cluster to use with the extended example sho
                    "iam:CreateServiceLinkedRole",
                    "ec2:DescribeVpcs",
                    "ec2:DescribeSubnets",
-                   "ec2:DescribeTags"
+                   "ec2:DescribeTags",
+                   "ec2:DescribeSecurityGroups",
+                   "logs:CreateLogDelivery",
+                   "logs:GetLogDelivery",
+                   "logs:UpdateLogDelivery",
+                   "logs:DeleteLogDelivery",
+                   "logs:ListLogDeliveries"
                ],
                "Resource": "*"
            }

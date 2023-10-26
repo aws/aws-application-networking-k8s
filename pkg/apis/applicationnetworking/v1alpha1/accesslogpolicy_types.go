@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	AccessLogSubscriptionAnnotationKey = "VpcLatticeAccessLogSubscription"
+	AccessLogSubscriptionAnnotationKey = k8s.AnnotationPrefix + "accessLogSubscription"
 )
 
 // +genclient
