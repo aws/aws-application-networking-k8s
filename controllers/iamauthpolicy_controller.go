@@ -61,6 +61,9 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 		} else {
 			reconcileFunc = c.upsertRoutePolicy
 		}
+	default:
+		c.log.Errorw("unsupported targetRef", "kind", kind, "req", req)
+		return ctrl.Result{RequeueAfter: time.Hour}, nil
 	}
 
 	latticeResourceId, err := reconcileFunc(ctx, k8sPolicy)
@@ -107,6 +110,10 @@ func (c *IAMAuthPolicyController) deleteGatewayPolicy(ctx context.Context, k8sPo
 		return "", err
 	}
 	err = c.policyMgr.Delete(ctx, snId)
+	if err != nil {
+		return "", err
+	}
+	err = c.policyMgr.DisableSnIAMAuth(ctx, snId)
 	if err != nil {
 		return "", err
 	}
@@ -158,6 +165,10 @@ func (c *IAMAuthPolicyController) deleteRoutePolicy(ctx context.Context, k8sPoli
 	if err != nil {
 		return "", err
 	}
+	err = c.policyMgr.DisableSvcIAMAuth(ctx, svcId)
+	if err != nil {
+		return "", err
+	}
 	return svcId, nil
 }
 
@@ -184,14 +195,4 @@ func (c *IAMAuthPolicyController) putPolicy(ctx context.Context, resId, policy s
 	}
 	_, err := c.policyMgr.Put(ctx, modelPolicy)
 	return err
-}
-
-func (c *IAMAuthPolicyController) reconcileGateway(ctx context.Context, policy *anv1alpha1.IAMAuthPolicy) error {
-	c.log.Debugw("reconcile gateway iam policy", "policy", policy)
-	return nil
-}
-
-func (c IAMAuthPolicyController) reconcileRoute(ctx context.Context, policy *anv1alpha1.IAMAuthPolicy) error {
-	c.log.Debugw("reconcile route iam policy", "policy", policy)
-	return nil
 }
