@@ -104,6 +104,8 @@ type Lattice interface {
 	ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error)
 	FindServiceNetwork(ctx context.Context, name string, accountId string) (*ServiceNetworkInfo, error)
 	FindService(ctx context.Context, nameProvider LatticeServiceNameProvider) (*vpclattice.ServiceSummary, error)
+	FindServiceByK8sName(ctx context.Context, k8sname string) (*vpclattice.ServiceSummary, error)
+	FindServiceNetworkByK8sName(ctx context.Context, k8sname string) (*ServiceNetworkInfo, error)
 }
 
 type defaultLattice struct {
@@ -314,4 +316,12 @@ func accountIdMatches(accountId string, itemArn string) (bool, error) {
 	}
 
 	return accountId == parsedArn.AccountID, nil
+}
+
+func (d *defaultLattice) FindServiceByK8sName(ctx context.Context, k8sname string) (*vpclattice.ServiceSummary, error) {
+	return d.FindService(ctx, NewDefaultLatticeServiceNameProvider(k8sname))
+}
+
+func (d *defaultLattice) FindServiceNetworkByK8sName(ctx context.Context, k8sname string) (*ServiceNetworkInfo, error) {
+	return d.FindServiceNetwork(ctx, k8sname, "")
 }

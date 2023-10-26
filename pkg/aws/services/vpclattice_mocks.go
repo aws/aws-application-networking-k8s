@@ -1051,6 +1051,21 @@ func (mr *MockLatticeMockRecorder) FindService(arg0, arg1 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindService", reflect.TypeOf((*MockLattice)(nil).FindService), arg0, arg1)
 }
 
+// FindServiceByK8sName mocks base method.
+func (m *MockLattice) FindServiceByK8sName(arg0 context.Context, arg1 string) (*vpclattice.ServiceSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindServiceByK8sName", arg0, arg1)
+	ret0, _ := ret[0].(*vpclattice.ServiceSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindServiceByK8sName indicates an expected call of FindServiceByK8sName.
+func (mr *MockLatticeMockRecorder) FindServiceByK8sName(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindServiceByK8sName", reflect.TypeOf((*MockLattice)(nil).FindServiceByK8sName), arg0, arg1)
+}
+
 // FindServiceNetwork mocks base method.
 func (m *MockLattice) FindServiceNetwork(arg0 context.Context, arg1, arg2 string) (*ServiceNetworkInfo, error) {
 	m.ctrl.T.Helper()
@@ -1064,6 +1079,21 @@ func (m *MockLattice) FindServiceNetwork(arg0 context.Context, arg1, arg2 string
 func (mr *MockLatticeMockRecorder) FindServiceNetwork(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindServiceNetwork", reflect.TypeOf((*MockLattice)(nil).FindServiceNetwork), arg0, arg1, arg2)
+}
+
+// FindServiceNetworkByK8sName mocks base method.
+func (m *MockLattice) FindServiceNetworkByK8sName(arg0 context.Context, arg1 string) (*ServiceNetworkInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindServiceNetworkByK8sName", arg0, arg1)
+	ret0, _ := ret[0].(*ServiceNetworkInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindServiceNetworkByK8sName indicates an expected call of FindServiceNetworkByK8sName.
+func (mr *MockLatticeMockRecorder) FindServiceNetworkByK8sName(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindServiceNetworkByK8sName", reflect.TypeOf((*MockLattice)(nil).FindServiceNetworkByK8sName), arg0, arg1)
 }
 
 // GetAccessLogSubscription mocks base method.
