@@ -186,7 +186,7 @@ func main() {
 		setupLog.Fatalf("accesslogpolicy controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterIAMAuthPolicyController(ctrlLog.Named("iam-auth-policy"), mgr)
+	err = controllers.RegisterIAMAuthPolicyController(ctrlLog.Named("iam-auth-policy"), mgr, cloud)
 	if err != nil {
 		setupLog.Fatalf("iam auth policy controller setup failed: %s", err)
 	}

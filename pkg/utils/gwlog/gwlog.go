@@ -16,6 +16,7 @@ func NewLogger(debug bool) Logger {
 		zc.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	} else {
 		zc = zap.NewProductionConfig()
+		zc.DisableStacktrace = true
 	}
 	z, err := zc.Build()
 	if err != nil {
