@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const AnnotationPrefix = "application-networking.k8s.aws/"
@@ -21,6 +22,13 @@ func NamespacedName(obj NamespacedAndNamed) types.NamespacedName {
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
 	}
+}
+
+func NamespaceOrDefault(namespace *v1beta1.Namespace) string {
+	if namespace == nil {
+		return "default"
+	}
+	return string(*namespace)
 }
 
 func IsGVKSupported(mgr ctrl.Manager, groupVersion string, kind string) (bool, error) {
