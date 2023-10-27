@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -12,9 +13,12 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type IAMAuthPolicyController struct {
@@ -43,6 +47,12 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	c.log.Infow("reconcile", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
 
+	err = c.handleConflicts(ctx, k8sPolicy)
+	if err != nil {
+		c.log.Error(err)
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
 	c.handleFinalizer(ctx, k8sPolicy)
 
 	isDelete := !k8sPolicy.DeletionTimestamp.IsZero()
@@ -68,11 +78,11 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 
 	latticeResourceId, err := reconcileFunc(ctx, k8sPolicy)
 	if err != nil {
-		if services.IsNotFoundError(err) {
-			c.log.Infof("reconcile error, retry in 30sec: %s", err)
+		// ignore Sn/Svc not found when deleting iam policy
+		if !(isDelete && services.IsNotFoundError(err)) {
+			c.log.Infof("reconcile error, retry in 30 sec: %s", err)
 			return ctrl.Result{RequeueAfter: time.Second * 30}, nil
 		}
-		return ctrl.Result{}, err
 	}
 
 	k8sPolicy.Annotations["application-networking.k8s.aws/resourceId"] = latticeResourceId
@@ -194,5 +204,58 @@ func (c *IAMAuthPolicyController) putPolicy(ctx context.Context, resId, policy s
 		Policy:     policy,
 	}
 	_, err := c.policyMgr.Put(ctx, modelPolicy)
+	return err
+}
+
+func (c *IAMAuthPolicyController) handleConflicts(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) error {
+	if !k8sPolicy.DeletionTimestamp.IsZero() {
+		return nil
+	}
+	conflictingPolicies, err := c.findConflictingPolicies(ctx, k8sPolicy)
+	if err != nil {
+		return err
+	}
+	if len(conflictingPolicies) > 0 {
+		c.updatePolicyCondition(ctx, k8sPolicy, gwv1alpha2.PolicyReasonConflicted)
+		return fmt.Errorf("conflict with other policies for same TargetRef, policy: %s, conflicted with: %v",
+			k8sPolicy.Name, conflictingPolicies)
+	}
+	return nil
+}
+
+func (c *IAMAuthPolicyController) findConflictingPolicies(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) ([]string, error) {
+	var out []string
+	policies := &anv1alpha1.IAMAuthPolicyList{}
+	err := c.client.List(ctx, policies, &client.ListOptions{
+		Namespace: k8sPolicy.Namespace,
+	})
+	if err != nil {
+		return out, err
+	}
+	for _, p := range policies.Items {
+		if k8sPolicy.Name == p.Name {
+			continue
+		}
+		if *k8sPolicy.Spec.TargetRef == *p.Spec.TargetRef {
+			out = append(out, p.Name)
+		}
+	}
+	return out, nil
+}
+
+func (c IAMAuthPolicyController) updatePolicyCondition(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy, reason gwv1alpha2.PolicyConditionReason) error {
+	status := metav1.ConditionTrue
+	if reason != gwv1alpha2.PolicyReasonAccepted {
+		status = metav1.ConditionFalse
+	}
+	cnd := metav1.Condition{
+		Type:               string(gwv1alpha2.PolicyConditionAccepted),
+		Status:             status,
+		ObservedGeneration: k8sPolicy.Generation,
+		LastTransitionTime: metav1.Now(),
+		Reason:             string(reason),
+	}
+	meta.SetStatusCondition(&k8sPolicy.Status.Conditions, cnd)
+	err := c.client.Status().Update(ctx, k8sPolicy)
 	return err
 }
