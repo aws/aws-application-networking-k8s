@@ -37,7 +37,13 @@ Run through them again for a second cluster to use with the extended example sho
                    "iam:CreateServiceLinkedRole",
                    "ec2:DescribeVpcs",
                    "ec2:DescribeSubnets",
-                   "ec2:DescribeTags"
+                   "ec2:DescribeTags",
+                   "ec2:DescribeSecurityGroups",
+                   "logs:CreateLogDelivery",
+                   "logs:GetLogDelivery",
+                   "logs:UpdateLogDelivery",
+                   "logs:DeleteLogDelivery",
+                   "logs:ListLogDeliveries"
                ],
                "Resource": "*"
            }
@@ -86,7 +92,9 @@ Run through them again for a second cluster to use with the extended example sho
       --set=clusterVpcId= \
       --set=clusterName= \
       --set=awsAccountId= \
-
+      # latticeEndpoint is required for the case where the VPC Lattice endpoint is being overridden
+      --set=latticeEndpoint= \
+   
    ```
 1. Create the `amazon-vpc-lattice` GatewayClass:
    ```bash

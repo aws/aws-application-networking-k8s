@@ -73,18 +73,18 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 	scheme.AddKnownTypes(dnsEndpoint, &endpoint.DNSEndpoint{}, &endpoint.DNSEndpointList{})
 	metav1.AddToGroupVersion(scheme, dnsEndpoint)
 
-	awsGatewayControllerCRDGroupVersion := schema.GroupVersion{
+	groupVersion := schema.GroupVersion{
 		Group:   anv1alpha1.GroupName,
 		Version: "v1alpha1",
 	}
-	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.TargetGroupPolicy{}, &anv1alpha1.TargetGroupPolicyList{})
-	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
 
-	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.VpcAssociationPolicy{}, &anv1alpha1.VpcAssociationPolicyList{})
-	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
+	scheme.AddKnownTypes(groupVersion,
+		&anv1alpha1.TargetGroupPolicy{}, &anv1alpha1.TargetGroupPolicyList{},
+		&anv1alpha1.AccessLogPolicy{}, &anv1alpha1.AccessLogPolicyList{},
+		&anv1alpha1.VpcAssociationPolicy{}, &anv1alpha1.VpcAssociationPolicyList{},
+		&anv1alpha1.IAMAuthPolicy{}, &anv1alpha1.IAMAuthPolicyList{})
 
-	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.AccessLogPolicy{}, &anv1alpha1.AccessLogPolicyList{})
-	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
+	metav1.AddToGroupVersion(scheme, groupVersion)
 }
 
 func main() {
@@ -184,6 +184,11 @@ func main() {
 	err = controllers.RegisterAccessLogPolicyController(ctrlLog.Named("access-log-policy"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("accesslogpolicy controller setup failed: %s", err)
+	}
+
+	err = controllers.RegisterIAMAuthPolicyController(ctrlLog.Named("iam-auth-policy"), mgr, cloud)
+	if err != nil {
+		setupLog.Fatalf("iam auth policy controller setup failed: %s", err)
 	}
 
 	go latticestore.GetDefaultLatticeDataStore().ServeIntrospection()

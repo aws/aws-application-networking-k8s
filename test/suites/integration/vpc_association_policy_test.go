@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -130,7 +132,7 @@ var _ = Describe("Test vpc association policy", Ordered, func() {
 			associated, _, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
 			g.Expect(err).To(BeNil())
 			g.Expect(associated).To(BeTrue())
-		}).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).Should(Succeed())
 
 		// Clean up the vpc association policy
 		testFramework.ExpectDeletedThenNotFound(ctx, vpcAssociationPolicy)

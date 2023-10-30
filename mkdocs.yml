@@ -20,6 +20,7 @@ nav:
     - GRPCRoute: reference/grpc-route.md
     - TargetGroupPolicy: reference/target-group-policy.md
     - VpcAssociationPolicy: reference/vpc-association-policy.md
+    - AccessLogPolicy: reference/access-log-policy.md
   - Design Overview: overview.md
 
 plugins:

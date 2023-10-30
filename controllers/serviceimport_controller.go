@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
@@ -76,19 +75,17 @@ func RegisterServiceImportController(
 //+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceimports/finalizers,verbs=update
 
 func (r *serviceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	reconcileLog := log.FromContext(ctx)
-
-	reconcileLog.Info("serviceImportReconciler")
+	r.log.Infow("reconcile", "name", req.Name)
 
 	serviceImport := &mcs_api.ServiceImport{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, serviceImport); err != nil {
-		reconcileLog.Info("Item Not Found")
+		r.log.Info("Item Not Found")
 		return ctrl.Result{}, nil
 	}
 
 	if !serviceImport.DeletionTimestamp.IsZero() {
-		reconcileLog.Info("Deleting")
+		r.log.Info("Deleting")
 		r.finalizerManager.RemoveFinalizers(ctx, serviceImport, serviceImportFinalizer)
 		return ctrl.Result{}, nil
 	} else {
@@ -96,7 +93,7 @@ func (r *serviceImportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.eventRecorder.Event(serviceImport, corev1.EventTypeWarning, k8s.ServiceImportEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 			return ctrl.Result{}, nil
 		}
-		reconcileLog.Info("Adding/Updating")
+		r.log.Info("Adding/Updating")
 
 		return ctrl.Result{}, nil
 	}

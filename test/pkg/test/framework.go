@@ -110,7 +110,7 @@ type Framework struct {
 	LatticeClient           services.Lattice
 	Ec2Client               *ec2.EC2
 	GrpcurlRunner           *v1.Pod
-	DefaultTags             services.Tags
+	Cloud                   an_aws.Cloud
 }
 
 func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *Framework {
@@ -133,7 +133,7 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 		k8sScheme:               testScheme,
 		namespace:               testNamespace,
 		controllerRuntimeConfig: controllerRuntimeConfig,
-		DefaultTags:             an_aws.NewDefaultCloud(nil, cloudConfig).DefaultTags(),
+		Cloud:                   an_aws.NewDefaultCloud(nil, cloudConfig),
 	}
 	SetDefaultEventuallyTimeout(3 * time.Minute)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
@@ -320,6 +320,21 @@ func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *v
 		g.Expect(found.Status).To(Equal(lo.ToPtr(vpclattice.TargetGroupStatusActive)))
 	}).WithOffset(1).Should(Succeed())
 	return found
+}
+
+func (env *Framework) GetFullTargetGroupFromSummary(
+	ctx context.Context,
+	tgSummary *vpclattice.TargetGroupSummary) *vpclattice.GetTargetGroupOutput {
+
+	tg, err := env.LatticeClient.GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
+		TargetGroupIdentifier: tgSummary.Arn,
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return tg
 }
 
 // TODO: Create a new function that only verifying deployment len(podList.Items)==*deployment.Spec.Replicas, and don't do lattice.ListTargets() api call

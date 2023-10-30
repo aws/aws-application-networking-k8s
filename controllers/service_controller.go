@@ -91,12 +91,15 @@ func RegisterServiceController(
 //+kubebuilder:rbac:groups=core,resources=configmaps, verbs=create;delete;patch;update;get;list;watch
 
 func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	return lattice_runtime.HandleReconcileError(r.reconcile(ctx, req))
+	r.log.Infow("reconcile", "name", req.Name)
+	recErr := r.reconcile(ctx, req)
+	if recErr != nil {
+		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+	}
+	return lattice_runtime.HandleReconcileError(recErr)
 }
 
 func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
-	r.log.Infow("reconcile", "name", req.Name)
-
 	svc := &corev1.Service{}
 	if err := r.client.Get(ctx, req.NamespacedName, svc); err != nil {
 		return client.IgnoreNotFound(err)

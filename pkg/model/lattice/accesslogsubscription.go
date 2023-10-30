@@ -3,8 +3,13 @@ package lattice
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
+
+const AccessLogPolicyTagKey = aws.TagBase + "AccessLogPolicy"
 
 type SourceType string
 
@@ -20,33 +25,26 @@ type AccessLogSubscription struct {
 }
 
 type AccessLogSubscriptionSpec struct {
-	SourceType     SourceType
-	SourceName     string
-	DestinationArn string
-	IsDeleted      bool
+	SourceType        SourceType
+	SourceName        string
+	DestinationArn    string
+	ALPNamespacedName types.NamespacedName
+	EventType         core.EventType
 }
 
 type AccessLogSubscriptionStatus struct {
 	Arn string `json:"arn"`
-	Id  string `json:"id"`
 }
 
 func NewAccessLogSubscription(
 	stack core.Stack,
-	sourceType SourceType,
-	sourceName string,
-	destinationArn string,
-	isDeleted bool,
+	spec AccessLogSubscriptionSpec,
+	status *AccessLogSubscriptionStatus,
 ) *AccessLogSubscription {
-	id := fmt.Sprintf("%s-%s-%s", sourceType, sourceName, destinationArn)
+	id := fmt.Sprintf("%s-%s-%s", spec.SourceType, spec.SourceName, spec.DestinationArn)
 	return &AccessLogSubscription{
 		ResourceMeta: core.NewResourceMeta(stack, "AWS::VPCServiceNetwork::AccessLogSubscription", id),
-		Spec: AccessLogSubscriptionSpec{
-			SourceType:     sourceType,
-			SourceName:     sourceName,
-			DestinationArn: destinationArn,
-			IsDeleted:      isDeleted,
-		},
-		Status: nil,
+		Spec:         spec,
+		Status:       status,
 	}
 }

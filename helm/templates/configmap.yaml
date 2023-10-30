@@ -7,4 +7,5 @@ data:
     awsAccountId: {{ .Values.awsAccountId | quote }}
     clusterVpcId: {{ .Values.clusterVpcId | quote }}
     clusterName: {{ .Values.clusterName | quote }}
+    latticeEndpoint: {{ .Values.latticeEndpoint | quote }}
 
