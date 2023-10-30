@@ -202,6 +202,14 @@ rules:
   - patch
   - update
 - apiGroups:
+    - application-networking.k8s.aws
+  resources:
+    - accesslogpolicies/status
+  verbs:
+    - get
+    - patch
+    - update
+- apiGroups:
     - gateway.networking.k8s.io
   resources:
     - grpcroutes

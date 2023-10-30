@@ -76,7 +76,7 @@ func RegisterAccessLogPolicyController(
 ) error {
 	mgrClient := mgr.GetClient()
 	scheme := mgr.GetScheme()
-	evtRec := mgr.GetEventRecorderFor("accesslogpolicy")
+	evtRec := mgr.GetEventRecorderFor("access-log-policy-controller")
 
 	modelBuilder := gateway.NewAccessLogSubscriptionModelBuilder(log, mgrClient)
 	stackDeployer := deploy.NewAccessLogSubscriptionStackDeployer(log, cloud, mgrClient)
@@ -126,22 +126,21 @@ func (r *accessLogPolicyReconciler) reconcile(ctx context.Context, req ctrl.Requ
 		return client.IgnoreNotFound(err)
 	}
 
+	r.eventRecorder.Event(alp, corev1.EventTypeNormal, k8s.ReconcilingEvent, "Started reconciling")
+
 	if alp.Spec.TargetRef.Group != gwv1beta1.GroupName {
-		message := "The targetRef's Group must be " + gwv1beta1.GroupName
-		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
-		if err != nil {
-			return err
-		}
-		return nil
+		message := fmt.Sprintf("The targetRef's Group must be \"%s\" but was \"%s\"",
+			gwv1beta1.GroupName, alp.Spec.TargetRef.Group)
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
 
-	if !slices.Contains([]string{"Gateway", "HTTPRoute", "GRPCRoute"}, string(alp.Spec.TargetRef.Kind)) {
-		message := "The targetRef's Kind must be Gateway, HTTPRoute, or GRPCRoute"
-		err := r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
-		if err != nil {
-			return err
-		}
-		return nil
+	validKinds := []string{"Gateway", "HTTPRoute", "GRPCRoute"}
+	if !slices.Contains(validKinds, string(alp.Spec.TargetRef.Kind)) {
+		message := fmt.Sprintf("The targetRef's Kind must be \"Gateway\", \"HTTPRoute\", or \"GRPCRoute\""+
+			" but was \"%s\"", alp.Spec.TargetRef.Kind)
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
 
 	if !alp.DeletionTimestamp.IsZero() {
@@ -154,11 +153,15 @@ func (r *accessLogPolicyReconciler) reconcile(ctx context.Context, req ctrl.Requ
 func (r *accessLogPolicyReconciler) reconcileDelete(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) error {
 	_, err := r.buildAndDeployModel(ctx, alp)
 	if err != nil {
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning,
+			k8s.FailedReconcileEvent, fmt.Sprintf("Failed to delete due to %s", err))
 		return err
 	}
 
 	err = r.finalizerManager.RemoveFinalizers(ctx, alp, accessLogPolicyFinalizer)
 	if err != nil {
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning,
+			k8s.FailedReconcileEvent, fmt.Sprintf("Failed to remove finalizer due to %s", err))
 		return err
 	}
 
@@ -168,12 +171,15 @@ func (r *accessLogPolicyReconciler) reconcileDelete(ctx context.Context, alp *an
 func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) error {
 	if err := r.finalizerManager.AddFinalizers(ctx, alp, accessLogPolicyFinalizer); err != nil {
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning,
-			k8s.AccessLogPolicyEventReasonFailedAddFinalizer, fmt.Sprintf("Failed to add finalizer due to %s", err))
+			k8s.FailedReconcileEvent, fmt.Sprintf("Failed to add finalizer due to %s", err))
 		return err
 	}
 
-	if alp.Spec.TargetRef.Namespace != nil && string(*alp.Spec.TargetRef.Namespace) != alp.Namespace {
-		message := "The targetRef's namespace does not match the access log policy's namespace"
+	targetRefNamespace := k8s.NamespaceOrDefault(alp.Spec.TargetRef.Namespace)
+	if targetRefNamespace != alp.Namespace {
+		message := fmt.Sprintf("The targetRef's namespace, \"%s\", does not match the Access Log Policy's"+
+			" namespace, \"%s\"", string(*alp.Spec.TargetRef.Namespace), alp.Namespace)
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
 
@@ -182,7 +188,8 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 	if !targetRefExists {
-		message := "The targetRef could not be found"
+		message := fmt.Sprintf("%s target \"%s/%s\" could not be found", alp.Spec.TargetRef.Kind, targetRefNamespace, alp.Spec.TargetRef.Name)
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
 	}
 
@@ -190,11 +197,15 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 	if err != nil {
 		if services.IsConflictError(err) {
 			message := "An Access Log Policy with a Destination Arn for the same destination type already exists for this targetRef"
+			r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
 			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonConflicted, message)
 		} else if services.IsInvalidError(err) {
-			message := "The AWS resource with the provided Destination Arn could not be found"
+			message := fmt.Sprintf("The AWS resource with Destination Arn \"%s\" could not be found", *alp.Spec.DestinationArn)
+			r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
 			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 		}
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent,
+			"Failed to create or update due to "+err.Error())
 		return err
 	}
 
@@ -208,18 +219,15 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
+	r.eventRecorder.Event(alp, corev1.EventTypeNormal, k8s.ReconciledEvent, "Successfully reconciled")
+
 	return nil
 }
 
 func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) (bool, error) {
-	targetRefNamespace := alp.Namespace
-	if alp.Spec.TargetRef.Namespace != nil {
-		targetRefNamespace = string(*alp.Spec.TargetRef.Namespace)
-	}
-
 	targetRefNamespacedName := types.NamespacedName{
 		Name:      string(alp.Spec.TargetRef.Name),
-		Namespace: targetRefNamespace,
+		Namespace: k8s.NamespaceOrDefault(alp.Spec.TargetRef.Namespace),
 	}
 
 	var err error
@@ -235,8 +243,7 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 		grpcRoute := &gwv1alpha2.GRPCRoute{}
 		err = r.client.Get(ctx, targetRefNamespacedName, grpcRoute)
 	default:
-		return false, fmt.Errorf("access Log Policy targetRef is for an unsupported Kind: %s",
-			alp.Spec.TargetRef.Kind)
+		return false, fmt.Errorf("Access Log Policy targetRef is for unsupported Kind: %s", alp.Spec.TargetRef.Kind)
 	}
 
 	if err != nil && !errors.IsNotFound(err) {
@@ -252,8 +259,6 @@ func (r *accessLogPolicyReconciler) buildAndDeployModel(
 ) (core.Stack, error) {
 	stack, _, err := r.modelBuilder.Build(ctx, alp)
 	if err != nil {
-		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.AccessLogPolicyEventReasonFailedBuildModel,
-			fmt.Sprintf("Failed to build model due to %s", err))
 		return nil, err
 	}
 
@@ -290,6 +295,8 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyAnnotations(
 			}
 			alp.ObjectMeta.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey] = als.Status.Arn
 			if err := r.client.Patch(ctx, alp, client.MergeFrom(oldAlp)); err != nil {
+				r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent,
+					"Failed to update annotation due to "+err.Error())
 				return fmt.Errorf("failed to add annotation to Access Log Policy %s-%s, %w",
 					alp.Name, alp.Namespace, err)
 			}
@@ -319,8 +326,9 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(
 	})
 
 	if err := r.client.Status().Update(ctx, alp); err != nil {
-		return fmt.Errorf("failed to set Access Log Policy Accepted status to %s and reason to %s, %w",
-			status, reason, err)
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent,
+			"Failed to update status due to "+err.Error())
+		return fmt.Errorf("failed to set Accepted status to %s and reason to %s due to %s", status, reason, err)
 	}
 
 	return nil

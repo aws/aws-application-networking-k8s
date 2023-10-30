@@ -1,6 +1,11 @@
 package k8s
 
 const (
+	// Generic events
+	ReconcilingEvent     = "Reconciling"
+	ReconciledEvent      = "Reconciled"
+	FailedReconcileEvent = "FailedReconcile"
+
 	// Gateway events
 	GatewayEventReasonFailedAddFinalizer = "FailedAddFinalizer"
 	GatewayEventReasonFailedBuildModel   = "FailedBuildModel"
@@ -28,8 +33,4 @@ const (
 	ServiceImportEventReasonFailedAddFinalizer = "FailedAddFinalizer"
 	ServiceImportEventReasonFailedBuildModel   = "FailedBuildModel"
 	ServiceImportEventReasonFailedDeployModel  = "FailedDeployModel"
-
-	// AccessLogPolicy events
-	AccessLogPolicyEventReasonFailedAddFinalizer = "FailedAddFinalizer"
-	AccessLogPolicyEventReasonFailedBuildModel   = "FailedBuildModel"
 )
