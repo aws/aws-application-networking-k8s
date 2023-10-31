@@ -301,23 +301,44 @@ func updateMatchFromRule(httpMatch *vpclattice.HttpMatch, modelRule *model.Rule)
 		}
 
 		httpMatch.PathMatch = &vpclattice.PathMatch{
-			Match: &matchType,
+			Match:         &matchType,
+			CaseSensitive: aws.Bool(true), // see PathMatchType.PathPrefix in gw spec
 		}
 	}
 
-	httpMatch.Method = &modelRule.Spec.Method
+	if modelRule.Spec.Method != "" {
+		httpMatch.Method = &modelRule.Spec.Method
+	}
 
 	for i := 0; i < len(modelRule.Spec.MatchedHeaders); i++ {
 		headerMatch := vpclattice.HeaderMatch{
-			Match: modelRule.Spec.MatchedHeaders[i].Match,
-			Name:  modelRule.Spec.MatchedHeaders[i].Name,
+			Match:         modelRule.Spec.MatchedHeaders[i].Match,
+			Name:          modelRule.Spec.MatchedHeaders[i].Name,
+			CaseSensitive: aws.Bool(false), // see HTTPHeaderMatch.HTTPHeaderName in gw spec
 		}
 		httpMatch.HeaderMatches = append(httpMatch.HeaderMatches, &headerMatch)
 	}
 }
 
-func isMatchEqual(lr1, lr2 *vpclattice.GetRuleOutput) bool {
-	return reflect.DeepEqual(lr1.Match, lr2.Match)
+func isMatchEqual(localRule, latticeRule *vpclattice.GetRuleOutput) bool {
+	// currently lattice API converts nil HeaderMatches to empty list on create
+	// if we're currently nil, test both just in case it gets fixed later
+	if localRule.Match != nil && localRule.Match.HttpMatch != nil &&
+		localRule.Match.HttpMatch.HeaderMatches == nil {
+		firstTry := reflect.DeepEqual(localRule.Match, latticeRule.Match)
+		if firstTry {
+			return true
+		}
+		// test with empty, then reset to original value
+		localRule.Match.HttpMatch.HeaderMatches = make([]*vpclattice.HeaderMatch, 0)
+		secondTry := reflect.DeepEqual(localRule.Match, latticeRule.Match)
+		localRule.Match.HttpMatch.HeaderMatches = nil
+
+		return secondTry
+	}
+
+	// otherwise we can rely on normal equality
+	return reflect.DeepEqual(localRule.Match, latticeRule.Match)
 }
 
 func (r *defaultRuleManager) nextAvailablePriority(latticeRules []*vpclattice.GetRuleOutput) (int64, error) {

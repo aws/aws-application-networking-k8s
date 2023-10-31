@@ -49,6 +49,22 @@ func Test_Create(t *testing.T) {
 		},
 	}
 
+	r2 := &model.Rule{
+		Spec: model.RuleSpec{
+			Priority: 1,
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{
+						LatticeTgId: "tg-id",
+						Weight:      1,
+					},
+				},
+			},
+			PathMatchPrefix: true,
+			PathMatchValue:  "/foo",
+		},
+	}
+
 	t.Run("test create", func(t *testing.T) {
 		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
 			[]*vpclattice.GetRuleOutput{}, nil)
@@ -66,7 +82,7 @@ func Test_Create(t *testing.T) {
 		assert.Equal(t, "arn", ruleStatus.Arn)
 	})
 
-	t.Run("test update", func(t *testing.T) {
+	t.Run("test update method match", func(t *testing.T) {
 		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
 			[]*vpclattice.GetRuleOutput{
 				{
@@ -94,6 +110,44 @@ func Test_Create(t *testing.T) {
 
 		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
 		ruleStatus, err := rm.Upsert(ctx, r, l, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "existing-arn", ruleStatus.Arn)
+	})
+
+	t.Run("test update path match", func(t *testing.T) {
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{
+				{
+					Id:  aws.String("existing-id"),
+					Arn: aws.String("existing-arn"),
+					Match: &vpclattice.RuleMatch{
+						HttpMatch: &vpclattice.HttpMatch{
+							HeaderMatches: make([]*vpclattice.HeaderMatch, 0), // this is what's returned in the Lattice API, not nil
+							PathMatch: &vpclattice.PathMatch{
+								CaseSensitive: aws.Bool(true), // default value
+								Match: &vpclattice.PathMatchType{
+									Prefix: aws.String("/foo"),
+								},
+							},
+						},
+					},
+					Action: &vpclattice.RuleAction{
+						FixedResponse: &vpclattice.FixedResponseAction{}, // <-- this will trigger update
+					},
+					Name:     aws.String("existing-name"),
+					Priority: aws.Int64(1),
+				},
+			}, nil)
+
+		mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Return(
+			&vpclattice.UpdateRuleOutput{
+				Arn:  aws.String("existing-arn"),
+				Id:   aws.String("existing-id"),
+				Name: aws.String("existing-name"),
+			}, nil)
+
+		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+		ruleStatus, err := rm.Upsert(ctx, r2, l, svc)
 		assert.Nil(t, err)
 		assert.Equal(t, "existing-arn", ruleStatus.Arn)
 	})
