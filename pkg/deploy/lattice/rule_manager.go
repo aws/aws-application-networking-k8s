@@ -143,7 +143,7 @@ func (r *defaultRuleManager) update(ctx context.Context,
 		return fmt.Errorf("failed UpdateRule %s due to %s", aws.StringValue(latticeRule.Id), err)
 	}
 
-	r.log.Infof("Succcess UpdateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
+	r.log.Infof("Success UpdateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
 	return nil
 }
 
@@ -277,7 +277,7 @@ func (r *defaultRuleManager) create(
 		return model.RuleStatus{}, fmt.Errorf("failed CreateRule %s, %s due to %s", latticeListenerId, latticeSvcId, err)
 	}
 
-	r.log.Infof("Succcess CreateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
+	r.log.Infof("Success CreateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
 
 	return model.RuleStatus{
 		Name:       aws.StringValue(res.Name),
@@ -357,6 +357,6 @@ func (r *defaultRuleManager) Delete(ctx context.Context, ruleId string, serviceI
 		return fmt.Errorf("Failed DeleteRule %s/%s/%s due to %s", serviceId, listenerId, ruleId, err)
 	}
 
-	r.log.Infof("Succcess DeleteRule %s/%s/%s", serviceId, listenerId, ruleId)
+	r.log.Infof("Success DeleteRule %s/%s/%s", serviceId, listenerId, ruleId)
 	return nil
 }
