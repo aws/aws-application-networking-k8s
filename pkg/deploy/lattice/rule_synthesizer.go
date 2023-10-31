@@ -66,7 +66,7 @@ func (r *ruleSynthesizer) resolveRuleTgIds(ctx context.Context, modelRule *model
 		if rtg.SvcImportTG != nil {
 			r.log.Debugf("Getting target group for service import %s %s (%s, %s)",
 				rtg.SvcImportTG.K8SServiceName, rtg.SvcImportTG.K8SServiceNamespace,
-				rtg.SvcImportTG.EKSClusterName, rtg.SvcImportTG.VpcId)
+				rtg.SvcImportTG.K8SClusterName, rtg.SvcImportTG.VpcId)
 			tgId, err := r.findSvcExportTG(ctx, *rtg.SvcImportTG)
 
 			if err != nil {
@@ -95,7 +95,7 @@ func (r *ruleSynthesizer) findSvcExportTG(ctx context.Context, svcImportTg model
 		svcMatch := tgTags.IsSourceTypeServiceExport() && (tgTags.K8SServiceName == svcImportTg.K8SServiceName) &&
 			(tgTags.K8SServiceNamespace == svcImportTg.K8SServiceNamespace)
 
-		clusterMatch := (svcImportTg.EKSClusterName == "") || (tgTags.ClusterName == svcImportTg.EKSClusterName)
+		clusterMatch := (svcImportTg.K8SClusterName == "") || (tgTags.K8SClusterName == svcImportTg.K8SClusterName)
 
 		vpcMatch := (svcImportTg.VpcId == "") || (svcImportTg.VpcId == aws.StringValue(tg.getTargetGroupOutput.Config.VpcIdentifier))
 

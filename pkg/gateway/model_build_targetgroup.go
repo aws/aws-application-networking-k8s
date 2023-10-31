@@ -164,7 +164,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 	}
 	spec.VpcId = config.VpcID
 	spec.K8SSourceType = model.SourceTypeSvcExport
-	spec.ClusterName = config.ClusterName
+	spec.K8SClusterName = config.ClusterName
 	spec.K8SServiceName = t.serviceExport.Name
 	spec.K8SServiceNamespace = t.serviceExport.Namespace
 
@@ -350,7 +350,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	}
 	spec.VpcId = vpc
 	spec.K8SSourceType = parentRefType
-	spec.ClusterName = eksCluster
+	spec.K8SClusterName = eksCluster
 	spec.K8SServiceName = backendRefNsName.Name
 	spec.K8SServiceNamespace = backendRefNsName.Namespace
 	spec.K8SRouteName = t.route.Name()

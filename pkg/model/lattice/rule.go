@@ -41,7 +41,7 @@ type RuleTargetGroup struct {
 }
 
 type SvcImportTargetGroup struct {
-	EKSClusterName      string `json:"eksclustername"`
+	K8SClusterName      string `json:"k8sclustername"`
 	K8SServiceName      string `json:"k8sservicename"`
 	K8SServiceNamespace string `json:"k8sservicenamespace"`
 	VpcId               string `json:"vpcid"`

@@ -42,7 +42,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 			}
 			tgSpec.VpcId = config.VpcID
-			tgSpec.ClusterName = config.ClusterName
+			tgSpec.K8SClusterName = config.ClusterName
 			tgSpec.K8SSourceType = model.SourceTypeSvcExport
 			tgSpec.K8SServiceName = "exportsvc1"
 			tgSpec.K8SServiceNamespace = "default"
@@ -55,7 +55,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 			}
 			tgSpec.VpcId = config.VpcID
-			tgSpec.ClusterName = config.ClusterName
+			tgSpec.K8SClusterName = config.ClusterName
 			tgSpec.K8SSourceType = model.SourceTypeHTTPRoute
 			tgSpec.K8SServiceName = "backend-svc1"
 			tgSpec.K8SServiceNamespace = "default"
@@ -71,7 +71,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		expectedTags := cloud.DefaultTags()
 		expectedTags[model.K8SServiceNameKey] = &tgSpec.K8SServiceName
 		expectedTags[model.K8SServiceNamespaceKey] = &tgSpec.K8SServiceNamespace
-		expectedTags[model.EKSClusterNameKey] = &tgSpec.ClusterName
+		expectedTags[model.K8SClusterNameKey] = &tgSpec.K8SClusterName
 
 		if tgType == "by-serviceexport" {
 			value := string(model.SourceTypeSvcExport)
@@ -947,7 +947,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 				},
 			},
 			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
-			tags:      &model.TargetGroupTagFields{ClusterName: "foo"},
+			tags:      &model.TargetGroupTagFields{K8SClusterName: "foo"},
 		},
 		{
 			name:           "fetch tags not equal",
@@ -961,7 +961,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
 			listTagsOut: &vpclattice.ListTagsForResourceOutput{
 				Tags: map[string]*string{
-					model.EKSClusterNameKey: aws.String("foo"),
+					model.K8SClusterNameKey: aws.String("foo"),
 				},
 			},
 		},
@@ -992,13 +992,13 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 					Port:            443,
 					ProtocolVersion: "HTTP1",
 					TargetGroupTagFields: model.TargetGroupTagFields{
-						ClusterName: "cluster",
+						K8SClusterName: "cluster",
 					},
 				},
 			},
 			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
 			tags: &model.TargetGroupTagFields{
-				ClusterName: "cluster",
+				K8SClusterName: "cluster",
 			},
 			getTgOut: &vpclattice.GetTargetGroupOutput{
 				Config: &vpclattice.TargetGroupConfig{
@@ -1015,14 +1015,14 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 					Port:            443,
 					ProtocolVersion: "HTTP1",
 					TargetGroupTagFields: model.TargetGroupTagFields{
-						ClusterName: "cluster",
+						K8SClusterName: "cluster",
 					},
 				},
 			},
 			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
 			listTagsOut: &vpclattice.ListTagsForResourceOutput{
 				Tags: map[string]*string{
-					model.EKSClusterNameKey: aws.String("cluster"),
+					model.K8SClusterNameKey: aws.String("cluster"),
 				},
 			},
 			getTgOut: &vpclattice.GetTargetGroupOutput{

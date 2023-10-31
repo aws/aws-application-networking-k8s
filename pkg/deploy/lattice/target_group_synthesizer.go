@@ -373,7 +373,7 @@ func (t *TargetGroupSynthesizer) vpcMatchesConfig(latticeTg tgListOutput) bool {
 }
 
 func (t *TargetGroupSynthesizer) hasExpectedTags(latticeTg tgListOutput, tagFields model.TargetGroupTagFields) bool {
-	if tagFields.ClusterName != config.ClusterName {
+	if tagFields.K8SClusterName != config.ClusterName {
 		t.log.Debugf("Ignoring target group %s (%s) because it is not configured for this Cluster",
 			*latticeTg.getTargetGroupOutput.Arn, *latticeTg.getTargetGroupOutput.Name)
 		return false

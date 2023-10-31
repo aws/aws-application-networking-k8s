@@ -157,7 +157,7 @@ func Test_resolveRuleTgs(t *testing.T) {
 				TargetGroups: []*model.RuleTargetGroup{
 					{
 						SvcImportTG: &model.SvcImportTargetGroup{
-							EKSClusterName:      "cluster-name",
+							K8SClusterName:      "cluster-name",
 							K8SServiceName:      "svc-name",
 							K8SServiceNamespace: "ns",
 							VpcId:               "vpc-id",
@@ -186,7 +186,7 @@ func Test_resolveRuleTgs(t *testing.T) {
 				targetGroupTags: &vpclattice.ListTagsForResourceOutput{Tags: map[string]*string{
 					model.K8SServiceNameKey:      aws.String("svc-name"),
 					model.K8SServiceNamespaceKey: aws.String("ns"),
-					model.EKSClusterNameKey:      aws.String("cluster-name"),
+					model.K8SClusterNameKey:      aws.String("cluster-name"),
 					model.K8SSourceTypeKey:       aws.String(string(model.SourceTypeSvcExport)),
 				}},
 			},

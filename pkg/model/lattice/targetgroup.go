@@ -3,6 +3,7 @@ package lattice
 import (
 	"errors"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -11,12 +12,12 @@ import (
 )
 
 const (
-	EKSClusterNameKey      = "ClusterName"
-	K8SServiceNameKey      = "K8SServiceName"
-	K8SServiceNamespaceKey = "K8SServiceNamespace"
-	K8SRouteNameKey        = "K8SRouteName"
-	K8SRouteNamespaceKey   = "K8SRouteNamespace"
-	K8SSourceTypeKey       = "K8SSourceTypeKey"
+	K8SClusterNameKey      = aws.TagBase + "K8SClusterName"
+	K8SServiceNameKey      = aws.TagBase + "ServiceName"
+	K8SServiceNamespaceKey = aws.TagBase + "ServiceNamespace"
+	K8SRouteNameKey        = aws.TagBase + "RouteName"
+	K8SRouteNamespaceKey   = aws.TagBase + "RouteNamespace"
+	K8SSourceTypeKey       = aws.TagBase + "SourceTypeKey"
 
 	MaxNamespaceLength = 55
 	MaxNameLength      = 55
@@ -41,7 +42,7 @@ type TargetGroupSpec struct {
 	TargetGroupTagFields
 }
 type TargetGroupTagFields struct {
-	ClusterName         string        `json:"clustername"`
+	K8SClusterName      string        `json:"k8sclustername"`
 	K8SSourceType       K8SSourceType `json:"k8ssourcetype"`
 	K8SServiceName      string        `json:"k8sservicename"`
 	K8SServiceNamespace string        `json:"k8sservicenamespace"`
@@ -70,7 +71,7 @@ const (
 
 func TGTagFieldsFromTags(tags map[string]*string) TargetGroupTagFields {
 	return TargetGroupTagFields{
-		ClusterName:         getMapValue(tags, EKSClusterNameKey),
+		K8SClusterName:      getMapValue(tags, K8SClusterNameKey),
 		K8SSourceType:       GetParentRefType(getMapValue(tags, K8SSourceTypeKey)),
 		K8SServiceName:      getMapValue(tags, K8SServiceNameKey),
 		K8SServiceNamespace: getMapValue(tags, K8SServiceNamespaceKey),
@@ -106,7 +107,7 @@ func GetParentRefType(s string) K8SSourceType {
 
 func TagFieldsMatch(spec TargetGroupSpec, tags TargetGroupTagFields) bool {
 	specTags := TargetGroupTagFields{
-		ClusterName:         spec.ClusterName,
+		K8SClusterName:      spec.K8SClusterName,
 		K8SSourceType:       spec.K8SSourceType,
 		K8SServiceName:      spec.K8SServiceName,
 		K8SServiceNamespace: spec.K8SServiceNamespace,
@@ -148,7 +149,7 @@ func (t *TargetGroupTagFields) IsSourceTypeRoute() bool {
 
 func (t *TargetGroupSpec) Validate() error {
 	requiredFields := []string{t.K8SServiceName, t.K8SServiceNamespace,
-		t.Protocol, t.ProtocolVersion, t.VpcId, t.ClusterName, t.IpAddressType,
+		t.Protocol, t.ProtocolVersion, t.VpcId, t.K8SClusterName, t.IpAddressType,
 		string(t.K8SSourceType)}
 
 	for _, s := range requiredFields {

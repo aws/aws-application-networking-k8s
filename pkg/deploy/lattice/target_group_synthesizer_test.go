@@ -128,11 +128,11 @@ func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
 
 	tgWrongCluster := copy(tgWrongVpc)
 	tgWrongCluster.getTargetGroupOutput.Config.VpcIdentifier = aws.String("vpc-id")
-	tgWrongCluster.targetGroupTags.Tags[model.EKSClusterNameKey] = aws.String("another-cluster")
+	tgWrongCluster.targetGroupTags.Tags[model.K8SClusterNameKey] = aws.String("another-cluster")
 	nonManagedTgs = append(nonManagedTgs, tgWrongCluster)
 
 	tgInvalidParentRef := copy(tgWrongCluster)
-	tgInvalidParentRef.targetGroupTags.Tags[model.EKSClusterNameKey] = aws.String("cluster-name")
+	tgInvalidParentRef.targetGroupTags.Tags[model.K8SClusterNameKey] = aws.String("cluster-name")
 	tgInvalidParentRef.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeInvalid))
 	nonManagedTgs = append(nonManagedTgs, tgInvalidParentRef)
 
@@ -176,7 +176,7 @@ func getBaseTg() tgListOutput {
 		},
 		targetGroupTags: &vpclattice.ListTagsForResourceOutput{Tags: make(map[string]*string)},
 	}
-	baseTg.targetGroupTags.Tags[model.EKSClusterNameKey] = aws.String("cluster-name")
+	baseTg.targetGroupTags.Tags[model.K8SClusterNameKey] = aws.String("cluster-name")
 	baseTg.targetGroupTags.Tags[model.K8SServiceNameKey] = aws.String("svc")
 	baseTg.targetGroupTags.Tags[model.K8SServiceNamespaceKey] = aws.String("ns")
 	return baseTg
@@ -241,7 +241,7 @@ func Test_DoNotDeleteCases(t *testing.T) {
 			ProtocolVersion: "HTTP1",
 			IpAddressType:   "IPV4",
 			TargetGroupTagFields: model.TargetGroupTagFields{
-				ClusterName:         "cluster-name",
+				K8SClusterName:      "cluster-name",
 				K8SServiceName:      "svc",
 				K8SServiceNamespace: "ns",
 			},
@@ -342,7 +342,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 				ProtocolVersion: "HTTP1",
 				IpAddressType:   "IPV4",
 				TargetGroupTagFields: model.TargetGroupTagFields{
-					ClusterName:         "cluster-name",
+					K8SClusterName:      "cluster-name",
 					K8SServiceName:      "svc",
 					K8SServiceNamespace: "ns",
 					K8SSourceType:       model.SourceTypeSvcExport,
@@ -446,7 +446,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 				ProtocolVersion: "HTTP1",
 				IpAddressType:   "IPV4",
 				TargetGroupTagFields: model.TargetGroupTagFields{
-					ClusterName:         "cluster-name",
+					K8SClusterName:      "cluster-name",
 					K8SServiceName:      "svc",
 					K8SServiceNamespace: "ns",
 					K8SRouteName:        "route-name",

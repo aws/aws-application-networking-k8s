@@ -76,7 +76,7 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 		Type:   &latticeTgType,
 		Tags:   s.cloud.DefaultTags(),
 	}
-	createInput.Tags[model.EKSClusterNameKey] = &modelTg.Spec.ClusterName
+	createInput.Tags[model.K8SClusterNameKey] = &modelTg.Spec.K8SClusterName
 	createInput.Tags[model.K8SServiceNameKey] = &modelTg.Spec.K8SServiceName
 	createInput.Tags[model.K8SServiceNamespaceKey] = &modelTg.Spec.K8SServiceNamespace
 	createInput.Tags[model.K8SSourceTypeKey] = aws.String(string(modelTg.Spec.K8SSourceType))

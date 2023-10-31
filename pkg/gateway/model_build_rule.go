@@ -243,7 +243,7 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 
 				eksCluster, ok := svcImport.Annotations["multicluster.x-k8s.io/aws-eks-cluster-name"]
 				if ok {
-					svcImportTg.EKSClusterName = eksCluster
+					svcImportTg.K8SClusterName = eksCluster
 				}
 			}
 			ruleTG.SvcImportTG = &svcImportTg
