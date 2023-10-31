@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	K8SClusterNameKey      = aws.TagBase + "K8SClusterName"
+	K8SClusterNameKey      = aws.TagBase + "ClusterName"
 	K8SServiceNameKey      = aws.TagBase + "ServiceName"
 	K8SServiceNamespaceKey = aws.TagBase + "ServiceNamespace"
 	K8SRouteNameKey        = aws.TagBase + "RouteName"
