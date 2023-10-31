@@ -187,7 +187,7 @@ func Test_resolveRuleTgs(t *testing.T) {
 					model.K8SServiceNameKey:      aws.String("svc-name"),
 					model.K8SServiceNamespaceKey: aws.String("ns"),
 					model.EKSClusterNameKey:      aws.String("cluster-name"),
-					model.K8SParentRefTypeKey:    aws.String(string(model.ParentRefTypeSvcExport)),
+					model.K8SSourceTypeKey:       aws.String(string(model.SourceTypeSvcExport)),
 				}},
 			},
 		}, nil)

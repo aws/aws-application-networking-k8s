@@ -42,8 +42,8 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 			}
 			tgSpec.VpcId = config.VpcID
-			tgSpec.EKSClusterName = config.ClusterName
-			tgSpec.K8SParentRefType = model.ParentRefTypeSvcExport
+			tgSpec.ClusterName = config.ClusterName
+			tgSpec.K8SSourceType = model.SourceTypeSvcExport
 			tgSpec.K8SServiceName = "exportsvc1"
 			tgSpec.K8SServiceNamespace = "default"
 			tgSpec.Type = model.TargetGroupTypeIP
@@ -55,8 +55,8 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
 			}
 			tgSpec.VpcId = config.VpcID
-			tgSpec.EKSClusterName = config.ClusterName
-			tgSpec.K8SParentRefType = model.ParentRefTypeHTTPRoute
+			tgSpec.ClusterName = config.ClusterName
+			tgSpec.K8SSourceType = model.SourceTypeHTTPRoute
 			tgSpec.K8SServiceName = "backend-svc1"
 			tgSpec.K8SServiceNamespace = "default"
 			tgSpec.K8SRouteName = "httproute1"
@@ -71,14 +71,14 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		expectedTags := cloud.DefaultTags()
 		expectedTags[model.K8SServiceNameKey] = &tgSpec.K8SServiceName
 		expectedTags[model.K8SServiceNamespaceKey] = &tgSpec.K8SServiceNamespace
-		expectedTags[model.EKSClusterNameKey] = &tgSpec.EKSClusterName
+		expectedTags[model.EKSClusterNameKey] = &tgSpec.ClusterName
 
 		if tgType == "by-serviceexport" {
-			value := string(model.ParentRefTypeSvcExport)
-			expectedTags[model.K8SParentRefTypeKey] = &value
+			value := string(model.SourceTypeSvcExport)
+			expectedTags[model.K8SSourceTypeKey] = &value
 		} else if tgType == "by-backendref" {
-			value := string(model.ParentRefTypeHTTPRoute)
-			expectedTags[model.K8SParentRefTypeKey] = &value
+			value := string(model.SourceTypeHTTPRoute)
+			expectedTags[model.K8SSourceTypeKey] = &value
 			expectedTags[model.K8SRouteNameKey] = &tgSpec.K8SRouteName
 			expectedTags[model.K8SRouteNamespaceKey] = &tgSpec.K8SRouteNamespace
 		}
@@ -682,7 +682,6 @@ func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 	err := tgManager.Delete(ctx, &tgDeleteInput)
 
 	assert.NotNil(t, err)
-	assert.Equal(t, err, errors.New(LATTICE_RETRY))
 }
 
 // Delete target group fails
@@ -948,7 +947,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 				},
 			},
 			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
-			tags:      &model.TargetGroupTagFields{EKSClusterName: "foo"},
+			tags:      &model.TargetGroupTagFields{ClusterName: "foo"},
 		},
 		{
 			name:           "fetch tags not equal",
@@ -993,13 +992,13 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 					Port:            443,
 					ProtocolVersion: "HTTP1",
 					TargetGroupTagFields: model.TargetGroupTagFields{
-						EKSClusterName: "cluster",
+						ClusterName: "cluster",
 					},
 				},
 			},
 			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
 			tags: &model.TargetGroupTagFields{
-				EKSClusterName: "cluster",
+				ClusterName: "cluster",
 			},
 			getTgOut: &vpclattice.GetTargetGroupOutput{
 				Config: &vpclattice.TargetGroupConfig{
@@ -1016,7 +1015,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 					Port:            443,
 					ProtocolVersion: "HTTP1",
 					TargetGroupTagFields: model.TargetGroupTagFields{
-						EKSClusterName: "cluster",
+						ClusterName: "cluster",
 					},
 				},
 			},

@@ -51,8 +51,9 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 		return err
 	}
 
-	s.deregisterStaleTargets(ctx, modelTargets, modelTg, listTargetsOutput)
-	return s.registerTargets(ctx, modelTargets, modelTg)
+	err1 := s.deregisterStaleTargets(ctx, modelTargets, modelTg, listTargetsOutput)
+	err2 := s.registerTargets(ctx, modelTargets, modelTg)
+	return errors.Join(err1, err2)
 }
 
 func (s *defaultTargetsManager) registerTargets(
@@ -87,9 +88,8 @@ func (s *defaultTargetsManager) registerTargets(
 	}
 
 	if len(resp.Unsuccessful) > 0 {
-		s.log.Infof("Failed RegisterTargets (Unsuccessful=%d) %s, will retry",
+		return fmt.Errorf("Failed RegisterTargets (Unsuccessful=%d) %s, will retry",
 			len(resp.Unsuccessful), modelTg.Status.Id)
-		return errors.New(LATTICE_RETRY)
 	}
 
 	s.log.Infof("Success RegisterTargets %d, %s", len(resp.Successful), modelTg.Status.Id)
@@ -101,7 +101,7 @@ func (s *defaultTargetsManager) deregisterStaleTargets(
 	modelTargets *model.Targets,
 	modelTg *model.TargetGroup,
 	listTargetsOutput []*vpclattice.TargetSummary,
-) {
+) error {
 	var targetsToDeregister []*vpclattice.Target
 	for _, latticeTarget := range listTargetsOutput {
 		isStale := true
@@ -124,9 +124,10 @@ func (s *defaultTargetsManager) deregisterStaleTargets(
 		}
 		_, err := s.cloud.Lattice().DeregisterTargetsWithContext(ctx, &deregisterTargetsInput)
 		if err != nil {
-			s.log.Infof("Failed DeregisterTargets %s due to %s", modelTg.Status.Id, err)
-		} else {
-			s.log.Infof("Success DeregisterTargets %s", modelTg.Status.Id)
+			return fmt.Errorf("failed DeregisterTargets %s due to %s", modelTg.Status.Id, err)
 		}
+		s.log.Infof("Success DeregisterTargets %s", modelTg.Status.Id)
 	}
+
+	return nil
 }

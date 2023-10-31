@@ -29,9 +29,8 @@ type LatticeServiceModelBuilder struct {
 func NewLatticeServiceBuilder(
 	log gwlog.Logger,
 	client client.Client,
+	brTgBuilder BackendRefTargetGroupModelBuilder,
 ) *LatticeServiceModelBuilder {
-	brTgBuilder := NewBackendRefTargetGroupBuilder(log, client)
-
 	return &LatticeServiceModelBuilder{
 		log:         log,
 		client:      client,
@@ -44,11 +43,6 @@ func (b *LatticeServiceModelBuilder) Build(
 	route core.Route,
 ) (core.Stack, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
-
-	if b.brTgBuilder == nil {
-		b.log.Debugf("brTgBuilder is nil, initializing")
-		b.brTgBuilder = NewBackendRefTargetGroupBuilder(b.log, b.client)
-	}
 
 	task := &latticeServiceModelBuildTask{
 		log:         b.log,

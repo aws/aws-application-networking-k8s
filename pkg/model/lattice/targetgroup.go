@@ -11,13 +11,12 @@ import (
 )
 
 const (
-	EKSClusterNameKey      = "EKSClusterName"
+	EKSClusterNameKey      = "ClusterName"
 	K8SServiceNameKey      = "K8SServiceName"
 	K8SServiceNamespaceKey = "K8SServiceNamespace"
 	K8SRouteNameKey        = "K8SRouteName"
 	K8SRouteNamespaceKey   = "K8SRouteNamespace"
-
-	K8SParentRefTypeKey = "K8SParentRefTypeKey"
+	K8SSourceTypeKey       = "K8SSourceTypeKey"
 
 	MaxNamespaceLength = 55
 	MaxNameLength      = 55
@@ -42,8 +41,8 @@ type TargetGroupSpec struct {
 	TargetGroupTagFields
 }
 type TargetGroupTagFields struct {
-	EKSClusterName      string        `json:"eksclustername"`
-	K8SParentRefType    ParentRefType `json:"k8sparentreftype"`
+	ClusterName         string        `json:"clustername"`
+	K8SSourceType       K8SSourceType `json:"k8ssourcetype"`
 	K8SServiceName      string        `json:"k8sservicename"`
 	K8SServiceNamespace string        `json:"k8sservicenamespace"`
 	K8SRouteName        string        `json:"k8sroutename"`
@@ -57,22 +56,22 @@ type TargetGroupStatus struct {
 }
 
 type TargetGroupType string
-type ParentRefType string
+type K8SSourceType string
 type RouteType string
 
 const (
 	TargetGroupTypeIP TargetGroupType = "IP"
 
-	ParentRefTypeSvcExport ParentRefType = "ServiceExport"
-	ParentRefTypeHTTPRoute ParentRefType = "HTTPRoute"
-	ParentRefTypeGRPCRoute ParentRefType = "GRPCRoute"
-	ParentRefTypeInvalid   ParentRefType = "INVALID"
+	SourceTypeSvcExport K8SSourceType = "ServiceExport"
+	SourceTypeHTTPRoute K8SSourceType = "HTTPRoute"
+	SourceTypeGRPCRoute K8SSourceType = "GRPCRoute"
+	SourceTypeInvalid   K8SSourceType = "INVALID"
 )
 
 func TGTagFieldsFromTags(tags map[string]*string) TargetGroupTagFields {
 	return TargetGroupTagFields{
-		EKSClusterName:      getMapValue(tags, EKSClusterNameKey),
-		K8SParentRefType:    GetParentRefType(getMapValue(tags, K8SParentRefTypeKey)),
+		ClusterName:         getMapValue(tags, EKSClusterNameKey),
+		K8SSourceType:       GetParentRefType(getMapValue(tags, K8SSourceTypeKey)),
 		K8SServiceName:      getMapValue(tags, K8SServiceNameKey),
 		K8SServiceNamespace: getMapValue(tags, K8SServiceNamespaceKey),
 		K8SRouteName:        getMapValue(tags, K8SRouteNameKey),
@@ -88,27 +87,27 @@ func getMapValue(m map[string]*string, key string) string {
 	return *v
 }
 
-func GetParentRefType(s string) ParentRefType {
+func GetParentRefType(s string) K8SSourceType {
 	if s == "" {
 		return "" // empty is OK
 	}
 
 	switch s {
-	case string(ParentRefTypeHTTPRoute):
-		return ParentRefTypeHTTPRoute
-	case string(ParentRefTypeGRPCRoute):
-		return ParentRefTypeGRPCRoute
-	case string(ParentRefTypeSvcExport):
-		return ParentRefTypeSvcExport
+	case string(SourceTypeHTTPRoute):
+		return SourceTypeHTTPRoute
+	case string(SourceTypeGRPCRoute):
+		return SourceTypeGRPCRoute
+	case string(SourceTypeSvcExport):
+		return SourceTypeSvcExport
 	default:
-		return ParentRefTypeInvalid
+		return SourceTypeInvalid
 	}
 }
 
 func TagFieldsMatch(spec TargetGroupSpec, tags TargetGroupTagFields) bool {
 	specTags := TargetGroupTagFields{
-		EKSClusterName:      spec.EKSClusterName,
-		K8SParentRefType:    spec.K8SParentRefType,
+		ClusterName:         spec.ClusterName,
+		K8SSourceType:       spec.K8SSourceType,
 		K8SServiceName:      spec.K8SServiceName,
 		K8SServiceNamespace: spec.K8SServiceNamespace,
 		K8SRouteName:        spec.K8SRouteName,
@@ -138,19 +137,19 @@ func NewTargetGroup(stack core.Stack, spec TargetGroupSpec) (*TargetGroup, error
 	return tg, nil
 }
 
-func (t *TargetGroupTagFields) IsServiceExport() bool {
-	return t.K8SParentRefType == ParentRefTypeSvcExport
+func (t *TargetGroupTagFields) IsSourceTypeServiceExport() bool {
+	return t.K8SSourceType == SourceTypeSvcExport
 }
 
-func (t *TargetGroupTagFields) IsRoute() bool {
-	return t.K8SParentRefType == ParentRefTypeHTTPRoute ||
-		t.K8SParentRefType == ParentRefTypeGRPCRoute
+func (t *TargetGroupTagFields) IsSourceTypeRoute() bool {
+	return t.K8SSourceType == SourceTypeHTTPRoute ||
+		t.K8SSourceType == SourceTypeGRPCRoute
 }
 
 func (t *TargetGroupSpec) Validate() error {
 	requiredFields := []string{t.K8SServiceName, t.K8SServiceNamespace,
-		t.Protocol, t.ProtocolVersion, t.VpcId, t.EKSClusterName, t.IpAddressType,
-		string(t.K8SParentRefType)}
+		t.Protocol, t.ProtocolVersion, t.VpcId, t.ClusterName, t.IpAddressType,
+		string(t.K8SSourceType)}
 
 	for _, s := range requiredFields {
 		if s == "" {
@@ -158,7 +157,7 @@ func (t *TargetGroupSpec) Validate() error {
 		}
 	}
 
-	if t.IsRoute() {
+	if t.IsSourceTypeRoute() {
 		if t.K8SRouteName == "" || t.K8SRouteNamespace == "" {
 			return errors.New("route name or namespace missing for route-based target group")
 		}

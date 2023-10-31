@@ -18,8 +18,8 @@ type Stack interface {
 	// Add a resource into stack.
 	AddResource(res Resource) error
 
-	// Get a resource by its id and type
-	GetResource(id string, resType Resource) (Resource, error)
+	// Get a resource by its id and type, pointer will be populated after call
+	GetResource(id string, res Resource) error
 
 	// Add a dependency relationship between resources.
 	AddDependency(dependee Resource, depender Resource) error
@@ -66,17 +66,24 @@ func (s *defaultStack) AddResource(res Resource) error {
 }
 
 // Get a resource from the pointer, then return the result
-func (s *defaultStack) GetResource(id string, resType Resource) (Resource, error) {
+// will ensure the resource is of the specified type
+func (s *defaultStack) GetResource(id string, res Resource) error {
+	t := reflect.TypeOf(res)
 	resUID := graph.ResourceUID{
-		ResType: reflect.TypeOf(resType),
+		ResType: t,
 		ResID:   id,
 	}
 
-	if r, ok := s.resources[resUID]; ok {
-		return r, nil
+	r, ok := s.resources[resUID]
+	if !ok {
+		return fmt.Errorf("resource %s not found", id)
 	}
 
-	return nil, fmt.Errorf("resource %s not found", id)
+	// since the type makes up the key used to retrieve,
+	// it will be safe to assign the value to the param
+	v := reflect.ValueOf(res)
+	v.Elem().Set(reflect.ValueOf(r).Elem())
+	return nil
 }
 
 // Add a dependency relationship between resources.

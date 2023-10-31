@@ -46,13 +46,13 @@ func (s *defaultTargetGroupManager) Upsert(
 	}
 
 	if latticeTgSummary == nil {
-		return s.create(ctx, modelTg, err)
+		return s.create(ctx, modelTg)
 	} else {
 		return s.update(ctx, modelTg, latticeTgSummary)
 	}
 }
 
-func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.TargetGroup, err error) (model.TargetGroupStatus, error) {
+func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.TargetGroup) (model.TargetGroupStatus, error) {
 	var ipAddressType *string
 	if modelTg.Spec.IpAddressType != "" {
 		ipAddressType = &modelTg.Spec.IpAddressType
@@ -76,12 +76,12 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 		Type:   &latticeTgType,
 		Tags:   s.cloud.DefaultTags(),
 	}
-	createInput.Tags[model.EKSClusterNameKey] = &modelTg.Spec.EKSClusterName
+	createInput.Tags[model.EKSClusterNameKey] = &modelTg.Spec.ClusterName
 	createInput.Tags[model.K8SServiceNameKey] = &modelTg.Spec.K8SServiceName
 	createInput.Tags[model.K8SServiceNamespaceKey] = &modelTg.Spec.K8SServiceNamespace
-	createInput.Tags[model.K8SParentRefTypeKey] = aws.String(string(modelTg.Spec.K8SParentRefType))
+	createInput.Tags[model.K8SSourceTypeKey] = aws.String(string(modelTg.Spec.K8SSourceType))
 
-	if modelTg.Spec.IsRoute() {
+	if modelTg.Spec.IsSourceTypeRoute() {
 		createInput.Tags[model.K8SRouteNameKey] = &modelTg.Spec.K8SRouteName
 		createInput.Tags[model.K8SRouteNamespaceKey] = &modelTg.Spec.K8SRouteNamespace
 	}
@@ -207,9 +207,8 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 
 		isDeRegRespUnsuccessful := len(deRegResp.Unsuccessful) > 0
 		if isDeRegRespUnsuccessful {
-			s.log.Infof("Unsuccessful (%d total) DeregisterTargets %s (0->%s), will retry",
+			return fmt.Errorf("Unsuccessful (%d total) DeregisterTargets %s (%s), will retry",
 				len(deRegResp.Unsuccessful), modelTg.Status.Id, aws.StringValue(deRegResp.Unsuccessful[0].FailureMessage))
-			return errors.New(LATTICE_RETRY)
 		}
 		s.log.Infof("Success DeregisterTargets %s", modelTg.Status.Id)
 	}
@@ -223,7 +222,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 			s.log.Infof("Target group %s was already deleted", modelTg.Status.Id)
 			return nil
 		} else {
-			return fmt.Errorf("Failed DeleteTargetGroup %s due to %s", modelTg.Status.Id, err)
+			return fmt.Errorf("failed DeleteTargetGroup %s due to %s", modelTg.Status.Id, err)
 		}
 	}
 
@@ -281,7 +280,9 @@ func (s *defaultTargetGroupManager) findTargetGroup(
 	ctx context.Context,
 	modelTargetGroup *model.TargetGroup,
 ) (*vpclattice.TargetGroupSummary, error) {
-	listInput := vpclattice.ListTargetGroupsInput{}
+	listInput := vpclattice.ListTargetGroupsInput{
+		VpcIdentifier: aws.String(modelTargetGroup.Spec.VpcId),
+	}
 	resp, err := s.cloud.Lattice().ListTargetGroupsAsList(ctx, &listInput)
 	if err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -19,16 +20,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-)
-
-type ActionDirective bool
-
-const (
-	// just helps a bit with readability
-	PerformUpserts      ActionDirective = true
-	DoNotPerformUpserts ActionDirective = false
-	PerformDeletes      ActionDirective = true
-	DoNotPerformDeletes ActionDirective = false
 )
 
 // helpful for testing/mocking
@@ -63,16 +54,11 @@ type TargetGroupSynthesizer struct {
 }
 
 func (t *TargetGroupSynthesizer) Synthesize(ctx context.Context) error {
-	return t.synthesize(ctx, PerformUpserts, PerformDeletes)
+	err1 := t.SynthesizeCreate(ctx)
+	err2 := t.SynthesizeDelete(ctx)
+	return errors.Join(err1, err2)
 }
 func (t *TargetGroupSynthesizer) SynthesizeCreate(ctx context.Context) error {
-	return t.synthesize(ctx, PerformUpserts, DoNotPerformDeletes)
-}
-func (t *TargetGroupSynthesizer) SynthesizeDelete(ctx context.Context) error {
-	return t.synthesize(ctx, DoNotPerformUpserts, PerformDeletes)
-}
-
-func (t *TargetGroupSynthesizer) synthesize(ctx context.Context, performUpserts ActionDirective, performDeletes ActionDirective) error {
 	var resTargetGroups []*model.TargetGroup
 	var returnErr = false
 
@@ -81,40 +67,52 @@ func (t *TargetGroupSynthesizer) synthesize(ctx context.Context, performUpserts 
 		return err
 	}
 
-	if bool(performDeletes) {
-		for _, resTargetGroup := range resTargetGroups {
-			if resTargetGroup.IsDeleted {
-				prefix := model.TgNamePrefix(resTargetGroup.Spec)
-
-				err := t.targetGroupManager.Delete(ctx, resTargetGroup)
-				if err != nil {
-					t.log.Infof("Failed TargetGroupManager.Delete %s due to %s", prefix, err)
-					returnErr = true
-				}
-			}
+	for _, resTargetGroup := range resTargetGroups {
+		if resTargetGroup.IsDeleted {
+			continue
 		}
-	}
-	if bool(performUpserts) {
-		for _, resTargetGroup := range resTargetGroups {
-			if !resTargetGroup.IsDeleted {
-				prefix := model.TgNamePrefix(resTargetGroup.Spec)
 
-				tgStatus, err := t.targetGroupManager.Upsert(ctx, resTargetGroup)
-				if err == nil {
-					resTargetGroup.Status = &tgStatus
-				} else {
-					t.log.Debugf("Failed TargetGroupManager.Upsert %s due to %s", prefix, err)
-					returnErr = true
-				}
-			}
+		prefix := model.TgNamePrefix(resTargetGroup.Spec)
+
+		tgStatus, err := t.targetGroupManager.Upsert(ctx, resTargetGroup)
+		if err == nil {
+			resTargetGroup.Status = &tgStatus
+		} else {
+			t.log.Debugf("Failed TargetGroupManager.Upsert %s due to %s", prefix, err)
+			returnErr = true
 		}
 	}
 
 	if returnErr {
-		t.log.Infof("Error during target group synthesis, will retry")
-		return errors.New(LATTICE_RETRY)
+		return fmt.Errorf("error during target group synthesis, will retry")
 	}
 
+	return nil
+}
+func (t *TargetGroupSynthesizer) SynthesizeDelete(ctx context.Context) error {
+	var resTargetGroups []*model.TargetGroup
+
+	err := t.stack.ListResources(&resTargetGroups)
+	if err != nil {
+		return err
+	}
+
+	var retErr error
+	for _, resTargetGroup := range resTargetGroups {
+		if !resTargetGroup.IsDeleted {
+			continue
+		}
+
+		err := t.targetGroupManager.Delete(ctx, resTargetGroup)
+		if err != nil {
+			prefix := model.TgNamePrefix(resTargetGroup.Spec)
+			retErr = errors.Join(retErr, fmt.Errorf("failed TargetGroupManager.Delete %s due to %s", prefix, err))
+		}
+	}
+
+	if retErr != nil {
+		return retErr
+	}
 	return nil
 }
 
@@ -125,7 +123,7 @@ func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) err
 		return err
 	}
 
-	retErr := false
+	var retErr error
 	for _, tg := range tgsToDelete {
 		modelStatus := model.TargetGroupStatus{
 			Name: aws.StringValue(tg.getTargetGroupOutput.Name),
@@ -139,23 +137,21 @@ func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) err
 
 		err := t.targetGroupManager.Delete(ctx, &modelTg)
 		if err != nil {
-			t.log.Infof("Failed TargetGroupManager.Delete %s due to %s", modelStatus.Id, err)
-			retErr = true
+			retErr = errors.Join(retErr, fmt.Errorf("failed TargetGroupManager.Delete %s due to %s", modelStatus.Id, err))
 		}
 	}
 
-	if retErr {
-		return errors.New(LATTICE_RETRY)
-	} else {
-		return nil
+	if retErr != nil {
+		return retErr
 	}
+
+	return nil
 }
 
 func (t *TargetGroupSynthesizer) calculateTargetGroupsToDelete(ctx context.Context) ([]tgListOutput, error) {
 	latticeTgs, err := t.targetGroupManager.List(ctx)
 	if err != nil {
-		t.log.Infof("Failed TargetGroupManager.List due to %s", err)
-		return latticeTgs, err
+		return latticeTgs, fmt.Errorf("failed TargetGroupManager.List due to %s", err)
 	}
 
 	var tgsToDelete []tgListOutput
@@ -164,8 +160,15 @@ func (t *TargetGroupSynthesizer) calculateTargetGroupsToDelete(ctx context.Conte
 	// some changes to existing service exports or routes will simply create new target groups,
 	// for example on protocol changes
 	for _, latticeTg := range latticeTgs {
-		tagFields, controllerManaged := t.isControllerManaged(latticeTg)
-		if !controllerManaged {
+		if !t.hasTags(latticeTg) || !t.vpcMatchesConfig(latticeTg) {
+			continue
+		}
+
+		// TGs from earlier releases will require 1-time manual cleanup
+		// this method of validation only covers TGs created by this build
+		// of the controller forward
+		tagFields := model.TGTagFieldsFromTags(latticeTg.targetGroupTags.Tags)
+		if !t.hasExpectedTags(latticeTg, tagFields) {
 			continue
 		}
 
@@ -176,7 +179,7 @@ func (t *TargetGroupSynthesizer) calculateTargetGroupsToDelete(ctx context.Conte
 			continue
 		}
 
-		if tagFields.K8SParentRefType == model.ParentRefTypeSvcExport {
+		if tagFields.K8SSourceType == model.SourceTypeSvcExport {
 			if t.shouldDeleteSvcExportTg(ctx, latticeTg, tagFields) {
 				tgsToDelete = append(tgsToDelete, latticeTg)
 			}
@@ -351,46 +354,47 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 	return false
 }
 
-func (t *TargetGroupSynthesizer) isControllerManaged(latticeTg tgListOutput) (model.TargetGroupTagFields, bool) {
+func (t *TargetGroupSynthesizer) hasTags(latticeTg tgListOutput) bool {
 	if latticeTg.targetGroupTags == nil {
 		t.log.Debugf("Ignoring target group %s (%s) because tag fetch was not successful",
 			*latticeTg.getTargetGroupOutput.Arn, *latticeTg.getTargetGroupOutput.Name)
-		return model.TargetGroupTagFields{}, false
+		return false
 	}
+	return true
+}
 
-	// TGs from earlier releases will require 1-time manual cleanup
-	// this method of validation only covers TGs created by this build
-	// of the controller forward
+func (t *TargetGroupSynthesizer) vpcMatchesConfig(latticeTg tgListOutput) bool {
 	if aws.StringValue(latticeTg.getTargetGroupOutput.Config.VpcIdentifier) != config.VpcID {
 		t.log.Debugf("Ignoring target group %s (%s) because it is not configured for this VPC",
 			*latticeTg.getTargetGroupOutput.Arn, *latticeTg.getTargetGroupOutput.Name)
-		return model.TargetGroupTagFields{}, false
+		return false
 	}
+	return true
+}
 
-	tagFields := model.TGTagFieldsFromTags(latticeTg.targetGroupTags.Tags)
-
-	if tagFields.EKSClusterName != config.ClusterName {
+func (t *TargetGroupSynthesizer) hasExpectedTags(latticeTg tgListOutput, tagFields model.TargetGroupTagFields) bool {
+	if tagFields.ClusterName != config.ClusterName {
 		t.log.Debugf("Ignoring target group %s (%s) because it is not configured for this Cluster",
 			*latticeTg.getTargetGroupOutput.Arn, *latticeTg.getTargetGroupOutput.Name)
-		return model.TargetGroupTagFields{}, false
+		return false
 	}
 
-	if tagFields.K8SParentRefType == model.ParentRefTypeInvalid ||
+	if tagFields.K8SSourceType == model.SourceTypeInvalid ||
 		tagFields.K8SServiceName == "" || tagFields.K8SServiceNamespace == "" {
 
 		t.log.Infof("Ignoring target group %s (%s) as one or more required tags are missing",
 			*latticeTg.getTargetGroupOutput.Arn, *latticeTg.getTargetGroupOutput.Name)
-		return model.TargetGroupTagFields{}, false
+		return false
 	}
 
 	// route-based TGs should have the additional route keys
-	if tagFields.IsRoute() && (tagFields.K8SRouteName == "" || tagFields.K8SRouteNamespace == "") {
+	if tagFields.IsSourceTypeRoute() && (tagFields.K8SRouteName == "" || tagFields.K8SRouteNamespace == "") {
 		t.log.Infof("Ignoring route-based target group %s (%s) as one or more required tags are missing",
 			*latticeTg.getTargetGroupOutput.Arn, *latticeTg.getTargetGroupOutput.Name)
-		return model.TargetGroupTagFields{}, false
+		return false
 	}
 
-	return tagFields, true
+	return true
 }
 
 func (t *TargetGroupSynthesizer) PostSynthesize(ctx context.Context) error {

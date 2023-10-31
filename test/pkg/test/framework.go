@@ -199,8 +199,8 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 			})
 			if err == nil {
 				env.Log.Infof("Found Tags for tg %v tags: %v", *tg.Name, retrievedTags)
-				tagValue, ok := retrievedTags.Tags[model.K8SParentRefTypeKey]
-				if ok && *tagValue == string(model.ParentRefTypeSvcExport) {
+				tagValue, ok := retrievedTags.Tags[model.K8SSourceTypeKey]
+				if ok && *tagValue == string(model.SourceTypeSvcExport) {
 					env.Log.Infof("TargetGroup: %s was created by k8s controller, by a ServiceExport", *tg.Id)
 					//This tg is created by k8s controller, by a ServiceExport,
 					//ServiceExport still have a known targetGroup leaking issue,

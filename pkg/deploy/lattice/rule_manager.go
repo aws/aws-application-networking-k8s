@@ -80,8 +80,7 @@ func (r *defaultRuleManager) UpdatePriorities(ctx context.Context, svcId string,
 
 	_, err := r.cloud.Lattice().BatchUpdateRuleWithContext(ctx, &batchRuleInput)
 	if err != nil {
-		r.log.Infof("Failed BatchUpdateRule %s, %s, due to %s", svcId, listenerId, err)
-		return err
+		return fmt.Errorf("failed BatchUpdateRule %s, %s, due to %s", svcId, listenerId, err)
 	}
 
 	r.log.Infof("Success BatchUpdateRule %s, %s", svcId, listenerId)
@@ -141,8 +140,7 @@ func (r *defaultRuleManager) update(ctx context.Context,
 
 	res, err := r.cloud.Lattice().UpdateRuleWithContext(ctx, &uri)
 	if err != nil {
-		r.log.Infof("Failed UpdateRule %s due to %s", aws.StringValue(latticeRule.Id), err)
-		return err
+		return fmt.Errorf("failed UpdateRule %s due to %s", aws.StringValue(latticeRule.Id), err)
 	}
 
 	r.log.Infof("Succcess UpdateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
@@ -276,7 +274,7 @@ func (r *defaultRuleManager) create(
 
 	res, err := r.cloud.Lattice().CreateRuleWithContext(ctx, &cri)
 	if err != nil {
-		return model.RuleStatus{}, fmt.Errorf("Failed CreateRule %s, %s due to %s", latticeListenerId, latticeSvcId, err)
+		return model.RuleStatus{}, fmt.Errorf("failed CreateRule %s, %s due to %s", latticeListenerId, latticeSvcId, err)
 	}
 
 	r.log.Infof("Succcess CreateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))

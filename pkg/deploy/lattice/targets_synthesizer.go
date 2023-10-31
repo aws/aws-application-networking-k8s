@@ -2,7 +2,6 @@ package lattice
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -40,14 +39,10 @@ func (t *targetsSynthesizer) Synthesize(ctx context.Context) error {
 	}
 
 	for _, targets := range resTargets {
-		resTg, err := t.stack.GetResource(targets.Spec.StackTargetGroupId, &model.TargetGroup{})
+		tg := &model.TargetGroup{}
+		err := t.stack.GetResource(targets.Spec.StackTargetGroupId, tg)
 		if err != nil {
 			return err
-		}
-
-		tg, ok := resTg.(*model.TargetGroup)
-		if !ok {
-			return errors.New("unexpected type conversion failure for target group stack object")
 		}
 
 		err = t.targetsManager.Update(ctx, targets, tg)

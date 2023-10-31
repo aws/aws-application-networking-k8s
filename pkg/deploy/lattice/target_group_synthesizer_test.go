@@ -133,11 +133,11 @@ func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
 
 	tgInvalidParentRef := copy(tgWrongCluster)
 	tgInvalidParentRef.targetGroupTags.Tags[model.EKSClusterNameKey] = aws.String("cluster-name")
-	tgInvalidParentRef.targetGroupTags.Tags[model.K8SParentRefTypeKey] = aws.String(string(model.ParentRefTypeInvalid))
+	tgInvalidParentRef.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeInvalid))
 	nonManagedTgs = append(nonManagedTgs, tgInvalidParentRef)
 
 	tgMissingK8SServiceName := copy(tgInvalidParentRef)
-	tgMissingK8SServiceName.targetGroupTags.Tags[model.K8SParentRefTypeKey] = aws.String(string(model.ParentRefTypeSvcExport))
+	tgMissingK8SServiceName.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
 	nonManagedTgs = append(nonManagedTgs, tgMissingK8SServiceName)
 
 	tgMissingK8SServiceNamespace := copy(tgMissingK8SServiceName)
@@ -145,7 +145,7 @@ func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
 	nonManagedTgs = append(nonManagedTgs, tgMissingK8SServiceNamespace)
 
 	tgMissingRouteName := copy(tgMissingK8SServiceNamespace)
-	tgMissingRouteName.targetGroupTags.Tags[model.K8SParentRefTypeKey] = aws.String(string(model.ParentRefTypeHTTPRoute))
+	tgMissingRouteName.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
 	tgMissingRouteName.targetGroupTags.Tags[model.K8SServiceNamespaceKey] = aws.String("ns-1")
 	nonManagedTgs = append(nonManagedTgs, tgMissingRouteName)
 
@@ -212,12 +212,12 @@ func Test_DoNotDeleteCases(t *testing.T) {
 
 	tgSvcExportUpToDate := copy(baseTg)
 	tgSvcExportUpToDate.getTargetGroupOutput.Arn = aws.String("tg-svc-export-arn")
-	tgSvcExportUpToDate.targetGroupTags.Tags[model.K8SParentRefTypeKey] = aws.String(string(model.ParentRefTypeSvcExport))
+	tgSvcExportUpToDate.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
 	noDeleteTgs = append(noDeleteTgs, tgSvcExportUpToDate)
 
 	tgSvcUpToDate := copy(baseTg)
 	tgSvcUpToDate.getTargetGroupOutput.Arn = aws.String("tg-svc-arn")
-	tgSvcUpToDate.targetGroupTags.Tags[model.K8SParentRefTypeKey] = aws.String(string(model.ParentRefTypeHTTPRoute))
+	tgSvcUpToDate.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
 	tgSvcUpToDate.targetGroupTags.Tags[model.K8SRouteNameKey] = aws.String("route")
 	tgSvcUpToDate.targetGroupTags.Tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
 	noDeleteTgs = append(noDeleteTgs, tgSvcUpToDate)
@@ -241,21 +241,21 @@ func Test_DoNotDeleteCases(t *testing.T) {
 			ProtocolVersion: "HTTP1",
 			IpAddressType:   "IPV4",
 			TargetGroupTagFields: model.TargetGroupTagFields{
-				EKSClusterName:      "cluster-name",
+				ClusterName:         "cluster-name",
 				K8SServiceName:      "svc",
 				K8SServiceNamespace: "ns",
 			},
 		},
 	}
 	svcExportModelTg := baseModelTg
-	svcExportModelTg.Spec.TargetGroupTagFields.K8SParentRefType = model.ParentRefTypeSvcExport
+	svcExportModelTg.Spec.TargetGroupTagFields.K8SSourceType = model.SourceTypeSvcExport
 
 	mockSvcExportTgBuilder.EXPECT().BuildTargetGroup(ctx, gomock.Any()).Return(&svcExportModelTg, nil)
 
 	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
 	svcModelTg := baseModelTg
 	svcModelTg.ResourceMeta = core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "tg-id")
-	svcModelTg.Spec.TargetGroupTagFields.K8SParentRefType = model.ParentRefTypeHTTPRoute
+	svcModelTg.Spec.TargetGroupTagFields.K8SSourceType = model.SourceTypeHTTPRoute
 	svcModelTg.Spec.TargetGroupTagFields.K8SRouteName = "route"
 	svcModelTg.Spec.TargetGroupTagFields.K8SRouteNamespace = "route-ns"
 	stack.AddResource(&svcModelTg)
@@ -287,7 +287,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 	var deleteTgs []tgListOutput
 	tgSvcExport := copy(baseTg)
 	tgSvcExport.getTargetGroupOutput.Arn = aws.String("tg-svc-export-arn")
-	tgSvcExport.targetGroupTags.Tags[model.K8SParentRefTypeKey] = aws.String(string(model.ParentRefTypeSvcExport))
+	tgSvcExport.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
 	deleteTgs = append(deleteTgs, tgSvcExport)
 
 	t.Run("Service Export does not exist", func(t *testing.T) {
@@ -342,10 +342,10 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 				ProtocolVersion: "HTTP1",
 				IpAddressType:   "IPV4",
 				TargetGroupTagFields: model.TargetGroupTagFields{
-					EKSClusterName:      "cluster-name",
+					ClusterName:         "cluster-name",
 					K8SServiceName:      "svc",
 					K8SServiceNamespace: "ns",
-					K8SParentRefType:    model.ParentRefTypeSvcExport,
+					K8SSourceType:       model.SourceTypeSvcExport,
 				},
 			},
 		}
@@ -387,7 +387,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 	var deleteTgs []tgListOutput
 	tgSvc := copy(baseTg)
 	tgSvc.getTargetGroupOutput.Arn = aws.String("tg-svc-arn")
-	tgSvc.targetGroupTags.Tags[model.K8SParentRefTypeKey] = aws.String(string(model.ParentRefTypeHTTPRoute))
+	tgSvc.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
 	tgSvc.targetGroupTags.Tags[model.K8SRouteNameKey] = aws.String("route")
 	tgSvc.targetGroupTags.Tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
 	deleteTgs = append(deleteTgs, tgSvc)
@@ -446,12 +446,12 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 				ProtocolVersion: "HTTP1",
 				IpAddressType:   "IPV4",
 				TargetGroupTagFields: model.TargetGroupTagFields{
-					EKSClusterName:      "cluster-name",
+					ClusterName:         "cluster-name",
 					K8SServiceName:      "svc",
 					K8SServiceNamespace: "ns",
 					K8SRouteName:        "route-name",
 					K8SRouteNamespace:   "route-ns",
-					K8SParentRefType:    model.ParentRefTypeSvcExport,
+					K8SSourceType:       model.SourceTypeSvcExport,
 				},
 			},
 		}

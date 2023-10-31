@@ -118,7 +118,29 @@ func Test_Get(t *testing.T) {
 		Status: nil,
 	}
 	stack.AddResource(&fr)
-	gr, err := stack.GetResource(fr.ID(), &FakeResource{})
+	frPtr := &FakeResource{}
+	err := stack.GetResource(fr.ID(), frPtr)
 	assert.NoError(t, err)
-	assert.Equal(t, &fr, gr)
+	assert.Equal(t, &fr, frPtr)
+}
+
+type FakeResource2 struct {
+	FakeResource
+}
+
+func Test_GetWithErr(t *testing.T) {
+	stack := NewDefaultStack(StackID{Namespace: "namespace", Name: "name"})
+	fr := FakeResource{
+		ResourceMeta: ResourceMeta{
+			resType: "fake",
+			id:      "id-B",
+		},
+		Spec:   FakeResourceSpec{},
+		Status: nil,
+	}
+	stack.AddResource(&fr)
+
+	// getting with the wrong type will error
+	err := stack.GetResource(fr.ID(), &FakeResource2{})
+	assert.Error(t, err)
 }

@@ -37,15 +37,12 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 		return err
 	}
 
+	var listenerErr error
 	for _, listener := range stackListeners {
-		resSvc, err := l.stack.GetResource(listener.Spec.StackServiceId, &model.Service{})
+		svc := &model.Service{}
+		err := l.stack.GetResource(listener.Spec.StackServiceId, svc)
 		if err != nil {
 			return err
-		}
-
-		svc, ok := resSvc.(*model.Service)
-		if !ok {
-			return errors.New("unexpected type conversion failure for service stack object")
 		}
 
 		// deletes are deferred to the later logic comparing existing listeners
@@ -53,19 +50,25 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 		if !listener.IsDeleted {
 			status, err := l.listenerMgr.Upsert(ctx, listener, svc)
 			if err != nil {
-				return fmt.Errorf("Failed ListenerManager.Upsert %s-%s due to err %s",
-					listener.Spec.K8SRouteName, listener.Spec.K8SRouteNamespace, err)
+				listenerErr = errors.Join(listenerErr,
+					fmt.Errorf("failed ListenerManager.Upsert %s-%s due to err %s",
+						listener.Spec.K8SRouteName, listener.Spec.K8SRouteNamespace, err))
+				continue
 			}
 
 			listener.Status = &status
 		}
 	}
 
+	if listenerErr != nil {
+		return listenerErr
+	}
+
 	// All deletions happen here, we fetch all listeners for NON-deleted
 	// services, since service deletion will delete its listeners
 	latticeListenersAsModel, err := l.getLatticeListenersAsModels(ctx)
 	if err != nil {
-		return err
+		listenerErr = errors.Join(listenerErr, err)
 	}
 
 	for _, latticeListenerAsModel := range latticeListenersAsModel {

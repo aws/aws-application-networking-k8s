@@ -163,8 +163,8 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 		HealthCheckConfig: healthCheckConfig,
 	}
 	spec.VpcId = config.VpcID
-	spec.K8SParentRefType = model.ParentRefTypeSvcExport
-	spec.EKSClusterName = config.ClusterName
+	spec.K8SSourceType = model.SourceTypeSvcExport
+	spec.ClusterName = config.ClusterName
 	spec.K8SServiceName = t.serviceExport.Name
 	spec.K8SServiceNamespace = t.serviceExport.Namespace
 
@@ -260,10 +260,11 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargets(ctx context.Context, 
 	backendRefNsName := getBackendRefNsName(t.route, t.backendRef)
 	svc := &corev1.Service{}
 	if err := t.client.Get(ctx, backendRefNsName, svc); err != nil {
-		t.log.Infof("Error finding backend service %s due to %s", backendRefNsName, err)
-		if t.route.DeletionTimestamp().IsZero() {
-			// Ignore error for deletion request
-			return err
+		if apierrors.IsNotFound(err) && !t.route.DeletionTimestamp().IsZero() {
+			t.log.Infof("Ignoring not found error for service %s on deleted route %s",
+				t.backendRef.Name(), t.route.Name())
+		} else {
+			return fmt.Errorf("error finding backend service %s due to %s", backendRefNsName, err)
 		}
 	}
 
@@ -286,13 +287,14 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	routeIsDeleted := !t.route.DeletionTimestamp().IsZero()
 
 	backendRefNsName := getBackendRefNsName(t.route, t.backendRef)
-
 	svc := &corev1.Service{}
 	if err := t.client.Get(ctx, backendRefNsName, svc); err != nil {
-		t.log.Infof("Error finding backend service %s due to %s", backendRefNsName, err)
-		if !routeIsDeleted {
-			// Ignore error for deletion request
-			return model.TargetGroupSpec{}, err
+		if routeIsDeleted && apierrors.IsNotFound(err) {
+			t.log.Infof("Ignoring not found error for service %s on deleted route %s",
+				t.backendRef.Name(), t.route.Name())
+		} else if !routeIsDeleted {
+			return model.TargetGroupSpec{},
+				fmt.Errorf("error finding backend service %s due to %s", backendRefNsName, err)
 		}
 	}
 
@@ -332,10 +334,10 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	}
 
 	// GRPC takes precedence over other protocolVersions.
-	parentRefType := model.ParentRefTypeHTTPRoute
+	parentRefType := model.SourceTypeHTTPRoute
 	if _, ok := t.route.(*core.GRPCRoute); ok {
 		protocolVersion = vpclattice.TargetGroupProtocolVersionGrpc
-		parentRefType = model.ParentRefTypeGRPCRoute
+		parentRefType = model.SourceTypeGRPCRoute
 	}
 
 	spec := model.TargetGroupSpec{
@@ -347,8 +349,8 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		HealthCheckConfig: healthCheckConfig,
 	}
 	spec.VpcId = vpc
-	spec.K8SParentRefType = parentRefType
-	spec.EKSClusterName = eksCluster
+	spec.K8SSourceType = parentRefType
+	spec.ClusterName = eksCluster
 	spec.K8SServiceName = backendRefNsName.Name
 	spec.K8SServiceNamespace = backendRefNsName.Namespace
 	spec.K8SRouteName = t.route.Name()

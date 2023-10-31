@@ -254,6 +254,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	mockFinalizer.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	mockFinalizer.EXPECT().RemoveFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
+	brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
 	rc := routeReconciler{
 		routeType:        core.HttpRouteType,
 		log:              gwlog.FallbackLogger,
@@ -261,7 +262,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 		scheme:           k8sScheme,
 		finalizerManager: mockFinalizer,
 		eventRecorder:    mockEventRecorder,
-		modelBuilder:     gateway.NewLatticeServiceBuilder(gwlog.FallbackLogger, k8sClient),
+		modelBuilder:     gateway.NewLatticeServiceBuilder(gwlog.FallbackLogger, k8sClient, brTgBuilder),
 		stackDeployer:    deploy.NewLatticeServiceStackDeploy(gwlog.FallbackLogger, mockCloud, k8sClient),
 		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		cloud:            mockCloud,

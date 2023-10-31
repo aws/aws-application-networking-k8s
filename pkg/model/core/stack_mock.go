@@ -62,18 +62,17 @@ func (mr *MockStackMockRecorder) AddResource(res interface{}) *gomock.Call {
 }
 
 // GetResource mocks base method.
-func (m *MockStack) GetResource(id string, resType Resource) (Resource, error) {
+func (m *MockStack) GetResource(id string, res Resource) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetResource", id, resType)
-	ret0, _ := ret[0].(Resource)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "GetResource", id, res)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // GetResource indicates an expected call of GetResource.
-func (mr *MockStackMockRecorder) GetResource(id, resType interface{}) *gomock.Call {
+func (mr *MockStackMockRecorder) GetResource(id, res interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResource", reflect.TypeOf((*MockStack)(nil).GetResource), id, resType)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResource", reflect.TypeOf((*MockStack)(nil).GetResource), id, res)
 }
 
 // ListResources mocks base method.

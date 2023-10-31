@@ -258,9 +258,9 @@ func Test_TGModelByServicExportBuild(t *testing.T) {
 				assert.Equal(t, vpclattice.IpAddressTypeIpv4, stackTg.Spec.IpAddressType)
 			}
 
-			assert.Equal(t, config.ClusterName, stackTg.Spec.EKSClusterName)
+			assert.Equal(t, config.ClusterName, stackTg.Spec.ClusterName)
 			assert.Equal(t, config.VpcID, stackTg.Spec.VpcId)
-			assert.Equal(t, model.ParentRefTypeSvcExport, stackTg.Spec.K8SParentRefType)
+			assert.Equal(t, model.SourceTypeSvcExport, stackTg.Spec.K8SSourceType)
 			assert.Equal(t, tt.svc.Name, stackTg.Spec.K8SServiceName)
 			assert.Equal(t, tt.svc.Namespace, stackTg.Spec.K8SServiceNamespace)
 			assert.Equal(t, "", stackTg.Spec.K8SRouteName)
@@ -578,9 +578,9 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 				assert.Equal(t, vpclattice.IpAddressTypeIpv4, stackTg.Spec.IpAddressType)
 			}
 
-			assert.Equal(t, config.ClusterName, stackTg.Spec.EKSClusterName)
+			assert.Equal(t, config.ClusterName, stackTg.Spec.ClusterName)
 			assert.Equal(t, config.VpcID, stackTg.Spec.VpcId)
-			assert.Equal(t, model.ParentRefTypeHTTPRoute, stackTg.Spec.K8SParentRefType)
+			assert.Equal(t, model.SourceTypeHTTPRoute, stackTg.Spec.K8SSourceType)
 			assert.Equal(t, spec.K8SServiceName, stackTg.Spec.K8SServiceName)
 			assert.Equal(t, spec.K8SServiceNamespace, stackTg.Spec.K8SServiceNamespace)
 			assert.Equal(t, tt.route.Name(), stackTg.Spec.K8SRouteName)

@@ -116,7 +116,7 @@ func TestTargetsManager(t *testing.T) {
 		err = targetsManager.Update(ctx, &modelTargets, &modelTg)
 		assert.NotNil(t, err)
 
-		// error on DeregisterTargetsWithContext - currently this DOES NOT cause overall failure
+		// error on DeregisterTargetsWithContext
 		existingTarget := &vpclattice.TargetSummary{
 			Id:   aws.String("192.0.2.250"),
 			Port: aws.Int64(80),
@@ -128,7 +128,7 @@ func TestTargetsManager(t *testing.T) {
 
 		targetsManager = NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err = targetsManager.Update(ctx, &modelTargets, &modelTg)
-		assert.Nil(t, err)
+		assert.NotNil(t, err)
 	})
 
 	t.Run("basic validation", func(t *testing.T) {

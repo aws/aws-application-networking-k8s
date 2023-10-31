@@ -51,14 +51,10 @@ func (r *ruleSynthesizer) resolveRuleTgIds(ctx context.Context, modelRule *model
 		if rtg.StackTargetGroupId != "" {
 			r.log.Debugf("Fetching TG %d from the stack (ID %s)", i, rtg.StackTargetGroupId)
 
-			resTg, err := r.stack.GetResource(rtg.StackTargetGroupId, &model.TargetGroup{})
+			stackTg := &model.TargetGroup{}
+			err := r.stack.GetResource(rtg.StackTargetGroupId, stackTg)
 			if err != nil {
 				return err
-			}
-
-			stackTg, ok := resTg.(*model.TargetGroup)
-			if !ok {
-				return errors.New("unexpected type conversion failure for target group stack object")
 			}
 
 			if stackTg.Status == nil {
@@ -96,10 +92,10 @@ func (r *ruleSynthesizer) findSvcExportTG(ctx context.Context, svcImportTg model
 
 		tgTags := model.TGTagFieldsFromTags(tg.targetGroupTags.Tags)
 
-		svcMatch := tgTags.IsServiceExport() && (tgTags.K8SServiceName == svcImportTg.K8SServiceName) &&
+		svcMatch := tgTags.IsSourceTypeServiceExport() && (tgTags.K8SServiceName == svcImportTg.K8SServiceName) &&
 			(tgTags.K8SServiceNamespace == svcImportTg.K8SServiceNamespace)
 
-		clusterMatch := (svcImportTg.EKSClusterName == "") || (tgTags.EKSClusterName == svcImportTg.EKSClusterName)
+		clusterMatch := (svcImportTg.EKSClusterName == "") || (tgTags.ClusterName == svcImportTg.EKSClusterName)
 
 		vpcMatch := (svcImportTg.VpcId == "") || (svcImportTg.VpcId == aws.StringValue(tg.getTargetGroupOutput.Config.VpcIdentifier))
 
@@ -188,11 +184,11 @@ func (r *ruleSynthesizer) createOrUpdateRules(ctx context.Context, rule *model.R
 }
 
 func (r *ruleSynthesizer) deleteStaleLatticeRules(ctx context.Context, snlRules map[snlKey]ruleIdMap) error {
-	var lastDelErr error
+	var delErr error
 	for snl := range snlRules {
 		allLatticeRules, err := r.ruleManager.List(ctx, snl.SvcId, snl.ListenerId)
 		if err != nil {
-			return fmt.Errorf("Failed RuleManager.List %s/%s, due to %s", snl.SvcId, snl.ListenerId, err)
+			return fmt.Errorf("failed RuleManager.List %s/%s, due to %s", snl.SvcId, snl.ListenerId, err)
 		}
 
 		activeRules, _ := snlRules[snl]
@@ -207,20 +203,17 @@ func (r *ruleSynthesizer) deleteStaleLatticeRules(ctx context.Context, snlRules 
 			if _, ok := activeRules[ruleId]; !ok {
 				err := r.ruleManager.Delete(ctx, ruleId, snl.SvcId, snl.ListenerId)
 				if err != nil {
-					r.log.Infof("Failed RuleManager.Delete %s/%s/%s, due to %s", snl.SvcId, snl.ListenerId, ruleId, err)
-					err = lastDelErr
+					delErr = errors.Join(delErr,
+						fmt.Errorf("failed RuleManager.Delete %s/%s/%s, due to %s", snl.SvcId, snl.ListenerId, ruleId, err))
 				}
 			}
 		}
 	}
-	if lastDelErr != nil {
-		return lastDelErr
-	}
-	return nil
+	return delErr
 }
 
 func (r *ruleSynthesizer) adjustPriorities(ctx context.Context, snlStackRules map[snlKey]ruleIdMap, resRule []*model.Rule) error {
-	var lastUpdateErr error
+	var updateErr error
 	for snl := range snlStackRules {
 		activeRules, _ := snlStackRules[snl]
 		for _, rule := range activeRules {
@@ -235,39 +228,28 @@ func (r *ruleSynthesizer) adjustPriorities(ctx context.Context, snlStackRules ma
 
 				err := r.ruleManager.UpdatePriorities(ctx, snl.SvcId, snl.ListenerId, rulesToUpdate)
 				if err != nil {
-					r.log.Infof("Failed RuleManager.UpdatePriorities for rules %+v due to %s", resRule, err)
-					lastUpdateErr = err
+					updateErr = errors.Join(updateErr,
+						fmt.Errorf("failed RuleManager.UpdatePriorities for rules %+v due to %s", resRule, err))
 				}
 				break
 			}
 		}
 	}
 
-	if lastUpdateErr != nil {
-		return lastUpdateErr
-	}
-	return nil
+	return updateErr
 }
 
 func (r *ruleSynthesizer) getStackObjects(rule *model.Rule) (*model.Listener, *model.Service, error) {
-	resListener, err := r.stack.GetResource(rule.Spec.StackListenerId, &model.Listener{})
+	listener := &model.Listener{}
+	err := r.stack.GetResource(rule.Spec.StackListenerId, listener)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	listener, ok := resListener.(*model.Listener)
-	if !ok {
-		return nil, nil, errors.New("unexpected type conversion failure for listener stack object")
-	}
-
-	resSvc, err := r.stack.GetResource(listener.Spec.StackServiceId, &model.Service{})
+	svc := &model.Service{}
+	err = r.stack.GetResource(listener.Spec.StackServiceId, svc)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	svc, ok := resSvc.(*model.Service)
-	if !ok {
-		return nil, nil, errors.New("unexpected type conversion failure for service stack object")
 	}
 
 	return listener, svc, nil

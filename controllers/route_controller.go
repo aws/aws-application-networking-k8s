@@ -92,6 +92,7 @@ func RegisterAllRouteControllers(
 	}
 
 	for _, routeInfo := range routeInfos {
+		brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(log, mgrClient)
 		reconciler := routeReconciler{
 			routeType:        routeInfo.routeType,
 			log:              log,
@@ -99,7 +100,7 @@ func RegisterAllRouteControllers(
 			scheme:           mgr.GetScheme(),
 			finalizerManager: finalizerManager,
 			eventRecorder:    mgr.GetEventRecorderFor(string(routeInfo.routeType) + "route"),
-			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient),
+			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, brTgBuilder),
 			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 			cloud:            cloud,
