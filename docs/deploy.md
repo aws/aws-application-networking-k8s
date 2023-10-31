@@ -14,18 +14,19 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION
    ```
-1. First, configure security group to receive traffic from the VPC Lattice fleet. You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic on all ports from the `169.254.171.0/24` address range.
+2. First, configure security group to receive traffic from the VPC Lattice network. You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic from the VPC Lattice managed prefix lists. Lattice has both an IPv4 and IPv6 prefix lists available.
     ```bash
-    PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
-    MANAGED_PREFIX=$(aws ec2 get-managed-prefix-list-entries --prefix-list-id $PREFIX_LIST_ID --output json  | jq -r '.Entries[0].Cidr')
     CLUSTER_SG=$(aws eks describe-cluster --name $CLUSTER_NAME --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
-    aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --cidr $MANAGED_PREFIX --protocol -1
+    PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
+    aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID}}],IpProtocol=-1"
+    PREFIX_LIST_ID_IPV6=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.ipv6.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
+    aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID_IPV6}}],IpProtocol=-1"
     ```
-1. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
+3. Create an IAM OIDC provider: See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
    ```bash
    eksctl utils associate-iam-oidc-provider --cluster $CLUSTER_NAME --approve --region $AWS_REGION
    ```
-1. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the gateway API and copy the policy arn for later use:
+4. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the gateway API and copy the policy arn for later use:
    ```bash
    {
        "Version": "2012-10-17",
@@ -55,15 +56,15 @@ Run through them again for a second cluster to use with the extended example sho
       --policy-name VPCLatticeControllerIAMPolicy \
       --policy-document file://examples/recommended-inline-policy.json
    ```
-1. Create the `aws-application-networking-system` namespace:
+5. Create the `aws-application-networking-system` namespace:
    ```bash
    kubectl apply -f examples/deploy-namesystem.yaml
    ```
-1. Retrieve the policy ARN:
+6. Retrieve the policy ARN:
    ```bash
    export VPCLatticeControllerIAMPolicyArn=$(aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text)
    ```
-1. Create an iamserviceaccount for pod level permission:
+7. Create an iamserviceaccount for pod level permission:
    ```bash
    eksctl create iamserviceaccount \
       --cluster=$CLUSTER_NAME \
@@ -74,7 +75,7 @@ Run through them again for a second cluster to use with the extended example sho
       --region $AWS_REGION \
       --approve
    ```
-1. Run either `kubectl` or `helm` to deploy the controller:
+8. Run either `kubectl` or `helm` to deploy the controller:
    ```bash
    kubectl apply -f examples/deploy-v0.0.17.yaml
    ```
@@ -96,7 +97,7 @@ Run through them again for a second cluster to use with the extended example sho
       --set=latticeEndpoint= \
    
    ```
-1. Create the `amazon-vpc-lattice` GatewayClass:
+9. Create the `amazon-vpc-lattice` GatewayClass:
    ```bash
    kubectl apply -f examples/gatewayclass.yaml
    ```
