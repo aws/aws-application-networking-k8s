@@ -35,8 +35,8 @@ func SliceFilter[T any](in []T, f FilterFunc[T]) []T {
 	return out
 }
 
-func LatticeServiceName(name string, namespace string) string {
-	return fmt.Sprintf("%s-%s", Truncate(name, 20), Truncate(namespace, 18))
+func LatticeServiceName(k8sSourceRouteName string, k8sSourceRouteNamespace string) string {
+	return fmt.Sprintf("%s-%s", Truncate(k8sSourceRouteName, 20), Truncate(k8sSourceRouteNamespace, 18))
 }
 
 func TargetRefToLatticeResourceName(

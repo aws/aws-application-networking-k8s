@@ -104,14 +104,12 @@ var _ = Describe("HTTPRoute Creation", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.ExpectDeleted(ctx, httpRoute)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(ctx,
+			httpRoute,
 			deployment,
 			service,
 			serviceImport,
 			serviceExport,
-			httpRoute,
 		)
 	})
 })

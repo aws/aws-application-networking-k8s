@@ -30,9 +30,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -49,33 +46,24 @@ type serviceReconciler struct {
 	eventRecorder    record.EventRecorder
 	targetsBuilder   gateway.LatticeTargetsBuilder
 	stackDeployer    deploy.StackDeployer
-	datastore        *latticestore.LatticeDataStore
 	stackMashaller   deploy.StackMarshaller
 }
 
 func RegisterServiceController(
 	log gwlog.Logger,
 	cloud aws.Cloud,
-	datastore *latticestore.LatticeDataStore,
 	finalizerManager k8s.FinalizerManager,
 	mgr ctrl.Manager,
 ) error {
 	client := mgr.GetClient()
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("service")
-	modelBuilder := gateway.NewTargetsBuilder(log, client, cloud, datastore)
-	stackDeployer := deploy.NewTargetsStackDeployer(log, cloud, client, datastore)
-	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	sr := &serviceReconciler{
 		log:              log,
 		client:           client,
 		scheme:           scheme,
 		finalizerManager: finalizerManager,
-		targetsBuilder:   modelBuilder,
-		stackDeployer:    stackDeployer,
 		eventRecorder:    evtRec,
-		datastore:        datastore,
-		stackMashaller:   stackMarshaller,
 	}
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Service{}).
@@ -100,19 +88,15 @@ func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
+	// today, target registration is handled through the route controller
+	// if that proves not to be fast enough, we can look to do quicker
+	// target registration with the service controller
+
 	svc := &corev1.Service{}
 	if err := r.client.Get(ctx, req.NamespacedName, svc); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 	if !svc.DeletionTimestamp.IsZero() {
-		tgName := latticestore.TargetGroupName(svc.Name, svc.Namespace)
-		tgs := r.datastore.GetTargetGroupsByName(tgName)
-		for _, tg := range tgs {
-			r.log.Debugf("deletion request for tgName: %s: at timestamp: %s", tg.TargetGroupKey.Name, svc.DeletionTimestamp)
-			if _, _, err := r.buildAndDeployModel(ctx, svc, tg.TargetGroupKey.RouteName); err != nil {
-				return err
-			}
-		}
 		r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer)
 	} else {
 		if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
@@ -122,25 +106,4 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 
 	r.log.Infow("reconciled", "name", req.Name)
 	return nil
-}
-
-func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service, routename string) (core.Stack, *model.Targets, error) {
-	stack, latticeTargets, err := r.targetsBuilder.Build(ctx, svc, routename)
-	if err != nil {
-		r.eventRecorder.Event(svc, corev1.EventTypeWarning,
-			k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("failed build model: %s", err))
-		return nil, nil, err
-	}
-
-	jsonStack, _ := r.stackMashaller.Marshal(stack)
-	r.log.Debugw("successfully built model", "stack", jsonStack)
-
-	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
-		r.eventRecorder.Event(svc, corev1.EventTypeWarning,
-			k8s.ServiceEventReasonFailedDeployModel, fmt.Sprintf("failed deploy model: %s", err))
-		return nil, nil, err
-	}
-
-	r.log.Debugw("successfully deployed model", "service", svc.Name)
-	return stack, latticeTargets, err
 }

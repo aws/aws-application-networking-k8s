@@ -1125,8 +1125,6 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		// Delete HTTPRoute, Service, and Deployment
 		defer func() {
-			testFramework.ExpectDeleted(ctx, route)
-			testFramework.SleepForRouteDeletion()
 			testFramework.ExpectDeletedThenNotFound(ctx, route, k8sService, deployment)
 		}()
 
@@ -1164,8 +1162,6 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 
 		// Delete HTTPRoute
-		testFramework.ExpectDeleted(ctx, route)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(ctx, route)
 
 		Eventually(func(g Gomega) {
@@ -1200,8 +1196,6 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 
 		// Delete HTTPRoute
-		testFramework.ExpectDeleted(ctx, route)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(ctx, route)
 
 		// Change ALP destination type
@@ -1259,8 +1253,6 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 	AfterAll(func() {
 		// Delete Kubernetes Routes, Services, and Deployments
-		testFramework.ExpectDeleted(ctx, httpRoute, grpcRoute)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			httpRoute,
 			grpcRoute,

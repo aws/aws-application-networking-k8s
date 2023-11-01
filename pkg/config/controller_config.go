@@ -18,14 +18,12 @@ const (
 )
 
 const (
-	NO_DEFAULT_SERVICE_NETWORK      = "NO_DEFAULT_SERVICE_NETWORK"
-	REGION                          = "REGION"
-	CLUSTER_VPC_ID                  = "CLUSTER_VPC_ID"
-	CLUSTER_NAME                    = "CLUSTER_NAME"
-	CLUSTER_LOCAL_GATEWAY           = "CLUSTER_LOCAL_GATEWAY"
-	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
-	TARGET_GROUP_NAME_LEN_MODE      = "TARGET_GROUP_NAME_LEN_MODE"
-	GATEWAY_API_CONTROLLER_LOGLEVEL = "GATEWAY_API_CONTROLLER_LOGLEVEL"
+	NO_DEFAULT_SERVICE_NETWORK = "NO_DEFAULT_SERVICE_NETWORK"
+	REGION                     = "REGION"
+	CLUSTER_VPC_ID             = "CLUSTER_VPC_ID"
+	CLUSTER_NAME               = "CLUSTER_NAME"
+	CLUSTER_LOCAL_GATEWAY      = "CLUSTER_LOCAL_GATEWAY"
+	AWS_ACCOUNT_ID             = "AWS_ACCOUNT_ID"
 )
 
 var VpcID = ""
@@ -33,7 +31,6 @@ var AccountID = ""
 var Region = ""
 var logLevel = defaultLogLevel
 var DefaultServiceNetwork = ""
-var UseLongTGName = false
 var ClusterName = ""
 
 func GetClusterLocalGateway() (string, error) {
@@ -86,15 +83,6 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 	ClusterName, err = getClusterName(sess)
 	if err != nil {
 		return fmt.Errorf("cannot get cluster name: %s", err)
-	}
-
-	// TARGET_GROUP_NAME_LEN_MODE
-	tgNameLengthMode := os.Getenv(TARGET_GROUP_NAME_LEN_MODE)
-
-	if tgNameLengthMode == "long" {
-		UseLongTGName = true
-	} else {
-		UseLongTGName = false
 	}
 
 	return nil

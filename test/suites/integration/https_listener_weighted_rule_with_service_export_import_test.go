@@ -145,17 +145,14 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 		})
 
 	AfterEach(func() {
-		testFramework.ExpectDeleted(ctx, httpRoute)
-		testFramework.SleepForRouteDeletion()
-
 		testFramework.ExpectDeletedThenNotFound(ctx,
+			httpRoute,
 			deployment0,
 			service0,
 			deployment1,
 			service1,
 			serviceExport1,
 			serviceImport1,
-			httpRoute,
 		)
 	})
 })

@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 
@@ -26,35 +29,20 @@ const (
 	LATTICE_MAX_HEADER_MATCHES              = 5
 )
 
-func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
-	var ruleID = 1
-	for _, parentRef := range t.route.Spec().ParentRefs() {
-		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
-			// when a service is associate to multiple service network(s), all listener config MUST be same
-			// so here we are only using the 1st gateway
-			t.log.Debugf("Ignore parentref of different gateway %s-%s", parentRef.Name, *parentRef.Namespace)
-			continue
+func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackListenerId string) error {
+	t.log.Debugf("Processing %d rules", len(t.route.Spec().Rules()))
+
+	for i, rule := range t.route.Spec().Rules() {
+		ruleSpec := model.RuleSpec{
+			StackListenerId: stackListenerId,
+			Priority:        int64(i + 1),
 		}
 
-		port, protocol, _, err := t.extractListenerInfo(ctx, parentRef)
-		if err != nil {
-			return err
-		}
-
-		for _, rule := range t.route.Spec().Rules() {
-			var ruleSpec model.RuleSpec
-
-			if len(rule.Matches()) > 1 {
-				// only support 1 match today
-				return errors.New(LATTICE_NO_SUPPORT_FOR_MULTIPLE_MATCHES)
-			}
-
-			if len(rule.Matches()) == 0 {
-				t.log.Debugf("Continue next rule, no matches specified in current rule")
-				continue
-			}
-
+		if len(rule.Matches()) > 1 {
 			// only support 1 match today
+			return errors.New(LATTICE_NO_SUPPORT_FOR_MULTIPLE_MATCHES)
+		} else if len(rule.Matches()) > 0 {
+			t.log.Debugf("Processing rule match")
 			match := rule.Matches()[0]
 
 			switch m := match.(type) {
@@ -73,16 +61,27 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 			if err := t.updateRuleSpecWithHeaderMatches(match, &ruleSpec); err != nil {
 				return err
 			}
+		}
 
-			tgList := t.getTargetGroupsForRuleAction(rule)
+		ruleTgList, err := t.getTargetGroupsForRuleAction(ctx, rule)
+		if err != nil {
+			return err
+		}
 
-			ruleIDName := fmt.Sprintf("rule-%d", ruleID)
-			ruleAction := model.RuleAction{
-				TargetGroups: tgList,
+		ruleSpec.Action = model.RuleAction{
+			TargetGroups: ruleTgList,
+		}
+
+		// don't bother adding rules on delete, these will be removed automatically with the owning route/lattice service
+		// target groups will still be present and removed as needed
+		if t.route.DeletionTimestamp().IsZero() {
+			stackRule, err := model.NewRule(t.stack, ruleSpec)
+			if err != nil {
+				return err
 			}
-			model.NewRule(t.stack, ruleIDName, t.route.Name(), t.route.Namespace(), port,
-				protocol, ruleAction, ruleSpec)
-			ruleID++
+			t.log.Debugf("Added rule %d to the stack (ID %s)", stackRule.Spec.Priority, stackRule.ID())
+		} else {
+			t.log.Debugf("Skipping adding rule %d to the stack since the route is deleted", ruleSpec.Priority)
 		}
 	}
 
@@ -90,7 +89,14 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context) error {
 }
 
 func (t *latticeServiceModelBuildTask) updateRuleSpecForHttpRoute(m *core.HTTPRouteMatch, ruleSpec *model.RuleSpec) error {
-	if m.Path() != nil && m.Path().Type != nil {
+	hasPath := m.Path() != nil
+	hasType := hasPath && m.Path().Type != nil
+
+	if hasPath && !hasType {
+		return errors.New("type is required on path match")
+	}
+
+	if hasPath {
 		t.log.Debugf("Examining pathmatch type %s value %s for for httproute %s-%s ",
 			*m.Path().Type, *m.Path().Value, t.route.Name(), t.route.Namespace())
 
@@ -131,7 +137,7 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecForHttpRoute(m *core.HTTPRo
 
 func (t *latticeServiceModelBuildTask) updateRuleSpecForGrpcRoute(m *core.GRPCRouteMatch, ruleSpec *model.RuleSpec) error {
 	t.log.Debugf("Building rule with GRPCRouteMatch, %+v", *m)
-	ruleSpec.Method = string(gwv1beta1.HTTPMethodPost)
+	ruleSpec.Method = string(gwv1beta1.HTTPMethodPost) // GRPC is always POST
 	method := m.Method()
 	// VPC Lattice doesn't support suffix/regex matching, so we can't support method match without service
 	if method.Service == nil && method.Method != nil {
@@ -167,12 +173,10 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecWithHeaderMatches(match cor
 		return errors.New(LATTICE_EXCEED_MAX_HEADER_MATCHES)
 	}
 
-	ruleSpec.NumOfHeaderMatches = len(match.Headers())
-
 	t.log.Debugf("Examining match headers for route %s-%s", t.route.Name(), t.route.Namespace())
 
-	for i, header := range match.Headers() {
-		t.log.Debugf("Examining match.Header: i = %d header.Type %s", i, *header.Type())
+	for _, header := range match.Headers() {
+		t.log.Debugf("Examining match.Header: header.Type %s", *header.Type())
 		if header.Type() != nil && *header.Type() != gwv1beta1.HeaderMatchExact {
 			t.log.Debugf("Unsupported header matchtype %s for httproute %s-%s",
 				*header.Type(), t.route.Name(), t.route.Namespace())
@@ -182,48 +186,80 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecWithHeaderMatches(match cor
 		matchType := vpclattice.HeaderMatchType{
 			Exact: aws.String(header.Value()),
 		}
-		ruleSpec.MatchedHeaders[i].Match = &matchType
 		headerName := header.Name()
-		ruleSpec.MatchedHeaders[i].Name = &headerName
+
+		headerMatch := vpclattice.HeaderMatch{}
+		headerMatch.Match = &matchType
+		headerMatch.Name = &headerName
+
+		ruleSpec.MatchedHeaders = append(ruleSpec.MatchedHeaders, headerMatch)
 	}
+
 	return nil
 }
 
-func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(rule core.RouteRule) []*model.RuleTargetGroup {
+func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.Context, rule core.RouteRule) ([]*model.RuleTargetGroup, error) {
 	var tgList []*model.RuleTargetGroup
 
 	for _, backendRef := range rule.BackendRefs() {
-		ruleTG := model.RuleTargetGroup{}
-		if string(*backendRef.Kind()) == "Service" {
-			namespace := t.route.Namespace()
-			if backendRef.Namespace() != nil {
-				namespace = string(*backendRef.Namespace())
-			}
-			ruleTG.Name = string(backendRef.Name())
-			ruleTG.Namespace = namespace
-			ruleTG.RouteName = t.route.Name()
-			ruleTG.IsServiceImport = false
-			if backendRef.Weight() != nil {
-				ruleTG.Weight = int64(*backendRef.Weight())
-			}
+		ruleTG := model.RuleTargetGroup{
+			Weight: 1, // default value according to spec
+		}
+		if backendRef.Weight() != nil {
+			ruleTG.Weight = int64(*backendRef.Weight())
 		}
 
-		if string(*backendRef.Kind()) == "ServiceImport" {
-			ruleTG.Name = string(backendRef.Name())
-			ruleTG.Namespace = t.route.Namespace()
-			if backendRef.Namespace() != nil {
-				ruleTG.Namespace = string(*backendRef.Namespace())
-			}
-			// the routeName for serviceimport is always ""
-			ruleTG.RouteName = ""
-			ruleTG.IsServiceImport = true
+		namespace := t.route.Namespace()
+		if backendRef.Namespace() != nil {
+			namespace = string(*backendRef.Namespace())
+		}
 
-			if backendRef.Weight() != nil {
-				ruleTG.Weight = int64(*backendRef.Weight())
+		t.log.Debugf("Processing %s backendRef %s-%s", string(*backendRef.Kind()), backendRef.Name(), namespace)
+
+		if string(*backendRef.Kind()) == "ServiceImport" {
+			// there needs to be a pre-existing target group, we fetch all the fields
+			// needed to identify it
+			svcImportTg := model.SvcImportTargetGroup{
+				K8SServiceNamespace: namespace,
+				K8SServiceName:      string(backendRef.Name()),
 			}
+
+			// if there's a matching top-level service import, we can get additional fields
+			svcImportName := types.NamespacedName{
+				Namespace: namespace,
+				Name:      string(backendRef.Name()),
+			}
+			svcImport := &mcsv1alpha1.ServiceImport{}
+			if err := t.client.Get(ctx, svcImportName, svcImport); err != nil {
+				if !apierrors.IsNotFound(err) {
+					return nil, err
+				}
+			}
+			if svcImport != nil {
+				vpc, ok := svcImport.Annotations["multicluster.x-k8s.io/aws-vpc"]
+				if ok {
+					svcImportTg.VpcId = vpc
+				}
+
+				eksCluster, ok := svcImport.Annotations["multicluster.x-k8s.io/aws-eks-cluster-name"]
+				if ok {
+					svcImportTg.K8SClusterName = eksCluster
+				}
+			}
+			ruleTG.SvcImportTG = &svcImportTg
+		}
+
+		if string(*backendRef.Kind()) == "Service" {
+			// generate the actual target group model for the backendRef
+			_, tg, err := t.brTgBuilder.Build(ctx, t.route, backendRef, t.stack)
+			if err != nil {
+				return nil, err
+			}
+			ruleTG.StackTargetGroupId = tg.ID()
 		}
 
 		tgList = append(tgList, &ruleTG)
 	}
-	return tgList
+
+	return tgList, nil
 }

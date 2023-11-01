@@ -570,14 +570,6 @@ func Test_defaultLattice_FindServiceNetwork_errorsRaised(t *testing.T) {
 	assert.False(t, IsNotFoundError(tagErr))
 }
 
-type StringLSNProvider struct {
-	name string
-}
-
-func (p *StringLSNProvider) LatticeServiceName() string {
-	return p.name
-}
-
 func Test_defaultLattice_FindService_happyPath(t *testing.T) {
 	ctx := context.TODO()
 	c := gomock.NewController(t)
@@ -603,12 +595,12 @@ func Test_defaultLattice_FindService_happyPath(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	itemFound, err1 := d.FindService(ctx, &StringLSNProvider{name})
+	itemFound, err1 := d.FindService(ctx, name)
 	assert.Nil(t, err1)
 	assert.NotNil(t, itemFound)
 	assert.Equal(t, name, *itemFound.Name)
 
-	itemNotFound, err2 := d.FindService(ctx, &StringLSNProvider{"no-name"})
+	itemNotFound, err2 := d.FindService(ctx, "no-name")
 	assert.True(t, IsNotFoundError(err2))
 	assert.Nil(t, itemNotFound)
 }
@@ -648,17 +640,17 @@ func Test_defaultLattice_FindService_pagedResults(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	itemFound1, err1 := d.FindService(ctx, &StringLSNProvider{"name1"})
+	itemFound1, err1 := d.FindService(ctx, "name1")
 	assert.Nil(t, err1)
 	assert.NotNil(t, itemFound1)
 	assert.Equal(t, "name1", *itemFound1.Name)
 
-	itemFound2, err2 := d.FindService(ctx, &StringLSNProvider{"name2"})
+	itemFound2, err2 := d.FindService(ctx, "name2")
 	assert.Nil(t, err2)
 	assert.NotNil(t, itemFound2)
 	assert.Equal(t, "name2", *itemFound2.Name)
 
-	itemNotFound, err3 := d.FindService(ctx, &StringLSNProvider{"no-name"})
+	itemNotFound, err3 := d.FindService(ctx, "no-name")
 	assert.True(t, IsNotFoundError(err3))
 	assert.Nil(t, itemNotFound)
 }
@@ -672,7 +664,7 @@ func Test_defaultLattice_FindService_errorsRaised(t *testing.T) {
 	mockLattice.EXPECT().ListServicesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(errors.New("LIST_ERR")).Times(1)
 
-	_, listErr := d.FindService(ctx, &StringLSNProvider{"foo"})
+	_, listErr := d.FindService(ctx, "foo")
 	assert.NotNil(t, listErr)
 	assert.False(t, IsNotFoundError(listErr))
 }

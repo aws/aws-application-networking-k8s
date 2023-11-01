@@ -95,7 +95,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) 
 		ServiceNetworkIdentifier: &snId,
 		VpcIdentifier:            &config.VpcID,
 	}
-	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusUpdateInProgress
+	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
 	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 		Status: &associationStatus,
 	}
@@ -110,8 +110,8 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) 
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.Nil(t, err)
-	assert.Equal(t, resp.ServiceNetworkARN, arn)
-	assert.Equal(t, resp.ServiceNetworkID, id)
+	assert.Equal(t, arn, resp.ServiceNetworkARN)
+	assert.Equal(t, id, resp.ServiceNetworkID)
 }
 
 // List and find sn does not work.

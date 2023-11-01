@@ -2,1244 +2,487 @@ package lattice
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"testing"
-
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
-func Test_SynthesizeTriggeredServiceExport(t *testing.T) {
-	now := metav1.Now()
-	tests := []struct {
-		name           string
-		svcExport      *mcsv1alpha1.ServiceExport
-		tgManagerError bool
-		wantErrIsNil   bool
-	}{
-		{
-			name: "Adding a new targetgroup, ok case",
-			svcExport: &mcsv1alpha1.ServiceExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "export1",
-					Namespace: "ns1",
-				},
-			},
-			tgManagerError: false,
-			wantErrIsNil:   true,
-		},
-		{
-			name: "Adding a new targetgroup, nok case",
-			svcExport: &mcsv1alpha1.ServiceExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "export2",
-					Namespace: "ns1",
-				},
-			},
-			tgManagerError: true,
-			wantErrIsNil:   false,
-		},
-		{
-			name: "Deleting a targetgroup, ok case",
-			svcExport: &mcsv1alpha1.ServiceExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              "export3",
-					Namespace:         "ns1",
-					Finalizers:        []string{"gateway.k8s.aws/resources"},
-					DeletionTimestamp: &now,
-				},
-			},
-			tgManagerError: false,
-			wantErrIsNil:   true,
-		},
-		{
-			name: "Deleting a targetgroup, nok case",
-			svcExport: &mcsv1alpha1.ServiceExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              "export3",
-					Namespace:         "ns1",
-					Finalizers:        []string{"gateway.k8s.aws/resources"},
-					DeletionTimestamp: &now,
-				},
-			},
-			tgManagerError: true,
-			wantErrIsNil:   false,
-		},
+func Test_Synthesize(t *testing.T) {
+	// all synthesize does is delegate to the manager
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockTGManager := NewMockTargetGroupManager(c)
+
+	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
+	tgToDelete := &model.TargetGroup{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "tg-delete"),
+		IsDeleted:    true,
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
-
-			k8sSchema := runtime.NewScheme()
-			clientgoscheme.AddToScheme(k8sSchema)
-			v1alpha1.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
-
-			svc := corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      tt.svcExport.Name,
-					Namespace: tt.svcExport.Namespace,
-				},
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{},
-					},
-					IPFamilies: []corev1.IPFamily{
-						corev1.IPv4Protocol,
-					},
-				},
-			}
-
-			k8sClient.Create(ctx, svc.DeepCopy())
-
-			mockTGManager := NewMockTargetGroupManager(c)
-
-			ds := latticestore.NewLatticeDataStore()
-			if !tt.svcExport.DeletionTimestamp.IsZero() {
-				// When test serviceExport deletion, we expect latticeDataStore already had this tg entry
-				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
-				ds.AddTargetGroup(tgName, "vpc-123456789", "123456789", "tg-123", false, "")
-			}
-
-			builder := gateway.NewSvcExportTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
-
-			stack, tg, err := builder.Build(ctx, tt.svcExport)
-			assert.Nil(t, err)
-
-			synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
-
-			tgStatus := model.TargetGroupStatus{
-				TargetGroupARN: "arn123",
-				TargetGroupID:  "4567",
-			}
-
-			if tg.Spec.IsDeleted {
-				if tt.tgManagerError {
-					mockTGManager.EXPECT().Delete(ctx, tg).Return(errors.New("ERROR"))
-				} else {
-					mockTGManager.EXPECT().Delete(ctx, tg).Return(nil)
-				}
-			} else {
-				if tt.tgManagerError {
-					mockTGManager.EXPECT().Create(ctx, tg).Return(tgStatus, errors.New("ERROR"))
-				} else {
-					mockTGManager.EXPECT().Create(ctx, tg).Return(tgStatus, nil)
-				}
-			}
-
-			err = synthesizer.SynthesizeTriggeredTargetGroup(ctx)
-
-			if !tt.wantErrIsNil {
-				assert.NotNil(t, err)
-				return
-			}
-
-			assert.Nil(t, err)
-			tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
-			dsTG, err := ds.GetTargetGroup(tgName, "", false)
-
-			if tg.Spec.IsDeleted {
-				assert.NotNil(t, err)
-
-			} else {
-				assert.Nil(t, err)
-				assert.Equal(t, dsTG.ARN, tgStatus.TargetGroupARN)
-				assert.Equal(t, dsTG.ID, tgStatus.TargetGroupID)
-			}
-		})
+	tgToCreate := &model.TargetGroup{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "tg-create"),
+		IsDeleted:    false,
 	}
+	assert.NoError(t, stack.AddResource(tgToDelete))
+	assert.NoError(t, stack.AddResource(tgToCreate))
+
+	mockTGManager.EXPECT().Delete(ctx, tgToDelete).Return(nil)
+	mockTGManager.EXPECT().Upsert(ctx, tgToCreate).Return(model.TargetGroupStatus{Name: "create-name"}, nil)
+
+	synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, nil, nil, stack)
+
+	err := synthesizer.Synthesize(ctx)
+	assert.Nil(t, err)
+	assert.Equal(t, "create-name", tgToCreate.Status.Name)
 }
 
-type svcImportDef struct {
-	name    string
-	tgARN   string
-	tgID    string
-	tgExist bool
-	mgrErr  bool
+func copy(src tgListOutput) tgListOutput {
+	srcgto := src.getTargetGroupOutput
+	cp := tgListOutput{
+		getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
+			Arn:       aws.String(aws.StringValue(srcgto.Arn)),
+			Config:    nil,
+			Id:        aws.String(aws.StringValue(srcgto.Id)),
+			Name:      aws.String(aws.StringValue(srcgto.Name)),
+			Type:      aws.String(aws.StringValue(srcgto.Type)),
+			CreatedAt: aws.Time(aws.TimeValue(srcgto.CreatedAt)),
+		},
+	}
+
+	if srcgto.Config != nil {
+		cp.getTargetGroupOutput.Config = &vpclattice.TargetGroupConfig{
+			IpAddressType:   aws.String(aws.StringValue(srcgto.Config.IpAddressType)),
+			Port:            aws.Int64(aws.Int64Value(srcgto.Config.Port)),
+			Protocol:        aws.String(aws.StringValue(srcgto.Config.Protocol)),
+			ProtocolVersion: aws.String(aws.StringValue(srcgto.Config.ProtocolVersion)),
+			VpcIdentifier:   aws.String(aws.StringValue(srcgto.Config.VpcIdentifier)),
+		}
+	}
+
+	srctags := src.targetGroupTags
+	if srctags != nil {
+		cp.targetGroupTags = &vpclattice.ListTagsForResourceOutput{
+			Tags: make(map[string]*string),
+		}
+		for k, v := range srctags.Tags {
+			cp.targetGroupTags.Tags[k] = aws.String(aws.StringValue(v))
+		}
+	}
+
+	return cp
 }
 
-func Test_SynthersizeTriggeredByServiceImport(t *testing.T) {
-	tests := []struct {
-		name          string
-		svcImportList []svcImportDef
-		isDeleted     bool
-		wantErrIsNil  bool
-	}{
-		{
-			name: "service import triggered target group",
-			svcImportList: []svcImportDef{
-				{
-					name:    "service-import1",
-					tgARN:   "service-import1-arn",
-					tgID:    "service-import1-ID",
-					tgExist: true,
-					mgrErr:  false,
-				},
-				{
-					name:    "service-import2",
-					tgARN:   "service-import2-arn",
-					tgID:    "service-import2-ID",
-					tgExist: true,
-					mgrErr:  false,
-				},
-			},
-			isDeleted:    false,
-			wantErrIsNil: true,
+// we have a list of target groups with varying properties
+// TGs that are not managed by the controller
+//   - tag fetch was unsuccessful (tags nil)
+//   - vpc id does not match
+//   - cluster name does not match
+//   - parent ref type is invalid
+//   - K8SServiceName missing
+//   - K8SServiceNamespace missing
+//   - parent ref type is a route, but K8SRouteName missing
+//   - parent ref type is a route, but K8SRouteNamespace missing
+func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockTGManager := NewMockTargetGroupManager(c)
+
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	var nonManagedTgs []tgListOutput
+
+	tgTagFetchUnsuccessful := tgListOutput{
+		getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
+			Arn:    aws.String("tg-arn"),
+			Id:     aws.String("tg-id"),
+			Name:   aws.String("tg-name"),
+			Config: &vpclattice.TargetGroupConfig{},
+			Type:   aws.String("IP"),
 		},
-		{
-			name: "service import triggered target group, 1st one return err",
-			svcImportList: []svcImportDef{
-				{
-					name:    "service-import21",
-					tgExist: false,
-					mgrErr:  true,
-				},
-				{
-					name:    "service-import22",
-					tgARN:   "service-import22-arn",
-					tgID:    "service-import22-ID",
-					tgExist: true,
-					mgrErr:  false,
-				},
-			},
-			isDeleted:    false,
-			wantErrIsNil: false,
-		},
-		{
-			name: "service import triggered target group, 1st one return err",
-			svcImportList: []svcImportDef{
-				{
-					name:    "service-import31",
-					tgExist: false,
-					mgrErr:  true,
-				},
-				{
-					name:    "service-import32",
-					tgARN:   "service-import32-arn",
-					tgID:    "service-import32-ID",
-					tgExist: true,
-					mgrErr:  false,
-				},
-			},
-			isDeleted:    true,
-			wantErrIsNil: true,
-		},
+		targetGroupTags: nil,
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
+	nonManagedTgs = append(nonManagedTgs, tgTagFetchUnsuccessful)
 
-			mockTGManager := NewMockTargetGroupManager(c)
+	tgWrongVpc := copy(tgTagFetchUnsuccessful)
+	tgWrongVpc.targetGroupTags = &vpclattice.ListTagsForResourceOutput{Tags: make(map[string]*string)}
+	tgWrongVpc.getTargetGroupOutput.Config.VpcIdentifier = aws.String("another-vpc")
+	nonManagedTgs = append(nonManagedTgs, tgWrongVpc)
 
-			ds := latticestore.NewLatticeDataStore()
+	tgWrongCluster := copy(tgWrongVpc)
+	tgWrongCluster.getTargetGroupOutput.Config.VpcIdentifier = aws.String("vpc-id")
+	tgWrongCluster.targetGroupTags.Tags[model.K8SClusterNameKey] = aws.String("another-cluster")
+	nonManagedTgs = append(nonManagedTgs, tgWrongCluster)
 
-			stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
+	tgInvalidParentRef := copy(tgWrongCluster)
+	tgInvalidParentRef.targetGroupTags.Tags[model.K8SClusterNameKey] = aws.String("cluster-name")
+	tgInvalidParentRef.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeInvalid))
+	nonManagedTgs = append(nonManagedTgs, tgInvalidParentRef)
 
-			for _, tgImport := range tt.svcImportList {
+	tgMissingK8SServiceName := copy(tgInvalidParentRef)
+	tgMissingK8SServiceName.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
+	nonManagedTgs = append(nonManagedTgs, tgMissingK8SServiceName)
 
-				tgSpec := model.TargetGroupSpec{
-					Name: tgImport.name,
-					Type: model.TargetGroupTypeIP,
-					Config: model.TargetGroupConfig{
-						IsServiceImport: true,
-					},
-					IsDeleted: tt.isDeleted,
-				}
+	tgMissingK8SServiceNamespace := copy(tgMissingK8SServiceName)
+	tgMissingK8SServiceNamespace.targetGroupTags.Tags[model.K8SServiceNameKey] = aws.String("my-service")
+	nonManagedTgs = append(nonManagedTgs, tgMissingK8SServiceNamespace)
 
-				tg := model.NewTargetGroup(stack, tgImport.name, tgSpec)
-				fmt.Printf("tg : %v\n", tg)
+	tgMissingRouteName := copy(tgMissingK8SServiceNamespace)
+	tgMissingRouteName.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
+	tgMissingRouteName.targetGroupTags.Tags[model.K8SServiceNamespaceKey] = aws.String("ns-1")
+	nonManagedTgs = append(nonManagedTgs, tgMissingRouteName)
 
-				if tt.isDeleted {
-					continue
-				}
+	tgMissingRouteNamespace := copy(tgMissingRouteName)
+	tgMissingRouteNamespace.targetGroupTags.Tags[model.K8SRouteNameKey] = aws.String("route-name")
+	nonManagedTgs = append(nonManagedTgs, tgMissingRouteNamespace)
 
-				if tgImport.mgrErr {
-					mockTGManager.EXPECT().Get(ctx, tg).Return(model.TargetGroupStatus{}, errors.New("tgmgr err"))
-				} else {
-					mockTGManager.EXPECT().Get(ctx, tg).Return(model.TargetGroupStatus{TargetGroupARN: tgImport.tgARN, TargetGroupID: tgImport.tgID}, nil)
-				}
-			}
-			synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
-			err := synthesizer.SynthesizeTriggeredTargetGroup(ctx)
-			fmt.Printf("err:%v \n", err)
-
-			if tt.wantErrIsNil {
-				assert.Nil(t, err)
-			} else {
-				assert.NotNil(t, err)
-			}
-
-			if !tt.isDeleted {
-				// check datastore
-				for _, tgImport := range tt.svcImportList {
-					if tgImport.mgrErr {
-						_, err := ds.GetTargetGroup(tgImport.name, "", true)
-						assert.NotNil(t, err)
-
-					} else {
-						tg, err := ds.GetTargetGroup(tgImport.name, "", true)
-						assert.Nil(t, err)
-						assert.Equal(t, tgImport.tgARN, tg.ARN)
-						assert.Equal(t, tgImport.tgID, tg.ID)
-
-					}
-				}
-			}
-		})
-	}
+	mockTGManager.EXPECT().List(ctx).Return(nonManagedTgs, nil)
+	synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, nil, nil, nil)
+	err := synthesizer.SynthesizeUnusedDelete(ctx)
+	assert.Nil(t, err)
 }
 
-type sdkTGDef struct {
-	name string
-	id   string
-
-	isSameVPC                bool
-	hasTags                  bool
-	hasServiceExportTypeTag  bool
-	hasHTTPRouteTypeTag      bool
-	serviceExportExist       bool
-	HTTPRouteExist           bool
-	refedByHTTPRoute         bool
-	hasServiceArns           bool
-	serviceNetworkManagerErr error
-
-	expectDelete bool
+func getBaseTg() tgListOutput {
+	baseTg := tgListOutput{
+		getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
+			Arn:       aws.String("tg-arn"),
+			Id:        aws.String("tg-id"),
+			Name:      aws.String("tg-name"),
+			CreatedAt: aws.Time(time.Now()),
+			Config: &vpclattice.TargetGroupConfig{
+				VpcIdentifier:   aws.String("vpc-id"),
+				Port:            aws.Int64(80),
+				Protocol:        aws.String("HTTP"),
+				ProtocolVersion: aws.String("HTTP1"),
+				IpAddressType:   aws.String("IPV4"),
+			},
+		},
+		targetGroupTags: &vpclattice.ListTagsForResourceOutput{Tags: make(map[string]*string)},
+	}
+	baseTg.targetGroupTags.Tags[model.K8SClusterNameKey] = aws.String("cluster-name")
+	baseTg.targetGroupTags.Tags[model.K8SServiceNameKey] = aws.String("svc")
+	baseTg.targetGroupTags.Tags[model.K8SServiceNamespaceKey] = aws.String("ns")
+	return baseTg
 }
 
-func Test_SynthesizeSDKTargetGroups(t *testing.T) {
-	kindPtr := func(k string) *gwv1beta1.Kind {
-		p := gwv1beta1.Kind(k)
-		return &p
-	}
+// Do not delete cases
+// TG has service arns
+// TG is service export
+//   - port, protocol, protocolVersion, ipaddressType, all match
+//
+// TG is route
+//   - TG matches a current TG for the route
+func Test_DoNotDeleteCases(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockTGManager := NewMockTargetGroupManager(c)
+	mockClient := mock_client.NewMockClient(c)
+	mockSvcExportTgBuilder := gateway.NewMockSvcExportTargetGroupModelBuilder(c)
+	mockSvcBuilder := gateway.NewMockLatticeServiceBuilder(c)
 
-	config.VpcID = "current-vpc"
-	srvname := "test-svc1"
-	srvnamespace := "default"
-	routename := "test-route1"
-	routenamespace := "default"
-	tests := []struct {
-		name                 string
-		sdkTargetGroups      []sdkTGDef
-		wantSynthesizerError error
-		wantDataStoreError   error
-		wantDataStoreStatus  string
-	}{
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
 
-		{
-			name: "Delete SDK TargetGroup Successfully(due to not refed by any HTTPRoutes) ",
-			sdkTargetGroups: []sdkTGDef{
-				{
-					name:                     "sdkTG1",
-					id:                       "sdkTG1-id",
-					serviceNetworkManagerErr: nil,
-					isSameVPC:                true,
-					hasTags:                  true,
-					hasServiceExportTypeTag:  false,
-					hasHTTPRouteTypeTag:      true,
-					HTTPRouteExist:           false,
-					expectDelete:             true},
-			},
-			wantSynthesizerError: nil,
-			wantDataStoreError:   nil,
-			wantDataStoreStatus:  "",
-		},
+	baseTg := getBaseTg()
 
-		{
-			name: "Delete SDK TargetGroup Successfully(due to not in backend ref of a HTTPRoutes) ",
-			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
-					isSameVPC: true,
-					hasTags:   true, hasServiceExportTypeTag: false,
-					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: false,
-					expectDelete: true},
-			},
-			wantSynthesizerError: nil,
-			wantDataStoreError:   nil,
-			wantDataStoreStatus:  "",
-		},
-		{
-			name: "Delete SDK TargetGroup since it is dangling with no service associated",
-			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
-					isSameVPC: true,
-					hasTags:   true, hasServiceExportTypeTag: false,
-					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: true,
-					hasServiceArns: false,
-					expectDelete:   true},
-			},
-			wantSynthesizerError: nil,
-			wantDataStoreError:   nil,
-			wantDataStoreStatus:  "",
-		},
-		{
-			name: "No need to delete SDK TargetGroup since it is referenced by a HTTPRoutes) ",
-			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
-					isSameVPC: true,
-					hasTags:   true, hasServiceExportTypeTag: false,
-					hasHTTPRouteTypeTag: true, HTTPRouteExist: true, refedByHTTPRoute: true,
-					hasServiceArns: true,
-					expectDelete:   false},
-			},
-			wantSynthesizerError: nil,
-			wantDataStoreError:   nil,
-			wantDataStoreStatus:  "",
-		},
-		{
-			name: "No need to delete SDK TargetGroup , no K8S tags ",
-			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
-					isSameVPC: true,
-					hasTags:   false, hasServiceExportTypeTag: false,
-					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
-					expectDelete: false},
-			},
-			wantSynthesizerError: nil,
-			wantDataStoreError:   nil,
-			wantDataStoreStatus:  "",
-		},
-		{
-			name: "No need to delete SDK TargetGroup , different VPC",
-			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
-					isSameVPC: false,
-					hasTags:   false, hasServiceExportTypeTag: false,
-					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
-					expectDelete: false},
-			},
-			wantSynthesizerError: nil,
-			wantDataStoreError:   nil,
-			wantDataStoreStatus:  "",
-		},
+	var noDeleteTgs []tgListOutput
 
-		{
-			name: "delete SDK TargetGroup due not referenced by any serviceexport",
-			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
-					isSameVPC: true,
-					hasTags:   true, hasServiceExportTypeTag: true, serviceExportExist: false,
-					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
-					expectDelete: true},
-			},
-			wantSynthesizerError: nil,
-			wantDataStoreError:   nil,
-			wantDataStoreStatus:  "",
-		},
+	tgWithSvcArns := copy(baseTg)
+	tgWithSvcArns.getTargetGroupOutput.Arn = aws.String("tg-with-svcs-arn") // useful for reading logs
+	tgWithSvcArns.getTargetGroupOutput.ServiceArns = []*string{aws.String("svc-arn")}
+	noDeleteTgs = append(noDeleteTgs, tgWithSvcArns)
 
-		{
-			name: "no need to delete SDK TargetGroup since it is referenced by an serviceexport",
-			sdkTargetGroups: []sdkTGDef{
-				{name: "sdkTG1", id: "sdkTG1-id", serviceNetworkManagerErr: nil,
-					isSameVPC: true,
-					hasTags:   true, hasServiceExportTypeTag: true, serviceExportExist: true,
-					hasHTTPRouteTypeTag: false, HTTPRouteExist: false, refedByHTTPRoute: false,
-					expectDelete: false},
+	tgSvcExportUpToDate := copy(baseTg)
+	tgSvcExportUpToDate.getTargetGroupOutput.Arn = aws.String("tg-svc-export-arn")
+	tgSvcExportUpToDate.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
+	noDeleteTgs = append(noDeleteTgs, tgSvcExportUpToDate)
+
+	tgSvcUpToDate := copy(baseTg)
+	tgSvcUpToDate.getTargetGroupOutput.Arn = aws.String("tg-svc-arn")
+	tgSvcUpToDate.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
+	tgSvcUpToDate.targetGroupTags.Tags[model.K8SRouteNameKey] = aws.String("route")
+	tgSvcUpToDate.targetGroupTags.Tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
+	noDeleteTgs = append(noDeleteTgs, tgSvcUpToDate)
+
+	mockTGManager.EXPECT().List(ctx).Return(noDeleteTgs, nil)
+
+	mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, routeOrSvcExport client.Object, _ ...interface{}) error {
+			routeOrSvcExport.SetName("ignored-name")
+			routeOrSvcExport.SetNamespace("ignored-ns")
+			return nil
+		},
+	).AnyTimes()
+
+	baseModelTg := model.TargetGroup{
+		Spec: model.TargetGroupSpec{
+			VpcId:           "vpc-id",
+			Type:            "IP",
+			Port:            80,
+			Protocol:        "HTTP",
+			ProtocolVersion: "HTTP1",
+			IpAddressType:   "IPV4",
+			TargetGroupTagFields: model.TargetGroupTagFields{
+				K8SClusterName:      "cluster-name",
+				K8SServiceName:      "svc",
+				K8SServiceNamespace: "ns",
 			},
-			wantSynthesizerError: nil,
-			wantDataStoreError:   nil,
-			wantDataStoreStatus:  "",
 		},
 	}
+	svcExportModelTg := baseModelTg
+	svcExportModelTg.Spec.TargetGroupTagFields.K8SSourceType = model.SourceTypeSvcExport
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.Background()
+	mockSvcExportTgBuilder.EXPECT().BuildTargetGroup(ctx, gomock.Any()).Return(&svcExportModelTg, nil)
 
-			ds := latticestore.NewLatticeDataStore()
+	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
+	svcModelTg := baseModelTg
+	svcModelTg.ResourceMeta = core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "tg-id")
+	svcModelTg.Spec.TargetGroupTagFields.K8SSourceType = model.SourceTypeHTTPRoute
+	svcModelTg.Spec.TargetGroupTagFields.K8SRouteName = "route"
+	svcModelTg.Spec.TargetGroupTagFields.K8SRouteNamespace = "route-ns"
+	stack.AddResource(&svcModelTg)
 
-			mockTGManager := NewMockTargetGroupManager(c)
-			sdkTGReturned := []targetGroupOutput{}
-			mockK8sClient := mock_client.NewMockClient(c)
+	mockTGManager.EXPECT().IsTargetGroupMatch(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
 
-			if len(tt.sdkTargetGroups) > 0 {
-				for _, sdkTG := range tt.sdkTargetGroups {
-					name := sdkTG.name
-					id := sdkTG.id
-					vpc := ""
-					if sdkTG.isSameVPC {
-						vpc = config.VpcID
+	mockSvcBuilder.EXPECT().Build(ctx, gomock.Any()).Return(stack, nil)
 
-					} else {
-						vpc = config.VpcID + "other VPC"
-					}
+	synthesizer := NewTargetGroupSynthesizer(
+		gwlog.FallbackLogger, nil, mockClient, mockTGManager, mockSvcExportTgBuilder, mockSvcBuilder, stack)
 
-					var tagsOutput *vpclattice.ListTagsForResourceOutput
-					var tags = make(map[string]*string)
-
-					tags["non-k8e"] = aws.String("not-k8s-related")
-
-					if sdkTG.hasTags == false {
-
-						tagsOutput = nil
-					} else {
-
-						tagsOutput = &vpclattice.ListTagsForResourceOutput{
-							Tags: tags,
-						}
-
-					}
-
-					if sdkTG.hasServiceExportTypeTag {
-						tags[model.K8SParentRefTypeKey] = aws.String(model.K8SServiceExportType)
-					}
-
-					if sdkTG.hasHTTPRouteTypeTag {
-						tags[model.K8SParentRefTypeKey] = aws.String(model.K8SHTTPRouteType)
-					}
-
-					tags[model.K8SServiceNameKey] = aws.String(srvname)
-					tags[model.K8SServiceNamespaceKey] = aws.String(srvnamespace)
-					tags[model.K8SHTTPRouteNameKey] = aws.String(routename)
-					tags[model.K8SHTTPRouteNamespaceKey] = aws.String(routenamespace)
-
-					serviceArns := []*string{}
-					if sdkTG.hasServiceArns {
-						serviceArns = append(serviceArns, aws.String("dummy"))
-					}
-
-					sdkTGReturned = append(sdkTGReturned,
-						targetGroupOutput{
-							getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
-								Name: &name,
-								Id:   &id,
-								Arn:  aws.String("tg-ARN"),
-								Config: &vpclattice.TargetGroupConfig{
-									VpcIdentifier:   &vpc,
-									ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
-								},
-								ServiceArns: serviceArns,
-							},
-							targetGroupTags: tagsOutput,
-						},
-					)
-
-					fmt.Printf("sdkTGReturned :%v \n", sdkTGReturned[0].targetGroupTags)
-
-					tgSpec := model.TargetGroup{
-						Spec: model.TargetGroupSpec{
-							Name:      sdkTG.name,
-							LatticeID: sdkTG.id,
-						},
-					}
-					if sdkTG.hasHTTPRouteTypeTag {
-						tgSpec.Spec.Config.K8SHTTPRouteName = routename
-					}
-
-					if sdkTG.HTTPRouteExist {
-
-						if sdkTG.refedByHTTPRoute {
-							mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-								func(ctx context.Context, name types.NamespacedName, httpRoute *gwv1beta1.HTTPRoute, arg3 ...interface{}) error {
-									httpRoute.Name = routename
-									httpRoute.Namespace = routenamespace
-									backendNamespace := gwv1beta1.Namespace(routenamespace)
-
-									httpRoute.Spec.Rules = []gwv1beta1.HTTPRouteRule{
-										{
-											BackendRefs: []gwv1beta1.HTTPBackendRef{
-												{
-													BackendRef: gwv1beta1.BackendRef{
-														BackendObjectReference: gwv1beta1.BackendObjectReference{
-															Kind:      kindPtr("Service"),
-															Name:      gwv1beta1.ObjectName(srvname),
-															Namespace: &backendNamespace,
-														},
-													},
-												},
-											},
-										},
-									}
-
-									return nil
-								},
-							)
-
-						} else {
-							mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-								func(ctx context.Context, name types.NamespacedName, httpRoute *gwv1beta1.HTTPRoute, arg3 ...interface{}) error {
-									httpRoute.Name = routename
-									httpRoute.Namespace = routenamespace
-									return nil
-
-								},
-							)
-
-						}
-					} else {
-						if sdkTG.hasHTTPRouteTypeTag {
-							mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-								func(ctx context.Context, name types.NamespacedName, httpRoute *gwv1beta1.HTTPRoute, arg3 ...interface{}) error {
-
-									return errors.New("no httproute")
-
-								},
-							)
-						}
-					}
-
-					if sdkTG.hasServiceExportTypeTag {
-						if sdkTG.serviceExportExist {
-							mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-								func(ctx context.Context, name types.NamespacedName, svcexport *mcsv1alpha1.ServiceExport, arg3 ...interface{}) error {
-
-									return nil
-
-								},
-							)
-
-						} else {
-							mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-								func(ctx context.Context, name types.NamespacedName, svcexport *mcsv1alpha1.ServiceExport, arg3 ...interface{}) error {
-
-									return errors.New("no serviceexport")
-
-								},
-							)
-
-						}
-					}
-
-					if sdkTG.expectDelete {
-						mockTGManager.EXPECT().Delete(ctx, &tgSpec).Return(sdkTG.serviceNetworkManagerErr)
-					}
-
-				}
-			}
-			fmt.Printf("sdkTGReturnd %v len %v\n", sdkTGReturned, len(sdkTGReturned))
-
-			mockTGManager.EXPECT().List(ctx).Return(sdkTGReturned, nil)
-
-			tgSynthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, mockK8sClient, mockTGManager, nil, ds)
-			err := tgSynthesizer.SynthesizeSDKTargetGroups(ctx)
-
-			assert.Equal(t, tt.wantSynthesizerError, err)
-		})
-	}
+	err := synthesizer.SynthesizeUnusedDelete(ctx)
+	assert.Nil(t, err)
 }
 
-type svcDef struct {
-	name   string
-	tgARN  string
-	tgID   string
-	mgrErr bool
+func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockTGManager := NewMockTargetGroupManager(c)
+	mockClient := mock_client.NewMockClient(c)
+	mockSvcExportTgBuilder := gateway.NewMockSvcExportTargetGroupModelBuilder(c)
+
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	baseTg := getBaseTg()
+
+	var deleteTgs []tgListOutput
+	tgSvcExport := copy(baseTg)
+	tgSvcExport.getTargetGroupOutput.Arn = aws.String("tg-svc-export-arn")
+	tgSvcExport.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
+	deleteTgs = append(deleteTgs, tgSvcExport)
+
+	t.Run("Service Export does not exist", func(t *testing.T) {
+		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+
+		// the important bit below - svc export get returns does-not-exist
+		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).Return(
+			&apierrors.StatusError{
+				ErrStatus: metav1.Status{
+					Code:   http.StatusNotFound,
+					Reason: metav1.StatusReasonNotFound,
+				},
+			})
+		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
+
+		synthesizer := NewTargetGroupSynthesizer(
+			gwlog.FallbackLogger, nil, mockClient, mockTGManager, mockSvcExportTgBuilder, nil, nil)
+
+		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		assert.Nil(t, err)
+	})
+
+	t.Run("Service Export deleted", func(t *testing.T) {
+		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+
+		// the important bit below - svc export get returns deleted
+		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, name types.NamespacedName, svcExport client.Object, _ ...interface{}) error {
+				now := metav1.Now()
+				svcExport.SetName("svc")
+				svcExport.SetNamespace("ns")
+				svcExport.SetDeletionTimestamp(&now)
+				return nil
+			},
+		)
+		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
+
+		synthesizer := NewTargetGroupSynthesizer(
+			gwlog.FallbackLogger, nil, mockClient, mockTGManager, mockSvcExportTgBuilder, nil, nil)
+
+		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		assert.Nil(t, err)
+	})
+
+	t.Run("Service Export model differs", func(t *testing.T) {
+		modelTg := model.TargetGroup{
+			Spec: model.TargetGroupSpec{
+				VpcId:           "vpc-id",
+				Type:            "IP",
+				Port:            8080, // <-- important bit, port has changed
+				Protocol:        "HTTP",
+				ProtocolVersion: "HTTP1",
+				IpAddressType:   "IPV4",
+				TargetGroupTagFields: model.TargetGroupTagFields{
+					K8SClusterName:      "cluster-name",
+					K8SServiceName:      "svc",
+					K8SServiceNamespace: "ns",
+					K8SSourceType:       model.SourceTypeSvcExport,
+				},
+			},
+		}
+
+		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, name types.NamespacedName, svcExport client.Object, _ ...interface{}) error {
+				svcExport.SetName("svc")
+				svcExport.SetNamespace("ns")
+				return nil
+			},
+		)
+
+		mockSvcExportTgBuilder.EXPECT().BuildTargetGroup(ctx, gomock.Any()).Return(&modelTg, nil)
+
+		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
+
+		synthesizer := NewTargetGroupSynthesizer(
+			gwlog.FallbackLogger, nil, mockClient, mockTGManager, mockSvcExportTgBuilder, nil, nil)
+
+		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		assert.Nil(t, err)
+	})
 }
 
-func Test_SynthesizeTriggeredService(t *testing.T) {
-	tests := []struct {
-		name         string
-		svcList      []svcDef
-		isDeleted    bool
-		wantErrIsNil bool
-	}{
-		{
-			name: "service triggered target group",
-			svcList: []svcDef{
-				{
-					name:   "service11",
-					tgARN:  "service11-arn",
-					tgID:   "service11-ID",
-					mgrErr: false,
+func Test_DeleteRoute_DeleteCases(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockTGManager := NewMockTargetGroupManager(c)
+	mockClient := mock_client.NewMockClient(c)
+	mockSvcBuilder := gateway.NewMockLatticeServiceBuilder(c)
+
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	baseTg := getBaseTg()
+
+	var deleteTgs []tgListOutput
+	tgSvc := copy(baseTg)
+	tgSvc.getTargetGroupOutput.Arn = aws.String("tg-svc-arn")
+	tgSvc.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
+	tgSvc.targetGroupTags.Tags[model.K8SRouteNameKey] = aws.String("route")
+	tgSvc.targetGroupTags.Tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
+	deleteTgs = append(deleteTgs, tgSvc)
+
+	t.Run("Route does not exist", func(t *testing.T) {
+		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+
+		// the important bit below - svc export get returns does-not-exist
+		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).Return(
+			&apierrors.StatusError{
+				ErrStatus: metav1.Status{
+					Code:   http.StatusNotFound,
+					Reason: metav1.StatusReasonNotFound,
 				},
-				{
-					name:   "service12",
-					tgARN:  "service12-arn",
-					tgID:   "service12-ID",
-					mgrErr: false,
+			})
+		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
+
+		synthesizer := NewTargetGroupSynthesizer(
+			gwlog.FallbackLogger, nil, mockClient, mockTGManager, nil, mockSvcBuilder, nil)
+
+		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		assert.Nil(t, err)
+	})
+
+	t.Run("Route deleted", func(t *testing.T) {
+		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+
+		// the important bit below - svc export get returns deleted
+		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, name types.NamespacedName, route client.Object, _ ...interface{}) error {
+				now := metav1.Now()
+				route.SetName("route-name")
+				route.SetNamespace("route-ns")
+				route.SetDeletionTimestamp(&now)
+				return nil
+			},
+		)
+		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
+
+		synthesizer := NewTargetGroupSynthesizer(
+			gwlog.FallbackLogger, nil, mockClient, mockTGManager, nil, mockSvcBuilder, nil)
+
+		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		assert.Nil(t, err)
+	})
+
+	t.Run("Route model differs", func(t *testing.T) {
+		// current logic requires we return at least one tg
+		// but match logic is deferred to tgManager.IsTargetGroupMatch
+		svcModelTg := model.TargetGroup{
+			Spec: model.TargetGroupSpec{
+				VpcId:           "vpc-id",
+				Type:            "IP",
+				Port:            8080,
+				Protocol:        "HTTP",
+				ProtocolVersion: "HTTP1",
+				IpAddressType:   "IPV4",
+				TargetGroupTagFields: model.TargetGroupTagFields{
+					K8SClusterName:      "cluster-name",
+					K8SServiceName:      "svc",
+					K8SServiceNamespace: "ns",
+					K8SRouteName:        "route-name",
+					K8SRouteNamespace:   "route-ns",
+					K8SSourceType:       model.SourceTypeSvcExport,
 				},
 			},
-			isDeleted:    false,
-			wantErrIsNil: true,
-		},
-		{
-			name: "service triggered target group",
-			svcList: []svcDef{
-				{
-					name:   "service21",
-					tgARN:  "service21-arn",
-					tgID:   "service21-ID",
-					mgrErr: true,
-				},
-				{
-					name:   "service22",
-					tgARN:  "service22-arn",
-					tgID:   "service22-ID",
-					mgrErr: false,
-				},
+		}
+
+		stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
+		svcModelTg.ResourceMeta = core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "tg-id")
+		stack.AddResource(&svcModelTg)
+
+		mockSvcBuilder.EXPECT().Build(ctx, gomock.Any()).Return(stack, nil)
+
+		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, name types.NamespacedName, svcOrSvcExport client.Object, _ ...interface{}) error {
+				svcOrSvcExport.SetName("svc")
+				svcOrSvcExport.SetNamespace("ns")
+				return nil
 			},
-			isDeleted:    false,
-			wantErrIsNil: false,
-		},
-		{
-			name: "service triggered target group",
-			svcList: []svcDef{
-				{
-					name:   "service31",
-					tgARN:  "service31-arn",
-					tgID:   "service31-ID",
-					mgrErr: true,
-				},
-				{
-					name:   "service32",
-					tgARN:  "service32-arn",
-					tgID:   "service32-ID",
-					mgrErr: false,
-				},
-			},
-			isDeleted:    true,
-			wantErrIsNil: false,
-		},
-	}
+		)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
+		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+		// important bit below, return false for match
+		// this is actually what decides if the tgs are a match or not
+		mockTGManager.EXPECT().IsTargetGroupMatch(ctx, gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(false, nil)
+		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
 
-			mockTGManager := NewMockTargetGroupManager(c)
+		synthesizer := NewTargetGroupSynthesizer(
+			gwlog.FallbackLogger, nil, mockClient, mockTGManager, nil, mockSvcBuilder, nil)
 
-			ds := latticestore.NewLatticeDataStore()
-
-			stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
-
-			for _, svc := range tt.svcList {
-				tgSpec := model.TargetGroupSpec{
-					Name: svc.name,
-					Type: model.TargetGroupTypeIP,
-					Config: model.TargetGroupConfig{
-						IsServiceImport: false,
-					},
-					IsDeleted: tt.isDeleted,
-				}
-
-				tg := model.NewTargetGroup(stack, svc.name, tgSpec)
-				fmt.Printf("tg : %v\n", tg)
-
-				if !tt.isDeleted {
-
-					if svc.mgrErr {
-						mockTGManager.EXPECT().Create(ctx, tg).Return(model.TargetGroupStatus{}, errors.New("tgmgr err"))
-					} else {
-						mockTGManager.EXPECT().Create(ctx, tg).Return(model.TargetGroupStatus{TargetGroupARN: svc.tgARN, TargetGroupID: svc.tgID}, nil)
-					}
-				} else {
-					if svc.mgrErr {
-						mockTGManager.EXPECT().Delete(ctx, tg).Return(errors.New("tgmgr err"))
-					} else {
-						mockTGManager.EXPECT().Delete(ctx, tg).Return(nil)
-					}
-				}
-			}
-
-			synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
-			err := synthesizer.SynthesizeTriggeredTargetGroup(ctx)
-			fmt.Printf("err:%v \n", err)
-
-			if tt.wantErrIsNil {
-				assert.Nil(t, err)
-			} else {
-				assert.NotNil(t, err)
-			}
-
-			if !tt.isDeleted {
-				// check datastore
-				for _, tg := range tt.svcList {
-					if tg.mgrErr {
-						//TODO, test routename
-						_, err := ds.GetTargetGroup(tg.name, "", false)
-						assert.NotNil(t, err)
-
-					} else {
-						//TODO, test routename
-						dsTG, err := ds.GetTargetGroup(tg.name, "", false)
-						assert.Nil(t, err)
-						assert.Equal(t, tg.tgARN, dsTG.ARN)
-						assert.Equal(t, tg.tgID, dsTG.ID)
-
-					}
-				}
-			}
-		})
-	}
+		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		assert.Nil(t, err)
+	})
 }
 
-func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByServiceExport(t *testing.T) {
-	now := metav1.Now()
-	tests := []struct {
-		name           string
-		svcExport      *mcsv1alpha1.ServiceExport
-		tgManagerError bool
-		wantErrIsNil   bool
-	}{
-		{
-			name: "Creating ServiceExport request trigger targetgroup creation, ok case",
-			svcExport: &mcsv1alpha1.ServiceExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "export1",
-					Namespace: "ns1",
-				},
-			},
-			tgManagerError: false,
-			wantErrIsNil:   true,
-		},
-		{
-			name: "Creating ServiceExport request trigger targetgroup creation, not ok case",
-			svcExport: &mcsv1alpha1.ServiceExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "export2",
-					Namespace: "ns1",
-				},
-			},
-			tgManagerError: true,
-			wantErrIsNil:   false,
-		},
-		{
-			name: "SynthesizeTriggeredTargetGroupsCreation() should ignore any targetgroup deletion request",
-			svcExport: &mcsv1alpha1.ServiceExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              "export3",
-					Namespace:         "ns1",
-					Finalizers:        []string{"gateway.k8s.aws/resources"},
-					DeletionTimestamp: &now,
-				},
-			},
-			tgManagerError: false,
-			wantErrIsNil:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
-
-			k8sSchema := runtime.NewScheme()
-			clientgoscheme.AddToScheme(k8sSchema)
-			v1alpha1.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
-
-			svc := corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      tt.svcExport.Name,
-					Namespace: tt.svcExport.Namespace,
-				},
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{},
-					},
-					IPFamilies: []corev1.IPFamily{
-						corev1.IPv4Protocol,
-					},
-				},
-			}
-
-			k8sClient.Create(ctx, svc.DeepCopy())
-
-			mockTGManager := NewMockTargetGroupManager(c)
-
-			ds := latticestore.NewLatticeDataStore()
-			if !tt.svcExport.DeletionTimestamp.IsZero() {
-				// When test serviceExport deletion, we expect latticeDataStore already had this tg entry
-				tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
-				ds.AddTargetGroup(tgName, "vpc-123456789", "arn123", "4567", false, "")
-			}
-			builder := gateway.NewSvcExportTargetGroupBuilder(gwlog.FallbackLogger, k8sClient, ds, nil)
-
-			stack, tg, err := builder.Build(ctx, tt.svcExport)
-			assert.Nil(t, err)
-
-			synthersizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
-
-			tgStatus := model.TargetGroupStatus{
-				TargetGroupARN: "arn123",
-				TargetGroupID:  "4567",
-			}
-
-			if !tg.Spec.IsDeleted {
-				if tt.tgManagerError {
-					mockTGManager.EXPECT().Create(ctx, tg).Return(tgStatus, errors.New("ERROR"))
-				} else {
-					mockTGManager.EXPECT().Create(ctx, tg).Return(tgStatus, nil)
-				}
-			}
-			err = synthersizer.SynthesizeTriggeredTargetGroupsCreation(ctx)
-			if !tt.wantErrIsNil {
-				assert.NotNil(t, err)
-				return
-			}
-
-			assert.Nil(t, err)
-			tgName := latticestore.TargetGroupName(tt.svcExport.Name, tt.svcExport.Namespace)
-			dsTG, err := ds.GetTargetGroup(tgName, "", false)
-			assert.Nil(t, err)
-			if !tg.Spec.IsDeleted {
-				assert.Equal(t, dsTG.ARN, tgStatus.TargetGroupARN)
-				assert.Equal(t, dsTG.ID, tgStatus.TargetGroupID)
-			}
-		})
-	}
-}
-
-func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByServiceImport(t *testing.T) {
-	tests := []struct {
-		name          string
-		svcImportList []svcImportDef
-	}{
-
-		{
-			name: "Ignore all target group deletion request triggered by httproute deletion with backendref service import",
-			svcImportList: []svcImportDef{
-				{
-					name:    "service-import31",
-					tgExist: false,
-					mgrErr:  true,
-				},
-				{
-					name:    "service-import32",
-					tgARN:   "service-import32-arn",
-					tgID:    "service-import32-ID",
-					tgExist: true,
-					mgrErr:  false,
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
-
-			mockTGManager := NewMockTargetGroupManager(c)
-			ds := latticestore.NewLatticeDataStore()
-
-			for _, svcImport := range tt.svcImportList {
-				if svcImport.tgExist {
-					ds.AddTargetGroup(svcImport.name, "my-vpc", svcImport.tgARN, svcImport.tgID, true, "")
-				}
-			}
-			stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
-
-			synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
-
-			err := synthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx)
-			assert.Nil(t, err)
-
-			for _, svcImport := range tt.svcImportList {
-				if svcImport.tgExist {
-					// synthesizer.SynthesizeTriggeredTargetGroupsDeletion() should ignore all serviceImport triggered TG deletion,
-					// so the previouly existed TG should still exist in datastore
-					tgDataStore, err := ds.GetTargetGroup(svcImport.name, "", true)
-					assert.Nil(t, err)
-					assert.Equal(t, svcImport.tgID, tgDataStore.ID)
-					assert.Equal(t, svcImport.tgARN, tgDataStore.ARN)
-				}
-			}
-		})
-	}
-}
-
-func Test_SynthesizeTriggeredTargetGroupsCreation_TriggeredByK8sService(t *testing.T) {
-	tests := []struct {
-		name         string
-		svcList      []svcDef
-		isDeleted    bool
-		wantErrIsNil bool
-	}{
-		{
-			name: "httproute creation request with backendref k8sService triggered target group creation, ok case",
-			svcList: []svcDef{
-				{
-					name:   "service11",
-					tgARN:  "service11-arn",
-					tgID:   "service11-ID",
-					mgrErr: false,
-				},
-				{
-					name:   "service12",
-					tgARN:  "service12-arn",
-					tgID:   "service12-ID",
-					mgrErr: false,
-				},
-			},
-			isDeleted:    false,
-			wantErrIsNil: true,
-		},
-		{
-			name: "httproute creation request with backendref k8sService triggered target group creation, mgrErr",
-			svcList: []svcDef{
-				{
-					name:   "service21",
-					tgARN:  "service21-arn",
-					tgID:   "service21-ID",
-					mgrErr: true,
-				},
-				{
-					name:   "service22",
-					tgARN:  "service22-arn",
-					tgID:   "service22-ID",
-					mgrErr: false,
-				},
-			},
-			isDeleted:    false,
-			wantErrIsNil: false,
-		},
-		{
-			name: "SynthesizeTriggeredTargetGroupsCreation should ignore any target group deletion request",
-			svcList: []svcDef{
-				{
-					name:   "service31",
-					tgARN:  "service31-arn",
-					tgID:   "service31-ID",
-					mgrErr: false,
-				},
-				{
-					name:   "service32",
-					tgARN:  "service32-arn",
-					tgID:   "service32-ID",
-					mgrErr: false,
-				},
-			},
-			isDeleted:    true,
-			wantErrIsNil: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
-
-			mockTGManager := NewMockTargetGroupManager(c)
-
-			ds := latticestore.NewLatticeDataStore()
-
-			stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
-
-			for _, svc := range tt.svcList {
-				tgSpec := model.TargetGroupSpec{
-					Name: svc.name,
-					Type: model.TargetGroupTypeIP,
-					Config: model.TargetGroupConfig{
-						IsServiceImport: false,
-					},
-					IsDeleted: tt.isDeleted,
-				}
-
-				tg := model.NewTargetGroup(stack, svc.name, tgSpec)
-				fmt.Printf("tg : %v\n", tg)
-
-				if !tt.isDeleted {
-
-					if svc.mgrErr {
-						mockTGManager.EXPECT().Create(ctx, tg).Return(model.TargetGroupStatus{}, errors.New("tgmgr err"))
-					} else {
-						mockTGManager.EXPECT().Create(ctx, tg).Return(model.TargetGroupStatus{TargetGroupARN: svc.tgARN, TargetGroupID: svc.tgID}, nil)
-					}
-				}
-			}
-
-			synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
-			var err error
-
-			err = synthesizer.SynthesizeTriggeredTargetGroupsCreation(ctx)
-
-			fmt.Printf("err:%v \n", err)
-
-			if tt.wantErrIsNil {
-				assert.Nil(t, err)
-			} else {
-				assert.NotNil(t, err)
-			}
-
-			if !tt.isDeleted {
-				// check datastore
-				for _, tg := range tt.svcList {
-					if tg.mgrErr {
-						//TODO, test routename
-						_, err := ds.GetTargetGroup(tg.name, "", false)
-						assert.NotNil(t, err)
-
-					} else {
-						//TODO, test routename
-						dsTG, err := ds.GetTargetGroup(tg.name, "", false)
-						assert.Nil(t, err)
-						assert.Equal(t, tg.tgARN, dsTG.ARN)
-						assert.Equal(t, tg.tgID, dsTG.ID)
-
-					}
-				}
-			}
-		})
-	}
-}
-
-func Test_SynthesizeTriggeredTargetGroupsDeletion_TriggeredByK8sService(t *testing.T) {
-	tests := []struct {
-		name         string
-		svcList      []svcDef
-		isDeleted    bool
-		wantErrIsNil bool
-	}{
-		{
-			name: "httproute with backendref k8sService deletion request triggering target group deletion, ok case",
-			svcList: []svcDef{
-				{
-					name:   "service11",
-					tgARN:  "service11-arn",
-					tgID:   "service11-ID",
-					mgrErr: false,
-				},
-				{
-					name:   "service12",
-					tgARN:  "service12-arn",
-					tgID:   "service12-ID",
-					mgrErr: false,
-				},
-			},
-			isDeleted:    true,
-			wantErrIsNil: true,
-		},
-		{
-			name: "httproute with backendref k8sService deletion request triggering target group deletion, mgrErr",
-			svcList: []svcDef{
-				{
-					name:   "service21",
-					tgARN:  "service21-arn",
-					tgID:   "service21-ID",
-					mgrErr: true,
-				},
-				{
-					name:   "service22",
-					tgARN:  "service22-arn",
-					tgID:   "service22-ID",
-					mgrErr: false,
-				},
-			},
-			isDeleted:    true,
-			wantErrIsNil: false,
-		},
-		{
-			name: "SynthesizeTriggeredTargetGroupsDeletion should ignore target group creation request",
-			svcList: []svcDef{
-				{
-					name:   "service31",
-					tgARN:  "service31-arn",
-					tgID:   "service31-ID",
-					mgrErr: true,
-				},
-				{
-					name:   "service32",
-					tgARN:  "service32-arn",
-					tgID:   "service32-ID",
-					mgrErr: false,
-				},
-			},
-			isDeleted:    false,
-			wantErrIsNil: true,
-		},
-	}
-
-	httpRouteName := "my-http-route"
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
-
-			mockTGManager := NewMockTargetGroupManager(c)
-
-			ds := latticestore.NewLatticeDataStore()
-
-			stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "tt", Name: "name"}))
-
-			for _, svc := range tt.svcList {
-				tgSpec := model.TargetGroupSpec{
-					Name: svc.name,
-					Type: model.TargetGroupTypeIP,
-					Config: model.TargetGroupConfig{
-						K8SHTTPRouteName: httpRouteName,
-						IsServiceImport:  false,
-					},
-					IsDeleted: tt.isDeleted,
-				}
-
-				tg := model.NewTargetGroup(stack, svc.name, tgSpec)
-				fmt.Printf("tg : %v\n", tg)
-
-				if tt.isDeleted {
-					ds.AddTargetGroup(tg.Spec.Name, tg.Spec.Config.VpcID, svc.tgARN, svc.tgID, tg.Spec.Config.IsServiceImport, httpRouteName)
-
-					if svc.mgrErr {
-						mockTGManager.EXPECT().Delete(ctx, tg).Return(errors.New("tgmgr err"))
-					} else {
-						mockTGManager.EXPECT().Delete(ctx, tg).Return(nil)
-					}
-				}
-			}
-
-			synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, stack, ds)
-			var err error
-			err = synthesizer.SynthesizeTriggeredTargetGroupsDeletion(ctx)
-			if tt.wantErrIsNil {
-				assert.Nil(t, err)
-			} else {
-				assert.NotNil(t, err)
-			}
-			fmt.Printf("err:%v \n", err)
-
-			for _, svc := range tt.svcList {
-				if tt.isDeleted {
-					tgDateStore, err := ds.GetTargetGroup(svc.name, httpRouteName, false)
-
-					if svc.mgrErr {
-						assert.Nil(t, err, "targetGroup should still exist since targetGroupManager.Delete return error")
-						assert.Equal(t, svc.tgID, tgDateStore.ID)
-						assert.Equal(t, svc.tgID, tgDateStore.ID)
-
-					} else {
-						_, err := ds.GetTargetGroup(svc.name, httpRouteName, false)
-						assert.Equal(t, err, errors.New(latticestore.DATASTORE_TG_NOT_EXIST),
-							"targetGroup %v should be deleted in the datastore if targetGroupManager.Delete() success", svc.name)
-
-					}
-				}
-			}
-		})
-	}
-}
+// TODO: Error cases should not delete

@@ -2,36 +2,48 @@ package gateway
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"k8s.io/utils/pointer"
-	"testing"
-
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/pointer"
+	"reflect"
+	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"k8s.io/apimachinery/pkg/types"
-
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	"testing"
 )
+
+type dummyTgBuilder struct {
+	i int
+}
+
+func (d *dummyTgBuilder) Build(ctx context.Context, route core.Route, backendRef core.BackendRef, stack core.Stack) (core.Stack, *model.TargetGroup, error) {
+	// just need to provide a TG with an ID
+	id := fmt.Sprintf("tg-%d", d.i)
+	d.i++
+
+	tg := &model.TargetGroup{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", id),
+	}
+	stack.AddResource(tg)
+	return stack, tg, nil
+}
 
 func Test_RuleModelBuild(t *testing.T) {
 	var httpSectionName gwv1beta1.SectionName = "http"
 	var serviceKind gwv1beta1.Kind = "Service"
-	var serviceimportKind gwv1beta1.Kind = "ServiceImport"
+	var serviceImportKind gwv1beta1.Kind = "ServiceImport"
 	var weight1 = int32(10)
 	var weight2 = int32(90)
 	var namespace = gwv1beta1.Namespace("testnamespace")
@@ -42,7 +54,14 @@ func Test_RuleModelBuild(t *testing.T) {
 	var httpGet = gwv1beta1.HTTPMethodGet
 	var httpPost = gwv1beta1.HTTPMethodPost
 	var k8sPathMatchExactType = gwv1beta1.PathMatchExact
+	var k8sPathMatchPrefix = gwv1beta1.PathMatchPathPrefix
 	var k8sMethodMatchExactType = gwv1alpha2.GRPCMethodMatchExact
+	var k8sHeaderExactType = gwv1beta1.HeaderMatchExact
+	var hdr1 = "env1"
+	var hdr1Value = "test1"
+	var hdr2 = "env2"
+	var hdr2Value = "test2"
+
 	var backendRef1 = gwv1beta1.BackendRef{
 		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name: "targetgroup1",
@@ -53,7 +72,7 @@ func Test_RuleModelBuild(t *testing.T) {
 	var backendRef2 = gwv1beta1.BackendRef{
 		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name: "targetgroup2",
-			Kind: &serviceimportKind,
+			Kind: &serviceImportKind,
 		},
 		Weight: &weight2,
 	}
@@ -61,7 +80,7 @@ func Test_RuleModelBuild(t *testing.T) {
 		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace,
-			Kind:      &serviceimportKind,
+			Kind:      &serviceImportKind,
 		},
 		Weight: &weight2,
 	}
@@ -69,31 +88,26 @@ func Test_RuleModelBuild(t *testing.T) {
 		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name:      "targetgroup2",
 			Namespace: &namespace2,
-			Kind:      &serviceimportKind,
+			Kind:      &serviceImportKind,
 		},
 		Weight: &weight2,
 	}
 	var backendServiceImportRef = gwv1beta1.BackendRef{
 		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name: "targetgroup1",
-			Kind: &serviceimportKind,
+			Kind: &serviceImportKind,
 		},
 	}
 
 	tests := []struct {
-		name               string
-		gwListenerPort     gwv1beta1.PortNumber
-		route              core.Route
-		wantErrIsNil       bool
-		k8sGetGatewayCall  bool
-		k8sGatewayReturnOK bool
+		name         string
+		route        core.Route
+		wantErrIsNil bool
+		expectedSpec []model.RuleSpec
 	}{
 		{
-			name:               "rule, default service action",
-			gwListenerPort:     *PortNumberPtr(80),
-			wantErrIsNil:       true,
-			k8sGetGatewayCall:  true,
-			k8sGatewayReturnOK: true,
+			name:         "rule, default service action",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -119,13 +133,23 @@ func Test_RuleModelBuild(t *testing.T) {
 					},
 				},
 			}),
+			expectedSpec: []model.RuleSpec{ // note priority is only calculated at synthesis b/c it requires access to existing rules
+				{
+					StackListenerId: "listener-id",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(weight1),
+							},
+						},
+					},
+				},
+			},
 		},
 		{
-			name:               "rule, default serviceimport action",
-			gwListenerPort:     *PortNumberPtr(80),
-			wantErrIsNil:       true,
-			k8sGetGatewayCall:  true,
-			k8sGatewayReturnOK: true,
+			name:         "rule, default serviceimport action",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -151,13 +175,26 @@ func Test_RuleModelBuild(t *testing.T) {
 					},
 				},
 			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendServiceImportRef.Name),
+									K8SServiceNamespace: "default",
+								},
+								Weight: 1,
+							},
+						},
+					},
+				},
+			},
 		},
 		{
-			name:               "rule, weighted target group",
-			gwListenerPort:     *PortNumberPtr(80),
-			wantErrIsNil:       true,
-			k8sGetGatewayCall:  true,
-			k8sGatewayReturnOK: true,
+			name:         "rule, weighted target group",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -186,13 +223,30 @@ func Test_RuleModelBuild(t *testing.T) {
 					},
 				},
 			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(weight1),
+							},
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendRef2.Name),
+									K8SServiceNamespace: "default",
+								},
+								Weight: int64(weight2),
+							},
+						},
+					},
+				},
+			},
 		},
 		{
-			name:               "rule, path based target group",
-			gwListenerPort:     *PortNumberPtr(80),
-			wantErrIsNil:       true,
-			k8sGetGatewayCall:  true,
-			k8sGatewayReturnOK: true,
+			name:         "rule, path based target group",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -211,7 +265,6 @@ func Test_RuleModelBuild(t *testing.T) {
 						{
 							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
-
 									Path: &gwv1beta1.HTTPPathMatch{
 										Type:  &k8sPathMatchExactType,
 										Value: &path1,
@@ -227,9 +280,8 @@ func Test_RuleModelBuild(t *testing.T) {
 						{
 							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
-
 									Path: &gwv1beta1.HTTPPathMatch{
-
+										Type:  &k8sPathMatchPrefix,
 										Value: &path2,
 									},
 								},
@@ -243,13 +295,41 @@ func Test_RuleModelBuild(t *testing.T) {
 					},
 				},
 			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchExact:  true,
+					PathMatchValue:  path1,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(weight1),
+							},
+						},
+					},
+				},
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  path2,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendRef2.Name),
+									K8SServiceNamespace: "default",
+								},
+								Weight: int64(weight2),
+							},
+						},
+					},
+				},
+			},
 		},
 		{
-			name:               "rule, method based",
-			gwListenerPort:     *PortNumberPtr(80),
-			wantErrIsNil:       true,
-			k8sGetGatewayCall:  true,
-			k8sGatewayReturnOK: true,
+			name:         "rule, method based",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -292,13 +372,39 @@ func Test_RuleModelBuild(t *testing.T) {
 					},
 				},
 			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					Method:          string(httpGet),
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(weight1),
+							},
+						},
+					},
+				},
+				{
+					StackListenerId: "listener-id",
+					Method:          string(httpPost),
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendRef2.Name),
+									K8SServiceNamespace: "default",
+								},
+								Weight: int64(weight2),
+							},
+						},
+					},
+				},
+			},
 		},
 		{
-			name:               "rule, different namespace combination",
-			gwListenerPort:     *PortNumberPtr(80),
-			wantErrIsNil:       true,
-			k8sGetGatewayCall:  true,
-			k8sGatewayReturnOK: true,
+			name:         "rule, different namespace combination",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -319,6 +425,7 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 									Path: &gwv1beta1.HTTPPathMatch{
 										Value: &path1,
+										Type:  &k8sPathMatchExactType,
 									},
 								},
 							},
@@ -333,6 +440,7 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 									Path: &gwv1beta1.HTTPPathMatch{
 										Value: &path2,
+										Type:  &k8sPathMatchExactType,
 									},
 								},
 							},
@@ -347,6 +455,7 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 									Path: &gwv1beta1.HTTPPathMatch{
 										Value: &path3,
+										Type:  &k8sPathMatchExactType,
 									},
 								},
 							},
@@ -359,13 +468,57 @@ func Test_RuleModelBuild(t *testing.T) {
 					},
 				},
 			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchExact:  true,
+					PathMatchValue:  path1,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(weight1),
+							},
+						},
+					},
+				},
+				{
+					StackListenerId: "listener-id",
+					PathMatchExact:  true,
+					PathMatchValue:  path2,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendRef1Namespace1.Name),
+									K8SServiceNamespace: string(*backendRef1Namespace1.Namespace),
+								},
+								Weight: int64(weight2),
+							},
+						},
+					},
+				},
+				{
+					StackListenerId: "listener-id",
+					PathMatchExact:  true,
+					PathMatchValue:  path3,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendRef1Namespace2.Name),
+									K8SServiceNamespace: string(*backendRef1Namespace2.Namespace),
+								},
+								Weight: int64(weight2),
+							},
+						},
+					},
+				},
+			},
 		},
 		{
-			name:               "rule, default service import action for GRPCRoute",
-			gwListenerPort:     *PortNumberPtr(80),
-			wantErrIsNil:       true,
-			k8sGetGatewayCall:  true,
-			k8sGatewayReturnOK: true,
+			name:         "rule, default service import action for GRPCRoute",
+			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -391,13 +544,26 @@ func Test_RuleModelBuild(t *testing.T) {
 					},
 				},
 			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendServiceImportRef.Name),
+									K8SServiceNamespace: "default",
+								},
+								Weight: 1,
+							},
+						},
+					},
+				},
+			},
 		},
 		{
-			name:               "rule, gRPC routes with methods and multiple namespaces",
-			gwListenerPort:     *PortNumberPtr(80),
-			wantErrIsNil:       true,
-			k8sGetGatewayCall:  true,
-			k8sGatewayReturnOK: true,
+			name:         "rule, gRPC routes with methods and multiple namespaces",
+			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -464,220 +630,60 @@ func Test_RuleModelBuild(t *testing.T) {
 					},
 				},
 			}),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
-
-			mockK8sClient := mock_client.NewMockClient(c)
-
-			if tt.k8sGetGatewayCall {
-
-				mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, gwName types.NamespacedName, gw *gwv1beta1.Gateway, arg3 ...interface{}) error {
-
-						if tt.k8sGatewayReturnOK {
-							gw.Spec.Listeners = append(gw.Spec.Listeners, gwv1beta1.Listener{
-								Port: tt.gwListenerPort,
-								Name: *tt.route.Spec().ParentRefs()[0].SectionName,
-							})
-							return nil
-						} else {
-							return errors.New("unknown k8s object")
-						}
-					},
-				)
-			}
-
-			ds := latticestore.NewLatticeDataStore()
-
-			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
-
-			task := &latticeServiceModelBuildTask{
-				log:             gwlog.FallbackLogger,
-				route:           tt.route,
-				stack:           stack,
-				client:          mockK8sClient,
-				listenerByResID: make(map[string]*model.Listener),
-				datastore:       ds,
-			}
-
-			err := task.buildRules(ctx)
-
-			assert.NoError(t, err)
-
-			var resRules []*model.Rule
-
-			stack.ListResources(&resRules)
-
-			if len(resRules) > 0 {
-				fmt.Printf("resRules :%v \n", *resRules[0])
-			}
-
-			var i = 1
-			for _, resRule := range resRules {
-
-				fmt.Sscanf(resRule.Spec.RuleID, "rule-%d", &i)
-
-				assert.Equal(t, resRule.Spec.ListenerPort, int64(tt.gwListenerPort))
-				// Defer this to dedicate rule check			assert.Equal(t, resRule.Spec.PathMatchValue, tt.route.)
-				assert.Equal(t, resRule.Spec.ServiceName, tt.route.Name())
-				assert.Equal(t, resRule.Spec.ServiceNamespace, tt.route.Namespace())
-
-				var j = 0
-				for _, tg := range resRule.Spec.Action.TargetGroups {
-
-					assert.Equal(t, gwv1beta1.ObjectName(tg.Name), tt.route.Spec().Rules()[i-1].BackendRefs()[j].Name())
-					if tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace() != nil {
-						assert.Equal(t, gwv1beta1.Namespace(tg.Namespace), *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Namespace())
-					} else {
-						assert.Equal(t, tg.Namespace, tt.route.Namespace())
-					}
-
-					if *tt.route.Spec().Rules()[i-1].BackendRefs()[j].Kind() == "ServiceImport" {
-						assert.Equal(t, tg.IsServiceImport, true)
-					} else {
-						assert.Equal(t, tg.IsServiceImport, false)
-					}
-					j++
-				}
-			}
-		})
-	}
-}
-
-func Test_HeadersRuleBuild(t *testing.T) {
-	var httpSectionName gwv1beta1.SectionName = "http"
-	var serviceKind gwv1beta1.Kind = "Service"
-
-	var namespace = gwv1beta1.Namespace("default")
-	var path1 = "/ver1"
-	var k8sPathMatchExactType = gwv1beta1.PathMatchExact
-	var k8sPathMatchPrefixType = gwv1beta1.PathMatchPathPrefix
-	var k8sMethodMatchExactType = gwv1alpha2.GRPCMethodMatchExact
-
-	var k8sHeaderExactType = gwv1beta1.HeaderMatchExact
-	var hdr1 = "env1"
-	var hdr1Value = "test1"
-	var hdr2 = "env2"
-	var hdr2Value = "test2"
-
-	var backendRef1 = gwv1beta1.BackendRef{
-		BackendObjectReference: gwv1beta1.BackendObjectReference{
-			Name:      "targetgroup1",
-			Namespace: &namespace,
-			Kind:      &serviceKind,
-		},
-	}
-
-	tests := []struct {
-		name             string
-		gwListenerPort   gwv1beta1.PortNumber
-		route            core.Route
-		expectedRuleSpec model.RuleSpec
-		wantErrIsNil     bool
-		samerule         bool
-	}{
-		{
-			name:           "PathMatchExact Match",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
-			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchExact:  true,
+					PathMatchValue:  "/service/method1",
+					Method:          string(httpPost),
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
 							{
-								Name:        "gw1",
-								SectionName: &httpSectionName,
-							},
-						},
-					},
-					Rules: []gwv1beta1.HTTPRouteRule{
-						{
-							Matches: []gwv1beta1.HTTPRouteMatch{
-								{
-
-									Path: &gwv1beta1.HTTPPathMatch{
-										Type:  &k8sPathMatchExactType,
-										Value: &path1,
-									},
-								},
-							},
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
-								{
-									BackendRef: backendRef1,
-								},
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(weight1),
 							},
 						},
 					},
 				},
-			}),
-			expectedRuleSpec: model.RuleSpec{
-				PathMatchExact: true,
-				PathMatchValue: path1,
-			},
-		},
-
-		{
-			name:           "PathMatchPrefix",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
-			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				{
+					StackListenerId: "listener-id",
+					PathMatchExact:  true,
+					PathMatchValue:  "/service/method2",
+					Method:          string(httpPost),
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
 							{
-								Name:        "gw1",
-								SectionName: &httpSectionName,
-							},
-						},
-					},
-					Rules: []gwv1beta1.HTTPRouteRule{
-						{
-							Matches: []gwv1beta1.HTTPRouteMatch{
-								{
-
-									Path: &gwv1beta1.HTTPPathMatch{
-										Type:  &k8sPathMatchPrefixType,
-										Value: &path1,
-									},
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendRef1Namespace1.Name),
+									K8SServiceNamespace: string(*backendRef1Namespace1.Namespace),
 								},
-							},
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
-								{
-									BackendRef: backendRef1,
-								},
+								Weight: int64(weight2),
 							},
 						},
 					},
 				},
-			}),
-			expectedRuleSpec: model.RuleSpec{
-				PathMatchPrefix: true,
-				PathMatchValue:  path1,
+				{
+					StackListenerId: "listener-id",
+					PathMatchExact:  true,
+					PathMatchValue:  "/service/method3",
+					Method:          string(httpPost),
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendRef1Namespace2.Name),
+									K8SServiceNamespace: string(*backendRef1Namespace2.Namespace),
+								},
+								Weight: int64(weight2),
+							},
+						},
+					},
+				},
 			},
 		},
 		{
-			name:           "1 header match",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
+			name:         "1 header match",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -696,11 +702,6 @@ func Test_HeadersRuleBuild(t *testing.T) {
 						{
 							Matches: []gwv1beta1.HTTPRouteMatch{
 								{
-
-									//	Path: &gwv1beta1.HTTPPathMatch{
-									//		Type:  &k8sPathMatchPrefixType,
-									//		Value: &path1,
-									//	},
 									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
@@ -719,29 +720,31 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				NumOfHeaderMatches: 1,
-				MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr1Value},
-						Name: &hdr1,
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					MatchedHeaders: []vpclattice.HeaderMatch{
+						{
+							Name: &hdr1,
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value,
+							},
+						},
 					},
-
-					{},
-					{},
-					{},
-					{},
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(*backendRef1.Weight),
+							},
+						},
+					},
 				},
 			},
 		},
 		{
-			name:           "2 header match",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
+			name:         "2 header match",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -783,33 +786,37 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				NumOfHeaderMatches: 2,
-				MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr1Value},
-						Name: &hdr1,
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					MatchedHeaders: []vpclattice.HeaderMatch{
+						{
+							Name: &hdr1,
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value,
+							},
+						},
+						{
+							Name: &hdr2,
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr2Value,
+							},
+						},
 					},
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr2Value},
-						Name: &hdr2,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(*backendRef1.Weight),
+							},
+						},
 					},
-
-					{},
-					{},
-					{},
 				},
 			},
 		},
 		{
-			name:           "2 header match , path exact",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
+			name:         "2 header match with path exact",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -856,35 +863,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				PathMatchExact:     true,
-				PathMatchValue:     path1,
-				NumOfHeaderMatches: 2,
-				MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr1Value},
-						Name: &hdr1,
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchExact:  true,
+					PathMatchValue:  path1,
+					MatchedHeaders: []vpclattice.HeaderMatch{
+						{
+							Name: &hdr1,
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value,
+							},
+						},
+						{
+							Name: &hdr2,
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr2Value,
+							},
+						},
 					},
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr2Value},
-						Name: &hdr2,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(*backendRef1.Weight),
+							},
+						},
 					},
-
-					{},
-					{},
-					{},
 				},
 			},
 		},
 		{
-			name:           "2 header match , path prefix",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
+			name:         "2 header match with path prefix",
+			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -905,7 +916,7 @@ func Test_HeadersRuleBuild(t *testing.T) {
 								{
 
 									Path: &gwv1beta1.HTTPPathMatch{
-										Type:  &k8sPathMatchPrefixType,
+										Type:  &k8sPathMatchPrefix,
 										Value: &path1,
 									},
 									Headers: []gwv1beta1.HTTPHeaderMatch{
@@ -931,103 +942,39 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				PathMatchPrefix:    true,
-				PathMatchValue:     path1,
-				NumOfHeaderMatches: 2,
-				MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr1Value},
-						Name: &hdr1,
-					},
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr2Value},
-						Name: &hdr2,
-					},
-
-					{},
-					{},
-					{},
-				},
-			},
-		},
-		{
-			name:           "2 header match",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
-			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
-							{
-								Name:        "gw1",
-								SectionName: &httpSectionName,
-							},
-						},
-					},
-					Rules: []gwv1beta1.HTTPRouteRule{
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  path1,
+					MatchedHeaders: []vpclattice.HeaderMatch{
 						{
-							Matches: []gwv1beta1.HTTPRouteMatch{
-								{
-									Headers: []gwv1beta1.HTTPHeaderMatch{
-										{
-											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr1),
-											Value: hdr1Value,
-										},
-										{
-											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr2),
-											Value: hdr2Value,
-										},
-									},
-								},
+							Name: &hdr1,
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr1Value,
 							},
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
-								{
-									BackendRef: backendRef1,
-								},
+						},
+						{
+							Name: &hdr2,
+							Match: &vpclattice.HeaderMatchType{
+								Exact: &hdr2Value,
+							},
+						},
+					},
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(*backendRef1.Weight),
 							},
 						},
 					},
 				},
-			}),
-			expectedRuleSpec: model.RuleSpec{
-				NumOfHeaderMatches: 2,
-				MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr1Value},
-						Name: &hdr1,
-					},
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr2Value},
-						Name: &hdr2,
-					},
-
-					{},
-					{},
-					{},
-				},
 			},
 		},
 		{
-			name:           " negative 6 header match ",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   true,
-			samerule:       true,
-
+			name:         " negative 6 header match (max headers is 5)",
+			wantErrIsNil: false,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -1094,35 +1041,10 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				PathMatchExact:     true,
-				PathMatchValue:     path1,
-				NumOfHeaderMatches: 2,
-				MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr1Value},
-						Name: &hdr1,
-					},
-					{
-						Match: &vpclattice.HeaderMatchType{
-							Exact: &hdr2Value},
-						Name: &hdr2,
-					},
-
-					{},
-					{},
-					{},
-				},
-			},
 		},
 		{
-			name:           "Negative, multiple methods",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   true,
-			samerule:       true,
-
+			name:         "Negative, multiple methods",
+			wantErrIsNil: false,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -1164,17 +1086,10 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				PathMatchExact: true,
-				PathMatchValue: path1,
-			},
 		},
 		{
-			name:           "GRPC match on service and method",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
+			name:         "GRPC match on service and method",
+			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -1200,7 +1115,6 @@ func Test_HeadersRuleBuild(t *testing.T) {
 									},
 								},
 							},
-
 							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1,
@@ -1210,19 +1124,26 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				Method:             "POST",
-				NumOfHeaderMatches: 0,
-				PathMatchExact:     true,
-				PathMatchValue:     "/service/method",
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchExact:  true,
+					PathMatchValue:  "/service/method",
+					Method:          "POST",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(*backendRef1.Weight),
+							},
+						},
+					},
+				},
 			},
 		},
 		{
-			name:           "GRPC match on service",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
+			name:         "GRPC match on service",
+			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -1247,7 +1168,6 @@ func Test_HeadersRuleBuild(t *testing.T) {
 									},
 								},
 							},
-
 							BackendRefs: []gwv1alpha2.GRPCBackendRef{
 								{
 									BackendRef: backendRef1,
@@ -1257,19 +1177,26 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				Method:             "POST",
-				NumOfHeaderMatches: 0,
-				PathMatchPrefix:    true,
-				PathMatchValue:     "/service/",
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/service/",
+					Method:          "POST",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(*backendRef1.Weight),
+							},
+						},
+					},
+				},
 			},
 		},
 		{
-			name:           "GRPC match on all",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
+			name:         "GRPC match on all",
+			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -1303,19 +1230,26 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				Method:             "POST",
-				NumOfHeaderMatches: 0,
-				PathMatchPrefix:    true,
-				PathMatchValue:     "/",
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
+					Method:          "POST",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(*backendRef1.Weight),
+							},
+						},
+					},
+				},
 			},
 		},
 		{
-			name:           "GRPC match with 5 headers",
-			gwListenerPort: *PortNumberPtr(80),
-			wantErrIsNil:   false,
-			samerule:       true,
-
+			name:         "GRPC match with 5 headers",
+			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
@@ -1376,180 +1310,126 @@ func Test_HeadersRuleBuild(t *testing.T) {
 					},
 				},
 			}),
-			expectedRuleSpec: model.RuleSpec{
-				Method:             "POST",
-				NumOfHeaderMatches: 5,
-				PathMatchPrefix:    true,
-				PathMatchValue:     "/service/",
-				MatchedHeaders: [model.MAX_NUM_OF_MATCHED_HEADERS]vpclattice.HeaderMatch{
-					{
-						Name: pointer.String("foo1"),
-						Match: &vpclattice.HeaderMatchType{
-							Exact: pointer.String("bar1"),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/service/",
+					Method:          "POST",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(*backendRef1.Weight),
+							},
 						},
 					},
-					{
-						Name: pointer.String("foo2"),
-						Match: &vpclattice.HeaderMatchType{
-							Exact: pointer.String("bar2"),
+					MatchedHeaders: []vpclattice.HeaderMatch{
+						{
+							Name: aws.String("foo1"),
+							Match: &vpclattice.HeaderMatchType{
+								Exact: aws.String("bar1"),
+							},
 						},
-					},
-					{
-						Name: pointer.String("foo3"),
-						Match: &vpclattice.HeaderMatchType{
-							Exact: pointer.String("bar3"),
+						{
+							Name: aws.String("foo2"),
+							Match: &vpclattice.HeaderMatchType{
+								Exact: aws.String("bar2"),
+							},
 						},
-					},
-					{
-						Name: pointer.String("foo4"),
-						Match: &vpclattice.HeaderMatchType{
-							Exact: pointer.String("bar4"),
+						{
+							Name: aws.String("foo3"),
+							Match: &vpclattice.HeaderMatchType{
+								Exact: aws.String("bar3"),
+							},
 						},
-					},
-					{
-						Name: pointer.String("foo5"),
-						Match: &vpclattice.HeaderMatchType{
-							Exact: pointer.String("bar5"),
+						{
+							Name: aws.String("foo4"),
+							Match: &vpclattice.HeaderMatchType{
+								Exact: aws.String("bar4"),
+							},
+						},
+						{
+							Name: aws.String("foo5"),
+							Match: &vpclattice.HeaderMatchType{
+								Exact: aws.String("bar5"),
+							},
 						},
 					},
 				},
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := gomock.NewController(t)
 			defer c.Finish()
 			ctx := context.TODO()
 
-			mockK8sClient := mock_client.NewMockClient(c)
+			k8sSchema := runtime.NewScheme()
+			k8sSchema.AddKnownTypes(mcsv1alpha1.SchemeGroupVersion, &mcsv1alpha1.ServiceImport{})
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 
-			mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, gwName types.NamespacedName, gw *gwv1beta1.Gateway, arg3 ...interface{}) error {
-
-					gw.Spec.Listeners = append(gw.Spec.Listeners, gwv1beta1.Listener{
-						Port: tt.gwListenerPort,
-						Name: *tt.route.Spec().ParentRefs()[0].SectionName,
-					})
-					return nil
-
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      string(backendRef1.Name),
+					Namespace: "default",
 				},
-			)
-
-			ds := latticestore.NewLatticeDataStore()
-
+				Status: corev1.ServiceStatus{},
+			}
+			assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 			task := &latticeServiceModelBuildTask{
-				log:             gwlog.FallbackLogger,
-				route:           tt.route,
-				stack:           stack,
-				client:          mockK8sClient,
-				listenerByResID: make(map[string]*model.Listener),
-				datastore:       ds,
+				log:         gwlog.FallbackLogger,
+				route:       tt.route,
+				stack:       stack,
+				client:      k8sClient,
+				brTgBuilder: &dummyTgBuilder{},
 			}
 
-			err := task.buildRules(ctx)
-
+			err := task.buildRules(ctx, "listener-id")
 			if tt.wantErrIsNil {
-				assert.Error(t, err)
+				assert.NoError(t, err)
+			} else {
+				assert.NotNil(t, err)
 				return
 			}
-			assert.NoError(t, err)
 
 			var resRules []*model.Rule
 			stack.ListResources(&resRules)
 
-			if len(resRules) > 0 {
-				// for debug fmt.Printf("resRules :%v \n", *resRules[0])
-			}
-
-			// we are unit- testing various combination of one rule for now
-			var i = 1
-			for _, resRule := range resRules {
-
-				// for debugging, fmt.Printf("i = %d resRule :%v \n, expected rule: %v\n", i, resRule, tt.expectedRuleSpec)
-
-				sameRule := isRuleSpecSame(&tt.expectedRuleSpec, &resRule.Spec)
-
-				if tt.samerule {
-					assert.True(t, sameRule)
-				} else {
-					assert.False(t, sameRule)
-				}
-				i++
-
-			}
+			validateEqual(t, tt.expectedSpec, resRules)
 		})
 	}
 }
 
-func isRuleSpecSame(rule1 *model.RuleSpec, rule2 *model.RuleSpec) bool {
+func validateEqual(t *testing.T, expectedRules []model.RuleSpec, actualRules []*model.Rule) {
+	assert.Equal(t, len(expectedRules), len(actualRules))
+	assert.Equal(t, len(expectedRules), len(actualRules))
 
-	// debug fmt.Printf("rule1 :%v \n", rule1)
-	// debug fmt.Printf("rule2: %v \n", rule2)
-	// Path Exact Match
-	if rule1.PathMatchExact || rule2.PathMatchExact {
-		if rule1.PathMatchExact != rule2.PathMatchExact {
-			return false
-		}
+	for i, expectedSpec := range expectedRules {
+		actualRule := actualRules[i]
 
-		if rule1.PathMatchValue != rule2.PathMatchValue {
-			return false
-		}
-	}
+		assert.Equal(t, expectedSpec.StackListenerId, actualRule.Spec.StackListenerId)
+		assert.Equal(t, expectedSpec.PathMatchValue, actualRule.Spec.PathMatchValue)
+		assert.Equal(t, expectedSpec.PathMatchPrefix, actualRule.Spec.PathMatchPrefix)
+		assert.Equal(t, expectedSpec.PathMatchExact, actualRule.Spec.PathMatchExact)
+		assert.Equal(t, expectedSpec.Method, actualRule.Spec.Method)
 
-	// Path Prefix Match
-	if rule1.PathMatchPrefix || rule2.PathMatchPrefix {
-		if rule1.PathMatchPrefix != rule2.PathMatchPrefix {
-			return false
-		}
-		if rule1.PathMatchValue != rule2.PathMatchValue {
-			return false
-		}
-	}
+		// priority is not determined by model building, but in synthesis, so we don't
+		// validate priority here
 
-	// Method match
-	if rule1.Method != rule2.Method {
-		return false
-	}
+		assert.True(t, reflect.DeepEqual(expectedSpec.MatchedHeaders, actualRule.Spec.MatchedHeaders))
 
-	// Header Match
-	if rule1.NumOfHeaderMatches != rule2.NumOfHeaderMatches {
-		return false
-	}
+		assert.Equal(t, len(expectedSpec.Action.TargetGroups), len(actualRule.Spec.Action.TargetGroups))
+		for j, etg := range expectedSpec.Action.TargetGroups {
+			atg := actualRule.Spec.Action.TargetGroups[j]
 
-	// Verify each header
-	for i := 0; i < rule1.NumOfHeaderMatches; i++ {
-		// verify rule1 header is in rule2
-		rule1Hdr := rule1.MatchedHeaders[i]
-
-		found := false
-		for j := 0; j < rule2.NumOfHeaderMatches; j++ {
-
-			// fmt.Printf("rule1 match :%v\n", rule1Hdr)
-			rule2Hdr := rule2.MatchedHeaders[j]
-			// fmt.Printf("rule2 match: %v\n", rule2Hdr)
-
-			if *rule1Hdr.Name == *rule2Hdr.Name {
-				if rule1Hdr.Match.Exact != nil && rule2Hdr.Match.Exact != nil {
-					if *rule1Hdr.Match.Exact == *rule2Hdr.Match.Exact {
-						found = true
-						break
-					}
-				} else if rule1Hdr.Match.Prefix != nil && rule2Hdr.Match.Prefix != nil {
-					if *rule1Hdr.Match.Prefix == *rule2Hdr.Match.Prefix {
-						found = true
-						break
-					}
-				}
-			}
-
-		}
-		if !found {
-			return false
+			assert.Equal(t, etg.Weight, atg.Weight)
+			assert.Equal(t, etg.StackTargetGroupId, atg.StackTargetGroupId)
+			assert.Equal(t, etg.SvcImportTG, etg.SvcImportTG)
 		}
 	}
-	return true
 }

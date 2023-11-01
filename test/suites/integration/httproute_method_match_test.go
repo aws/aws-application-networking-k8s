@@ -128,8 +128,6 @@ var _ = Describe("HTTPRoute method matches", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.ExpectDeleted(ctx, methodMatchHttpRoute)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			methodMatchHttpRoute,
 			deployment1,

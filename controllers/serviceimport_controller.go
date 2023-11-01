@@ -30,7 +30,6 @@ import (
 	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 type serviceImportReconciler struct {
@@ -39,7 +38,6 @@ type serviceImportReconciler struct {
 	Scheme           *runtime.Scheme
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
-	latticeDataStore *latticestore.LatticeDataStore
 }
 
 const (
@@ -49,7 +47,6 @@ const (
 func RegisterServiceImportController(
 	log gwlog.Logger,
 	mgr ctrl.Manager,
-	dataStore *latticestore.LatticeDataStore,
 	finalizerManager k8s.FinalizerManager,
 ) error {
 	mgrClient := mgr.GetClient()
@@ -62,7 +59,6 @@ func RegisterServiceImportController(
 		Scheme:           scheme,
 		finalizerManager: finalizerManager,
 		eventRecorder:    eventRecorder,
-		latticeDataStore: dataStore,
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

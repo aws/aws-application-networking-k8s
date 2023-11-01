@@ -89,7 +89,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-v3 handler pod"))
-		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+		}).WithTimeout(time.Minute).WithOffset(1).Should(Succeed())
 
 		// check incorrect headers
 		Eventually(func(g Gomega) {
@@ -101,8 +101,6 @@ var _ = Describe("HTTPRoute header matches", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.ExpectDeleted(ctx, headerMatchHttpRoute)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			headerMatchHttpRoute,
 			service,

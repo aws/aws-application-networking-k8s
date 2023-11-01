@@ -3,16 +3,15 @@ package lattice
 import (
 	"context"
 	"errors"
-	"testing"
-
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestServiceManagerInteg(t *testing.T) {
@@ -22,9 +21,8 @@ func TestServiceManagerInteg(t *testing.T) {
 	mockLattice := mocks.NewMockLattice(c)
 	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
 	cl := pkg_aws.NewDefaultCloud(mockLattice, cfg)
-	ds := latticestore.NewLatticeDataStore()
 	ctx := context.Background()
-	m := NewServiceManager(cl, ds)
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
 
 	// Case for single service and single sn-svc association
 	// Make sure that we send requests to Lattice for create Service and create Sn-Svc
@@ -89,7 +87,7 @@ func TestServiceManagerInteg(t *testing.T) {
 				}).
 			Times(1)
 
-		status, err := m.Create(ctx, svc)
+		status, err := m.Upsert(ctx, svc)
 		assert.Nil(t, err)
 		assert.Equal(t, "arn", status.Arn)
 	})
@@ -190,7 +188,7 @@ func TestServiceManagerInteg(t *testing.T) {
 				}).
 			AnyTimes()
 
-		status, err := m.Create(ctx, svc)
+		status, err := m.Upsert(ctx, svc)
 		assert.Nil(t, err)
 		assert.Equal(t, "svc-arn", status.Arn)
 	})
@@ -242,8 +240,7 @@ func TestServiceManagerInteg(t *testing.T) {
 func TestCreateSvcReq(t *testing.T) {
 	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
 	cl := pkg_aws.NewDefaultCloud(nil, cfg)
-	ds := latticestore.NewLatticeDataStore()
-	m := NewServiceManager(cl, ds)
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
 
 	spec := model.ServiceSpec{
 		Name:               "name",
