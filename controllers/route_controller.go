@@ -337,6 +337,17 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 	}
 
 	if _, err := r.buildAndDeployModel(ctx, route); err != nil {
+		if services.IsConflictError(err) {
+			// Stop reconciliation of this route if the route cannot be owned / has conflict
+			route.Status().UpdateRouteCondition(metav1.Condition{
+				Type:               string(gwv1beta1.RouteConditionAccepted),
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: route.K8sObject().GetGeneration(),
+				Reason:             "Conflicted",
+				Message:            err.Error(),
+			})
+			return nil
+		}
 		return err
 	}
 
