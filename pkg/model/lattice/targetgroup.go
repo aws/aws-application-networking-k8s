@@ -19,6 +19,9 @@ const (
 	K8SRouteNamespaceKey   = aws.TagBase + "RouteNamespace"
 	K8SSourceTypeKey       = aws.TagBase + "SourceTypeKey"
 
+	// Service specific tags
+	K8SRouteTypeKey = aws.TagBase + "RouteType"
+
 	MaxNamespaceLength = 55
 	MaxNameLength      = 55
 	RandomSuffixLength = 10

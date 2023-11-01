@@ -13,18 +13,39 @@ type Service struct {
 }
 
 type ServiceSpec struct {
-	Name                string         `json:"name"`
-	Namespace           string         `json:"namespace"`
-	RouteType           core.RouteType `json:"routetype"`
-	ServiceNetworkNames []string       `json:"servicenetworkhnames"`
-	CustomerDomainName  string         `json:"customerdomainname"`
-	CustomerCertARN     string         `json:"customercertarn"`
+	ServiceTagFields
+	ServiceNetworkNames []string `json:"servicenetworkhnames"`
+	CustomerDomainName  string   `json:"customerdomainname"`
+	CustomerCertARN     string   `json:"customercertarn"`
 }
 
 type ServiceStatus struct {
 	Arn string `json:"arn"`
 	Id  string `json:"id"`
 	Dns string `json:"dns"`
+}
+
+type ServiceTagFields struct {
+	RouteName      string
+	RouteNamespace string
+	RouteType      core.RouteType
+}
+
+func ServiceTagFieldsFromTags(tags map[string]*string) ServiceTagFields {
+	return ServiceTagFields{
+		RouteName:      getMapValue(tags, K8SRouteNameKey),
+		RouteNamespace: getMapValue(tags, K8SRouteNamespaceKey),
+		RouteType:      core.RouteType(getMapValue(tags, K8SRouteTypeKey)),
+	}
+}
+
+func (t *ServiceTagFields) ToTags() map[string]*string {
+	rt := string(t.RouteType)
+	return map[string]*string{
+		K8SRouteNameKey:      &t.RouteName,
+		K8SRouteNamespaceKey: &t.RouteNamespace,
+		K8SRouteTypeKey:      &rt,
+	}
 }
 
 func NewLatticeService(stack core.Stack, spec ServiceSpec) (*Service, error) {
@@ -49,5 +70,5 @@ func (s *Service) LatticeServiceName() string {
 }
 
 func (s *ServiceSpec) LatticeServiceName() string {
-	return utils.LatticeServiceName(s.Name, s.Namespace)
+	return utils.LatticeServiceName(s.RouteName, s.RouteNamespace)
 }
