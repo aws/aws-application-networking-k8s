@@ -129,8 +129,8 @@ func TestServiceManagerInteg(t *testing.T) {
 			}, nil).
 			Times(1)
 
-		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
-			DoAndReturn(func(req *vpclattice.ListTagsForResourceInput) (*vpclattice.ListTagsForResourceOutput, error) {
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				return &vpclattice.ListTagsForResourceOutput{
 					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
 				}, nil
@@ -155,8 +155,8 @@ func TestServiceManagerInteg(t *testing.T) {
 			Times(1)
 
 		// return managed by gateway controller tags for all associations except for foreign
-		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
-			DoAndReturn(func(req *vpclattice.ListTagsForResourceInput) (*vpclattice.ListTagsForResourceOutput, error) {
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				if *req.ResourceArn == snForeign+"-arn" {
 					return &vpclattice.ListTagsForResourceOutput{}, nil
 				} else {
@@ -230,8 +230,8 @@ func TestServiceManagerInteg(t *testing.T) {
 			}, nil).
 			Times(1)
 
-		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
-			DoAndReturn(func(req *vpclattice.ListTagsForResourceInput) (*vpclattice.ListTagsForResourceOutput, error) {
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				return &vpclattice.ListTagsForResourceOutput{
 					Tags: map[string]*string{},
 				}, nil

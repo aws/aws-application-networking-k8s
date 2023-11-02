@@ -1,6 +1,7 @@
 package lattice
 
 import (
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
@@ -39,9 +40,9 @@ func ServiceTagFieldsFromTags(tags map[string]*string) ServiceTagFields {
 	}
 }
 
-func (t *ServiceTagFields) ToTags() map[string]*string {
+func (t *ServiceTagFields) ToTags() services.Tags {
 	rt := string(t.RouteType)
-	return map[string]*string{
+	return services.Tags{
 		K8SRouteNameKey:      &t.RouteName,
 		K8SRouteNamespaceKey: &t.RouteNamespace,
 		K8SRouteTypeKey:      &rt,

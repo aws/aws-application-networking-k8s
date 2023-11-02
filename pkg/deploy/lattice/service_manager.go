@@ -12,7 +12,6 @@ import (
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"reflect"
 )
 
 //go:generate mockgen -destination service_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ServiceManager
@@ -125,34 +124,21 @@ func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceInfo {
 	return svcInfo
 }
 
-func (m *defaultServiceManager) checkAndUpdateOwnership(ctx context.Context, tags services.Tags, svc *Service, arn string) error {
-	// backwards compatibility: if a service does not have managedBy, consider this is owned by controller
-	managedBy, ok := tags[pkg_aws.TagManagedBy]
-	if !ok || managedBy == nil {
-		_, err := m.cloud.Lattice().TagResourceWithContext(ctx, &vpclattice.TagResourceInput{
-			ResourceArn: &arn,
-			Tags:        m.cloud.DefaultTags(),
-		})
-		return err
-	}
-	if !m.cloud.ContainsManagedBy(tags) {
-		return services.NewConflictError("service", svc.Spec.RouteNamespace+"/"+svc.Spec.RouteName,
-			fmt.Sprintf("Found existing resource not owned by controller: %s", arn))
-	}
-	return nil
-}
-
 func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
-	tagsResp, err := m.cloud.Lattice().ListTagsForResource(&vpclattice.ListTagsForResourceInput{
+	tagsResp, err := m.cloud.Lattice().ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
 		ResourceArn: svcSum.Arn,
 	})
 	if err != nil {
 		return err
 	}
 
-	err = m.checkAndUpdateOwnership(ctx, tagsResp.Tags, svc, *svcSum.Arn)
+	owned, err := m.cloud.CheckAndAcquireOwnershipFromTags(ctx, *svcSum.Arn, tagsResp.Tags)
 	if err != nil {
 		return err
+	}
+	if !owned {
+		return services.NewConflictError("service", svc.Spec.RouteNamespace+"/"+svc.Spec.RouteName,
+			fmt.Sprintf("Found existing resource not owned by controller: %s", *svcSum.Arn))
 	}
 
 	tagFields := model.ServiceTagFieldsFromTags(tagsResp.Tags)
@@ -165,7 +151,7 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 			Tags:        svc.Spec.ToTags(),
 		})
 		return err
-	case !reflect.DeepEqual(tagFields, svc.Spec.ServiceTagFields):
+	case tagFields != svc.Spec.ServiceTagFields:
 		// Considering these scenarios:
 		// - two services with same namespace-name but different routeType
 		// - two service with conflict edge case such as my-namespace/service & my/namespace-service
@@ -240,7 +226,7 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 	}
 
 	for _, assoc := range toDelete {
-		isManaged, err := m.cloud.IsArnManaged(*assoc.Arn)
+		isManaged, err := m.cloud.IsArnManaged(ctx, *assoc.Arn)
 		if err != nil {
 			return err
 		}
