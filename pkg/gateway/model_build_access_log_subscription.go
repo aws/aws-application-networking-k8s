@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -57,26 +58,29 @@ type accessLogSubscriptionModelBuildTask struct {
 }
 
 func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
+	var eventType = core.CreateEvent
+	if t.accessLogPolicy.DeletionTimestamp != nil {
+		eventType = core.DeleteEvent
+	} else if _, ok := t.accessLogPolicy.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]; ok {
+		eventType = core.UpdateEvent
+	}
+
 	sourceType := model.ServiceSourceType
 	if t.accessLogPolicy.Spec.TargetRef.Kind == "Gateway" {
 		sourceType = model.ServiceNetworkSourceType
 	}
 
 	sourceName, err := utils.TargetRefToLatticeResourceName(t.accessLogPolicy.Spec.TargetRef, t.accessLogPolicy.Namespace)
-	if err != nil {
+	if err != nil && eventType != core.DeleteEvent {
 		return err
 	}
 
 	destinationArn := t.accessLogPolicy.Spec.DestinationArn
 	if destinationArn == nil {
-		return fmt.Errorf("access log policy's destinationArn cannot be nil")
-	}
-
-	var eventType = core.CreateEvent
-	if t.accessLogPolicy.DeletionTimestamp != nil {
-		eventType = core.DeleteEvent
-	} else if _, ok := t.accessLogPolicy.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]; ok {
-		eventType = core.UpdateEvent
+		if eventType != core.DeleteEvent {
+			return fmt.Errorf("access log policy's destinationArn cannot be nil")
+		}
+		destinationArn = aws.String("")
 	}
 
 	var status *model.AccessLogSubscriptionStatus
