@@ -9,8 +9,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -18,13 +18,13 @@ import (
 )
 
 const (
-	portAnnotationsKey = "multicluster.x-k8s.io/port"
+	portAnnotationsKey = "application-networking.k8s.aws/port"
 	undefinedPort      = int32(0)
 )
 
 type LatticeTargetsBuilder interface {
 	Build(ctx context.Context, service *corev1.Service, backendRef core.BackendRef, stackTgId string) (core.Stack, error)
-	BuildForServiceExport(ctx context.Context, serviceExport *mcsv1alpha1.ServiceExport, stackTgId string) (core.Stack, error)
+	BuildForServiceExport(ctx context.Context, serviceExport *anv1alpha1.ServiceExport, stackTgId string) (core.Stack, error)
 }
 
 type LatticeTargetsModelBuilder struct {
@@ -51,13 +51,13 @@ func (b *LatticeTargetsModelBuilder) Build(ctx context.Context, service *corev1.
 }
 
 func (b *LatticeTargetsModelBuilder) BuildForServiceExport(ctx context.Context,
-	serviceExport *mcsv1alpha1.ServiceExport, stackTgId string) (core.Stack, error) {
+	serviceExport *anv1alpha1.ServiceExport, stackTgId string) (core.Stack, error) {
 
 	return b.build(ctx, serviceExport, nil, nil, b.stack, stackTgId)
 }
 
 func (b *LatticeTargetsModelBuilder) build(ctx context.Context,
-	serviceExport *mcsv1alpha1.ServiceExport,
+	serviceExport *anv1alpha1.ServiceExport,
 	service *corev1.Service, backendRef core.BackendRef,
 	stack core.Stack, stackTgId string,
 ) (core.Stack, error) {
@@ -228,7 +228,7 @@ func (t *latticeTargetsModelBuildTask) getDefinedPorts() map[int32]struct{} {
 type latticeTargetsModelBuildTask struct {
 	log           gwlog.Logger
 	client        client.Client
-	serviceExport *mcsv1alpha1.ServiceExport
+	serviceExport *anv1alpha1.ServiceExport
 	service       *corev1.Service
 	backendRef    core.BackendRef
 	stack         core.Stack

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +28,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 )
@@ -62,18 +62,18 @@ func RegisterServiceImportController(
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&mcs_api.ServiceImport{}).
+		For(&anv1alpha1.ServiceImport{}).
 		Complete(r)
 }
 
-//+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceimports,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceimports/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceimports/finalizers,verbs=update
+//+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceimports,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceimports/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceimports/finalizers,verbs=update
 
 func (r *serviceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.Infow("reconcile", "name", req.Name)
 
-	serviceImport := &mcs_api.ServiceImport{}
+	serviceImport := &anv1alpha1.ServiceImport{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, serviceImport); err != nil {
 		r.log.Info("Item Not Found")

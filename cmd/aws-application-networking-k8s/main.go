@@ -40,7 +40,6 @@ import (
 	"sigs.k8s.io/external-dns/endpoint"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers"
 
@@ -60,7 +59,7 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 	utilruntime.Must(gateway_api_v1alpha2.AddToScheme(scheme))
 	utilruntime.Must(gateway_api_v1beta1.AddToScheme(scheme))
-	utilruntime.Must(mcs_api.AddToScheme(scheme))
+	utilruntime.Must(anv1alpha1.AddToScheme(scheme))
 	addOptionalCRDs(scheme)
 }
 

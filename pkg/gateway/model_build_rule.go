@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -229,19 +230,19 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 				Namespace: namespace,
 				Name:      string(backendRef.Name()),
 			}
-			svcImport := &mcsv1alpha1.ServiceImport{}
+			svcImport := &anv1alpha1.ServiceImport{}
 			if err := t.client.Get(ctx, svcImportName, svcImport); err != nil {
 				if !apierrors.IsNotFound(err) {
 					return nil, err
 				}
 			}
 			if svcImport != nil {
-				vpc, ok := svcImport.Annotations["multicluster.x-k8s.io/aws-vpc"]
+				vpc, ok := svcImport.Annotations["application-networking.k8s.aws/aws-vpc"]
 				if ok {
 					svcImportTg.VpcId = vpc
 				}
 
-				eksCluster, ok := svcImport.Annotations["multicluster.x-k8s.io/aws-eks-cluster-name"]
+				eksCluster, ok := svcImport.Annotations["application-networking.k8s.aws/aws-eks-cluster-name"]
 				if ok {
 					svcImportTg.K8SClusterName = eksCluster
 				}

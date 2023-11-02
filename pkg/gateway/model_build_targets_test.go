@@ -2,9 +2,9 @@ package gateway
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"reflect"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -13,11 +13,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"reflect"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	"testing"
+
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func Test_Targets(t *testing.T) {
@@ -35,7 +37,7 @@ func Test_Targets(t *testing.T) {
 		port               int32
 		endPoints          []corev1.Endpoints
 		svc                corev1.Service
-		serviceExport      mcsv1alpha1.ServiceExport
+		serviceExport      anv1alpha1.ServiceExport
 		refByServiceExport bool
 		refByService       bool
 		wantErrIsNil       bool
@@ -167,12 +169,12 @@ func Test_Targets(t *testing.T) {
 					},
 				},
 			},
-			serviceExport: mcsv1alpha1.ServiceExport{
+			serviceExport: anv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:         "ns1",
 					Name:              "export1",
 					DeletionTimestamp: nil,
-					Annotations:       map[string]string{"multicluster.x-k8s.io/port": "81"},
+					Annotations:       map[string]string{"application-networking.k8s.aws/port": "81"},
 				},
 			},
 			refByServiceExport: true,
@@ -282,7 +284,7 @@ func Test_Targets(t *testing.T) {
 					Port:     8675,
 				},
 			},
-			serviceExport: mcsv1alpha1.ServiceExport{
+			serviceExport: anv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:         "ns1",
 					Name:              "export6",
@@ -327,11 +329,11 @@ func Test_Targets(t *testing.T) {
 			ctx := context.TODO()
 
 			k8sSchema := runtime.NewScheme()
-			k8sSchema.AddKnownTypes(mcsv1alpha1.SchemeGroupVersion, &mcsv1alpha1.ServiceExport{})
+			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceExport{})
 			clientgoscheme.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 
-			if !reflect.DeepEqual(tt.serviceExport, mcsv1alpha1.ServiceExport{}) {
+			if !reflect.DeepEqual(tt.serviceExport, anv1alpha1.ServiceExport{}) {
 				assert.NoError(t, k8sClient.Create(ctx, tt.serviceExport.DeepCopy()))
 			}
 

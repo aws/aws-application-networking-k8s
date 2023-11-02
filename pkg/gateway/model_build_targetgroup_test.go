@@ -3,13 +3,15 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strings"
+	"testing"
+
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"strings"
-	"testing"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
@@ -21,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -34,7 +35,7 @@ func Test_TGModelByServicExportBuild(t *testing.T) {
 	now := metav1.Now()
 	tests := []struct {
 		name                string
-		svcExport           *mcsv1alpha1.ServiceExport
+		svcExport           *anv1alpha1.ServiceExport
 		svc                 *corev1.Service
 		endPoints           []corev1.Endpoints
 		wantErrIsNil        bool
@@ -43,7 +44,7 @@ func Test_TGModelByServicExportBuild(t *testing.T) {
 	}{
 		{
 			name: "Adding ServiceExport where service object exist",
-			svcExport: &mcsv1alpha1.ServiceExport{
+			svcExport: &anv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "export1",
 					Namespace: "ns1",
@@ -77,7 +78,7 @@ func Test_TGModelByServicExportBuild(t *testing.T) {
 		},
 		{
 			name: "Adding ServiceExport where service object does NOT exist",
-			svcExport: &mcsv1alpha1.ServiceExport{
+			svcExport: &anv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "export2",
 					Namespace: "ns1",
@@ -90,7 +91,7 @@ func Test_TGModelByServicExportBuild(t *testing.T) {
 		},
 		{
 			name: "Deleting ServiceExport where service object does NOT exist",
-			svcExport: &mcsv1alpha1.ServiceExport{
+			svcExport: &anv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "export3",
 					Namespace:         "ns1",
@@ -103,7 +104,7 @@ func Test_TGModelByServicExportBuild(t *testing.T) {
 		},
 		{
 			name: "Deleting ServiceExport where service object exist",
-			svcExport: &mcsv1alpha1.ServiceExport{
+			svcExport: &anv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "export4",
 					Namespace:         "ns1",
@@ -139,7 +140,7 @@ func Test_TGModelByServicExportBuild(t *testing.T) {
 		},
 		{
 			name: "Creating IPv6 ServiceExport where service object with IpFamilies IPv6 exists",
-			svcExport: &mcsv1alpha1.ServiceExport{
+			svcExport: &anv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "export5",
 					Namespace:  "ns1",
@@ -172,7 +173,7 @@ func Test_TGModelByServicExportBuild(t *testing.T) {
 		},
 		{
 			name: "Failed to create IPv6 ServiceExport where service object with dual stack IpFamilies exists",
-			svcExport: &mcsv1alpha1.ServiceExport{
+			svcExport: &anv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "export6",
 					Namespace:  "ns1",
@@ -418,7 +419,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 			wantIPv6TargetGroup: false,
 		},
 		{
-			name: "Create LatticeService where backend mcs serviceimport does NOT exist",
+			name: "Create LatticeService where backend serviceimport does NOT exist",
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "service4",

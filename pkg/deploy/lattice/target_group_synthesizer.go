@@ -4,17 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"time"
+
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -203,7 +205,7 @@ func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 	t.log.Debugf("TargetGroup %s (%s) is referenced by ServiceExport",
 		*latticeTg.getTargetGroupOutput.Arn, *latticeTg.getTargetGroupOutput.Name)
 
-	svcExport := &mcsv1alpha1.ServiceExport{}
+	svcExport := &anv1alpha1.ServiceExport{}
 	err := t.client.Get(ctx, svcExportName, svcExport)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

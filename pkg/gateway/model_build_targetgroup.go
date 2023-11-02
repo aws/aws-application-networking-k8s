@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
@@ -24,10 +25,10 @@ import (
 
 type SvcExportTargetGroupModelBuilder interface {
 	// used during standard model build
-	Build(ctx context.Context, svcExport *mcsv1alpha1.ServiceExport) (core.Stack, error)
+	Build(ctx context.Context, svcExport *anv1alpha1.ServiceExport) (core.Stack, error)
 
 	// used for reconciliation of existing target groups against a service export object
-	BuildTargetGroup(ctx context.Context, svcExport *mcsv1alpha1.ServiceExport) (*model.TargetGroup, error)
+	BuildTargetGroup(ctx context.Context, svcExport *anv1alpha1.ServiceExport) (*model.TargetGroup, error)
 }
 
 type SvcExportTargetGroupBuilder struct {
@@ -48,13 +49,13 @@ func NewSvcExportTargetGroupBuilder(
 type svcExportTargetGroupModelBuildTask struct {
 	log           gwlog.Logger
 	client        client.Client
-	serviceExport *mcsv1alpha1.ServiceExport
+	serviceExport *anv1alpha1.ServiceExport
 	stack         core.Stack
 }
 
 func (b *SvcExportTargetGroupBuilder) Build(
 	ctx context.Context,
-	svcExport *mcsv1alpha1.ServiceExport,
+	svcExport *anv1alpha1.ServiceExport,
 ) (core.Stack, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(svcExport)))
 
@@ -72,7 +73,7 @@ func (b *SvcExportTargetGroupBuilder) Build(
 	return task.stack, nil
 }
 
-func (b *SvcExportTargetGroupBuilder) BuildTargetGroup(ctx context.Context, svcExport *mcsv1alpha1.ServiceExport) (*model.TargetGroup, error) {
+func (b *SvcExportTargetGroupBuilder) BuildTargetGroup(ctx context.Context, svcExport *anv1alpha1.ServiceExport) (*model.TargetGroup, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(svcExport)))
 
 	task := &svcExportTargetGroupModelBuildTask{
