@@ -10,6 +10,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -198,23 +199,21 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 
 	if len(targetsToDeregister) > 0 {
 		var deregisterTargetsError error
-		partitions := getPartitionedLatticeTargets(targetsToDeregister, 100)
-		for i, targets := range partitions {
-			deRegisterInput := vpclattice.DeregisterTargetsInput{
+		chunks := utils.Chunks(targetsToDeregister, maxTargetsPerLatticeTargetsApiCall)
+		for i, targets := range chunks {
+			deregisterInput := vpclattice.DeregisterTargetsInput{
 				TargetGroupIdentifier: &modelTg.Status.Id,
 				Targets:               targets,
 			}
-			deRegResp, err := lattice.DeregisterTargetsWithContext(ctx, &deRegisterInput)
+			deregisterResponse, err := lattice.DeregisterTargetsWithContext(ctx, &deregisterInput)
 			if err != nil {
-				return fmt.Errorf("Failed DeregisterTargets %s due to %s", modelTg.Status.Id, err)
+				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("Failed to deregister targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
 			}
-			isDeRegRespUnsuccessful := len(deRegResp.Unsuccessful) > 0
-			if isDeRegRespUnsuccessful {
-				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("unsuccessful %d DeregisterTargets for partitions (%d/%d) for target group %s, deRegResp: %s",
-					len(deRegResp.Unsuccessful), i, len(partitions), modelTg.Status.Id, deRegResp))
-
+			if len(deregisterResponse.Unsuccessful) > 0 {
+				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("Failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
+					modelTg.Status.Id, i, len(chunks), deregisterResponse.Unsuccessful))
 			}
-			s.log.Infof("Success DeregisterTargets for partition (%d/%d) for target group %s", i+1, len(partitions), modelTg.Status.Id)
+			s.log.Debugf("Successfully deregistered targets from VPC Lattice Target Group %s for chunk %d/%d", modelTg.Status.Id, i+1, len(chunks))
 		}
 		if deregisterTargetsError != nil {
 			return deregisterTargetsError
