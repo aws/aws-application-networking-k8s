@@ -69,10 +69,6 @@ func (s *defaultTargetsManager) registerTargets(
 	modelTargets *model.Targets,
 	modelTg *model.TargetGroup,
 ) error {
-	// No targets to register
-	if len(modelTargets.Spec.TargetList) == 0 {
-		return nil
-	}
 	latticeTargets := utils.SliceMap(modelTargets.Spec.TargetList, func(t model.Target) *vpclattice.Target {
 		return &vpclattice.Target{Id: &t.TargetIP, Port: &t.Port}
 	})
@@ -116,9 +112,7 @@ func (s *defaultTargetsManager) deregisterStaleTargets(
 			targetsToDeregister = append(targetsToDeregister, &vpclattice.Target{Id: latticeTarget.Id, Port: latticeTarget.Port})
 		}
 	}
-	if len(targetsToDeregister) == 0 {
-		return nil
-	}
+
 	chunks := utils.Chunks(targetsToDeregister, maxTargetsPerLatticeTargetsApiCall)
 	var deregisterTargetsError error
 	for i, targets := range chunks {
