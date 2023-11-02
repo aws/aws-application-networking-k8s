@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
@@ -61,39 +62,33 @@ func (s *defaultTargetsManager) registerTargets(
 	modelTargets *model.Targets,
 	modelTg *model.TargetGroup,
 ) error {
-	var latticeTargets []*vpclattice.Target
-	for _, modelTarget := range modelTargets.Spec.TargetList {
-		port := modelTarget.Port
-		targetIP := modelTarget.TargetIP
-		t := vpclattice.Target{
-			Id:   &targetIP,
-			Port: &port,
-		}
-		latticeTargets = append(latticeTargets, &t)
-	}
-
 	// No targets to register
-	if len(latticeTargets) == 0 {
+	if len(modelTargets.Spec.TargetList) == 0 {
 		return nil
 	}
+	latticeTargets := modelTargetsToLatticeTargets(modelTargets.Spec.TargetList)
+	// Partition the targets into groups of 100, because that is the allowed max number of targets per RegisterTargets API call
+	// https://docs.aws.amazon.com/vpc-lattice/latest/APIReference/API_RegisterTargets.html
+	partitionedLatticeTargets := getPartitionedLatticeTargets(latticeTargets, 100)
+	var registerTargetsError error
+	for i, targets := range partitionedLatticeTargets {
+		registerRouteInput := vpclattice.RegisterTargetsInput{
+			TargetGroupIdentifier: &modelTg.Status.Id,
+			Targets:               targets,
+		}
+		resp, err := s.cloud.Lattice().RegisterTargetsWithContext(ctx, &registerRouteInput)
+		if err != nil {
+			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("failed RegisterTargets %s due to %s", modelTg.Status.Id, err))
+		}
+		if len(resp.Unsuccessful) > 0 {
+			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("failed RegisterTargets (Unsuccessful=%d) %s, will retry",
+				len(resp.Unsuccessful), modelTg.Status.Id))
 
-	registerRouteInput := vpclattice.RegisterTargetsInput{
-		TargetGroupIdentifier: &modelTg.Status.Id,
-		Targets:               latticeTargets,
+		}
+		s.log.Infof("Success Register %d Targets for partition(%d/%d) for target group: %s",
+			len(resp.Successful), i+1, len(partitionedLatticeTargets), modelTg.Status.Id)
 	}
-
-	resp, err := s.cloud.Lattice().RegisterTargetsWithContext(ctx, &registerRouteInput)
-	if err != nil {
-		return fmt.Errorf("Failed RegisterTargets %s due to %s", modelTg.Status.Id, err)
-	}
-
-	if len(resp.Unsuccessful) > 0 {
-		return fmt.Errorf("Failed RegisterTargets (Unsuccessful=%d) %s, will retry",
-			len(resp.Unsuccessful), modelTg.Status.Id)
-	}
-
-	s.log.Infof("Success RegisterTargets %d, %s", len(resp.Successful), modelTg.Status.Id)
-	return nil
+	return registerTargetsError
 }
 
 func (s *defaultTargetsManager) deregisterStaleTargets(
@@ -111,23 +106,61 @@ func (s *defaultTargetsManager) deregisterStaleTargets(
 				break
 			}
 		}
-
 		if isStale {
 			targetsToDeregister = append(targetsToDeregister, &vpclattice.Target{Id: latticeTarget.Id, Port: latticeTarget.Port})
 		}
 	}
-
-	if len(targetsToDeregister) > 0 {
+	if len(targetsToDeregister) == 0 {
+		return nil
+	}
+	partitionedTargetsToDeregister := getPartitionedLatticeTargets(targetsToDeregister, 100)
+	var deregisterTargetsError error
+	for i, targets := range partitionedTargetsToDeregister {
 		deregisterTargetsInput := vpclattice.DeregisterTargetsInput{
 			TargetGroupIdentifier: &modelTg.Status.Id,
-			Targets:               targetsToDeregister,
+			Targets:               targets,
 		}
-		_, err := s.cloud.Lattice().DeregisterTargetsWithContext(ctx, &deregisterTargetsInput)
+		resp, err := s.cloud.Lattice().DeregisterTargetsWithContext(ctx, &deregisterTargetsInput)
 		if err != nil {
-			return fmt.Errorf("failed DeregisterTargets %s due to %s", modelTg.Status.Id, err)
+			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed DeregisterTargets %s due to %s", modelTg.Status.Id, err))
 		}
-		s.log.Infof("Success DeregisterTargets %s", modelTg.Status.Id)
+		if len(resp.Unsuccessful) > 0 {
+			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed DeregisterTargets (Unsuccessful=%d) for target group %s",
+				len(resp.Unsuccessful), modelTg.Status.Id))
+		}
+		s.log.Infof("Success DeregisterTargets for partition (%d/%d) for target group %s", i, len(partitionedTargetsToDeregister), modelTg.Status.Id)
 	}
+	return deregisterTargetsError
+}
 
-	return nil
+func getPartitionedLatticeTargets(targets []*vpclattice.Target, size int) [][]*vpclattice.Target {
+	var partitions [][]*vpclattice.Target
+	for len(targets) > 0 {
+		// Get the next partition's size
+		end := size
+		if end > len(targets) {
+			end = len(targets)
+		}
+		// Append the partition to the list of partitions
+		partitions = append(partitions, targets[:end])
+
+		// Move the start of the slice forward
+		targets = targets[end:]
+	}
+	return partitions
+
+}
+
+func modelTargetsToLatticeTargets(modelTargets []model.Target) []*vpclattice.Target {
+	var targets []*vpclattice.Target
+	for _, modelTarget := range modelTargets {
+		port := modelTarget.Port
+		targetIP := modelTarget.TargetIP
+		t := vpclattice.Target{
+			Id:   &targetIP,
+			Port: &port,
+		}
+		targets = append(targets, &t)
+	}
+	return targets
 }

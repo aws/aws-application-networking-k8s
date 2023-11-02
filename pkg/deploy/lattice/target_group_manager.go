@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -195,22 +197,28 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 	}
 
 	if len(targetsToDeregister) > 0 {
-		deRegisterInput := vpclattice.DeregisterTargetsInput{
-			TargetGroupIdentifier: &modelTg.Status.Id,
-			Targets:               targetsToDeregister,
-		}
+		var deregisterTargetsError error
+		partitions := getPartitionedLatticeTargets(targetsToDeregister, 100)
+		for i, targets := range partitions {
+			deRegisterInput := vpclattice.DeregisterTargetsInput{
+				TargetGroupIdentifier: &modelTg.Status.Id,
+				Targets:               targets,
+			}
+			deRegResp, err := lattice.DeregisterTargetsWithContext(ctx, &deRegisterInput)
+			if err != nil {
+				return fmt.Errorf("Failed DeregisterTargets %s due to %s", modelTg.Status.Id, err)
+			}
+			isDeRegRespUnsuccessful := len(deRegResp.Unsuccessful) > 0
+			if isDeRegRespUnsuccessful {
+				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("unsuccessful %d DeregisterTargets for partitions (%d/%d) for target group %s, deRegResp: %s",
+					len(deRegResp.Unsuccessful), i, len(partitions), modelTg.Status.Id, deRegResp))
 
-		deRegResp, err := lattice.DeregisterTargetsWithContext(ctx, &deRegisterInput)
-		if err != nil {
-			return fmt.Errorf("Failed DeregisterTargets %s due to %s", modelTg.Status.Id, err)
+			}
+			s.log.Infof("Success DeregisterTargets for partition (%d/%d) for target group %s", i+1, len(partitions), modelTg.Status.Id)
 		}
-
-		isDeRegRespUnsuccessful := len(deRegResp.Unsuccessful) > 0
-		if isDeRegRespUnsuccessful {
-			return fmt.Errorf("Unsuccessful (%d total) DeregisterTargets %s (%s), will retry",
-				len(deRegResp.Unsuccessful), modelTg.Status.Id, aws.StringValue(deRegResp.Unsuccessful[0].FailureMessage))
+		if deregisterTargetsError != nil {
+			return deregisterTargetsError
 		}
-		s.log.Infof("Success DeregisterTargets %s", modelTg.Status.Id)
 	}
 
 	deleteTGInput := vpclattice.DeleteTargetGroupInput{

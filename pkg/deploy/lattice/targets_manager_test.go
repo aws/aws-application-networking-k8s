@@ -3,8 +3,10 @@ package lattice
 import (
 	"context"
 	"errors"
-	"github.com/aws/aws-sdk-go/aws"
+	"strconv"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
@@ -123,7 +125,7 @@ func TestTargetsManager(t *testing.T) {
 		}
 		existingTargets := []*vpclattice.TargetSummary{existingTarget}
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
-		mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(nil, errors.New("Deregister_Targets_Failed"))
+		mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(&vpclattice.DeregisterTargetsOutput{}, errors.New("Deregister_Targets_Failed"))
 		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, nil)
 
 		targetsManager = NewTargetsManager(gwlog.FallbackLogger, mockCloud)
@@ -279,6 +281,49 @@ func TestTargetsManager(t *testing.T) {
 		mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, deregisterInput).Return(deregisterOutput, nil)
 		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(registerTargetsOutput, nil)
 
+		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
+		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
+
+		assert.Nil(t, err)
+	})
+
+	t.Run("register more than 100 targets at once, handled correctly", func(t *testing.T) {
+
+		extraTargets := []model.Target{}
+		for i := 0; i < 201; i++ {
+			extraTargets = append(extraTargets, model.Target{
+				TargetIP: "192.0.3." + strconv.Itoa(i+1),
+				Port:     int64(8080),
+			})
+		}
+		modelTargets.Spec.TargetList = extraTargets
+
+		existingTargets := []*vpclattice.TargetSummary{}
+		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
+		// RegisterTargetsWithContext should be called 3 times, once for the first 100, once for the second 100, and once for the rest or 1 targets
+		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, nil).Times(3)
+
+		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
+		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
+
+		assert.Nil(t, err)
+	})
+
+	t.Run("deregister more than 100 targets at once, handled correctly", func(t *testing.T) {
+
+		modelTargets.Spec.TargetList = []model.Target{}
+
+		existingTargets := []*vpclattice.TargetSummary{}
+		for i := 0; i < 201; i++ {
+			existingTargets = append(existingTargets, &vpclattice.TargetSummary{
+				Id:   aws.String("192.0.3." + strconv.Itoa(i+1)),
+				Port: aws.Int64(8080),
+			})
+		}
+
+		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
+		// DeregisterTargetsWithContext should be called 3 times, once for the first 100, once for the second 100, and once for the rest of 1 targets
+		mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(&vpclattice.DeregisterTargetsOutput{}, nil).Times(3)
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
 
