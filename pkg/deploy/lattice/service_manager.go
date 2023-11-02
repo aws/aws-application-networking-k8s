@@ -154,7 +154,7 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 	case tagFields != svc.Spec.ServiceTagFields:
 		// Considering these scenarios:
 		// - two services with same namespace-name but different routeType
-		// - two service with conflict edge case such as my-namespace/service & my/namespace-service
+		// - two services with conflict edge case such as my-namespace/service & my/namespace-service
 		return services.NewConflictError("service", svc.Spec.RouteName+svc.Spec.RouteNamespace,
 			fmt.Sprintf("Found existing resource with conflicting service name: %s", *svcSum.Arn))
 	}

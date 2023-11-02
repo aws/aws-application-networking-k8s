@@ -146,7 +146,7 @@ func (c *defaultCloud) CheckAndAcquireOwnershipFromTags(ctx context.Context, arn
 	if managedBy == "" {
 		err := c.acquireOwnership(ctx, arn)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 		return true, nil
 	}
