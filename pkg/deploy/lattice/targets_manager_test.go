@@ -330,3 +330,89 @@ func TestTargetsManager(t *testing.T) {
 		assert.Nil(t, err)
 	})
 }
+
+func Test_getPartitionedLatticeTargets(t *testing.T) {
+	size := 2
+	t.Run("[t1] -> [[t1]]", func(t *testing.T) {
+
+		targets := []*vpclattice.Target{
+			{
+				Id:   aws.String("t1"),
+				Port: aws.Int64(8080),
+			},
+		}
+		got := getPartitionedLatticeTargets(targets, size)
+		assert.Equal(t, [][]*vpclattice.Target{
+			{
+				{
+					Id:   aws.String("t1"),
+					Port: aws.Int64(8080),
+				},
+			},
+		}, got)
+	})
+
+	t.Run("[t1,t2] -> [[t1,t2]]", func(t *testing.T) {
+
+		targets := []*vpclattice.Target{
+			{
+				Id:   aws.String("t1"),
+				Port: aws.Int64(8080),
+			},
+			{
+				Id:   aws.String("t2"),
+				Port: aws.Int64(8080),
+			},
+		}
+		got := getPartitionedLatticeTargets(targets, size)
+		assert.Equal(t, [][]*vpclattice.Target{
+			{
+				{
+					Id:   aws.String("t1"),
+					Port: aws.Int64(8080),
+				},
+				{
+					Id:   aws.String("t2"),
+					Port: aws.Int64(8080),
+				},
+			},
+		}, got)
+	})
+
+	t.Run("[t1, t2, t3] -> [[t1,t2],[t3]]", func(t *testing.T) {
+		targets := []*vpclattice.Target{
+			{
+				Id:   aws.String("t1"),
+				Port: aws.Int64(8080),
+			},
+			{
+				Id:   aws.String("t2"),
+				Port: aws.Int64(8080),
+			},
+			{
+				Id:   aws.String("t3"),
+				Port: aws.Int64(8080),
+			},
+		}
+		got := getPartitionedLatticeTargets(targets, size)
+		assert.Equal(t, [][]*vpclattice.Target{
+			{
+				{
+					Id:   aws.String("t1"),
+					Port: aws.Int64(8080),
+				},
+				{
+					Id:   aws.String("t2"),
+					Port: aws.Int64(8080),
+				},
+			},
+			{
+				{
+					Id:   aws.String("t3"),
+					Port: aws.Int64(8080),
+				},
+			},
+		}, got)
+	})
+
+}
