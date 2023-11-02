@@ -20,6 +20,9 @@ func min[T constraints.Ordered](a, b T) T {
 
 func Chunks[T any](in []T, size int) [][]T {
 	out := [][]T{}
+	if size <= 0 {
+		return out
+	}
 	for low := 0; low < len(in); low += size {
 		high := min(low+size, len(in))
 		out = append(out, in[low:high])
