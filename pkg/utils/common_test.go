@@ -20,13 +20,13 @@ func TestChunks(t *testing.T) {
 	}
 	tests := []testCase{
 		{
-			name: "[] -> []",
+			name: "No items, no chunks",
 			in:   []*struct{}{},
 			size: 2,
 			want: [][]*struct{}{},
 		},
 		{
-			name: "[obj1] -> [[obj1]]",
+			name: "single item, single chunk: [obj1] -> [[obj1]]",
 			in:   []*struct{}{obj1},
 			size: 2,
 			want: [][]*struct{}{{obj1}},
