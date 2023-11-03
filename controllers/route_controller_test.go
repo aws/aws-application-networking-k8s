@@ -166,6 +166,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			ClusterName: config.ClusterName,
 		}).AnyTimes()
 	mockCloud.EXPECT().DefaultTags().Return(mocks.Tags{}).AnyTimes()
+	mockCloud.EXPECT().DefaultTagsMergedWith(gomock.Any()).Return(mocks.Tags{}).AnyTimes()
 
 	// we expect a fair number of lattice calls
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(

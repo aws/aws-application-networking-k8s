@@ -160,8 +160,10 @@ func Test_SynthesizeService(t *testing.T) {
 			mockDnsManager := externaldns.NewMockDnsEndpointManager(c)
 
 			spec := model.ServiceSpec{
-				Name:      tt.httpRoute.Name,
-				Namespace: tt.httpRoute.Namespace,
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      tt.httpRoute.Name,
+					RouteNamespace: tt.httpRoute.Namespace,
+				},
 			}
 
 			latticeService, err := model.NewLatticeService(stack, spec)

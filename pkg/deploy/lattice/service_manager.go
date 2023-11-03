@@ -98,7 +98,7 @@ func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 	svcName := svc.LatticeServiceName()
 	req := &vpclattice.CreateServiceInput{
 		Name: &svcName,
-		Tags: m.cloud.DefaultTags(),
+		Tags: m.cloud.DefaultTagsMergedWith(svc.Spec.ToTags()),
 	}
 
 	if svc.Spec.CustomerDomainName != "" {
@@ -122,6 +122,43 @@ func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceInfo {
 		svcInfo.Dns = aws.StringValue(resp.DnsEntry.DomainName)
 	}
 	return svcInfo
+}
+
+func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
+	tagsResp, err := m.cloud.Lattice().ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
+		ResourceArn: svcSum.Arn,
+	})
+	if err != nil {
+		return err
+	}
+
+	owned, err := m.cloud.CheckAndAcquireOwnershipFromTags(ctx, *svcSum.Arn, tagsResp.Tags)
+	if err != nil {
+		return err
+	}
+	if !owned {
+		return services.NewConflictError("service", svc.Spec.RouteNamespace+"/"+svc.Spec.RouteName,
+			fmt.Sprintf("Found existing resource not owned by controller: %s", *svcSum.Arn))
+	}
+
+	tagFields := model.ServiceTagFieldsFromTags(tagsResp.Tags)
+	switch {
+	case tagFields.RouteName == "" && tagFields.RouteNamespace == "":
+		// backwards compatibility: If the service has no identification tags, consider this controller has
+		// correct information and add tags
+		_, err = m.cloud.Lattice().TagResourceWithContext(ctx, &vpclattice.TagResourceInput{
+			ResourceArn: svcSum.Arn,
+			Tags:        svc.Spec.ToTags(),
+		})
+		return err
+	case tagFields != svc.Spec.ServiceTagFields:
+		// Considering these scenarios:
+		// - two services with same namespace-name but different routeType
+		// - two services with conflict edge case such as my-namespace/service & my/namespace-service
+		return services.NewConflictError("service", svc.Spec.RouteName+"/"+svc.Spec.RouteNamespace,
+			fmt.Sprintf("Found existing resource with conflicting service name: %s", *svcSum.Arn))
+	}
+	return nil
 }
 
 func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceInfo, error) {
@@ -184,7 +221,7 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 	}
 
 	for _, assoc := range toDelete {
-		isManaged, err := m.cloud.IsArnManaged(*assoc.Arn)
+		isManaged, err := m.cloud.IsArnManaged(ctx, *assoc.Arn)
 		if err != nil {
 			return err
 		}
@@ -301,6 +338,10 @@ func (m *defaultServiceManager) Upsert(ctx context.Context, svc *Service) (Servi
 	if svcSum == nil {
 		svcInfo, err = m.createServiceAndAssociate(ctx, svc)
 	} else {
+		err = m.checkAndUpdateTags(ctx, svc, svcSum)
+		if err != nil {
+			return ServiceInfo{}, err
+		}
 		svcInfo, err = m.updateServiceAndAssociations(ctx, svc, svcSum)
 	}
 	if err != nil {
@@ -317,6 +358,12 @@ func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error 
 		} else {
 			return err
 		}
+	}
+
+	err = m.checkAndUpdateTags(ctx, svc, svcSum)
+	if err != nil {
+		m.log.Infof("Service %s is either invalid or not owned. Skipping VPC Lattice resource deletion.", svc.LatticeServiceName())
+		return nil
 	}
 
 	err = m.deleteAllAssociations(ctx, svcSum)

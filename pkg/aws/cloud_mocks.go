@@ -5,6 +5,7 @@
 package aws
 
 import (
+	context "context"
 	reflect "reflect"
 
 	services "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -32,6 +33,21 @@ func NewMockCloud(ctrl *gomock.Controller) *MockCloud {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCloud) EXPECT() *MockCloudMockRecorder {
 	return m.recorder
+}
+
+// CheckAndAcquireOwnershipFromTags mocks base method.
+func (m *MockCloud) CheckAndAcquireOwnershipFromTags(arg0 context.Context, arg1 string, arg2 map[string]*string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAndAcquireOwnershipFromTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckAndAcquireOwnershipFromTags indicates an expected call of CheckAndAcquireOwnershipFromTags.
+func (mr *MockCloudMockRecorder) CheckAndAcquireOwnershipFromTags(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAndAcquireOwnershipFromTags", reflect.TypeOf((*MockCloud)(nil).CheckAndAcquireOwnershipFromTags), arg0, arg1, arg2)
 }
 
 // Config mocks base method.
@@ -91,18 +107,18 @@ func (mr *MockCloudMockRecorder) DefaultTagsMergedWith(arg0 interface{}) *gomock
 }
 
 // IsArnManaged mocks base method.
-func (m *MockCloud) IsArnManaged(arg0 string) (bool, error) {
+func (m *MockCloud) IsArnManaged(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsArnManaged", arg0)
+	ret := m.ctrl.Call(m, "IsArnManaged", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // IsArnManaged indicates an expected call of IsArnManaged.
-func (mr *MockCloudMockRecorder) IsArnManaged(arg0 interface{}) *gomock.Call {
+func (mr *MockCloudMockRecorder) IsArnManaged(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsArnManaged", reflect.TypeOf((*MockCloud)(nil).IsArnManaged), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsArnManaged", reflect.TypeOf((*MockCloud)(nil).IsArnManaged), arg0, arg1)
 }
 
 // Lattice mocks base method.

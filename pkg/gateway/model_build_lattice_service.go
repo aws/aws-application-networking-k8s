@@ -100,9 +100,11 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	}
 
 	spec := model.ServiceSpec{
-		Name:      t.route.Name(),
-		Namespace: t.route.Namespace(),
-		RouteType: routeType,
+		ServiceTagFields: model.ServiceTagFields{
+			RouteName:      t.route.Name(),
+			RouteNamespace: t.route.Namespace(),
+			RouteType:      routeType,
+		},
 	}
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {

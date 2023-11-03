@@ -9,6 +9,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"context"
+	"fmt"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 )
 
@@ -46,38 +48,38 @@ func TestIsArnManaged(t *testing.T) {
 
 	t.Run("arn sent", func(t *testing.T) {
 		arn := "arn"
-		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
 			DoAndReturn(
-				func(req *vpclattice.ListTagsForResourceInput) (*vpclattice.ListTagsForResourceOutput, error) {
+				func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 					assert.Equal(t, arn, *req.ResourceArn)
 					return &vpclattice.ListTagsForResourceOutput{}, nil
 				})
-		cl.IsArnManaged(arn)
+		cl.IsArnManaged(context.Background(), arn)
 	})
 
 	t.Run("is managed", func(t *testing.T) {
 		arn := "arn"
-		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
 			Return(&vpclattice.ListTagsForResourceOutput{
 				Tags: cl.DefaultTags(),
 			}, nil)
-		managed, err := cl.IsArnManaged(arn)
+		managed, err := cl.IsArnManaged(context.Background(), arn)
 		assert.Nil(t, err)
 		assert.True(t, managed)
 	})
 
 	t.Run("not managed", func(t *testing.T) {
-		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
 			Return(&vpclattice.ListTagsForResourceOutput{}, nil)
-		managed, err := cl.IsArnManaged("arn")
+		managed, err := cl.IsArnManaged(context.Background(), "arn")
 		assert.Nil(t, err)
 		assert.False(t, managed)
 	})
 
 	t.Run("error", func(t *testing.T) {
-		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New(":("))
-		managed, err := cl.IsArnManaged("arn")
+		managed, err := cl.IsArnManaged(context.Background(), "arn")
 		assert.Nil(t, err)
 		assert.False(t, managed)
 	})
@@ -128,4 +130,67 @@ func Test_DefaultTagsMergedWith(t *testing.T) {
 		actual := cloud.DefaultTagsMergedWith(nil)
 		assert.Equal(t, expected, actual)
 	})
+}
+
+func Test_CheckAndAcquireOwnershipFromTags(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := services.NewMockLattice(c)
+	cfg := CloudConfig{VpcId: "vpc-id", AccountId: "account-id", ClusterName: "cluster"}
+	cloud := NewDefaultCloud(mockLattice, cfg)
+
+	tcs := []struct {
+		name       string
+		tags       services.Tags
+		owned      bool
+		tryAcquire bool
+		isErr      bool
+	}{
+		{
+			name:       "no ownership tag acquires ownership",
+			tags:       services.Tags{},
+			owned:      true,
+			tryAcquire: true,
+			isErr:      false,
+		},
+		{
+			name:       "proper ownership tag considered valid",
+			tags:       cloud.DefaultTags(),
+			owned:      true,
+			tryAcquire: false,
+			isErr:      false,
+		},
+		{
+			name: "improper ownership tag considered invalid",
+			tags: services.Tags{
+				TagManagedBy: aws.String("not/this/owner"),
+			},
+			owned:      false,
+			tryAcquire: false,
+			isErr:      false,
+		},
+	}
+
+	for i, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			arn := fmt.Sprintf("arn-%d", i)
+
+			tagResourceCallCount := 0
+			if tc.tryAcquire {
+				tagResourceCallCount = 1
+			}
+			mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), &vpclattice.TagResourceInput{ResourceArn: aws.String(arn), Tags: cloud.DefaultTags()}).
+				Return(&vpclattice.TagResourceOutput{}, nil).Times(tagResourceCallCount)
+
+			res, err := cloud.CheckAndAcquireOwnershipFromTags(context.Background(), arn, tc.tags)
+
+			assert.Equal(t, tc.owned, res)
+			if tc.isErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

@@ -49,6 +49,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 var routeTypeToFinalizer = map[core.RouteType]string{
@@ -109,7 +111,7 @@ func RegisterAllRouteControllers(
 		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
-			For(routeInfo.gatewayApiType).
+			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 			Watches(&source.Kind{Type: &gwv1beta1.Gateway{}}, gwEventHandler).
 			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToRoute(routeInfo.routeType)).
 			Watches(&source.Kind{Type: &mcsv1alpha1.ServiceImport{}}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
@@ -337,6 +339,21 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 	}
 
 	if _, err := r.buildAndDeployModel(ctx, route); err != nil {
+		if services.IsConflictError(err) {
+			// Stop reconciliation of this route if the route cannot be owned / has conflict
+			route.Status().UpdateParentRefs(route.Spec().ParentRefs()[0], config.LatticeGatewayControllerName)
+			route.Status().UpdateRouteCondition(metav1.Condition{
+				Type:               string(gwv1beta1.RouteConditionAccepted),
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: route.K8sObject().GetGeneration(),
+				Reason:             "Conflicted",
+				Message:            err.Error(),
+			})
+			if err = r.client.Status().Update(ctx, route.K8sObject()); err != nil {
+				return fmt.Errorf("failed to update route status for conflict due to err %w", err)
+			}
+			return nil
+		}
 		return err
 	}
 
