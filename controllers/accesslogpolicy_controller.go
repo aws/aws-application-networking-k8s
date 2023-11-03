@@ -128,21 +128,6 @@ func (r *accessLogPolicyReconciler) reconcile(ctx context.Context, req ctrl.Requ
 
 	r.eventRecorder.Event(alp, corev1.EventTypeNormal, k8s.ReconcilingEvent, "Started reconciling")
 
-	if alp.Spec.TargetRef.Group != gwv1beta1.GroupName {
-		message := fmt.Sprintf("The targetRef's Group must be \"%s\" but was \"%s\"",
-			gwv1beta1.GroupName, alp.Spec.TargetRef.Group)
-		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
-	}
-
-	validKinds := []string{"Gateway", "HTTPRoute", "GRPCRoute"}
-	if !slices.Contains(validKinds, string(alp.Spec.TargetRef.Kind)) {
-		message := fmt.Sprintf("The targetRef's Kind must be \"Gateway\", \"HTTPRoute\", or \"GRPCRoute\""+
-			" but was \"%s\"", alp.Spec.TargetRef.Kind)
-		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
-	}
-
 	if !alp.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, alp)
 	} else {
@@ -173,6 +158,21 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning,
 			k8s.FailedReconcileEvent, fmt.Sprintf("Failed to add finalizer due to %s", err))
 		return err
+	}
+
+	if alp.Spec.TargetRef.Group != gwv1beta1.GroupName {
+		message := fmt.Sprintf("The targetRef's Group must be \"%s\" but was \"%s\"",
+			gwv1beta1.GroupName, alp.Spec.TargetRef.Group)
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+	}
+
+	validKinds := []string{"Gateway", "HTTPRoute", "GRPCRoute"}
+	if !slices.Contains(validKinds, string(alp.Spec.TargetRef.Kind)) {
+		message := fmt.Sprintf("The targetRef's Kind must be \"Gateway\", \"HTTPRoute\", or \"GRPCRoute\""+
+			" but was \"%s\"", alp.Spec.TargetRef.Kind)
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
 
 	targetRefNamespace := k8s.NamespaceOrDefault(alp.Spec.TargetRef.Namespace)
