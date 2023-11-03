@@ -281,6 +281,15 @@ func TestServiceManagerInteg(t *testing.T) {
 				Id:   aws.String("svc-id"),
 				Name: aws.String(svc.LatticeServiceName()),
 			}, nil)
+
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+				return &vpclattice.ListTagsForResourceOutput{
+					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+				}, nil
+			}).
+			Times(1) // for service only
+
 		mockLattice.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 			Return([]*SnSvcAssocSummary{
