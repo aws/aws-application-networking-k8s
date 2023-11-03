@@ -90,10 +90,12 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				},
 			}),
 			expected: model.ServiceSpec{
-				Name:                "service1",
-				Namespace:           "test",
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "service1",
+					RouteNamespace: "test",
+					RouteType:      core.HttpRouteType,
+				},
 				CustomerDomainName:  "test1.test.com",
-				RouteType:           core.HttpRouteType,
 				ServiceNetworkNames: []string{"gateway1"},
 			},
 		},
@@ -124,9 +126,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				},
 			}),
 			expected: model.ServiceSpec{
-				Name:                "service1",
-				Namespace:           "default",
-				RouteType:           core.HttpRouteType,
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "service1",
+					RouteNamespace: "default",
+					RouteType:      core.HttpRouteType,
+				},
 				ServiceNetworkNames: []string{"gateway1"},
 			},
 		},
@@ -156,9 +160,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				},
 			}),
 			expected: model.ServiceSpec{
-				Name:                "service1",
-				Namespace:           "test",
-				RouteType:           core.GrpcRouteType,
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "service1",
+					RouteNamespace: "test",
+					RouteType:      core.GrpcRouteType,
+				},
 				ServiceNetworkNames: []string{"gateway1"},
 			},
 		},
@@ -212,9 +218,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				},
 			}),
 			expected: model.ServiceSpec{
-				Name:                "service2",
-				Namespace:           "ns1",
-				RouteType:           core.HttpRouteType,
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "service2",
+					RouteNamespace: "ns1",
+					RouteType:      core.HttpRouteType,
+				},
 				ServiceNetworkNames: []string{"gateway2"},
 			},
 		},
@@ -262,9 +270,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				},
 			}),
 			expected: model.ServiceSpec{
-				Name:                "service1",
-				Namespace:           "default",
-				RouteType:           core.HttpRouteType,
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "service1",
+					RouteNamespace: "default",
+					RouteType:      core.HttpRouteType,
+				},
 				CustomerCertARN:     "cert-arn",
 				ServiceNetworkNames: []string{"gateway1"},
 			},
@@ -336,9 +346,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				},
 			}),
 			expected: model.ServiceSpec{
-				Name:                "service1",
-				Namespace:           "default",
-				RouteType:           core.HttpRouteType,
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "service1",
+					RouteNamespace: "default",
+					RouteType:      core.HttpRouteType,
+				},
 				ServiceNetworkNames: []string{"gateway1"},
 			},
 		},
@@ -373,9 +385,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				},
 			}),
 			expected: model.ServiceSpec{
-				Name:                "service1",
-				Namespace:           "default",
-				RouteType:           core.HttpRouteType,
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "service1",
+					RouteNamespace: "default",
+					RouteType:      core.HttpRouteType,
+				},
 				ServiceNetworkNames: []string{"gateway1", "gateway2"},
 			},
 		},
@@ -411,8 +425,8 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 			assert.Equal(t, tt.wantIsDeleted, svc.IsDeleted)
 
-			assert.Equal(t, tt.expected.Name, svc.Spec.Name)
-			assert.Equal(t, tt.expected.Namespace, svc.Spec.Namespace)
+			assert.Equal(t, tt.expected.RouteName, svc.Spec.RouteName)
+			assert.Equal(t, tt.expected.RouteNamespace, svc.Spec.RouteNamespace)
 			assert.Equal(t, tt.expected.CustomerCertARN, svc.Spec.CustomerCertARN)
 			assert.Equal(t, tt.expected.CustomerDomainName, svc.Spec.CustomerDomainName)
 			assert.Equal(t, tt.expected.RouteType, svc.Spec.RouteType)

@@ -39,8 +39,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "No customer domain name - skips creation",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "",
 				},
 				Status: &model.ServiceStatus{
@@ -53,8 +55,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "No service dns - skips creation",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &model.ServiceStatus{
@@ -67,8 +71,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "No parent route - skips creation",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &model.ServiceStatus{
@@ -82,8 +88,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "Create new DNSEndpoint if not existing already",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &model.ServiceStatus{
@@ -98,8 +106,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "Return error on creation failure",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &model.ServiceStatus{
@@ -115,8 +125,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "Update DNSEndpoint if existing already",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &model.ServiceStatus{
@@ -142,8 +154,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "DNSEndpoint existing already, but skip if it is the same",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &model.ServiceStatus{
@@ -169,8 +183,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "Return error on update failure",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &model.ServiceStatus{
@@ -197,8 +213,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "Skips creation when DNSEndpoint CRD is not found",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &model.ServiceStatus{
@@ -215,8 +233,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			name: "Return error on unexpected lookup failure",
 			service: model.Service{
 				Spec: model.ServiceSpec{
-					Name:               "service",
-					Namespace:          "default",
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
 					CustomerDomainName: "custom-domain",
 				},
 				Status: &model.ServiceStatus{
@@ -236,13 +256,13 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			mockClient.EXPECT().Scheme().Return(runtime.NewScheme()).AnyTimes()
 
 			mockClient.EXPECT().Get(gomock.Any(), gomock.Eq(types.NamespacedName{
-				Namespace: tt.service.Spec.Namespace,
-				Name:      tt.service.Spec.Name,
+				Namespace: tt.service.Spec.RouteNamespace,
+				Name:      tt.service.Spec.RouteName,
 			}), gomock.Any()).Return(tt.routeGetErr).AnyTimes()
 
 			mockClient.EXPECT().Get(gomock.Any(), gomock.Eq(types.NamespacedName{
-				Namespace: tt.service.Spec.Namespace,
-				Name:      tt.service.Spec.Name + "-dns",
+				Namespace: tt.service.Spec.RouteNamespace,
+				Name:      tt.service.Spec.RouteName + "-dns",
 			}), gomock.Any()).DoAndReturn(func(ctx context.Context, name types.NamespacedName, ep *endpoint.DNSEndpoint, _ ...interface{}) error {
 				tt.existingEndpoint.DeepCopyInto(ep)
 				return tt.dnsGetErr

@@ -5,6 +5,7 @@ import (
 	"errors"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws"
@@ -30,8 +31,11 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		svc := &Service{
 			Spec: model.ServiceSpec{
-				Name:                "svc",
-				Namespace:           "ns",
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "svc",
+					RouteNamespace: "ns",
+					RouteType:      core.HttpRouteType,
+				},
 				ServiceNetworkNames: []string{"sn"},
 				CustomerDomainName:  "dns",
 				CustomerCertARN:     "cert-arn",
@@ -106,8 +110,11 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		svc := &Service{
 			Spec: model.ServiceSpec{
-				Name:                "svc",
-				Namespace:           "ns",
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "svc",
+					RouteNamespace: "ns",
+					RouteType:      core.HttpRouteType,
+				},
 				ServiceNetworkNames: []string{snKeep, snAdd},
 			},
 		}
@@ -121,6 +128,14 @@ func TestServiceManagerInteg(t *testing.T) {
 				Name: aws.String(svc.LatticeServiceName()),
 			}, nil).
 			Times(1)
+
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+				return &vpclattice.ListTagsForResourceOutput{
+					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+				}, nil
+			}).
+			Times(1) // for service only
 
 		// 3 associations exist in lattice: keep, delete, and foreign
 		mockLattice.EXPECT().
@@ -140,8 +155,8 @@ func TestServiceManagerInteg(t *testing.T) {
 			Times(1)
 
 		// return managed by gateway controller tags for all associations except for foreign
-		mockLattice.EXPECT().ListTagsForResource(gomock.Any()).
-			DoAndReturn(func(req *vpclattice.ListTagsForResourceInput) (*vpclattice.ListTagsForResourceOutput, error) {
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				if *req.ResourceArn == snForeign+"-arn" {
 					return &vpclattice.ListTagsForResourceOutput{}, nil
 				} else {
@@ -193,11 +208,67 @@ func TestServiceManagerInteg(t *testing.T) {
 		assert.Equal(t, "svc-arn", status.Arn)
 	})
 
+	t.Run("backfilling service tags", func(t *testing.T) {
+		svc := &Service{
+			Spec: model.ServiceSpec{
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "svc",
+					RouteNamespace: "ns",
+					RouteType:      core.HttpRouteType,
+				},
+				ServiceNetworkNames: []string{"sn"},
+			},
+		}
+
+		// service exists in lattice
+		mockLattice.EXPECT().
+			FindService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.ServiceSummary{
+				Arn:  aws.String("svc-arn"),
+				Id:   aws.String("svc-id"),
+				Name: aws.String(svc.LatticeServiceName()),
+			}, nil).
+			Times(1)
+
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+				return &vpclattice.ListTagsForResourceOutput{
+					Tags: map[string]*string{},
+				}, nil
+			}).
+			Times(1)
+
+		mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Eq(&vpclattice.TagResourceInput{
+			ResourceArn: aws.String("svc-arn"),
+			Tags:        cl.DefaultTags(),
+		})).Times(1)
+
+		mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Eq(&vpclattice.TagResourceInput{
+			ResourceArn: aws.String("svc-arn"),
+			Tags:        svc.Spec.ToTags(),
+		})).Times(1)
+
+		mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).Times(1)
+		mockLattice.EXPECT().
+			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(
+				func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
+					return &CreateSnSvcAssocResp{Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive)}, nil
+				}).
+			Times(1)
+
+		status, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "svc-arn", status.Arn)
+	})
+
 	t.Run("delete service and association", func(t *testing.T) {
 		svc := &Service{
 			Spec: model.ServiceSpec{
-				Name:                "svc",
-				Namespace:           "ns",
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "svc",
+					RouteNamespace: "ns",
+				},
 				ServiceNetworkNames: []string{"sn"},
 			},
 		}
@@ -210,6 +281,15 @@ func TestServiceManagerInteg(t *testing.T) {
 				Id:   aws.String("svc-id"),
 				Name: aws.String(svc.LatticeServiceName()),
 			}, nil)
+
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+				return &vpclattice.ListTagsForResourceOutput{
+					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+				}, nil
+			}).
+			Times(1) // for service only
+
 		mockLattice.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 			Return([]*SnSvcAssocSummary{
@@ -243,8 +323,11 @@ func TestCreateSvcReq(t *testing.T) {
 	m := NewServiceManager(gwlog.FallbackLogger, cl)
 
 	spec := model.ServiceSpec{
-		Name:               "name",
-		Namespace:          "ns",
+		ServiceTagFields: model.ServiceTagFields{
+			RouteName:      "svc",
+			RouteNamespace: "ns",
+			RouteType:      core.HttpRouteType,
+		},
 		CustomerDomainName: "dns",
 		CustomerCertARN:    "cert-arn",
 	}
@@ -255,6 +338,7 @@ func TestCreateSvcReq(t *testing.T) {
 
 	req := m.newCreateSvcReq(svcModel)
 
+	assert.Equal(t, req.Tags, cl.DefaultTagsMergedWith(spec.ToTags()))
 	assert.Equal(t, *req.Name, svcModel.LatticeServiceName())
 	assert.Equal(t, *req.CustomDomainName, spec.CustomerDomainName)
 	assert.Equal(t, *req.CertificateArn, spec.CustomerCertARN)

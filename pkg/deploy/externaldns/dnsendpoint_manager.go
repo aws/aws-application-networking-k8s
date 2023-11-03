@@ -35,8 +35,8 @@ func NewDnsEndpointManager(log gwlog.Logger, k8sClient client.Client) *defaultDn
 
 func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *latticemodel.Service) error {
 	namespacedName := types.NamespacedName{
-		Namespace: service.Spec.Namespace,
-		Name:      service.Spec.Name + "-dns",
+		Namespace: service.Spec.RouteNamespace,
+		Name:      service.Spec.RouteName + "-dns",
 	}
 	if service.Spec.CustomerDomainName == "" {
 		s.log.Debugf("Skipping creation of %s: detected no custom domain", namespacedName)
@@ -52,8 +52,8 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 		err   error
 	)
 	routeNamespacedName := types.NamespacedName{
-		Namespace: service.Spec.Namespace,
-		Name:      service.Spec.Name,
+		Namespace: service.Spec.RouteNamespace,
+		Name:      service.Spec.RouteName,
 	}
 	if service.Spec.RouteType == core.GrpcRouteType {
 		route, err = core.GetGRPCRoute(ctx, s.k8sClient, routeNamespacedName)
