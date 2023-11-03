@@ -4,12 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+)
+
+const (
+	// Maximum allowed number of targets per each VPC Lattice RegisterTargets/DeregisterTargets API call
+	// https://docs.aws.amazon.com/vpc-lattice/latest/APIReference/API_RegisterTargets.html
+	maxTargetsPerLatticeTargetsApiCall = 100
 )
 
 type TargetsManager interface {
@@ -61,39 +69,28 @@ func (s *defaultTargetsManager) registerTargets(
 	modelTargets *model.Targets,
 	modelTg *model.TargetGroup,
 ) error {
-	var latticeTargets []*vpclattice.Target
-	for _, modelTarget := range modelTargets.Spec.TargetList {
-		port := modelTarget.Port
-		targetIP := modelTarget.TargetIP
-		t := vpclattice.Target{
-			Id:   &targetIP,
-			Port: &port,
+	latticeTargets := utils.SliceMap(modelTargets.Spec.TargetList, func(t model.Target) *vpclattice.Target {
+		return &vpclattice.Target{Id: &t.TargetIP, Port: &t.Port}
+	})
+	chunks := utils.Chunks(latticeTargets, maxTargetsPerLatticeTargetsApiCall)
+	var registerTargetsError error
+	for i, targets := range chunks {
+		registerRouteInput := vpclattice.RegisterTargetsInput{
+			TargetGroupIdentifier: &modelTg.Status.Id,
+			Targets:               targets,
 		}
-		latticeTargets = append(latticeTargets, &t)
+		resp, err := s.cloud.Lattice().RegisterTargetsWithContext(ctx, &registerRouteInput)
+		if err != nil {
+			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("Failed to register targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
+		}
+		if len(resp.Unsuccessful) > 0 {
+			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("Failed to register targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
+				modelTg.Status.Id, i+1, len(chunks), resp.Unsuccessful))
+		}
+		s.log.Debugf("Successfully registered %d targets from VPC Lattice Target Group %s for chunk %d/%d",
+			len(resp.Successful), modelTg.Status.Id, i+1, len(chunks))
 	}
-
-	// No targets to register
-	if len(latticeTargets) == 0 {
-		return nil
-	}
-
-	registerRouteInput := vpclattice.RegisterTargetsInput{
-		TargetGroupIdentifier: &modelTg.Status.Id,
-		Targets:               latticeTargets,
-	}
-
-	resp, err := s.cloud.Lattice().RegisterTargetsWithContext(ctx, &registerRouteInput)
-	if err != nil {
-		return fmt.Errorf("Failed RegisterTargets %s due to %s", modelTg.Status.Id, err)
-	}
-
-	if len(resp.Unsuccessful) > 0 {
-		return fmt.Errorf("Failed RegisterTargets (Unsuccessful=%d) %s, will retry",
-			len(resp.Unsuccessful), modelTg.Status.Id)
-	}
-
-	s.log.Infof("Success RegisterTargets %d, %s", len(resp.Successful), modelTg.Status.Id)
-	return nil
+	return registerTargetsError
 }
 
 func (s *defaultTargetsManager) deregisterStaleTargets(
@@ -111,23 +108,27 @@ func (s *defaultTargetsManager) deregisterStaleTargets(
 				break
 			}
 		}
-
 		if isStale {
 			targetsToDeregister = append(targetsToDeregister, &vpclattice.Target{Id: latticeTarget.Id, Port: latticeTarget.Port})
 		}
 	}
 
-	if len(targetsToDeregister) > 0 {
+	chunks := utils.Chunks(targetsToDeregister, maxTargetsPerLatticeTargetsApiCall)
+	var deregisterTargetsError error
+	for i, targets := range chunks {
 		deregisterTargetsInput := vpclattice.DeregisterTargetsInput{
 			TargetGroupIdentifier: &modelTg.Status.Id,
-			Targets:               targetsToDeregister,
+			Targets:               targets,
 		}
-		_, err := s.cloud.Lattice().DeregisterTargetsWithContext(ctx, &deregisterTargetsInput)
+		resp, err := s.cloud.Lattice().DeregisterTargetsWithContext(ctx, &deregisterTargetsInput)
 		if err != nil {
-			return fmt.Errorf("failed DeregisterTargets %s due to %s", modelTg.Status.Id, err)
+			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("Failed to deregister targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
 		}
-		s.log.Infof("Success DeregisterTargets %s", modelTg.Status.Id)
+		if len(resp.Unsuccessful) > 0 {
+			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("Failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
+				modelTg.Status.Id, i+1, len(chunks), resp.Unsuccessful))
+		}
+		s.log.Debugf("Successfully deregistered %d targets from VPC Lattice Target Group %s for chunk %d/%d", resp.Successful, modelTg.Status.Id, i+1, len(chunks))
 	}
-
-	return nil
+	return deregisterTargetsError
 }
