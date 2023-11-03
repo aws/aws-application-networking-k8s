@@ -44,14 +44,14 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 			err := s.serviceManager.Delete(ctx, resService)
 			if err != nil {
 				svcErr = errors.Join(svcErr,
-					fmt.Errorf("failed ServiceManager.Delete %s due to %s", svcName, err))
+					fmt.Errorf("failed ServiceManager.Delete %s due to %w", svcName, err))
 				continue
 			}
 		} else {
 			serviceStatus, err := s.serviceManager.Upsert(ctx, resService)
 			if err != nil {
 				svcErr = errors.Join(svcErr,
-					fmt.Errorf("failed ServiceManager.Upsert %s due to %s", svcName, err))
+					fmt.Errorf("failed ServiceManager.Upsert %s due to %w", svcName, err))
 				continue
 			}
 
@@ -59,7 +59,7 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 			err = s.dnsEndpointManager.Create(ctx, resService)
 			if err != nil {
 				svcErr = errors.Join(svcErr,
-					fmt.Errorf("failed DnsEndpointManager.Create %s due to %s", svcName, err))
+					fmt.Errorf("failed DnsEndpointManager.Create %s due to %w", svcName, err))
 
 				svcErr = err
 				continue

@@ -107,38 +107,38 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 
 	//Handle targetGroups creation request
 	if err := targetGroupSynthesizer.SynthesizeCreate(ctx); err != nil {
-		return fmt.Errorf("error during tg synthesis %s", err)
+		return fmt.Errorf("error during tg synthesis %w", err)
 	}
 
 	//Handle targets "reconciliation" request (register intend-to-be-registered targets and deregister intend-to-be-registered targets)
 	if err := targetsSynthesizer.Synthesize(ctx); err != nil {
-		return fmt.Errorf("error during target synthesis %s", err)
+		return fmt.Errorf("error during target synthesis %w", err)
 	}
 
 	// Handle latticeService "reconciliation" request
 	if err := serviceSynthesizer.Synthesize(ctx); err != nil {
-		return fmt.Errorf("error during service synthesis %s", err)
+		return fmt.Errorf("error during service synthesis %w", err)
 	}
 
 	//Handle latticeService listeners "reconciliation" request
 	if err := listenerSynthesizer.Synthesize(ctx); err != nil {
-		return fmt.Errorf("error during listener synthesis %s", err)
+		return fmt.Errorf("error during listener synthesis %w", err)
 	}
 
 	//Handle latticeService listener's rules "reconciliation" request
 	if err := ruleSynthesizer.Synthesize(ctx); err != nil {
-		return fmt.Errorf("error during rule synthesis %s", err)
+		return fmt.Errorf("error during rule synthesis %w", err)
 	}
 
 	//Handle targetGroup deletion request
 	if err := targetGroupSynthesizer.SynthesizeDelete(ctx); err != nil {
-		return fmt.Errorf("error during tg delete synthesis %s", err)
+		return fmt.Errorf("error during tg delete synthesis %w", err)
 	}
 
 	// Do garbage collection for not-in-use targetGroups
 	//TODO: run SynthesizeSDKTargetGroups(ctx) as a global garbage collector scheduled background task (i.e., run it as a goroutine in main.go)
 	if err := targetGroupSynthesizer.SynthesizeUnusedDelete(ctx); err != nil {
-		return fmt.Errorf("error during tg unused delete synthesis %s", err)
+		return fmt.Errorf("error during tg unused delete synthesis %w", err)
 	}
 
 	return nil

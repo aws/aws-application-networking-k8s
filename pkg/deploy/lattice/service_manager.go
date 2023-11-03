@@ -155,18 +155,13 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 		// Considering these scenarios:
 		// - two services with same namespace-name but different routeType
 		// - two services with conflict edge case such as my-namespace/service & my/namespace-service
-		return services.NewConflictError("service", svc.Spec.RouteName+svc.Spec.RouteNamespace,
+		return services.NewConflictError("service", svc.Spec.RouteName+"/"+svc.Spec.RouteNamespace,
 			fmt.Sprintf("Found existing resource with conflicting service name: %s", *svcSum.Arn))
 	}
 	return nil
 }
 
 func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceInfo, error) {
-	err := m.checkAndUpdateTags(ctx, svc, svcSum)
-	if err != nil {
-		return ServiceInfo{}, err
-	}
-
 	if svc.Spec.CustomerCertARN != "" {
 		updReq := &UpdateSvcReq{
 			CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
@@ -180,7 +175,7 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 		}
 	}
 
-	err = m.updateAssociations(ctx, svc, svcSum)
+	err := m.updateAssociations(ctx, svc, svcSum)
 	if err != nil {
 		return ServiceInfo{}, err
 	}
@@ -343,6 +338,10 @@ func (m *defaultServiceManager) Upsert(ctx context.Context, svc *Service) (Servi
 	if svcSum == nil {
 		svcInfo, err = m.createServiceAndAssociate(ctx, svc)
 	} else {
+		err = m.checkAndUpdateTags(ctx, svc, svcSum)
+		if err != nil {
+			return ServiceInfo{}, err
+		}
 		svcInfo, err = m.updateServiceAndAssociations(ctx, svc, svcSum)
 	}
 	if err != nil {
@@ -359,6 +358,12 @@ func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error 
 		} else {
 			return err
 		}
+	}
+
+	err = m.checkAndUpdateTags(ctx, svc, svcSum)
+	if err != nil {
+		m.log.Infof("Service %s is either invalid or not owned. Skipping VPC Lattice resource deletion.", svc.LatticeServiceName())
+		return nil
 	}
 
 	err = m.deleteAllAssociations(ctx, svcSum)

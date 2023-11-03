@@ -341,6 +341,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 	if _, err := r.buildAndDeployModel(ctx, route); err != nil {
 		if services.IsConflictError(err) {
 			// Stop reconciliation of this route if the route cannot be owned / has conflict
+			route.Status().UpdateParentRefs(route.Spec().ParentRefs()[0], config.LatticeGatewayControllerName)
 			route.Status().UpdateRouteCondition(metav1.Condition{
 				Type:               string(gwv1beta1.RouteConditionAccepted),
 				Status:             metav1.ConditionFalse,
