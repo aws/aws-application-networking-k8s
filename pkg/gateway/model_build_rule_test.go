@@ -3,25 +3,27 @@ package gateway
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"reflect"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/pointer"
-	"reflect"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	"testing"
+
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type dummyTgBuilder struct {
@@ -109,7 +111,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "rule, default service action",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -151,7 +153,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "rule, default serviceimport action",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -196,7 +198,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "rule, weighted target group",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -248,7 +250,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "rule, path based target group",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -331,7 +333,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "rule, method based",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -406,7 +408,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "rule, different namespace combination",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "non-default",
 				},
@@ -520,7 +522,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "rule, default service import action for GRPCRoute",
 			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -565,7 +567,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "rule, gRPC routes with methods and multiple namespaces",
 			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "non-default",
 				},
@@ -685,7 +687,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "1 header match",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -746,7 +748,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "2 header match",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -818,7 +820,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "2 header match with path exact",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -897,7 +899,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "2 header match with path prefix",
 			wantErrIsNil: true,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -976,7 +978,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         " negative 6 header match (max headers is 5)",
 			wantErrIsNil: false,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -1046,7 +1048,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "Negative, multiple methods",
 			wantErrIsNil: false,
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -1091,7 +1093,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "GRPC match on service and method",
 			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -1145,7 +1147,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "GRPC match on service",
 			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -1198,7 +1200,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "GRPC match on all",
 			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -1251,7 +1253,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			name:         "GRPC match with 5 headers",
 			wantErrIsNil: true,
 			route: core.NewGRPCRoute(gwv1alpha2.GRPCRoute{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
@@ -1367,12 +1369,12 @@ func Test_RuleModelBuild(t *testing.T) {
 			ctx := context.TODO()
 
 			k8sSchema := runtime.NewScheme()
-			k8sSchema.AddKnownTypes(mcsv1alpha1.SchemeGroupVersion, &mcsv1alpha1.ServiceImport{})
+			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceImport{})
 			clientgoscheme.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 
 			svc := corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: apimachineryv1.ObjectMeta{
 					Name:      string(backendRef1.Name),
 					Namespace: "default",
 				},

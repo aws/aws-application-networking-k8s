@@ -3,11 +3,12 @@ package test
 import (
 	"context"
 	"fmt"
-	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"os"
 	"reflect"
 	"strings"
 	"time"
+
+	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/onsi/gomega/format"
@@ -37,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -60,8 +60,8 @@ var (
 	CurrentClusterVpcId = os.Getenv("CLUSTER_VPC_ID")
 	TestObjects         = []TestObject{
 		{&gwv1beta1.HTTPRoute{}, &gwv1beta1.HTTPRouteList{}},
-		{&mcsv1alpha1.ServiceExport{}, &mcsv1alpha1.ServiceExportList{}},
-		{&mcsv1alpha1.ServiceImport{}, &mcsv1alpha1.ServiceImportList{}},
+		{&anv1alpha1.ServiceExport{}, &anv1alpha1.ServiceExportList{}},
+		{&anv1alpha1.ServiceImport{}, &anv1alpha1.ServiceImportList{}},
 		{&gwv1beta1.Gateway{}, &gwv1beta1.GatewayList{}},
 		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
 		{&corev1.Service{}, &corev1.ServiceList{}},
@@ -73,7 +73,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(testScheme))
 	utilruntime.Must(gwv1alpha2.AddToScheme(testScheme))
 	utilruntime.Must(gwv1beta1.AddToScheme(testScheme))
-	utilruntime.Must(mcsv1alpha1.AddToScheme(testScheme))
+	utilruntime.Must(anv1alpha1.AddToScheme(testScheme))
 	addOptionalCRDs(testScheme)
 }
 

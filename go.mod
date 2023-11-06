@@ -19,7 +19,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.14.1
 	sigs.k8s.io/external-dns v0.13.5
 	sigs.k8s.io/gateway-api v0.6.1
-	sigs.k8s.io/mcs-api v0.1.0
 )
 
 require (

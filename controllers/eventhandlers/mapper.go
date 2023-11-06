@@ -10,9 +10,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -36,18 +35,18 @@ func (r *resourceMapper) ServiceToRoutes(ctx context.Context, svc *corev1.Servic
 	return r.backendRefToRoutes(ctx, svc, corev1.GroupName, serviceKind, routeType)
 }
 
-func (r *resourceMapper) ServiceImportToRoutes(ctx context.Context, svc *mcs_api.ServiceImport, routeType core.RouteType) []core.Route {
+func (r *resourceMapper) ServiceImportToRoutes(ctx context.Context, svc *anv1alpha1.ServiceImport, routeType core.RouteType) []core.Route {
 	if svc == nil {
 		return nil
 	}
-	return r.backendRefToRoutes(ctx, svc, mcs_api.GroupName, serviceImportKind, routeType)
+	return r.backendRefToRoutes(ctx, svc, anv1alpha1.GroupName, serviceImportKind, routeType)
 }
 
-func (r *resourceMapper) ServiceToServiceExport(ctx context.Context, svc *corev1.Service) *mcs_api.ServiceExport {
+func (r *resourceMapper) ServiceToServiceExport(ctx context.Context, svc *corev1.Service) *anv1alpha1.ServiceExport {
 	if svc == nil {
 		return nil
 	}
-	svcExport := &mcs_api.ServiceExport{}
+	svcExport := &anv1alpha1.ServiceExport{}
 	if err := r.client.Get(ctx, k8s.NamespacedName(svc), svcExport); err != nil {
 		return nil
 	}
@@ -65,11 +64,11 @@ func (r *resourceMapper) EndpointsToService(ctx context.Context, ep *corev1.Endp
 	return svc
 }
 
-func (r *resourceMapper) TargetGroupPolicyToService(ctx context.Context, tgp *v1alpha1.TargetGroupPolicy) *corev1.Service {
+func (r *resourceMapper) TargetGroupPolicyToService(ctx context.Context, tgp *anv1alpha1.TargetGroupPolicy) *corev1.Service {
 	return policyToTargetRefObj(r, ctx, tgp, &corev1.Service{})
 }
 
-func (r *resourceMapper) VpcAssociationPolicyToGateway(ctx context.Context, vap *v1alpha1.VpcAssociationPolicy) *gateway_api.Gateway {
+func (r *resourceMapper) VpcAssociationPolicyToGateway(ctx context.Context, vap *anv1alpha1.VpcAssociationPolicy) *gateway_api.Gateway {
 	return policyToTargetRefObj(r, ctx, vap, &gateway_api.Gateway{})
 }
 

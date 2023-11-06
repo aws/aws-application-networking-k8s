@@ -8,10 +8,10 @@ import (
 	context "context"
 	reflect "reflect"
 
+	v1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	core "github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	gomock "github.com/golang/mock/gomock"
-	v1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 // MockSvcExportTargetGroupModelBuilder is a mock of SvcExportTargetGroupModelBuilder interface.

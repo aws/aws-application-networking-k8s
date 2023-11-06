@@ -27,7 +27,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 
@@ -83,7 +82,7 @@ func RegisterServiceExportController(
 	svcEventHandler := eventhandlers.NewServiceEventHandler(log, r.client)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&mcsv1alpha1.ServiceExport{}).
+		For(&anv1alpha1.ServiceExport{}).
 		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToServiceExport())
 
 	if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
@@ -98,9 +97,9 @@ func RegisterServiceExportController(
 	return builder.Complete(r)
 }
 
-//+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceexports,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceexports/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceexports/finalizers,verbs=update
+//+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceexports,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceexports/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceexports/finalizers,verbs=update
 
 func (r *serviceExportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.Infow("reconcile", "name", req.Name)
@@ -112,13 +111,13 @@ func (r *serviceExportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (r *serviceExportReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
-	srvExport := &mcsv1alpha1.ServiceExport{}
+	srvExport := &anv1alpha1.ServiceExport{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, srvExport); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 
-	if srvExport.ObjectMeta.Annotations["multicluster.x-k8s.io/federation"] != "amazon-vpc-lattice" {
+	if srvExport.ObjectMeta.Annotations["application-networking.k8s.aws/federation"] != "amazon-vpc-lattice" {
 		return nil
 	}
 	r.log.Debugf("Found matching service export %s-%s", srvExport.Name, srvExport.Namespace)
@@ -146,7 +145,7 @@ func (r *serviceExportReconciler) reconcile(ctx context.Context, req ctrl.Reques
 
 func (r *serviceExportReconciler) buildAndDeployModel(
 	ctx context.Context,
-	srvExport *mcsv1alpha1.ServiceExport,
+	srvExport *anv1alpha1.ServiceExport,
 ) error {
 	stack, err := r.modelBuilder.Build(ctx, srvExport)
 

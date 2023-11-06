@@ -32,7 +32,6 @@ import (
   "github.com/aws/aws-sdk-go/service/vpclattice" // no alias
   "github.com/aws/aws-sdk-go/aws" // no alias
 
-  mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
   corev1 "k8s.io/api/core/v1"
   gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
   ctrl "sigs.k8s.io/controller-runtime"

@@ -1,8 +1,10 @@
 package integration
 
 import (
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"os"
+
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
@@ -10,7 +12,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -20,7 +21,7 @@ var _ = Describe("Defined Target Ports", func() {
 	var (
 		deployment        *appsv1.Deployment
 		service           *v1.Service
-		serviceExport     *v1alpha1.ServiceExport
+		serviceExport     *anv1alpha1.ServiceExport
 		httpRoute         *v1beta1.HTTPRoute
 		vpcLatticeService *vpclattice.ServiceSummary
 		definedPorts      []int64
