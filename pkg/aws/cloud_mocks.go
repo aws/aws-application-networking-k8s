@@ -35,6 +35,21 @@ func (m *MockCloud) EXPECT() *MockCloudMockRecorder {
 	return m.recorder
 }
 
+// CheckAndAcquireOwnership mocks base method.
+func (m *MockCloud) CheckAndAcquireOwnership(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAndAcquireOwnership", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckAndAcquireOwnership indicates an expected call of CheckAndAcquireOwnership.
+func (mr *MockCloudMockRecorder) CheckAndAcquireOwnership(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAndAcquireOwnership", reflect.TypeOf((*MockCloud)(nil).CheckAndAcquireOwnership), arg0, arg1)
+}
+
 // CheckAndAcquireOwnershipFromTags mocks base method.
 func (m *MockCloud) CheckAndAcquireOwnershipFromTags(arg0 context.Context, arg1 string, arg2 map[string]*string) (bool, error) {
 	m.ctrl.T.Helper()
