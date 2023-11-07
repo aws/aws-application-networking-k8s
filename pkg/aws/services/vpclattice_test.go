@@ -3,10 +3,11 @@ package services
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"testing"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
@@ -482,7 +483,7 @@ func Test_defaultLattice_FindServiceNetwork_pagedResults(t *testing.T) {
 	tokens := []*string{&one, &two, nil}
 	results := [][]*vpclattice.ServiceNetworkSummary{{}, {}, {}}
 
-	for i, _ := range results {
+	for i := range results {
 		for j := 1; j <= 5; j++ {
 			// ids will be 11 - 15, 21 - 21, 31 - 35
 			id := fmt.Sprintf("%d%d", i+1, j)

@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"os"
+
+	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -37,8 +38,20 @@ func NewNotFoundError(resourceType string, name string) error {
 }
 
 func IsNotFoundError(err error) bool {
+	if aerr, ok := err.(awserr.Error); ok {
+		if aerr.Code() == vpclattice.ErrCodeResourceNotFoundException {
+			return true
+		}
+	}
 	nfErr := &NotFoundError{}
 	return errors.As(err, &nfErr)
+}
+
+func IgnoreNotFound(err error) error {
+	if IsNotFoundError(err) {
+		return nil
+	}
+	return err
 }
 
 type ConflictError struct {
