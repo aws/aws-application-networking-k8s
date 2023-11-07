@@ -2,7 +2,7 @@ package integration
 
 import (
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
@@ -57,13 +57,32 @@ var _ = Describe("HTTPRoute Mutation", func() {
 			for _, targetGroup := range targetGroups {
 				fmt.Println("targetGroup.Name: ", *targetGroup.Name)
 
-				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service1.Name, service1.Namespace)) {
+				spec1 := model.TargetGroupSpec{
+					TargetGroupTagFields: model.TargetGroupTagFields{
+						K8SServiceName:      service1.Name,
+						K8SServiceNamespace: service1.Namespace,
+					},
+				}
+				spec2 := model.TargetGroupSpec{
+					TargetGroupTagFields: model.TargetGroupTagFields{
+						K8SServiceName:      service2.Name,
+						K8SServiceNamespace: service2.Namespace,
+					},
+				}
+				spec3 := model.TargetGroupSpec{
+					TargetGroupTagFields: model.TargetGroupTagFields{
+						K8SServiceName:      service3.Name,
+						K8SServiceNamespace: service3.Namespace,
+					},
+				}
+
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), model.TgNamePrefix(spec1)) {
 					service1TgFound = true
 				}
-				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service2.Name, service2.Namespace)) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), model.TgNamePrefix(spec2)) {
 					service2TgFound = true
 				}
-				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service3.Name, service3.Namespace)) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), model.TgNamePrefix(spec3)) {
 					service3TgFound = true
 				}
 			}
@@ -84,19 +103,39 @@ var _ = Describe("HTTPRoute Mutation", func() {
 			service1TgFound := false
 			service2TgFound := false
 			service3TgFound := false
+
+			spec1 := model.TargetGroupSpec{
+				TargetGroupTagFields: model.TargetGroupTagFields{
+					K8SServiceName:      service1.Name,
+					K8SServiceNamespace: service1.Namespace,
+				},
+			}
+			spec2 := model.TargetGroupSpec{
+				TargetGroupTagFields: model.TargetGroupTagFields{
+					K8SServiceName:      service2.Name,
+					K8SServiceNamespace: service2.Namespace,
+				},
+			}
+			spec3 := model.TargetGroupSpec{
+				TargetGroupTagFields: model.TargetGroupTagFields{
+					K8SServiceName:      service3.Name,
+					K8SServiceNamespace: service3.Namespace,
+				},
+			}
+
 			targetGroups, err := testFramework.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
 			fmt.Println("Retrieved targetGroups len: ", len(targetGroups))
 			g.Expect(err).To(BeNil())
 			for _, targetGroup := range targetGroups {
 				fmt.Println("targetGroup.Name: ", *targetGroup.Name)
 
-				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service1.Name, service1.Namespace)) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), model.TgNamePrefix(spec1)) {
 					service1TgFound = true
 				}
-				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service2.Name, service2.Namespace)) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), model.TgNamePrefix(spec2)) {
 					service2TgFound = true
 				}
-				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), latticestore.TargetGroupName(service3.Name, service3.Namespace)) {
+				if strings.HasPrefix(lo.FromPtr(targetGroup.Name), model.TgNamePrefix(spec3)) {
 					service3TgFound = true
 				}
 			}
@@ -107,8 +146,6 @@ var _ = Describe("HTTPRoute Mutation", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.ExpectDeleted(ctx, pathMatchHttpRoute)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			pathMatchHttpRoute,
 			deployment1,

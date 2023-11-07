@@ -1,10 +1,10 @@
-apiVersion: multicluster.x-k8s.io/v1alpha1
+apiVersion: application-networking.k8s.aws/v1alpha1
 kind: ServiceImport
 metadata:
   name: inventory-ver2
   annotations:
-    multicluster.x-k8s.io/aws-vpc: "your-vpc-id"
-    multicluster.x-k8s.io/aws-eks-cluster-name: "lattice-eks-test-2"
+    application-networking.k8s.aws/aws-vpc: "your-vpc-id"
+    application-networking.k8s.aws/aws-eks-cluster-name: "lattice-eks-test-2"
 spec:
   type: ClusterSetIP
   ports:

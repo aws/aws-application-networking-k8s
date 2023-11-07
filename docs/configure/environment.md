@@ -122,12 +122,12 @@ spec:
 
 ```
 # for examples/parking-ver2-export.yaml 
-apiVersion: multicluster.x-k8s.io/v1alpha1
+apiVersion: application-networking.k8s.aws/v1alpha1
 kind: ServiceExport
 metadata:
   name: parking-ver2
   annotations:
-    multicluster.x-k8s.io/federation: "amazon-vpc-lattice"
+    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
 
 # by default, lattice target group name is
 k8s-parking-ver2-default

@@ -27,7 +27,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 
@@ -36,7 +35,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -49,7 +47,6 @@ type serviceExportReconciler struct {
 	eventRecorder    record.EventRecorder
 	modelBuilder     gateway.SvcExportTargetGroupModelBuilder
 	stackDeployer    deploy.StackDeployer
-	latticeDataStore *latticestore.LatticeDataStore
 	stackMarshaller  deploy.StackMarshaller
 }
 
@@ -60,7 +57,6 @@ const (
 func RegisterServiceExportController(
 	log gwlog.Logger,
 	cloud aws.Cloud,
-	latticeDataStore *latticestore.LatticeDataStore,
 	finalizerManager k8s.FinalizerManager,
 	mgr ctrl.Manager,
 ) error {
@@ -68,8 +64,8 @@ func RegisterServiceExportController(
 	scheme := mgr.GetScheme()
 	eventRecorder := mgr.GetEventRecorderFor("serviceExport")
 
-	modelBuilder := gateway.NewSvcExportTargetGroupBuilder(log, mgrClient, latticeDataStore, cloud)
-	stackDeploy := deploy.NewTargetGroupStackDeploy(log, cloud, mgrClient, latticeDataStore)
+	modelBuilder := gateway.NewSvcExportTargetGroupBuilder(log, mgrClient)
+	stackDeploy := deploy.NewTargetGroupStackDeploy(log, cloud, mgrClient)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	r := &serviceExportReconciler{
@@ -80,14 +76,13 @@ func RegisterServiceExportController(
 		modelBuilder:     modelBuilder,
 		stackDeployer:    stackDeploy,
 		eventRecorder:    eventRecorder,
-		latticeDataStore: latticeDataStore,
 		stackMarshaller:  stackMarshaller,
 	}
 
 	svcEventHandler := eventhandlers.NewServiceEventHandler(log, r.client)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&mcsv1alpha1.ServiceExport{}).
+		For(&anv1alpha1.ServiceExport{}).
 		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToServiceExport())
 
 	if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
@@ -102,9 +97,9 @@ func RegisterServiceExportController(
 	return builder.Complete(r)
 }
 
-//+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceexports,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceexports/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=multicluster.x-k8s.io,resources=serviceexports/finalizers,verbs=update
+//+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceexports,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceexports/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceexports/finalizers,verbs=update
 
 func (r *serviceExportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.Infow("reconcile", "name", req.Name)
@@ -116,13 +111,13 @@ func (r *serviceExportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (r *serviceExportReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
-	srvExport := &mcsv1alpha1.ServiceExport{}
+	srvExport := &anv1alpha1.ServiceExport{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, srvExport); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 
-	if srvExport.ObjectMeta.Annotations["multicluster.x-k8s.io/federation"] != "amazon-vpc-lattice" {
+	if srvExport.ObjectMeta.Annotations["application-networking.k8s.aws/federation"] != "amazon-vpc-lattice" {
 		return nil
 	}
 	r.log.Debugf("Found matching service export %s-%s", srvExport.Name, srvExport.Namespace)
@@ -150,9 +145,9 @@ func (r *serviceExportReconciler) reconcile(ctx context.Context, req ctrl.Reques
 
 func (r *serviceExportReconciler) buildAndDeployModel(
 	ctx context.Context,
-	srvExport *mcsv1alpha1.ServiceExport,
+	srvExport *anv1alpha1.ServiceExport,
 ) error {
-	stack, _, err := r.modelBuilder.Build(ctx, srvExport)
+	stack, err := r.modelBuilder.Build(ctx, srvExport)
 
 	if err != nil {
 		r.log.Debugf("Failed to buildAndDeployModel for service export %s-%s due to %s",
@@ -162,16 +157,14 @@ func (r *serviceExportReconciler) buildAndDeployModel(
 			k8s.GatewayEventReasonFailedBuildModel,
 			fmt.Sprintf("Failed BuildModel due to %s", err))
 
-		// Build failed means the K8S serviceexport, service are NOT ready to be deployed to lattice
-		// return nil  to complete controller loop for current change.
-		// TODO continue deploy to trigger reconcile of stale SDK objects
-		//return stack, targetGroup, nil
+		return err
 	}
 
-	_, err = r.stackMarshaller.Marshal(stack)
+	json, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
 		r.log.Errorf("Error on marshalling model for service export %s-%s", srvExport.Name, srvExport.Namespace)
 	}
+	r.log.Debugf("stack: %s", json)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,

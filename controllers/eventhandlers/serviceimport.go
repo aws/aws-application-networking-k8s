@@ -3,6 +3,7 @@ package eventhandlers
 import (
 	"context"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
@@ -11,7 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	mcs_api "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 type serviceImportEventHandler struct {
@@ -36,7 +36,7 @@ func (h *serviceImportEventHandler) MapToRoute(routeType core.RouteType) handler
 
 func (h *serviceImportEventHandler) mapToRoute(obj client.Object, routeType core.RouteType) []reconcile.Request {
 	ctx := context.Background()
-	routes := h.mapper.ServiceImportToRoutes(ctx, obj.(*mcs_api.ServiceImport), routeType)
+	routes := h.mapper.ServiceImportToRoutes(ctx, obj.(*anv1alpha1.ServiceImport), routeType)
 
 	var requests []reconcile.Request
 	for _, route := range routes {

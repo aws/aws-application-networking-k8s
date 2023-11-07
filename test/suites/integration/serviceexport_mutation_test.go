@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
@@ -18,7 +18,7 @@ var _ = Describe("ServiceExport Mutation Test", func() {
 		var (
 			deployment    *appsv1.Deployment
 			service       *v1.Service
-			serviceExport *v1alpha1.ServiceExport
+			serviceExport *anv1alpha1.ServiceExport
 			targetGroup   *vpclattice.TargetGroupSummary
 		)
 

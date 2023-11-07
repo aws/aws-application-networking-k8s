@@ -2,8 +2,9 @@ package gateway
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -13,57 +14,49 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-
-	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 )
 
 type LatticeServiceBuilder interface {
-	Build(ctx context.Context, httpRoute core.Route) (core.Stack, *model.Service, error)
+	Build(ctx context.Context, httpRoute core.Route) (core.Stack, error)
 }
 
 type LatticeServiceModelBuilder struct {
 	log         gwlog.Logger
 	client      client.Client
-	defaultTags map[string]string
-	datastore   *latticestore.LatticeDataStore
-	cloud       pkg_aws.Cloud
+	brTgBuilder BackendRefTargetGroupModelBuilder
 }
 
 func NewLatticeServiceBuilder(
 	log gwlog.Logger,
 	client client.Client,
-	datastore *latticestore.LatticeDataStore,
-	cloud pkg_aws.Cloud,
+	brTgBuilder BackendRefTargetGroupModelBuilder,
 ) *LatticeServiceModelBuilder {
 	return &LatticeServiceModelBuilder{
-		log:       log,
-		client:    client,
-		datastore: datastore,
-		cloud:     cloud,
+		log:         log,
+		client:      client,
+		brTgBuilder: brTgBuilder,
 	}
 }
 
 func (b *LatticeServiceModelBuilder) Build(
 	ctx context.Context,
 	route core.Route,
-) (core.Stack, *model.Service, error) {
+) (core.Stack, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
 
 	task := &latticeServiceModelBuildTask{
-		log:       b.log,
-		route:     route,
-		stack:     stack,
-		client:    b.client,
-		tgByResID: make(map[string]*model.TargetGroup),
-		datastore: b.datastore,
+		log:         b.log,
+		route:       route,
+		stack:       stack,
+		client:      b.client,
+		brTgBuilder: b.brTgBuilder,
 	}
 
 	if err := task.run(ctx); err != nil {
-		return stack, task.latticeService, errors.New("LATTICE_RETRY")
+		return task.stack, err
 	}
 
-	return task.stack, task.latticeService, nil
+	return task.stack, nil
 }
 
 func (t *latticeServiceModelBuildTask) run(ctx context.Context) error {
@@ -72,44 +65,46 @@ func (t *latticeServiceModelBuildTask) run(ctx context.Context) error {
 }
 
 func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
-	if err := t.buildLatticeService(ctx); err != nil {
-		return fmt.Errorf("failed to build lattice service due to %w", err)
+	modelSvc, err := t.buildLatticeService(ctx)
+	if err != nil {
+		return err
 	}
 
-	if err := t.buildTargetGroupsForRoute(ctx, t.client); err != nil {
-		return fmt.Errorf("failed to build target group due to %w", err)
-	}
-
-	if !t.route.DeletionTimestamp().IsZero() {
-		t.log.Debugf("Ignoring building lattice service on delete for route %s-%s", t.route.Name(), t.route.Namespace())
-		return nil
-	}
-
-	if err := t.buildTargetsForRoute(ctx); err != nil {
-		t.log.Debugf("failed to build targets due to %s", err)
-	}
-
-	if err := t.buildListeners(ctx); err != nil {
+	err = t.buildListeners(ctx, modelSvc.ID())
+	if err != nil {
 		return fmt.Errorf("failed to build listener due to %w", err)
 	}
 
-	if err := t.buildRules(ctx); err != nil {
-		return fmt.Errorf("failed to build rule due to %w", err)
+	var modelListeners []*model.Listener
+	err = t.stack.ListResources(&modelListeners)
+	if err != nil {
+		return err
+	}
+	t.log.Debugf("Building rules for %d listeners", len(modelListeners))
+	for _, modelListener := range modelListeners {
+		// building rules will also build target groups and targets as needed
+		// even on delete we try to build everything we may then need to remove
+		err = t.buildRules(ctx, modelListener.ID())
+		if err != nil {
+			return fmt.Errorf("failed to build rules due to %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) error {
+func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) (*model.Service, error) {
 	routeType := core.HttpRouteType
 	if _, ok := t.route.(*core.GRPCRoute); ok {
 		routeType = core.GrpcRouteType
 	}
 
 	spec := model.ServiceSpec{
-		Name:      t.route.Name(),
-		Namespace: t.route.Namespace(),
-		RouteType: routeType,
+		ServiceTagFields: model.ServiceTagFields{
+			RouteName:      t.route.Name(),
+			RouteNamespace: t.route.Namespace(),
+			RouteType:      routeType,
+		},
 	}
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
@@ -132,28 +127,65 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		spec.CustomerDomainName = ""
 	}
 
-	if t.route.DeletionTimestamp().IsZero() {
-		spec.IsDeleted = false
-	} else {
-		spec.IsDeleted = true
+	certArn, err := t.getACMCertArn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	spec.CustomerCertARN = certArn
+
+	svc, err := model.NewLatticeService(t.stack, spec)
+	if err != nil {
+		return nil, err
 	}
 
-	serviceResourceName := fmt.Sprintf("%s-%s", t.route.Name(), t.route.Namespace())
+	t.log.Debugf("Added service %s to the stack (ID %s)", svc.Spec.LatticeServiceName(), svc.ID())
+	svc.IsDeleted = !t.route.DeletionTimestamp().IsZero()
+	return svc, nil
+}
 
-	t.latticeService = model.NewLatticeService(t.stack, serviceResourceName, spec)
+// returns empty string if not found
+func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (string, error) {
+	gw, err := t.getGateway(ctx)
+	if err != nil {
+		if apierrors.IsNotFound(err) && !t.route.DeletionTimestamp().IsZero() {
+			return "", nil // ok if we're deleting the route
+		}
+		return "", err
+	}
 
-	return nil
+	for _, parentRef := range t.route.Spec().ParentRefs() {
+		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
+			// when a service is associate to multiple service network(s), all listener config MUST be same
+			// so here we are only using the 1st gateway
+			t.log.Debugf("Ignore ParentRef of different gateway %s-%s", parentRef.Name, parentRef.Namespace)
+			continue
+		}
+
+		if parentRef.SectionName == nil {
+			continue
+		}
+
+		for _, section := range gw.Spec.Listeners {
+			if section.Name == *parentRef.SectionName && section.TLS != nil {
+				if section.TLS.Mode != nil && *section.TLS.Mode == gwv1beta1.TLSModeTerminate {
+					curCertARN, ok := section.TLS.Options[awsCustomCertARN]
+					if ok {
+						t.log.Debugf("Found certification %s under section %s", curCertARN, section.Name)
+						return string(curCertARN), nil
+					}
+				}
+				break
+			}
+		}
+	}
+
+	return "", nil
 }
 
 type latticeServiceModelBuildTask struct {
-	log             gwlog.Logger
-	route           core.Route
-	client          client.Client
-	latticeService  *model.Service
-	tgByResID       map[string]*model.TargetGroup
-	listenerByResID map[string]*model.Listener
-	rulesByResID    map[string]*model.Rule
-	stack           core.Stack
-	datastore       *latticestore.LatticeDataStore
-	cloud           pkg_aws.Cloud
+	log         gwlog.Logger
+	route       core.Route
+	client      client.Client
+	stack       core.Stack
+	brTgBuilder BackendRefTargetGroupModelBuilder
 }

@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
 	gomock "github.com/golang/mock/gomock"
@@ -37,47 +36,18 @@ func (m *MockRuleManager) EXPECT() *MockRuleManagerMockRecorder {
 	return m.recorder
 }
 
-// Cloud mocks base method.
-func (m *MockRuleManager) Cloud() aws.Cloud {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Cloud")
-	ret0, _ := ret[0].(aws.Cloud)
-	return ret0
-}
-
-// Cloud indicates an expected call of Cloud.
-func (mr *MockRuleManagerMockRecorder) Cloud() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockRuleManager)(nil).Cloud))
-}
-
-// Create mocks base method.
-func (m *MockRuleManager) Create(ctx context.Context, rule *lattice.Rule) (lattice.RuleStatus, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", ctx, rule)
-	ret0, _ := ret[0].(lattice.RuleStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockRuleManagerMockRecorder) Create(ctx, rule interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockRuleManager)(nil).Create), ctx, rule)
-}
-
 // Delete mocks base method.
-func (m *MockRuleManager) Delete(ctx context.Context, ruleId, listenerId, serviceId string) error {
+func (m *MockRuleManager) Delete(ctx context.Context, ruleId, serviceId, listenerId string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", ctx, ruleId, listenerId, serviceId)
+	ret := m.ctrl.Call(m, "Delete", ctx, ruleId, serviceId, listenerId)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockRuleManagerMockRecorder) Delete(ctx, ruleId, listenerId, serviceId interface{}) *gomock.Call {
+func (mr *MockRuleManagerMockRecorder) Delete(ctx, ruleId, serviceId, listenerId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockRuleManager)(nil).Delete), ctx, ruleId, listenerId, serviceId)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockRuleManager)(nil).Delete), ctx, ruleId, serviceId, listenerId)
 }
 
 // Get mocks base method.
@@ -96,10 +66,10 @@ func (mr *MockRuleManagerMockRecorder) Get(ctx, serviceId, listenerId, ruleId in
 }
 
 // List mocks base method.
-func (m *MockRuleManager) List(ctx context.Context, serviceId, listenerId string) ([]*lattice.RuleStatus, error) {
+func (m *MockRuleManager) List(ctx context.Context, serviceId, listenerId string) ([]*vpclattice.RuleSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", ctx, serviceId, listenerId)
-	ret0, _ := ret[0].([]*lattice.RuleStatus)
+	ret0, _ := ret[0].([]*vpclattice.RuleSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -110,16 +80,31 @@ func (mr *MockRuleManagerMockRecorder) List(ctx, serviceId, listenerId interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockRuleManager)(nil).List), ctx, serviceId, listenerId)
 }
 
-// Update mocks base method.
-func (m *MockRuleManager) Update(ctx context.Context, rules []*lattice.Rule) error {
+// UpdatePriorities mocks base method.
+func (m *MockRuleManager) UpdatePriorities(ctx context.Context, svcId, listenerId string, rules []*lattice.Rule) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", ctx, rules)
+	ret := m.ctrl.Call(m, "UpdatePriorities", ctx, svcId, listenerId, rules)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Update indicates an expected call of Update.
-func (mr *MockRuleManagerMockRecorder) Update(ctx, rules interface{}) *gomock.Call {
+// UpdatePriorities indicates an expected call of UpdatePriorities.
+func (mr *MockRuleManagerMockRecorder) UpdatePriorities(ctx, svcId, listenerId, rules interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockRuleManager)(nil).Update), ctx, rules)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePriorities", reflect.TypeOf((*MockRuleManager)(nil).UpdatePriorities), ctx, svcId, listenerId, rules)
+}
+
+// Upsert mocks base method.
+func (m *MockRuleManager) Upsert(ctx context.Context, modelRule *lattice.Rule, modelListener *lattice.Listener, modelSvc *lattice.Service) (lattice.RuleStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Upsert", ctx, modelRule, modelListener, modelSvc)
+	ret0, _ := ret[0].(lattice.RuleStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Upsert indicates an expected call of Upsert.
+func (mr *MockRuleManagerMockRecorder) Upsert(ctx, modelRule, modelListener, modelSvc interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockRuleManager)(nil).Upsert), ctx, modelRule, modelListener, modelSvc)
 }

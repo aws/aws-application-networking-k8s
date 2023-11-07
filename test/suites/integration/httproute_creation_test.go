@@ -8,11 +8,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"github.com/aws/aws-sdk-go/aws"
+
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 var _ = Describe("HTTPRoute Creation", func() {
@@ -20,8 +21,8 @@ var _ = Describe("HTTPRoute Creation", func() {
 	var (
 		deployment    *appsv1.Deployment
 		service       *v1.Service
-		serviceExport *v1alpha1.ServiceExport
-		serviceImport *v1alpha1.ServiceImport
+		serviceExport *anv1alpha1.ServiceExport
+		serviceImport *anv1alpha1.ServiceImport
 		httpRoute     *v1beta1.HTTPRoute
 	)
 
@@ -104,14 +105,12 @@ var _ = Describe("HTTPRoute Creation", func() {
 	})
 
 	AfterEach(func() {
-		testFramework.ExpectDeleted(ctx, httpRoute)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(ctx,
+			httpRoute,
 			deployment,
 			service,
 			serviceImport,
 			serviceExport,
-			httpRoute,
 		)
 	})
 })

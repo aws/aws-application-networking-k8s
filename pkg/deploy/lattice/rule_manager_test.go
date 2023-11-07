@@ -2,1510 +2,290 @@ package lattice
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/aws/aws-sdk-go/aws"
-
-	"testing"
-
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"testing"
 )
 
-var ruleList = []struct {
-	Arn       string
-	Id        string
-	IsDefault bool
-	Name      string
-}{
-	{
+func Test_Create(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
-		Arn:       "Rule-Arn-1",
-		Id:        "Rule-Id-1",
-		IsDefault: false,
-		Name:      "Rule-1",
-	},
-	{
+	// each rule references a stack and a service which need to be present in the stack
+	// in order to proceed, these just need their status+id
+	svc := &model.Service{
+		Status: &model.ServiceStatus{Id: "svc-id"},
+	}
 
-		Arn:       "Rule-Arn-2",
-		Id:        "Rule-Id-2",
-		IsDefault: false,
-		Name:      "Rule-2",
-	},
-}
+	l := &model.Listener{
+		Spec: model.ListenerSpec{
+			Port:     80,
+			Protocol: "HTTP",
+		},
+		Status: &model.ListenerStatus{Id: "listener-id"},
+	}
 
-var rules = []*model.Rule{
-	{
+	r := &model.Rule{
 		Spec: model.RuleSpec{
-			ServiceName:      "svc-1",
-			ServiceNamespace: "default",
-			ListenerPort:     int64(80),
-			ListenerProtocol: "HTTP",
-			RuleID:           "rule-1", //TODO, maybe rename this field to RuleName
-		},
-		Status: &model.RuleStatus{
-			ServiceID:  "serviceID1",
-			ListenerID: "listenerID1",
-			RuleID:     "rule-ID-1",
-		},
-	},
-
-	{
-		Spec: model.RuleSpec{
-			ServiceName:      "svc-1",
-			ServiceNamespace: "default",
-			ListenerPort:     int64(80),
-			ListenerProtocol: "HTTP",
-			RuleID:           "rule-2", //TODO, maybe rename this field to RuleName
-		},
-		Status: &model.RuleStatus{
-			ServiceID:  "serviceID1",
-			ListenerID: "listenerID1",
-			RuleID:     "rule-ID-2",
-		},
-	},
-}
-
-func Test_CreateRule(t *testing.T) {
-	ServiceName := "seviceName"
-	ServiceNameSpace := "defaultService"
-	ServiceID := "serviceID"
-	ListenerPort := int64(80)
-	ListenerProtocol := "HTTP"
-	ListenerID := "listenerID"
-	ruleID := "ruleID"
-
-	var hdr1 = "env1"
-	var hdr1Value = "test1"
-	var hdr2 = "env2"
-	var hdr2Value = "test2"
-
-	var weight1 = int64(90)
-	var weight2 = int64(10)
-	weightRulePriority := 1
-	weightRuleID := fmt.Sprintf("rule-%d", weightRulePriority)
-	WeightedAction_1 := model.RuleTargetGroup{
-		Name:            "TestCreateWeighted1",
-		Namespace:       "default",
-		IsServiceImport: false,
-		Weight:          weight1,
-	}
-
-	WeightedAction_11 := model.RuleTargetGroup{
-		Name:            "TestCreateWeighted1",
-		Namespace:       "default",
-		IsServiceImport: false,
-		Weight:          weight2,
-	}
-
-	WeightedAction_2 := model.RuleTargetGroup{
-		Name:            "TestCreateWeighte2",
-		Namespace:       "default",
-		IsServiceImport: false,
-		Weight:          weight2,
-	}
-
-	WeightedAction_22 := model.RuleTargetGroup{
-		Name:            "TestCreateWeighte2",
-		Namespace:       "default",
-		IsServiceImport: false,
-		Weight:          weight1,
-	}
-
-	WeightedRule_1 := model.Rule{
-		Spec: model.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			PathMatchPrefix:  true,
-			PathMatchValue:   "",
-			RuleID:           weightRuleID,
+			Priority: 1,
+			Method:   "POST",
 			Action: model.RuleAction{
 				TargetGroups: []*model.RuleTargetGroup{
-					&WeightedAction_1,
+					{
+						LatticeTgId: "tg-id",
+						Weight:      1,
+					},
 				},
 			},
 		},
-		Status: &model.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
 	}
 
-	WeightedRule_1_2 := model.Rule{
+	r2 := &model.Rule{
 		Spec: model.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			PathMatchValue:   "",
-			PathMatchPrefix:  true,
-			RuleID:           weightRuleID,
+			Priority: 1,
 			Action: model.RuleAction{
 				TargetGroups: []*model.RuleTargetGroup{
-					&WeightedAction_1,
-					&WeightedAction_2,
+					{
+						LatticeTgId: "tg-id",
+						Weight:      1,
+					},
 				},
 			},
-		},
-		Status: &model.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-1-2",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
+			PathMatchPrefix: true,
+			PathMatchValue:  "/foo",
 		},
 	}
 
-	WeightedRule_2_1 := model.Rule{
-		Spec: model.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			PathMatchValue:   "",
-			PathMatchPrefix:  true,
-			RuleID:           weightRuleID,
-			Action: model.RuleAction{
-				TargetGroups: []*model.RuleTargetGroup{
-					&WeightedAction_11,
-					&WeightedAction_22,
-				},
-			},
-		},
-		Status: &model.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
+	t.Run("test create", func(t *testing.T) {
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{}, nil)
 
-	pathRule_1 := model.Rule{
-		Spec: model.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			RuleID:           weightRuleID,
-			PathMatchPrefix:  true,
-			PathMatchValue:   "/ver-1",
-			Action: model.RuleAction{
-				TargetGroups: []*model.RuleTargetGroup{
-					&WeightedAction_1,
-				},
-			},
-		},
-		Status: &model.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
+		mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).Return(
+			&vpclattice.CreateRuleOutput{
+				Arn:  aws.String("arn"),
+				Id:   aws.String("id"),
+				Name: aws.String("name"),
+			}, nil)
 
-	pathRule_11 := model.Rule{
-		Spec: model.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			RuleID:           weightRuleID,
-			PathMatchPrefix:  true,
-			PathMatchValue:   "/ver-1",
-			Action: model.RuleAction{
-				TargetGroups: []*model.RuleTargetGroup{
-					&WeightedAction_2,
-				},
-			},
-		},
-		Status: &model.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
+		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+		ruleStatus, err := rm.Upsert(ctx, r, l, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "arn", ruleStatus.Arn)
+	})
 
-	pathRule_2 := model.Rule{
-		Spec: model.RuleSpec{
-			ServiceName:      ServiceName,
-			ServiceNamespace: ServiceNameSpace,
-			ListenerPort:     ListenerPort,
-			ListenerProtocol: ListenerProtocol,
-			RuleID:           weightRuleID,
-			PathMatchPrefix:  true,
-			PathMatchValue:   "/ver-2",
-			Action: model.RuleAction{
-				TargetGroups: []*model.RuleTargetGroup{
-					&WeightedAction_1,
-				},
-			},
-		},
-		Status: &model.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
-
-	headerRule_1 := model.Rule{
-		Spec: model.RuleSpec{
-			ServiceName:        ServiceName,
-			ServiceNamespace:   ServiceNameSpace,
-			ListenerPort:       ListenerPort,
-			ListenerProtocol:   ListenerProtocol,
-			RuleID:             weightRuleID,
-			PathMatchPrefix:    true,
-			PathMatchValue:     "/ver-2",
-			NumOfHeaderMatches: 2,
-			MatchedHeaders: [5]vpclattice.HeaderMatch{
-
+	t.Run("test update method match", func(t *testing.T) {
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{
 				{
-					Match: &vpclattice.HeaderMatchType{
-						Exact: &hdr1Value},
-					Name: &hdr1,
+					Id:  aws.String("existing-id"),
+					Arn: aws.String("existing-arn"),
+					Match: &vpclattice.RuleMatch{
+						HttpMatch: &vpclattice.HttpMatch{
+							Method: aws.String("POST"),
+						},
+					},
+					Action: &vpclattice.RuleAction{
+						FixedResponse: &vpclattice.FixedResponseAction{}, // <-- this will trigger update
+					},
+					Name:     aws.String("existing-name"),
+					Priority: aws.Int64(1),
 				},
+			}, nil)
+
+		mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Return(
+			&vpclattice.UpdateRuleOutput{
+				Arn:  aws.String("existing-arn"),
+				Id:   aws.String("existing-id"),
+				Name: aws.String("existing-name"),
+			}, nil)
+
+		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+		ruleStatus, err := rm.Upsert(ctx, r, l, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "existing-arn", ruleStatus.Arn)
+	})
+
+	t.Run("test update path match", func(t *testing.T) {
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{
 				{
-					Match: &vpclattice.HeaderMatchType{
-						Exact: &hdr2Value},
-					Name: &hdr2,
-				},
-
-				{},
-				{},
-				{},
-			},
-			Action: model.RuleAction{
-				TargetGroups: []*model.RuleTargetGroup{
-					&WeightedAction_1,
-				},
-			},
-		},
-		Status: &model.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
-	headerRule_1_path_exact := headerRule_1
-	headerRule_1_path_exact.Spec.PathMatchPrefix = false
-	headerRule_1_path_exact.Spec.PathMatchExact = true
-
-	headerRule_1_2 := model.Rule{
-		Spec: model.RuleSpec{
-			ServiceName:        ServiceName,
-			ServiceNamespace:   ServiceNameSpace,
-			ListenerPort:       ListenerPort,
-			ListenerProtocol:   ListenerProtocol,
-			RuleID:             weightRuleID,
-			PathMatchPrefix:    true,
-			PathMatchValue:     "/ver-2",
-			NumOfHeaderMatches: 2,
-			MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-				{
-					Match: &vpclattice.HeaderMatchType{
-						Exact: &hdr1Value},
-					Name: &hdr1,
-				},
-				{
-					Match: &vpclattice.HeaderMatchType{
-						Exact: &hdr2Value},
-					Name: &hdr2,
-				},
-
-				{},
-				{},
-				{},
-			},
-			Action: model.RuleAction{
-				TargetGroups: []*model.RuleTargetGroup{
-					&WeightedAction_1,
-					&WeightedAction_2,
-				},
-			},
-		},
-		Status: &model.RuleStatus{
-			RuleARN:    "ruleARn",
-			RuleID:     "rule-id-2-1",
-			ListenerID: ListenerID,
-			ServiceID:  ServiceID,
-		},
-	}
-	headerRule_1_2_path_exact := headerRule_1_2
-	headerRule_1_2_path_exact.Spec.PathMatchPrefix = false
-	headerRule_1_2_path_exact.Spec.PathMatchExact = true
-
-	tests := []struct {
-		name                 string
-		oldRule              *model.Rule
-		newRule              *model.Rule
-		listRuleOuput        []*model.Rule
-		createRule           bool
-		updateRule           bool
-		noServiceID          bool
-		noListenerID         bool
-		noTargetGroupID      bool
-		updatePriorityNeeded bool
-	}{
-
-		{
-			name:                 "create header-based + path prefix rule with 1 TG",
-			oldRule:              nil,
-			newRule:              &headerRule_1,
-			createRule:           true,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-			name:                 "create header-based + path prefix rule with 2 TG",
-			oldRule:              &headerRule_1,
-			newRule:              &headerRule_1_2,
-			createRule:           false,
-			updateRule:           true,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-			name:                 "create header-based + path exact rule with 1 TG",
-			oldRule:              nil,
-			newRule:              &headerRule_1_path_exact,
-			createRule:           true,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-			name:                 "create header-based + path prefix rule with 2 TG",
-			oldRule:              &headerRule_1_path_exact,
-			newRule:              &headerRule_1_2_path_exact,
-			createRule:           false,
-			updateRule:           true,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-			name:                 "test1, create weighted rule with 1 TG",
-			oldRule:              nil,
-			newRule:              &WeightedRule_1,
-			createRule:           true,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-			name:                 "create weighted rule with 2 TGs",
-			oldRule:              &WeightedRule_1,
-			newRule:              &WeightedRule_1_2,
-			createRule:           false,
-			updateRule:           true,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-			name:                 "update weighted rule with 2 TGs",
-			oldRule:              &WeightedRule_1_2,
-			newRule:              &WeightedRule_2_1,
-			createRule:           false,
-			updateRule:           true,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-			name:                 "create path-based rule, no need to update priority",
-			oldRule:              nil,
-			newRule:              &pathRule_1,
-			createRule:           true,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-
-			name:                 "create path-based rule, need to update priority",
-			oldRule:              &pathRule_1,
-			newRule:              &pathRule_2,
-			createRule:           true,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: true,
-		},
-
-		{
-			name:                 "update path-based rule with a different TG",
-			oldRule:              &pathRule_1,
-			newRule:              &pathRule_11,
-			createRule:           false,
-			updateRule:           true,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-			name:                 "no serviceID",
-			oldRule:              nil,
-			newRule:              &pathRule_1,
-			createRule:           false,
-			updateRule:           false,
-			noServiceID:          true,
-			noListenerID:         false,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-		{
-			name:                 "no listenerID",
-			oldRule:              nil,
-			newRule:              &pathRule_1,
-			createRule:           false,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         true,
-			noTargetGroupID:      false,
-			updatePriorityNeeded: false,
-		},
-
-		{
-			name:                 "no TG IDs",
-			oldRule:              nil,
-			newRule:              &pathRule_1,
-			createRule:           false,
-			updateRule:           false,
-			noServiceID:          false,
-			noListenerID:         false,
-			noTargetGroupID:      true,
-			updatePriorityNeeded: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
-
-			mockLattice := mocks.NewMockLattice(c)
-			cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-
-			latticeDataStore := latticestore.NewLatticeDataStore()
-
-			ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
-
-			if !tt.noServiceID {
-				mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
-					&vpclattice.ServiceSummary{
-						Name: aws.String((&RuleLSNProvider{tt.newRule}).LatticeServiceName()),
-						Arn:  aws.String("serviceARN"),
-						Id:   aws.String(tt.newRule.Status.ServiceID),
-						DnsEntry: &vpclattice.DnsEntry{
-							DomainName:   aws.String("test-dns"),
-							HostedZoneId: aws.String("my-favourite-zone"),
-						},
-					}, nil).Times(1)
-			} else {
-				mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{}).Times(1)
-			}
-
-			if !tt.noListenerID {
-				latticeDataStore.AddListener(tt.newRule.Spec.ServiceName, tt.newRule.Spec.ServiceNamespace,
-					tt.newRule.Spec.ListenerPort, "HTTP",
-					"listernerARN", tt.newRule.Status.ListenerID)
-			}
-
-			if !tt.noTargetGroupID {
-				for _, tg := range tt.newRule.Spec.Action.TargetGroups {
-					tgName := latticestore.TargetGroupName(tg.Name, tg.Namespace)
-					latticeDataStore.AddTargetGroup(tgName, "vpc", "arn", "tg-id", tg.IsServiceImport, "")
-				}
-
-			}
-
-			if !tt.noListenerID && !tt.noServiceID {
-				ruleInput := vpclattice.ListRulesInput{
-					ListenerIdentifier: aws.String(tt.newRule.Status.ListenerID),
-					ServiceIdentifier:  aws.String(tt.newRule.Status.ServiceID),
-				}
-
-				ruleOutput := vpclattice.ListRulesOutput{}
-
-				if tt.oldRule != nil {
-					items := []*vpclattice.RuleSummary{}
-
-					items = append(items, &vpclattice.RuleSummary{
-						Id: aws.String(tt.oldRule.Spec.RuleID),
-					})
-					ruleOutput = vpclattice.ListRulesOutput{
-						Items: items,
-					}
-				}
-				mockLattice.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
-
-				if tt.oldRule != nil {
-					ruleGetInput := vpclattice.GetRuleInput{
-						ListenerIdentifier: aws.String(ListenerID),
-						ServiceIdentifier:  aws.String(ServiceID),
-						RuleIdentifier:     aws.String(tt.oldRule.Spec.RuleID),
-					}
-
-					//				listenerID := tt.oldRule.Status.ListenerID
-					latticeTGs := []*vpclattice.WeightedTargetGroup{}
-					//	ruleName := fmt.Sprintf("rule-%d-%s", tt.oldRule.Spec.CreateTime.Unix(), tt.oldRule.Spec.RuleID)
-					priority, _ := ruleID2Priority(tt.oldRule.Spec.RuleID)
-
-					for _, tg := range tt.oldRule.Spec.Action.TargetGroups {
-						latticeTG := vpclattice.WeightedTargetGroup{
-							TargetGroupIdentifier: aws.String("tg-id"),
-							Weight:                aws.Int64(tg.Weight),
-						}
-						latticeTGs = append(latticeTGs, &latticeTG)
-					}
-
-					httpMatch := vpclattice.HttpMatch{}
-					updateSDKhttpMatch(&httpMatch, tt.oldRule)
-					ruleGetOutput := vpclattice.GetRuleOutput{
-						Id:       aws.String(tt.oldRule.Spec.RuleID),
-						Priority: aws.Int64(priority),
-						Action: &vpclattice.RuleAction{
-							Forward: &vpclattice.ForwardAction{
-								TargetGroups: latticeTGs,
-							},
-						},
-						Match: &vpclattice.RuleMatch{
-							HttpMatch: &httpMatch,
-						},
-					}
-
-					mockLattice.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
-
-				}
-			}
-
-			if tt.createRule || tt.updateRule {
-				listenerID := tt.newRule.Status.ListenerID
-				latticeTGs := []*vpclattice.WeightedTargetGroup{}
-				ruleName := fmt.Sprintf("k8s-%d-%s", tt.newRule.Spec.CreateTime.Unix(), tt.newRule.Spec.RuleID)
-				priority, _ := ruleID2Priority(tt.newRule.Spec.RuleID)
-
-				if tt.updatePriorityNeeded {
-					priority, _ = ruleID2Priority(tt.oldRule.Spec.RuleID)
-					priority++
-				}
-
-				for _, tg := range tt.newRule.Spec.Action.TargetGroups {
-					latticeTG := vpclattice.WeightedTargetGroup{
-						TargetGroupIdentifier: aws.String("tg-id"),
-						Weight:                aws.Int64(tg.Weight),
-					}
-					latticeTGs = append(latticeTGs, &latticeTG)
-				}
-
-				if tt.createRule {
-					httpMatch := vpclattice.HttpMatch{}
-					updateSDKhttpMatch(&httpMatch, tt.newRule)
-					ruleInput := vpclattice.CreateRuleInput{
-						Action: &vpclattice.RuleAction{
-							Forward: &vpclattice.ForwardAction{
-								TargetGroups: latticeTGs,
-							},
-						},
-
-						ListenerIdentifier: aws.String(listenerID),
-						Name:               aws.String(ruleName),
-						Priority:           aws.Int64(priority),
-						ServiceIdentifier:  aws.String(ServiceID),
-						Match: &vpclattice.RuleMatch{
-							HttpMatch: &httpMatch,
-						},
-						Tags: cloud.DefaultTags(),
-					}
-					ruleOutput := vpclattice.CreateRuleOutput{
-						Id: aws.String(ruleID),
-					}
-					mockLattice.EXPECT().CreateRule(&ruleInput).Return(&ruleOutput, nil)
-				}
-
-				if tt.updateRule {
-					httpMatch := vpclattice.HttpMatch{}
-					updateSDKhttpMatch(&httpMatch, tt.newRule)
-					ruleInput := vpclattice.UpdateRuleInput{
-						Action: &vpclattice.RuleAction{
-							Forward: &vpclattice.ForwardAction{
-								TargetGroups: latticeTGs,
-							},
-						},
-
-						ListenerIdentifier: aws.String(listenerID),
-						//Name:               aws.String(ruleName),
-						RuleIdentifier:    aws.String(tt.newRule.Spec.RuleID),
-						Priority:          aws.Int64(priority),
-						ServiceIdentifier: aws.String(ServiceID),
-						Match: &vpclattice.RuleMatch{
-							HttpMatch: &httpMatch,
-						},
-						/*
-							Match: &vpclattice.RuleMatch{
-								HttpMatch: &vpclattice.HttpMatch{
-									// TODO, what if not specfied this
-									//Method: aws.String(vpclattice.HttpMethodGet),
-									PathMatch: &vpclattice.PathMatch{
-										CaseSensitive: nil,
-										Match: &vpclattice.PathMatchType{
-											Exact:  nil,
-											Prefix: aws.String(tt.newRule.Spec.PathMatchValue),
-										},
-									},
+					Id:  aws.String("existing-id"),
+					Arn: aws.String("existing-arn"),
+					Match: &vpclattice.RuleMatch{
+						HttpMatch: &vpclattice.HttpMatch{
+							HeaderMatches: make([]*vpclattice.HeaderMatch, 0), // this is what's returned in the Lattice API, not nil
+							PathMatch: &vpclattice.PathMatch{
+								CaseSensitive: aws.Bool(true), // default value
+								Match: &vpclattice.PathMatchType{
+									Prefix: aws.String("/foo"),
 								},
 							},
-						*/
-					}
-					ruleOutput := vpclattice.UpdateRuleOutput{
-						Id: aws.String(ruleID),
-					}
-					mockLattice.EXPECT().UpdateRule(&ruleInput).Return(&ruleOutput, nil)
-				}
-			}
-
-			resp, err := ruleManager.Create(ctx, tt.newRule)
-
-			if !tt.noListenerID && !tt.noServiceID && !tt.noTargetGroupID {
-				assert.NoError(t, err)
-
-				assert.Equal(t, resp.ListenerID, ListenerID)
-				assert.Equal(t, resp.ServiceID, ServiceID)
-				assert.Equal(t, resp.RuleID, ruleID)
-			}
-
-			fmt.Printf(" rulemanager.Create :%v, err %d\n", resp, err)
-		})
-	}
-}
-
-func Test_UpdateRule(t *testing.T) {
-	tests := []struct {
-		name         string
-		noServiceID  bool
-		noListenerID bool
-	}{
-		{
-			name:         "update",
-			noServiceID:  false,
-			noListenerID: false,
-		},
-
-		{
-			name:         "update -- no service",
-			noServiceID:  true,
-			noListenerID: false,
-		},
-		{
-			name:         "update -- no listenerID",
-			noServiceID:  false,
-			noListenerID: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := gomock.NewController(t)
-			defer c.Finish()
-			ctx := context.TODO()
-
-			mockLattice := mocks.NewMockLattice(c)
-			cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-
-			latticeDataStore := latticestore.NewLatticeDataStore()
-
-			ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
-
-			var i = 0
-			if !tt.noServiceID {
-				mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
-					&vpclattice.ServiceSummary{
-						Name: aws.String((&RuleLSNProvider{rules[i]}).LatticeServiceName()),
-						Arn:  aws.String("serviceARN"),
-						Id:   aws.String(rules[i].Status.ServiceID),
-						DnsEntry: &vpclattice.DnsEntry{
-							DomainName:   aws.String("test-dns"),
-							HostedZoneId: aws.String("my-favourite-zone"),
 						},
-					}, nil).Times(1)
-			} else {
-				mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(nil, &mocks.NotFoundError{}).Times(1)
-			}
+					},
+					Action: &vpclattice.RuleAction{
+						FixedResponse: &vpclattice.FixedResponseAction{}, // <-- this will trigger update
+					},
+					Name:     aws.String("existing-name"),
+					Priority: aws.Int64(1),
+				},
+			}, nil)
 
-			if !tt.noListenerID {
-				latticeDataStore.AddListener(rules[i].Spec.ServiceName, rules[i].Spec.ServiceNamespace,
-					rules[i].Spec.ListenerPort, "HTTP",
-					"listenerARN", rules[i].Status.ListenerID)
-			}
+		mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Return(
+			&vpclattice.UpdateRuleOutput{
+				Arn:  aws.String("existing-arn"),
+				Id:   aws.String("existing-id"),
+				Name: aws.String("existing-name"),
+			}, nil)
 
-			var ruleUpdateList []*vpclattice.RuleUpdate
+		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+		ruleStatus, err := rm.Upsert(ctx, r2, l, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "existing-arn", ruleStatus.Arn)
+	})
 
-			for _, rule := range rules {
-				priority, _ := ruleID2Priority(rule.Spec.RuleID)
-				ruleupdate := vpclattice.RuleUpdate{
-					RuleIdentifier: aws.String(rule.Status.RuleID),
-					Priority:       aws.Int64(priority),
-				}
+	t.Run("test update - nothing to do", func(t *testing.T) {
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{
+				{
+					Id:  aws.String("existing-id"),
+					Arn: aws.String("existing-arn"),
+					Match: &vpclattice.RuleMatch{
+						HttpMatch: &vpclattice.HttpMatch{
+							Method: aws.String("POST"),
+						},
+					},
+					Action: &vpclattice.RuleAction{
+						Forward: &vpclattice.ForwardAction{
+							TargetGroups: []*vpclattice.WeightedTargetGroup{
+								{
+									TargetGroupIdentifier: aws.String("tg-id"),
+									Weight:                aws.Int64(1),
+								},
+							},
+						},
+					},
+					Name:     aws.String("existing-name"),
+					Priority: aws.Int64(1),
+				},
+			}, nil) // <-- should be an exact match, no update required
 
-				ruleUpdateList = append(ruleUpdateList, &ruleupdate)
-
-			}
-
-			batchRuleInput := vpclattice.BatchUpdateRuleInput{
-				ListenerIdentifier: aws.String(rules[0].Status.ListenerID),
-				ServiceIdentifier:  aws.String(rules[0].Status.ServiceID),
-				Rules:              ruleUpdateList,
-			}
-
-			if !tt.noListenerID && !tt.noServiceID {
-				var batchRuleOutput vpclattice.BatchUpdateRuleOutput
-				mockLattice.EXPECT().BatchUpdateRule(&batchRuleInput).Return(&batchRuleOutput, nil)
-			}
-
-			err := ruleManager.Update(ctx, rules)
-
-			if !tt.noListenerID && !tt.noServiceID {
-				assert.NoError(t, err)
-			} else {
-				assert.NotNil(t, err)
-			}
-		})
-	}
+		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+		ruleStatus, err := rm.Upsert(ctx, r, l, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "existing-arn", ruleStatus.Arn)
+	})
 }
 
-func Test_List(t *testing.T) {
+func Test_CreateWithTempPriority(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-
 	mockLattice := mocks.NewMockLattice(c)
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
-	serviceID := "service1-ID"
-	listenerID := "listener-ID"
-
-	ruleInput := vpclattice.ListRulesInput{
-		ListenerIdentifier: aws.String(listenerID),
-		ServiceIdentifier:  aws.String(serviceID),
+	svc := &model.Service{
+		Status: &model.ServiceStatus{Id: "svc-id"},
 	}
-	ruleOutput := vpclattice.ListRulesOutput{
-		Items: []*vpclattice.RuleSummary{
+
+	l := &model.Listener{
+		Spec: model.ListenerSpec{
+			Port:     80,
+			Protocol: "HTTP",
+		},
+		Status: &model.ListenerStatus{Id: "listener-id"},
+	}
+
+	r := &model.Rule{
+		Spec: model.RuleSpec{
+			Priority: 1,
+			Method:   "POST",
+		},
+	}
+
+	mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+		[]*vpclattice.GetRuleOutput{
 			{
-				Arn:       &ruleList[0].Arn,
-				Id:        &ruleList[0].Id,
-				IsDefault: &ruleList[0].IsDefault,
-			},
-			{
-				Arn:       &ruleList[1].Arn,
-				Id:        &ruleList[1].Id,
-				IsDefault: &ruleList[1].IsDefault,
-			},
-		},
-	}
-
-	latticeDataStore := latticestore.NewLatticeDataStore()
-
-	mockLattice.EXPECT().ListRules(&ruleInput).Return(&ruleOutput, nil)
-
-	ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
-
-	resp, err := ruleManager.List(ctx, serviceID, listenerID)
-
-	assert.NoError(t, err)
-
-	for i := 0; i < 2; i++ {
-		assert.Equal(t, resp[i].ListenerID, listenerID)
-		assert.Equal(t, resp[i].RuleID, ruleList[i].Id)
-		assert.Equal(t, resp[i].ServiceID, serviceID)
-	}
-	fmt.Printf("rule Manager List resp %v\n", resp)
-
-}
-
-func Test_GetRule(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-
-	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-
-	serviceID := "service1-ID"
-	listenerID := "listener-ID"
-	ruleID := "rule-ID"
-	ruleARN := "rule-ARN"
-	rulePriority := int64(10)
-
-	ruleGetInput := vpclattice.GetRuleInput{
-		ListenerIdentifier: aws.String(listenerID),
-		ServiceIdentifier:  aws.String(serviceID),
-		RuleIdentifier:     aws.String(ruleID),
-	}
-
-	latticeDataStore := latticestore.NewLatticeDataStore()
-
-	ruleGetOutput := vpclattice.GetRuleOutput{
-		Arn:      aws.String(ruleARN),
-		Id:       aws.String(ruleID),
-		Priority: aws.Int64(int64(rulePriority)),
-	}
-
-	mockLattice.EXPECT().GetRule(&ruleGetInput).Return(&ruleGetOutput, nil)
-
-	ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
-
-	resp, err := ruleManager.Get(ctx, serviceID, listenerID, ruleID)
-
-	fmt.Printf("resp :%v \n", resp)
-	assert.NoError(t, err)
-	assert.Equal(t, aws.StringValue(resp.Id), ruleID)
-	assert.Equal(t, aws.Int64Value(resp.Priority), rulePriority)
-
-}
-
-func Test_DeleteRule(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-
-	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-
-	serviceID := "service1-ID"
-	listenerID := "listener-ID"
-	ruleID := "rule-ID"
-
-	ruleDeleteInput := vpclattice.DeleteRuleInput{
-		ServiceIdentifier:  aws.String(serviceID),
-		ListenerIdentifier: aws.String(listenerID),
-		RuleIdentifier:     aws.String(ruleID),
-	}
-
-	latticeDataStore := latticestore.NewLatticeDataStore()
-
-	ruleDeleteOuput := vpclattice.DeleteRuleOutput{}
-	mockLattice.EXPECT().DeleteRule(&ruleDeleteInput).Return(&ruleDeleteOuput, nil)
-
-	ruleManager := NewRuleManager(gwlog.FallbackLogger, cloud, latticeDataStore)
-
-	ruleManager.Delete(ctx, ruleID, listenerID, serviceID)
-
-}
-
-func Test_isRulesSame(t *testing.T) {
-	var path1 = string("/ver1")
-	var path2 = string("/ver2")
-	var hdr1 = "env1"
-	var hdr1Value = "test1"
-	var hdr2 = "env2"
-	var hdr2Value = "test2"
-
-	tests := []struct {
-		name        string
-		k8sRule     *model.Rule
-		sdkRule     *vpclattice.GetRuleOutput
-		ruleMatched bool
-	}{
-		{
-			name: "PathMatchEaxt Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					PathMatchExact: true,
-					PathMatchValue: path1,
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
+				Id:  aws.String("existing-id"),
+				Arn: aws.String("existing-arn"),
 				Match: &vpclattice.RuleMatch{
 					HttpMatch: &vpclattice.HttpMatch{
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Exact: &path1,
-							},
-						},
+						Method: aws.String("GET"), // <-- will be considered a different rule
 					},
 				},
+				Name:     aws.String("existing-name"),
+				Priority: aws.Int64(1), // <-- we have the same priority
 			},
-			ruleMatched: true,
-		},
-		{
-			name: "PathMatchPrefix Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					PathMatchPrefix: true,
-					PathMatchValue:  path1,
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Prefix: &path1,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: true,
-		},
-		{
-			name: "2 headers + PathPrefix Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					PathMatchPrefix:    true,
-					PathMatchValue:     path1,
-					NumOfHeaderMatches: 2,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
+		}, nil)
 
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr2Value},
-							Name: &hdr2,
-						},
+	expectedPriority := int64(2)
 
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr1,
-							},
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr2Value},
-								Name: &hdr2,
-							},
-						},
+	mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
+		func(ctx context.Context, input *vpclattice.CreateRuleInput, i ...interface{}) (*vpclattice.CreateRuleOutput, error) {
+			// 2 is the "next" available priority
+			assert.Equal(t, expectedPriority, aws.Int64Value(input.Priority))
 
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Prefix: &path1,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: true,
-		},
-		{
-			name: "2 headers + path exact Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					PathMatchExact:     true,
-					PathMatchValue:     path1,
-					NumOfHeaderMatches: 2,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr2Value},
-							Name: &hdr2,
-						},
-
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr1,
-							},
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr2Value},
-								Name: &hdr2,
-							},
-						},
-
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Exact: &path1,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: true,
-		},
-		{
-			name: "2 headers + header mis Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					NumOfHeaderMatches: 2,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{},
-
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr2,
-							},
-							{},
-						},
-					},
-				},
-			},
-			ruleMatched: false,
-		},
-		{
-			name: "2 headers + value mis Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					NumOfHeaderMatches: 2,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{},
-
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr2Value},
-								Name: &hdr1,
-							},
-							{},
-						},
-					},
-				},
-			},
-			ruleMatched: false,
-		},
-		{
-			name: "PathMatchEaxt MisMatch",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					PathMatchExact: true,
-					PathMatchValue: path1,
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Exact: &path2,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: false,
-		},
-		{
-			name: "PathMatchEaxt PathPrefix MisMatch",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					PathMatchPrefix: true,
-					PathMatchValue:  path1,
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Exact: &path1,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: false,
-		},
-		{
-			name: "2 headers + path exact Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					PathMatchExact:     true,
-					PathMatchValue:     path1,
-					NumOfHeaderMatches: 2,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr2Value},
-							Name: &hdr2,
-						},
-
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr1,
-							},
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr2Value},
-								Name: &hdr2,
-							},
-						},
-
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Exact: &path1,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: true,
-		},
-		{
-			name: "number of header mis Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					NumOfHeaderMatches: 1,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{},
-
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr1,
-							},
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr2Value},
-								Name: &hdr2,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: false,
-		},
-		{
-			name: "2nd header value mis Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					NumOfHeaderMatches: 2,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr2,
-						},
-
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr1,
-							},
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr2Value},
-								Name: &hdr2,
-							},
-						},
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Exact: &path1,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: false,
-		},
-		{
-			name: "header match, but one has pathexat -- mis Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					NumOfHeaderMatches: 2,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr2,
-						},
-
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr1,
-							},
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr2,
-							},
-						},
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Exact: &path1,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: false,
-		},
-		{
-			name: "header match, but one has pathprefix -- mis Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					NumOfHeaderMatches: 2,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr2,
-						},
-
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr1,
-							},
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr2,
-							},
-						},
-						PathMatch: &vpclattice.PathMatch{
-							Match: &vpclattice.PathMatchType{
-								Prefix: &path1,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: false,
-		},
-		{
-			name: "header match, but one has pathprefix -- mis Match",
-			k8sRule: &model.Rule{
-				Spec: model.RuleSpec{
-					PathMatchPrefix:    true,
-					PathMatchValue:     path1,
-					NumOfHeaderMatches: 2,
-					MatchedHeaders: [5]vpclattice.HeaderMatch{
-
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr1,
-						},
-						{
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value},
-							Name: &hdr2,
-						},
-
-						{},
-						{},
-						{},
-					},
-				},
-			},
-			sdkRule: &vpclattice.GetRuleOutput{
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
-						HeaderMatches: []*vpclattice.HeaderMatch{
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr1,
-							},
-							{
-								Match: &vpclattice.HeaderMatchType{
-									Exact: &hdr1Value},
-								Name: &hdr2,
-							},
-						},
-					},
-				},
-			},
-			ruleMatched: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sameRule := isRulesSame(gwlog.FallbackLogger, tt.k8sRule, tt.sdkRule)
-
-			if tt.ruleMatched {
-				assert.True(t, sameRule)
-			} else {
-				assert.False(t, sameRule)
-			}
+			return &vpclattice.CreateRuleOutput{
+				Arn:      aws.String("new-arn"),
+				Id:       aws.String("new-id"),
+				Name:     aws.String("new-name"),
+				Priority: aws.Int64(expectedPriority),
+			}, nil
 		})
+
+	rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+	ruleStatus, err := rm.Upsert(ctx, r, l, svc)
+	assert.Nil(t, err)
+	assert.Equal(t, "new-arn", ruleStatus.Arn)
+	assert.Equal(t, expectedPriority, ruleStatus.Priority)
+}
+
+func Test_UpdatePriorities(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	// note that priorities are actually just assigned in order
+	// so this example of descending priority is contrived
+	rules := []*model.Rule{
+		{
+			Spec:   model.RuleSpec{Priority: 2},
+			Status: &model.RuleStatus{Id: "rule-0"},
+		},
+		{
+			Spec:   model.RuleSpec{Priority: 1},
+			Status: &model.RuleStatus{Id: "rule-1"},
+		},
 	}
+
+	mockLattice.EXPECT().BatchUpdateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
+		func(ctx context.Context, input *vpclattice.BatchUpdateRuleInput, i ...interface{}) (*vpclattice.BatchUpdateRuleOutput, error) {
+			for _, rule := range input.Rules {
+				if *rule.RuleIdentifier == "rule-0" {
+					assert.Equal(t, int64(2), *rule.Priority)
+					continue
+				}
+				if *rule.RuleIdentifier == "rule-1" {
+					assert.Equal(t, int64(1), *rule.Priority)
+					continue
+				}
+				assert.Fail(t, "should not reach this point")
+			}
+
+			return &vpclattice.BatchUpdateRuleOutput{}, nil
+		})
+
+	rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+	err := rm.UpdatePriorities(ctx, "svc-id", "l-id", rules)
+	assert.Nil(t, err)
 }

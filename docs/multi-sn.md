@@ -132,19 +132,19 @@ In workload cluster, exports k8s service to AWS VPC lattice
 
 ```
 # in workload cluster(s)
-apiVersion: multicluster.x-k8s.io/v1alpha1
+apiVersion: application-networking.k8s.aws/v1alpha1
 kind: ServiceExport
 metadata:
   name: service-1
   annotations:
-          multicluster.x-k8s.io/federation: "amazon-vpc-lattice"  #  AWS VPC Lattice
+          application-networking.k8s.aws/federation: "amazon-vpc-lattice"  #  AWS VPC Lattice
 ``` 
 
 ### Configure HTTPRoute in config cluster to reference K8S service(s) in worload cluster(s)
 
 ```
 # in config cluster
-apiVersion: multicluster.x-k8s.io/v1alpha1
+apiVersion: application-networking.k8s.aws/v1alpha1
 kind: ServiceImport
 metadata:
   name: service-1

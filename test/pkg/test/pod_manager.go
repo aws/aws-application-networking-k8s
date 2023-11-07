@@ -53,6 +53,11 @@ func (env *Framework) PodExec(pod corev1.Pod, cmd string) (string, string, error
 		Stderr: &stderr,
 	})
 
+	// uncomment to see full output during test runs
+	//gwlog.FallbackLogger.Debugf("PodExec stdout: %s", stdout.String())
+	//gwlog.FallbackLogger.Debugf("PodExec stderr: %s", stderr.String())
+	//gwlog.FallbackLogger.Debugf("PodExec err: %s", err)
+
 	return stdout.String(), stderr.String(), err
 }
 

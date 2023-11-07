@@ -22,7 +22,6 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/pkg/errors"
@@ -37,22 +36,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"sigs.k8s.io/external-dns/endpoint"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
-	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 var routeTypeToFinalizer = map[core.RouteType]string{
@@ -69,7 +67,6 @@ type routeReconciler struct {
 	eventRecorder    record.EventRecorder
 	modelBuilder     gateway.LatticeServiceBuilder
 	stackDeployer    deploy.StackDeployer
-	latticeDataStore *latticestore.LatticeDataStore
 	stackMarshaller  deploy.StackMarshaller
 	cloud            aws.Cloud
 }
@@ -78,18 +75,9 @@ const (
 	LatticeAssignedDomainName = "application-networking.k8s.aws/lattice-assigned-domain-name"
 )
 
-type RouteLSNProvider struct {
-	Route core.Route
-}
-
-func (r *RouteLSNProvider) LatticeServiceName() string {
-	return utils.LatticeServiceName(r.Route.Name(), r.Route.Namespace())
-}
-
 func RegisterAllRouteControllers(
 	log gwlog.Logger,
 	cloud aws.Cloud,
-	datastore *latticestore.LatticeDataStore,
 	finalizerManager k8s.FinalizerManager,
 	mgr ctrl.Manager,
 ) error {
@@ -106,6 +94,7 @@ func RegisterAllRouteControllers(
 	}
 
 	for _, routeInfo := range routeInfos {
+		brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(log, mgrClient)
 		reconciler := routeReconciler{
 			routeType:        routeInfo.routeType,
 			log:              log,
@@ -113,9 +102,8 @@ func RegisterAllRouteControllers(
 			scheme:           mgr.GetScheme(),
 			finalizerManager: finalizerManager,
 			eventRecorder:    mgr.GetEventRecorderFor(string(routeInfo.routeType) + "route"),
-			latticeDataStore: datastore,
-			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, datastore, cloud),
-			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient, datastore),
+			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, brTgBuilder),
+			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 			cloud:            cloud,
 		}
@@ -123,14 +111,14 @@ func RegisterAllRouteControllers(
 		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
-			For(routeInfo.gatewayApiType).
+			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 			Watches(&source.Kind{Type: &gwv1beta1.Gateway{}}, gwEventHandler).
 			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToRoute(routeInfo.routeType)).
-			Watches(&source.Kind{Type: &mcsv1alpha1.ServiceImport{}}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
+			Watches(&source.Kind{Type: &anv1alpha1.ServiceImport{}}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
 			Watches(&source.Kind{Type: &corev1.Endpoints{}}, svcEventHandler.MapToRoute(routeInfo.routeType))
 
-		if ok, err := k8s.IsGVKSupported(mgr, v1alpha1.GroupVersion.String(), v1alpha1.TargetGroupPolicyKind); ok {
-			builder.Watches(&source.Kind{Type: &v1alpha1.TargetGroupPolicy{}}, svcEventHandler.MapToRoute(routeInfo.routeType))
+		if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
+			builder.Watches(&source.Kind{Type: &anv1alpha1.TargetGroupPolicy{}}, svcEventHandler.MapToRoute(routeInfo.routeType))
 		} else {
 			if err != nil {
 				return err
@@ -195,8 +183,8 @@ func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request,
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 		k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 
-	if err := r.cleanupRouteResources(ctx, route); err != nil {
-		return fmt.Errorf("failed to cleanup GRPCRoute %s, %s: %w", route.Name(), route.Namespace(), err)
+	if _, err := r.buildAndDeployModel(ctx, route); err != nil {
+		return fmt.Errorf("failed to cleanup route %s, %s: %w", route.Name(), route.Namespace(), err)
 	}
 
 	if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
@@ -236,11 +224,6 @@ func updateRouteListenerStatus(ctx context.Context, k8sClient client.Client, rou
 	}
 
 	return UpdateGWListenerStatus(ctx, k8sClient, gw)
-}
-
-func (r *routeReconciler) cleanupRouteResources(ctx context.Context, route core.Route) error {
-	_, _, err := r.buildAndDeployModel(ctx, route)
-	return err
 }
 
 func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route) bool {
@@ -290,8 +273,8 @@ func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 func (r *routeReconciler) buildAndDeployModel(
 	ctx context.Context,
 	route core.Route,
-) (core.Stack, *model.Service, error) {
-	stack, latticeService, err := r.modelBuilder.Build(ctx, route)
+) (core.Stack, error) {
+	stack, err := r.modelBuilder.Build(ctx, route)
 
 	if err != nil {
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
@@ -300,13 +283,15 @@ func (r *routeReconciler) buildAndDeployModel(
 
 		// Build failed
 		// TODO continue deploy to trigger reconcile of stale Route and policy
-		return nil, nil, err
+		return nil, err
 	}
 
-	_, err = r.stackMarshaller.Marshal(stack)
+	json, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
 		r.log.Errorf("error on r.stackMarshaller.Marshal error %s", err)
 	}
+
+	r.log.Debugf("stack: %s", json)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		if errors.As(err, &lattice.RetryErr) {
@@ -316,10 +301,10 @@ func (r *routeReconciler) buildAndDeployModel(
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
 				k8s.RouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %s", err))
 		}
-		return nil, nil, err
+		return nil, err
 	}
 
-	return stack, latticeService, err
+	return stack, err
 }
 
 func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request, route core.Route) error {
@@ -353,19 +338,36 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		return backendRefIPFamiliesErr
 	}
 
-	if _, _, err := r.buildAndDeployModel(ctx, route); err != nil {
+	if _, err := r.buildAndDeployModel(ctx, route); err != nil {
+		if services.IsConflictError(err) {
+			// Stop reconciliation of this route if the route cannot be owned / has conflict
+			route.Status().UpdateParentRefs(route.Spec().ParentRefs()[0], config.LatticeGatewayControllerName)
+			route.Status().UpdateRouteCondition(metav1.Condition{
+				Type:               string(gwv1beta1.RouteConditionAccepted),
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: route.K8sObject().GetGeneration(),
+				Reason:             "Conflicted",
+				Message:            err.Error(),
+			})
+			if err = r.client.Status().Update(ctx, route.K8sObject()); err != nil {
+				return fmt.Errorf("failed to update route status for conflict due to err %w", err)
+			}
+			return nil
+		}
 		return err
 	}
 
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 		k8s.RouteEventReasonDeploySucceed, "Adding/Updating reconcile Done!")
 
-	svc, err := r.cloud.Lattice().FindService(ctx, &RouteLSNProvider{route})
+	svcName := utils.LatticeServiceName(route.Name(), route.Namespace())
+	svc, err := r.cloud.Lattice().FindService(ctx, svcName)
 	if err != nil && !services.IsNotFoundError(err) {
 		return err
 	}
 
 	if svc == nil || svc.DnsEntry == nil || svc.DnsEntry.DomainName == nil {
+		r.log.Infof("Either service, dns entry, or domain name is not available. Will Retry")
 		return errors.New(lattice.LATTICE_RETRY)
 	}
 

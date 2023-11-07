@@ -6,16 +6,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
@@ -26,8 +25,8 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 		deployment1    *appsv1.Deployment
 		service0       *v1.Service
 		service1       *v1.Service
-		serviceExport1 *v1alpha1.ServiceExport
-		serviceImport1 *v1alpha1.ServiceImport
+		serviceExport1 *anv1alpha1.ServiceExport
+		serviceImport1 *anv1alpha1.ServiceImport
 		httpRoute      *v1beta1.HTTPRoute
 	)
 
@@ -145,17 +144,14 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 		})
 
 	AfterEach(func() {
-		testFramework.ExpectDeleted(ctx, httpRoute)
-		testFramework.SleepForRouteDeletion()
-
 		testFramework.ExpectDeletedThenNotFound(ctx,
+			httpRoute,
 			deployment0,
 			service0,
 			deployment1,
 			service1,
 			serviceExport1,
 			serviceImport1,
-			httpRoute,
 		)
 	})
 })

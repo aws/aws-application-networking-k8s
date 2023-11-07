@@ -8,45 +8,37 @@ type Listener struct {
 	core.ResourceMeta `json:"-"`
 	Spec              ListenerSpec    `json:"spec"`
 	Status            *ListenerStatus `json:"status,omitempty"`
+	IsDeleted         bool            `json:"isdeleted"`
 }
 
 type ListenerSpec struct {
-	Name          string        `json:"name"`
-	Namespace     string        `json:"namespace"`
-	Port          int64         `json:"port"`
-	Protocol      string        `json:"protocol"`
-	DefaultAction DefaultAction `json:"defaultaction"`
+	StackServiceId    string `json:"stackserviceid"`
+	K8SRouteName      string `json:"k8sroutename"`
+	K8SRouteNamespace string `json:"k8sroutenamespace"`
+	Port              int64  `json:"port"`
+	Protocol          string `json:"protocol"`
 }
 
-type DefaultAction struct {
-	BackendServiceName      string `json:"backendservicename"`
-	BackendServiceNamespace string `json:"backendservicenamespace"`
-}
 type ListenerStatus struct {
 	Name        string `json:"name"`
-	Namespace   string `json:"namespace"`
-	ListenerARN string `json:"listenerARN"`
-	ListenerID  string `json:"listenerID"`
-	ServiceID   string `json:"serviceID"`
-	Port        int64  `json:"port"`
-	Protocol    string `json:"protocol"`
+	ListenerArn string `json:"listenerarn"`
+	Id          string `json:"listenerid"`
+	ServiceId   string `json:"serviceid"`
 }
 
-func NewListener(stack core.Stack, id string, port int64, protocol string, name string, namespace string, action DefaultAction) *Listener {
+func NewListener(stack core.Stack, spec ListenerSpec) (*Listener, error) {
+	id, err := core.IdFromHash(spec)
+	if err != nil {
+		return nil, err
+	}
 
 	listener := &Listener{
 		ResourceMeta: core.NewResourceMeta(stack, "AWS::VPCServiceNetwork::Listener", id),
-		Spec: ListenerSpec{
-			Name:          name,
-			Namespace:     namespace,
-			Port:          port,
-			Protocol:      protocol,
-			DefaultAction: action,
-		},
-		Status: nil,
+		Spec:         spec,
+		Status:       nil,
 	}
 
 	stack.AddResource(listener)
 
-	return listener
+	return listener, nil
 }
