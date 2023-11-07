@@ -110,16 +110,15 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (c *IAMAuthPolicyController) reconcileDelete(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) (ctrl.Result, error) {
-	var statusPolicy model.IAMAuthPolicyStatus
 	err := c.validateSpec(ctx, k8sPolicy)
 	if err == nil {
 		modelPolicy := model.NewIAMAuthPolicy(k8sPolicy)
-		statusPolicy, err = c.policyMgr.Delete(ctx, modelPolicy)
+		_, err := c.policyMgr.Delete(ctx, modelPolicy)
 		if err != nil {
 			return ctrl.Result{}, services.IgnoreNotFound(err)
 		}
 	}
-	err = c.handleLatticeResourceChange(ctx, k8sPolicy, statusPolicy)
+	err = c.handleLatticeResourceChange(ctx, k8sPolicy, model.IAMAuthPolicyStatus{})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -133,19 +132,19 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if validationErr != nil {
-		return ctrl.Result{}, nil // if policy is invalid we should not retry
-	}
-	modelPolicy := model.NewIAMAuthPolicy(k8sPolicy)
-	statusPolicy, err := c.policyMgr.Put(ctx, modelPolicy)
-	if err != nil {
-		return reconcile.Result{}, services.IgnoreNotFound(err)
+	var statusPolicy model.IAMAuthPolicyStatus
+	if validationErr == nil {
+		modelPolicy := model.NewIAMAuthPolicy(k8sPolicy)
+		statusPolicy, err = c.policyMgr.Put(ctx, modelPolicy)
+		if err != nil {
+			return reconcile.Result{}, services.IgnoreNotFound(err)
+		}
+		c.updateLatticeAnnotaion(k8sPolicy, statusPolicy.ResourceId, modelPolicy.Type)
 	}
 	err = c.handleLatticeResourceChange(ctx, k8sPolicy, statusPolicy)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	c.updateLatticeAnnotaion(k8sPolicy, statusPolicy.ResourceId, modelPolicy.Type)
 	c.addFinalizer(k8sPolicy)
 	return ctrl.Result{}, nil
 }
