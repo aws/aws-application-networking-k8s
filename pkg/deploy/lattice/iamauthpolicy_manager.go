@@ -34,11 +34,11 @@ func (m *IAMAuthPolicyManager) putSn(ctx context.Context, policy model.IAMAuthPo
 		return model.IAMAuthPolicyStatus{}, err
 	}
 	resourceId := *sn.SvcNetwork.Id
-	err = m.enableSnIAMAuth(ctx, resourceId)
+	err = m.putPolicy(ctx, resourceId, policy.Policy)
 	if err != nil {
 		return model.IAMAuthPolicyStatus{}, err
 	}
-	err = m.putPolicy(ctx, resourceId, policy.Policy)
+	err = m.enableSnIAMAuth(ctx, resourceId)
 	if err != nil {
 		return model.IAMAuthPolicyStatus{}, err
 	}
@@ -51,11 +51,11 @@ func (m *IAMAuthPolicyManager) putSvc(ctx context.Context, policy model.IAMAuthP
 		return model.IAMAuthPolicyStatus{}, err
 	}
 	resourceId := *svc.Id
-	err = m.enableSvcIAMAuth(ctx, resourceId)
+	err = m.putPolicy(ctx, resourceId, policy.Policy)
 	if err != nil {
 		return model.IAMAuthPolicyStatus{}, err
 	}
-	err = m.putPolicy(ctx, resourceId, policy.Policy)
+	err = m.enableSvcIAMAuth(ctx, resourceId)
 	if err != nil {
 		return model.IAMAuthPolicyStatus{}, err
 	}
