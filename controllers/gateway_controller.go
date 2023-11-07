@@ -24,8 +24,6 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
-	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
@@ -44,11 +42,14 @@ import (
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
 	gatewayFinalizer = "gateway.k8s.aws/resources"
-	defaultNameSpace = "default"
+	defaultNamespace = "default"
 )
 
 type gatewayReconciler struct {
@@ -57,10 +58,7 @@ type gatewayReconciler struct {
 	scheme           *runtime.Scheme
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
-	modelBuilder     gateway.ServiceNetworkModelBuilder
-	stackDeployer    deploy.StackDeployer
 	cloud            aws.Cloud
-	stackMarshaller  deploy.StackMarshaller
 }
 
 func RegisterGatewayController(
@@ -73,26 +71,19 @@ func RegisterGatewayController(
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("gateway")
 
-	modelBuilder := gateway.NewServiceNetworkModelBuilder(mgrClient)
-	stackDeployer := deploy.NewServiceNetworkStackDeployer(log, cloud, mgrClient)
-	stackMarshaller := deploy.NewDefaultStackMarshaller()
-
 	r := &gatewayReconciler{
 		log:              log,
 		client:           mgrClient,
 		scheme:           scheme,
 		finalizerManager: finalizerManager,
 		eventRecorder:    evtRec,
-		modelBuilder:     modelBuilder,
-		stackDeployer:    stackDeployer,
 		cloud:            cloud,
-		stackMarshaller:  stackMarshaller,
 	}
 
 	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(log, mgrClient)
 	vpcAssociationPolicyEventHandler := eventhandlers.NewVpcAssociationPolicyEventHandler(log, mgrClient)
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&gwv1beta1.Gateway{})
+		For(&gwv1beta1.Gateway{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 	builder.Watches(&source.Kind{Type: &gwv1beta1.GatewayClass{}}, gwClassEventHandler)
 
 	//Watch VpcAssociationPolicy CRD if it is installed
@@ -129,10 +120,6 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return res, retryErr
 }
 
-func (r *gatewayReconciler) isDefaultNameSpace(n string) bool {
-	return n == defaultNameSpace
-}
-
 func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 
 	gw := &gwv1beta1.Gateway{}
@@ -142,17 +129,17 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 
 	gwClass := &gwv1beta1.GatewayClass{}
 	gwClassName := types.NamespacedName{
-		Namespace: defaultNameSpace,
+		Namespace: defaultNamespace,
 		Name:      string(gw.Spec.GatewayClassName),
 	}
 
 	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
-		r.log.Infow("ignore, not linked to any gateway-class", "name", req.Name, "gwclass", gwClassName)
+		r.log.Infow("GatewayClass is not found", "name", req.Name, "gwclass", gwClassName)
 		return client.IgnoreNotFound(err)
 	}
 
 	if gwClass.Spec.ControllerName != config.LatticeGatewayControllerName {
-		r.log.Infow("ignore non aws gateways", "name", req.Name, "gwClass controller name", gwClass.Spec.ControllerName)
+		r.log.Infow("GatewayClass is not recognized", "name", req.Name, "gwClassControllerName", gwClass.Spec.ControllerName)
 		return nil
 	}
 
@@ -188,12 +175,9 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1beta1.G
 		}
 
 		if httpGw.Name == gw.Name && httpGw.Namespace == gw.Namespace {
-			return fmt.Errorf("cannot delete gw, there is reference to httpGw, gw: %s, httpGw: %s", gw.Name, httpGw.Name)
+			return fmt.Errorf("Cannot delete gateway %s/%s - found referencing route %s/%s",
+				gw.Namespace, gw.Name, route.Namespace(), route.Name())
 		}
-	}
-
-	if err := r.buildAndDeployModel(ctx, gw); err != nil {
-		return errors.Wrapf(err, "failed to cleanup gw: %s", gw.Name)
 	}
 
 	err = r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
@@ -224,64 +208,49 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1beta1.G
 		return err
 	}
 
-	if err = r.buildAndDeployModel(ctx, gw); err != nil {
-		return err
-	}
-
 	snInfo, err := r.cloud.Lattice().FindServiceNetwork(ctx, gw.Name, config.AccountID)
 	if err != nil {
+		if services.IsNotFoundError(err) {
+			if err = r.updateGatewayProgrammedStatus(ctx, *snInfo.SvcNetwork.Arn, gw, false); err != nil {
+				return err
+			}
+			return nil
+		}
 		return err
 	}
 
-	if err = r.updateGatewayStatus(ctx, *snInfo.SvcNetwork.Arn, gw); err != nil {
+	if err = r.updateGatewayProgrammedStatus(ctx, *snInfo.SvcNetwork.Arn, gw, true); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *gatewayReconciler) buildAndDeployModel(ctx context.Context, gw *gwv1beta1.Gateway) error {
-	stack, _, err := r.modelBuilder.Build(ctx, gw)
-	if err != nil {
-		r.eventRecorder.Event(gw, corev1.EventTypeWarning,
-			k8s.GatewayEventReasonFailedBuildModel,
-			fmt.Sprintf("failed build model: %s", err))
-		return err
-	}
-	jsonStack, err := r.stackMarshaller.Marshal(stack)
-	if err != nil {
-		return err
-	}
-	r.log.Debugw("successfully built model", "stack", jsonStack)
-
-	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
-		/*
-			r.eventRecorder.Event(gw, corev1.EventTypeWarning,
-				k8s.GatewayEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
-		*/
-		return err
-	}
-	r.log.Debugw("successfully deployed model",
-		"stack", stack.StackID().Name+":"+stack.StackID().Namespace,
-	)
-
-	return err
-}
-
-func (r *gatewayReconciler) updateGatewayStatus(
+func (r *gatewayReconciler) updateGatewayProgrammedStatus(
 	ctx context.Context,
 	snArn string,
 	gw *gwv1beta1.Gateway,
+	programmed bool,
 ) error {
 	gwOld := gw.DeepCopy()
 
-	gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, metav1.Condition{
-		Type:               string(gwv1beta1.GatewayConditionProgrammed),
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: gw.Generation,
-		Reason:             string(gwv1beta1.GatewayReasonProgrammed),
-		Message:            fmt.Sprintf("aws-gateway-arn: %s", snArn),
-	})
+	if programmed {
+		gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, metav1.Condition{
+			Type:               string(gwv1beta1.GatewayConditionProgrammed),
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: gw.Generation,
+			Reason:             string(gwv1beta1.GatewayReasonProgrammed),
+			Message:            fmt.Sprintf("aws-gateway-arn: %s", snArn),
+		})
+	} else {
+		gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, metav1.Condition{
+			Type:               string(gwv1beta1.GatewayConditionProgrammed),
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: gw.Generation,
+			Reason:             string(gwv1beta1.GatewayReasonPending),
+			Message:            "VPC Lattice Gateway not found",
+		})
+	}
 
 	if err := r.client.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 		return fmt.Errorf("update gw status error, gw: %s, err: %w", gw.Name, err)

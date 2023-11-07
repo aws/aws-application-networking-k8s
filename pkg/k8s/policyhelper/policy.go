@@ -1,4 +1,4 @@
-package gateway
+package policyhelper
 
 import (
 	"context"
@@ -14,11 +14,11 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
-func GetAttachedPolicy[T core.Policy](ctx context.Context, k8sClient client.Client, refObjNamespacedName types.NamespacedName, policy T) (T, error) {
-	null := *new(T)
+func GetAttachedPolicies[T core.Policy](ctx context.Context, k8sClient client.Client, refObjNamespacedName types.NamespacedName, policy T) ([]T, error) {
+	var policies []T
 	policyList, expectedTargetRefObjGroup, expectedTargetRefObjKind, err := policyTypeToPolicyListAndTargetRefGroupKind(policy)
 	if err != nil {
-		return null, err
+		return policies, err
 	}
 
 	err = k8sClient.List(ctx, policyList.(client.ObjectList), &client.ListOptions{
@@ -27,9 +27,9 @@ func GetAttachedPolicy[T core.Policy](ctx context.Context, k8sClient client.Clie
 	if err != nil {
 		if meta.IsNoMatchError(err) {
 			// CRD does not exist
-			return null, nil
+			return policies, nil
 		}
-		return null, err
+		return policies, err
 	}
 	for _, p := range policyList.GetItems() {
 		targetRef := p.GetTargetRef()
@@ -45,10 +45,10 @@ func GetAttachedPolicy[T core.Policy](ctx context.Context, k8sClient client.Clie
 		}
 		namespaceMatch := retrievedNamespace == refObjNamespacedName.Namespace
 		if groupKindMatch && nameMatch && namespaceMatch {
-			return p.(T), nil
+			policies = append(policies, p.(T))
 		}
 	}
-	return null, nil
+	return policies, nil
 }
 
 func policyTypeToPolicyListAndTargetRefGroupKind(policyType core.Policy) (core.PolicyList, gwv1beta1.Group, gwv1beta1.Kind, error) {

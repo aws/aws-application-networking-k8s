@@ -1,4 +1,4 @@
-package gateway
+package policyhelper
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
-func Test_getAttachedPolicy(t *testing.T) {
+func Test_GetAttachedPolicies(t *testing.T) {
 	type args struct {
 		refObjNamespacedName types.NamespacedName
 		policy               core.Policy
@@ -200,13 +200,13 @@ func Test_getAttachedPolicy(t *testing.T) {
 					})
 			}
 
-			got, err := GetAttachedPolicy(ctx, mockK8sClient, tt.args.refObjNamespacedName, tt.args.policy)
+			got, err := GetAttachedPolicies(ctx, mockK8sClient, tt.args.refObjNamespacedName, tt.args.policy)
 			if tt.expectPolicyNotFound {
 				assert.Nil(t, err)
-				assert.Nil(t, got)
+				assert.Empty(t, got)
 				return
 			}
-			assert.Equalf(t, tt.want, got, "GetAttachedPolicy(%v, %v, %v, %v)", ctx, mockK8sClient, tt.args.refObjNamespacedName, tt.args.policy)
+			assert.Contains(t, got, tt.want, "GetAttachedPolicies(%v, %v, %v, %v)", ctx, mockK8sClient, tt.args.refObjNamespacedName, tt.args.policy)
 		})
 	}
 }

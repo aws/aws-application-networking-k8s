@@ -18,6 +18,7 @@ const (
 // +kubebuilder:resource:categories=gateway-api,shortName=vap
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:subresource:status
 type VpcAssociationPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -54,8 +55,7 @@ type VpcAssociationPolicySpec struct {
 
 	// AssociateWithVpc indicates whether the VpcServiceNetworkAssociation should be created for the current VPC of k8s cluster.
 	//
-	// Both this flag and Gateway annotation "application-networking.k8s.aws/lattice-vpc-association" are reserved tentatively for backward compatibility.
-	// Either one of them set to true or both of them undefined will result in the VpcServiceNetworkAssociation created.
+	// This value will be considered true by default.
 	// +optional
 	AssociateWithVpc *bool `json:"associateWithVpc,omitempty"`
 
@@ -65,25 +65,24 @@ type VpcAssociationPolicySpec struct {
 	TargetRef *v1alpha2.PolicyTargetReference `json:"targetRef"`
 }
 
-// VpcAssociationPolicyStatus defines the observed state of AccessLogPolicy.
+// VpcAssociationPolicyStatus defines the observed state of VpcAssociationPolicy.
 type VpcAssociationPolicyStatus struct {
-	// Conditions describe the current conditions of the AccessLogPolicy.
+	// Conditions describe the current conditions of the VpcAssociationPolicy.
 	//
 	// Implementations should prefer to express Policy conditions
 	// using the `PolicyConditionType` and `PolicyConditionReason`
 	// constants so that operators and tools can converge on a common
-	// vocabulary to describe AccessLogPolicy state.
+	// vocabulary to describe VpcAssociationPolicy state.
 	//
 	// Known condition types are:
 	//
 	// * "Accepted"
-	// * "Ready"
 	//
 	// +optional
 	// +listType=map
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=8
-	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
+	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 

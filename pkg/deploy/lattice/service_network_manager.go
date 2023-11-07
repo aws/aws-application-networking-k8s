@@ -24,11 +24,8 @@ type ServiceNetworkManager interface {
 	CreateOrUpdate(ctx context.Context, serviceNetwork *model.ServiceNetwork) (model.ServiceNetworkStatus, error)
 	List(ctx context.Context) ([]string, error)
 	Delete(ctx context.Context, serviceNetwork string) error
-}
-
-type serviceNetworkOutput struct {
-	snSummary *vpclattice.ServiceNetworkSummary
-	snTags    *vpclattice.ListTagsForResourceOutput
+	UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string) (string, error)
+	DeleteVpcAssociation(ctx context.Context, snName string) error
 }
 
 func NewDefaultServiceNetworkManager(log gwlog.Logger, cloud pkg_aws.Cloud) *defaultServiceNetworkManager {
@@ -41,6 +38,89 @@ func NewDefaultServiceNetworkManager(log gwlog.Logger, cloud pkg_aws.Cloud) *def
 type defaultServiceNetworkManager struct {
 	log   gwlog.Logger
 	cloud pkg_aws.Cloud
+}
+
+func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string) (string, error) {
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName, "")
+	if err != nil {
+		return "", err
+	}
+
+	associated, snva, _, err := m.isServiceNetworkAlreadyAssociatedWithVPC(ctx, *sn.SvcNetwork.Id)
+	if err != nil {
+		return "", err
+	}
+	if associated {
+		owned, err := m.cloud.CheckAndAcquireOwnership(ctx, *snva.Arn)
+		if err != nil {
+			return "", err
+		}
+		if !owned {
+			return "", services.NewConflictError("snva", snName,
+				fmt.Sprintf("Found existing vpc association not owned by controller: %s", *snva.Arn))
+		}
+		_, err = m.UpdateServiceNetworkVpcAssociation(ctx, &sn.SvcNetwork, sgIds, snva.Id)
+		if err != nil {
+			return "", err
+		}
+		return *snva.Arn, nil
+	} else {
+		req := vpclattice.CreateServiceNetworkVpcAssociationInput{
+			ServiceNetworkIdentifier: sn.SvcNetwork.Id,
+			VpcIdentifier:            &config.VpcID,
+			SecurityGroupIds:         sgIds,
+			Tags:                     m.cloud.DefaultTags(),
+		}
+		m.log.Debugf("Creating association between ServiceNetwork %s and VPC %s", sn.SvcNetwork.Id, config.VpcID)
+		resp, err := m.cloud.Lattice().CreateServiceNetworkVpcAssociationWithContext(ctx, &req)
+		if err != nil {
+			return "", err
+		}
+
+		serviceNetworkVpcAssociationStatus := aws.StringValue(resp.Status)
+		if serviceNetworkVpcAssociationStatus == vpclattice.ServiceNetworkVpcAssociationStatusActive {
+			return *resp.Arn, nil
+		} else {
+			m.log.Infof("Service network/vpc association is not in the active state. State is %s, will retry",
+				serviceNetworkVpcAssociationStatus)
+
+			return *resp.Arn, errors.New(LATTICE_RETRY)
+		}
+	}
+}
+
+func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context, snName string) error {
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName, "")
+	if err != nil {
+		return err
+	}
+
+	associated, snva, _, err := m.isServiceNetworkAlreadyAssociatedWithVPC(ctx, *sn.SvcNetwork.Id)
+	if err != nil {
+		return err
+	}
+	if associated {
+		m.log.Debugf("Disassociating ServiceNetwork %s from VPC", snName)
+
+		owned, err := m.cloud.IsArnManaged(ctx, *snva.Arn)
+		if err != nil {
+			return err
+		}
+		if !owned {
+			m.log.Infof("Association %s for %s not owned by controller, skipping deletion", *snva.Arn, snName)
+			return nil
+		}
+
+		deleteServiceNetworkVpcAssociationInput := vpclattice.DeleteServiceNetworkVpcAssociationInput{
+			ServiceNetworkVpcAssociationIdentifier: snva.Id,
+		}
+		resp, err := m.cloud.Lattice().DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
+		if err != nil {
+			m.log.Infof("Failed to delete association %s for %s, with response %s and err %s", *snva.Arn, snName, resp, err.Error())
+		}
+		return errors.New(LATTICE_RETRY)
+	}
+	return nil
 }
 
 // CreateOrUpdate will try to create a service_network and associate the service_network with vpc.
@@ -101,7 +181,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		}
 		if serviceNetwork.Spec.AssociateToVPC == true && isSnAlreadyAssociatedWithCurrentVpc == true &&
 			snvaAssociatedWithCurrentVPC.Status != nil && aws.StringValue(snvaAssociatedWithCurrentVPC.Status) == vpclattice.ServiceNetworkVpcAssociationStatusActive {
-			return m.UpdateServiceNetworkVpcAssociation(ctx, &foundSnSummary.SvcNetwork, serviceNetwork, snvaAssociatedWithCurrentVPC.Id)
+			return m.UpdateServiceNetworkVpcAssociation(ctx, &foundSnSummary.SvcNetwork, serviceNetwork.Spec.SecurityGroupIds, snvaAssociatedWithCurrentVPC.Id)
 		}
 	}
 
@@ -282,14 +362,14 @@ func (m *defaultServiceNetworkManager) isServiceNetworkAlreadyAssociatedWithVPC(
 	return false, nil, resp, err
 }
 
-func (m *defaultServiceNetworkManager) UpdateServiceNetworkVpcAssociation(ctx context.Context, existingSN *vpclattice.ServiceNetworkSummary, desiredSN *model.ServiceNetwork, existingSnvaId *string) (model.ServiceNetworkStatus, error) {
+func (m *defaultServiceNetworkManager) UpdateServiceNetworkVpcAssociation(ctx context.Context, existingSN *vpclattice.ServiceNetworkSummary, sgIds []*string, existingSnvaId *string) (model.ServiceNetworkStatus, error) {
 	retrievedSnva, err := m.cloud.Lattice().GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
 	})
 	if err != nil {
 		return model.ServiceNetworkStatus{}, err
 	}
-	sgIdsEqual := securityGroupIdsEqual(desiredSN.Spec.SecurityGroupIds, retrievedSnva.SecurityGroupIds)
+	sgIdsEqual := securityGroupIdsEqual(sgIds, retrievedSnva.SecurityGroupIds)
 	if sgIdsEqual {
 		// desiredSN's security group ids are same with retrievedSnva's security group ids, don't need to update
 		return model.ServiceNetworkStatus{
@@ -300,7 +380,7 @@ func (m *defaultServiceNetworkManager) UpdateServiceNetworkVpcAssociation(ctx co
 	}
 	updateSnvaResp, err := m.cloud.Lattice().UpdateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.UpdateServiceNetworkVpcAssociationInput{
 		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
-		SecurityGroupIds:                       desiredSN.Spec.SecurityGroupIds,
+		SecurityGroupIds:                       sgIds,
 	})
 	if err != nil {
 		return model.ServiceNetworkStatus{}, err

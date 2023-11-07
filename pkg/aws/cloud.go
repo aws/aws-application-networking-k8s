@@ -44,6 +44,7 @@ type Cloud interface {
 	IsArnManaged(ctx context.Context, arn string) (bool, error)
 
 	// check ownership and acquire if it is not owned by anyone.
+	CheckAndAcquireOwnership(ctx context.Context, arn string) (bool, error)
 	CheckAndAcquireOwnershipFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error)
 }
 
@@ -136,6 +137,22 @@ func (c *defaultCloud) IsArnManaged(ctx context.Context, arn string) (bool, erro
 	managedBy, err := c.getManagedBy(ctx, arn)
 	if err != nil {
 		return false, nil
+	}
+	return c.isOwner(managedBy), nil
+}
+
+func (c *defaultCloud) CheckAndAcquireOwnership(ctx context.Context, arn string) (bool, error) {
+	// For resources that need backwards compatibility - not having managedBy is considered as owned by controller.
+	managedBy, err := c.getManagedBy(ctx, arn)
+	if err != nil {
+		return false, err
+	}
+	if managedBy == "" {
+		err := c.acquireOwnership(ctx, arn)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 	return c.isOwner(managedBy), nil
 }
