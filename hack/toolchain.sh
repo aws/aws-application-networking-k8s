@@ -18,6 +18,7 @@ tools() {
     go install github.com/golang/mock/mockgen@v1.6.0
     go install sigs.k8s.io/kustomize/kustomize/v4@v4.5.7
     go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220421205612-c162794a9b12
+    go install github.com/mattn/goveralls@b031368
 }
 
 kubebuilder() {
