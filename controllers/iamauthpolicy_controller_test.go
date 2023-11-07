@@ -36,7 +36,7 @@ func TestIAMAuthControllerValidate(t *testing.T) {
 		}
 
 		err := iamCtrl.validateSpec(ctx, k8sPolicy)
-		assert.ErrorIs(t, err, TargetGroupNameErr)
+		assert.ErrorIs(t, err, GroupNameError)
 	})
 
 	t.Run("wrong kind", func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestIAMAuthControllerValidate(t *testing.T) {
 		}
 
 		err := iamCtrl.validateSpec(ctx, k8sPolicy)
-		assert.ErrorIs(t, err, TargetKindErr)
+		assert.ErrorIs(t, err, KindError)
 	})
 
 	t.Run("targetRef not found", func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestIAMAuthControllerValidate(t *testing.T) {
 		}, gomock.Any()).Return(notFoundErr)
 
 		err := iamCtrl.validateSpec(ctx, k8sPolicy)
-		assert.ErrorIs(t, err, TargetRefNotExists)
+		assert.ErrorIs(t, err, TargetRefNotFound)
 	})
 
 	t.Run("targetRef conflict", func(t *testing.T) {
@@ -114,9 +114,9 @@ func TestIAMAuthPolicyValidationErrToStatus(t *testing.T) {
 	}
 
 	tests := []test{
-		{fmt.Errorf("%w", TargetGroupNameErr), gwv1alpha2.PolicyReasonInvalid},
-		{fmt.Errorf("%w", TargetKindErr), gwv1alpha2.PolicyReasonInvalid},
-		{fmt.Errorf("%w", TargetRefNotExists), gwv1alpha2.PolicyReasonTargetNotFound},
+		{fmt.Errorf("%w", GroupNameError), gwv1alpha2.PolicyReasonInvalid},
+		{fmt.Errorf("%w", KindError), gwv1alpha2.PolicyReasonInvalid},
+		{fmt.Errorf("%w", TargetRefNotFound), gwv1alpha2.PolicyReasonTargetNotFound},
 		{fmt.Errorf("%w", TargetRefConflict), gwv1alpha2.PolicyReasonConflicted},
 		{nil, gwv1alpha2.PolicyReasonAccepted},
 	}

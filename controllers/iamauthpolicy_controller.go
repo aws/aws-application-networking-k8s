@@ -152,17 +152,17 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 func (c *IAMAuthPolicyController) validateSpec(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) error {
 	tr := k8sPolicy.Spec.TargetRef
 	if tr.Group != gwv1beta1.GroupName {
-		return fmt.Errorf("%w: %s", TargetGroupNameErr, tr.Group)
+		return fmt.Errorf("%w: %s", GroupNameError, tr.Group)
 	}
 	if !slices.Contains([]string{"Gateway", "HTTPRoute", "GRPCRoute"}, string(tr.Kind)) {
-		return fmt.Errorf("%w: %s", TargetKindErr, tr.Kind)
+		return fmt.Errorf("%w: %s", KindError, tr.Kind)
 	}
 	refExists, err := c.targetRefExists(ctx, k8sPolicy)
 	if err != nil {
 		return err
 	}
 	if !refExists {
-		return fmt.Errorf("%w: %s", TargetRefNotExists, tr.Name)
+		return fmt.Errorf("%w: %s", TargetRefNotFound, tr.Name)
 	}
 	conflictingPolicies, err := c.findConflictingPolicies(ctx, k8sPolicy)
 	if err != nil {
@@ -190,9 +190,9 @@ func validationErrToStatusReason(validationErr error) gwv1alpha2.PolicyCondition
 	switch {
 	case validationErr == nil:
 		reason = gwv1alpha2.PolicyReasonAccepted
-	case errors.Is(validationErr, TargetGroupNameErr) || errors.Is(validationErr, TargetKindErr):
+	case errors.Is(validationErr, GroupNameError) || errors.Is(validationErr, KindError):
 		reason = gwv1alpha2.PolicyReasonInvalid
-	case errors.Is(validationErr, TargetRefNotExists):
+	case errors.Is(validationErr, TargetRefNotFound):
 		reason = gwv1alpha2.PolicyReasonTargetNotFound
 	case errors.Is(validationErr, TargetRefConflict):
 		reason = gwv1alpha2.PolicyReasonConflicted

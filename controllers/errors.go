@@ -3,8 +3,8 @@ package controllers
 import "errors"
 
 var (
-	TargetGroupNameErr = errors.New("wrong group name")
-	TargetKindErr      = errors.New("target kind error")
-	TargetRefNotExists = errors.New("targetRef does not exists")
-	TargetRefConflict  = errors.New("targetRef has conflict")
+	GroupNameError    = errors.New("wrong group name")
+	KindError         = errors.New("target kind error")
+	TargetRefNotFound = errors.New("targetRef not found")
+	TargetRefConflict = errors.New("targetRef has conflict")
 )
