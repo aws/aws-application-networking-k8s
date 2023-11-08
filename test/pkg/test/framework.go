@@ -212,18 +212,25 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	}).Should(Succeed())
 }
 
+func objectsInfo(objs []client.Object) string {
+	objInfos := utils.SliceMap(objs, func(obj client.Object) string {
+		return fmt.Sprintf("%T/%s", obj, obj.GetName())
+	})
+	return strings.Join(objInfos, ", ")
+}
+
 func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Object) {
-	for _, object := range objects {
-		env.Log.Infof("Creating %s %s/%s", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
-		Expect(env.Create(ctx, object)).WithOffset(1).To(Succeed())
-	}
+	env.Log.Infof("Creating objects: %s", objectsInfo(objects))
+	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		Expect(env.Create(ctx, obj)).WithOffset(1).To(Succeed())
+	})
 }
 
 func (env *Framework) ExpectUpdated(ctx context.Context, objects ...client.Object) {
-	for _, object := range objects {
-		env.Log.Infof("Updating %s %s/%s", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
-		Expect(env.Update(ctx, object)).WithOffset(1).To(Succeed())
-	}
+	env.Log.Infof("Updating objects: %s", objectsInfo(objects))
+	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		Expect(env.Update(ctx, obj)).WithOffset(1).To(Succeed())
+	})
 }
 
 func (env *Framework) ExpectDeletedThenNotFound(ctx context.Context, objects ...client.Object) {
@@ -291,16 +298,16 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 		env.SleepForRouteUpdate()
 	}
 
-	for _, object := range objects {
-		env.Log.Infof("Deleting %s %s/%s", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
-		err := env.Delete(ctx, object)
+	env.Log.Infof("Deleting objects: %s", objectsInfo(objects))
+	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		err := env.Delete(ctx, obj)
 		if err != nil {
 			// not found is probably OK - means it was deleted elsewhere
 			if !errors.IsNotFound(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
 		}
-	}
+	})
 }
 
 func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object client.Object, namespace string) {
@@ -308,16 +315,16 @@ func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object clien
 }
 
 func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) {
-	Eventually(func(g Gomega) {
-		for _, object := range objects {
-			if object != nil {
-				env.Log.Infof("Checking whether %s %s/%s is not found", reflect.TypeOf(object), object.GetNamespace(), object.GetName())
-				g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(object), object))).To(BeTrue())
-			}
+	env.Log.Infof("Waiting for NotFound, objects: %s", objectsInfo(objects))
+	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		if obj != nil {
+			Eventually(func(g Gomega) {
+				g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(obj), obj))).To(BeTrue())
+				// Wait for 7 minutes at maximum just in case the k8sService deletion triggered targets draining time
+				// and httproute deletion need to wait for that targets draining time finish then it can return
+			}).WithTimeout(7 * time.Minute).WithPolling(time.Second).WithOffset(1).Should(Succeed())
 		}
-		// Wait for 7 minutes at maximum just in case the k8sService deletion triggered targets draining time
-		// and httproute deletion need to wait for that targets draining time finish then it can return
-	}).WithTimeout(7 * time.Minute).WithOffset(1).Should(Succeed())
+	})
 }
 
 func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList client.ObjectList) {

@@ -86,7 +86,7 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	c.log.Infow("reconcile", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
+	c.log.Infow("reconcile IAM policy", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
 	isDelete := !k8sPolicy.DeletionTimestamp.IsZero()
 	var res ctrl.Result
 	if isDelete {
@@ -301,11 +301,17 @@ func iamAuthPolicyMapFunc(c client.Client, log gwlog.Logger) handler.MapFunc {
 }
 
 func (c *IAMAuthPolicyController) updateLatticeAnnotaion(k8sPolicy *anv1alpha1.IAMAuthPolicy, resId, resType string) {
+	if k8sPolicy.Annotations == nil {
+		k8sPolicy.Annotations = make(map[string]string)
+	}
 	k8sPolicy.Annotations[IAMAuthPolicyAnnotationResId] = resId
 	k8sPolicy.Annotations[IAMAuthPolicyAnnotationType] = resType
 }
 
 func (c *IAMAuthPolicyController) getLatticeAnnotation(k8sPolicy *anv1alpha1.IAMAuthPolicy) (model.IAMAuthPolicy, bool) {
+	if k8sPolicy.Annotations == nil {
+		return model.IAMAuthPolicy{}, false
+	}
 	resourceId := k8sPolicy.Annotations[IAMAuthPolicyAnnotationResId]
 	resourceType := k8sPolicy.Annotations[IAMAuthPolicyAnnotationType]
 	if resourceId == "" || resourceType == "" {
