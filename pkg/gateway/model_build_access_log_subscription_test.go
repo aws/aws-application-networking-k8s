@@ -276,6 +276,67 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			onlyCompareSpecs: true,
 			expectedError:    nil,
 		},
+		{
+			description: "Delete event skips targetRef validation",
+			input: &anv1alpha1.AccessLogPolicy{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Namespace:         namespace,
+					Name:              name,
+					DeletionTimestamp: &apimachineryv1.Time{},
+					Annotations: map[string]string{
+						anv1alpha1.AccessLogSubscriptionAnnotationKey: "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567",
+					},
+				},
+				Spec: anv1alpha1.AccessLogPolicySpec{
+					DestinationArn: aws.String(s3DestinationArn),
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
+						Kind: "Foo",
+						Name: name,
+					},
+				},
+			},
+			expectedOutput: &lattice.AccessLogSubscription{
+				Spec: lattice.AccessLogSubscriptionSpec{
+					SourceType:        lattice.ServiceSourceType,
+					SourceName:        "",
+					DestinationArn:    s3DestinationArn,
+					ALPNamespacedName: expectedNamespacedName,
+					EventType:         core.DeleteEvent,
+				},
+			},
+			onlyCompareSpecs: true,
+			expectedError:    nil,
+		},
+		{
+			description: "Delete event skips destinationArn validation",
+			input: &anv1alpha1.AccessLogPolicy{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Namespace:         namespace,
+					Name:              name,
+					DeletionTimestamp: &apimachineryv1.Time{},
+					Annotations: map[string]string{
+						anv1alpha1.AccessLogSubscriptionAnnotationKey: "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567",
+					},
+				},
+				Spec: anv1alpha1.AccessLogPolicySpec{
+					TargetRef: &gwv1alpha2.PolicyTargetReference{
+						Kind: gatewayKind,
+						Name: name,
+					},
+				},
+			},
+			expectedOutput: &lattice.AccessLogSubscription{
+				Spec: lattice.AccessLogSubscriptionSpec{
+					SourceType:        lattice.ServiceNetworkSourceType,
+					SourceName:        name,
+					DestinationArn:    "",
+					ALPNamespacedName: expectedNamespacedName,
+					EventType:         core.DeleteEvent,
+				},
+			},
+			onlyCompareSpecs: true,
+			expectedError:    nil,
+		},
 	}
 
 	for _, tt := range tests {

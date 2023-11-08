@@ -3,21 +3,16 @@ package lattice
 import (
 	"context"
 	"errors"
-	"fmt"
-	"testing"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	"testing"
 )
 
 func Test_SynthesizeService(t *testing.T) {
@@ -159,44 +154,35 @@ func Test_SynthesizeService(t *testing.T) {
 			defer c.Finish()
 			ctx := context.TODO()
 
-			ds := latticestore.NewLatticeDataStore()
-
 			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.httpRoute)))
 
 			mockSvcManager := NewMockServiceManager(c)
 			mockDnsManager := externaldns.NewMockDnsEndpointManager(c)
 
-			pro := "HTTP"
-			protocols := []*string{&pro}
 			spec := model.ServiceSpec{
-				Name:      tt.httpRoute.Name,
-				Namespace: tt.httpRoute.Namespace,
-				Protocols: protocols,
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      tt.httpRoute.Name,
+					RouteNamespace: tt.httpRoute.Namespace,
+				},
 			}
 
-			if tt.httpRoute.DeletionTimestamp.IsZero() {
-				spec.IsDeleted = false
-			} else {
-				spec.IsDeleted = true
-			}
+			latticeService, err := model.NewLatticeService(stack, spec)
+			assert.Nil(t, err)
+			latticeService.IsDeleted = !tt.httpRoute.DeletionTimestamp.IsZero()
 
-			latticeService := model.NewLatticeService(stack, "", spec)
-			fmt.Printf("latticeService :%v\n", latticeService)
-
-			if tt.httpRoute.DeletionTimestamp.IsZero() {
-				mockSvcManager.EXPECT().Create(ctx, latticeService).Return(model.ServiceStatus{Arn: tt.serviceARN, Id: tt.serviceID}, tt.mgrErr)
-			} else {
+			if latticeService.IsDeleted {
 				mockSvcManager.EXPECT().Delete(ctx, latticeService).Return(tt.mgrErr)
+			} else {
+				mockSvcManager.EXPECT().Upsert(ctx, latticeService).Return(model.ServiceStatus{Arn: tt.serviceARN, Id: tt.serviceID}, tt.mgrErr)
 			}
 
-			if !spec.IsDeleted && tt.mgrErr == nil {
+			if !latticeService.IsDeleted && tt.mgrErr == nil {
 				mockDnsManager.EXPECT().Create(ctx, gomock.Any()).Return(tt.dnsErr)
 			}
 
-			synthesizer := NewServiceSynthesizer(gwlog.FallbackLogger, mockSvcManager, mockDnsManager, stack, ds)
+			synthesizer := NewServiceSynthesizer(gwlog.FallbackLogger, mockSvcManager, mockDnsManager, stack)
 
-			err := synthesizer.Synthesize(ctx)
-
+			err = synthesizer.Synthesize(ctx)
 			if tt.wantErrIsNil {
 				assert.Nil(t, err)
 			} else {

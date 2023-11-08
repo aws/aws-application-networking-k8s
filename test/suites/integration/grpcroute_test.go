@@ -381,14 +381,12 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		testFramework.ExpectDeleted(ctx, grpcRoute)
-		testFramework.SleepForRouteDeletion()
 		testFramework.ExpectDeletedThenNotFound(ctx,
+			grpcRoute,
 			grpcBinService,
 			grpcBinDeployment,
 			grpcHelloWorldService,
 			grpcHelloWorldDeployment,
-			grpcRoute,
 		)
 	})
 })

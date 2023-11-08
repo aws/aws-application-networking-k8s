@@ -2,9 +2,10 @@ package lattice
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
-	"github.com/aws/aws-application-networking-k8s/pkg/latticestore"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -15,14 +16,12 @@ func NewServiceSynthesizer(
 	serviceManager ServiceManager,
 	dnsEndpointManager externaldns.DnsEndpointManager,
 	stack core.Stack,
-	latticeDataStore *latticestore.LatticeDataStore,
 ) *serviceSynthesizer {
 	return &serviceSynthesizer{
 		log:                log,
 		serviceManager:     serviceManager,
 		dnsEndpointManager: dnsEndpointManager,
 		stack:              stack,
-		latticeDataStore:   latticeDataStore,
 	}
 }
 
@@ -31,57 +30,44 @@ type serviceSynthesizer struct {
 	serviceManager     ServiceManager
 	dnsEndpointManager externaldns.DnsEndpointManager
 	stack              core.Stack
-	latticeDataStore   *latticestore.LatticeDataStore
 }
 
 func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 	var resServices []*model.Service
 	s.stack.ListResources(&resServices)
 
+	var svcErr error
 	for _, resService := range resServices {
-		s.log.Debugf("Synthesizing service: %s-%s", resService.Spec.Name, resService.Spec.Namespace)
-		if resService.Spec.IsDeleted {
-			// handle service delete
+		svcName := fmt.Sprintf("%s-%s", resService.Spec.RouteName, resService.Spec.RouteNamespace)
+		s.log.Debugf("Synthesizing service: %s", svcName)
+		if resService.IsDeleted {
 			err := s.serviceManager.Delete(ctx, resService)
-
-			if err == nil {
-				s.log.Debugf("Successfully synthesized service deletion %s-%s", resService.Spec.Name, resService.Spec.Namespace)
-
-				// Also delete all listeners of this service
-				listeners, err := s.latticeDataStore.GetAllListeners(resService.Spec.Name, resService.Spec.Namespace)
-				if err != nil {
-					return err
-				}
-
-				for _, l := range listeners {
-					err := s.latticeDataStore.DelListener(resService.Spec.Name, resService.Spec.Namespace,
-						l.Key.Port, l.Key.Protocol)
-					if err != nil {
-						s.log.Errorf("Error deleting listener for service %s-%s, port %d, protocol %s: %s",
-							resService.Spec.Name, resService.Spec.Namespace, l.Key.Port, l.Key.Protocol, err)
-					}
-				}
-				// Deleting DNSEndpoint is not required, as it has ownership relation.
-			}
-			return err
-		} else {
-			serviceStatus, err := s.serviceManager.Create(ctx, resService)
 			if err != nil {
-				return err
+				svcErr = errors.Join(svcErr,
+					fmt.Errorf("failed ServiceManager.Delete %s due to %w", svcName, err))
+				continue
+			}
+		} else {
+			serviceStatus, err := s.serviceManager.Upsert(ctx, resService)
+			if err != nil {
+				svcErr = errors.Join(svcErr,
+					fmt.Errorf("failed ServiceManager.Upsert %s due to %w", svcName, err))
+				continue
 			}
 
 			resService.Status = &serviceStatus
 			err = s.dnsEndpointManager.Create(ctx, resService)
 			if err != nil {
-				return err
-			}
+				svcErr = errors.Join(svcErr,
+					fmt.Errorf("failed DnsEndpointManager.Create %s due to %w", svcName, err))
 
-			s.log.Debugf("Successfully created service %s-%s with status %s",
-				resService.Spec.Name, resService.Spec.Namespace, serviceStatus)
+				svcErr = err
+				continue
+			}
 		}
 	}
 
-	return nil
+	return svcErr
 }
 
 func (s *serviceSynthesizer) PostSynthesize(ctx context.Context) error {

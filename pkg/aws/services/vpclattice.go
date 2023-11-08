@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -22,24 +24,6 @@ type ServiceNetworkInfo struct {
 	Tags       Tags
 }
 
-type LatticeServiceNameProvider interface {
-	LatticeServiceName() string
-}
-
-type defaultLatticeServiceNameProvider struct {
-	name string
-}
-
-func NewDefaultLatticeServiceNameProvider(name string) *defaultLatticeServiceNameProvider {
-	return &defaultLatticeServiceNameProvider{
-		name: name,
-	}
-}
-
-func (p *defaultLatticeServiceNameProvider) LatticeServiceName() string {
-	return p.name
-}
-
 type NotFoundError struct {
 	ResourceType string
 	Name         string
@@ -54,8 +38,20 @@ func NewNotFoundError(resourceType string, name string) error {
 }
 
 func IsNotFoundError(err error) bool {
+	if aerr, ok := err.(awserr.Error); ok {
+		if aerr.Code() == vpclattice.ErrCodeResourceNotFoundException {
+			return true
+		}
+	}
 	nfErr := &NotFoundError{}
 	return errors.As(err, &nfErr)
+}
+
+func IgnoreNotFound(err error) error {
+	if IsNotFoundError(err) {
+		return nil
+	}
+	return err
 }
 
 type ConflictError struct {
@@ -96,6 +92,8 @@ func IsInvalidError(err error) bool {
 
 type Lattice interface {
 	vpclatticeiface.VPCLatticeAPI
+	GetRulesAsList(ctx context.Context, input *vpclattice.ListRulesInput) ([]*vpclattice.GetRuleOutput, error)
+	ListRulesAsList(ctx context.Context, input *vpclattice.ListRulesInput) ([]*vpclattice.RuleSummary, error)
 	ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error)
 	ListServicesAsList(ctx context.Context, input *vpclattice.ListServicesInput) ([]*vpclattice.ServiceSummary, error)
 	ListTargetGroupsAsList(ctx context.Context, input *vpclattice.ListTargetGroupsInput) ([]*vpclattice.TargetGroupSummary, error)
@@ -103,9 +101,7 @@ type Lattice interface {
 	ListServiceNetworkVpcAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput) ([]*vpclattice.ServiceNetworkVpcAssociationSummary, error)
 	ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error)
 	FindServiceNetwork(ctx context.Context, name string, accountId string) (*ServiceNetworkInfo, error)
-	FindService(ctx context.Context, nameProvider LatticeServiceNameProvider) (*vpclattice.ServiceSummary, error)
-	FindServiceByK8sName(ctx context.Context, k8sname string) (*vpclattice.ServiceSummary, error)
-	FindServiceNetworkByK8sName(ctx context.Context, k8sname string) (*ServiceNetworkInfo, error)
+	FindService(ctx context.Context, latticeServiceName string) (*vpclattice.ServiceSummary, error)
 }
 
 type defaultLattice struct {
@@ -125,6 +121,56 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint).WithMaxRetries(20))
 
 	return &defaultLattice{latticeSess}
+}
+
+func (d *defaultLattice) GetRulesAsList(ctx context.Context, input *vpclattice.ListRulesInput) ([]*vpclattice.GetRuleOutput, error) {
+	var result []*vpclattice.GetRuleOutput
+
+	var innerErr error
+	err := d.ListRulesPagesWithContext(ctx, input, func(page *vpclattice.ListRulesOutput, lastPage bool) bool {
+		for _, r := range page.Items {
+			grInput := vpclattice.GetRuleInput{
+				ServiceIdentifier:  input.ServiceIdentifier,
+				ListenerIdentifier: input.ListenerIdentifier,
+				RuleIdentifier:     r.Id,
+			}
+
+			var gro *vpclattice.GetRuleOutput
+			gro, innerErr = d.GetRuleWithContext(ctx, &grInput)
+			if innerErr != nil {
+				return false
+			}
+			result = append(result, gro)
+		}
+		return true
+	})
+
+	if innerErr != nil {
+		return nil, innerErr
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (d *defaultLattice) ListRulesAsList(ctx context.Context, input *vpclattice.ListRulesInput) ([]*vpclattice.RuleSummary, error) {
+	var result []*vpclattice.RuleSummary
+
+	err := d.ListRulesPagesWithContext(ctx, input, func(page *vpclattice.ListRulesOutput, lastPage bool) bool {
+		for _, r := range page.Items {
+			result = append(result, r)
+		}
+		return true
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func (d *defaultLattice) ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error) {
@@ -280,14 +326,15 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, op
 
 	return snMatch, nil
 }
-func (d *defaultLattice) FindService(ctx context.Context, nameProvider LatticeServiceNameProvider) (*vpclattice.ServiceSummary, error) {
-	serviceName := nameProvider.LatticeServiceName()
+
+// see utils.LatticeServiceName
+func (d *defaultLattice) FindService(ctx context.Context, latticeServiceName string) (*vpclattice.ServiceSummary, error) {
 	input := vpclattice.ListServicesInput{}
 
 	var svcMatch *vpclattice.ServiceSummary
 	err := d.ListServicesPagesWithContext(ctx, &input, func(page *vpclattice.ListServicesOutput, lastPage bool) bool {
 		for _, svc := range page.Items {
-			if *svc.Name == serviceName {
+			if *svc.Name == latticeServiceName {
 				svcMatch = svc
 				return false
 			}
@@ -299,7 +346,7 @@ func (d *defaultLattice) FindService(ctx context.Context, nameProvider LatticeSe
 		return nil, err
 	}
 	if svcMatch == nil {
-		return nil, NewNotFoundError("Service", serviceName)
+		return nil, NewNotFoundError("Service", latticeServiceName)
 	}
 
 	return svcMatch, nil
@@ -318,10 +365,14 @@ func accountIdMatches(accountId string, itemArn string) (bool, error) {
 	return accountId == parsedArn.AccountID, nil
 }
 
-func (d *defaultLattice) FindServiceByK8sName(ctx context.Context, k8sname string) (*vpclattice.ServiceSummary, error) {
-	return d.FindService(ctx, NewDefaultLatticeServiceNameProvider(k8sname))
-}
+func IsLatticeAPINotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
 
-func (d *defaultLattice) FindServiceNetworkByK8sName(ctx context.Context, k8sname string) (*ServiceNetworkInfo, error) {
-	return d.FindServiceNetwork(ctx, k8sname, "")
+	var aErr awserr.Error
+	if errors.As(err, &aErr) {
+		return aErr.Code() == vpclattice.ErrCodeResourceNotFoundException
+	}
+	return false
 }

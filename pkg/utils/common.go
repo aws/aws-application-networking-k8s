@@ -4,11 +4,31 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/exp/constraints"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type MapFunc[T any, U any] func(T) U
 type FilterFunc[T any] func(T) bool
+
+func min[T constraints.Ordered](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func Chunks[T any](in []T, size int) [][]T {
+	out := [][]T{}
+	if size <= 0 {
+		return out
+	}
+	for low := 0; low < len(in); low += size {
+		high := min(low+size, len(in))
+		out = append(out, in[low:high])
+	}
+	return out
+}
 
 func Truncate(name string, length int) string {
 	if len(name) > length {
@@ -35,8 +55,8 @@ func SliceFilter[T any](in []T, f FilterFunc[T]) []T {
 	return out
 }
 
-func LatticeServiceName(name string, namespace string) string {
-	return fmt.Sprintf("%s-%s", Truncate(name, 20), Truncate(namespace, 18))
+func LatticeServiceName(k8sSourceRouteName string, k8sSourceRouteNamespace string) string {
+	return fmt.Sprintf("%s-%s", Truncate(k8sSourceRouteName, 20), Truncate(k8sSourceRouteNamespace, 18))
 }
 
 func TargetRefToLatticeResourceName(

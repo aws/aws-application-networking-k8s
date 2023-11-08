@@ -213,7 +213,7 @@ rules:
     - patch
     - update
 - apiGroups:
-  - multicluster.x-k8s.io
+  - application-networking.k8s.aws
   resources:
   - serviceexports
   verbs:
@@ -225,13 +225,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - multicluster.x-k8s.io
+  - application-networking.k8s.aws
   resources:
   - serviceexports/finalizers
   verbs:
   - update
 - apiGroups:
-  - multicluster.x-k8s.io
+  - application-networking.k8s.aws
   resources:
   - serviceexports/status
   verbs:
@@ -239,7 +239,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - multicluster.x-k8s.io
+  - application-networking.k8s.aws
   resources:
   - serviceimports
   verbs:
@@ -251,13 +251,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - multicluster.x-k8s.io
+  - application-networking.k8s.aws
   resources:
   - serviceimports/finalizers
   verbs:
   - update
 - apiGroups:
-  - multicluster.x-k8s.io
+  - application-networking.k8s.aws
   resources:
   - serviceimports/status
   verbs:
