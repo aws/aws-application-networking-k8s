@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -342,15 +341,6 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 			*latticeTg.getTargetGroupOutput.Arn, *latticeTg.getTargetGroupOutput.Name)
 
 		return true // safe to delete
-	}
-
-	// here we just delete anything more than X minutes old - worst case we'll have to recreate
-	// the target group - note this case is only theoretically possible at this point
-	fiveMinsAgo := time.Now().Add(-time.Minute * 5)
-	if fiveMinsAgo.After(aws.TimeValue(latticeTg.getTargetGroupOutput.CreatedAt)) {
-		t.log.Debugf("Will delete TargetGroup %s (%s) - TG is more than 5 minutes old",
-			*latticeTg.getTargetGroupOutput.Arn, *latticeTg.getTargetGroupOutput.Name)
-		return true
 	}
 
 	return false
