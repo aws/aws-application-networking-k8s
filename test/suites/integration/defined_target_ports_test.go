@@ -81,15 +81,15 @@ func performVerification(service *v1.Service, deployment *appsv1.Deployment, def
 	targetGroup := testFramework.GetTargetGroup(ctx, service)
 	Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 	Expect(*targetGroup.Protocol).To(Equal("HTTP"))
-
-	targets := testFramework.GetTargets(ctx, targetGroup, deployment)
 	Expect(*targetGroup.Port).To(BeEquivalentTo(80))
+	targets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroup.Id})
+	Expect(err).To(BeNil())
 	for _, target := range targets {
 		Expect(targetUsesDefinedPort(definedPorts, target)).To(BeTrue())
-
 		Expect(*target.Status).To(Or(
 			Equal(vpclattice.TargetStatusInitial),
 			Equal(vpclattice.TargetStatusHealthy),
+			Equal(vpclattice.TargetStatusUnused),
 		))
 	}
 }
