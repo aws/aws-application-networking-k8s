@@ -104,15 +104,6 @@ func (c *vpcAssociationPolicyReconciler) handleFinalizer(ctx context.Context, k8
 	return c.client.Update(ctx, k8sPolicy)
 }
 
-func (c *vpcAssociationPolicyReconciler) delete(ctx context.Context, k8sPolicy *anv1alpha1.VpcAssociationPolicy) error {
-	snName := string(k8sPolicy.Spec.TargetRef.Name)
-	err := c.manager.DeleteVpcAssociation(ctx, snName)
-	if err != nil {
-		return ignoreTargetRefNotFound(err)
-	}
-	return nil
-}
-
 func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *anv1alpha1.VpcAssociationPolicy) error {
 	snName := string(k8sPolicy.Spec.TargetRef.Name)
 	sgIds := utils.SliceMap(k8sPolicy.Spec.SecurityGroupIds, func(sg anv1alpha1.SecurityGroupId) *string {
@@ -131,6 +122,15 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 	if err != nil {
 		c.log.Debugf("seems like an error: %s, %s", k8sPolicy.GetNamespacedName(), k8sPolicy.GroupVersionKind().String())
 		return err
+	}
+	return nil
+}
+
+func (c *vpcAssociationPolicyReconciler) delete(ctx context.Context, k8sPolicy *anv1alpha1.VpcAssociationPolicy) error {
+	snName := string(k8sPolicy.Spec.TargetRef.Name)
+	err := c.manager.DeleteVpcAssociation(ctx, snName)
+	if err != nil {
+		return c.handleDeleteError(err)
 	}
 	return nil
 }
@@ -156,6 +156,14 @@ func (c *vpcAssociationPolicyReconciler) handleUpsertError(ctx context.Context, 
 		err = c.updatePolicyCondition(ctx, k8sPolicy, gwv1alpha2.PolicyReasonTargetNotFound)
 	case services.IsConflictError(err):
 		err = c.updatePolicyCondition(ctx, k8sPolicy, gwv1alpha2.PolicyReasonConflicted)
+	}
+	return err
+}
+
+func (c *vpcAssociationPolicyReconciler) handleDeleteError(err error) error {
+	switch {
+	case services.IsNotFoundError(err):
+		return nil
 	}
 	return err
 }
