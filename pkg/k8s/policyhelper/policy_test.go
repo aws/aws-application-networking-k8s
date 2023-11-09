@@ -22,18 +22,14 @@ func Test_GetAttachedPolicies(t *testing.T) {
 		policy               core.Policy
 	}
 	type testCase struct {
-		name                            string
-		args                            args
-		expectedK8sClientReturnedPolicy core.Policy
-		want                            core.Policy
-		expectPolicyNotFound            bool
+		name        string
+		args        args
+		k8sReturned []core.Policy
+		want        []core.Policy
 	}
 	ns := "test-ns"
 	typedNs := gwv1alpha2.Namespace(ns)
-	prtocol := "HTTP"
-	protocolVersion := "HTTP2"
-	trueBool := true
-	targetGroupPolicyHappyPath := &anv1alpha1.TargetGroupPolicy{
+	tgpHappyPath := &anv1alpha1.TargetGroupPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-target-group-policy",
 			Namespace: ns,
@@ -45,21 +41,22 @@ func Test_GetAttachedPolicies(t *testing.T) {
 				Kind:      "Service",
 				Namespace: &typedNs,
 			},
-			Protocol:        &prtocol,
-			ProtocolVersion: &protocolVersion,
 		},
 	}
 
-	policyTargetRefSectionNil := targetGroupPolicyHappyPath.DeepCopyObject().(*anv1alpha1.TargetGroupPolicy)
-	policyTargetRefSectionNil.Spec.TargetRef = nil
+	tgpTargetRefSectionNil := tgpHappyPath.DeepCopy()
+	tgpTargetRefSectionNil.Spec.TargetRef = nil
 
-	policyTargetRefKindWrong := targetGroupPolicyHappyPath.DeepCopyObject().(*anv1alpha1.TargetGroupPolicy)
-	policyTargetRefKindWrong.Spec.TargetRef.Kind = "ServiceImport"
+	tgpTargetRefKindWrong := tgpHappyPath.DeepCopy()
+	tgpTargetRefKindWrong.Spec.TargetRef.Kind = "ServiceImport"
 
-	notRelatedTargetGroupPolicy := targetGroupPolicyHappyPath.DeepCopyObject().(*anv1alpha1.TargetGroupPolicy)
-	notRelatedTargetGroupPolicy.Spec.TargetRef.Name = "another-svc"
+	tgpUnrelated := tgpHappyPath.DeepCopy()
+	tgpUnrelated.Spec.TargetRef.Name = "svc-unrelated"
 
-	vpcAssociationPolicyHappyPath := &anv1alpha1.VpcAssociationPolicy{
+	tgpDuplicated := tgpHappyPath.DeepCopy()
+	tgpDuplicated.ObjectMeta.Name = "test-policy-2"
+
+	vapHappyPath := &anv1alpha1.VpcAssociationPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-vpc-association-policy",
 			Namespace: ns,
@@ -71,12 +68,11 @@ func Test_GetAttachedPolicies(t *testing.T) {
 				Kind:  "Gateway",
 			},
 			SecurityGroupIds: []anv1alpha1.SecurityGroupId{"sg-1", "sg-2"},
-			AssociateWithVpc: &trueBool,
 		},
 	}
 
-	notRelatedVpcAssociationPolicy := vpcAssociationPolicyHappyPath.DeepCopyObject().(*anv1alpha1.VpcAssociationPolicy)
-	notRelatedVpcAssociationPolicy.Spec.TargetRef.Name = "another-gw"
+	vapUnrelated := vapHappyPath.DeepCopy()
+	vapUnrelated.Spec.TargetRef.Name = "gw-unrelated"
 
 	var tests = []testCase{
 		{
@@ -88,9 +84,20 @@ func Test_GetAttachedPolicies(t *testing.T) {
 				},
 				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
-			expectedK8sClientReturnedPolicy: targetGroupPolicyHappyPath,
-			want:                            targetGroupPolicyHappyPath,
-			expectPolicyNotFound:            false,
+			k8sReturned: []core.Policy{tgpHappyPath, tgpUnrelated},
+			want:        []core.Policy{tgpHappyPath},
+		},
+		{
+			name: "Get multiple k8sService attached TargetGroupPolicies, happy path",
+			args: args{
+				refObjNamespacedName: types.NamespacedName{
+					Namespace: ns,
+					Name:      "svc-1",
+				},
+				policy: &anv1alpha1.TargetGroupPolicy{},
+			},
+			k8sReturned: []core.Policy{tgpHappyPath, tgpDuplicated, tgpUnrelated},
+			want:        []core.Policy{tgpHappyPath, tgpDuplicated},
 		},
 		{
 			name: "Get k8sService attached TargetGroupPolicy, policy not found due to input refObj name mismatch",
@@ -101,9 +108,8 @@ func Test_GetAttachedPolicies(t *testing.T) {
 				},
 				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
-			want:                            nil,
-			expectedK8sClientReturnedPolicy: targetGroupPolicyHappyPath,
-			expectPolicyNotFound:            true,
+			k8sReturned: []core.Policy{tgpHappyPath, tgpUnrelated},
+			want:        nil,
 		},
 		{
 			name: "Get k8sService attached TargetGroupPolicy, policy not found due to cluster don't have matched policy",
@@ -114,9 +120,8 @@ func Test_GetAttachedPolicies(t *testing.T) {
 				},
 				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
-			want:                            nil,
-			expectedK8sClientReturnedPolicy: nil,
-			expectPolicyNotFound:            true,
+			k8sReturned: []core.Policy{tgpUnrelated},
+			want:        nil,
 		},
 		{
 			name: "Get k8sService attached TargetGroupPolicy, policy not found due to policy targetRef section is nil",
@@ -127,9 +132,8 @@ func Test_GetAttachedPolicies(t *testing.T) {
 				},
 				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
-			expectedK8sClientReturnedPolicy: policyTargetRefSectionNil,
-			want:                            nil,
-			expectPolicyNotFound:            true,
+			k8sReturned: []core.Policy{tgpTargetRefSectionNil, tgpUnrelated},
+			want:        nil,
 		},
 		{
 			name: "Get k8sService attached TargetGroupPolicy, policy not found due to policy targetRef Kind mismatch",
@@ -140,9 +144,8 @@ func Test_GetAttachedPolicies(t *testing.T) {
 				},
 				policy: &anv1alpha1.TargetGroupPolicy{},
 			},
-			expectedK8sClientReturnedPolicy: policyTargetRefKindWrong,
-			want:                            nil,
-			expectPolicyNotFound:            true,
+			k8sReturned: []core.Policy{tgpTargetRefKindWrong, tgpUnrelated},
+			want:        nil,
 		},
 		{
 			name: "Get k8sGateway attached VpcAssociationPolicy, happy path",
@@ -153,9 +156,8 @@ func Test_GetAttachedPolicies(t *testing.T) {
 				},
 				policy: &anv1alpha1.VpcAssociationPolicy{},
 			},
-			expectedK8sClientReturnedPolicy: vpcAssociationPolicyHappyPath,
-			want:                            vpcAssociationPolicyHappyPath,
-			expectPolicyNotFound:            false,
+			k8sReturned: []core.Policy{vapHappyPath, vapUnrelated},
+			want:        []core.Policy{vapHappyPath},
 		},
 		{
 			name: "Get k8sGateway attached VpcAssociationPolicy, Not found",
@@ -166,9 +168,8 @@ func Test_GetAttachedPolicies(t *testing.T) {
 				},
 				policy: &anv1alpha1.VpcAssociationPolicy{},
 			},
-			expectedK8sClientReturnedPolicy: nil,
-			want:                            nil,
-			expectPolicyNotFound:            true,
+			k8sReturned: []core.Policy{vapUnrelated},
+			want:        nil,
 		},
 	}
 	c := gomock.NewController(t)
@@ -181,32 +182,28 @@ func Test_GetAttachedPolicies(t *testing.T) {
 			if _, ok := tt.args.policy.(*anv1alpha1.TargetGroupPolicy); ok {
 				mockK8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, list *anv1alpha1.TargetGroupPolicyList, arg3 ...interface{}) error {
-						list.Items = append(list.Items, *notRelatedTargetGroupPolicy)
-						if tt.expectedK8sClientReturnedPolicy != nil {
-							policy := tt.expectedK8sClientReturnedPolicy.(*anv1alpha1.TargetGroupPolicy)
-							list.Items = append(list.Items, *policy)
+						for _, item := range tt.k8sReturned {
+							list.Items = append(list.Items, (*item.(*anv1alpha1.TargetGroupPolicy)))
 						}
 						return nil
 					})
 			} else if _, ok := tt.args.policy.(*anv1alpha1.VpcAssociationPolicy); ok {
 				mockK8sClient.EXPECT().List(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, list *anv1alpha1.VpcAssociationPolicyList, arg3 ...interface{}) error {
-						list.Items = append(list.Items, *notRelatedVpcAssociationPolicy)
-						if tt.expectedK8sClientReturnedPolicy != nil {
-							policy := tt.expectedK8sClientReturnedPolicy.(*anv1alpha1.VpcAssociationPolicy)
-							list.Items = append(list.Items, *policy)
+						for _, item := range tt.k8sReturned {
+							list.Items = append(list.Items, (*item.(*anv1alpha1.VpcAssociationPolicy)))
 						}
 						return nil
 					})
 			}
 
 			got, err := GetAttachedPolicies(ctx, mockK8sClient, tt.args.refObjNamespacedName, tt.args.policy)
-			if tt.expectPolicyNotFound {
-				assert.Nil(t, err)
+			assert.Nil(t, err)
+			if len(tt.want) == 0 {
 				assert.Empty(t, got)
 				return
 			}
-			assert.Contains(t, got, tt.want, "GetAttachedPolicies(%v, %v, %v, %v)", ctx, mockK8sClient, tt.args.refObjNamespacedName, tt.args.policy)
+			assert.ElementsMatch(t, got, tt.want)
 		})
 	}
 }

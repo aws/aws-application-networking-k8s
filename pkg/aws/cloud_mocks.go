@@ -36,9 +36,9 @@ func (m *MockCloud) EXPECT() *MockCloudMockRecorder {
 }
 
 // CheckAndAcquireOwnership mocks base method.
-func (m *MockCloud) CheckAndAcquireOwnership(arg0 context.Context, arg1 string) (bool, error) {
+func (m *MockCloud) TryOwn(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckAndAcquireOwnership", arg0, arg1)
+	ret := m.ctrl.Call(m, "TryOwn", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -47,13 +47,13 @@ func (m *MockCloud) CheckAndAcquireOwnership(arg0 context.Context, arg1 string) 
 // CheckAndAcquireOwnership indicates an expected call of CheckAndAcquireOwnership.
 func (mr *MockCloudMockRecorder) CheckAndAcquireOwnership(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAndAcquireOwnership", reflect.TypeOf((*MockCloud)(nil).CheckAndAcquireOwnership), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryOwn", reflect.TypeOf((*MockCloud)(nil).TryOwn), arg0, arg1)
 }
 
 // CheckAndAcquireOwnershipFromTags mocks base method.
-func (m *MockCloud) CheckAndAcquireOwnershipFromTags(arg0 context.Context, arg1 string, arg2 map[string]*string) (bool, error) {
+func (m *MockCloud) TryOwnFromTags(arg0 context.Context, arg1 string, arg2 map[string]*string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckAndAcquireOwnershipFromTags", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "TryOwnFromTags", arg0, arg1, arg2)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -62,7 +62,7 @@ func (m *MockCloud) CheckAndAcquireOwnershipFromTags(arg0 context.Context, arg1 
 // CheckAndAcquireOwnershipFromTags indicates an expected call of CheckAndAcquireOwnershipFromTags.
 func (mr *MockCloudMockRecorder) CheckAndAcquireOwnershipFromTags(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAndAcquireOwnershipFromTags", reflect.TypeOf((*MockCloud)(nil).CheckAndAcquireOwnershipFromTags), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryOwnFromTags", reflect.TypeOf((*MockCloud)(nil).TryOwnFromTags), arg0, arg1, arg2)
 }
 
 // Config mocks base method.

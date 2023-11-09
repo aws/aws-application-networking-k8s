@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -114,11 +115,10 @@ func (c *vpcAssociationPolicyReconciler) delete(ctx context.Context, k8sPolicy *
 
 func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *anv1alpha1.VpcAssociationPolicy) error {
 	snName := string(k8sPolicy.Spec.TargetRef.Name)
-	var sgIds []*string
-	for _, id := range k8sPolicy.Spec.SecurityGroupIds {
-		strId := string(id)
-		sgIds = append(sgIds, &strId)
-	}
+	sgIds := utils.SliceMap(k8sPolicy.Spec.SecurityGroupIds, func(sg anv1alpha1.SecurityGroupId) *string {
+		str := string(sg)
+		return &str
+	})
 	snva, err := c.manager.UpsertVpcAssociation(ctx, snName, sgIds)
 	if err != nil {
 		return c.handleUpsertError(ctx, k8sPolicy, err)

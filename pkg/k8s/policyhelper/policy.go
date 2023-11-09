@@ -14,15 +14,22 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
-func GetAttachedPolicies[T core.Policy](ctx context.Context, k8sClient client.Client, refObjNamespacedName types.NamespacedName, policy T) ([]T, error) {
+type policyInfo struct {
+	policyList core.PolicyList
+	group      gwv1beta1.Group
+	kind       gwv1beta1.Kind
+}
+
+func GetAttachedPolicies[T core.Policy](ctx context.Context, k8sClient client.Client, searchTargetRef types.NamespacedName, policy T) ([]T, error) {
 	var policies []T
-	policyList, expectedTargetRefObjGroup, expectedTargetRefObjKind, err := policyTypeToPolicyListAndTargetRefGroupKind(policy)
+	info, err := getPolicyInfo(policy)
 	if err != nil {
 		return policies, err
 	}
 
-	err = k8sClient.List(ctx, policyList.(client.ObjectList), &client.ListOptions{
-		Namespace: refObjNamespacedName.Namespace,
+	pl := info.policyList
+	err = k8sClient.List(ctx, pl.(client.ObjectList), &client.ListOptions{
+		Namespace: searchTargetRef.Namespace,
 	})
 	if err != nil {
 		if meta.IsNoMatchError(err) {
@@ -31,19 +38,19 @@ func GetAttachedPolicies[T core.Policy](ctx context.Context, k8sClient client.Cl
 		}
 		return policies, err
 	}
-	for _, p := range policyList.GetItems() {
+	for _, p := range pl.GetItems() {
 		targetRef := p.GetTargetRef()
 		if targetRef == nil {
 			continue
 		}
-		groupKindMatch := targetRef.Group == expectedTargetRefObjGroup && targetRef.Kind == expectedTargetRefObjKind
-		nameMatch := string(targetRef.Name) == refObjNamespacedName.Name
+		groupKindMatch := targetRef.Group == info.group && targetRef.Kind == info.kind
+		nameMatch := string(targetRef.Name) == searchTargetRef.Name
 
 		retrievedNamespace := p.GetNamespacedName().Namespace
 		if targetRef.Namespace != nil {
 			retrievedNamespace = string(*targetRef.Namespace)
 		}
-		namespaceMatch := retrievedNamespace == refObjNamespacedName.Namespace
+		namespaceMatch := retrievedNamespace == searchTargetRef.Namespace
 		if groupKindMatch && nameMatch && namespaceMatch {
 			policies = append(policies, p.(T))
 		}
@@ -51,13 +58,21 @@ func GetAttachedPolicies[T core.Policy](ctx context.Context, k8sClient client.Cl
 	return policies, nil
 }
 
-func policyTypeToPolicyListAndTargetRefGroupKind(policyType core.Policy) (core.PolicyList, gwv1beta1.Group, gwv1beta1.Kind, error) {
+func getPolicyInfo(policyType core.Policy) (policyInfo, error) {
 	switch policyType.(type) {
 	case *anv1alpha1.VpcAssociationPolicy:
-		return &anv1alpha1.VpcAssociationPolicyList{}, gwv1beta1.GroupName, "Gateway", nil
+		return policyInfo{
+			policyList: &anv1alpha1.VpcAssociationPolicyList{},
+			group:      gwv1beta1.GroupName,
+			kind:       "Gateway",
+		}, nil
 	case *anv1alpha1.TargetGroupPolicy:
-		return &anv1alpha1.TargetGroupPolicyList{}, corev1.GroupName, "Service", nil
+		return policyInfo{
+			policyList: &anv1alpha1.TargetGroupPolicyList{},
+			group:      corev1.GroupName,
+			kind:       "Service",
+		}, nil
 	default:
-		return nil, "", "", fmt.Errorf("unsupported policy type %T", policyType)
+		return policyInfo{}, fmt.Errorf("unsupported policy type %T", policyType)
 	}
 }

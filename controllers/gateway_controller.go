@@ -211,7 +211,7 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1beta1.G
 	snInfo, err := r.cloud.Lattice().FindServiceNetwork(ctx, gw.Name, config.AccountID)
 	if err != nil {
 		if services.IsNotFoundError(err) {
-			if err = r.updateGatewayProgrammedStatus(ctx, *snInfo.SvcNetwork.Arn, gw, false); err != nil {
+			if err = r.updateGatewayProgrammedStatus(ctx, "", gw, false); err != nil {
 				return err
 			}
 			return nil

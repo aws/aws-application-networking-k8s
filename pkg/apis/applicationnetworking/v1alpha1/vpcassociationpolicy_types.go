@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
 const (
@@ -103,9 +104,7 @@ func (p *VpcAssociationPolicy) GetNamespacedName() types.NamespacedName {
 }
 
 func (pl *VpcAssociationPolicyList) GetItems() []core.Policy {
-	items := make([]core.Policy, len(pl.Items))
-	for i, item := range pl.Items {
-		items[i] = &item
-	}
-	return items
+	return utils.SliceMap(pl.Items, func(p VpcAssociationPolicy) core.Policy {
+		return &p
+	})
 }
