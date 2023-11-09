@@ -112,7 +112,7 @@ var _ = Describe("Test vpc association policy", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			g.Expect(output.SecurityGroupIds).To(HaveLen(1))
 			g.Expect(*output.SecurityGroupIds[0]).To(Equal(string(sgId)))
-		}).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).Should(Succeed())
 	})
 
 	AfterAll(func() {
