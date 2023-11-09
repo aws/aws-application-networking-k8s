@@ -29,12 +29,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
       "Effect": "Allow",
       "Principal": "*",
       "Action": "vpc-lattice-svcs:Invoke",
-      "Resource": "*",
-      "Condition": {
-        "StringEquals": {
-          "vpc-lattice-svcs:RequestHeader/header1": "value1"
-        }
-      }
+      "Resource": "*"
     }
   ]
 }`
