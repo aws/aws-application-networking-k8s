@@ -5,7 +5,7 @@ export AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --o
 export REGION ?= $(shell aws configure get region)
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
-VERSION ?= $(shell git tag --sort=committerdate | sort -V | tail -1)
+VERSION ?= $(shell git tag --sort=v:refname | tail -1)
 ECRIMAGES ?=public.ecr.aws/m7r9p7b3/aws-gateway-controller:${VERSION}
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
