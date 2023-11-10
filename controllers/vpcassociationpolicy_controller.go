@@ -66,7 +66,7 @@ func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 			err = c.upsert(ctx, k8sPolicy)
 		}
 	default:
-		err = c.updatePolicyCondition(ctx, k8sPolicy, gwv1alpha2.PolicyReasonTargetNotFound)
+		err = c.updatePolicyCondition(ctx, k8sPolicy, gwv1alpha2.PolicyReasonInvalid)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
