@@ -135,6 +135,11 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 	var statusPolicy model.IAMAuthPolicyStatus
 	if validationErr == nil {
 		modelPolicy := model.NewIAMAuthPolicy(k8sPolicy)
+		c.addFinalizer(k8sPolicy)
+		err = c.client.Update(ctx, k8sPolicy)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		statusPolicy, err = c.policyMgr.Put(ctx, modelPolicy)
 		if err != nil {
 			return reconcile.Result{}, services.IgnoreNotFound(err)
@@ -145,7 +150,6 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	c.addFinalizer(k8sPolicy)
 	return ctrl.Result{}, nil
 }
 

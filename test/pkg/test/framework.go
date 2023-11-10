@@ -311,7 +311,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 }
 
 func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object client.Object, namespace string) {
-	Expect(env.DeleteAllOf(ctx, object, client.InNamespace(namespace), client.HasLabels([]string{DiscoveryLabel}))).WithOffset(1).To(Succeed())
+	Expect(env.DeleteAllOf(ctx, object, client.InNamespace(namespace))).WithOffset(1).To(Succeed())
 }
 
 func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) {

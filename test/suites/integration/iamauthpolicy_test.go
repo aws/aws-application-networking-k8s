@@ -4,8 +4,14 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/controllers"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,25 +27,22 @@ import (
 
 var _ = Describe("IAM Auth Policy", Ordered, func() {
 
-	const Policy = `
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "vpc-lattice-svcs:Invoke",
-      "Resource": "*"
-    }
-  ]
-}`
+	const (
+		AllowAllInvoke = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"vpc-lattice-svcs:Invoke","Resource":"*"}]}`
+		NoPolicy       = ""
+		SvcName = "iam-auth-http"
+	)
 
-	var ctx = context.Background()
+	var (
+		log     = testFramework.Log.Named("iam-auth-policy")
+		ctx     = context.Background()
+		lattice = testFramework.LatticeClient
+	)
 
-	newPolicyWithGroup := func(name, trGroup, trKind, trName string) anv1alpha1.IAMAuthPolicy {
-		p := anv1alpha1.IAMAuthPolicy{
+	newPolicyWithGroup := func(name, trGroup, trKind, trName string) *anv1alpha1.IAMAuthPolicy {
+		p := &anv1alpha1.IAMAuthPolicy{
 			Spec: anv1alpha1.IAMAuthPolicySpec{
-				Policy: Policy,
+				Policy: AllowAllInvoke,
 				TargetRef: &gwv1alpha2.PolicyTargetReference{
 					Group: gwv1beta1.Group(trGroup),
 					Kind:  gwv1beta1.Kind(trKind),
@@ -49,21 +52,57 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		}
 		p.Name = name
 		p.Namespace = k8snamespace
-		testFramework.Client.Create(ctx, &p)
+		testFramework.Create(ctx, p)
 		return p
 	}
 
-	newPolicy := func(name, trKind, trName string) anv1alpha1.IAMAuthPolicy {
+	newPolicy := func(name, trKind, trName string) *anv1alpha1.IAMAuthPolicy {
 		return newPolicyWithGroup(name, gwv1beta1.GroupName, trKind, trName)
 	}
 
-	testPolicyStatus := func(policy anv1alpha1.IAMAuthPolicy, wantStatus gwv1alpha2.PolicyConditionReason) {
-		Eventually(func(g Gomega) string {
+	type K8sResults struct {
+		statusReason      gwv1alpha2.PolicyConditionReason
+		annotationResType string
+		annotationResId   string
+	}
+
+	testK8sPolicy := func(policy *anv1alpha1.IAMAuthPolicy, wantResults K8sResults) {
+		Eventually(func(g Gomega) (K8sResults, error) {
 			p := &anv1alpha1.IAMAuthPolicy{}
-			testFramework.Client.Get(ctx, client.ObjectKeyFromObject(&policy), p)
-			return GetPolicyStatusReason(p)
-		}).WithTimeout(10 * time.Second).WithPolling(time.Second).
-			Should(Equal(string(wantStatus)))
+			err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), p)
+			if err != nil {
+				return K8sResults{}, err
+			}
+			return K8sResults{
+				statusReason:      GetPolicyStatusReason(p),
+				annotationResType: p.Annotations[controllers.IAMAuthPolicyAnnotationType],
+				annotationResId:   p.Annotations[controllers.IAMAuthPolicyAnnotationResId],
+			}, nil
+		}).WithTimeout(30 * time.Second).WithPolling(time.Second).
+			Should(Equal(wantResults))
+	}
+
+	testLatticePolicy := func(resId, policy string) {
+		out, _ := lattice.GetAuthPolicy(&vpclattice.GetAuthPolicyInput{
+			ResourceIdentifier: &resId,
+		})
+		Expect(aws.StringValue(out.Policy)).To(Equal(policy))
+	}
+
+	testLatticeSnPolicy := func(snId, authType, jsonPolicy string) {
+		sn, _ := lattice.GetServiceNetwork(&vpclattice.GetServiceNetworkInput{
+			ServiceNetworkIdentifier: &snId,
+		})
+		Expect(aws.StringValue(sn.AuthType)).To(Equal(authType))
+		testLatticePolicy(snId, jsonPolicy)
+	}
+
+	testLatticeSvcPolicy := func(svcId, authType, jsonPolicy string) {
+		svc, _ := lattice.GetService(&vpclattice.GetServiceInput{
+			ServiceIdentifier: &svcId,
+		})
+		Expect(*svc.AuthType).To(Equal(authType))
+		testLatticePolicy(svcId, jsonPolicy)
 	}
 
 	var (
@@ -74,7 +113,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 	BeforeAll(func() {
 		httpDep, httpSvc = testFramework.NewHttpApp(test.HTTPAppOptions{
-			Name:      "http-app",
+			Name:      SvcName,
 			Namespace: k8snamespace,
 		})
 		httpRoute = testFramework.NewHttpRoute(testGateway, httpSvc, "Service")
@@ -83,44 +122,81 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 	AfterAll(func() {
 		testFramework.ExpectDeletedThenNotFound(ctx, httpDep, httpSvc, httpRoute)
+		testFramework.ExpectDeleteAllToSucceed(ctx, &anv1alpha1.IAMAuthPolicy{}, k8snamespace)
 	})
 
 	It("GroupName Error", func() {
 		policy := newPolicyWithGroup("group-name-err", "wrong.group", "Gateway", "gw")
-		testPolicyStatus(policy, gwv1alpha2.PolicyReasonInvalid)
-		testFramework.Delete(ctx, &policy)
+		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonInvalid})
+		testFramework.Delete(ctx, policy)
 	})
 
 	It("Kind Error", func() {
 		policy := newPolicy("kind-err", "WrongKind", "gw")
-		testPolicyStatus(policy, gwv1alpha2.PolicyReasonInvalid)
-		testFramework.Delete(ctx, &policy)
+		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonInvalid})
+		testFramework.Delete(ctx, policy)
 	})
 
 	It("TargetRef Not Found", func() {
 		policy := newPolicy("not-found", "Gateway", "not-found")
-		testPolicyStatus(policy, gwv1alpha2.PolicyReasonTargetNotFound)
-		testFramework.Delete(ctx, &policy)
+		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonTargetNotFound})
+		testFramework.Delete(ctx, policy)
 	})
 
 	It("TargetRef Conflict", func() {
 		policy1 := newPolicy("conflict-1", "Gateway", "test-gateway")
 		policy2 := newPolicy("conflict-2", "Gateway", "test-gateway")
 		// at least second policy should be in conflicted state
-		testPolicyStatus(policy2, gwv1alpha2.PolicyReasonConflicted)
-		testFramework.ExpectDeletedThenNotFound(ctx, &policy1, &policy2)
+		testK8sPolicy(policy2, K8sResults{statusReason: gwv1alpha2.PolicyReasonConflicted})
+		testFramework.ExpectDeletedThenNotFound(ctx, policy1, policy2)
 	})
 
-	It("Accepted - Gateway", func() {
+	It("accepted, applied, and removed from Gateway", func() {
 		policy := newPolicy("gw", "Gateway", "test-gateway")
-		testPolicyStatus(policy, gwv1alpha2.PolicyReasonAccepted)
-		testFramework.ExpectDeletedThenNotFound(ctx, &policy)
+		sn, _ := lattice.FindServiceNetwork(context.TODO(), "test-gateway", "")
+		snId := *sn.SvcNetwork.Id
+
+		// accepted
+		wantResults := K8sResults{
+			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			annotationResType: model.ServiceNetworkType,
+			annotationResId:   snId,
+		}
+		testK8sPolicy(policy, wantResults)
+		log.Infof("policy accepted: %+v", wantResults)
+
+		// applied
+		testLatticeSnPolicy(snId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		log.Infof("policy applied for SN=%s", snId)
+
+		// removed
+		testFramework.ExpectDeletedThenNotFound(ctx, policy)
+		testLatticeSnPolicy(snId, vpclattice.AuthTypeNone, NoPolicy)
+		log.Infof("policy removed from SN=%s", snId)
 	})
 
-	It("Accepted - HTTPRoute", func() {
-		policy := newPolicy("http", "HTTPRoute", "http-app")
-		testPolicyStatus(policy, gwv1alpha2.PolicyReasonAccepted)
-		testFramework.ExpectDeletedThenNotFound(ctx, &policy)
+	It("accepted, applied, and removed from HTTPRoute", func() {
+		policy := newPolicy("http", "HTTPRoute", SvcName)
+		svc, _ := lattice.FindService(context.TODO(), utils.LatticeServiceName(SvcName, k8snamespace))
+		svcId := *svc.Id
+
+		// accepted
+		wantResults := K8sResults{
+			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			annotationResType: model.ServiceType,
+			annotationResId:   svcId,
+		}
+		testK8sPolicy(policy, wantResults)
+		log.Infof("policy accepted: %+v", wantResults)
+
+		// applied
+		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		log.Infof("policy applied for Svc=%s", svcId)
+
+		// removed
+		testFramework.ExpectDeletedThenNotFound(ctx, policy)
+		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
+		log.Infof("policy removed from Svc=%s", svcId)
 	})
 })
 
@@ -128,10 +204,10 @@ type StatusConditionsReader interface {
 	GetStatusConditions() []apimachineryv1.Condition
 }
 
-func GetPolicyStatusReason(obj StatusConditionsReader) string {
+func GetPolicyStatusReason(obj StatusConditionsReader) gwv1alpha2.PolicyConditionReason {
 	cnd := meta.FindStatusCondition(obj.GetStatusConditions(), string(gwv1alpha2.PolicyConditionAccepted))
 	if cnd != nil {
-		return cnd.Reason
+		return gwv1alpha2.PolicyConditionReason(cnd.Reason)
 	}
 	return ""
 }
