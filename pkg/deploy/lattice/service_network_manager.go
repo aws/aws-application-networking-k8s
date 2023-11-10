@@ -21,14 +21,12 @@ import (
 //go:generate mockgen -destination service_network_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ServiceNetworkManager
 
 type ServiceNetworkManager interface {
+	UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string) (string, error)
+	DeleteVpcAssociation(ctx context.Context, snName string) error
+
 	CreateOrUpdate(ctx context.Context, serviceNetwork *model.ServiceNetwork) (model.ServiceNetworkStatus, error)
 	List(ctx context.Context) ([]string, error)
 	Delete(ctx context.Context, serviceNetwork string) error
-}
-
-type serviceNetworkOutput struct {
-	snSummary *vpclattice.ServiceNetworkSummary
-	snTags    *vpclattice.ListTagsForResourceOutput
 }
 
 func NewDefaultServiceNetworkManager(log gwlog.Logger, cloud pkg_aws.Cloud) *defaultServiceNetworkManager {
@@ -41,6 +39,122 @@ func NewDefaultServiceNetworkManager(log gwlog.Logger, cloud pkg_aws.Cloud) *def
 type defaultServiceNetworkManager struct {
 	log   gwlog.Logger
 	cloud pkg_aws.Cloud
+}
+
+func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string) (string, error) {
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName, "")
+	if err != nil {
+		return "", err
+	}
+
+	snva, err := m.getActiveVpcAssociation(ctx, *sn.SvcNetwork.Id)
+	if err != nil {
+		return "", err
+	}
+	if snva != nil {
+		// association is active
+		owned, err := m.cloud.TryOwn(ctx, *snva.Arn)
+		if err != nil {
+			return "", err
+		}
+		if !owned {
+			return "", services.NewConflictError("snva", snName,
+				fmt.Sprintf("Found existing vpc association not owned by controller: %s", *snva.Arn))
+		}
+		_, err = m.UpdateServiceNetworkVpcAssociation(ctx, &sn.SvcNetwork, sgIds, snva.Id)
+		if err != nil {
+			return "", err
+		}
+		return *snva.Arn, nil
+	} else {
+		req := vpclattice.CreateServiceNetworkVpcAssociationInput{
+			ServiceNetworkIdentifier: sn.SvcNetwork.Id,
+			VpcIdentifier:            &config.VpcID,
+			SecurityGroupIds:         sgIds,
+			Tags:                     m.cloud.DefaultTags(),
+		}
+		resp, err := m.cloud.Lattice().CreateServiceNetworkVpcAssociationWithContext(ctx, &req)
+		if err != nil {
+			return "", err
+		}
+		switch status := aws.StringValue(resp.Status); status {
+		case vpclattice.ServiceNetworkVpcAssociationStatusActive:
+			return *resp.Arn, nil
+		default:
+			return *resp.Arn, fmt.Errorf("%w, vpc association status in %s", RetryErr, status)
+		}
+	}
+}
+
+func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context, snName string) error {
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName, "")
+	if err != nil {
+		return err
+	}
+
+	snva, err := m.getActiveVpcAssociation(ctx, *sn.SvcNetwork.Id)
+	if err != nil {
+		return err
+	}
+	if snva != nil {
+		// association is active
+		m.log.Debugf("Disassociating ServiceNetwork %s from VPC", snName)
+
+		owned, err := m.cloud.IsArnManaged(ctx, *snva.Arn)
+		if err != nil {
+			return err
+		}
+		if !owned {
+			m.log.Infof("Association %s for %s not owned by controller, skipping deletion", *snva.Arn, snName)
+			return nil
+		}
+
+		deleteServiceNetworkVpcAssociationInput := vpclattice.DeleteServiceNetworkVpcAssociationInput{
+			ServiceNetworkVpcAssociationIdentifier: snva.Id,
+		}
+		resp, err := m.cloud.Lattice().DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
+		if err != nil {
+			m.log.Infof("Failed to delete association %s for %s, with response %s and err %s", *snva.Arn, snName, resp, err.Error())
+		}
+		return errors.New(LATTICE_RETRY)
+	}
+	return nil
+}
+
+func (m *defaultServiceNetworkManager) getActiveVpcAssociation(ctx context.Context, serviceNetworkId string) (*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
+	vpcLatticeSess := m.cloud.Lattice()
+	associationStatusInput := vpclattice.ListServiceNetworkVpcAssociationsInput{
+		ServiceNetworkIdentifier: &serviceNetworkId,
+		VpcIdentifier:            &config.VpcID,
+	}
+
+	resp, err := vpcLatticeSess.ListServiceNetworkVpcAssociationsAsList(ctx, &associationStatusInput)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) == 0 {
+		return nil, nil
+	}
+
+	// There can be at most one response for this
+	snva := resp[0]
+	if aws.StringValue(snva.Status) == vpclattice.ServiceNetworkVpcAssociationStatusActive {
+		return snva, nil
+	}
+	m.log.Debugf("snva %s status: %s", snva.Arn, snva.Status)
+	switch aws.StringValue(snva.Status) {
+	case vpclattice.ServiceNetworkVpcAssociationStatusActive,
+		vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed,
+		vpclattice.ServiceNetworkVpcAssociationStatusUpdateFailed:
+		// the resource exists
+		return snva, nil
+	case vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed:
+		// consider it does not exist
+		return nil, nil
+	default:
+		// a mutation is in progress, try later
+		return nil, errors.New(LATTICE_RETRY)
+	}
 }
 
 // CreateOrUpdate will try to create a service_network and associate the service_network with vpc.
@@ -101,7 +215,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		}
 		if serviceNetwork.Spec.AssociateToVPC == true && isSnAlreadyAssociatedWithCurrentVpc == true &&
 			snvaAssociatedWithCurrentVPC.Status != nil && aws.StringValue(snvaAssociatedWithCurrentVPC.Status) == vpclattice.ServiceNetworkVpcAssociationStatusActive {
-			return m.UpdateServiceNetworkVpcAssociation(ctx, &foundSnSummary.SvcNetwork, serviceNetwork, snvaAssociatedWithCurrentVPC.Id)
+			return m.UpdateServiceNetworkVpcAssociation(ctx, &foundSnSummary.SvcNetwork, serviceNetwork.Spec.SecurityGroupIds, snvaAssociatedWithCurrentVPC.Id)
 		}
 	}
 
@@ -282,25 +396,25 @@ func (m *defaultServiceNetworkManager) isServiceNetworkAlreadyAssociatedWithVPC(
 	return false, nil, resp, err
 }
 
-func (m *defaultServiceNetworkManager) UpdateServiceNetworkVpcAssociation(ctx context.Context, existingSN *vpclattice.ServiceNetworkSummary, desiredSN *model.ServiceNetwork, existingSnvaId *string) (model.ServiceNetworkStatus, error) {
-	retrievedSnva, err := m.cloud.Lattice().GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+func (m *defaultServiceNetworkManager) UpdateServiceNetworkVpcAssociation(ctx context.Context, existingSN *vpclattice.ServiceNetworkSummary, sgIds []*string, existingSnvaId *string) (model.ServiceNetworkStatus, error) {
+	snva, err := m.cloud.Lattice().GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
 	})
 	if err != nil {
 		return model.ServiceNetworkStatus{}, err
 	}
-	sgIdsEqual := securityGroupIdsEqual(desiredSN.Spec.SecurityGroupIds, retrievedSnva.SecurityGroupIds)
+	sgIdsEqual := securityGroupIdsEqual(sgIds, snva.SecurityGroupIds)
 	if sgIdsEqual {
-		// desiredSN's security group ids are same with retrievedSnva's security group ids, don't need to update
+		// desiredSN's security group ids are same with snva's security group ids, don't need to update
 		return model.ServiceNetworkStatus{
 			ServiceNetworkID:     *existingSN.Id,
 			ServiceNetworkARN:    *existingSN.Arn,
-			SnvaSecurityGroupIds: retrievedSnva.SecurityGroupIds,
+			SnvaSecurityGroupIds: snva.SecurityGroupIds,
 		}, nil
 	}
 	updateSnvaResp, err := m.cloud.Lattice().UpdateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.UpdateServiceNetworkVpcAssociationInput{
 		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
-		SecurityGroupIds:                       desiredSN.Spec.SecurityGroupIds,
+		SecurityGroupIds:                       sgIds,
 	})
 	if err != nil {
 		return model.ServiceNetworkStatus{}, err
@@ -312,7 +426,7 @@ func (m *defaultServiceNetworkManager) UpdateServiceNetworkVpcAssociation(ctx co
 			SnvaSecurityGroupIds: updateSnvaResp.SecurityGroupIds,
 		}, nil
 	} else {
-		return model.ServiceNetworkStatus{}, fmt.Errorf("%w, update svna status: %s", RetryErr, *updateSnvaResp.Status)
+		return model.ServiceNetworkStatus{}, fmt.Errorf("%w, update snva status: %s", RetryErr, *updateSnvaResp.Status)
 	}
 }
 

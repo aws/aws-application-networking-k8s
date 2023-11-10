@@ -80,7 +80,7 @@ func TestIsArnManaged(t *testing.T) {
 		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New(":("))
 		managed, err := cl.IsArnManaged(context.Background(), "arn")
-		assert.Nil(t, err)
+		assert.Error(t, err)
 		assert.False(t, managed)
 	})
 }
@@ -132,7 +132,7 @@ func Test_DefaultTagsMergedWith(t *testing.T) {
 	})
 }
 
-func Test_CheckAndAcquireOwnershipFromTags(t *testing.T) {
+func Test_TryOwnFromTags(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 
@@ -183,7 +183,7 @@ func Test_CheckAndAcquireOwnershipFromTags(t *testing.T) {
 			mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), &vpclattice.TagResourceInput{ResourceArn: aws.String(arn), Tags: cloud.DefaultTags()}).
 				Return(&vpclattice.TagResourceOutput{}, nil).Times(tagResourceCallCount)
 
-			res, err := cloud.CheckAndAcquireOwnershipFromTags(context.Background(), arn, tc.tags)
+			res, err := cloud.TryOwnFromTags(context.Background(), arn, tc.tags)
 
 			assert.Equal(t, tc.owned, res)
 			if tc.isErr {

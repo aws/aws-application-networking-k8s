@@ -47,7 +47,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	gwClass := &gwv1beta1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "amazon-vpc-lattice",
-			Namespace: defaultNameSpace,
+			Namespace: defaultNamespace,
 		},
 		Spec: gwv1beta1.GatewayClassSpec{
 			ControllerName: config.LatticeGatewayControllerName,

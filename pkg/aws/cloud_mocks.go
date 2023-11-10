@@ -35,21 +35,6 @@ func (m *MockCloud) EXPECT() *MockCloudMockRecorder {
 	return m.recorder
 }
 
-// CheckAndAcquireOwnershipFromTags mocks base method.
-func (m *MockCloud) CheckAndAcquireOwnershipFromTags(arg0 context.Context, arg1 string, arg2 map[string]*string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckAndAcquireOwnershipFromTags", arg0, arg1, arg2)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CheckAndAcquireOwnershipFromTags indicates an expected call of CheckAndAcquireOwnershipFromTags.
-func (mr *MockCloudMockRecorder) CheckAndAcquireOwnershipFromTags(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAndAcquireOwnershipFromTags", reflect.TypeOf((*MockCloud)(nil).CheckAndAcquireOwnershipFromTags), arg0, arg1, arg2)
-}
-
 // Config mocks base method.
 func (m *MockCloud) Config() CloudConfig {
 	m.ctrl.T.Helper()
@@ -62,20 +47,6 @@ func (m *MockCloud) Config() CloudConfig {
 func (mr *MockCloudMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockCloud)(nil).Config))
-}
-
-// ContainsManagedBy mocks base method.
-func (m *MockCloud) ContainsManagedBy(arg0 map[string]*string) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainsManagedBy", arg0)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// ContainsManagedBy indicates an expected call of ContainsManagedBy.
-func (mr *MockCloudMockRecorder) ContainsManagedBy(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsManagedBy", reflect.TypeOf((*MockCloud)(nil).ContainsManagedBy), arg0)
 }
 
 // DefaultTags mocks base method.
@@ -133,4 +104,34 @@ func (m *MockCloud) Lattice() services.Lattice {
 func (mr *MockCloudMockRecorder) Lattice() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lattice", reflect.TypeOf((*MockCloud)(nil).Lattice))
+}
+
+// TryOwn mocks base method.
+func (m *MockCloud) TryOwn(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TryOwn", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TryOwn indicates an expected call of TryOwn.
+func (mr *MockCloudMockRecorder) TryOwn(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryOwn", reflect.TypeOf((*MockCloud)(nil).TryOwn), arg0, arg1)
+}
+
+// TryOwnFromTags mocks base method.
+func (m *MockCloud) TryOwnFromTags(arg0 context.Context, arg1 string, arg2 map[string]*string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TryOwnFromTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TryOwnFromTags indicates an expected call of TryOwnFromTags.
+func (mr *MockCloudMockRecorder) TryOwnFromTags(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryOwnFromTags", reflect.TypeOf((*MockCloud)(nil).TryOwnFromTags), arg0, arg1, arg2)
 }

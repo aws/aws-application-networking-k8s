@@ -125,7 +125,7 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 		}
 		return null
 	}
-	r.log.Debugw("TargetGroupPolicy change on Service detected",
+	r.log.Debugw("Policy change on Service detected",
 		"policyName", policyNamespacedName, "targetRef", targetRef)
 
 	return retObj

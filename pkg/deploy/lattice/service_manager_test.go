@@ -68,7 +68,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			DoAndReturn(
 				func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
 					assert.Equal(t, "sn-id", *req.ServiceNetworkIdentifier)
-					assert.True(t, cl.ContainsManagedBy(req.Tags))
+					assert.Contains(t, req.Tags, pkg_aws.TagManagedBy)
 					return &CreateSnSvcAssocResp{
 						Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
 					}, nil

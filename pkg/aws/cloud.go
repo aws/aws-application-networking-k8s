@@ -37,14 +37,12 @@ type Cloud interface {
 	// creates lattice tags with default values populated and merges them with provided tags
 	DefaultTagsMergedWith(services.Tags) services.Tags
 
-	// Retrieve tags and check if tags map has managedBy tag
-	ContainsManagedBy(tags services.Tags) bool
-
 	// check if managedBy tag set for lattice resource
 	IsArnManaged(ctx context.Context, arn string) (bool, error)
 
 	// check ownership and acquire if it is not owned by anyone.
-	CheckAndAcquireOwnershipFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error)
+	TryOwn(ctx context.Context, arn string) (bool, error)
+	TryOwnFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error)
 }
 
 // NewCloud constructs new Cloud implementation.
@@ -111,6 +109,15 @@ func (c *defaultCloud) DefaultTagsMergedWith(tags services.Tags) services.Tags {
 	return newTags
 }
 
+func (c *defaultCloud) getTags(ctx context.Context, arn string) (services.Tags, error) {
+	tagsReq := &vpclattice.ListTagsForResourceInput{ResourceArn: &arn}
+	resp, err := c.lattice.ListTagsForResourceWithContext(ctx, tagsReq)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Tags, nil
+}
+
 func (c *defaultCloud) getManagedByFromTags(tags services.Tags) string {
 	tag, ok := tags[TagManagedBy]
 	if !ok || tag == nil {
@@ -119,32 +126,28 @@ func (c *defaultCloud) getManagedByFromTags(tags services.Tags) string {
 	return *tag
 }
 
-func (c *defaultCloud) getManagedBy(ctx context.Context, arn string) (string, error) {
-	tagsReq := &vpclattice.ListTagsForResourceInput{ResourceArn: &arn}
-	resp, err := c.lattice.ListTagsForResourceWithContext(ctx, tagsReq)
-	if err != nil {
-		return "", err
-	}
-	return c.getManagedByFromTags(resp.Tags), nil
-}
-
-func (c *defaultCloud) ContainsManagedBy(tags services.Tags) bool {
-	return c.isOwner(c.getManagedByFromTags(tags))
-}
-
 func (c *defaultCloud) IsArnManaged(ctx context.Context, arn string) (bool, error) {
-	managedBy, err := c.getManagedBy(ctx, arn)
+	tags, err := c.getTags(ctx, arn)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
-	return c.isOwner(managedBy), nil
+	return c.isOwner(c.getManagedByFromTags(tags)), nil
 }
 
-func (c *defaultCloud) CheckAndAcquireOwnershipFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error) {
+func (c *defaultCloud) TryOwn(ctx context.Context, arn string) (bool, error) {
+	// For resources that need backwards compatibility - not having managedBy is considered as owned by controller.
+	tags, err := c.getTags(ctx, arn)
+	if err != nil {
+		return false, err
+	}
+	return c.TryOwnFromTags(ctx, arn, tags)
+}
+
+func (c *defaultCloud) TryOwnFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error) {
 	// For resources that need backwards compatibility - not having managedBy is considered as owned by controller.
 	managedBy := c.getManagedByFromTags(tags)
 	if managedBy == "" {
-		err := c.acquireOwnership(ctx, arn)
+		err := c.ownResource(ctx, arn)
 		if err != nil {
 			return false, err
 		}
@@ -153,7 +156,7 @@ func (c *defaultCloud) CheckAndAcquireOwnershipFromTags(ctx context.Context, arn
 	return c.isOwner(managedBy), nil
 }
 
-func (c *defaultCloud) acquireOwnership(ctx context.Context, arn string) error {
+func (c *defaultCloud) ownResource(ctx context.Context, arn string) error {
 	_, err := c.Lattice().TagResourceWithContext(ctx, &vpclattice.TagResourceInput{
 		ResourceArn: &arn,
 		Tags:        c.DefaultTags(),
