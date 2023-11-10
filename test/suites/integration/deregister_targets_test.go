@@ -48,18 +48,23 @@ var _ = Describe("Deregister Targets", Ordered, func() {
 		for i, service := range services {
 			// Verify VPC Lattice Target Group exists
 			targetGroups[i] = testFramework.GetTargetGroup(ctx, service)
+			Expect(*targetGroups[i].Port).To(BeEquivalentTo(80))
 			Expect(*targetGroups[i]).To(Not(BeNil()))
 
 			// Verify VPC Lattice Targets exist
-			targets := testFramework.GetTargets(ctx, targetGroups[i], deployments[i])
-			Expect(*targetGroups[i].Port).To(BeEquivalentTo(80))
-			for _, target := range targets {
-				Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].TargetPort.IntVal))
-				Expect(*target.Status).To(Or(
-					Equal(vpclattice.TargetStatusInitial),
-					Equal(vpclattice.TargetStatusHealthy),
-				))
-			}
+			Eventually(func(g Gomega) {
+				targets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroups[i].Id})
+				g.Expect(err).To(BeNil())
+				g.Expect(len(targets)).To(BeEquivalentTo(*deployments[i].Spec.Replicas))
+				for _, target := range targets {
+					g.Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].TargetPort.IntVal))
+					g.Expect(*target.Status).To(Or(
+						Equal(vpclattice.TargetStatusInitial),
+						Equal(vpclattice.TargetStatusHealthy),
+					))
+				}
+			}).Should(Succeed())
+
 		}
 	})
 
@@ -69,7 +74,7 @@ var _ = Describe("Deregister Targets", Ordered, func() {
 	})
 
 	It("Kubernetes Deployment deletion triggers targets de-registering", func() {
-		testFramework.ExpectDeleted(ctx, services[1])
+		testFramework.ExpectDeleted(ctx, deployments[1])
 		verifyNoTargetsForTargetGroup(targetGroups[1])
 	})
 
