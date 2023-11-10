@@ -2,6 +2,7 @@ package integration
 
 import (
 	"log"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
@@ -58,12 +59,9 @@ var _ = Describe("Deregister Targets", Ordered, func() {
 				g.Expect(len(targets)).To(BeEquivalentTo(*deployments[i].Spec.Replicas))
 				for _, target := range targets {
 					g.Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].TargetPort.IntVal))
-					g.Expect(*target.Status).To(Or(
-						Equal(vpclattice.TargetStatusInitial),
-						Equal(vpclattice.TargetStatusHealthy),
-					))
+					g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusHealthy))
 				}
-			}).Should(Succeed())
+			}).WithTimeout(3 * time.Minute).WithPolling(3 * time.Second).Should(Succeed())
 
 		}
 	})
