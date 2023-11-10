@@ -86,21 +86,17 @@ func (r *ruleSynthesizer) findSvcExportTG(ctx context.Context, svcImportTg model
 	}
 
 	for _, tg := range tgs {
-		if tg.targetGroupTags == nil {
-			continue
-		}
-
-		tgTags := model.TGTagFieldsFromTags(tg.targetGroupTags.Tags)
+		tgTags := model.TGTagFieldsFromTags(tg.tags)
 
 		svcMatch := tgTags.IsSourceTypeServiceExport() && (tgTags.K8SServiceName == svcImportTg.K8SServiceName) &&
 			(tgTags.K8SServiceNamespace == svcImportTg.K8SServiceNamespace)
 
 		clusterMatch := (svcImportTg.K8SClusterName == "") || (tgTags.K8SClusterName == svcImportTg.K8SClusterName)
 
-		vpcMatch := (svcImportTg.VpcId == "") || (svcImportTg.VpcId == aws.StringValue(tg.getTargetGroupOutput.Config.VpcIdentifier))
+		vpcMatch := (svcImportTg.VpcId == "") || (svcImportTg.VpcId == aws.StringValue(tg.tgSummary.VpcIdentifier))
 
 		if svcMatch && clusterMatch && vpcMatch {
-			return *tg.getTargetGroupOutput.Id, nil
+			return *tg.tgSummary.Id, nil
 		}
 	}
 

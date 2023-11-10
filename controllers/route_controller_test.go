@@ -157,7 +157,9 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 
 	mockCloud := aws2.NewMockCloud(c)
 	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+	mockCloud.EXPECT().Tagging().Return(mockTagging).AnyTimes()
 	mockCloud.EXPECT().Config().Return(
 		aws2.CloudConfig{
 			VpcId:       config.VpcID,
@@ -204,6 +206,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			},
 		}, nil) // will trigger DNS Update
 
+	mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(
 		[]*vpclattice.TargetGroupSummary{}, nil).AnyTimes() // this will cause us to skip "unused delete" step
 	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(

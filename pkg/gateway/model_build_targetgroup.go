@@ -171,6 +171,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 	spec.K8SClusterName = config.ClusterName
 	spec.K8SServiceName = t.serviceExport.Name
 	spec.K8SServiceNamespace = t.serviceExport.Namespace
+	spec.K8SProtocolVersion = protocolVersion
 
 	stackTG, err := model.NewTargetGroup(t.stack, spec)
 	if err != nil {
@@ -361,6 +362,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	spec.K8SServiceNamespace = backendRefNsName.Namespace
 	spec.K8SRouteName = t.route.Name()
 	spec.K8SRouteNamespace = t.route.Namespace()
+	spec.K8SProtocolVersion = protocolVersion
 
 	return spec, nil
 }

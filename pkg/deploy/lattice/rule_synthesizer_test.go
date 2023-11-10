@@ -175,20 +175,18 @@ func Test_resolveRuleTgs(t *testing.T) {
 	mockTgMgr.EXPECT().List(ctx).Return(
 		[]tgListOutput{
 			{
-				getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
-					Arn: aws.String("svc-export-tg-arn"),
-					Config: &vpclattice.TargetGroupConfig{
-						VpcIdentifier: aws.String("vpc-id"),
-					},
-					Id:   aws.String("svc-export-tg-id"),
-					Name: aws.String("svc-export-tg-name"),
+				tgSummary: &vpclattice.TargetGroupSummary{
+					Arn:           aws.String("svc-export-tg-arn"),
+					VpcIdentifier: aws.String("vpc-id"),
+					Id:            aws.String("svc-export-tg-id"),
+					Name:          aws.String("svc-export-tg-name"),
 				},
-				targetGroupTags: &vpclattice.ListTagsForResourceOutput{Tags: map[string]*string{
+				tags: map[string]*string{
 					model.K8SServiceNameKey:      aws.String("svc-name"),
 					model.K8SServiceNamespaceKey: aws.String("ns"),
 					model.K8SClusterNameKey:      aws.String("cluster-name"),
 					model.K8SSourceTypeKey:       aws.String(string(model.SourceTypeSvcExport)),
-				}},
+				},
 			},
 		}, nil)
 
