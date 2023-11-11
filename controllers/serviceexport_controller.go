@@ -83,7 +83,8 @@ func RegisterServiceExportController(
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.ServiceExport{}).
-		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToServiceExport())
+		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToServiceExport()).
+		Watches(&source.Kind{Type: &corev1.Endpoints{}}, svcEventHandler.MapToServiceExport())
 
 	if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
 		builder.Watches(&source.Kind{Type: &anv1alpha1.TargetGroupPolicy{}}, svcEventHandler.MapToServiceExport())

@@ -18,25 +18,9 @@ type StackDeployer interface {
 	Deploy(ctx context.Context, stack core.Stack) error
 }
 
-type serviceNetworkStackDeployer struct {
-	log                          gwlog.Logger
-	cloud                        pkg_aws.Cloud
-	k8sClient                    client.Client
-	latticeServiceNetworkManager lattice.ServiceNetworkManager
-}
-
 type ResourceSynthesizer interface {
 	Synthesize(ctx context.Context) error
 	PostSynthesize(ctx context.Context) error
-}
-
-func NewServiceNetworkStackDeployer(log gwlog.Logger, cloud pkg_aws.Cloud, k8sClient client.Client) *serviceNetworkStackDeployer {
-	return &serviceNetworkStackDeployer{
-		log:                          log,
-		cloud:                        cloud,
-		k8sClient:                    k8sClient,
-		latticeServiceNetworkManager: lattice.NewDefaultServiceNetworkManager(log, cloud),
-	}
 }
 
 // Deploy a resource stack
@@ -53,13 +37,6 @@ func deploy(ctx context.Context, stack core.Stack, synthesizers []ResourceSynthe
 	}
 
 	return nil
-}
-
-func (d *serviceNetworkStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
-	synthesizers := []ResourceSynthesizer{
-		lattice.NewServiceNetworkSynthesizer(d.log, d.k8sClient, d.latticeServiceNetworkManager, stack),
-	}
-	return deploy(ctx, stack, synthesizers)
 }
 
 type latticeServiceStackDeployer struct {

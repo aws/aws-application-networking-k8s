@@ -138,12 +138,12 @@ func (env *Framework) NewHttpRoute(parentRefsGateway *v1beta1.Gateway, service *
 	httpRoute := New(&v1beta1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: service.Namespace,
+			Name:      service.Name,
 		},
 		Spec: v1beta1.HTTPRouteSpec{
 			CommonRouteSpec: v1beta1.CommonRouteSpec{
 				ParentRefs: []v1beta1.ParentReference{{
 					Name: v1beta1.ObjectName(parentRefsGateway.Name),
-					//SectionName: lo.ToPtr(v1beta1.SectionName("http")),
 				}},
 			},
 			Rules: rules,

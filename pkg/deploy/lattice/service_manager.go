@@ -132,7 +132,7 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 		return err
 	}
 
-	owned, err := m.cloud.CheckAndAcquireOwnershipFromTags(ctx, *svcSum.Arn, tagsResp.Tags)
+	owned, err := m.cloud.TryOwnFromTags(ctx, *svcSum.Arn, tagsResp.Tags)
 	if err != nil {
 		return err
 	}

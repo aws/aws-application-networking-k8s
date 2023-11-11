@@ -19,6 +19,7 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -137,7 +138,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 		}
 	}
 
-	tgp, err := GetAttachedPolicy(ctx, t.client, k8s.NamespacedName(t.serviceExport), &anv1alpha1.TargetGroupPolicy{})
+	tgps, err := policyhelper.GetAttachedPolicies(ctx, t.client, k8s.NamespacedName(t.serviceExport), &anv1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +146,9 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
 	var healthCheckConfig *vpclattice.HealthCheckConfig
-	if tgp != nil {
+	if len(tgps) > 0 {
+		// TODO: TGP conflicts should be handled correctly w/ status update, for now just picking up one
+		tgp := tgps[0]
 		if tgp.Spec.Protocol != nil {
 			protocol = *tgp.Spec.Protocol
 		}
@@ -315,7 +318,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		}
 	}
 
-	tgp, err := GetAttachedPolicy(ctx, t.client, backendRefNsName, &anv1alpha1.TargetGroupPolicy{})
+	tgps, err := policyhelper.GetAttachedPolicies(ctx, t.client, backendRefNsName, &anv1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return model.TargetGroupSpec{}, err
 	}
@@ -323,7 +326,9 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
 	var healthCheckConfig *vpclattice.HealthCheckConfig
-	if tgp != nil {
+	if len(tgps) > 0 {
+		// TODO: TGP conflicts should be handled correctly w/ status update, for now just picking up one
+		tgp := tgps[0]
 		if tgp.Spec.Protocol != nil {
 			protocol = *tgp.Spec.Protocol
 		}

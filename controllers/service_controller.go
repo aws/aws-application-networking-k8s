@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -98,10 +97,6 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	}
 	if !svc.DeletionTimestamp.IsZero() {
 		r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer)
-	} else {
-		if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
-			r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("failed and finalizer: %s", err))
-		}
 	}
 
 	r.log.Infow("reconciled", "name", req.Name)

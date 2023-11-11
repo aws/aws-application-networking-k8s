@@ -43,11 +43,8 @@ spec:
             properties:
               associateWithVpc:
                 description: "AssociateWithVpc indicates whether the VpcServiceNetworkAssociation
-                  should be created for the current VPC of k8s cluster. \n Both this
-                  flag and Gateway annotation \"application-networking.k8s.aws/lattice-vpc-association\"
-                  are reserved tentatively for backward compatibility. Either one
-                  of them set to true or both of them undefined will result in the
-                  VpcServiceNetworkAssociation created."
+                  should be created for the current VPC of k8s cluster. \n This value
+                  will be considered true by default."
                 type: boolean
               securityGroupIds:
                 description: "SecurityGroupIds defines the security groups enforced
@@ -101,7 +98,7 @@ spec:
             type: object
           status:
             description: VpcAssociationPolicyStatus defines the observed state of
-              AccessLogPolicy.
+              VpcAssociationPolicy.
             properties:
               conditions:
                 default:
@@ -110,17 +107,12 @@ spec:
                   reason: Pending
                   status: Unknown
                   type: Accepted
-                - lastTransitionTime: "1970-01-01T00:00:00Z"
-                  message: Waiting for controller
-                  reason: Pending
-                  status: Unknown
-                  type: Programmed
-                description: "Conditions describe the current conditions of the AccessLogPolicy.
+                description: "Conditions describe the current conditions of the VpcAssociationPolicy.
                   \n Implementations should prefer to express Policy conditions using
                   the `PolicyConditionType` and `PolicyConditionReason` constants
                   so that operators and tools can converge on a common vocabulary
-                  to describe AccessLogPolicy state. \n Known condition types are:
-                  \n * \"Accepted\" * \"Ready\""
+                  to describe VpcAssociationPolicy state. \n Known condition types
+                  are: \n * \"Accepted\""
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -198,4 +190,5 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}

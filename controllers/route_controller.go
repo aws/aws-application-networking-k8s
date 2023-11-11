@@ -252,7 +252,7 @@ func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	// make sure gateway is an aws-vpc-lattice
 	gwClass := &gwv1beta1.GatewayClass{}
 	gwClassName := types.NamespacedName{
-		Namespace: defaultNameSpace,
+		Namespace: defaultNamespace,
 		Name:      string(gw.Spec.GatewayClassName),
 	}
 
