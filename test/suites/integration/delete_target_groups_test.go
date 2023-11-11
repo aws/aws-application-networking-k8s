@@ -1,6 +1,8 @@
 package integration
 
 import (
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-sdk-go/aws"
 	"log"
 	"time"
 
@@ -16,7 +18,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
-var _ = Describe("Deregister Targets", Ordered, func() {
+var _ = Describe("Delete Unused Target Groups", Ordered, func() {
 	var (
 		deployments        = make([]*appsv1.Deployment, 2)
 		services           = make([]*v1.Service, 2)
@@ -26,11 +28,11 @@ var _ = Describe("Deregister Targets", Ordered, func() {
 
 	BeforeAll(func() {
 		deployments[0], services[0] = testFramework.NewHttpApp(test.HTTPAppOptions{
-			Name:      "target-deregistration-test-1",
+			Name:      "tg-delete-test-1",
 			Namespace: k8snamespace,
 		})
 		deployments[1], services[1] = testFramework.NewHttpApp(test.HTTPAppOptions{
-			Name:      "target-deregistration-test-2",
+			Name:      "tg-delete-test-2",
 			Namespace: k8snamespace,
 		})
 		pathMatchHttpRoute = testFramework.NewPathMatchHttpRoute(
@@ -66,14 +68,14 @@ var _ = Describe("Deregister Targets", Ordered, func() {
 		}
 	})
 
-	It("Kubernetes Service deletion deregisters targets", func() {
+	It("Kubernetes Service deletion deletes target groups", func() {
 		testFramework.ExpectDeleted(ctx, services[0])
-		verifyNoTargetsForTargetGroup(targetGroups[0])
+		verifyTargetGroupDeleted(targetGroups[0])
 	})
 
-	It("Kubernetes Deployment deletion triggers targets de-registering", func() {
+	It("Kubernetes Deployment deletion deletes target groups", func() {
 		testFramework.ExpectDeleted(ctx, deployments[1])
-		verifyNoTargetsForTargetGroup(targetGroups[1])
+		verifyTargetGroupDeleted(targetGroups[1])
 	})
 
 	AfterAll(func() {
@@ -89,16 +91,21 @@ var _ = Describe("Deregister Targets", Ordered, func() {
 	})
 })
 
-func verifyNoTargetsForTargetGroup(targetGroup *vpclattice.TargetGroupSummary) {
+func verifyTargetGroupDeleted(targetGroup *vpclattice.TargetGroupSummary) {
 	Eventually(func(g Gomega) {
-		log.Println("Verifying VPC lattice Targets deregistered")
-		targets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{
+		log.Println("Verifying VPC lattice target group deleted ", *targetGroup.Id)
+		tg, err := testFramework.LatticeClient.GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: targetGroup.Id,
 		})
-		g.Expect(err).To(BeNil())
-		log.Println("targets:", targets)
-		for _, target := range targets {
-			g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusDraining))
+		if err != nil && services.IsNotFoundError(err) {
+			return
 		}
+
+		// showing up as "deleting" is also fine
+		if aws.StringValue(tg.Status) == vpclattice.TargetGroupStatusDeleteInProgress {
+			return
+		}
+
+		g.Expect(true).To(BeFalse())
 	}).Should(Succeed())
 }

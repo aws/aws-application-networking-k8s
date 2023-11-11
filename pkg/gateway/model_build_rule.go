@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -31,6 +30,7 @@ const (
 )
 
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackListenerId string) error {
+	// note we only build rules for non-deleted routes
 	t.log.Debugf("Processing %d rules", len(t.route.Spec().Rules()))
 
 	for i, rule := range t.route.Spec().Rules() {
@@ -254,9 +254,16 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 			// generate the actual target group model for the backendRef
 			_, tg, err := t.brTgBuilder.Build(ctx, t.route, backendRef, t.stack)
 			if err != nil {
-				return nil, err
+				ibre := &InvalidBackendRefError{}
+				if !errors.As(err, &ibre) {
+					return nil, err
+				}
+
+				t.log.Infof("Invalid backendRef found on route %s", t.route.Name())
+				ruleTG.StackTargetGroupId = model.InvalidBackendRefTgId
+			} else {
+				ruleTG.StackTargetGroupId = tg.ID()
 			}
-			ruleTG.StackTargetGroupId = tg.ID()
 		}
 
 		tgList = append(tgList, &ruleTG)

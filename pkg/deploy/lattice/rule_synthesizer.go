@@ -49,6 +49,12 @@ func (r *ruleSynthesizer) resolveRuleTgIds(ctx context.Context, modelRule *model
 		}
 
 		if rtg.StackTargetGroupId != "" {
+			if rtg.StackTargetGroupId == model.InvalidBackendRefTgId {
+				r.log.Debugf("Rule TG has an invalid backendref, setting TG id to invalid")
+				rtg.LatticeTgId = model.InvalidBackendRefTgId
+				continue
+			}
+
 			r.log.Debugf("Fetching TG %d from the stack (ID %s)", i, rtg.StackTargetGroupId)
 
 			stackTg := &model.TargetGroup{}

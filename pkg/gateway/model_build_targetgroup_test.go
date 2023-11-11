@@ -28,7 +28,7 @@ import (
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
-func Test_TGModelByServicExportBuild(t *testing.T) {
+func Test_TGModelByServiceExportBuild(t *testing.T) {
 	config.VpcID = "vpc-id"
 	config.ClusterName = "cluster-name"
 
@@ -419,47 +419,6 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 			wantIPv6TargetGroup: false,
 		},
 		{
-			name: "Create LatticeService where backend serviceimport does NOT exist",
-			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "service4",
-					Namespace:  "ns1",
-					Finalizers: []string{"gateway.k8s.aws/resources"},
-				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
-							{
-								Name:      "gateway1",
-								Namespace: namespacePtr("ns1"),
-							},
-						},
-					},
-					Rules: []gwv1beta1.HTTPRouteRule{
-						{
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
-								{
-									BackendRef: gwv1beta1.BackendRef{
-										BackendObjectReference: gwv1beta1.BackendObjectReference{
-											Name:      "service4-tg1",
-											Namespace: namespacePtr("ns31"),
-											Kind:      kindPtr("ServiceImport"),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			}),
-			svcExist:            false,
-			wantError:           nil,
-			wantName:            "service1",
-			wantIsDeleted:       false,
-			wantErrIsNil:        false,
-			wantIPv6TargetGroup: false,
-		},
-		{
 			name: "Lattice Service with IPv6 Target Group",
 			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -551,6 +510,10 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 
 			_, stackTg, err := builder.Build(ctx, tt.route, httpBackendRef, stack)
 			if !tt.wantErrIsNil {
+				ibre := &InvalidBackendRefError{}
+				if !tt.svcExist {
+					assert.ErrorAs(t, err, &ibre)
+				}
 				assert.NotNil(t, err)
 				return
 			}
@@ -590,6 +553,8 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 	}
 }
 
+// service imports do not do a full TG build, just a reference
+// see model_build_rule.go#getTargetGroupsForRuleAction
 func Test_ServiceImportToTGBuildReturnsError(t *testing.T) {
 	config.VpcID = "vpc-id"
 	config.ClusterName = "cluster-name"

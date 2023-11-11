@@ -97,9 +97,24 @@ func (r *defaultRuleManager) buildLatticeRule(modelRule *model.Rule) (*vpclattic
 	updateMatchFromRule(&httpMatch, modelRule)
 	gro.Match = &vpclattice.RuleMatch{HttpMatch: &httpMatch}
 
-	if len(modelRule.Spec.Action.TargetGroups) > 0 {
+	// check if we have at least one valid target group
+	var hasValidTargetGroup bool
+	for _, tg := range modelRule.Spec.Action.TargetGroups {
+		if tg.LatticeTgId != model.InvalidBackendRefTgId {
+			hasValidTargetGroup = true
+			break
+		}
+	}
+
+	if hasValidTargetGroup {
 		var latticeTGs []*vpclattice.WeightedTargetGroup
 		for _, ruleTg := range modelRule.Spec.Action.TargetGroups {
+			// skip any invalid TGs - eventually VPC Lattice may support weighted fixed response
+			// and this logic can be more in line with the spec
+			if ruleTg.LatticeTgId == model.InvalidBackendRefTgId {
+				continue
+			}
+
 			latticeTG := vpclattice.WeightedTargetGroup{
 				TargetGroupIdentifier: aws.String(ruleTg.LatticeTgId),
 				Weight:                aws.Int64(ruleTg.Weight),
@@ -114,7 +129,7 @@ func (r *defaultRuleManager) buildLatticeRule(modelRule *model.Rule) (*vpclattic
 			},
 		}
 	} else {
-		r.log.Debugf("There are no target groups, defaulting to 404 Fixed response")
+		r.log.Debugf("There are no valid target groups, defaulting to 404 Fixed response")
 		gro.Action = &vpclattice.RuleAction{
 			FixedResponse: &vpclattice.FixedResponseAction{
 				StatusCode: aws.Int64(404),
@@ -237,7 +252,7 @@ func (r *defaultRuleManager) updateIfNeeded(
 
 	_, err := r.cloud.Lattice().UpdateRuleWithContext(ctx, &uri)
 	if err != nil {
-		return model.RuleStatus{}, fmt.Errorf("Failed UpdateRule %d for %s, %s due to %s",
+		return model.RuleStatus{}, fmt.Errorf("failed UpdateRule %d for %s, %s due to %s",
 			ruleToUpdate.Priority, latticeListenerId, latticeSvcId, err)
 	}
 
@@ -375,7 +390,7 @@ func (r *defaultRuleManager) Delete(ctx context.Context, ruleId string, serviceI
 
 	_, err := r.cloud.Lattice().DeleteRuleWithContext(ctx, &deleteInput)
 	if err != nil {
-		return fmt.Errorf("Failed DeleteRule %s/%s/%s due to %s", serviceId, listenerId, ruleId, err)
+		return fmt.Errorf("failed DeleteRule %s/%s/%s due to %s", serviceId, listenerId, ruleId, err)
 	}
 
 	r.log.Infof("Success DeleteRule %s/%s/%s", serviceId, listenerId, ruleId)

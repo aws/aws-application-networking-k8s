@@ -166,6 +166,9 @@ func Test_resolveRuleTgs(t *testing.T) {
 					{
 						StackTargetGroupId: "stack-tg-id",
 					},
+					{
+						StackTargetGroupId: model.InvalidBackendRefTgId,
+					},
 				},
 			},
 		},
@@ -197,4 +200,5 @@ func Test_resolveRuleTgs(t *testing.T) {
 
 	assert.Equal(t, "svc-export-tg-id", r.Spec.Action.TargetGroups[0].LatticeTgId)
 	assert.Equal(t, "tg-id", r.Spec.Action.TargetGroups[1].LatticeTgId)
+	assert.Equal(t, model.InvalidBackendRefTgId, r.Spec.Action.TargetGroups[2].LatticeTgId)
 }
