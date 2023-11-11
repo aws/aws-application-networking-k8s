@@ -206,7 +206,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			},
 		}, nil) // will trigger DNS Update
 
-	mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(
 		[]*vpclattice.TargetGroupSummary{}, nil).AnyTimes() // this will cause us to skip "unused delete" step
 	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(

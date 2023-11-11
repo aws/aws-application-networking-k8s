@@ -11,10 +11,12 @@ import (
 
 //go:generate mockgen -destination tagging_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Tagging
 
+type ResourceType string
+
 const (
 	resourceTypePrefix = "vpc-lattice:"
 
-	ResourceTypeTargetGroup = resourceTypePrefix + "targetgroup"
+	ResourceTypeTargetGroup ResourceType = resourceTypePrefix + "targetgroup"
 
 	maxArnsPerGetResourcesApi = 100
 )
@@ -25,18 +27,18 @@ type Tagging interface {
 	taggingapiiface.ResourceGroupsTaggingAPIAPI
 
 	// Receives a list of arns and returns arn-to-tags map.
-	GetTagsFromArns(ctx context.Context, arns []*string) (map[string]Tags, error)
+	GetTagsForArns(ctx context.Context, arns []string) (map[string]Tags, error)
 
 	// Finds one resource that matches the given set of tags.
-	FindResourceWithTags(ctx context.Context, resourceType string, tags Tags) (*string, error)
+	FindResourcesByTags(ctx context.Context, resourceType ResourceType, tags Tags) ([]string, error)
 }
 
 type defaultTagging struct {
 	taggingapiiface.ResourceGroupsTaggingAPIAPI
 }
 
-func (t *defaultTagging) GetTagsFromArns(ctx context.Context, arns []*string) (map[string]Tags, error) {
-	chunks := utils.Chunks(arns, maxArnsPerGetResourcesApi)
+func (t *defaultTagging) GetTagsForArns(ctx context.Context, arns []string) (map[string]Tags, error) {
+	chunks := utils.Chunks(utils.SliceMap(arns, aws.String), maxArnsPerGetResourcesApi)
 	result := make(map[string]Tags)
 
 	for _, chunk := range chunks {
@@ -56,20 +58,19 @@ func (t *defaultTagging) GetTagsFromArns(ctx context.Context, arns []*string) (m
 	return result, nil
 }
 
-func (t *defaultTagging) FindResourceWithTags(ctx context.Context, resourceType string, tags Tags) (*string, error) {
+func (t *defaultTagging) FindResourcesByTags(ctx context.Context, resourceType ResourceType, tags Tags) ([]string, error) {
 	input := &taggingapi.GetResourcesInput{
 		TagFilters:          convertTagsToFilter(tags),
-		ResourceTypeFilters: []*string{aws.String(resourceType)},
+		ResourceTypeFilters: []*string{aws.String(string(resourceType))},
 	}
 	resp, err := t.GetResourcesWithContext(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-	if len(resp.ResourceTagMappingList) == 0 {
-		return nil, NewNotFoundError("tag", "matching criteria")
-	}
-	// assume one result
-	return resp.ResourceTagMappingList[0].ResourceARN, nil
+	matchingArns := utils.SliceMap(resp.ResourceTagMappingList, func(t *taggingapi.ResourceTagMapping) string {
+		return aws.StringValue(t.ResourceARN)
+	})
+	return matchingArns, nil
 }
 
 func NewDefaultTagging(sess *session.Session, region string) *defaultTagging {

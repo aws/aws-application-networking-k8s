@@ -87,7 +87,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			expectedTags[model.K8SRouteNamespaceKey] = &tgSpec.K8SRouteNamespace
 		}
 
-		mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+		mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 		mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, input *vpclattice.CreateTargetGroupInput, arg3 ...interface{}) (*vpclattice.CreateTargetGroupOutput, error) {
 				assert.Equal(t, aws.Int64(int64(tgSpec.Port)), input.Config.Port)
@@ -153,7 +153,7 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 		Config: &vpclattice.TargetGroupConfig{},
 	}
 
-	mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(&arn, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
 	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
@@ -228,7 +228,7 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 				},
 			}
 
-			mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(&arn, nil)
+			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
 			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 			if tt.wantErr {
@@ -292,7 +292,7 @@ func Test_CreateTargetGroup_ExistingTG_Status_Retry(t *testing.T) {
 				},
 			}
 
-			mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(&arn, nil)
+			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
 			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
@@ -341,7 +341,7 @@ func Test_CreateTargetGroup_NewTG_RetryStatus(t *testing.T) {
 				Status: &tgStatus,
 			}
 
-			mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 			mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
@@ -370,7 +370,7 @@ func Test_Lattice_API_Errors(t *testing.T) {
 	}
 
 	// search error
-	mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(nil, errors.New("test"))
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, errors.New("test"))
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 	_, err := tgManager.Upsert(ctx, &tgCreateInput)
@@ -378,7 +378,7 @@ func Test_Lattice_API_Errors(t *testing.T) {
 	assert.Equal(t, errors.New("test"), err)
 
 	// create error
-	mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("test"))
 
 	tgManager = NewTargetGroupManager(gwlog.FallbackLogger, cloud)
@@ -507,7 +507,7 @@ func Test_DeleteTG_WithExistingTG(t *testing.T) {
 	}
 	var listTargetsOutput []*vpclattice.TargetSummary
 
-	mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(tgOutput.Arn, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{*tgOutput.Arn}, nil)
 	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
@@ -540,7 +540,7 @@ func Test_DeleteTG_NothingToDelete(t *testing.T) {
 		Status: nil,
 	}
 
-	mockTagging.EXPECT().FindResourceWithTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -740,7 +740,7 @@ func Test_ListTG_TGsExist(t *testing.T) {
 
 	// assume no tags
 	mockTagging := mocks.NewMockTagging(c)
-	mockTagging.EXPECT().GetTagsFromArns(ctx, gomock.Any()).Return(nil, nil)
+	mockTagging.EXPECT().GetTagsForArns(ctx, gomock.Any()).Return(nil, nil)
 
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 

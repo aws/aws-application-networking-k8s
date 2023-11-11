@@ -86,19 +86,19 @@ func (mr *MockTaggingMockRecorder) DescribeReportCreationWithContext(arg0, arg1 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeReportCreationWithContext", reflect.TypeOf((*MockTagging)(nil).DescribeReportCreationWithContext), varargs...)
 }
 
-// FindResourceWithTags mocks base method.
-func (m *MockTagging) FindResourceWithTags(arg0 context.Context, arg1 string, arg2 map[string]*string) (*string, error) {
+// FindResourcesByTags mocks base method.
+func (m *MockTagging) FindResourcesByTags(arg0 context.Context, arg1 ResourceType, arg2 map[string]*string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindResourceWithTags", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*string)
+	ret := m.ctrl.Call(m, "FindResourcesByTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FindResourceWithTags indicates an expected call of FindResourceWithTags.
-func (mr *MockTaggingMockRecorder) FindResourceWithTags(arg0, arg1, arg2 interface{}) *gomock.Call {
+// FindResourcesByTags indicates an expected call of FindResourcesByTags.
+func (mr *MockTaggingMockRecorder) FindResourcesByTags(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindResourceWithTags", reflect.TypeOf((*MockTagging)(nil).FindResourceWithTags), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindResourcesByTags", reflect.TypeOf((*MockTagging)(nil).FindResourcesByTags), arg0, arg1, arg2)
 }
 
 // GetComplianceSummary mocks base method.
@@ -433,19 +433,19 @@ func (mr *MockTaggingMockRecorder) GetTagValuesWithContext(arg0, arg1 interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTagValuesWithContext", reflect.TypeOf((*MockTagging)(nil).GetTagValuesWithContext), varargs...)
 }
 
-// GetTagsFromArns mocks base method.
-func (m *MockTagging) GetTagsFromArns(arg0 context.Context, arg1 []*string) (map[string]map[string]*string, error) {
+// GetTagsForArns mocks base method.
+func (m *MockTagging) GetTagsForArns(arg0 context.Context, arg1 []string) (map[string]map[string]*string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTagsFromArns", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetTagsForArns", arg0, arg1)
 	ret0, _ := ret[0].(map[string]map[string]*string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetTagsFromArns indicates an expected call of GetTagsFromArns.
-func (mr *MockTaggingMockRecorder) GetTagsFromArns(arg0, arg1 interface{}) *gomock.Call {
+// GetTagsForArns indicates an expected call of GetTagsForArns.
+func (mr *MockTaggingMockRecorder) GetTagsForArns(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTagsFromArns", reflect.TypeOf((*MockTagging)(nil).GetTagsFromArns), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTagsForArns", reflect.TypeOf((*MockTagging)(nil).GetTagsForArns), arg0, arg1)
 }
 
 // StartReportCreation mocks base method.

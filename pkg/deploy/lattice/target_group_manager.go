@@ -256,8 +256,10 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, e
 	if len(resp) == 0 {
 		return nil, nil
 	}
-	tgArns := utils.SliceMap(resp, func(tg *vpclattice.TargetGroupSummary) *string { return tg.Arn })
-	tgArnToTagsMap, err := s.cloud.Tagging().GetTagsFromArns(ctx, tgArns)
+	tgArns := utils.SliceMap(resp, func(tg *vpclattice.TargetGroupSummary) string {
+		return aws.StringValue(tg.Arn)
+	})
+	tgArnToTagsMap, err := s.cloud.Tagging().GetTagsForArns(ctx, tgArns)
 
 	if err != nil {
 		return nil, err
@@ -275,23 +277,22 @@ func (s *defaultTargetGroupManager) findTargetGroup(
 	ctx context.Context,
 	modelTargetGroup *model.TargetGroup,
 ) (*vpclattice.GetTargetGroupOutput, error) {
-	arn, err := s.cloud.Tagging().FindResourceWithTags(ctx, services.ResourceTypeTargetGroup,
+	arns, err := s.cloud.Tagging().FindResourcesByTags(ctx, services.ResourceTypeTargetGroup,
 		model.TagsFromTGTagFields(modelTargetGroup.Spec.TargetGroupTagFields))
 	if err != nil {
 		return nil, err
 	}
-	if arn == nil {
+	if len(arns) == 0 {
 		return nil, nil
 	}
+	// Can get only one arn through the above search criteria.
+	arn := arns[0]
 
 	latticeTg, err := s.cloud.Lattice().GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
-		TargetGroupIdentifier: arn,
+		TargetGroupIdentifier: &arn,
 	})
 	if err != nil {
-		if services.IsLatticeAPINotFoundErr(err) {
-			return nil, nil
-		}
-		return nil, err
+		return nil, services.IgnoreNotFound(err)
 	}
 
 	// we ignore create failed status, so may as well check for it first
