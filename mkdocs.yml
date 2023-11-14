@@ -21,6 +21,7 @@ nav:
     - TargetGroupPolicy: reference/target-group-policy.md
     - VpcAssociationPolicy: reference/vpc-association-policy.md
     - AccessLogPolicy: reference/access-log-policy.md
+    - IAMAuthPolicy:  reference/iam-auth-policy.md
   - Design Overview: overview.md
 
 plugins:
