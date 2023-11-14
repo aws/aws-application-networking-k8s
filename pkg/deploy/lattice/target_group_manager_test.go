@@ -252,6 +252,7 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 }
 
 func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
+	ctx := context.TODO()
 	c := gomock.NewController(t)
 	defer c.Finish()
 
@@ -259,13 +260,23 @@ func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
+	hcConfig := &vpclattice.HealthCheckConfig{
+		Enabled:                    aws.Bool(true),
+		HealthCheckIntervalSeconds: aws.Int64(3),
+		HealthCheckTimeoutSeconds:  aws.Int64(3),
+		HealthyThresholdCount:      aws.Int64(3),
+		Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+		Path:                       aws.String("/"),
+		Port:                       nil,
+		Protocol:                   aws.String(vpclattice.TargetGroupProtocolHttps),
+		ProtocolVersion:            aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+		UnhealthyThresholdCount:    aws.Int64(3),
+	}
 	tgSpec := model.TargetGroupSpec{
-		Port:            80,
-		Protocol:        vpclattice.TargetGroupProtocolHttps,
-		ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
-		HealthCheckConfig: &vpclattice.HealthCheckConfig{
-			Enabled: aws.Bool(false),
-		},
+		Port:              80,
+		Protocol:          vpclattice.TargetGroupProtocolHttps,
+		ProtocolVersion:   vpclattice.TargetGroupProtocolVersionHttp1,
+		HealthCheckConfig: hcConfig,
 	}
 
 	tgCreateInput := model.TargetGroup{
@@ -280,30 +291,22 @@ func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
 		Status: aws.String(vpclattice.TargetGroupStatusActive),
 		Config: &vpclattice.TargetGroupConfig{
 			Port:            aws.Int64(80),
+			HealthCheck:     hcConfig,
 			Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
 			ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
 		},
 	}
 
-	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{"arn"}, nil)
 	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
-
-	if tt.wantErr {
-		mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("error"))
-	} else {
-		mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, nil)
-	}
+	mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 	resp, err := tgManager.Upsert(ctx, &tgCreateInput)
 
-	if tt.wantErr {
-		assert.NotNil(t, err)
-	} else {
-		assert.Nil(t, err)
-		assert.Equal(t, arn, resp.Arn)
-		assert.Equal(t, id, resp.Id)
-	}
+	assert.Nil(t, err)
+	assert.Equal(t, "arn", resp.Arn)
+	assert.Equal(t, "id", resp.Id)
 }
 
 // target group status is create-in-progress before creation, return Retry

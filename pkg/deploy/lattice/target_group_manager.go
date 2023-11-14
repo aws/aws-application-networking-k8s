@@ -127,11 +127,10 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *mod
 			HealthCheck:           healthCheckConfig,
 			TargetGroupIdentifier: latticeTg.Id,
 		})
-	}
-
-	if err != nil {
-		return model.TargetGroupStatus{},
-			fmt.Errorf("Failed UpdateTargetGroup %s due to %w", aws.StringValue(latticeTg.Id), err)
+		if err != nil {
+			return model.TargetGroupStatus{},
+				fmt.Errorf("Failed UpdateTargetGroup %s due to %w", aws.StringValue(latticeTg.Id), err)
+		}
 	}
 
 	modelTgStatus := model.TargetGroupStatus{
