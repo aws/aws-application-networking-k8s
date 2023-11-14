@@ -128,7 +128,7 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *mod
 
 	if err != nil {
 		return model.TargetGroupStatus{},
-			fmt.Errorf("Failed UpdateTargetGroup %s due to %s", aws.StringValue(latticeTg.Id), err)
+			fmt.Errorf("Failed UpdateTargetGroup %s due to %w", aws.StringValue(latticeTg.Id), err)
 	}
 	s.log.Infof("Success UpdateTargetGroup %s", aws.StringValue(latticeTg.Id))
 
@@ -285,7 +285,11 @@ func (s *defaultTargetGroupManager) findTargetGroup(
 	if len(arns) == 0 {
 		return nil, nil
 	}
-	// Can get only one arn through the above search criteria.
+	// Tag fields guarantee one result, as there can be only one target group for one service/route combination.
+	// We move forward but log this situation to help troubleshooting
+	if len(arns) > 1 {
+		s.log.Warnw("Target groups with conflicting tags found", "arns", arns)
+	}
 	arn := arns[0]
 
 	latticeTg, err := s.cloud.Lattice().GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{

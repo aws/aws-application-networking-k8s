@@ -18,6 +18,7 @@ const (
 
 	ResourceTypeTargetGroup ResourceType = resourceTypePrefix + "targetgroup"
 
+	// https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/API_GetResources.html#API_GetResources_RequestSyntax
 	maxArnsPerGetResourcesApi = 100
 )
 
