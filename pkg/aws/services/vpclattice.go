@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -310,6 +311,10 @@ func (d *defaultLattice) ListServiceNetworkServiceAssociationsAsList(ctx context
 }
 
 func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, optionalAccountId string) (*ServiceNetworkInfo, error) {
+	// When default service network is provided, override for any kind of SN search
+	if config.NetworkOverrideMode {
+		name = config.DefaultServiceNetwork
+	}
 	input := vpclattice.ListServiceNetworksInput{}
 
 	var innerErr error

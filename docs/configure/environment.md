@@ -55,84 +55,23 @@ When set as "debug", the AWS Gateway API Controller will emit debug level logs.
 
 ---
 
-#### `CLUSTER_LOCAL_GATEWAY`
+#### `DEFAULT_SERVICE_NETWORK`
 
 Type: string
 
-Default: "NO_DEFAULT_SERVICE_NETWORK"
+Default: ""
 
-When it is set to something different from "NO_DEFAULT_SERVICE_NETWORK", the AWS Gateway API Controller will associate its correspoding Lattice Service Network to cluster's VPC.
-Also, all HTTPRoutes will automatically have an additional parentref to this `CLUSTER_LOCAL_GATEWAY`.
+When set as a non-empty value, creates a service network with that name.
+The created service network will be also associated with cluster VPC.
 
 ---
 
-#### `TARGET_GROUP_NAME_LEN_MODE`
+#### `ENABLE_NETWORK_OVERRIDE`
 
 Type: string
 
-Default:  "short"
+Default: ""
 
-When set to "long", the controller will create Lattice TargetGroup as follows.
-
-For Kubernetes Service as BackendRef:
-
-`k8s-(k8s service name)-(k8s service namespace)-(k8s httproute name)-(VPC ID)-(protocol)-(protocol version)`
-
-For ServiceExport of a Kubernetes Service:
-
-`k8s-(k8s service name)-(k8s service namespace)-(VPC-ID)-(protocol)-(protocol version)`
-
-By default, the controller will create Lattice TargetGroup as follows
-
-For Kubernetes Service as BackendRef:
-
-`k8s-(k8s service name)-(k8s service namespace)-(protocol)-(protocol version)`
-
-For ServiceExport of a Kubernetes Service:
-
-`k8s-(k8s service name)-(k8s service namespace)-(protocol)-(protocol version)`
-
-
-```
-# for  examples/inventory-route.yaml 
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
-metadata:
-  name: inventory
-spec:
-  parentRefs:
-  - name: my-hotel
-    sectionName: http
-  rules:
-  - backendRefs:
-    - name: inventory-ver1
-      kind: Service
-      port: 8090
-      weight: 10
-
- # by default, lattice target group name 
- k8s-inventory-ver1-default
-
-
- # when TARGET_GROUP_NAME_LEN_MODE = "long", lattice target group name, e.g.
-
- k8s-inventory-ver1-default-inventory-vpc-05c7322a3df3f255a
-
-```
-
-```
-# for examples/parking-ver2-export.yaml 
-apiVersion: application-networking.k8s.aws/v1alpha1
-kind: ServiceExport
-metadata:
-  name: parking-ver2
-  annotations:
-    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
-
-# by default, lattice target group name is
-k8s-parking-ver2-default
-
-# when TARGET_GROUP_NAME_LEN_MODE = "long", lattice target group name, e.g.
-k8s-parking-ver2-default-vpc-05c7322a3df3f255a
-
-```
+When set as "true", the controller will run in "single service network" mode that will override all gateways
+to point to default service network, instead of searching for service network with the same name.
+Can be used for small setups and conformance tests.

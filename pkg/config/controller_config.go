@@ -9,21 +9,21 @@ import (
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"strings"
 )
 
 const (
 	LatticeGatewayControllerName = "application-networking.k8s.aws/gateway-api-controller"
 	defaultLogLevel              = "Info"
-	UnknownInput                 = ""
 )
 
 const (
-	NO_DEFAULT_SERVICE_NETWORK = "NO_DEFAULT_SERVICE_NETWORK"
-	REGION                     = "REGION"
-	CLUSTER_VPC_ID             = "CLUSTER_VPC_ID"
-	CLUSTER_NAME               = "CLUSTER_NAME"
-	CLUSTER_LOCAL_GATEWAY      = "CLUSTER_LOCAL_GATEWAY"
-	AWS_ACCOUNT_ID             = "AWS_ACCOUNT_ID"
+	REGION                  = "REGION"
+	CLUSTER_VPC_ID          = "CLUSTER_VPC_ID"
+	CLUSTER_NAME            = "CLUSTER_NAME"
+	DEFAULT_SERVICE_NETWORK = "DEFAULT_SERVICE_NETWORK"
+	ENABLE_NETWORK_OVERRIDE = "ENABLE_NETWORK_OVERRIDE"
+	AWS_ACCOUNT_ID          = "AWS_ACCOUNT_ID"
 )
 
 var VpcID = ""
@@ -33,12 +33,7 @@ var logLevel = defaultLogLevel
 var DefaultServiceNetwork = ""
 var ClusterName = ""
 
-func GetClusterLocalGateway() (string, error) {
-	if DefaultServiceNetwork == UnknownInput {
-		return UnknownInput, errors.New(NO_DEFAULT_SERVICE_NETWORK)
-	}
-	return DefaultServiceNetwork, nil
-}
+var NetworkOverrideMode = false
 
 func ConfigInit() error {
 	sess, _ := session.NewSession()
@@ -76,8 +71,13 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		}
 	}
 
-	// CLUSTER_LOCAL_GATEWAY
-	DefaultServiceNetwork = os.Getenv(CLUSTER_LOCAL_GATEWAY)
+	// DEFAULT_SERVICE_NETWORK
+	DefaultServiceNetwork = os.Getenv(DEFAULT_SERVICE_NETWORK)
+
+	networkOverride := os.Getenv(ENABLE_NETWORK_OVERRIDE)
+	if strings.ToLower(networkOverride) == "true" && DefaultServiceNetwork != "" {
+		NetworkOverrideMode = true
+	}
 
 	// CLUSTER_NAME
 	ClusterName, err = getClusterName(sess)
