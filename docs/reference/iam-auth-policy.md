@@ -2,9 +2,10 @@
 
 ## Introduction
 
-VPC Lattice auth policies are IAM policy documents that you attach to service networks or services to control whether a specified principal has access to a group of services or specific service (AuthZ). 
-By attaching Kubernetes IAMAuthPolicy CRD to the k8s gateway or k8s route, you could apply auth policy to corresponding VPC Lattice service network or VPC Lattice service that you want to control access. 
-Please check [VPC Lattice auth policy documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html) for more details.
+VPC Lattice auth policies are IAM policy documents that you attach to service networks or services to control whether a specified principal has access to a group of services or specific service (AuthZ).
+IAMAuthPolicy implements Direct Policy Attachment of Gateway API's [GEP-713: Metaresources and Policy Attachment](https://gateway-api.sigs.k8s.io/geps/gep-713). 
+Policy can be attached to [Gateway, HTTPRoute, GRPCRoute Kinds](#application-networking.k8s.aws/v1alpha1.IAMAuthPolicySpec). Gateway policy attaches to Lattice Service Network and HTTP/GRPCRoute to Lattice Service. 
+Please see [Control access to services using auth policies](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html) for more details about Lattice Auth Policies.
 
 Notice that the IAMAuthPolicy can only do authorization for traffic that go through gateway or HTTPRoute/GRPCRoute. The authorization will not take effect if the client directly send traffic to the k8s service DNS.
 
@@ -174,38 +175,3 @@ Notice that the IAMAuthPolicy can only do authorization for traffic that go thro
       </tr>
    </tbody>
 </table>
-
-
-## IAMAauthPolicy Example
-
-```yaml
-apiVersion: application-networking.k8s.aws/v1alpha1
-kind: IAMAuthPolicy
-metadata:
-    name: test-iam-auth-policy
-spec:
-    targetRef:
-        group: "gateway.networking.k8s.io"
-        kind: HTTPRoute
-        name: my-route
-    policy: |
-        {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Principal": "*",
-                    "Action": "vpc-lattice-svcs:Invoke",
-                    "Resource": "*",
-                    "Condition": {
-                        "StringEquals": {
-                            "vpc-lattice-svcs:RequestHeader/header1": "value1"
-                        }
-                    }
-                }
-            ]
-        }
-```
-
-If you create the above IAMAuthPolicy in the k8s cluster, the `my-route` (and it's corresponding VPC Lattice service) will be attached with the given IAM auth policy. 
-Only HTTP traffic with header `header1:value1` will be allowed to access the `my-route`. Please check the [VPC Lattice documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html#auth-policies-common-elements) to get more detail on how lattice auth policy work.
