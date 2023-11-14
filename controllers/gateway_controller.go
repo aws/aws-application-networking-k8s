@@ -298,8 +298,9 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 		return err
 	}
 
-	// Add one of lattice domains as GW address. This can represent incorrect value in some cases (e.g. cross-account)
-	// TODO: support multiple endpoint addresses across services.
+	// Add one of lattice domains as GW address. This is supposed to be a single ingress endpoint (or a single pool of them)
+	// but we have different endpoints for each service. This can represent incorrect value in some cases (e.g. cross-account)
+	// Due to size limit, we cannot put all service addresses here.
 	if len(routes) > 0 {
 		gw.Status.Addresses = []gwv1beta1.GatewayAddress{}
 		addressType := gwv1beta1.HostnameAddressType
@@ -310,6 +311,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 						Type:  &addressType,
 						Value: domain,
 					})
+					break
 				}
 			}
 		}
