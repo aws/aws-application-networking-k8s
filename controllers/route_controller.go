@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -51,6 +50,7 @@ import (
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var routeTypeToFinalizer = map[core.RouteType]string{
@@ -112,13 +112,13 @@ func RegisterAllRouteControllers(
 
 		builder := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-			Watches(&source.Kind{Type: &gwv1beta1.Gateway{}}, gwEventHandler).
-			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToRoute(routeInfo.routeType)).
-			Watches(&source.Kind{Type: &anv1alpha1.ServiceImport{}}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
-			Watches(&source.Kind{Type: &corev1.Endpoints{}}, svcEventHandler.MapToRoute(routeInfo.routeType))
+			Watches(&gwv1beta1.Gateway{}, gwEventHandler).
+			Watches(&corev1.Service{}, svcEventHandler.MapToRoute(routeInfo.routeType)).
+			Watches(&anv1alpha1.ServiceImport{}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
+			Watches(&corev1.Endpoints{}, svcEventHandler.MapToRoute(routeInfo.routeType))
 
 		if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
-			builder.Watches(&source.Kind{Type: &anv1alpha1.TargetGroupPolicy{}}, svcEventHandler.MapToRoute(routeInfo.routeType))
+			builder.Watches(&anv1alpha1.TargetGroupPolicy{}, svcEventHandler.MapToRoute(routeInfo.routeType))
 		} else {
 			if err != nil {
 				return err
@@ -401,7 +401,7 @@ func (r *routeReconciler) updateRouteStatus(ctx context.Context, dns string, rou
 			Type:               string(gwv1beta1.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
-			Reason:             string(gwv1beta1.RouteReasonNoMatchingParent),
+			Reason:             string(gwv1.RouteReasonNoMatchingParent),
 			Message:            fmt.Sprintf("Could not match gateway %s: %s", route.Spec().ParentRefs()[0].Name, err),
 		})
 	} else {

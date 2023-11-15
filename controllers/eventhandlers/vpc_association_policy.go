@@ -24,9 +24,9 @@ func NewVpcAssociationPolicyEventHandler(log gwlog.Logger, client client.Client)
 }
 
 func (h *vpcAssociationPolicyEventHandler) MapToGateway() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 		if vap, ok := obj.(*v1alpha1.VpcAssociationPolicy); ok {
-			if gw := h.mapper.VpcAssociationPolicyToGateway(context.Background(), vap); gw != nil {
+			if gw := h.mapper.VpcAssociationPolicyToGateway(ctx, vap); gw != nil {
 				return []reconcile.Request{{NamespacedName: k8s.NamespacedName(gw)}}
 			}
 		}

@@ -331,7 +331,7 @@ func Test_Targets(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceExport{})
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			if !reflect.DeepEqual(tt.serviceExport, anv1alpha1.ServiceExport{}) {
 				assert.NoError(t, k8sClient.Create(ctx, tt.serviceExport.DeepCopy()))

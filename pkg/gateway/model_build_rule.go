@@ -12,12 +12,11 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
@@ -102,12 +101,12 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecForHttpRoute(m *core.HTTPRo
 			*m.Path().Type, *m.Path().Value, t.route.Name(), t.route.Namespace())
 
 		switch *m.Path().Type {
-		case gwv1beta1.PathMatchExact:
+		case gwv1.PathMatchExact:
 			t.log.Debugf("Using PathMatchExact for httproute %s-%s ",
 				t.route.Name(), t.route.Namespace())
 			ruleSpec.PathMatchExact = true
 
-		case gwv1beta1.PathMatchPathPrefix:
+		case gwv1.PathMatchPathPrefix:
 			t.log.Debugf("Using PathMatchPathPrefix for httproute %s-%s ",
 				t.route.Name(), t.route.Namespace())
 			ruleSpec.PathMatchPrefix = true
@@ -138,7 +137,7 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecForHttpRoute(m *core.HTTPRo
 
 func (t *latticeServiceModelBuildTask) updateRuleSpecForGrpcRoute(m *core.GRPCRouteMatch, ruleSpec *model.RuleSpec) error {
 	t.log.Debugf("Building rule with GRPCRouteMatch, %+v", *m)
-	ruleSpec.Method = string(gwv1beta1.HTTPMethodPost) // GRPC is always POST
+	ruleSpec.Method = string(gwv1.HTTPMethodPost) // GRPC is always POST
 	method := m.Method()
 	// VPC Lattice doesn't support suffix/regex matching, so we can't support method match without service
 	if method.Service == nil && method.Method != nil {
@@ -178,7 +177,7 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecWithHeaderMatches(match cor
 
 	for _, header := range match.Headers() {
 		t.log.Debugf("Examining match.Header: header.Type %s", *header.Type())
-		if header.Type() != nil && *header.Type() != gwv1beta1.HeaderMatchExact {
+		if header.Type() != nil && *header.Type() != gwv1.HeaderMatchExact {
 			t.log.Debugf("Unsupported header matchtype %s for httproute %s-%s",
 				*header.Type(), t.route.Name(), t.route.Namespace())
 			return errors.New(LATTICE_UNSUPPORTED_HEADER_MATCH_TYPE)

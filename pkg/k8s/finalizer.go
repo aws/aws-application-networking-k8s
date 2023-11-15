@@ -9,6 +9,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+//go:generate mockgen -destination finalizer_mock.go -package k8s github.com/aws/aws-application-networking-k8s/pkg/k8s FinalizerManager
+
 type FinalizerManager interface {
 	AddFinalizers(ctx context.Context, object client.Object, finalizers ...string) error
 	RemoveFinalizers(ctx context.Context, object client.Object, finalizers ...string) error

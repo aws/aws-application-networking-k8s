@@ -17,6 +17,8 @@ import (
 	"reflect"
 )
 
+//go:generate mockgen -destination target_group_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice TargetGroupManager
+
 type TargetGroupManager interface {
 	Upsert(ctx context.Context, modelTg *model.TargetGroup) (model.TargetGroupStatus, error)
 	Delete(ctx context.Context, modelTg *model.TargetGroup) error

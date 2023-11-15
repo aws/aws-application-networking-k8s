@@ -17,6 +17,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
+//go:generate mockgen -destination dnsendpoint_manager_mock.go -package externaldns github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns DnsEndpointManager
+
 type DnsEndpointManager interface {
 	Create(ctx context.Context, service *latticemodel.Service) error
 }

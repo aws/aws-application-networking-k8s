@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type dummyTgBuilder struct {
@@ -60,12 +61,12 @@ func Test_RuleModelBuild(t *testing.T) {
 	var path1 = "/ver1"
 	var path2 = "/ver2"
 	var path3 = "/ver3"
-	var httpGet = gwv1beta1.HTTPMethodGet
-	var httpPost = gwv1beta1.HTTPMethodPost
-	var k8sPathMatchExactType = gwv1beta1.PathMatchExact
-	var k8sPathMatchPrefix = gwv1beta1.PathMatchPathPrefix
+	var httpGet = gwv1.HTTPMethodGet
+	var httpPost = gwv1.HTTPMethodPost
+	var k8sPathMatchExactType = gwv1.PathMatchExact
+	var k8sPathMatchPrefix = gwv1.PathMatchPathPrefix
 	var k8sMethodMatchExactType = gwv1alpha2.GRPCMethodMatchExact
-	var k8sHeaderExactType = gwv1beta1.HeaderMatchExact
+	var k8sHeaderExactType = gwv1.HeaderMatchExact
 	var hdr1 = "env1"
 	var hdr1Value = "test1"
 	var hdr2 = "env2"
@@ -721,7 +722,7 @@ func Test_RuleModelBuild(t *testing.T) {
 									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 									},
@@ -782,12 +783,12 @@ func Test_RuleModelBuild(t *testing.T) {
 									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
@@ -859,12 +860,12 @@ func Test_RuleModelBuild(t *testing.T) {
 									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
@@ -938,12 +939,12 @@ func Test_RuleModelBuild(t *testing.T) {
 									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
@@ -1017,32 +1018,32 @@ func Test_RuleModelBuild(t *testing.T) {
 									Headers: []gwv1beta1.HTTPHeaderMatch{
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr1),
+											Name:  gwv1.HTTPHeaderName(hdr1),
 											Value: hdr1Value,
 										},
 										{
 											Type:  &k8sHeaderExactType,
-											Name:  gwv1beta1.HTTPHeaderName(hdr2),
+											Name:  gwv1.HTTPHeaderName(hdr2),
 											Value: hdr2Value,
 										},
 									},
@@ -1477,7 +1478,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceImport{})
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			svc := corev1.Service{
 				ObjectMeta: apimachineryv1.ObjectMeta{
