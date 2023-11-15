@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"reflect"
 )
 
 type TargetGroupManager interface {
@@ -117,20 +118,20 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *mod
 
 	if healthCheckConfig == nil {
 		s.log.Debugf("HealthCheck is empty. Resetting to default settings")
-		protocolVersion := targetGroup.Spec.ProtocolVersion
-		healthCheckConfig = s.getDefaultHealthCheckConfig(protocolVersion)
+		healthCheckConfig = &vpclattice.HealthCheckConfig{}
 	}
+	s.fillDefaultHealthCheckConfig(healthCheckConfig, targetGroup.Spec.ProtocolVersion)
 
-	_, err := s.cloud.Lattice().UpdateTargetGroupWithContext(ctx, &vpclattice.UpdateTargetGroupInput{
-		HealthCheck:           healthCheckConfig,
-		TargetGroupIdentifier: latticeTg.Id,
-	})
-
-	if err != nil {
-		return model.TargetGroupStatus{},
-			fmt.Errorf("Failed UpdateTargetGroup %s due to %w", aws.StringValue(latticeTg.Id), err)
+	if !reflect.DeepEqual(healthCheckConfig, latticeTg.Config.HealthCheck) {
+		_, err := s.cloud.Lattice().UpdateTargetGroupWithContext(ctx, &vpclattice.UpdateTargetGroupInput{
+			HealthCheck:           healthCheckConfig,
+			TargetGroupIdentifier: latticeTg.Id,
+		})
+		if err != nil {
+			return model.TargetGroupStatus{},
+				fmt.Errorf("Failed UpdateTargetGroup %s due to %w", aws.StringValue(latticeTg.Id), err)
+		}
 	}
-	s.log.Infof("Success UpdateTargetGroup %s", aws.StringValue(latticeTg.Id))
 
 	modelTgStatus := model.TargetGroupStatus{
 		Name: aws.StringValue(latticeTg.Name),
@@ -356,14 +357,18 @@ func (s *defaultTargetGroupManager) IsTargetGroupMatch(ctx context.Context,
 // Get default health check configuration according to
 // https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html#health-check-settings
 func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProtocolVersion string) *vpclattice.HealthCheckConfig {
-	var intResetValue int64 = 0
+	var (
+		defaultHealthCheckIntervalSeconds int64 = 30
+		defaultHealthCheckTimeoutSeconds  int64 = 5
+		defaultHealthyThresholdCount      int64 = 5
+		defaultUnhealthyThresholdCount    int64 = 2
 
-	defaultMatcher := vpclattice.Matcher{
-		HttpCode: aws.String("200"),
-	}
-
-	defaultPath := "/"
-	defaultProtocol := vpclattice.TargetGroupProtocolHttp
+		defaultMatcher = vpclattice.Matcher{
+			HttpCode: aws.String("200"),
+		}
+		defaultPath     = "/"
+		defaultProtocol = vpclattice.TargetGroupProtocolHttp
+	)
 
 	if targetGroupProtocolVersion == "" {
 		targetGroupProtocolVersion = vpclattice.TargetGroupProtocolVersionHttp1
@@ -383,9 +388,40 @@ func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProto
 		Path:                       &defaultPath,
 		Matcher:                    &defaultMatcher,
 		Port:                       nil, // Use target port
-		HealthCheckIntervalSeconds: &intResetValue,
-		HealthyThresholdCount:      &intResetValue,
-		UnhealthyThresholdCount:    &intResetValue,
-		HealthCheckTimeoutSeconds:  &intResetValue,
+		HealthyThresholdCount:      &defaultHealthyThresholdCount,
+		UnhealthyThresholdCount:    &defaultUnhealthyThresholdCount,
+		HealthCheckTimeoutSeconds:  &defaultHealthCheckTimeoutSeconds,
+		HealthCheckIntervalSeconds: &defaultHealthCheckIntervalSeconds,
+	}
+}
+
+func (s *defaultTargetGroupManager) fillDefaultHealthCheckConfig(hc *vpclattice.HealthCheckConfig, targetGroupProtocolVersion string) {
+	defaultCfg := s.getDefaultHealthCheckConfig(targetGroupProtocolVersion)
+	if hc.Enabled == nil {
+		hc.Enabled = defaultCfg.Enabled
+	}
+	if hc.Protocol == nil {
+		hc.Protocol = defaultCfg.Protocol
+	}
+	if hc.ProtocolVersion == nil {
+		hc.ProtocolVersion = defaultCfg.ProtocolVersion
+	}
+	if hc.Path == nil {
+		hc.Path = defaultCfg.Path
+	}
+	if hc.Matcher == nil {
+		hc.Matcher = defaultCfg.Matcher
+	}
+	if hc.HealthCheckTimeoutSeconds == nil {
+		hc.HealthCheckTimeoutSeconds = defaultCfg.HealthCheckTimeoutSeconds
+	}
+	if hc.HealthCheckIntervalSeconds == nil {
+		hc.HealthCheckIntervalSeconds = defaultCfg.HealthCheckIntervalSeconds
+	}
+	if hc.HealthyThresholdCount == nil {
+		hc.HealthyThresholdCount = defaultCfg.HealthyThresholdCount
+	}
+	if hc.UnhealthyThresholdCount == nil {
+		hc.UnhealthyThresholdCount = defaultCfg.UnhealthyThresholdCount
 	}
 }

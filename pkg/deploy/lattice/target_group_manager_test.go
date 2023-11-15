@@ -251,6 +251,64 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 	}
 }
 
+func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
+	ctx := context.TODO()
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	hcConfig := &vpclattice.HealthCheckConfig{
+		Enabled:                    aws.Bool(true),
+		HealthCheckIntervalSeconds: aws.Int64(3),
+		HealthCheckTimeoutSeconds:  aws.Int64(3),
+		HealthyThresholdCount:      aws.Int64(3),
+		Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+		Path:                       aws.String("/"),
+		Port:                       nil,
+		Protocol:                   aws.String(vpclattice.TargetGroupProtocolHttps),
+		ProtocolVersion:            aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+		UnhealthyThresholdCount:    aws.Int64(3),
+	}
+	tgSpec := model.TargetGroupSpec{
+		Port:              80,
+		Protocol:          vpclattice.TargetGroupProtocolHttps,
+		ProtocolVersion:   vpclattice.TargetGroupProtocolVersionHttp1,
+		HealthCheckConfig: hcConfig,
+	}
+
+	tgCreateInput := model.TargetGroup{
+		ResourceMeta: core.ResourceMeta{},
+		Spec:         tgSpec,
+	}
+
+	tgOutput := vpclattice.GetTargetGroupOutput{
+		Arn:    aws.String("arn"),
+		Id:     aws.String("id"),
+		Name:   aws.String("test-https-http1"),
+		Status: aws.String(vpclattice.TargetGroupStatusActive),
+		Config: &vpclattice.TargetGroupConfig{
+			Port:            aws.Int64(80),
+			HealthCheck:     hcConfig,
+			Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
+			ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+		},
+	}
+
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{"arn"}, nil)
+	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+	mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
+
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	resp, err := tgManager.Upsert(ctx, &tgCreateInput)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "arn", resp.Arn)
+	assert.Equal(t, "id", resp.Id)
+}
+
 // target group status is create-in-progress before creation, return Retry
 func Test_CreateTargetGroup_ExistingTG_Status_Retry(t *testing.T) {
 	c := gomock.NewController(t)
@@ -782,12 +840,15 @@ func Test_ListTG_NoTG(t *testing.T) {
 
 func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 	var (
-		resetValue     = aws.Int64(0)
 		defaultMatcher = &vpclattice.Matcher{
 			HttpCode: aws.String("200"),
 		}
-		defaultPath     = aws.String("/")
-		defaultProtocol = aws.String(vpclattice.TargetGroupProtocolHttp)
+		defaultPath                       = aws.String("/")
+		defaultProtocol                   = aws.String(vpclattice.TargetGroupProtocolHttp)
+		defaultHealthCheckIntervalSeconds = aws.Int64(30)
+		defaultHealthCheckTimeoutSeconds  = aws.Int64(5)
+		defaultHealthyThresholdCount      = aws.Int64(5)
+		defaultUnhealthyThresholdCount    = aws.Int64(2)
 	)
 
 	type args struct {
@@ -806,10 +867,10 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 			},
 			want: &vpclattice.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
-				HealthCheckIntervalSeconds: resetValue,
-				HealthCheckTimeoutSeconds:  resetValue,
-				HealthyThresholdCount:      resetValue,
-				UnhealthyThresholdCount:    resetValue,
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
 				Matcher:                    defaultMatcher,
 				Path:                       defaultPath,
 				Port:                       nil,
@@ -824,10 +885,10 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 			},
 			want: &vpclattice.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
-				HealthCheckIntervalSeconds: resetValue,
-				HealthCheckTimeoutSeconds:  resetValue,
-				HealthyThresholdCount:      resetValue,
-				UnhealthyThresholdCount:    resetValue,
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
 				Matcher:                    defaultMatcher,
 				Path:                       defaultPath,
 				Port:                       nil,
@@ -842,10 +903,10 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 			},
 			want: &vpclattice.HealthCheckConfig{
 				Enabled:                    aws.Bool(false),
-				HealthCheckIntervalSeconds: resetValue,
-				HealthCheckTimeoutSeconds:  resetValue,
-				HealthyThresholdCount:      resetValue,
-				UnhealthyThresholdCount:    resetValue,
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
 				Matcher:                    defaultMatcher,
 				Path:                       defaultPath,
 				Port:                       nil,
@@ -860,10 +921,10 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 			},
 			want: &vpclattice.HealthCheckConfig{
 				Enabled:                    aws.Bool(false),
-				HealthCheckIntervalSeconds: resetValue,
-				HealthCheckTimeoutSeconds:  resetValue,
-				HealthyThresholdCount:      resetValue,
-				UnhealthyThresholdCount:    resetValue,
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
 				Matcher:                    defaultMatcher,
 				Path:                       defaultPath,
 				Port:                       nil,
