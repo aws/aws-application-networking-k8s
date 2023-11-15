@@ -62,13 +62,13 @@ This example creates a single cluster in a single VPC, then configures two route
    my-hotel   amazon-vpc-lattice               True      7d12h
    ```
   
-4. Create the Kubernetes HTTPRoute `rates` that can has path match routes to the `parking` service and `review` service (this could take about few minutes)
+4. Create the Kubernetes HTTPRoute `rates` that can has path match routes to the `parking` service and `review` service (this could take about a few minutes)
    ```bash
    kubectl apply -f examples/parking.yaml
    kubectl apply -f examples/review.yaml
    kubectl apply -f examples/rate-route-path.yaml
    ```
-5. Create another Kubernetes HTTPRoute `inventory` (this could take about few minutes):
+5. Create another Kubernetes HTTPRoute `inventory` (this could take about a few minutes):
    ```bash
    kubectl apply -f examples/inventory-ver1.yaml
    kubectl apply -f examples/inventory-route.yaml
@@ -82,7 +82,7 @@ This example creates a single cluster in a single VPC, then configures two route
    inventory               51s
    rates                   6m11s
    ```
-7. Check the lattice generated DNS address for HTTPRoute `inventory` and `rates` :
+7. Check VPC Lattice generated DNS address for HTTPRoute `inventory` and `rates` :
       ```bash
       kubectl get httproute inventory -o yaml
       
