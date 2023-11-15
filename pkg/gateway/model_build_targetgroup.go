@@ -24,6 +24,15 @@ import (
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
+type InvalidBackendRefError struct {
+	BackendRef core.BackendRef
+	Reason     string
+}
+
+func (e *InvalidBackendRefError) Error() string {
+	return e.Reason
+}
+
 type SvcExportTargetGroupModelBuilder interface {
 	// used during standard model build
 	Build(ctx context.Context, svcExport *anv1alpha1.ServiceExport) (core.Stack, error)
@@ -248,7 +257,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroup(ctx context.Conte
 	}
 	t.log.Debugf("Added target group for backendRef %s to the stack %s", t.backendRef.Name(), stackTG.ID())
 
-	stackTG.IsDeleted = !t.route.DeletionTimestamp().IsZero()
+	stackTG.IsDeleted = !t.route.DeletionTimestamp().IsZero() // should always be false
 	if !stackTG.IsDeleted {
 		t.buildTargets(ctx, stackTG.ID())
 	}
@@ -261,16 +270,10 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargets(ctx context.Context, 
 		t.log.Debugf("Service import does not manage targets, returning")
 		return nil
 	}
-
 	backendRefNsName := getBackendRefNsName(t.route, t.backendRef)
 	svc := &corev1.Service{}
 	if err := t.client.Get(ctx, backendRefNsName, svc); err != nil {
-		if apierrors.IsNotFound(err) && !t.route.DeletionTimestamp().IsZero() {
-			t.log.Infof("Ignoring not found error for service %s on deleted route %s",
-				t.backendRef.Name(), t.route.Name())
-		} else {
-			return fmt.Errorf("error finding backend service %s due to %s", backendRefNsName, err)
-		}
+		return fmt.Errorf("error finding backend service %s due to %s", backendRefNsName, err)
 	}
 
 	targetsBuilder := NewTargetsBuilder(t.log, t.client, t.stack)
@@ -284,20 +287,21 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargets(ctx context.Context, 
 
 // Now, Only k8sService and serviceImport creation deletion use this function to build TargetGroupSpec, serviceExport does not use this function to create TargetGroupSpec
 func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.Context) (model.TargetGroupSpec, error) {
+	// note we only build target groups for backendRefs on non-deleted routes
 	backendKind := string(*t.backendRef.Kind())
 	t.log.Debugf("buildTargetGroupSpec, kind %s", backendKind)
 
 	vpc := config.VpcID
 	eksCluster := config.ClusterName
-	routeIsDeleted := !t.route.DeletionTimestamp().IsZero()
-
 	backendRefNsName := getBackendRefNsName(t.route, t.backendRef)
 	svc := &corev1.Service{}
 	if err := t.client.Get(ctx, backendRefNsName, svc); err != nil {
-		if routeIsDeleted && apierrors.IsNotFound(err) {
-			t.log.Infof("Ignoring not found error for service %s on deleted route %s",
-				t.backendRef.Name(), t.route.Name())
-		} else if !routeIsDeleted {
+		if apierrors.IsNotFound(err) {
+			return model.TargetGroupSpec{}, &InvalidBackendRefError{
+				BackendRef: t.backendRef,
+				Reason:     fmt.Sprintf("service %s on route %s not found, backendRef invalid", backendRefNsName.Name, t.route.Name()),
+			}
+		} else {
 			return model.TargetGroupSpec{},
 				fmt.Errorf("error finding backend service %s due to %s", backendRefNsName, err)
 		}
@@ -308,14 +312,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	if svc != nil {
 		ipAddressType, err = buildTargetGroupIpAddressType(svc)
 		if err != nil {
-			if routeIsDeleted {
-				// Ignore error for deletion request
-				t.log.Debugf("Unable to determine IP address type for deleted route, using default")
-				ipAddressType = vpclattice.IpAddressTypeIpv4
-			} else {
-				// we care that there's an error if we are not deleting
-				return model.TargetGroupSpec{}, err
-			}
+			return model.TargetGroupSpec{}, err
 		}
 	}
 
