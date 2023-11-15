@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("Access Log Policy", Ordered, func() {
@@ -72,7 +73,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		grpcDeployment    *appsv1.Deployment
 		httpK8sService    *corev1.Service
 		grpcK8sService    *corev1.Service
-		httpRoute         *gwv1beta1.HTTPRoute
+		httpRoute         *gwv1.HTTPRoute
 		grpcRoute         *gwv1alpha2.GRPCRoute
 		bucketArn         string
 		logGroupArn       string
@@ -265,7 +266,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
 
 			// VPC Lattice Service should have Access Log Subscription with S3 Bucket destination
-			latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
+			latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			}
@@ -601,7 +602,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		originalAlsArn := ""
 		currentAlsArn := ""
 		expectedGeneration := 1
-		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
+		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -1043,7 +1044,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}
 		testFramework.ExpectCreated(ctx, accessLogPolicy)
 
-		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
+		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should have an Access Log Subscription
@@ -1150,7 +1151,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			Namespace: accessLogPolicy.Namespace,
 		}
 
-		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*route))
+		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should have an Access Log Subscription

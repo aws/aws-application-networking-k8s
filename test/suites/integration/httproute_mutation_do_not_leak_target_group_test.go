@@ -12,13 +12,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"strings"
 )
 
 var _ = Describe("HTTPRoute Mutation", func() {
 	var (
-		pathMatchHttpRoute *v1beta1.HTTPRoute = nil
+		pathMatchHttpRoute *gwv1.HTTPRoute    = nil
 		deployment1        *appsv1.Deployment = nil
 		service1           *corev1.Service    = nil
 		deployment2        *appsv1.Deployment = nil

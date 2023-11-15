@@ -11,10 +11,9 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("Defined Target Ports", func() {
@@ -22,7 +21,7 @@ var _ = Describe("Defined Target Ports", func() {
 		deployment        *appsv1.Deployment
 		service           *v1.Service
 		serviceExport     *anv1alpha1.ServiceExport
-		httpRoute         *v1beta1.HTTPRoute
+		httpRoute         *gwv1.HTTPRoute
 		vpcLatticeService *vpclattice.ServiceSummary
 		definedPorts      []int64
 	)

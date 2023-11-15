@@ -6,18 +6,17 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("HTTPRoute header matches", func() {
@@ -25,7 +24,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 	var (
 		deployment           *appsv1.Deployment
 		service              *v1.Service
-		headerMatchHttpRoute *v1beta1.HTTPRoute
+		headerMatchHttpRoute *gwv1.HTTPRoute
 	)
 
 	It("Create a HttpRoute with a header match rule, http traffic should work if pass the correct headers", func() {
