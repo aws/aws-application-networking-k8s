@@ -312,7 +312,7 @@ func (d *defaultLattice) ListServiceNetworkServiceAssociationsAsList(ctx context
 
 func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, optionalAccountId string) (*ServiceNetworkInfo, error) {
 	// When default service network is provided, override for any kind of SN search
-	if config.NetworkOverrideMode {
+	if config.ServiceNetworkOverrideMode {
 		name = config.DefaultServiceNetwork
 	}
 	input := vpclattice.ListServiceNetworksInput{}

@@ -18,12 +18,12 @@ const (
 )
 
 const (
-	REGION                  = "REGION"
-	CLUSTER_VPC_ID          = "CLUSTER_VPC_ID"
-	CLUSTER_NAME            = "CLUSTER_NAME"
-	DEFAULT_SERVICE_NETWORK = "DEFAULT_SERVICE_NETWORK"
-	ENABLE_NETWORK_OVERRIDE = "ENABLE_NETWORK_OVERRIDE"
-	AWS_ACCOUNT_ID          = "AWS_ACCOUNT_ID"
+	REGION                          = "REGION"
+	CLUSTER_VPC_ID                  = "CLUSTER_VPC_ID"
+	CLUSTER_NAME                    = "CLUSTER_NAME"
+	DEFAULT_SERVICE_NETWORK         = "DEFAULT_SERVICE_NETWORK"
+	ENABLE_SERVICE_NETWORK_OVERRIDE = "ENABLE_SERVICE_NETWORK_OVERRIDE"
+	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
 )
 
 var VpcID = ""
@@ -33,7 +33,7 @@ var logLevel = defaultLogLevel
 var DefaultServiceNetwork = ""
 var ClusterName = ""
 
-var NetworkOverrideMode = false
+var ServiceNetworkOverrideMode = false
 
 func ConfigInit() error {
 	sess, _ := session.NewSession()
@@ -74,9 +74,9 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 	// DEFAULT_SERVICE_NETWORK
 	DefaultServiceNetwork = os.Getenv(DEFAULT_SERVICE_NETWORK)
 
-	networkOverride := os.Getenv(ENABLE_NETWORK_OVERRIDE)
-	if strings.ToLower(networkOverride) == "true" && DefaultServiceNetwork != "" {
-		NetworkOverrideMode = true
+	overrideFlag := os.Getenv(ENABLE_SERVICE_NETWORK_OVERRIDE)
+	if strings.ToLower(overrideFlag) == "true" && DefaultServiceNetwork != "" {
+		ServiceNetworkOverrideMode = true
 	}
 
 	// CLUSTER_NAME

@@ -54,7 +54,7 @@
 ```
 # run controller in following mode
 
-REGION=us-west-2 DEFAULT_SERVICE_NETWORK=my-cluster-default ENABLE_NETWORK_OVERRIDE=true \
+REGION=us-west-2 DEFAULT_SERVICE_NETWORK=my-cluster-default ENABLE_SERVICE_NETWORK_OVERRIDE=true \
 make run
 ```
 

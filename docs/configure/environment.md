@@ -66,7 +66,7 @@ The created service network will be also associated with cluster VPC.
 
 ---
 
-#### `ENABLE_NETWORK_OVERRIDE`
+#### `ENABLE_SERVICE_NETWORK_OVERRIDE`
 
 Type: string
 

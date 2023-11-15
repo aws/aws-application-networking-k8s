@@ -110,7 +110,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
 	}
-	if config.NetworkOverrideMode {
+	if config.ServiceNetworkOverrideMode {
 		spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
 	}
 
