@@ -35,7 +35,7 @@ func Test_config_init_with_partial_env_var(t *testing.T) {
 
 	os.Setenv(REGION, testRegion)
 	os.Setenv(CLUSTER_VPC_ID, testClusterVpcId)
-	os.Setenv(CLUSTER_LOCAL_GATEWAY, testClusterLocalGateway)
+	os.Setenv(DEFAULT_SERVICE_NETWORK, testClusterLocalGateway)
 	os.Unsetenv(AWS_ACCOUNT_ID)
 	err := configInit(nil, ec2MetadataUnavailable())
 	assert.NotNil(t, err)
@@ -44,7 +44,7 @@ func Test_config_init_with_partial_env_var(t *testing.T) {
 func Test_config_init_no_env_var(t *testing.T) {
 	os.Unsetenv(REGION)
 	os.Unsetenv(CLUSTER_VPC_ID)
-	os.Unsetenv(CLUSTER_LOCAL_GATEWAY)
+	os.Unsetenv(DEFAULT_SERVICE_NETWORK)
 	os.Unsetenv(AWS_ACCOUNT_ID)
 	err := configInit(nil, ec2MetadataUnavailable())
 	assert.NotNil(t, err)
@@ -61,7 +61,7 @@ func Test_config_init_with_all_env_var(t *testing.T) {
 
 	os.Setenv(REGION, testRegion)
 	os.Setenv(CLUSTER_VPC_ID, testClusterVpcId)
-	os.Setenv(CLUSTER_LOCAL_GATEWAY, testClusterLocalGateway)
+	os.Setenv(DEFAULT_SERVICE_NETWORK, testClusterLocalGateway)
 	os.Setenv(AWS_ACCOUNT_ID, testAwsAccountId)
 	os.Setenv(CLUSTER_NAME, testClusterName)
 	configInit(nil, ec2MetadataUnavailable())

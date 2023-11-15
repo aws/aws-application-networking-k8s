@@ -110,9 +110,8 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
 	}
-	defaultGateway, err := config.GetClusterLocalGateway()
-	if err == nil {
-		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, defaultGateway)
+	if config.ServiceNetworkOverrideMode {
+		spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
 	}
 
 	if len(t.route.Spec().Hostnames()) > 0 {
