@@ -177,7 +177,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		}
 		resp, err := vpcLatticeSess.CreateServiceNetworkWithContext(ctx, &serviceNetworkInput)
 		if err != nil {
-			return model.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
+			return model.ServiceNetworkStatus{}, err
 		}
 
 		serviceNetworkId = aws.StringValue(resp.Id)
@@ -186,6 +186,15 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		m.log.Debugf("ServiceNetwork %s exists, checking its VPC association", serviceNetwork.Spec.Name)
 		serviceNetworkId = aws.StringValue(foundSnSummary.SvcNetwork.Id)
 		serviceNetworkArn = aws.StringValue(foundSnSummary.SvcNetwork.Arn)
+
+		snva, err := m.getActiveVpcAssociation(ctx, serviceNetworkId)
+		if err != nil {
+			return model.ServiceNetworkStatus{}, err
+		}
+		if snva != nil {
+			m.log.Debugf("ServiceNetwork %s already has VPC association %s", serviceNetwork.Spec.Name, snva.Arn)
+			return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
+		}
 	}
 
 	m.log.Debugf("Creating association between ServiceNetwork %s and VPC %s", serviceNetworkId, config.VpcID)
