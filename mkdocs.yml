@@ -7,22 +7,26 @@ strict: true
 
 nav:
   - Home: index.md
-  - Deployment: deploy.md
-  - Getting Started: getstarted.md
-  - Developer Guide: developer.md
-  - Configuration:
-    - Overview: configure/index.md
-    - Environment Variables: configure/environment.md
-    - TLS: configure/https.md
-    - Custom Domain Name: configure/custom-domain-name.md
-    - GRPC: configure/grpc.md
+  - User Guides:
+    - Quick Start: guides/deploy.md
+    - Basic Setup: guides/getstarted.md
+  - Concepts:
+    - Design Overview: concepts/overview.md
+    - Environment Variables: concepts/environment.md
+    - TLS: concepts/https.md
+    - Custom Domain Name: concepts/custom-domain-name.md
+    - GRPC: concepts/grpc.md
+    - Cross-Account Sharing: concepts/ram-sharing.md
   - API Reference:
     - GRPCRoute: reference/grpc-route.md
     - TargetGroupPolicy: reference/target-group-policy.md
     - VpcAssociationPolicy: reference/vpc-association-policy.md
     - AccessLogPolicy: reference/access-log-policy.md
     - IAMAuthPolicy:  reference/iam-auth-policy.md
-  - Design Overview: overview.md
+  - Contributing:
+    - Developer Guide: contributing/developer.md
+    - Developer Cheat Sheet: contributing/developer-cheat-sheet.md
+  - FAQ: faq.md
 
 plugins:
   - search
