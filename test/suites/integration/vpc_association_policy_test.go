@@ -13,12 +13,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-var _ = Describe("Test vpc association policy", Ordered, func() {
+var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 	var (
 		vpcAssociationPolicy *v1alpha1.VpcAssociationPolicy
 		sgId                 v1alpha1.SecurityGroupId
@@ -68,7 +69,7 @@ var _ = Describe("Test vpc association policy", Ordered, func() {
 		Expect(err).To(BeNil())
 	})
 
-	It("Create a VpcAssociationPolicy that set associateWithVpc to false, expecting do not create ServiceNetworkVpcAssociation", func() {
+	It("Create the VpcAssociationPolicy with a SecurityGroupId, expecting the ServiceNetworkVpcAssociation with a security group", func() {
 		vpcAssociationPolicy = &v1alpha1.VpcAssociationPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-vpc-association-policy",
@@ -81,33 +82,17 @@ var _ = Describe("Test vpc association policy", Ordered, func() {
 					Name:      gwv1alpha2.ObjectName(testGateway.Name),
 					Namespace: lo.ToPtr(gwv1alpha2.Namespace(k8snamespace)),
 				},
-				AssociateWithVpc: lo.ToPtr(false),
+				SecurityGroupIds: []v1alpha1.SecurityGroupId{sgId},
 			},
 		}
 		testFramework.ExpectCreated(ctx, vpcAssociationPolicy)
-		Eventually(func(g Gomega) {
-			//Expect no SNVA for testGateway
-			associated, _, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
-			g.Expect(err).To(Not(BeNil()))
-			g.Expect(associated).To(BeFalse())
-		}).Should(Succeed())
-	})
-
-	It("Update the VpcAssociationPolicy that set associateWithVpc to true with a SecurityGroupId, expecting the ServiceNetworkVpcAssociation with a security group created", func() {
-		testFramework.Get(ctx, types.NamespacedName{
-			Namespace: vpcAssociationPolicy.Namespace,
-			Name:      vpcAssociationPolicy.Name,
-		}, vpcAssociationPolicy)
-		vpcAssociationPolicy.Spec.AssociateWithVpc = lo.ToPtr(true)
-		vpcAssociationPolicy.Spec.SecurityGroupIds = []v1alpha1.SecurityGroupId{sgId}
-		testFramework.ExpectUpdated(ctx, vpcAssociationPolicy)
 
 		Eventually(func(g Gomega) {
-			associated, snvaId, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
+			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
 			g.Expect(err).To(BeNil())
 			g.Expect(associated).To(BeTrue())
 			output, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
-				ServiceNetworkVpcAssociationIdentifier: &snvaId,
+				ServiceNetworkVpcAssociationIdentifier: snva.Id,
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(output.SecurityGroupIds).To(HaveLen(1))
@@ -115,32 +100,44 @@ var _ = Describe("Test vpc association policy", Ordered, func() {
 		}).WithTimeout(5 * time.Minute).Should(Succeed())
 	})
 
-	AfterAll(func() {
-		// Re-create SNVA to clean up the SNVA security group by setting associateWithVpc to false and then true with no security group
+	It("Update a VpcAssociationPolicy with associateWithVpc to false, expecting deleted ServiceNetworkVpcAssociation", func() {
+		testFramework.Get(ctx, types.NamespacedName{
+			Namespace: vpcAssociationPolicy.Namespace,
+			Name:      vpcAssociationPolicy.Name,
+		}, vpcAssociationPolicy)
 		vpcAssociationPolicy.Spec.AssociateWithVpc = lo.ToPtr(false)
-		vpcAssociationPolicy.Spec.SecurityGroupIds = nil
 		testFramework.ExpectUpdated(ctx, vpcAssociationPolicy)
-		Eventually(func(g Gomega) {
-			//Expect no SNVA for testGateway
-			associated, _, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
-			g.Expect(associated).To(BeFalse())
-		}).Should(Succeed())
-		vpcAssociationPolicy.Spec.AssociateWithVpc = lo.ToPtr(true)
-		testFramework.ExpectUpdated(ctx, vpcAssociationPolicy)
-		Eventually(func(g Gomega) {
-			// Expect SNVA re-created for testGateway
-			associated, _, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
-			g.Expect(err).To(BeNil())
-			g.Expect(associated).To(BeTrue())
-		}).WithTimeout(5 * time.Minute).Should(Succeed())
 
-		// Clean up the vpc association policy
-		testFramework.ExpectDeletedThenNotFound(ctx, vpcAssociationPolicy)
+		Eventually(func(g Gomega) {
+			//Expect Full SNVA cleanup
+			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
+			g.Expect(err).To(Not(BeNil()))
+			g.Expect(associated).To(BeFalse())
+			g.Expect(snva).To(BeNil())
+		}).WithTimeout(5 * time.Minute).Should(Succeed())
+	})
+
+	AfterAll(func() {
+		testFramework.ExpectDeleted(ctx, vpcAssociationPolicy)
 
 		// Clean up the security group
 		_, err := testFramework.Ec2Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
 			GroupId: aws.String(string(sgId)),
 		})
 		Expect(err).To(BeNil())
+
+		// Re-create SNVA manually to recover network state without policy.
+		_, err = testFramework.Cloud.Lattice().CreateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
+			ServiceNetworkIdentifier: testServiceNetwork.Id,
+			VpcIdentifier:            &config.VpcID,
+			Tags:                     testFramework.Cloud.DefaultTags(),
+		})
+		Expect(err).To(BeNil())
+
+		Eventually(func(g Gomega) {
+			associated, _, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
+			g.Expect(err).To(BeNil())
+			g.Expect(associated).To(BeTrue())
+		}).WithTimeout(5 * time.Minute).Should(Succeed())
 	})
 })

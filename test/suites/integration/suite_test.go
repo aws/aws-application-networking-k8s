@@ -51,7 +51,10 @@ var _ = SynchronizedBeforeSuite(func() {
 	Eventually(func(g Gomega) {
 		associated, _, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcId, testServiceNetwork)
 		g.Expect(associated).To(BeTrue())
+		managed, _ := testFramework.Cloud.IsArnManaged(ctx, *testServiceNetwork.Arn)
+		g.Expect(managed).To(BeTrue())
 	}).Should(Succeed())
+
 }, func() {
 	testGateway = testFramework.NewGateway("test-gateway", k8snamespace)
 	testServiceNetwork = testFramework.GetServiceNetwork(ctx, testGateway)

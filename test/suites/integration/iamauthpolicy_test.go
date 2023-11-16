@@ -7,8 +7,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
-
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -21,8 +19,10 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("IAM Auth Policy", Ordered, func() {
@@ -177,7 +177,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 	It("accepted, applied, and removed from HTTPRoute", func() {
 		policy := newPolicy("http", "HTTPRoute", SvcName)
-		svc, _ := lattice.FindService(context.TODO(), utils.LatticeServiceName(SvcName, k8snamespace))
+		svc := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 		svcId := *svc.Id
 
 		// accepted

@@ -133,9 +133,9 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 		k8sScheme:               testScheme,
 		namespace:               testNamespace,
 		controllerRuntimeConfig: controllerRuntimeConfig,
-		DefaultTags:             an_aws.NewDefaultCloud(nil, cloudConfig).DefaultTags(),
-		Cloud:                   an_aws.NewDefaultCloud(nil, cloudConfig),
 	}
+	framework.Cloud = an_aws.NewDefaultCloud(framework.LatticeClient, cloudConfig)
+	framework.DefaultTags = framework.Cloud.DefaultTags()
 	SetDefaultEventuallyTimeout(3 * time.Minute)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
 	return framework
@@ -153,39 +153,18 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		retrievedServices, _ := env.LatticeClient.ListServicesAsList(ctx, &vpclattice.ListServicesInput{})
 		for _, service := range retrievedServices {
 			env.Log.Infof("Found service, checking if created by current EKS Cluster: %v", service)
-			retrievedTags, err := env.LatticeClient.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
-				ResourceArn: service.Arn,
-			})
+			managed, err := env.Cloud.IsArnManaged(ctx, *service.Arn)
 			if err == nil { // for err != nil, it is possible that this service own by other account, and it is shared to current account by RAM
-				env.Log.Infof("Found Tags for service %v tags: %v", *service.Name, retrievedTags)
-				value, ok := retrievedTags.Tags[model.K8SServiceOwnedByVPC]
-				if ok {
-					g.Expect(*value).To(Not(Equal(CurrentClusterVpcId)))
-				}
+				g.Expect(managed).To(BeFalse())
 			}
 		}
 
 		retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
 		for _, tg := range retrievedTargetGroups {
 			env.Log.Infof("Found TargetGroup: %s, checking if created by current EKS Cluster", *tg.Id)
-			if tg.VpcIdentifier != nil && CurrentClusterVpcId != *tg.VpcIdentifier {
-				env.Log.Infof("Target group VPC Id: %s, does not match current EKS Cluster VPC Id: %s", *tg.VpcIdentifier, CurrentClusterVpcId)
-				//This tg is not created by current EKS Cluster, skip it
-				continue
-			}
-			retrievedTags, err := env.LatticeClient.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
-				ResourceArn: tg.Arn,
-			})
-			if err == nil {
-				env.Log.Infof("Found Tags for tg %v tags: %v", *tg.Name, retrievedTags)
-				tagValue, ok := retrievedTags.Tags[model.K8SSourceTypeKey]
-				if ok && *tagValue == string(model.SourceTypeSvcExport) {
-					env.Log.Infof("TargetGroup: %s was created by k8s controller, by a ServiceExport", *tg.Id)
-					//This tg is created by k8s controller, by a ServiceExport,
-					//ServiceExport still have a known targetGroup leaking issue,
-					//so we temporarily skip to verify whether ServiceExport created TargetGroup is deleted or not
-					continue
-				}
+			managed, err := env.Cloud.IsArnManaged(ctx, *tg.Arn)
+			if err == nil { // for err != nil, it is possible that this service own by other account, and it is shared to current account by RAM
+				g.Expect(managed).To(BeFalse())
 			}
 		}
 	}).Should(Succeed())
@@ -404,14 +383,6 @@ func (env *Framework) FindTargetGroupFromSpec(ctx context.Context, tgSpec model.
 		if aws.StringValue(targetGroup.Protocol) != tgSpec.Protocol {
 			continue
 		}
-		tg, err := env.LatticeClient.GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{TargetGroupIdentifier: targetGroup.Id})
-		if err != nil {
-			return nil, err
-		}
-
-		if aws.StringValue(tg.Config.ProtocolVersion) != tgSpec.ProtocolVersion {
-			continue
-		}
 
 		res, err := env.LatticeClient.ListTagsForResourceWithContext(ctx,
 			&vpclattice.ListTagsForResourceInput{ResourceArn: targetGroup.Arn})
@@ -420,6 +391,9 @@ func (env *Framework) FindTargetGroupFromSpec(ctx context.Context, tgSpec model.
 		}
 
 		modelTags := model.TGTagFieldsFromTags(res.Tags)
+		if modelTags.K8SProtocolVersion != tgSpec.ProtocolVersion {
+			continue
+		}
 		if modelTags.K8SServiceName != tgSpec.K8SServiceName || modelTags.K8SServiceNamespace != tgSpec.K8SServiceNamespace {
 			continue
 		}
@@ -494,22 +468,22 @@ func (env *Framework) VerifyTargetGroupNotFound(tg *vpclattice.TargetGroupSummar
 	}).Should(Succeed())
 }
 
-func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *vpclattice.ServiceNetworkSummary) (bool, string, error) {
+func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *vpclattice.ServiceNetworkSummary) (bool, *vpclattice.ServiceNetworkVpcAssociationSummary, error) {
 	vpcAssociations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
 		ServiceNetworkIdentifier: serviceNetwork.Id,
 		VpcIdentifier:            &vpcId,
 	})
 	if err != nil {
-		return false, "", err
+		return false, nil, err
 	}
 	if len(vpcAssociations) != 1 {
-		return false, "", fmt.Errorf("Expect to have one VpcServiceNetworkAssociation len(vpcAssociations): %d", len(vpcAssociations))
+		return false, nil, fmt.Errorf("Expect to have one VpcServiceNetworkAssociation len(vpcAssociations): %d", len(vpcAssociations))
 	}
 	association := vpcAssociations[0]
 	if *association.Status != vpclattice.ServiceNetworkVpcAssociationStatusActive {
-		return false, "", fmt.Errorf("Current cluster should have one Active status association *association.Status: %s, err: %w", *association.Status, err)
+		return false, association, fmt.Errorf("Current cluster should have one Active status association *association.Status: %s, err: %w", *association.Status, err)
 	}
-	return true, *association.Id, nil
+	return true, association, nil
 }
 
 func (env *Framework) AreAllLatticeTargetsHealthy(ctx context.Context, tg *vpclattice.TargetGroupSummary) (bool, error) {
@@ -578,9 +552,14 @@ func (env *Framework) GetLatticeServiceHttpsListenerNonDefaultRules(ctx context.
 
 func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNamespace string) string {
 	env.Log.Infoln("GetVpcLatticeServiceDns: ", httpRouteName, httpRouteNamespace)
-	httproute := gwv1.HTTPRoute{}
-	env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
-	vpcLatticeServiceDns := httproute.Annotations[controllers.LatticeAssignedDomainName]
+	vpcLatticeServiceDns := ""
+	Eventually(func(g Gomega) {
+		httproute := gwv1.HTTPRoute{}
+		env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
+		g.Expect(httproute.Annotations).To(HaveKey(controllers.LatticeAssignedDomainName))
+		vpcLatticeServiceDns = httproute.Annotations[controllers.LatticeAssignedDomainName]
+	}).Should(Succeed())
+
 	return vpcLatticeServiceDns
 }
 
