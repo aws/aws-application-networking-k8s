@@ -4,9 +4,12 @@ If you'd like to setup kubernetes service-to-service communications across multi
 
 Suppose your organization have one "conceptual service mesh" that spans multiple clusters in one aws account, this service mesh should include the following components:
 - One manually created VPC Lattice service network, (it could create by either AWS Console, CLI, CloudFormation, Terraform or any other tools)
+- Multiple workload cluster(s), where are used to run application workload(s), workload cluster(s) should only have following kubernetes objects:
+  - Multipleapplication workload(s)
 - One extra dedicated "config cluster", which is used for "mesh control plane" and where should include following kubernetes objects:
   - One `gateway` that has __same name__ as the manually created VPC Lattice service network
   - Multiple HTTPRoute(s)`/`GRPCRoute(s)`, that have rules reference to kubernetes application service(s) in workload cluster(s)
+  - Multiple ServiceImport(s), that reference to kubernetes application ServiceExport(s) in workload cluster(s)
 Here is one popular multi-cluster architecture:
 
 Assume your organization 
