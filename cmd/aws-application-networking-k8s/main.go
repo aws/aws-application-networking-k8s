@@ -193,7 +193,7 @@ func main() {
 		setupLog.Fatalf("iam auth policy controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterVpcAssociationPolicyController(ctrlLog.Named("vpc-association-policy"), mgr, cloud)
+	err = controllers.RegisterVpcAssociationPolicyController(ctrlLog.Named("vpc-association-policy"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("vpc association policy controller setup failed: %s", err)
 	}

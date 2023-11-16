@@ -30,7 +30,7 @@ var _ = Describe("HTTPRoute Update", func() {
 
 	Context("BackendRefs to the same service use different target groups", func() {
 		It("Target groups for the same service are different for different routes", func() {
-			deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
+			deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "update-test-v1", Namespace: k8snamespace})
 			route1 = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1}, "http",
 				"route-one", k8snamespace)
 			route2 = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1}, "http",

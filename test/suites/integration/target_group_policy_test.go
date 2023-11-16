@@ -33,7 +33,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 		testFramework.ExpectCreated(ctx, deployment, service, httpRoute)
 	})
 
-	It("Update Protocol creates new Target Group", func() {
+	It("Update Protocol replaces the Target Group with new one", func() {
 		policy = testFramework.CreateTargetGroupPolicy(service, &test.TargetGroupPolicyConfig{
 			PolicyName: "test-policy",
 			Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
@@ -50,6 +50,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 		})
 
 		testFramework.ExpectUpdated(ctx, policy)
+		testFramework.VerifyTargetGroupNotFound(tg)
 
 		httpsTG := testFramework.GetTargetGroupWithProtocol(ctx, service, "https", "http1")
 
@@ -69,8 +70,6 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 
 		testFramework.ExpectCreated(ctx, policy)
 
-		// time.Sleep(10 * time.Second)
-
 		Eventually(func(g Gomega) {
 			tgSummary := testFramework.GetTargetGroup(ctx, service)
 
@@ -80,7 +79,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 			g.Expect(*tg.Config.HealthCheck.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
 			g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(7))
 			g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,204"))
-		}).Within(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+		}).Within(60 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
 
@@ -103,7 +102,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 					HttpCode: aws.String("200"),
 				},
 			}))
-		}).Within(10 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+		}).Within(60 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 	})
 
 	It("Delete Target Group Policy create HTTP and HTTP1 Target Group", func() {
