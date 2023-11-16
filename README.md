@@ -16,9 +16,7 @@ website: [https://www.gateway-api-controller.eks.aws.dev/][ghp].
 
 ### Concepts
 
-To get started, please read through [API concepts][concepts] and
-[Security model][security-model]. These documents give the necessary background
-to understand the API and the use-cases it targets.
+To get started, please read through [API concepts][concepts]. These documents give the necessary background to understand the API and the use-cases it targets.
 
 ### Getting started
 
@@ -57,6 +55,5 @@ This project is licensed under the Apache-2.0 License.
 [getting-started]: https://www.gateway-api-controller.eks.aws.dev/getstarted/
 [spec]: https://www.gateway-api-controller.eks.aws.dev/reference/grpc-route/
 [concepts]: https://www.gateway-api-controller.eks.aws.dev/configure/
-[security-model]: https://gateway-api.sigs.k8s.io/concepts/security-model
 [gh_release]: https://github.com/aws/aws-application-networking-k8s/releases/tag/v0.0.18
 [godoc]: https://www.gateway-api-controller.eks.aws.dev/
