@@ -45,19 +45,15 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 			return err
 		}
 
-		// deletes are deferred to the later logic comparing existing listeners
-		// to current listeners.
-		if !listener.IsDeleted {
-			status, err := l.listenerMgr.Upsert(ctx, listener, svc)
-			if err != nil {
-				listenerErr = errors.Join(listenerErr,
-					fmt.Errorf("failed ListenerManager.Upsert %s-%s due to err %s",
-						listener.Spec.K8SRouteName, listener.Spec.K8SRouteNamespace, err))
-				continue
-			}
-
-			listener.Status = &status
+		status, err := l.listenerMgr.Upsert(ctx, listener, svc)
+		if err != nil {
+			listenerErr = errors.Join(listenerErr,
+				fmt.Errorf("failed ListenerManager.Upsert %s-%s due to err %s",
+					listener.Spec.K8SRouteName, listener.Spec.K8SRouteNamespace, err))
+			continue
 		}
+
+		listener.Status = &status
 	}
 
 	if listenerErr != nil {
@@ -86,8 +82,8 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 func (l *listenerSynthesizer) shouldDelete(listenerToFind *model.Listener, stackListeners []*model.Listener) bool {
 	for _, candidate := range stackListeners {
 		if candidate.Spec.Port == listenerToFind.Spec.Port && candidate.Spec.Protocol == listenerToFind.Spec.Protocol {
-			// found a match, delete if match is deleted
-			return candidate.IsDeleted
+			// found a match, do not delete
+			return false
 		}
 	}
 	// there is no matching listener

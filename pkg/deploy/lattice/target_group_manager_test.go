@@ -4,18 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"testing"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"reflect"
-	"testing"
 )
 
 // target group does not exist, and is active after creation
@@ -27,7 +29,8 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 	config.VpcID = "vpc-id"
 	config.ClusterName = "cluster-name"
 	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgTypes := [2]string{"by-backendref", "by-serviceexport"}
 
@@ -72,6 +75,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		expectedTags[model.K8SServiceNameKey] = &tgSpec.K8SServiceName
 		expectedTags[model.K8SServiceNamespaceKey] = &tgSpec.K8SServiceNamespace
 		expectedTags[model.K8SClusterNameKey] = &tgSpec.K8SClusterName
+		expectedTags[model.K8SProtocolVersionKey] = &tgSpec.ProtocolVersion
 
 		if tgType == "by-serviceexport" {
 			value := string(model.SourceTypeSvcExport)
@@ -83,9 +87,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			expectedTags[model.K8SRouteNamespaceKey] = &tgSpec.K8SRouteNamespace
 		}
 
-		var listTgOutput []*vpclattice.TargetGroupSummary
-
-		mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+		mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 		mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, input *vpclattice.CreateTargetGroupInput, arg3 ...interface{}) (*vpclattice.CreateTargetGroupOutput, error) {
 				assert.Equal(t, aws.Int64(int64(tgSpec.Port)), input.Config.Port)
@@ -120,7 +122,8 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 	ctx := context.TODO()
 
 	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgSpec := model.TargetGroupSpec{}
 	tgSpec.K8SRouteName = "route1"
@@ -142,15 +145,17 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 	}
 
 	beforeCreateStatus := vpclattice.TargetGroupStatusCreateFailed
-	tgSummary := vpclattice.TargetGroupSummary{
+	tgOutput := vpclattice.GetTargetGroupOutput{
 		Arn:    &arn,
 		Id:     &id,
 		Name:   &name,
 		Status: &beforeCreateStatus,
+		Config: &vpclattice.TargetGroupConfig{},
 	}
-	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
-	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
+	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+
 	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 	resp, err := tgManager.Upsert(ctx, &tgCreateInput)
@@ -196,7 +201,8 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 			defer c.Finish()
 
 			mockLattice := mocks.NewMockLattice(c)
-			cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+			mockTagging := mocks.NewMockTagging(c)
+			cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 			tgSpec := model.TargetGroupSpec{
 				Port:              80,
@@ -210,30 +216,20 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 				Spec:         tgSpec,
 			}
 
-			tgSummary := vpclattice.TargetGroupSummary{
-				Arn:      &arn,
-				Id:       &id,
-				Name:     aws.String("test-https-http1"),
-				Status:   aws.String(vpclattice.TargetGroupStatusActive),
-				Port:     aws.Int64(80),
-				Protocol: aws.String(vpclattice.TargetGroupProtocolHttps),
+			tgOutput := vpclattice.GetTargetGroupOutput{
+				Arn:    &arn,
+				Id:     &id,
+				Name:   aws.String("test-https-http1"),
+				Status: aws.String(vpclattice.TargetGroupStatusActive),
+				Config: &vpclattice.TargetGroupConfig{
+					Port:            aws.Int64(80),
+					Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
+					ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+				},
 			}
 
-			listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
-
-			mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-
-			// empty tags should be OK and should match since all tag values on the spec are empty
-			mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
-				&vpclattice.ListTagsForResourceOutput{}, nil)
-
-			// we use Get to do a last check on the protocol version
-			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(
-				&vpclattice.GetTargetGroupOutput{
-					Config: &vpclattice.TargetGroupConfig{
-						ProtocolVersion: aws.String(tgSpec.ProtocolVersion),
-					},
-				}, nil)
+			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
+			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 			if tt.wantErr {
 				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("error"))
@@ -255,17 +251,77 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 	}
 }
 
+func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
+	ctx := context.TODO()
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	hcConfig := &vpclattice.HealthCheckConfig{
+		Enabled:                    aws.Bool(true),
+		HealthCheckIntervalSeconds: aws.Int64(3),
+		HealthCheckTimeoutSeconds:  aws.Int64(3),
+		HealthyThresholdCount:      aws.Int64(3),
+		Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+		Path:                       aws.String("/"),
+		Port:                       nil,
+		Protocol:                   aws.String(vpclattice.TargetGroupProtocolHttps),
+		ProtocolVersion:            aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+		UnhealthyThresholdCount:    aws.Int64(3),
+	}
+	tgSpec := model.TargetGroupSpec{
+		Port:              80,
+		Protocol:          vpclattice.TargetGroupProtocolHttps,
+		ProtocolVersion:   vpclattice.TargetGroupProtocolVersionHttp1,
+		HealthCheckConfig: hcConfig,
+	}
+
+	tgCreateInput := model.TargetGroup{
+		ResourceMeta: core.ResourceMeta{},
+		Spec:         tgSpec,
+	}
+
+	tgOutput := vpclattice.GetTargetGroupOutput{
+		Arn:    aws.String("arn"),
+		Id:     aws.String("id"),
+		Name:   aws.String("test-https-http1"),
+		Status: aws.String(vpclattice.TargetGroupStatusActive),
+		Config: &vpclattice.TargetGroupConfig{
+			Port:            aws.Int64(80),
+			HealthCheck:     hcConfig,
+			Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
+			ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+		},
+	}
+
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{"arn"}, nil)
+	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+	mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
+
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	resp, err := tgManager.Upsert(ctx, &tgCreateInput)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "arn", resp.Arn)
+	assert.Equal(t, "id", resp.Id)
+}
+
 // target group status is create-in-progress before creation, return Retry
 func Test_CreateTargetGroup_ExistingTG_Status_Retry(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgSpec := model.TargetGroupSpec{
-		Port:     80,
-		Protocol: "HTTP",
+		Port:            80,
+		Protocol:        "HTTP",
+		ProtocolVersion: "HTTP1",
 	}
 	tgCreateInput := model.TargetGroup{
 		Spec: tgSpec,
@@ -282,25 +338,20 @@ func Test_CreateTargetGroup_ExistingTG_Status_Retry(t *testing.T) {
 	for _, retryStatus := range retryStatuses {
 		t.Run(fmt.Sprintf("retry on status %s", retryStatus), func(t *testing.T) {
 			beforeCreateStatus := retryStatus
-			tgSummary := vpclattice.TargetGroupSummary{
-				Arn:      &arn,
-				Id:       &id,
-				Name:     &name,
-				Status:   &beforeCreateStatus,
-				Port:     aws.Int64(80),
-				Protocol: aws.String("HTTP"),
+			tgOutput := vpclattice.GetTargetGroupOutput{
+				Arn:    &arn,
+				Id:     &id,
+				Name:   &name,
+				Status: &beforeCreateStatus,
+				Config: &vpclattice.TargetGroupConfig{
+					Port:            aws.Int64(80),
+					Protocol:        aws.String("HTTP"),
+					ProtocolVersion: aws.String("HTTP1"),
+				},
 			}
-			listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
-			mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-			mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
-				&vpclattice.ListTagsForResourceOutput{}, nil)
-			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(
-				&vpclattice.GetTargetGroupOutput{
-					Config: &vpclattice.TargetGroupConfig{
-						ProtocolVersion: aws.String(tgSpec.ProtocolVersion),
-					},
-				}, nil)
+			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
+			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 			_, err := tgManager.Upsert(ctx, &tgCreateInput)
@@ -316,7 +367,8 @@ func Test_CreateTargetGroup_NewTG_RetryStatus(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgSpec := model.TargetGroupSpec{
 		Port:     80,
@@ -329,8 +381,6 @@ func Test_CreateTargetGroup_NewTG_RetryStatus(t *testing.T) {
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
-
-	var listTgOutput []*vpclattice.TargetGroupSummary
 
 	retryStatuses := []string{
 		vpclattice.TargetGroupStatusDeleteInProgress,
@@ -349,7 +399,7 @@ func Test_CreateTargetGroup_NewTG_RetryStatus(t *testing.T) {
 				Status: &tgStatus,
 			}
 
-			mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 			mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
@@ -365,7 +415,8 @@ func Test_Lattice_API_Errors(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgSpec := model.TargetGroupSpec{
 		Port:     80,
@@ -375,10 +426,9 @@ func Test_Lattice_API_Errors(t *testing.T) {
 		ResourceMeta: core.ResourceMeta{},
 		Spec:         tgSpec,
 	}
-	var listTgOutput []*vpclattice.TargetGroupSummary
 
-	// list error
-	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, errors.New("test"))
+	// search error
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, errors.New("test"))
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 	_, err := tgManager.Upsert(ctx, &tgCreateInput)
@@ -386,7 +436,7 @@ func Test_Lattice_API_Errors(t *testing.T) {
 	assert.Equal(t, errors.New("test"), err)
 
 	// create error
-	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("test"))
 
 	tgManager = NewTargetGroupManager(gwlog.FallbackLogger, cloud)
@@ -434,7 +484,8 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
 	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 
@@ -473,7 +524,8 @@ func Test_DeleteTG_NoRegisteredTargets_DeleteTargetGroup(t *testing.T) {
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
 	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 
@@ -487,15 +539,19 @@ func Test_DeleteTG_WithExistingTG(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	tgSummary := vpclattice.TargetGroupSummary{
-		Arn:      aws.String("existing-tg-arn"),
-		Id:       aws.String("existing-tg-id"),
-		Name:     aws.String("name"),
-		Status:   aws.String(vpclattice.TargetGroupStatusActive),
-		Port:     aws.Int64(80),
-		Protocol: aws.String(vpclattice.TargetGroupProtocolHttps),
+	tgOutput := vpclattice.GetTargetGroupOutput{
+		Arn:    aws.String("existing-tg-arn"),
+		Id:     aws.String("existing-tg-id"),
+		Name:   aws.String("name"),
+		Status: aws.String(vpclattice.TargetGroupStatusActive),
+		Config: &vpclattice.TargetGroupConfig{
+			Port:            aws.Int64(80),
+			Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
+			ProtocolVersion: aws.String(vpclattice.HealthCheckProtocolVersionHttp1),
+		},
 	}
 
 	tgSpec := model.TargetGroupSpec{
@@ -508,22 +564,13 @@ func Test_DeleteTG_WithExistingTG(t *testing.T) {
 		Status: nil,
 	}
 	var listTargetsOutput []*vpclattice.TargetSummary
-	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
-	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
-		&vpclattice.ListTagsForResourceOutput{}, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{*tgOutput.Arn}, nil)
+	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 
-	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(
-		&vpclattice.GetTargetGroupOutput{
-			Config: &vpclattice.TargetGroupConfig{
-				ProtocolVersion: aws.String(tgSpec.ProtocolVersion),
-			},
-		}, nil)
-
-	dtgInput := &vpclattice.DeleteTargetGroupInput{TargetGroupIdentifier: tgSummary.Id}
+	dtgInput := &vpclattice.DeleteTargetGroupInput{TargetGroupIdentifier: tgOutput.Id}
 	dtgOutput := &vpclattice.DeleteTargetGroupOutput{}
 	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, dtgInput).Return(dtgOutput, nil)
 
@@ -538,16 +585,8 @@ func Test_DeleteTG_NothingToDelete(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-
-	tgSummary := vpclattice.TargetGroupSummary{
-		Arn:      aws.String("existing-tg-arn"),
-		Id:       aws.String("existing-tg-id"),
-		Name:     aws.String("name"),
-		Status:   aws.String(vpclattice.TargetGroupStatusActive),
-		Port:     aws.Int64(443), // <-- important difference, so not a match
-		Protocol: aws.String(vpclattice.TargetGroupProtocolHttps),
-	}
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgSpec := model.TargetGroupSpec{
 		Port:            80,
@@ -558,9 +597,8 @@ func Test_DeleteTG_NothingToDelete(t *testing.T) {
 		Spec:   tgSpec,
 		Status: nil,
 	}
-	listTgOutput := []*vpclattice.TargetGroupSummary{&tgSummary}
 
-	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTgOutput, nil)
+	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -596,7 +634,8 @@ func Test_DeleteTG_DeRegisteredTargetsFailed(t *testing.T) {
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, errors.New("Deregister_failed"))
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 
@@ -630,7 +669,8 @@ func Test_DeleteTG_ListTargetsFailed(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, errors.New("Listregister_failed"))
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 
@@ -675,7 +715,8 @@ func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 
@@ -722,7 +763,8 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroupFailed(t *testing.T) {
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
 	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, errors.New("DeleteTG_failed"))
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 
@@ -748,43 +790,33 @@ func Test_ListTG_TGsExist(t *testing.T) {
 	}
 	listTGOutput := []*vpclattice.TargetGroupSummary{tg1, tg2}
 
-	config1 := &vpclattice.TargetGroupConfig{
-		VpcIdentifier: &config.VpcID,
-	}
-	getTG1 := &vpclattice.GetTargetGroupOutput{
-		Config: config1,
-	}
-
-	vpcid2 := "123456789"
-	config2 := &vpclattice.TargetGroupConfig{
-		VpcIdentifier: &vpcid2,
-	}
-	getTG2 := &vpclattice.GetTargetGroupOutput{
-		Config: config2,
-	}
-
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
-	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG1, nil)
+
 	// assume no tags
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(nil, errors.New("no tags"))
-	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(getTG2, nil)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	mockTagging.EXPECT().GetTagsForArns(ctx, gomock.Any()).Return(nil, nil)
+
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 	tgList, err := tgManager.List(ctx)
 	expect := []tgListOutput{
 		{
-			getTargetGroupOutput: *getTG1,
-			targetGroupTags:      nil,
+			tgSummary: tg1,
+			tags:      nil,
+		},
+		{
+			tgSummary: tg2,
+			tags:      nil,
 		},
 	}
 
 	assert.Nil(t, err)
-	assert.Equal(t, tgList, expect)
+	assert.ElementsMatch(t, tgList, expect)
 }
 
 func Test_ListTG_NoTG(t *testing.T) {
@@ -795,7 +827,8 @@ func Test_ListTG_NoTG(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(listTGOutput, nil)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 	tgList, err := tgManager.List(ctx)
@@ -807,12 +840,15 @@ func Test_ListTG_NoTG(t *testing.T) {
 
 func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 	var (
-		resetValue     = aws.Int64(0)
 		defaultMatcher = &vpclattice.Matcher{
 			HttpCode: aws.String("200"),
 		}
-		defaultPath     = aws.String("/")
-		defaultProtocol = aws.String(vpclattice.TargetGroupProtocolHttp)
+		defaultPath                       = aws.String("/")
+		defaultProtocol                   = aws.String(vpclattice.TargetGroupProtocolHttp)
+		defaultHealthCheckIntervalSeconds = aws.Int64(30)
+		defaultHealthCheckTimeoutSeconds  = aws.Int64(5)
+		defaultHealthyThresholdCount      = aws.Int64(5)
+		defaultUnhealthyThresholdCount    = aws.Int64(2)
 	)
 
 	type args struct {
@@ -831,10 +867,10 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 			},
 			want: &vpclattice.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
-				HealthCheckIntervalSeconds: resetValue,
-				HealthCheckTimeoutSeconds:  resetValue,
-				HealthyThresholdCount:      resetValue,
-				UnhealthyThresholdCount:    resetValue,
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
 				Matcher:                    defaultMatcher,
 				Path:                       defaultPath,
 				Port:                       nil,
@@ -849,10 +885,10 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 			},
 			want: &vpclattice.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
-				HealthCheckIntervalSeconds: resetValue,
-				HealthCheckTimeoutSeconds:  resetValue,
-				HealthyThresholdCount:      resetValue,
-				UnhealthyThresholdCount:    resetValue,
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
 				Matcher:                    defaultMatcher,
 				Path:                       defaultPath,
 				Port:                       nil,
@@ -867,10 +903,10 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 			},
 			want: &vpclattice.HealthCheckConfig{
 				Enabled:                    aws.Bool(false),
-				HealthCheckIntervalSeconds: resetValue,
-				HealthCheckTimeoutSeconds:  resetValue,
-				HealthyThresholdCount:      resetValue,
-				UnhealthyThresholdCount:    resetValue,
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
 				Matcher:                    defaultMatcher,
 				Path:                       defaultPath,
 				Port:                       nil,
@@ -885,10 +921,10 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 			},
 			want: &vpclattice.HealthCheckConfig{
 				Enabled:                    aws.Bool(false),
-				HealthCheckIntervalSeconds: resetValue,
-				HealthCheckTimeoutSeconds:  resetValue,
-				HealthyThresholdCount:      resetValue,
-				UnhealthyThresholdCount:    resetValue,
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
 				Matcher:                    defaultMatcher,
 				Path:                       defaultPath,
 				Port:                       nil,
@@ -922,8 +958,6 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 		modelTg        *model.TargetGroup
 		latticeTg      *vpclattice.TargetGroupSummary
 		tags           *model.TargetGroupTagFields
-		listTagsOut    *vpclattice.ListTagsForResourceOutput
-		getTgOut       *vpclattice.GetTargetGroupOutput
 	}{
 		{
 			name:           "port not equal",
@@ -950,41 +984,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 			tags:      &model.TargetGroupTagFields{K8SClusterName: "foo"},
 		},
 		{
-			name:           "fetch tags not equal",
-			expectedResult: false,
-			wantErr:        false,
-			modelTg: &model.TargetGroup{
-				Spec: model.TargetGroupSpec{
-					Port: 443,
-				},
-			},
-			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
-			listTagsOut: &vpclattice.ListTagsForResourceOutput{
-				Tags: map[string]*string{
-					model.K8SClusterNameKey: aws.String("foo"),
-				},
-			},
-		},
-		{
-			name:           "protocol version not equal",
-			expectedResult: false,
-			wantErr:        false,
-			modelTg: &model.TargetGroup{
-				Spec: model.TargetGroupSpec{
-					Port:            443,
-					ProtocolVersion: "HTTP1",
-				},
-			},
-			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
-			tags:      &model.TargetGroupTagFields{},
-			getTgOut: &vpclattice.GetTargetGroupOutput{
-				Config: &vpclattice.TargetGroupConfig{
-					ProtocolVersion: aws.String("HTTP2"),
-				},
-			},
-		},
-		{
-			name:           "equal with existing tags",
+			name:           "tags equal",
 			expectedResult: true,
 			wantErr:        false,
 			modelTg: &model.TargetGroup{
@@ -1000,14 +1000,9 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 			tags: &model.TargetGroupTagFields{
 				K8SClusterName: "cluster",
 			},
-			getTgOut: &vpclattice.GetTargetGroupOutput{
-				Config: &vpclattice.TargetGroupConfig{
-					ProtocolVersion: aws.String("HTTP1"),
-				},
-			},
 		},
 		{
-			name:           "equal with fetched tags",
+			name:           "tags not provided",
 			expectedResult: true,
 			wantErr:        false,
 			modelTg: &model.TargetGroup{
@@ -1020,16 +1015,6 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 				},
 			},
 			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
-			listTagsOut: &vpclattice.ListTagsForResourceOutput{
-				Tags: map[string]*string{
-					model.K8SClusterNameKey: aws.String("cluster"),
-				},
-			},
-			getTgOut: &vpclattice.GetTargetGroupOutput{
-				Config: &vpclattice.TargetGroupConfig{
-					ProtocolVersion: aws.String("HTTP1"),
-				},
-			},
 		},
 	}
 
@@ -1040,14 +1025,8 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 			ctx := context.TODO()
 
 			mockLattice := mocks.NewMockLattice(c)
-			cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-
-			if tt.listTagsOut != nil {
-				mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(tt.listTagsOut, nil)
-			}
-			if tt.getTgOut != nil {
-				mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(tt.getTgOut, nil)
-			}
+			mockTagging := mocks.NewMockTagging(c)
+			cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 			s := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 			result, err := s.IsTargetGroupMatch(ctx, tt.modelTg, tt.latticeTg, tt.tags)

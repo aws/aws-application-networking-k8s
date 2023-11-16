@@ -311,7 +311,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 }
 
 func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object client.Object, namespace string) {
-	Expect(env.DeleteAllOf(ctx, object, client.InNamespace(namespace), client.HasLabels([]string{DiscoveryLabel}))).WithOffset(1).To(Succeed())
+	Expect(env.DeleteAllOf(ctx, object, client.InNamespace(namespace))).WithOffset(1).To(Succeed())
 }
 
 func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) {
@@ -467,9 +467,9 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 					*target.Status == vpclattice.TargetStatusHealthy)
 		})
 
-		g.Expect(retrievedTargets).Should(HaveLen(len(targetIps)))
+		g.Expect(targetIps).Should(HaveLen(len(podIps)))
 		found = retrievedTargets
-	}).WithPolling(time.Minute).WithTimeout(7 * time.Minute).Should(Succeed())
+	}).WithPolling(15 * time.Second).WithTimeout(7 * time.Minute).Should(Succeed())
 	return found
 }
 
@@ -478,7 +478,7 @@ func (env *Framework) GetAllTargets(ctx context.Context, targetGroup *vpclattice
 }
 
 func GetTargets(targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment, env *Framework, ctx context.Context) ([]string, []*vpclattice.TargetSummary) {
-	env.Log.Infoln("Trying to retrieve registered targets for targetGroup", targetGroup.Name)
+	env.Log.Infoln("Trying to retrieve registered targets for targetGroup", *targetGroup.Name)
 	env.Log.Infoln("deployment.Spec.Selector.MatchLabels:", deployment.Spec.Selector.MatchLabels)
 	podList := &corev1.PodList{}
 	expectedMatchingLabels := make(map[string]string, len(deployment.Spec.Selector.MatchLabels))

@@ -43,6 +43,8 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
@@ -78,6 +80,20 @@ func RegisterGatewayController(
 		finalizerManager: finalizerManager,
 		eventRecorder:    evtRec,
 		cloud:            cloud,
+	}
+
+	if config.DefaultServiceNetwork != "" {
+		// Attempt creation of default service network, move gracefully even if it fails.
+		snManager := deploy.NewDefaultServiceNetworkManager(log, cloud)
+		_, err := snManager.CreateOrUpdate(context.Background(), &model.ServiceNetwork{
+			Spec: model.ServiceNetworkSpec{
+				Name: config.DefaultServiceNetwork,
+			},
+		})
+		if err != nil {
+			log.Infof("Could not setup default service network %s, proceeding without it - %s",
+				config.DefaultServiceNetwork, err.Error())
+		}
 	}
 
 	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(log, mgrClient)
@@ -212,7 +228,7 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1beta1.G
 	if err != nil {
 		if services.IsNotFoundError(err) {
 			if err = r.updateGatewayProgrammedStatus(ctx, "", gw, false); err != nil {
-				return err
+				return lattice_runtime.NewRetryError()
 			}
 			return nil
 		}
@@ -298,8 +314,9 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 		return err
 	}
 
-	// Add one of lattice domains as GW address. This can represent incorrect value in some cases (e.g. cross-account)
-	// TODO: support multiple endpoint addresses across services.
+	// Add one of lattice domains as GW address. This is supposed to be a single ingress endpoint (or a single pool of them)
+	// but we have different endpoints for each service. This can represent incorrect value in some cases (e.g. cross-account)
+	// Due to size limit, we cannot put all service addresses here.
 	if len(routes) > 0 {
 		gw.Status.Addresses = []gwv1beta1.GatewayAddress{}
 		addressType := gwv1beta1.HostnameAddressType
@@ -310,6 +327,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 						Type:  &addressType,
 						Value: domain,
 					})
+					break
 				}
 			}
 		}

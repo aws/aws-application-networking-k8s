@@ -30,6 +30,7 @@ type CloudConfig struct {
 type Cloud interface {
 	Config() CloudConfig
 	Lattice() services.Lattice
+	Tagging() services.Tagging
 
 	// creates lattice tags with default values populated
 	DefaultTags() services.Tags
@@ -70,7 +71,8 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig) (Cloud, error) {
 	})
 
 	lattice := services.NewDefaultLattice(sess, cfg.Region)
-	cl := NewDefaultCloud(lattice, cfg)
+	tagging := services.NewDefaultTagging(sess, cfg.Region)
+	cl := NewDefaultCloudWithTagging(lattice, tagging, cfg)
 	return cl, nil
 }
 
@@ -83,14 +85,28 @@ func NewDefaultCloud(lattice services.Lattice, cfg CloudConfig) Cloud {
 	}
 }
 
+func NewDefaultCloudWithTagging(lattice services.Lattice, tagging services.Tagging, cfg CloudConfig) Cloud {
+	return &defaultCloud{
+		cfg:          cfg,
+		lattice:      lattice,
+		tagging:      tagging,
+		managedByTag: getManagedByTag(cfg),
+	}
+}
+
 type defaultCloud struct {
 	cfg          CloudConfig
 	lattice      services.Lattice
+	tagging      services.Tagging
 	managedByTag string
 }
 
 func (c *defaultCloud) Lattice() services.Lattice {
 	return c.lattice
+}
+
+func (c *defaultCloud) Tagging() services.Tagging {
+	return c.tagging
 }
 
 func (c *defaultCloud) Config() CloudConfig {

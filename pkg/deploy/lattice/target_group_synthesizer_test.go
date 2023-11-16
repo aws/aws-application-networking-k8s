@@ -2,20 +2,22 @@ package lattice
 
 import (
 	"context"
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"net/http"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
-	"time"
+
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -53,35 +55,26 @@ func Test_Synthesize(t *testing.T) {
 }
 
 func copy(src tgListOutput) tgListOutput {
-	srcgto := src.getTargetGroupOutput
+	srcSummary := src.tgSummary
 	cp := tgListOutput{
-		getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
-			Arn:       aws.String(aws.StringValue(srcgto.Arn)),
-			Config:    nil,
-			Id:        aws.String(aws.StringValue(srcgto.Id)),
-			Name:      aws.String(aws.StringValue(srcgto.Name)),
-			Type:      aws.String(aws.StringValue(srcgto.Type)),
-			CreatedAt: aws.Time(aws.TimeValue(srcgto.CreatedAt)),
+		tgSummary: &vpclattice.TargetGroupSummary{
+			Arn:           aws.String(aws.StringValue(srcSummary.Arn)),
+			Id:            aws.String(aws.StringValue(srcSummary.Id)),
+			Name:          aws.String(aws.StringValue(srcSummary.Name)),
+			Type:          aws.String(aws.StringValue(srcSummary.Type)),
+			CreatedAt:     aws.Time(aws.TimeValue(srcSummary.CreatedAt)),
+			IpAddressType: aws.String(aws.StringValue(srcSummary.IpAddressType)),
+			Port:          aws.Int64(aws.Int64Value(srcSummary.Port)),
+			Protocol:      aws.String(aws.StringValue(srcSummary.Protocol)),
+			VpcIdentifier: aws.String(aws.StringValue(srcSummary.VpcIdentifier)),
 		},
 	}
 
-	if srcgto.Config != nil {
-		cp.getTargetGroupOutput.Config = &vpclattice.TargetGroupConfig{
-			IpAddressType:   aws.String(aws.StringValue(srcgto.Config.IpAddressType)),
-			Port:            aws.Int64(aws.Int64Value(srcgto.Config.Port)),
-			Protocol:        aws.String(aws.StringValue(srcgto.Config.Protocol)),
-			ProtocolVersion: aws.String(aws.StringValue(srcgto.Config.ProtocolVersion)),
-			VpcIdentifier:   aws.String(aws.StringValue(srcgto.Config.VpcIdentifier)),
-		}
-	}
-
-	srctags := src.targetGroupTags
+	srctags := src.tags
 	if srctags != nil {
-		cp.targetGroupTags = &vpclattice.ListTagsForResourceOutput{
-			Tags: make(map[string]*string),
-		}
-		for k, v := range srctags.Tags {
-			cp.targetGroupTags.Tags[k] = aws.String(aws.StringValue(v))
+		cp.tags = make(map[string]*string)
+		for k, v := range srctags {
+			cp.tags[k] = aws.String(aws.StringValue(v))
 		}
 	}
 
@@ -110,47 +103,46 @@ func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
 	var nonManagedTgs []tgListOutput
 
 	tgTagFetchUnsuccessful := tgListOutput{
-		getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
-			Arn:    aws.String("tg-arn"),
-			Id:     aws.String("tg-id"),
-			Name:   aws.String("tg-name"),
-			Config: &vpclattice.TargetGroupConfig{},
-			Type:   aws.String("IP"),
+		tgSummary: &vpclattice.TargetGroupSummary{
+			Arn:  aws.String("tg-arn"),
+			Id:   aws.String("tg-id"),
+			Name: aws.String("tg-name"),
+			Type: aws.String("IP"),
 		},
-		targetGroupTags: nil,
+		tags: nil,
 	}
 	nonManagedTgs = append(nonManagedTgs, tgTagFetchUnsuccessful)
 
 	tgWrongVpc := copy(tgTagFetchUnsuccessful)
-	tgWrongVpc.targetGroupTags = &vpclattice.ListTagsForResourceOutput{Tags: make(map[string]*string)}
-	tgWrongVpc.getTargetGroupOutput.Config.VpcIdentifier = aws.String("another-vpc")
+	tgWrongVpc.tags = make(map[string]*string)
+	tgWrongVpc.tgSummary.VpcIdentifier = aws.String("another-vpc")
 	nonManagedTgs = append(nonManagedTgs, tgWrongVpc)
 
 	tgWrongCluster := copy(tgWrongVpc)
-	tgWrongCluster.getTargetGroupOutput.Config.VpcIdentifier = aws.String("vpc-id")
-	tgWrongCluster.targetGroupTags.Tags[model.K8SClusterNameKey] = aws.String("another-cluster")
+	tgWrongCluster.tgSummary.VpcIdentifier = aws.String("vpc-id")
+	tgWrongCluster.tags[model.K8SClusterNameKey] = aws.String("another-cluster")
 	nonManagedTgs = append(nonManagedTgs, tgWrongCluster)
 
 	tgInvalidParentRef := copy(tgWrongCluster)
-	tgInvalidParentRef.targetGroupTags.Tags[model.K8SClusterNameKey] = aws.String("cluster-name")
-	tgInvalidParentRef.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeInvalid))
+	tgInvalidParentRef.tags[model.K8SClusterNameKey] = aws.String("cluster-name")
+	tgInvalidParentRef.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeInvalid))
 	nonManagedTgs = append(nonManagedTgs, tgInvalidParentRef)
 
 	tgMissingK8SServiceName := copy(tgInvalidParentRef)
-	tgMissingK8SServiceName.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
+	tgMissingK8SServiceName.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
 	nonManagedTgs = append(nonManagedTgs, tgMissingK8SServiceName)
 
 	tgMissingK8SServiceNamespace := copy(tgMissingK8SServiceName)
-	tgMissingK8SServiceNamespace.targetGroupTags.Tags[model.K8SServiceNameKey] = aws.String("my-service")
+	tgMissingK8SServiceNamespace.tags[model.K8SServiceNameKey] = aws.String("my-service")
 	nonManagedTgs = append(nonManagedTgs, tgMissingK8SServiceNamespace)
 
 	tgMissingRouteName := copy(tgMissingK8SServiceNamespace)
-	tgMissingRouteName.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
-	tgMissingRouteName.targetGroupTags.Tags[model.K8SServiceNamespaceKey] = aws.String("ns-1")
+	tgMissingRouteName.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
+	tgMissingRouteName.tags[model.K8SServiceNamespaceKey] = aws.String("ns-1")
 	nonManagedTgs = append(nonManagedTgs, tgMissingRouteName)
 
 	tgMissingRouteNamespace := copy(tgMissingRouteName)
-	tgMissingRouteNamespace.targetGroupTags.Tags[model.K8SRouteNameKey] = aws.String("route-name")
+	tgMissingRouteNamespace.tags[model.K8SRouteNameKey] = aws.String("route-name")
 	nonManagedTgs = append(nonManagedTgs, tgMissingRouteNamespace)
 
 	mockTGManager.EXPECT().List(ctx).Return(nonManagedTgs, nil)
@@ -161,24 +153,22 @@ func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
 
 func getBaseTg() tgListOutput {
 	baseTg := tgListOutput{
-		getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
-			Arn:       aws.String("tg-arn"),
-			Id:        aws.String("tg-id"),
-			Name:      aws.String("tg-name"),
-			CreatedAt: aws.Time(time.Now()),
-			Config: &vpclattice.TargetGroupConfig{
-				VpcIdentifier:   aws.String("vpc-id"),
-				Port:            aws.Int64(80),
-				Protocol:        aws.String("HTTP"),
-				ProtocolVersion: aws.String("HTTP1"),
-				IpAddressType:   aws.String("IPV4"),
-			},
+		tgSummary: &vpclattice.TargetGroupSummary{
+			Arn:           aws.String("tg-arn"),
+			Id:            aws.String("tg-id"),
+			Name:          aws.String("tg-name"),
+			CreatedAt:     aws.Time(time.Now()),
+			VpcIdentifier: aws.String("vpc-id"),
+			Port:          aws.Int64(80),
+			Protocol:      aws.String("HTTP"),
+			IpAddressType: aws.String("IPV4"),
 		},
-		targetGroupTags: &vpclattice.ListTagsForResourceOutput{Tags: make(map[string]*string)},
+		tags: make(map[string]*string),
 	}
-	baseTg.targetGroupTags.Tags[model.K8SClusterNameKey] = aws.String("cluster-name")
-	baseTg.targetGroupTags.Tags[model.K8SServiceNameKey] = aws.String("svc")
-	baseTg.targetGroupTags.Tags[model.K8SServiceNamespaceKey] = aws.String("ns")
+	baseTg.tags[model.K8SClusterNameKey] = aws.String("cluster-name")
+	baseTg.tags[model.K8SServiceNameKey] = aws.String("svc")
+	baseTg.tags[model.K8SServiceNamespaceKey] = aws.String("ns")
+	baseTg.tags[model.K8SProtocolVersionKey] = aws.String("HTTP")
 	return baseTg
 }
 
@@ -206,20 +196,22 @@ func Test_DoNotDeleteCases(t *testing.T) {
 	var noDeleteTgs []tgListOutput
 
 	tgWithSvcArns := copy(baseTg)
-	tgWithSvcArns.getTargetGroupOutput.Arn = aws.String("tg-with-svcs-arn") // useful for reading logs
-	tgWithSvcArns.getTargetGroupOutput.ServiceArns = []*string{aws.String("svc-arn")}
+	tgWithSvcArns.tgSummary.Arn = aws.String("tg-with-svcs-arn") // useful for reading logs
+	tgWithSvcArns.tgSummary.ServiceArns = []*string{aws.String("svc-arn")}
 	noDeleteTgs = append(noDeleteTgs, tgWithSvcArns)
 
 	tgSvcExportUpToDate := copy(baseTg)
-	tgSvcExportUpToDate.getTargetGroupOutput.Arn = aws.String("tg-svc-export-arn")
-	tgSvcExportUpToDate.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
+	tgSvcExportUpToDate.tgSummary.Arn = aws.String("tg-svc-export-arn")
+	tgSvcExportUpToDate.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
+	tgSvcExportUpToDate.tags[model.K8SProtocolVersionKey] = aws.String("HTTP1")
 	noDeleteTgs = append(noDeleteTgs, tgSvcExportUpToDate)
 
 	tgSvcUpToDate := copy(baseTg)
-	tgSvcUpToDate.getTargetGroupOutput.Arn = aws.String("tg-svc-arn")
-	tgSvcUpToDate.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
-	tgSvcUpToDate.targetGroupTags.Tags[model.K8SRouteNameKey] = aws.String("route")
-	tgSvcUpToDate.targetGroupTags.Tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
+	tgSvcUpToDate.tgSummary.Arn = aws.String("tg-svc-arn")
+	tgSvcUpToDate.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
+	tgSvcUpToDate.tags[model.K8SRouteNameKey] = aws.String("route")
+	tgSvcUpToDate.tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
+	tgSvcUpToDate.tags[model.K8SProtocolVersionKey] = aws.String("HTTP1")
 	noDeleteTgs = append(noDeleteTgs, tgSvcUpToDate)
 
 	mockTGManager.EXPECT().List(ctx).Return(noDeleteTgs, nil)
@@ -286,8 +278,9 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 
 	var deleteTgs []tgListOutput
 	tgSvcExport := copy(baseTg)
-	tgSvcExport.getTargetGroupOutput.Arn = aws.String("tg-svc-export-arn")
-	tgSvcExport.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
+	tgSvcExport.tgSummary.Arn = aws.String("tg-svc-export-arn")
+	tgSvcExport.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
+	tgSvcExport.tags[model.K8SProtocolVersionKey] = aws.String("HTTP1")
 	deleteTgs = append(deleteTgs, tgSvcExport)
 
 	t.Run("Service Export does not exist", func(t *testing.T) {
@@ -386,10 +379,11 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 
 	var deleteTgs []tgListOutput
 	tgSvc := copy(baseTg)
-	tgSvc.getTargetGroupOutput.Arn = aws.String("tg-svc-arn")
-	tgSvc.targetGroupTags.Tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
-	tgSvc.targetGroupTags.Tags[model.K8SRouteNameKey] = aws.String("route")
-	tgSvc.targetGroupTags.Tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
+	tgSvc.tgSummary.Arn = aws.String("tg-svc-arn")
+	tgSvc.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
+	tgSvc.tags[model.K8SRouteNameKey] = aws.String("route")
+	tgSvc.tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
+	tgSvc.tags[model.K8SProtocolVersionKey] = aws.String("HTTP1")
 	deleteTgs = append(deleteTgs, tgSvc)
 
 	t.Run("Route does not exist", func(t *testing.T) {

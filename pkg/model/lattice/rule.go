@@ -14,7 +14,8 @@ type Rule struct {
 }
 
 const (
-	MaxRulePriority = 100
+	MaxRulePriority       = 100
+	InvalidBackendRefTgId = "INVALID"
 )
 
 type RuleSpec struct {
