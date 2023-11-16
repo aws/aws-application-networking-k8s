@@ -55,6 +55,7 @@ var _ = SynchronizedBeforeSuite(func() {
 }, func() {
 	testGateway = testFramework.NewGateway("test-gateway", k8snamespace)
 	testServiceNetwork = testFramework.GetServiceNetwork(ctx, testGateway)
+	testFramework.GrpcurlRunner = test.NewGrpcurlRunnerPod("grpc-runner", k8snamespace)
 })
 
 func TestIntegration(t *testing.T) {
