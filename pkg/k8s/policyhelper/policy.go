@@ -89,7 +89,7 @@ func getPolicyInfo(policyType core.Policy) (policyInfo, error) {
 }
 
 func policyConditionMatch(cnds []apimachineryv1.Condition, filter []gwv1alpha2.PolicyConditionReason) bool {
-	if cnds == nil || filter == nil || len(filter) == 0 {
+	if filter == nil || len(filter) == 0 {
 		return true
 	}
 	cnd := meta.FindStatusCondition(cnds, string(gwv1alpha2.PolicyConditionAccepted))

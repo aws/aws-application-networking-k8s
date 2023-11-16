@@ -223,6 +223,7 @@ func TestPolicyConditionMatch(t *testing.T) {
 	tests := []Test{
 		{"nil", nil, nil, true},
 		{"nil filter", []Condition{{}}, nil, true},
+		{"nil conditions with filter", nil, []Reason{"x"}, false},
 		{"0 len filter", []Condition{{}}, []Reason{}, true},
 		{"condition not found", []Condition{{}}, []Reason{"Accepted"}, false},
 		{
