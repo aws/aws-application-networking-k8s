@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"testing"
 )
@@ -242,7 +243,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 
 						if tt.tlsTerminate {
 							listener.Protocol = "HTTPS"
-							mode := gwv1beta1.TLSModeTerminate
+							mode := gwv1.TLSModeTerminate
 							listener.TLS = &gwv1beta1.GatewayTLSConfig{
 								Mode: &mode,
 							}

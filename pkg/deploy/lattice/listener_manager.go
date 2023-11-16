@@ -18,6 +18,8 @@ import (
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
+//go:generate mockgen -destination listener_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ListenerManager
+
 type ListenerManager interface {
 	Upsert(ctx context.Context, modelListener *model.Listener, modelSvc *model.Service) (model.ListenerStatus, error)
 	Delete(ctx context.Context, modelListener *model.Listener) error

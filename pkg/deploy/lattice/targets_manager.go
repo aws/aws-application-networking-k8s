@@ -20,6 +20,8 @@ const (
 	maxTargetsPerLatticeTargetsApiCall = 100
 )
 
+//go:generate mockgen -destination targets_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice TargetsManager
+
 type TargetsManager interface {
 	Update(ctx context.Context, modelTargets *model.Targets, modelTg *model.TargetGroup) error
 }

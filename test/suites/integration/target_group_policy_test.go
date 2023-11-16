@@ -11,14 +11,14 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("Target Group Policy Tests", Ordered, func() {
 	var (
 		deployment *appsv1.Deployment
 		service    *corev1.Service
-		httpRoute  *gwv1beta1.HTTPRoute
+		httpRoute  *gwv1.HTTPRoute
 		policy     *v1alpha1.TargetGroupPolicy
 	)
 

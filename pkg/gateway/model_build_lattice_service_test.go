@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"testing"
@@ -49,7 +50,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 	}
 
 	tlsSectionName := gwv1beta1.SectionName("tls")
-	tlsModeTerminate := gwv1beta1.TLSModeTerminate
+	tlsModeTerminate := gwv1.TLSModeTerminate
 
 	tests := []struct {
 		name          string
@@ -404,7 +405,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			gwv1beta1.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			assert.NoError(t, k8sClient.Create(ctx, tt.gw.DeepCopy()))
 			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))

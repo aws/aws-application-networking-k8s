@@ -29,13 +29,12 @@ func NewServiceImportEventHandler(log gwlog.Logger, client client.Client) *servi
 }
 
 func (h *serviceImportEventHandler) MapToRoute(routeType core.RouteType) handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-		return h.mapToRoute(obj, routeType)
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		return h.mapToRoute(ctx, obj, routeType)
 	})
 }
 
-func (h *serviceImportEventHandler) mapToRoute(obj client.Object, routeType core.RouteType) []reconcile.Request {
-	ctx := context.Background()
+func (h *serviceImportEventHandler) mapToRoute(ctx context.Context, obj client.Object, routeType core.RouteType) []reconcile.Request {
 	routes := h.mapper.ServiceImportToRoutes(ctx, obj.(*anv1alpha1.ServiceImport), routeType)
 
 	var requests []reconcile.Request

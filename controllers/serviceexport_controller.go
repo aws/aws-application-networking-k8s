@@ -21,14 +21,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -83,11 +81,11 @@ func RegisterServiceExportController(
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.ServiceExport{}).
-		Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler.MapToServiceExport()).
-		Watches(&source.Kind{Type: &corev1.Endpoints{}}, svcEventHandler.MapToServiceExport())
+		Watches(&corev1.Service{}, svcEventHandler.MapToServiceExport()).
+		Watches(&corev1.Endpoints{}, svcEventHandler.MapToServiceExport())
 
 	if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
-		builder.Watches(&source.Kind{Type: &anv1alpha1.TargetGroupPolicy{}}, svcEventHandler.MapToServiceExport())
+		builder.Watches(&anv1alpha1.TargetGroupPolicy{}, svcEventHandler.MapToServiceExport())
 	} else {
 		if err != nil {
 			return err

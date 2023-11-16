@@ -39,7 +39,7 @@ func TestServiceImportEventHandler_MapToRoute(t *testing.T) {
 		},
 	).AnyTimes()
 
-	reqs := h.mapToRoute(&anv1alpha1.ServiceImport{
+	reqs := h.mapToRoute(context.Background(), &anv1alpha1.ServiceImport{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-service",
 			Namespace: "ns1",
