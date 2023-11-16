@@ -44,37 +44,6 @@ func Test_SynthesizeListenerCreate(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func Test_SynthesizeListenerDeleteNoOp(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockListenerMgr := NewMockListenerManager(c)
-
-	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
-
-	svc := &model.Service{
-		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Service", "stack-svc-id"),
-		Status:       &model.ServiceStatus{Id: "svc-id"},
-	}
-	assert.NoError(t, stack.AddResource(svc))
-
-	l := &model.Listener{
-		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "l-id"),
-		Spec: model.ListenerSpec{
-			StackServiceId: "stack-svc-id",
-		},
-		IsDeleted: true, // <-- the bit that matters
-	}
-	assert.NoError(t, stack.AddResource(l))
-
-	// since we aren't returning any resources, we interpret that to mean the listener is already deleted
-	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{}, nil)
-
-	ls := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerMgr, stack)
-	err := ls.Synthesize(ctx)
-	assert.Nil(t, err)
-}
-
 func Test_SynthesizeListenerCreateWithReconcile(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()

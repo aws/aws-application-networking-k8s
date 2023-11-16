@@ -5,19 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice/vpclatticeiface"
 )
 
 //go:generate mockgen -destination vpclattice_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Lattice
-
-type Tags = map[string]*string
 
 type ServiceNetworkInfo struct {
 	SvcNetwork vpclattice.ServiceNetworkSummary
@@ -106,10 +108,11 @@ type Lattice interface {
 
 type defaultLattice struct {
 	vpclatticeiface.VPCLatticeAPI
+
+	cache *expirable.LRU[string, any]
 }
 
 func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
-	var latticeSess vpclatticeiface.VPCLatticeAPI
 
 	latticeEndpoint := "https://vpc-lattice." + region + ".amazonaws.com"
 	endpoint := os.Getenv("LATTICE_ENDPOINT")
@@ -118,9 +121,11 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 		endpoint = latticeEndpoint
 	}
 
-	latticeSess = vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint).WithMaxRetries(20))
+	latticeSess := vpclattice.New(sess, aws.NewConfig().WithRegion(region).WithEndpoint(endpoint).WithMaxRetries(20))
 
-	return &defaultLattice{latticeSess}
+	cache := expirable.NewLRU[string, any](1000, nil, time.Second*60)
+
+	return &defaultLattice{VPCLatticeAPI: latticeSess, cache: cache}
 }
 
 func (d *defaultLattice) GetRulesAsList(ctx context.Context, input *vpclattice.ListRulesInput) ([]*vpclattice.GetRuleOutput, error) {
@@ -224,6 +229,36 @@ func (d *defaultLattice) ListTargetGroupsAsList(ctx context.Context, input *vpcl
 	return result, nil
 }
 
+func (d *defaultLattice) ListTagsForResourceWithContext(ctx context.Context, input *vpclattice.ListTagsForResourceInput, option ...request.Option) (*vpclattice.ListTagsForResourceOutput, error) {
+	key := tagCacheKey(*input.ResourceArn)
+	if d.cache != nil {
+		r, ok := d.cache.Get(key)
+		if ok {
+			return r.(*vpclattice.ListTagsForResourceOutput), nil
+		}
+	}
+	out, err := d.VPCLatticeAPI.ListTagsForResourceWithContext(ctx, input, option...)
+	if err != nil {
+		return nil, err
+	}
+	if d.cache != nil {
+		d.cache.Add(key, out)
+	}
+	return out, nil
+}
+
+func tagCacheKey(arn string) string {
+	return "tag-" + arn
+}
+
+func (d *defaultLattice) TagResourceWithContext(ctx context.Context, input *vpclattice.TagResourceInput, option ...request.Option) (*vpclattice.TagResourceOutput, error) {
+	if d.cache != nil {
+		key := tagCacheKey(*input.ResourceArn)
+		d.cache.Remove(key)
+	}
+	return d.VPCLatticeAPI.TagResourceWithContext(ctx, input, option...)
+}
+
 func (d *defaultLattice) ListTargetsAsList(ctx context.Context, input *vpclattice.ListTargetsInput) ([]*vpclattice.TargetSummary, error) {
 	result := []*vpclattice.TargetSummary{}
 
@@ -276,6 +311,10 @@ func (d *defaultLattice) ListServiceNetworkServiceAssociationsAsList(ctx context
 }
 
 func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, optionalAccountId string) (*ServiceNetworkInfo, error) {
+	// When default service network is provided, override for any kind of SN search
+	if config.ServiceNetworkOverrideMode {
+		name = config.DefaultServiceNetwork
+	}
 	input := vpclattice.ListServiceNetworksInput{}
 
 	var innerErr error

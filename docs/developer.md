@@ -110,6 +110,8 @@ And use "EnvFile" GoLand plugin to read the env variables from the generated `.e
 ## End-to-End Testing
 
 For larger changes it's recommended to run e2e suites on your local cluster.
+E2E tests require a service network named `test-gateway` with cluster VPC associated to run.
+You can either setup service network manually or use DEFAULT_SERVICE_NETWORK option when running controller locally. (e.g. `DEFAULT_SERVICE_NETWORK=test-gateway make run`)
 
 ```
 REGION=us-west-2 make e2e-test
@@ -154,9 +156,6 @@ For larger, functional changes, run e2e tests:
 ```sh
 make e2e-test
 ```
-
-It is recommended to run `make e2e-test` in both environments where `DNSEndpoint` CRD exists and does not exist,
-as the controller is designed to support both use cases.
 
 ## Make Docker Image
 

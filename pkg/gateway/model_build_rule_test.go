@@ -31,6 +31,13 @@ type dummyTgBuilder struct {
 }
 
 func (d *dummyTgBuilder) Build(ctx context.Context, route core.Route, backendRef core.BackendRef, stack core.Stack) (core.Stack, *model.TargetGroup, error) {
+	if backendRef.Name() == "invalid" {
+		return stack, nil, &InvalidBackendRefError{
+			BackendRef: backendRef,
+			Reason:     "not valid",
+		}
+	}
+
 	// just need to provide a TG with an ID
 	id := fmt.Sprintf("tg-%d", d.i)
 	d.i++
@@ -75,6 +82,13 @@ func Test_RuleModelBuild(t *testing.T) {
 		BackendObjectReference: gwv1beta1.BackendObjectReference{
 			Name: "targetgroup2",
 			Kind: &serviceImportKind,
+		},
+		Weight: &weight2,
+	}
+	var invalidBackendRef = gwv1beta1.BackendRef{
+		BackendObjectReference: gwv1beta1.BackendObjectReference{
+			Name: "invalid",
+			Kind: &serviceKind,
 		},
 		Weight: &weight2,
 	}
@@ -1355,6 +1369,98 @@ func Test_RuleModelBuild(t *testing.T) {
 							Name: aws.String("foo5"),
 							Match: &vpclattice.HeaderMatchType{
 								Exact: aws.String("bar5"),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "invalid backendRef",
+			wantErrIsNil: true,
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
+							{
+								Name:        "gw1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gwv1beta1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
+								{
+									BackendRef: invalidBackendRef,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: model.InvalidBackendRefTgId,
+								Weight:             int64(*invalidBackendRef.Weight),
+							},
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name:         "valid and invalid backendRef",
+			wantErrIsNil: true,
+			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gwv1beta1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
+						ParentRefs: []gwv1beta1.ParentReference{
+							{
+								Name:        "gw1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gwv1beta1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1beta1.HTTPBackendRef{
+								{
+									BackendRef: invalidBackendRef,
+								},
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: model.InvalidBackendRefTgId,
+								Weight:             int64(*invalidBackendRef.Weight),
+							},
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(*backendRef1.Weight),
 							},
 						},
 					},

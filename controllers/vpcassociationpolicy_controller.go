@@ -38,6 +38,7 @@ func RegisterVpcAssociationPolicyController(log gwlog.Logger, mgr ctrl.Manager, 
 		cloud:   cloud,
 		manager: deploy.NewDefaultServiceNetworkManager(log, cloud),
 	}
+
 	eh := eventhandlers.NewPolicyEventHandler(log, mgr.GetClient(), &anv1alpha1.VpcAssociationPolicy{})
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.VpcAssociationPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).

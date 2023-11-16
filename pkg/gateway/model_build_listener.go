@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"k8s.io/apimachinery/pkg/types"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -27,9 +25,6 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 	t.log.Debugf("Building Listener for Route %s-%s", t.route.Name(), t.route.Namespace())
 	gw, err := t.getGateway(ctx)
 	if err != nil {
-		if apierrors.IsNotFound(err) && !t.route.DeletionTimestamp().IsZero() {
-			return 0, string(protocol), nil // ok if we're deleting the route
-		}
 		return 0, "", err
 	}
 
@@ -83,6 +78,10 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 	if len(t.route.Spec().ParentRefs()) == 0 {
 		t.log.Debugf("No ParentRefs on route %s-%s, nothing to do", t.route.Name(), t.route.Namespace())
 	}
+	if !t.route.DeletionTimestamp().IsZero() {
+		t.log.Debugf("Route %s-%s is deleted, skipping listener build", t.route.Name(), t.route.Namespace())
+		return nil
+	}
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
@@ -112,7 +111,6 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 
 		t.log.Debugf("Added listener %s-%s to the stack (ID %s)",
 			modelListener.Spec.K8SRouteName, modelListener.Spec.K8SRouteNamespace, modelListener.ID())
-		modelListener.IsDeleted = !t.route.DeletionTimestamp().IsZero()
 	}
 
 	return nil

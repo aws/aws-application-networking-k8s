@@ -52,12 +52,9 @@
 ### Running controller from cloud desktop
 
 ```
-# create a gateway first in the cluster
-kubectl apply -f examples/my-hotel-gateway.yaml
-
 # run controller in following mode
 
-REGION=us-west-2 CLUSTER_LOCAL_GATEWAY=my-hotel TARGET_GROUP_NAME_LEN_MODE="long" \
+REGION=us-west-2 DEFAULT_SERVICE_NETWORK=my-cluster-default ENABLE_SERVICE_NETWORK_OVERRIDE=true \
 make run
 ```
 

@@ -8,7 +8,6 @@ type Listener struct {
 	core.ResourceMeta `json:"-"`
 	Spec              ListenerSpec    `json:"spec"`
 	Status            *ListenerStatus `json:"status,omitempty"`
-	IsDeleted         bool            `json:"isdeleted"`
 }
 
 type ListenerSpec struct {

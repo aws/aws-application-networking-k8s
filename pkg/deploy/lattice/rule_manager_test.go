@@ -65,6 +65,67 @@ func Test_Create(t *testing.T) {
 		},
 	}
 
+	rInvalidBR := &model.Rule{
+		Spec: model.RuleSpec{
+			Priority: 1,
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{
+						LatticeTgId: model.InvalidBackendRefTgId,
+						Weight:      1,
+					},
+				},
+			},
+			PathMatchPrefix: true,
+			PathMatchValue:  "/foo",
+		},
+	}
+
+	rTwoInvalidBR := &model.Rule{
+		Spec: model.RuleSpec{
+			Priority: 1,
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{
+						LatticeTgId: model.InvalidBackendRefTgId,
+						Weight:      1,
+					},
+					{
+						LatticeTgId: model.InvalidBackendRefTgId,
+						Weight:      1,
+					},
+				},
+			},
+			PathMatchPrefix: true,
+			PathMatchValue:  "/foo",
+		},
+	}
+
+	rOneValidBR := &model.Rule{
+		Spec: model.RuleSpec{
+			Priority: 1,
+			Method:   "POST",
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{
+						LatticeTgId: model.InvalidBackendRefTgId,
+						Weight:      1,
+					},
+					{
+						LatticeTgId: model.InvalidBackendRefTgId,
+						Weight:      1,
+					},
+					{
+						LatticeTgId: "tg-id",
+						Weight:      1,
+					},
+				},
+			},
+			PathMatchPrefix: true,
+			PathMatchValue:  "/foo",
+		},
+	}
+
 	t.Run("test create", func(t *testing.T) {
 		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
 			[]*vpclattice.GetRuleOutput{}, nil)
@@ -182,6 +243,55 @@ func Test_Create(t *testing.T) {
 		ruleStatus, err := rm.Upsert(ctx, r, l, svc)
 		assert.Nil(t, err)
 		assert.Equal(t, "existing-arn", ruleStatus.Arn)
+	})
+
+	t.Run("test create - invalid backendRefs", func(t *testing.T) {
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{}, nil).Times(2)
+
+		mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
+			func(ctx context.Context, input *vpclattice.CreateRuleInput, i ...interface{}) (*vpclattice.CreateRuleOutput, error) {
+				assert.Equal(t, int64(404), aws.Int64Value(input.Action.FixedResponse.StatusCode))
+
+				return &vpclattice.CreateRuleOutput{
+					Arn:  aws.String("arn"),
+					Id:   aws.String("id"),
+					Name: aws.String("name"),
+				}, nil
+			}).Times(2)
+
+		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+		ruleStatus, err := rm.Upsert(ctx, rInvalidBR, l, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "arn", ruleStatus.Arn)
+
+		// result should be the same so long as all backendRefs are invalid
+		ruleStatus, err = rm.Upsert(ctx, rTwoInvalidBR, l, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "arn", ruleStatus.Arn)
+	})
+
+	t.Run("test create - one valid backendRef, two invalid", func(t *testing.T) {
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{}, nil)
+
+		mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
+			func(ctx context.Context, input *vpclattice.CreateRuleInput, i ...interface{}) (*vpclattice.CreateRuleOutput, error) {
+				assert.Equal(t, "POST", aws.StringValue(input.Match.HttpMatch.Method))
+				assert.Equal(t, 1, len(input.Action.Forward.TargetGroups))
+				assert.Equal(t, "tg-id", aws.StringValue(input.Action.Forward.TargetGroups[0].TargetGroupIdentifier))
+
+				return &vpclattice.CreateRuleOutput{
+					Arn:  aws.String("arn"),
+					Id:   aws.String("id"),
+					Name: aws.String("name"),
+				}, nil
+			})
+
+		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+		ruleStatus, err := rm.Upsert(ctx, rOneValidBR, l, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "arn", ruleStatus.Arn)
 	})
 }
 

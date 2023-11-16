@@ -166,6 +166,9 @@ func Test_resolveRuleTgs(t *testing.T) {
 					{
 						StackTargetGroupId: "stack-tg-id",
 					},
+					{
+						StackTargetGroupId: model.InvalidBackendRefTgId,
+					},
 				},
 			},
 		},
@@ -175,20 +178,18 @@ func Test_resolveRuleTgs(t *testing.T) {
 	mockTgMgr.EXPECT().List(ctx).Return(
 		[]tgListOutput{
 			{
-				getTargetGroupOutput: vpclattice.GetTargetGroupOutput{
-					Arn: aws.String("svc-export-tg-arn"),
-					Config: &vpclattice.TargetGroupConfig{
-						VpcIdentifier: aws.String("vpc-id"),
-					},
-					Id:   aws.String("svc-export-tg-id"),
-					Name: aws.String("svc-export-tg-name"),
+				tgSummary: &vpclattice.TargetGroupSummary{
+					Arn:           aws.String("svc-export-tg-arn"),
+					VpcIdentifier: aws.String("vpc-id"),
+					Id:            aws.String("svc-export-tg-id"),
+					Name:          aws.String("svc-export-tg-name"),
 				},
-				targetGroupTags: &vpclattice.ListTagsForResourceOutput{Tags: map[string]*string{
+				tags: map[string]*string{
 					model.K8SServiceNameKey:      aws.String("svc-name"),
 					model.K8SServiceNamespaceKey: aws.String("ns"),
 					model.K8SClusterNameKey:      aws.String("cluster-name"),
 					model.K8SSourceTypeKey:       aws.String(string(model.SourceTypeSvcExport)),
-				}},
+				},
 			},
 		}, nil)
 
@@ -197,4 +198,5 @@ func Test_resolveRuleTgs(t *testing.T) {
 
 	assert.Equal(t, "svc-export-tg-id", r.Spec.Action.TargetGroups[0].LatticeTgId)
 	assert.Equal(t, "tg-id", r.Spec.Action.TargetGroups[1].LatticeTgId)
+	assert.Equal(t, model.InvalidBackendRefTgId, r.Spec.Action.TargetGroups[2].LatticeTgId)
 }

@@ -106,6 +106,20 @@ func (mr *MockCloudMockRecorder) Lattice() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lattice", reflect.TypeOf((*MockCloud)(nil).Lattice))
 }
 
+// Tagging mocks base method.
+func (m *MockCloud) Tagging() services.Tagging {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Tagging")
+	ret0, _ := ret[0].(services.Tagging)
+	return ret0
+}
+
+// Tagging indicates an expected call of Tagging.
+func (mr *MockCloudMockRecorder) Tagging() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tagging", reflect.TypeOf((*MockCloud)(nil).Tagging))
+}
+
 // TryOwn mocks base method.
 func (m *MockCloud) TryOwn(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
