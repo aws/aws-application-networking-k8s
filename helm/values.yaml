@@ -75,4 +75,5 @@ awsRegion:
 awsAccountId:
 clusterVpcId:
 clusterName:
+defaultServiceNetwork:
 latticeEndpoint:

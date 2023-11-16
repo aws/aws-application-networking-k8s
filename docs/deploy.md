@@ -94,8 +94,10 @@ Run through them again for a second cluster to use with the extended example sho
       --set=clusterVpcId= \
       --set=clusterName= \
       --set=awsAccountId= \
+      --set=defaultServiceNetwork= \ # check environment.md for more its details
       # latticeEndpoint is required for the case where the VPC Lattice endpoint is being overridden
       --set=latticeEndpoint= \
+      
    
    ```
 9. Create the `amazon-vpc-lattice` GatewayClass:
