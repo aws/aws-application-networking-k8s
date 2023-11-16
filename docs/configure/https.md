@@ -120,4 +120,4 @@ spec:
 This will create VPC Lattice TargetGroup with HTTPS protocol option, which can receive TLS traffic.
 Note that certificate validation is not supported.
 
-For more details, please refer to [TargetGroupPolicy API reference](../reference/target-group-policy.md).
+For more details, please refer to [TargetGroupPolicy API reference](../api-types/target-group-policy.md).

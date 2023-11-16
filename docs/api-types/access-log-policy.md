@@ -104,7 +104,7 @@ As a result, status conditions are applied on every modification of an AccessLog
 
 #### Accepted
 
-The spec of the AccessLogPolicy is valid and has been successfully processed.
+The spec of the AccessLogPolicy is valid and has been accepted for reconciliation by the controller.
 
 #### Conflicted
 
@@ -118,8 +118,6 @@ Any of the following:
 - The target's `Group` is not `gateway.networking.k8s.io`
 - The target's `Kind` is not `Gateway`, `HTTPRoute`, or `GRPCRoute`
 - The target's namespace does not match the AccessLogPolicy's namespace
-- The destination with the given `destinationArn` could not be found
-- The controller is missing AWS permissions
 
 #### TargetNotFound
 
