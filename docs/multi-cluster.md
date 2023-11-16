@@ -1,13 +1,20 @@
-# Multiple Gateways/Service Networks and HTTPRoute Associates to Multiple Gateways
+# Recommended Multi-Cluster Architecture
 
-## Multiple Gateways/Service Networks Usecase
+If you'd like to setup kubernetes service-to-service communications across multiple clusters, Following is a recommended multi-cluster architecture.
 
+Suppose your organization have one "conceptual service mesh" that spans multiple clusters in one aws account, this service mesh should include the following components:
+- One manually created VPC Lattice service network, (it could create by either AWS Console, CLI, CloudFormation, Terraform or any other tools)
+- One extra dedicated "config cluster", which is used for "mesh control plane" and where should include following kubernetes objects:
+  - One `gateway` that has __same name__ as the manually created VPC Lattice service network
+  - Multiple HTTPRoute(s)`/`GRPCRoute(s)`, that have rules reference to kubernetes application service(s) in workload cluster(s)
 Here is one popular multi-cluster architecture:
 
-* config cluster, where is used for configuration management
+Assume your organization 
+* One dedicated config cluster, where is used for Mesh control plane (For example, create Gateway, HTTPRoute, GRPCRoute in that cluster)
 * multiple work-load cluster(s), where are used to run application workload(s)
 
-You can see a production usecase at AirBnb [airbnb mullti-cluster](https://www.youtube.com/watch?v=1D8lg36ZNHs)
+
+You can see this similar production use case at Airbnb [airbnb mullti-cluster](https://www.youtube.com/watch?v=1D8lg36ZNHs)
 
 Here is our example
 
