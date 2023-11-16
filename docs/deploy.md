@@ -14,7 +14,8 @@ Run through them again for a second cluster to use with the extended example sho
    ```bash
    eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION
    ```
-2. First, configure security group to receive traffic from the VPC Lattice network. You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic from the VPC Lattice managed prefix lists. Lattice has both an IPv4 and IPv6 prefix lists available.
+2. First, configure security group to receive traffic from the VPC Lattice network. You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic from the VPC Lattice managed prefix lists.  See [Control traffic to resources using security groups](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html) for details. Lattice has both an IPv4 and IPv6 prefix lists available.
+
     ```bash
     CLUSTER_SG=$(aws eks describe-cluster --name $CLUSTER_NAME --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
     PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
@@ -97,7 +98,7 @@ Run through them again for a second cluster to use with the extended example sho
       --set=latticeEndpoint= \
    
    ```
-9. Create the `amazon-vpc-lattice` GatewayClass:
+9.  Create the `amazon-vpc-lattice` GatewayClass:
    ```bash
    kubectl apply -f examples/gatewayclass.yaml
    ```
