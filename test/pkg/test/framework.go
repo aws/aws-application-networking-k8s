@@ -154,16 +154,18 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		for _, service := range retrievedServices {
 			env.Log.Infof("Found service, checking if created by current EKS Cluster: %v", service)
 			managed, err := env.Cloud.IsArnManaged(ctx, *service.Arn)
-			if err == nil { // for err != nil, it is possible that this service own by other account, and it is shared to current account by RAM
+			if err == nil { // ignore error as they can be a shared resource.
 				g.Expect(managed).To(BeFalse())
 			}
 		}
 
-		retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
+		retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{
+			VpcIdentifier: &config.VpcID,
+		})
 		for _, tg := range retrievedTargetGroups {
 			env.Log.Infof("Found TargetGroup: %s, checking if created by current EKS Cluster", *tg.Id)
 			managed, err := env.Cloud.IsArnManaged(ctx, *tg.Arn)
-			if err == nil { // for err != nil, it is possible that this service own by other account, and it is shared to current account by RAM
+			if err == nil { // ignore error as they can be a shared resource.
 				g.Expect(managed).To(BeFalse())
 			}
 		}
