@@ -10,7 +10,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -146,19 +145,8 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 		}
 	}
 
-	policyConditionFilter := policyhelper.PolicyConditionFilter{
-		Reasons: []v1alpha2.PolicyConditionReason{
-			v1alpha2.PolicyReasonAccepted,
-			v1alpha2.PolicyReasonTargetNotFound, // policy was created before service
-		},
-	}
-
-	tgps, err := policyhelper.GetAttachedPoliciesConditionFilter(
-		ctx, t.client,
-		k8s.NamespacedName(t.serviceExport),
-		&anv1alpha1.TargetGroupPolicy{},
-		policyConditionFilter,
-	)
+	tgp, err := policyhelper.GetValidPolicy(ctx, t.client,
+		k8s.NamespacedName(t.serviceExport), &anv1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return nil, err
 	}
@@ -166,8 +154,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
 	var healthCheckConfig *vpclattice.HealthCheckConfig
-	if len(tgps) > 0 {
-		tgp := tgps[0]
+	if tgp != nil {
 		if tgp.Spec.Protocol != nil {
 			protocol = *tgp.Spec.Protocol
 		}
@@ -326,15 +313,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		}
 	}
 
-	policyConditionFilter := policyhelper.PolicyConditionFilter{
-		Reasons: []v1alpha2.PolicyConditionReason{
-			v1alpha2.PolicyReasonAccepted,
-			v1alpha2.PolicyReasonTargetNotFound, // policy was created before service
-		},
-	}
-
-	tgps, err := policyhelper.GetAttachedPoliciesConditionFilter(ctx, t.client, backendRefNsName,
-		&anv1alpha1.TargetGroupPolicy{}, policyConditionFilter)
+	tgp, err := policyhelper.GetValidPolicy(ctx, t.client, backendRefNsName, &anv1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return model.TargetGroupSpec{}, err
 	}
@@ -342,9 +321,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
 	var healthCheckConfig *vpclattice.HealthCheckConfig
-	if len(tgps) > 0 {
-		// TODO: TGP conflicts should be handled correctly w/ status update, for now just picking up one
-		tgp := tgps[0]
+	if tgp != nil {
 		if tgp.Spec.Protocol != nil {
 			protocol = *tgp.Spec.Protocol
 		}

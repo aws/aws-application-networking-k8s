@@ -3,11 +3,11 @@ package policyhelper
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -209,49 +209,35 @@ func Test_GetAttachedPolicies(t *testing.T) {
 	}
 }
 
-func TestPolicyConditionMatch(t *testing.T) {
-	type Condition = apimachineryv1.Condition
-	type Reason = gwv1alpha2.PolicyConditionReason
+func TestConflictResolutionSort(t *testing.T) {
 
-	type Test struct {
-		name   string
-		cnds   []Condition
-		filter []Reason
-		want   bool
-	}
+	t.Run("CreationTimestamp", func(t *testing.T) {
+		tnow := metav1.Now()
+		policies := []*anv1alpha1.TargetGroupPolicy{
+			{ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.Time{Time: tnow.Add(time.Hour)}}},
+			{ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.Time{Time: tnow.Add(time.Second)}}},
+			{ObjectMeta: metav1.ObjectMeta{CreationTimestamp: tnow}},
+		}
+		conflictResolutionSort(policies)
+		if policies[0].CreationTimestamp != tnow {
+			t.Errorf("wrong order, expect ts=%s, got ts=%s", tnow, policies[0].CreationTimestamp)
+		}
+	})
 
-	tests := []Test{
-		{"nil", nil, nil, true},
-		{"nil filter", []Condition{{}}, nil, true},
-		{"nil conditions with filter", nil, []Reason{"x"}, false},
-		{"0 len filter", []Condition{{}}, []Reason{}, true},
-		{"condition not found", []Condition{{}}, []Reason{"Accepted"}, false},
-		{
-			"condition does not match",
-			[]Condition{{Type: string(gwv1alpha2.PolicyConditionAccepted), Reason: "NotReconciled"}},
-			[]Reason{"Accepted"}, false,
-		},
-		{
-			"condtion match",
-			[]Condition{{Type: string(gwv1alpha2.PolicyConditionAccepted), Reason: "Accepted"}},
-			[]Reason{"Accepted"},
-			true,
-		},
-		{
-			"condtion match mutli-filter",
-			[]Condition{{Type: string(gwv1alpha2.PolicyConditionAccepted), Reason: "Accepted"}},
-			[]Reason{"NotFound", "Accepted"},
-			true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			match := policyConditionMatch(tt.cnds, tt.filter)
-			if match != tt.want {
-				t.Errorf("filter does not match, cnds=%v, filter=%v, want=%t", tt.cnds, tt.filter, tt.want)
-			}
-		})
-	}
-
+	t.Run("Namespace and Name", func(t *testing.T) {
+		policies := []*anv1alpha1.TargetGroupPolicy{
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "b"}},
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "c"}},
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "a"}},
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "b", Name: "z"}},
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "b", Name: "y"}},
+		}
+		conflictResolutionSort(policies)
+		if policies[0].Name != "a" {
+			t.Errorf("expect 'a' being first, got %s", policies[0].Name)
+		}
+		if policies[4].Name != "z" {
+			t.Errorf("expect 'z' being last, got %s", policies[4].Name)
+		}
+	})
 }

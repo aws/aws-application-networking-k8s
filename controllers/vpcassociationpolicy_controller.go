@@ -11,31 +11,37 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
+const (
+	finalizer = "vpcassociationpolicies.application-networking.k8s.aws/resources"
+)
+
 type vpcAssociationPolicyReconciler struct {
-	log     gwlog.Logger
-	client  client.Client
-	cloud   pkg_aws.Cloud
-	manager deploy.ServiceNetworkManager
+	log              gwlog.Logger
+	client           client.Client
+	cloud            pkg_aws.Cloud
+	finalizerManager k8s.FinalizerManager
+	manager          deploy.ServiceNetworkManager
 }
 
-func RegisterVpcAssociationPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud pkg_aws.Cloud) error {
+func RegisterVpcAssociationPolicyController(log gwlog.Logger, cloud pkg_aws.Cloud, finalizerManager k8s.FinalizerManager, mgr ctrl.Manager) error {
 	controller := &vpcAssociationPolicyReconciler{
-		log:     log,
-		client:  mgr.GetClient(),
-		cloud:   cloud,
-		manager: deploy.NewDefaultServiceNetworkManager(log, cloud),
+		log:              log,
+		client:           mgr.GetClient(),
+		cloud:            cloud,
+		finalizerManager: finalizerManager,
+		manager:          deploy.NewDefaultServiceNetworkManager(log, cloud),
 	}
 
 	eh := eventhandlers.NewPolicyEventHandler(log, mgr.GetClient(), &anv1alpha1.VpcAssociationPolicy{})
@@ -77,11 +83,6 @@ func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{RequeueAfter: time.Second * 30}, nil
 	}
 
-	err = c.handleFinalizer(ctx, k8sPolicy)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	c.log.Infow("reconciled vpc association policy",
 		"req", req,
 		"targetRef", k8sPolicy.Spec.TargetRef,
@@ -90,21 +91,11 @@ func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 	return ctrl.Result{}, nil
 }
 
-func (c *vpcAssociationPolicyReconciler) handleFinalizer(ctx context.Context, k8sPolicy *anv1alpha1.VpcAssociationPolicy) error {
-	finalizer := "vpcassociationpolicies.application-networking.k8s.aws/resources"
-	if k8sPolicy.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(k8sPolicy, finalizer) {
-			controllerutil.AddFinalizer(k8sPolicy, finalizer)
-		}
-	} else {
-		if controllerutil.ContainsFinalizer(k8sPolicy, finalizer) {
-			controllerutil.RemoveFinalizer(k8sPolicy, finalizer)
-		}
-	}
-	return c.client.Update(ctx, k8sPolicy)
-}
-
 func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *anv1alpha1.VpcAssociationPolicy) error {
+	err := c.finalizerManager.AddFinalizers(ctx, k8sPolicy, finalizer)
+	if err != nil {
+		return err
+	}
 	snName := string(k8sPolicy.Spec.TargetRef.Name)
 	sgIds := utils.SliceMap(k8sPolicy.Spec.SecurityGroupIds, func(sg anv1alpha1.SecurityGroupId) *string {
 		str := string(sg)
@@ -131,6 +122,10 @@ func (c *vpcAssociationPolicyReconciler) delete(ctx context.Context, k8sPolicy *
 	err := c.manager.DeleteVpcAssociation(ctx, snName)
 	if err != nil {
 		return c.handleDeleteError(err)
+	}
+	err = c.finalizerManager.RemoveFinalizers(ctx, k8sPolicy, finalizer)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -169,6 +164,9 @@ func (c *vpcAssociationPolicyReconciler) handleDeleteError(err error) error {
 }
 
 func (c *vpcAssociationPolicyReconciler) updateLatticeAnnotation(ctx context.Context, k8sPolicy *anv1alpha1.VpcAssociationPolicy, resArn string) error {
+	if k8sPolicy.Annotations == nil {
+		k8sPolicy.Annotations = make(map[string]string)
+	}
 	k8sPolicy.Annotations["application-networking.k8s.aws/resourceArn"] = resArn
 	err := c.client.Update(ctx, k8sPolicy)
 	return err

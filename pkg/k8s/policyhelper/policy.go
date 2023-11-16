@@ -3,13 +3,13 @@ package policyhelper
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -22,11 +22,20 @@ type policyInfo struct {
 	kind       gwv1beta1.Kind
 }
 
-type PolicyConditionFilter struct {
-	Reasons []gwv1alpha2.PolicyConditionReason
+func GetValidPolicy[T core.Policy](ctx context.Context, k8sClient client.Client, searchTargetRef types.NamespacedName, policy T) (T, error) {
+	var empty T
+	policies, err := GetAttachedPolicies(ctx, k8sClient, searchTargetRef, policy)
+	conflictResolutionSort(policies)
+	if err != nil {
+		return empty, err
+	}
+	if len(policies) == 0 {
+		return empty, nil
+	}
+	return policies[0], nil
 }
 
-func GetAttachedPoliciesConditionFilter[T core.Policy](ctx context.Context, k8sClient client.Client, searchTargetRef types.NamespacedName, policy T, filter PolicyConditionFilter) ([]T, error) {
+func GetAttachedPolicies[T core.Policy](ctx context.Context, k8sClient client.Client, searchTargetRef types.NamespacedName, policy T) ([]T, error) {
 	var policies []T
 	info, err := getPolicyInfo(policy)
 	if err != nil {
@@ -57,16 +66,11 @@ func GetAttachedPoliciesConditionFilter[T core.Policy](ctx context.Context, k8sC
 			retrievedNamespace = string(*targetRef.Namespace)
 		}
 		namespaceMatch := retrievedNamespace == searchTargetRef.Namespace
-		filterMatch := policyConditionMatch(p.GetStatusConditions(), filter.Reasons)
-		if groupKindMatch && nameMatch && namespaceMatch && filterMatch {
+		if groupKindMatch && nameMatch && namespaceMatch {
 			policies = append(policies, p.(T))
 		}
 	}
 	return policies, nil
-}
-
-func GetAttachedPolicies[T core.Policy](ctx context.Context, k8sClient client.Client, searchTargetRef types.NamespacedName, policy T) ([]T, error) {
-	return GetAttachedPoliciesConditionFilter(ctx, k8sClient, searchTargetRef, policy, PolicyConditionFilter{})
 }
 
 func getPolicyInfo(policyType core.Policy) (policyInfo, error) {
@@ -88,18 +92,30 @@ func getPolicyInfo(policyType core.Policy) (policyInfo, error) {
 	}
 }
 
-func policyConditionMatch(cnds []apimachineryv1.Condition, filter []gwv1alpha2.PolicyConditionReason) bool {
-	if filter == nil || len(filter) == 0 {
-		return true
-	}
-	cnd := meta.FindStatusCondition(cnds, string(gwv1alpha2.PolicyConditionAccepted))
-	if cnd == nil {
-		return false
-	}
-	for _, reason := range filter {
-		if cnd.Reason == string(reason) {
-			return true
+// sort in-place for policy conflict resolution
+// 1. older policy (CreationTimeStamp) has precedence
+// 2. alphabetical order namespace, then name
+func conflictResolutionSort[T core.Policy](policies []T) {
+	slices.SortFunc(policies, func(a, b T) int {
+		tsA := a.GetCreationTimestamp().Time
+		tsB := b.GetCreationTimestamp().Time
+		switch {
+		case tsA.Before(tsB):
+			return -1
+		case tsA.After(tsB):
+			return 1
+		default:
+			nsnA := a.GetNamespacedName()
+			nsnB := b.GetNamespacedName()
+			nsA := nsnA.Namespace
+			nsB := nsnB.Namespace
+			nsCmp := strings.Compare(nsA, nsB)
+			if nsCmp != 0 {
+				return nsCmp
+			}
+			nA := nsnA.Name
+			nB := nsnB.Name
+			return strings.Compare(nA, nB)
 		}
-	}
-	return false
+	})
 }

@@ -17,6 +17,7 @@ import (
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -72,12 +73,16 @@ func (c *TargetGroupPolicyController) validateSpec(ctx context.Context, tgPolicy
 	if string(tr.Kind) != "Service" {
 		return fmt.Errorf("%w: %s", KindError, tr.Kind)
 	}
-	conflictingPolicies, err := c.findConflictingPolicies(ctx, tgPolicy)
-	if err != nil {
-		return err
+	tgref := types.NamespacedName{
+		Namespace: tgPolicy.Namespace,
+		Name:      string(tgPolicy.Spec.TargetRef.Name),
 	}
-	if len(conflictingPolicies) > 0 {
-		return fmt.Errorf("%w, policies: %v", TargetRefConflict, conflictingPolicies)
+	valid, err := policyhelper.GetValidPolicy(ctx, c.client, tgref, tgPolicy)
+	if err != nil {
+		return nil
+	}
+	if valid != nil && valid.GetNamespacedName() != tgPolicy.GetNamespacedName() {
+		return fmt.Errorf("%w, with policy %s", TargetRefConflict, valid.GetName())
 	}
 	refExists, err := c.targetRefExists(ctx, tgPolicy)
 	if err != nil {
@@ -102,26 +107,6 @@ func (c *TargetGroupPolicyController) targetRefExists(ctx context.Context, tgPol
 		Namespace: tgPolicy.Namespace,
 		Name:      string(tr.Name),
 	}, obj)
-}
-
-func (c *TargetGroupPolicyController) findConflictingPolicies(ctx context.Context, tgPolicy *anv1alpha1.TargetGroupPolicy) ([]string, error) {
-	var out []string
-	policies := &anv1alpha1.TargetGroupPolicyList{}
-	err := c.client.List(ctx, policies, &client.ListOptions{
-		Namespace: tgPolicy.Namespace,
-	})
-	if err != nil {
-		return out, err
-	}
-	for _, p := range policies.Items {
-		if tgPolicy.Name == p.Name {
-			continue
-		}
-		if *tgPolicy.Spec.TargetRef == *p.Spec.TargetRef {
-			out = append(out, p.Name)
-		}
-	}
-	return out, nil
 }
 
 func (c *TargetGroupPolicyController) updatePolicyCondition(tgPolicy *anv1alpha1.TargetGroupPolicy, reason gwv1alpha2.PolicyConditionReason, msg string) {
