@@ -1151,7 +1151,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			Namespace: accessLogPolicy.Namespace,
 		}
 
-		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
+		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*route)))
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should have an Access Log Subscription
