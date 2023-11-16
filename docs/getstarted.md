@@ -31,17 +31,18 @@ This example creates a single cluster in a single VPC, then configures two route
     "name": "my-hotel"
    }
    ```
- 
-2.  Create the Lattice ServiceNetworkVpcAssociation between current k8s cluster VPC and `my-hotel` service network:
+   
+1. Create the Lattice ServiceNetworkVpcAssociation between current k8s cluster VPC and `my-hotel` service network:
    ```bash
-  aws vpc-lattice create-service-network-vpc-association --service-network-identifier <my-hotel-sn-id> --vpc-identifier <k8s-cluster-vpc-id>
-   {
-    "arn": "<snva-arn>",
-    "createdBy": "<timestamp>",
-    "id": "<snva-id>",
-    "status": "CREATE_IN_PROGRESS"
-    }
-   ```
+     aws vpc-lattice create-service-network-vpc-association --service-network-identifier <my-hotel-sn-id> --vpc-identifier <k8s-cluster-vpc-id>
+      {
+       "arn": "<snva-arn>",
+       "createdBy": "<timestamp>",
+       "id": "<snva-id>",
+       "status": "CREATE_IN_PROGRESS"
+       }
+      ```
+   
    Wait until above ServiceNetworkVpcAssociation status change to `ACTIVE`:
    ```bash
    aws vpc-lattice  get-service-network-vpc-association --service-network-vpc-association-identifier snva-0041ace3a8658371e
@@ -50,7 +51,7 @@ This example creates a single cluster in a single VPC, then configures two route
        "status": "ACTIVE",
    }
    ```
-3. Create the Kubernetes Gateway `my-hotel`:
+1. Create the Kubernetes Gateway `my-hotel`:
    ```bash
    kubectl apply -f examples/my-hotel-gateway.yaml
    ```
@@ -61,28 +62,27 @@ This example creates a single cluster in a single VPC, then configures two route
    NAME       CLASS                ADDRESS   PROGRAMMED   AGE
    my-hotel   amazon-vpc-lattice               True      7d12h
    ```
-  
-4. Create the Kubernetes HTTPRoute `rates` that can has path match routes to the `parking` service and `review` service (this could take about a few minutes)
+
+1. Create the Kubernetes HTTPRoute `rates` that can has path match routes to the `parking` service and `review` service (this could take about a few minutes)
    ```bash
    kubectl apply -f examples/parking.yaml
    kubectl apply -f examples/review.yaml
    kubectl apply -f examples/rate-route-path.yaml
    ```
-5. Create another Kubernetes HTTPRoute `inventory` (this could take about a few minutes):
+1. Create another Kubernetes HTTPRoute `inventory` (this could take about a few minutes):
    ```bash
    kubectl apply -f examples/inventory-ver1.yaml
    kubectl apply -f examples/inventory-route.yaml
    ```
-6. Find out HTTPRoute's DNS name from HTTPRoute status:
+1. Find out HTTPRoute's DNS name from HTTPRoute status:
    ```bash
    kubectl get httproute
-   ```
-   ```
+   
    NAME        HOSTNAMES   AGE
    inventory               51s
    rates                   6m11s
    ```
-7. Check VPC Lattice generated DNS address for HTTPRoute `inventory` and `rates` :
+1. Check VPC Lattice generated DNS address for HTTPRoute `inventory` and `rates` :
       ```bash
       kubectl get httproute inventory -o yaml
       
@@ -107,7 +107,7 @@ This example creates a single cluster in a single VPC, then configures two route
       ...
       ```
 
-8. if the previous step returns the expected response, store lattice assigned DNS names to variables.
+1. if the previous step returns the expected response, store lattice assigned DNS names to variables.
 
    ```bash
    ratesFQDN=$(kubectl get httproute rates -o json | jq -r '.metadata.annotations."application-networking.k8s.aws/lattice-assigned-domain-name"')
@@ -120,11 +120,9 @@ This example creates a single cluster in a single VPC, then configures two route
    echo $ratesFQDN $inventoryFQDN
    rates-default-034e0056410499722.7d67968.vpc-lattice-svcs.us-west-2.on.aws inventory-default-0c54a5e5a426f92c2.7d67968.vpc-lattice-svcs.us-west-2.on.aws
    ```
+   **Verify service-to-service communications**
 
-**Verify service-to-service communications**
-
-
-9. Check connectivity from  the `inventory-ver1` service to `parking` and `review` services:
+1. Check connectivity from  the `inventory-ver1` service to `parking` and `review` services:
    ```bash
    kubectl exec deploy/inventory-ver1 -- curl $ratesFQDN/parking $ratesFQDN/review
    ```
@@ -133,7 +131,7 @@ This example creates a single cluster in a single VPC, then configures two route
    Requsting to Pod(review-6df847686d-dhzwc): review handler pod
    ```
 
-10. Check connectivity from the `parking` service to the `inventory-ver1` service:
+1. Check connectivity from the `parking` service to the `inventory-ver1` service:
    ```bash
    kubectl exec deploy/parking -- curl $inventoryFQDN
    ```
@@ -156,42 +154,42 @@ The following figure illustrates this:
 
 ### Steps
 
-**Set up `inventory-ver2` service and serviceExport on a second cluster** 
+**Set up `inventory-ver2` service and serviceExport in the second cluster** 
 
 1. Create a second Kubernetes cluster `cluster2` (using the same instructions used to create the first).
 
-2. Ensure you're using the second cluster `kubectl` context. 
+1. Ensure you're using the second cluster's `kubectl` context. 
    ```bash
    kubectl config get-contexts 
    ```
-   If your context is set to the first cluster, switch your credentials to use the second cluster:
+   If your context is set to the first cluster, switch it to use the second cluster one:
    ```bash
    kubectl config use-context <cluster2-context>
    ```
-3. Create a Kubernetes inventory-ver2 service in the second cluster:
+1. Create a Kubernetes inventory-ver2 service in the second cluster:
    ```bash
    kubectl apply -f examples/inventory-ver2.yaml
    ```
-4. Export this Kubernetes inventory-ver2 from the second cluster, so that it can be referenced by HTTPRoute in the first cluster:
+1. Export this Kubernetes inventory-ver2 from the second cluster, so that it can be referenced by HTTPRoute in the first cluster:
    ```bash
    kubectl apply -f examples/inventory-ver2-export.yaml
    ```
    
-**Switch back to the first cluster**
+   **Switch back to the first cluster**
 
-5. Switch credentials back to the first cluster
+1. Switch context back to the first cluster
    ```bash
    kubectl config use-context <cluster1-context>
    ```
-6. Create Kubernetes ServiceImport `inventory-ver2` in the first cluster:
+1. Create Kubernetes ServiceImport `inventory-ver2` in the first cluster:
    ```bash
    kubectl apply -f examples/inventory-ver2-import.yaml
    ```
-7. Update the HTTPRoute `inventory` rules to route 10% traffic to the first cluster and 90% traffic to the second cluster:
+1. Update the HTTPRoute `inventory` rules to route 10% traffic to the first cluster and 90% traffic to the second cluster:
    ```bash
    kubectl apply -f examples/inventory-route-bluegreen.yaml
    ```
-8. Check the service-to-service connectivity from `parking`(in cluster1) to `inventory-ver1`(in cluster1) and `inventory-ver2`(in cluster2):
+1. Check the service-to-service connectivity from `parking`(in cluster1) to `inventory-ver1`(in cluster1) and `inventory-ver2`(in cluster2):
    ```bash
    kubectl exec deploy/parking -- sh -c 'for ((i=1; i<=30; i++)); do curl "$0"; done' "$inventoryFQDN"
    
