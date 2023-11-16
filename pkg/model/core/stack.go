@@ -10,6 +10,8 @@ import (
 	"reflect"
 )
 
+//go:generate mockgen -destination stack_mock.go -package core github.com/aws/aws-application-networking-k8s/pkg/model/core Stack
+
 // Stack presents a resource graph, where resources can depend on each other.
 type Stack interface {
 	// stackID returns a unique ID for stack.

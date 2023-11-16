@@ -24,21 +24,20 @@ func NewServiceEventHandler(log gwlog.Logger, client client.Client) *serviceEven
 }
 
 func (h *serviceEventHandler) MapToRoute(routeType core.RouteType) handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-		return h.mapToRoute(obj, routeType)
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		return h.mapToRoute(ctx, obj, routeType)
 	})
 }
 
 func (h *serviceEventHandler) MapToServiceExport() handler.EventHandler {
-	return handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-		return h.mapToServiceExport(obj)
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		return h.mapToServiceExport(ctx, obj)
 	})
 }
 
-func (h *serviceEventHandler) mapToServiceExport(obj client.Object) []reconcile.Request {
+func (h *serviceEventHandler) mapToServiceExport(ctx context.Context, obj client.Object) []reconcile.Request {
 	var requests []reconcile.Request
 
-	ctx := context.Background()
 	svc := h.mapToService(ctx, obj)
 	svcExport := h.mapper.ServiceToServiceExport(ctx, svc)
 	if svcExport != nil {
@@ -63,8 +62,7 @@ func (h *serviceEventHandler) mapToService(ctx context.Context, obj client.Objec
 	return nil
 }
 
-func (h *serviceEventHandler) mapToRoute(obj client.Object, routeType core.RouteType) []reconcile.Request {
-	ctx := context.Background()
+func (h *serviceEventHandler) mapToRoute(ctx context.Context, obj client.Object, routeType core.RouteType) []reconcile.Request {
 	svc := h.mapToService(ctx, obj)
 	routes := h.mapper.ServiceToRoutes(ctx, svc, routeType)
 

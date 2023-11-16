@@ -12,13 +12,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"strings"
 )
 
 var _ = Describe("HTTPRoute Mutation", func() {
 	var (
-		pathMatchHttpRoute *v1beta1.HTTPRoute = nil
+		pathMatchHttpRoute *gwv1.HTTPRoute    = nil
 		deployment1        *appsv1.Deployment = nil
 		service1           *corev1.Service    = nil
 		deployment2        *appsv1.Deployment = nil
@@ -29,9 +30,9 @@ var _ = Describe("HTTPRoute Mutation", func() {
 
 	It("Create a HTTPRoute that backendref to service1 and service2 first, tg1 and tg2 should be created, tg3 should not be created. "+
 		"Then, update the HTTPRoute to backendref to service1 and service3, tg1 should still exist, tg2 should be deleted, tg3 should be created", func() {
-		deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
-		deployment2, service2 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2", Namespace: k8snamespace})
-		deployment3, service3 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v3", Namespace: k8snamespace})
+		deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "leak-tg-test-v1", Namespace: k8snamespace})
+		deployment2, service2 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "leak-tg-test-v2", Namespace: k8snamespace})
+		deployment3, service3 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "leak-tg-test-v3", Namespace: k8snamespace})
 
 		pathMatchHttpRoute = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1, service2}, "http",
 			"", k8snamespace)

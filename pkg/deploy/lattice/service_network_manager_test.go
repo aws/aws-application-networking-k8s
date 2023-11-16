@@ -52,6 +52,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) 
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: &snId,
 		VpcIdentifier:            &config.VpcID,
+		Tags:                     cloud.DefaultTags(),
 	}
 	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
 	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
@@ -286,10 +287,6 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 		Status: &associationStatus,
 	}
-	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
-		ServiceNetworkIdentifier: &snId,
-		VpcIdentifier:            &config.VpcID,
-	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -305,6 +302,12 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 			SvcNetwork: item,
 			Tags:       snTagsOuput.Tags,
 		}, nil)
+
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &snId,
+		VpcIdentifier:            &config.VpcID,
+		Tags:                     cloud.DefaultTags(),
+	}
 	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
@@ -349,10 +352,6 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_SnAssociatedWithOtherVPC(t
 	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 		Status: &associationStatus,
 	}
-	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
-		ServiceNetworkIdentifier: &snId,
-		VpcIdentifier:            &config.VpcID,
-	}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -368,6 +367,12 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_SnAssociatedWithOtherVPC(t
 			SvcNetwork: item,
 			Tags:       snTagsOuput.Tags,
 		}, nil)
+
+	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: &snId,
+		VpcIdentifier:            &config.VpcID,
+		Tags:                     cloud.DefaultTags(),
+	}
 	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
@@ -410,6 +415,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationRe
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: &snId,
 		VpcIdentifier:            &config.VpcID,
+		Tags:                     cloud.DefaultTags(),
 	}
 
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)

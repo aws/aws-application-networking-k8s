@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/pointer"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func TestGRPCRouteSpec_Equals(t *testing.T) {
@@ -524,8 +524,8 @@ func TestGRPCBackendRef_Equals(t *testing.T) {
 }
 
 func TestGRPCHeaderMatch_Equals(t *testing.T) {
-	headerMatchType1 := gwv1beta1.HeaderMatchExact
-	headerMatchType2 := gwv1beta1.HeaderMatchRegularExpression
+	headerMatchType1 := gwv1.HeaderMatchExact
+	headerMatchType2 := gwv1.HeaderMatchRegularExpression
 	name1 := gwv1alpha2.GRPCHeaderName("name1")
 	name2 := gwv1alpha2.GRPCHeaderName("name2")
 	value1 := "value1"
@@ -627,8 +627,8 @@ func TestGRPCHeaderMatch_Equals(t *testing.T) {
 func TestGRPCRouteMatch_Equals(t *testing.T) {
 	grpcMethodMatchType1 := gwv1alpha2.GRPCMethodMatchExact
 	grpcMethodMatchType2 := gwv1alpha2.GRPCMethodMatchRegularExpression
-	headerMatchType1 := gwv1beta1.HeaderMatchExact
-	headerMatchType2 := gwv1beta1.HeaderMatchRegularExpression
+	headerMatchType1 := gwv1.HeaderMatchExact
+	headerMatchType2 := gwv1.HeaderMatchRegularExpression
 
 	tests := []struct {
 		routeMatch1 *GRPCRouteMatch

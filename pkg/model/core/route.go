@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -25,6 +26,8 @@ type Route interface {
 
 func NewRoute(object client.Object) (Route, error) {
 	switch obj := object.(type) {
+	case *gwv1.HTTPRoute:
+		return NewHTTPRoute(gwv1beta1.HTTPRoute(*obj)), nil
 	case *gwv1beta1.HTTPRoute:
 		return NewHTTPRoute(*obj), nil
 	case *gwv1alpha2.GRPCRoute:

@@ -16,8 +16,6 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: my-hotel
-  annotations:
-    application-networking.k8s.aws/lattice-vpc-association: "true"
 spec:
   gatewayClassName: amazon-vpc-lattice
   listeners:
@@ -120,4 +118,4 @@ spec:
 This will create VPC Lattice TargetGroup with HTTPS protocol option, which can receive TLS traffic.
 Note that certificate validation is not supported.
 
-For more details, please refer to [TargetGroupPolicy API reference](../reference/target-group-policy.md).
+For more details, please refer to [TargetGroupPolicy API reference](../api-types/target-group-policy.md).

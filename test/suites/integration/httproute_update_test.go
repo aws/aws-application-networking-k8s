@@ -6,22 +6,21 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("HTTPRoute Update", func() {
 
 	var (
-		route1      *v1beta1.HTTPRoute
-		route2      *v1beta1.HTTPRoute
+		route1      *gwv1.HTTPRoute
+		route2      *gwv1.HTTPRoute
 		deployment1 *appsv1.Deployment
 		service1    *corev1.Service
 		tg1         *vpclattice.TargetGroupSummary
@@ -31,7 +30,7 @@ var _ = Describe("HTTPRoute Update", func() {
 
 	Context("BackendRefs to the same service use different target groups", func() {
 		It("Target groups for the same service are different for different routes", func() {
-			deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
+			deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "update-test-v1", Namespace: k8snamespace})
 			route1 = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1}, "http",
 				"route-one", k8snamespace)
 			route2 = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1}, "http",

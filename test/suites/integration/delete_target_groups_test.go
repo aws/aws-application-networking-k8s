@@ -6,16 +6,15 @@ import (
 	"log"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("Delete Unused Target Groups", Ordered, func() {
@@ -23,7 +22,7 @@ var _ = Describe("Delete Unused Target Groups", Ordered, func() {
 		deployments        = make([]*appsv1.Deployment, 2)
 		services           = make([]*v1.Service, 2)
 		targetGroups       = make([]*vpclattice.TargetGroupSummary, 2)
-		pathMatchHttpRoute *v1beta1.HTTPRoute
+		pathMatchHttpRoute *gwv1.HTTPRoute
 	)
 
 	BeforeAll(func() {
@@ -73,9 +72,9 @@ var _ = Describe("Delete Unused Target Groups", Ordered, func() {
 		verifyTargetGroupDeleted(targetGroups[0])
 	})
 
-	It("Kubernetes Deployment deletion deletes target groups", func() {
+	It("Kubernetes Deployment deletion triggers targets de-registering", func() {
 		testFramework.ExpectDeleted(ctx, deployments[1])
-		verifyTargetGroupDeleted(targetGroups[1])
+		verifyNoTargetsForTargetGroup(targetGroups[1])
 	})
 
 	AfterAll(func() {
@@ -107,5 +106,19 @@ func verifyTargetGroupDeleted(targetGroup *vpclattice.TargetGroupSummary) {
 		}
 
 		g.Expect(true).To(BeFalse())
+	}).Should(Succeed())
+}
+
+func verifyNoTargetsForTargetGroup(targetGroup *vpclattice.TargetGroupSummary) {
+	Eventually(func(g Gomega) {
+		log.Println("Verifying VPC lattice Targets deregistered")
+		targets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{
+			TargetGroupIdentifier: targetGroup.Id,
+		})
+		g.Expect(err).To(BeNil())
+		log.Println("targets:", targets)
+		for _, target := range targets {
+			g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusDraining))
+		}
 	}).Should(Succeed())
 }

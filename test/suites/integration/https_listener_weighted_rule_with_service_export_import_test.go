@@ -12,11 +12,10 @@ import (
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("Test 2 listeners with weighted httproute rules and service export import", func() {
@@ -27,7 +26,7 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 		service1       *v1.Service
 		serviceExport1 *anv1alpha1.ServiceExport
 		serviceImport1 *anv1alpha1.ServiceImport
-		httpRoute      *v1beta1.HTTPRoute
+		httpRoute      *gwv1.HTTPRoute
 	)
 
 	It("Create a weightedRoutingHttpRoute that parentRef to both http and https listeners,"+

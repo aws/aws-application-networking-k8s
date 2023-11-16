@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/pointer"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -165,8 +166,8 @@ func TestHTTPRouteSpec_Equals(t *testing.T) {
 }
 
 func TestHTTPRouteRule_Equals(t *testing.T) {
-	httpMethod1 := gwv1beta1.HTTPMethodPost
-	httpMethod2 := gwv1beta1.HTTPMethodGet
+	httpMethod1 := gwv1.HTTPMethodPost
+	httpMethod2 := gwv1.HTTPMethodGet
 
 	tests := []struct {
 		routeRule1  *HTTPRouteRule
@@ -519,10 +520,10 @@ func TestHTTPBackendRef_Equals(t *testing.T) {
 }
 
 func TestHTTPHeaderMatch_Equals(t *testing.T) {
-	headerMatchType1 := gwv1beta1.HeaderMatchExact
-	headerMatchType2 := gwv1beta1.HeaderMatchRegularExpression
-	name1 := gwv1beta1.HTTPHeaderName("name1")
-	name2 := gwv1beta1.HTTPHeaderName("name2")
+	headerMatchType1 := gwv1.HeaderMatchExact
+	headerMatchType2 := gwv1.HeaderMatchRegularExpression
+	name1 := gwv1.HTTPHeaderName("name1")
+	name2 := gwv1.HTTPHeaderName("name2")
 	value1 := "value1"
 	value2 := "value2"
 
@@ -620,14 +621,14 @@ func TestHTTPHeaderMatch_Equals(t *testing.T) {
 }
 
 func TestHTTPRouteMatch_Equals(t *testing.T) {
-	httpMethod1 := gwv1beta1.HTTPMethodPost
-	httpMethod2 := gwv1beta1.HTTPMethodGet
-	pathMatchType1 := gwv1beta1.PathMatchExact
-	pathMatchType2 := gwv1beta1.PathMatchPathPrefix
-	headerMatchType1 := gwv1beta1.HeaderMatchExact
-	headerMatchType2 := gwv1beta1.HeaderMatchRegularExpression
-	queryParamMatchType1 := gwv1beta1.QueryParamMatchExact
-	queryParamMatchType2 := gwv1beta1.QueryParamMatchRegularExpression
+	httpMethod1 := gwv1.HTTPMethodPost
+	httpMethod2 := gwv1.HTTPMethodGet
+	pathMatchType1 := gwv1.PathMatchExact
+	pathMatchType2 := gwv1.PathMatchPathPrefix
+	headerMatchType1 := gwv1.HeaderMatchExact
+	headerMatchType2 := gwv1.HeaderMatchRegularExpression
+	queryParamMatchType1 := gwv1.QueryParamMatchExact
+	queryParamMatchType2 := gwv1.QueryParamMatchRegularExpression
 
 	tests := []struct {
 		routeMatch1 *HTTPRouteMatch

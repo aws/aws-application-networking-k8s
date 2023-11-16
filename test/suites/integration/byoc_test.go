@@ -25,6 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -49,7 +50,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		err           error
 		deployment    *appsv1.Deployment
 		service       *corev1.Service
-		httpRoute     *gwv1beta1.HTTPRoute
+		httpRoute     *gwv1.HTTPRoute
 	)
 
 	BeforeAll(func() {
@@ -71,13 +72,13 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 
 		// create http route with custom certificate setting
 		httpRoute = testFramework.NewHttpRoute(testGateway, service, "Service")
-		httpRoute.Spec.Hostnames = []gwv1beta1.Hostname{gwv1beta1.Hostname(cname)}
-		sectionName := gwv1beta1.SectionName("byoc")
+		httpRoute.Spec.Hostnames = []gwv1.Hostname{cname}
+		sectionName := gwv1.SectionName("byoc")
 		httpRoute.Spec.ParentRefs[0].SectionName = &sectionName
 		testFramework.ExpectCreated(context.TODO(), deployment, service, httpRoute)
 
 		// get lattice service dns name for route53 cname
-		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(*httpRoute))
+		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 		latticeSvcDns = *svc.DnsEntry.DomainName
 		log.Infof("depoloyed lattice service, dns name: %s", latticeSvcDns)
 
@@ -234,20 +235,20 @@ func deleteCert(client *acm.ACM, arn string) error {
 }
 
 func addGatewayBYOCListener(certArn string) {
-	gw := &gwv1beta1.Gateway{}
+	gw := &gwv1.Gateway{}
 	testFramework.Get(context.TODO(), types.NamespacedName{
 		Namespace: testGateway.Namespace,
 		Name:      testGateway.Name,
 	}, gw)
-	tlsMode := gwv1beta1.TLSModeTerminate
-	byocListener := gwv1beta1.Listener{
+	tlsMode := gwv1.TLSModeTerminate
+	byocListener := gwv1.Listener{
 		Name:     "byoc",
 		Port:     443,
-		Protocol: gwv1beta1.HTTPSProtocolType,
-		TLS: &gwv1beta1.GatewayTLSConfig{
+		Protocol: gwv1.HTTPSProtocolType,
+		TLS: &gwv1.GatewayTLSConfig{
 			Mode: &tlsMode,
-			Options: map[gwv1beta1.AnnotationKey]gwv1beta1.AnnotationValue{
-				"application-networking.k8s.aws/certificate-arn": gwv1beta1.AnnotationValue(certArn),
+			Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
+				"application-networking.k8s.aws/certificate-arn": gwv1.AnnotationValue(certArn),
 			},
 		},
 	}
@@ -256,13 +257,13 @@ func addGatewayBYOCListener(certArn string) {
 }
 
 func removeGatewayBYOCListener() {
-	gw := &gwv1beta1.Gateway{}
+	gw := &gwv1.Gateway{}
 	testFramework.Get(context.TODO(), types.NamespacedName{
 		Namespace: testGateway.Namespace,
 		Name:      testGateway.Name,
 	}, gw)
 	gw.Spec.Listeners = slices.DeleteFunc(gw.Spec.Listeners,
-		func(l gwv1beta1.Listener) bool {
+		func(l gwv1.Listener) bool {
 			return l.Name == "byoc"
 		})
 	testFramework.ExpectUpdated(context.TODO(), gw)
@@ -291,7 +292,11 @@ func findHostedZone(client *route53.Route53, name string) (*route53.HostedZone, 
 	if len(out.HostedZones) == 0 {
 		return nil, nil
 	}
-	return out.HostedZones[0], nil
+	hz := out.HostedZones[0]
+	if aws.StringValue(hz.Name) != name {
+		return nil, nil
+	}
+	return hz, nil
 }
 
 func createHostedZone(client *route53.Route53, name string) (*route53.HostedZone, error) {
