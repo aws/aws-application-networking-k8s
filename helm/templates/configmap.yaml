@@ -8,4 +8,5 @@ data:
     clusterVpcId: {{ .Values.clusterVpcId | quote }}
     clusterName: {{ .Values.clusterName | quote }}
     latticeEndpoint: {{ .Values.latticeEndpoint | quote }}
+    defaultServiceNetwork: {{ .Values.defaultServiceNetwork | quote }}
 

@@ -49,9 +49,9 @@ var _ = SynchronizedBeforeSuite(func() {
 
 	testFramework.Log.Infof("Expecting VPC %s and service network %s association", vpcId, *testServiceNetwork.Id)
 	Eventually(func(g Gomega) {
-		associated, _, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcId, testServiceNetwork)
+		associated, snva, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcId, testServiceNetwork)
 		g.Expect(associated).To(BeTrue())
-		managed, _ := testFramework.Cloud.IsArnManaged(ctx, *testServiceNetwork.Arn)
+		managed, _ := testFramework.Cloud.IsArnManaged(ctx, *snva.Arn)
 		g.Expect(managed).To(BeTrue())
 	}).Should(Succeed())
 
