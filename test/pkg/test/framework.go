@@ -193,6 +193,9 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 
 func objectsInfo(objs []client.Object) string {
 	objInfos := utils.SliceMap(objs, func(obj client.Object) string {
+		if obj == nil || reflect.ValueOf(obj).IsNil() {
+			return fmt.Sprintf("%T/nil", obj)
+		}
 		return fmt.Sprintf("%T/%s", obj, obj.GetName())
 	})
 	return strings.Join(objInfos, ", ")

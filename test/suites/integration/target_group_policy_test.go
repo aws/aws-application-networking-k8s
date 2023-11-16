@@ -33,7 +33,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 		testFramework.ExpectCreated(ctx, deployment, service, httpRoute)
 	})
 
-	It("Update Protocol creates new Target Group", func() {
+	It("Update Protocol replaces the Target Group with new one", func() {
 		policy = testFramework.CreateTargetGroupPolicy(service, &test.TargetGroupPolicyConfig{
 			PolicyName: "test-policy",
 			Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
@@ -50,6 +50,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 		})
 
 		testFramework.ExpectUpdated(ctx, policy)
+		testFramework.VerifyTargetGroupNotFound(tg)
 
 		httpsTG := testFramework.GetTargetGroupWithProtocol(ctx, service, "https", "http1")
 
