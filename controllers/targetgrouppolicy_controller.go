@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -34,7 +33,7 @@ func RegisterTargetGroupPolicyController(log gwlog.Logger, mgr ctrl.Manager) err
 	mapfn := targetGroupPolicyMapFunc(mgr.GetClient(), log)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.TargetGroupPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&source.Kind{Type: &corev1.Service{}}, handler.EnqueueRequestsFromMapFunc(mapfn)).
+		Watches(&corev1.Service{}, handler.EnqueueRequestsFromMapFunc(mapfn)).
 		Complete(controller)
 }
 
@@ -140,10 +139,10 @@ func (c *TargetGroupPolicyController) updatePolicyCondition(tgPolicy *anv1alpha1
 }
 
 func targetGroupPolicyMapFunc(c client.Client, log gwlog.Logger) handler.MapFunc {
-	return func(obj client.Object) []ctrl.Request {
+	return func(ctx context.Context, obj client.Object) []ctrl.Request {
 		requests := []ctrl.Request{}
 		policies := &anv1alpha1.TargetGroupPolicyList{}
-		err := c.List(context.Background(), policies, &client.ListOptions{Namespace: obj.GetNamespace()})
+		err := c.List(ctx, policies, &client.ListOptions{Namespace: obj.GetNamespace()})
 		if err != nil {
 			log.Error(err)
 			return requests
