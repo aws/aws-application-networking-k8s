@@ -157,7 +157,14 @@ spec:
             - targetRef
             type: object
           status:
-            description: TargetGroupPolicyStatus defines the observed state of AccessLogPolicy.
+            default:
+              conditions:
+              - lastTransitionTime: "1970-01-01T00:00:00Z"
+                message: Waiting for controller
+                reason: NotReconciled
+                status: Unknown
+                type: Accepted
+            description: Status defines the current state of TargetGroupPolicy.
             properties:
               conditions:
                 default:
@@ -254,4 +261,5 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}

@@ -27,6 +27,7 @@ func (h *policyEventHandler[T]) MapObjectToPolicy() handler.EventHandler {
 
 func (h *policyEventHandler[T]) mapObjectToPolicy(eventObj client.Object) []reconcile.Request {
 	var requests []reconcile.Request
+
 	policies, err := policyhelper.GetAttachedPolicies(context.Background(), h.client, k8s.NamespacedName(eventObj), *new(T))
 	if err != nil {
 		h.log.Errorf("Failed calling k8s operation: %s", err.Error())

@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -206,4 +207,50 @@ func Test_GetAttachedPolicies(t *testing.T) {
 			assert.ElementsMatch(t, got, tt.want)
 		})
 	}
+}
+
+func TestPolicyConditionMatch(t *testing.T) {
+	type Condition = apimachineryv1.Condition
+	type Reason = gwv1alpha2.PolicyConditionReason
+
+	type Test struct {
+		name   string
+		cnds   []Condition
+		filter []Reason
+		want   bool
+	}
+
+	tests := []Test{
+		{"nil", nil, nil, true},
+		{"nil filter", []Condition{{}}, nil, true},
+		{"0 len filter", []Condition{{}}, []Reason{}, true},
+		{"condition not found", []Condition{{}}, []Reason{"Accepted"}, false},
+		{
+			"condition does not match",
+			[]Condition{{Type: string(gwv1alpha2.PolicyConditionAccepted), Reason: "NotReconciled"}},
+			[]Reason{"Accepted"}, false,
+		},
+		{
+			"condtion match",
+			[]Condition{{Type: string(gwv1alpha2.PolicyConditionAccepted), Reason: "Accepted"}},
+			[]Reason{"Accepted"},
+			true,
+		},
+		{
+			"condtion match mutli-filter",
+			[]Condition{{Type: string(gwv1alpha2.PolicyConditionAccepted), Reason: "Accepted"}},
+			[]Reason{"NotFound", "Accepted"},
+			true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			match := policyConditionMatch(tt.cnds, tt.filter)
+			if match != tt.want {
+				t.Errorf("filter does not match, cnds=%v, filter=%v, want=%t", tt.cnds, tt.filter, tt.want)
+			}
+		})
+	}
+
 }
