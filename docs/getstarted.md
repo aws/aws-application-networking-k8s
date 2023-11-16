@@ -21,7 +21,7 @@ This example creates a single cluster in a single VPC, then configures two route
 
 **Set up service-to-service communications**
 
-1. Use aws cli to create a VPC Lattice service network, with the name `my-hotel`:
+1. Use AWS CLI to create a VPC Lattice service network, with the name `my-hotel`:
    ```bash
    aws vpc-lattice create-service-network --name my-hotel 
    {
@@ -32,7 +32,7 @@ This example creates a single cluster in a single VPC, then configures two route
    }
    ```
    
-1. Create the Lattice ServiceNetworkVpcAssociation between current k8s cluster VPC and `my-hotel` service network:
+1. Create the service network VPC association between current k8s cluster VPC and `my-hotel` service network:
    ```bash
      aws vpc-lattice create-service-network-vpc-association --service-network-identifier <my-hotel-sn-id> --vpc-identifier <k8s-cluster-vpc-id>
       {
@@ -55,7 +55,7 @@ This example creates a single cluster in a single VPC, then configures two route
    ```bash
    kubectl apply -f examples/my-hotel-gateway.yaml
    ```
-   Verify that `my-hotel` gateway is created with `PROGRAMMED` equals to `True`:
+   Verify that `my-hotel` Gateway is created with `PROGRAMMED` status equals to `True`:
    ```bash
    kubectl get gateway  
    
@@ -63,7 +63,7 @@ This example creates a single cluster in a single VPC, then configures two route
    my-hotel   amazon-vpc-lattice               True      7d12h
    ```
 
-1. Create the Kubernetes HTTPRoute `rates` that can has path match routes to the `parking` service and `review` service (this could take about a few minutes)
+1. Create the Kubernetes HTTPRoute `rates` that can has path matches routing to the `parking` service and `review` service (this could take about a few minutes)
    ```bash
    kubectl apply -f examples/parking.yaml
    kubectl apply -f examples/review.yaml
@@ -107,7 +107,7 @@ This example creates a single cluster in a single VPC, then configures two route
       ...
       ```
 
-1. if the previous step returns the expected response, store lattice assigned DNS names to variables.
+1. If the previous step returns the expected response, store VPC Lattice assigned DNS names to variables.
 
    ```bash
    ratesFQDN=$(kubectl get httproute rates -o json | jq -r '.metadata.annotations."application-networking.k8s.aws/lattice-assigned-domain-name"')
