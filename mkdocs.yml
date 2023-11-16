@@ -17,8 +17,8 @@ nav:
     - Custom Domain Name: concepts/custom-domain-name.md
     - GRPC: concepts/grpc.md
     - Cross-Account Sharing: concepts/ram-sharing.md
+  - API Specification: api-reference.md
   - API Reference:
-    - API Specification: api-reference.md
     - GRPCRoute: reference/grpc-route.md
     - TargetGroupPolicy: reference/target-group-policy.md
     - VpcAssociationPolicy: reference/vpc-association-policy.md
