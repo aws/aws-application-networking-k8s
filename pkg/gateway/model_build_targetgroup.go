@@ -33,6 +33,8 @@ func (e *InvalidBackendRefError) Error() string {
 	return e.Reason
 }
 
+//go:generate mockgen -destination model_build_targetgroup_mock.go -package gateway github.com/aws/aws-application-networking-k8s/pkg/gateway SvcExportTargetGroupModelBuilder,BackendRefTargetGroupModelBuilder
+
 type SvcExportTargetGroupModelBuilder interface {
 	// used during standard model build
 	Build(ctx context.Context, svcExport *anv1alpha1.ServiceExport) (core.Stack, error)

@@ -19,7 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -42,7 +41,7 @@ func RegisterVpcAssociationPolicyController(log gwlog.Logger, mgr ctrl.Manager, 
 	eh := eventhandlers.NewPolicyEventHandler(log, mgr.GetClient(), &anv1alpha1.VpcAssociationPolicy{})
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.VpcAssociationPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&source.Kind{Type: &gwv1beta1.Gateway{}}, eh.MapObjectToPolicy()).
+		Watches(&gwv1beta1.Gateway{}, eh.MapObjectToPolicy()).
 		Complete(controller)
 	return err
 }

@@ -15,7 +15,7 @@ import (
 
 	"testing"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 
 var testFramework *test.Framework
 var ctx context.Context
-var testGateway *v1beta1.Gateway
+var testGateway *gwv1.Gateway
 var testServiceNetwork *vpclattice.ServiceNetworkSummary
 var _ = BeforeSuite(func() {
 	vpcId := os.Getenv("CLUSTER_VPC_ID")

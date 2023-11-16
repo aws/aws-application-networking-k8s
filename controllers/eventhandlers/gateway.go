@@ -35,17 +35,17 @@ func NewEnqueueRequestGatewayEvent(log gwlog.Logger, client client.Client) handl
 
 var ZeroTransitionTime = metav1.NewTime(time.Time{})
 
-func (h *enqueueRequestsForGatewayEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForGatewayEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	gwNew := e.Object.(*gateway_api.Gateway)
 
 	h.log.Infof("Received Create event for Gateway %s-%s", gwNew.Name, gwNew.Namespace)
 
 	// initialize transition time
 	gwNew.Status.Conditions[0].LastTransitionTime = ZeroTransitionTime
-	h.enqueueImpactedRoutes(queue)
+	h.enqueueImpactedRoutes(ctx, queue)
 }
 
-func (h *enqueueRequestsForGatewayEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForGatewayEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
 	gwOld := e.ObjectOld.(*gateway_api.Gateway)
 	gwNew := e.ObjectNew.(*gateway_api.Gateway)
 
@@ -54,20 +54,20 @@ func (h *enqueueRequestsForGatewayEvent) Update(e event.UpdateEvent, queue workq
 	if !equality.Semantic.DeepEqual(gwOld.Spec, gwNew.Spec) {
 		// initialize transition time
 		gwNew.Status.Conditions[0].LastTransitionTime = ZeroTransitionTime
-		h.enqueueImpactedRoutes(queue)
+		h.enqueueImpactedRoutes(ctx, queue)
 	}
 }
 
-func (h *enqueueRequestsForGatewayEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForGatewayEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
 	// TODO: delete gateway
 }
 
-func (h *enqueueRequestsForGatewayEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForGatewayEvent) Generic(ctx context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 
 }
 
-func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(queue workqueue.RateLimitingInterface) {
-	routes, err := core.ListAllRoutes(context.TODO(), h.client)
+func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(ctx context.Context, queue workqueue.RateLimitingInterface) {
+	routes, err := core.ListAllRoutes(ctx, h.client)
 	if err != nil {
 		h.log.Errorf("Failed to list all routes, %s", err)
 		return
@@ -91,7 +91,7 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(queue workqueue.R
 		}
 
 		gw := &gateway_api.Gateway{}
-		if err := h.client.Get(context.TODO(), gwName, gw); err != nil {
+		if err := h.client.Get(ctx, gwName, gw); err != nil {
 			h.log.Debugf("Ignoring Route with unknown parentRef %s-%s", route.Name(), route.Namespace())
 			continue
 		}
@@ -103,7 +103,7 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(queue workqueue.R
 			Name:      string(gw.Spec.GatewayClassName),
 		}
 
-		if err := h.client.Get(context.TODO(), gwClassName, gwClass); err != nil {
+		if err := h.client.Get(ctx, gwClassName, gwClass); err != nil {
 			h.log.Debugf("Ignoring Route with unknown Gateway %s-%s", route.Name(), route.Namespace())
 			continue
 		}

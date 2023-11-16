@@ -27,26 +27,27 @@ type enqueueRequestsForGatewayClassEvent struct {
 	client client.Client
 }
 
-func (h *enqueueRequestsForGatewayClassEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForGatewayClassEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	gwClassNew := e.Object.(*gateway_api.GatewayClass)
-	h.enqueueImpactedGateway(queue, gwClassNew)
+	h.enqueueImpactedGateway(ctx, queue, gwClassNew)
 }
 
-func (h *enqueueRequestsForGatewayClassEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForGatewayClassEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
 }
 
-func (h *enqueueRequestsForGatewayClassEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForGatewayClassEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
 }
 
-func (h *enqueueRequestsForGatewayClassEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForGatewayClassEvent) Generic(ctx context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) enqueueImpactedGateway(
+	ctx context.Context,
 	queue workqueue.RateLimitingInterface,
 	gwClass *gateway_api.GatewayClass,
 ) {
 	gwList := &gateway_api.GatewayList{}
-	err := h.client.List(context.TODO(), gwList)
+	err := h.client.List(ctx, gwList)
 	if err != nil {
 		h.log.Errorf("Error listing Gateways during GatewayClass event %s", err)
 		return

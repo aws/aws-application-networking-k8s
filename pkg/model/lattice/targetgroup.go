@@ -87,15 +87,19 @@ func TGTagFieldsFromTags(tags map[string]*string) TargetGroupTagFields {
 
 func TagsFromTGTagFields(tagFields TargetGroupTagFields) map[string]*string {
 	st := string(tagFields.K8SSourceType)
-	return map[string]*string{
+
+	tags := map[string]*string{
 		K8SClusterNameKey:      &tagFields.K8SClusterName,
-		K8SRouteNameKey:        &tagFields.K8SRouteName,
-		K8SRouteNamespaceKey:   &tagFields.K8SRouteNamespace,
 		K8SServiceNameKey:      &tagFields.K8SServiceName,
 		K8SServiceNamespaceKey: &tagFields.K8SServiceNamespace,
 		K8SSourceTypeKey:       &st,
 		K8SProtocolVersionKey:  &tagFields.K8SProtocolVersion,
 	}
+	if tagFields.K8SSourceType != SourceTypeSvcExport {
+		tags[K8SRouteNameKey] = &tagFields.K8SRouteName
+		tags[K8SRouteNamespaceKey] = &tagFields.K8SRouteNamespace
+	}
+	return tags
 }
 
 func getMapValue(m map[string]*string, key string) string {

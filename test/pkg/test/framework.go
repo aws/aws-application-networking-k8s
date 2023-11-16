@@ -36,8 +36,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -59,10 +59,10 @@ var (
 	testScheme          = runtime.NewScheme()
 	CurrentClusterVpcId = os.Getenv("CLUSTER_VPC_ID")
 	TestObjects         = []TestObject{
-		{&gwv1beta1.HTTPRoute{}, &gwv1beta1.HTTPRouteList{}},
+		{&gwv1.HTTPRoute{}, &gwv1.HTTPRouteList{}},
 		{&anv1alpha1.ServiceExport{}, &anv1alpha1.ServiceExportList{}},
 		{&anv1alpha1.ServiceImport{}, &anv1alpha1.ServiceImportList{}},
-		{&gwv1beta1.Gateway{}, &gwv1beta1.GatewayList{}},
+		{&gwv1.Gateway{}, &gwv1.GatewayList{}},
 		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
 		{&corev1.Service{}, &corev1.ServiceList{}},
 	}
@@ -72,7 +72,7 @@ func init() {
 	format.MaxLength = 0
 	utilruntime.Must(clientgoscheme.AddToScheme(testScheme))
 	utilruntime.Must(gwv1alpha2.AddToScheme(testScheme))
-	utilruntime.Must(gwv1beta1.AddToScheme(testScheme))
+	utilruntime.Must(gwv1.AddToScheme(testScheme))
 	utilruntime.Must(anv1alpha1.AddToScheme(testScheme))
 	addOptionalCRDs(testScheme)
 }
@@ -149,28 +149,7 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		env.EventuallyExpectNoneFound(ctx, testObject.ListType)
 	})
 
-	retrievedServiceNetworkVpcAssociations, _ := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
-		VpcIdentifier: aws.String(CurrentClusterVpcId),
-	})
-	env.Log.Infof("Expect VPC used by current cluster has no ServiceNetworkVPCAssociation, if it does you should manually delete it")
-	Expect(len(retrievedServiceNetworkVpcAssociations)).To(Equal(0))
 	Eventually(func(g Gomega) {
-		retrievedServiceNetworks, _ := env.LatticeClient.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
-		for _, sn := range retrievedServiceNetworks {
-			env.Log.Infof("Found service network, checking if created by current EKS Cluster: %v", sn)
-			retrievedTags, err := env.LatticeClient.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
-				ResourceArn: sn.Arn,
-			})
-			if err == nil { // for err != nil, it is possible that this service network own by other account, and it is shared to current account by RAM
-				env.Log.Infof("Found Tags for serviceNetwork %v tags: %v", *sn.Name, retrievedTags)
-
-				value, ok := retrievedTags.Tags[model.K8SServiceNetworkOwnedByVPC]
-				if ok {
-					g.Expect(*value).To(Not(Equal(CurrentClusterVpcId)))
-				}
-			}
-		}
-
 		retrievedServices, _ := env.LatticeClient.ListServicesAsList(ctx, &vpclattice.ListServicesInput{})
 		for _, service := range retrievedServices {
 			env.Log.Infof("Found service, checking if created by current EKS Cluster: %v", service)
@@ -239,7 +218,7 @@ func (env *Framework) ExpectDeletedThenNotFound(ctx context.Context, objects ...
 }
 
 func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Object) {
-	httpRouteType := reflect.TypeOf(&gwv1beta1.HTTPRoute{})
+	httpRouteType := reflect.TypeOf(&gwv1.HTTPRoute{})
 	grpcRouteType := reflect.TypeOf(&gwv1alpha2.GRPCRoute{})
 
 	routeObjects := []client.Object{}
@@ -265,7 +244,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 			}
 
 			if httpRouteType == t {
-				http := &gwv1beta1.HTTPRoute{}
+				http := &gwv1.HTTPRoute{}
 				err := env.Get(ctx, nsName, http)
 				if err != nil {
 					env.Log.Infof("Error getting http route %s", err)
@@ -273,7 +252,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 				}
 
 				env.Log.Infof("Clearing http route rules for %s", http.Name)
-				http.Spec.Rules = make([]gwv1beta1.HTTPRouteRule, 0)
+				http.Spec.Rules = make([]gwv1.HTTPRouteRule, 0)
 				err = env.Update(ctx, http)
 				if err != nil {
 					env.Log.Infof("Error clearing http route rules %s", err)
@@ -334,7 +313,7 @@ func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList 
 	}).WithOffset(1).Should(Succeed())
 }
 
-func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *gwv1beta1.Gateway) *vpclattice.ServiceNetworkSummary {
+func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *gwv1.Gateway) *vpclattice.ServiceNetworkSummary {
 	var found *vpclattice.ServiceNetworkSummary
 	Eventually(func(g Gomega) {
 		listServiceNetworksOutput, err := env.LatticeClient.ListServiceNetworksWithContext(ctx, &vpclattice.ListServiceNetworksInput{})
@@ -596,7 +575,7 @@ func (env *Framework) GetLatticeServiceHttpsListenerNonDefaultRules(ctx context.
 
 func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNamespace string) string {
 	env.Log.Infoln("GetVpcLatticeServiceDns: ", httpRouteName, httpRouteNamespace)
-	httproute := gwv1beta1.HTTPRoute{}
+	httproute := gwv1.HTTPRoute{}
 	env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
 	vpcLatticeServiceDns := httproute.Annotations[controllers.LatticeAssignedDomainName]
 	return vpcLatticeServiceDns

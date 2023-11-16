@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -78,8 +79,8 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	gwClass.Status.Conditions[0].LastTransitionTime = metav1.NewTime(time.Now())
 	gwClass.Status.Conditions[0].ObservedGeneration = gwClass.Generation
 	gwClass.Status.Conditions[0].Status = "True"
-	gwClass.Status.Conditions[0].Message = string(gwv1beta1.GatewayClassReasonAccepted)
-	gwClass.Status.Conditions[0].Reason = string(gwv1beta1.GatewayClassReasonAccepted)
+	gwClass.Status.Conditions[0].Message = string(gwv1.GatewayClassReasonAccepted)
+	gwClass.Status.Conditions[0].Reason = string(gwv1.GatewayClassReasonAccepted)
 
 	if err := r.client.Status().Patch(ctx, gwClass, client.MergeFrom(gwClassOld)); err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "failed to update gatewayclass status")

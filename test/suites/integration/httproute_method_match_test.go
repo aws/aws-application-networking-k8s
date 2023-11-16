@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,16 +14,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("HTTPRoute method matches", func() {
 
 	var (
-		methodMatchHttpRoute *v1beta1.HTTPRoute
+		methodMatchHttpRoute *gwv1.HTTPRoute
 		deployment1          *appsv1.Deployment
 		getService           *corev1.Service
 		deployment2          *appsv1.Deployment

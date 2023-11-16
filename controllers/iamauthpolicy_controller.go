@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -53,11 +52,11 @@ func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud p
 	mapfn := iamAuthPolicyMapFunc(mgr.GetClient(), log)
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.IAMAuthPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&source.Kind{Type: &gwv1beta1.Gateway{}},
+		Watches(&gwv1beta1.Gateway{},
 			handler.EnqueueRequestsFromMapFunc(mapfn)).
-		Watches(&source.Kind{Type: &gwv1beta1.HTTPRoute{}},
+		Watches(&gwv1beta1.HTTPRoute{},
 			handler.EnqueueRequestsFromMapFunc(mapfn)).
-		Watches(&source.Kind{Type: &gwv1alpha2.GRPCRoute{}},
+		Watches(&gwv1alpha2.GRPCRoute{},
 			handler.EnqueueRequestsFromMapFunc(mapfn)).
 		Complete(controller)
 	return err
@@ -287,10 +286,10 @@ func (c *IAMAuthPolicyController) updatePolicyCondition(k8sPolicy *anv1alpha1.IA
 }
 
 func iamAuthPolicyMapFunc(c client.Client, log gwlog.Logger) handler.MapFunc {
-	return func(obj client.Object) []ctrl.Request {
+	return func(ctx context.Context, obj client.Object) []ctrl.Request {
 		requests := []ctrl.Request{}
 		policies := &anv1alpha1.IAMAuthPolicyList{}
-		err := c.List(context.Background(), policies, &client.ListOptions{Namespace: obj.GetNamespace()})
+		err := c.List(ctx, policies, &client.ListOptions{Namespace: obj.GetNamespace()})
 		if err != nil {
 			log.Error(err)
 			return requests

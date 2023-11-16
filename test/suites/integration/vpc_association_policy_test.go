@@ -11,11 +11,11 @@ import (
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 var _ = Describe("Test vpc association policy", Ordered, func() {
@@ -75,11 +75,11 @@ var _ = Describe("Test vpc association policy", Ordered, func() {
 				Namespace: k8snamespace,
 			},
 			Spec: v1alpha1.VpcAssociationPolicySpec{
-				TargetRef: &gateway_api_v1alpha2.PolicyTargetReference{
-					Group:     gateway_api.GroupName,
+				TargetRef: &gwv1alpha2.PolicyTargetReference{
+					Group:     gwv1.GroupName,
 					Kind:      "Gateway",
-					Name:      gateway_api_v1alpha2.ObjectName(testGateway.Name),
-					Namespace: lo.ToPtr(gateway_api_v1alpha2.Namespace(k8snamespace)),
+					Name:      gwv1alpha2.ObjectName(testGateway.Name),
+					Namespace: lo.ToPtr(gwv1alpha2.Namespace(k8snamespace)),
 				},
 				AssociateWithVpc: lo.ToPtr(false),
 			},

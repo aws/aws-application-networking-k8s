@@ -16,6 +16,8 @@ import (
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
+//go:generate mockgen -destination rule_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice RuleManager
+
 type RuleManager interface {
 	Upsert(ctx context.Context, modelRule *model.Rule, modelListener *model.Listener, modelSvc *model.Service) (model.RuleStatus, error)
 	Delete(ctx context.Context, ruleId string, serviceId string, listenerId string) error

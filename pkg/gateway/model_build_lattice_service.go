@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -14,7 +12,10 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+//go:generate mockgen -destination model_build_lattice_service_mock.go -package gateway github.com/aws/aws-application-networking-k8s/pkg/gateway LatticeServiceBuilder
 
 type LatticeServiceBuilder interface {
 	Build(ctx context.Context, httpRoute core.Route) (core.Stack, error)
@@ -166,7 +167,7 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 
 		for _, section := range gw.Spec.Listeners {
 			if section.Name == *parentRef.SectionName && section.TLS != nil {
-				if section.TLS.Mode != nil && *section.TLS.Mode == gwv1beta1.TLSModeTerminate {
+				if section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModeTerminate {
 					curCertARN, ok := section.TLS.Options[awsCustomCertARN]
 					if ok {
 						t.log.Debugf("Found certification %s under section %s", curCertARN, section.Name)

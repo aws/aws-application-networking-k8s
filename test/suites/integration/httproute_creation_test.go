@@ -7,13 +7,14 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-sdk-go/aws"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("HTTPRoute Creation", func() {
@@ -23,7 +24,7 @@ var _ = Describe("HTTPRoute Creation", func() {
 		service       *v1.Service
 		serviceExport *anv1alpha1.ServiceExport
 		serviceImport *anv1alpha1.ServiceImport
-		httpRoute     *v1beta1.HTTPRoute
+		httpRoute     *gwv1.HTTPRoute
 	)
 
 	BeforeEach(func() {
@@ -90,7 +91,7 @@ var _ = Describe("HTTPRoute Creation", func() {
 
 			// Override port match to make the BackendRef not be able to find
 			// any port causing no available targets to register
-			httpRoute.Spec.Rules[0].BackendRefs[0].BackendRef.Port = (*v1beta1.PortNumber)(aws.Int32(100))
+			httpRoute.Spec.Rules[0].BackendRefs[0].BackendRef.Port = (*gwv1.PortNumber)(aws.Int32(100))
 
 			testFramework.ExpectCreated(
 				ctx,
@@ -100,7 +101,7 @@ var _ = Describe("HTTPRoute Creation", func() {
 			)
 
 			testFramework.GetTargetGroup(ctx, service)
-			testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
+			testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 		})
 	})
 
@@ -116,7 +117,7 @@ var _ = Describe("HTTPRoute Creation", func() {
 })
 
 func verifyResourceCreation(
-	httpRoute *v1beta1.HTTPRoute,
+	httpRoute *gwv1.HTTPRoute,
 	service *v1.Service,
 ) {
 	route, _ := core.NewRoute(httpRoute)
