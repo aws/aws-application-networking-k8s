@@ -3,7 +3,7 @@
 ## Introduction
 
 With integration of the Gateway API, the EKS Controller project supports `GRPCRoute`.
-This allows you to specifically define and manage the routing of gRPC traffic within your Kubernetes cluster.
+This allows you to define and manage the routing of gRPC traffic within your Kubernetes cluster.
 
 ### GRPCRoute Key Features & Limitations:
 
@@ -70,4 +70,6 @@ In this example:
 
 ---
 
-This `GRPCRoute` documentation provides a detailed introduction, feature set, and a basic example of how to configure and use the resource within the EKS Controller project. For in-depth details and specifications, you can refer to the official [Gateway API documentation](https://gateway-api.sigs.k8s.io/references/spec/#networking.x-k8s.io/v1alpha2.GRPCRoute).
+This `GRPCRoute` documentation provides a detailed introduction, feature set, and a basic example of how to configure
+and use the resource within the EKS Controller project. For in-depth details and specifications, you can refer to the
+official [Gateway API documentation](https://gateway-api.sigs.k8s.io/references/spec/#networking.x-k8s.io/v1alpha2.GRPCRoute).
