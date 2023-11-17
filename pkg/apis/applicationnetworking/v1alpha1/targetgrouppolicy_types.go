@@ -122,14 +122,14 @@ type HealthCheckConfig struct {
 	ProtocolVersion *HealthCheckProtocolVersion `json:"protocolVersion,omitempty"`
 }
 
-// TargetGroupPolicyStatus defines the observed state of AccessLogPolicy.
+// TargetGroupPolicyStatus defines the observed state of TargetGroup.
 type TargetGroupPolicyStatus struct {
-	// Conditions describe the current conditions of the AccessLogPolicy.
+	// Conditions describe the current conditions of the TargetGroup.
 	//
 	// Implementations should prefer to express Policy conditions
 	// using the `PolicyConditionType` and `PolicyConditionReason`
 	// constants so that operators and tools can converge on a common
-	// vocabulary to describe AccessLogPolicy state.
+	// vocabulary to describe TargetGroup state.
 	//
 	// Known condition types are:
 	//
