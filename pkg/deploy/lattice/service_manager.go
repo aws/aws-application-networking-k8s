@@ -311,6 +311,7 @@ func (m *defaultServiceManager) deleteAllListeners(ctx context.Context, svc *Svc
 	}
 	for _, listener := range listeners {
 		_, err = m.cloud.Lattice().DeleteListenerWithContext(ctx, &vpclattice.DeleteListenerInput{
+			ServiceIdentifier:  svc.Id,
 			ListenerIdentifier: listener.Id,
 		})
 		if err != nil {
