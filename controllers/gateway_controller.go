@@ -38,7 +38,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
@@ -47,6 +46,7 @@ import (
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
@@ -100,7 +100,7 @@ func RegisterGatewayController(
 	vpcAssociationPolicyEventHandler := eventhandlers.NewVpcAssociationPolicyEventHandler(log, mgrClient)
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&gwv1beta1.Gateway{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
-	builder.Watches(&source.Kind{Type: &gwv1beta1.GatewayClass{}}, gwClassEventHandler)
+	builder.Watches(&gwv1beta1.GatewayClass{}, gwClassEventHandler)
 
 	//Watch VpcAssociationPolicy CRD if it is installed
 	ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.VpcAssociationPolicyKind)
@@ -108,7 +108,7 @@ func RegisterGatewayController(
 		return err
 	}
 	if ok {
-		builder.Watches(&source.Kind{Type: &anv1alpha1.VpcAssociationPolicy{}}, vpcAssociationPolicyEventHandler.MapToGateway())
+		builder.Watches(&anv1alpha1.VpcAssociationPolicy{}, vpcAssociationPolicyEventHandler.MapToGateway())
 	} else {
 		log.Infof("VpcAssociationPolicy CRD is not installed, skipping watch")
 	}
@@ -252,18 +252,18 @@ func (r *gatewayReconciler) updateGatewayProgrammedStatus(
 
 	if programmed {
 		gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, metav1.Condition{
-			Type:               string(gwv1beta1.GatewayConditionProgrammed),
+			Type:               string(gwv1.GatewayConditionProgrammed),
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: gw.Generation,
-			Reason:             string(gwv1beta1.GatewayReasonProgrammed),
+			Reason:             string(gwv1.GatewayReasonProgrammed),
 			Message:            fmt.Sprintf("aws-gateway-arn: %s", snArn),
 		})
 	} else {
 		gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, metav1.Condition{
-			Type:               string(gwv1beta1.GatewayConditionProgrammed),
+			Type:               string(gwv1.GatewayConditionProgrammed),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: gw.Generation,
-			Reason:             string(gwv1beta1.GatewayReasonPending),
+			Reason:             string(gwv1.GatewayReasonPending),
 			Message:            "VPC Lattice Gateway not found",
 		})
 	}
@@ -280,19 +280,19 @@ func (r *gatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	var cond metav1.Condition
 	if accepted {
 		cond = metav1.Condition{
-			Type:               string(gwv1beta1.GatewayConditionAccepted),
+			Type:               string(gwv1.GatewayConditionAccepted),
 			ObservedGeneration: gw.Generation,
 			Message:            config.LatticeGatewayControllerName,
 			Status:             metav1.ConditionTrue,
-			Reason:             string(gwv1beta1.GatewayReasonAccepted),
+			Reason:             string(gwv1.GatewayReasonAccepted),
 		}
 	} else {
 		cond = metav1.Condition{
-			Type:               string(gwv1beta1.GatewayConditionAccepted),
+			Type:               string(gwv1.GatewayConditionAccepted),
 			ObservedGeneration: gw.Generation,
 			Message:            config.LatticeGatewayControllerName,
 			Status:             metav1.ConditionFalse,
-			Reason:             string(gwv1beta1.GatewayReasonInvalid),
+			Reason:             string(gwv1.GatewayReasonInvalid),
 		}
 	}
 	gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, cond)
@@ -318,12 +318,12 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 	// but we have different endpoints for each service. This can represent incorrect value in some cases (e.g. cross-account)
 	// Due to size limit, we cannot put all service addresses here.
 	if len(routes) > 0 {
-		gw.Status.Addresses = []gwv1beta1.GatewayAddress{}
+		gw.Status.Addresses = []gwv1.GatewayStatusAddress{}
 		addressType := gwv1beta1.HostnameAddressType
 		for _, route := range routes {
 			if route.DeletionTimestamp().IsZero() && len(route.K8sObject().GetAnnotations()) > 0 {
 				if domain, exists := route.K8sObject().GetAnnotations()[LatticeAssignedDomainName]; exists {
-					gw.Status.Addresses = append(gw.Status.Addresses, gwv1beta1.GatewayAddress{
+					gw.Status.Addresses = append(gw.Status.Addresses, gwv1.GatewayStatusAddress{
 						Type:  &addressType,
 						Value: domain,
 					})
@@ -352,9 +352,9 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 		validListener, supportedKinds := listenerRouteGroupKindSupported(listener)
 		if !validListener {
 			condition := metav1.Condition{
-				Type:               string(gwv1beta1.ListenerConditionResolvedRefs),
+				Type:               string(gwv1.ListenerConditionResolvedRefs),
 				Status:             metav1.ConditionFalse,
-				Reason:             string(gwv1beta1.ListenerReasonInvalidRouteKinds),
+				Reason:             string(gwv1.ListenerReasonInvalidRouteKinds),
 				ObservedGeneration: gw.Generation,
 				LastTransitionTime: metav1.Now(),
 			}
@@ -364,9 +364,9 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 			hasValidListener = true
 
 			condition := metav1.Condition{
-				Type:               string(gwv1beta1.ListenerConditionAccepted),
+				Type:               string(gwv1.ListenerConditionAccepted),
 				Status:             metav1.ConditionTrue,
-				Reason:             string(gwv1beta1.ListenerReasonAccepted),
+				Reason:             string(gwv1.ListenerReasonAccepted),
 				ObservedGeneration: gw.Generation,
 				LastTransitionTime: metav1.Now(),
 			}
@@ -406,7 +406,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 				}
 			}
 
-			if listener.Protocol == gwv1beta1.HTTPSProtocolType {
+			if listener.Protocol == gwv1.HTTPSProtocolType {
 				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1beta1.RouteGroupKind{
 					Kind: "GRPCRoute",
 				})
@@ -454,7 +454,7 @@ func listenerRouteGroupKindSupported(listener gwv1beta1.Listener) (bool, []gwv1b
 				Kind: "HTTPRoute",
 			})
 		} else if routeGroupKind.Kind == "GRPCRoute" {
-			if listener.Protocol == gwv1beta1.HTTPSProtocolType {
+			if listener.Protocol == gwv1.HTTPSProtocolType {
 				supportedKinds = append(supportedKinds, gwv1beta1.RouteGroupKind{
 					Kind: "GRPCRoute",
 				})

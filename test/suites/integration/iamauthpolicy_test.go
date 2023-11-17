@@ -7,8 +7,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/controllers"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
-
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -18,11 +16,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("IAM Auth Policy", Ordered, func() {
@@ -30,7 +30,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 	const (
 		AllowAllInvoke = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"vpc-lattice-svcs:Invoke","Resource":"*"}]}`
 		NoPolicy       = ""
-		SvcName = "iam-auth-http"
+		SvcName        = "iam-auth-http"
 	)
 
 	var (
@@ -44,9 +44,9 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 			Spec: anv1alpha1.IAMAuthPolicySpec{
 				Policy: AllowAllInvoke,
 				TargetRef: &gwv1alpha2.PolicyTargetReference{
-					Group: gwv1beta1.Group(trGroup),
-					Kind:  gwv1beta1.Kind(trKind),
-					Name:  gwv1beta1.ObjectName(trName),
+					Group: gwv1.Group(trGroup),
+					Kind:  gwv1.Kind(trKind),
+					Name:  gwv1.ObjectName(trName),
 				},
 			},
 		}
@@ -57,7 +57,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 	}
 
 	newPolicy := func(name, trKind, trName string) *anv1alpha1.IAMAuthPolicy {
-		return newPolicyWithGroup(name, gwv1beta1.GroupName, trKind, trName)
+		return newPolicyWithGroup(name, gwv1.GroupName, trKind, trName)
 	}
 
 	type K8sResults struct {
@@ -108,7 +108,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 	var (
 		httpDep   *appsv1.Deployment
 		httpSvc   *corev1.Service
-		httpRoute *gwv1beta1.HTTPRoute
+		httpRoute *gwv1.HTTPRoute
 	)
 
 	BeforeAll(func() {
@@ -177,7 +177,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 	It("accepted, applied, and removed from HTTPRoute", func() {
 		policy := newPolicy("http", "HTTPRoute", SvcName)
-		svc, _ := lattice.FindService(context.TODO(), utils.LatticeServiceName(SvcName, k8snamespace))
+		svc := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 		svcId := *svc.Id
 
 		// accepted

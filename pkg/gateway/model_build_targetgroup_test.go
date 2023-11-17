@@ -214,7 +214,7 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			anv1alpha1.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			if tt.svc != nil {
 				assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
@@ -470,7 +470,7 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 			clientgoscheme.AddToScheme(k8sSchema)
 			anv1alpha1.AddToScheme(k8sSchema)
 			gwv1beta1.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 

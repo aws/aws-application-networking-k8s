@@ -76,7 +76,7 @@ func TestServiceEventHandler_MapToRoute(t *testing.T) {
 		},
 	}
 	for _, obj := range objs {
-		reqs := h.mapToRoute(obj, core.HttpRouteType)
+		reqs := h.mapToRoute(context.Background(), obj, core.HttpRouteType)
 		assert.Len(t, reqs, 1)
 		assert.Equal(t, "valid-route", reqs[0].Name)
 	}
@@ -124,7 +124,7 @@ func TestServiceEventHandler_MapToServiceExport(t *testing.T) {
 		},
 	}
 	for _, obj := range objs {
-		reqs := h.mapToServiceExport(obj)
+		reqs := h.mapToServiceExport(context.Background(), obj)
 		assert.Len(t, reqs, 1)
 		assert.Equal(t, "test-service", reqs[0].Name)
 	}

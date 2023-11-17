@@ -74,7 +74,6 @@ test: ## Run tests.
 .PHONY: toolchain
 toolchain: ## Install developer toolchain
 	./hack/toolchain.sh
-	./scripts/gen_mocks.sh
 
 ##@ Deployment
 

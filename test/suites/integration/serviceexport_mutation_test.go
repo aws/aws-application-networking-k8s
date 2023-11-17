@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
-var _ = Describe("ServiceExport Mutation Test", func() {
+var _ = Describe("ServiceExport Mutation Test", Ordered, func() {
 	Context("Test ServiceExport Deletion", func() {
 		var (
 			deployment    *appsv1.Deployment
@@ -29,7 +29,7 @@ var _ = Describe("ServiceExport Mutation Test", func() {
 
 		BeforeEach(func() {
 			deployment, service = testFramework.NewNginxApp(test.ElasticSearchOptions{
-				Name:      "http",
+				Name:      "serviceexport-mutation",
 				Port:      8080,
 				Port2:     8081,
 				Namespace: k8snamespace,

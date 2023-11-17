@@ -6,6 +6,7 @@ import (
 	"fmt"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"k8s.io/apimachinery/pkg/types"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -17,7 +18,7 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 	ctx context.Context,
 	parentRef gwv1beta1.ParentReference,
 ) (int64, string, error) {
-	protocol := gwv1beta1.HTTPProtocolType
+	protocol := gwv1.HTTPProtocolType
 	if parentRef.SectionName != nil {
 		t.log.Debugf("Listener parentRef SectionName is %s", *parentRef.SectionName)
 	}

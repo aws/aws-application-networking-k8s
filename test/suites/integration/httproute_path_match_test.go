@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -13,12 +14,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("HTTPRoute path matches", func() {
@@ -27,12 +26,12 @@ var _ = Describe("HTTPRoute path matches", func() {
 		deployment2        *appsv1.Deployment
 		service1           *v1.Service
 		service2           *v1.Service
-		pathMatchHttpRoute *v1beta1.HTTPRoute
+		pathMatchHttpRoute *gwv1.HTTPRoute
 	)
 
 	It("HTTPRoute should support multiple path matches", func() {
-		deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
-		deployment2, service2 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2", Namespace: k8snamespace})
+		deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "path-match-test-v1", Namespace: k8snamespace})
+		deployment2, service2 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "path-match-test-v2", Namespace: k8snamespace})
 		pathMatchHttpRoute = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1, service2}, "http",
 			"", k8snamespace)
 

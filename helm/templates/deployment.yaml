@@ -92,6 +92,11 @@ spec:
               configMapKeyRef:
                 name: env-config
                 key: latticeEndpoint
+          - name: DEFAULT_SERVICE_NETWORK
+            valueFrom:
+              configMapKeyRef:
+                name: env-config
+                key: defaultServiceNetwork
 
       terminationGracePeriodSeconds: 10
       nodeSelector: {{ toYaml .Values.deployment.nodeSelector | nindent 8 }}

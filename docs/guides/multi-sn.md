@@ -97,8 +97,6 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: gateway-1
-  annotations:
-    application-networking.k8s.aws/lattice-vpc-association: "true"  #  associate to VPC
 spec:
   gatewayClassName: amazon-vpc-lattice
   listeners:
@@ -114,8 +112,6 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: gateway-2
-  annotations:
-    application-networking.k8s.aws/lattice-vpc-association: "true"  #  associate to VPC
 spec:
   gatewayClassName: amazon-vpc-lattice
   listeners:

@@ -17,6 +17,8 @@ import (
 	"reflect"
 )
 
+//go:generate mockgen -destination target_group_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice TargetGroupManager
+
 type TargetGroupManager interface {
 	Upsert(ctx context.Context, modelTg *model.TargetGroup) (model.TargetGroupStatus, error)
 	Delete(ctx context.Context, modelTg *model.TargetGroup) error
@@ -246,10 +248,7 @@ type tgListOutput struct {
 func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, error) {
 	lattice := s.cloud.Lattice()
 	var tgList []tgListOutput
-	targetGroupListInput := vpclattice.ListTargetGroupsInput{
-		VpcIdentifier:   aws.String(config.VpcID),
-		TargetGroupType: aws.String(vpclattice.TargetGroupTypeIp),
-	}
+	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
 	resp, err := lattice.ListTargetGroupsAsList(ctx, &targetGroupListInput)
 	if err != nil {
 		return nil, err
@@ -257,7 +256,11 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, e
 	if len(resp) == 0 {
 		return nil, nil
 	}
-	tgArns := utils.SliceMap(resp, func(tg *vpclattice.TargetGroupSummary) string {
+	validTgs := utils.SliceFilter(resp, func(tg *vpclattice.TargetGroupSummary) bool {
+		return aws.StringValue(tg.VpcIdentifier) == config.VpcID &&
+			aws.StringValue(tg.Type) == vpclattice.TargetGroupTypeIp
+	})
+	tgArns := utils.SliceMap(validTgs, func(tg *vpclattice.TargetGroupSummary) string {
 		return aws.StringValue(tg.Arn)
 	})
 	tgArnToTagsMap, err := s.cloud.Tagging().GetTagsForArns(ctx, tgArns)
@@ -265,7 +268,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, e
 	if err != nil {
 		return nil, err
 	}
-	for _, tg := range resp {
+	for _, tg := range validTgs {
 		tgList = append(tgList, tgListOutput{
 			tgSummary: tg,
 			tags:      tgArnToTagsMap[*tg.Arn],
@@ -286,44 +289,43 @@ func (s *defaultTargetGroupManager) findTargetGroup(
 	if len(arns) == 0 {
 		return nil, nil
 	}
-	// Tag fields guarantee one result, as there can be only one target group for one service/route combination.
-	// We move forward but log this situation to help troubleshooting
-	if len(arns) > 1 {
-		s.log.Warnw("Target groups with conflicting tags found", "arns", arns)
-	}
-	arn := arns[0]
 
-	latticeTg, err := s.cloud.Lattice().GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
-		TargetGroupIdentifier: &arn,
-	})
-	if err != nil {
-		return nil, services.IgnoreNotFound(err)
-	}
+	for _, arn := range arns {
+		latticeTg, err := s.cloud.Lattice().GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
+			TargetGroupIdentifier: &arn,
+		})
+		if err != nil {
+			if services.IsNotFoundError(err) {
+				continue
+			}
+			return nil, err
+		}
 
-	// we ignore create failed status, so may as well check for it first
-	status := aws.StringValue(latticeTg.Status)
-	if status == vpclattice.TargetGroupStatusCreateFailed {
-		return nil, nil
-	}
+		// we ignore create failed status, so may as well check for it first
+		status := aws.StringValue(latticeTg.Status)
+		if status == vpclattice.TargetGroupStatusCreateFailed {
+			continue
+		}
 
-	// Double-check the immutable fields to ensure TG is valid
-	match, err := s.IsTargetGroupMatch(ctx, modelTargetGroup, &vpclattice.TargetGroupSummary{
-		Arn:           latticeTg.Arn,
-		Port:          latticeTg.Config.Port,
-		Protocol:      latticeTg.Config.Protocol,
-		IpAddressType: latticeTg.Config.IpAddressType,
-		Type:          latticeTg.Type,
-		VpcIdentifier: latticeTg.Config.VpcIdentifier,
-	}, nil) // we already know that tags match
-	if err != nil {
-		return nil, err
-	}
-	if match {
-		switch status {
-		case vpclattice.TargetGroupStatusCreateInProgress, vpclattice.TargetGroupStatusDeleteInProgress:
-			return nil, errors.New(LATTICE_RETRY)
-		case vpclattice.TargetGroupStatusDeleteFailed, vpclattice.TargetGroupStatusActive:
-			return latticeTg, nil
+		// Check the immutable fields to ensure TG is valid
+		match, err := s.IsTargetGroupMatch(ctx, modelTargetGroup, &vpclattice.TargetGroupSummary{
+			Arn:           latticeTg.Arn,
+			Port:          latticeTg.Config.Port,
+			Protocol:      latticeTg.Config.Protocol,
+			IpAddressType: latticeTg.Config.IpAddressType,
+			Type:          latticeTg.Type,
+			VpcIdentifier: latticeTg.Config.VpcIdentifier,
+		}, nil) // we already know that tags match
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			switch status {
+			case vpclattice.TargetGroupStatusCreateInProgress, vpclattice.TargetGroupStatusDeleteInProgress:
+				return nil, errors.New(LATTICE_RETRY)
+			case vpclattice.TargetGroupStatusDeleteFailed, vpclattice.TargetGroupStatusActive:
+				return latticeTg, nil
+			}
 		}
 	}
 

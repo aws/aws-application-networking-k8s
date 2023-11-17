@@ -39,7 +39,7 @@ func TestMapObjectToPolicy(t *testing.T) {
 			return nil
 		})
 
-	reqs := h.mapObjectToPolicy(&gwv1alpha2.Gateway{
+	reqs := h.mapObjectToPolicy(context.Background(), &gwv1alpha2.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gw-1",
 			Namespace: "default",
