@@ -65,6 +65,6 @@ extra_css:
 extra_javascript:
   - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js
 
-# Hosted with AWS Amplify
+# Hosted with AWS Amplify in us-east-2
 # Isengard: aws-mercury+gateway-controller-docs@
 # Account Ownership Group: aws-mercury
