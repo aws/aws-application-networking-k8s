@@ -53,12 +53,14 @@ If you want to use a custom domain name along with its own certificate, you can:
 * Follow instructions on [Requesting a public certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) and get an ACM certificate ARN.
 * Add the ARN to the listener configuration as shown below.
 
-The following shows modifications to `examples/my-hotel.yaml` to add a custom certificate:
+The following shows modifications to `examples/my-hotel-gateway.yaml` to add a custom certificate:
 ```
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: my-hotel
+  annotations:
+    application-networking.k8s.aws/lattice-vpc-association: "true"
 spec:
   gatewayClassName: amazon-vpc-lattice
   listeners:
@@ -66,15 +68,14 @@ spec:
     protocol: HTTP
     port: 80
   - name: https
-    protocol: HTTPS
+    protocol: HTTPS      # This is required
     port: 443
-  - name: tls-with-custom-cert       # Specify listener with custom certs
-    protocol: HTTPS                  # Specify HTTPS protocol 
-    port: 443                        # Specify communication on port 443
-    tls:                             # Specify TLS configuration
-      mode: Terminate                # Specify mode for TLS listener
-      options:                       # Specify certificate options
-        application-networking.k8s.aws/certificate-arn: arn:aws:acm:us-west-2:<account>:certificate/4555204d-07e1-43f0-a533-d02750f41545 
+    tls:
+      mode: Terminate    # This is required
+      certificateRefs:   # This is required per API spec, but currently not used by the controller
+      - name: unused
+      options:           # Instead, we specify ACM certificate ARN under this section
+        application-networking.k8s.aws/certificate-arn: arn:aws:acm:us-west-2:<account>:certificate/<certificate-id>
 ```
 Note that only `Terminate` mode is supported (Passthrough is not supported).
 
@@ -91,14 +92,14 @@ spec:
   parentRefs:
   - name: my-hotel
     sectionName: http 
-  - name: my-hotel                     # Specify parentRefs
-    sectionName: tls-with-custom-cert  # Specify custom-defined certificate 
+  - name: my-hotel                     # Use the listener defined above as parentRef
+    sectionName: https
 ...
-```        
+```
 
 ### Enabling TLS connection on the backend
 
-Currently TLS Passthrough mode is not supported in the controller, but it allows TLS re-encryption to support backends that only allow TLS connections.
+Currently, TLS Passthrough mode is not supported in the controller, but it allows TLS re-encryption to support backends that only allow TLS connections.
 To handle this use case, you need to configure your service to receive HTTPS traffic instead:
 
 ```
