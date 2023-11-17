@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
@@ -75,7 +76,7 @@ func RegisterAccessLogPolicyController(
 ) error {
 	mgrClient := mgr.GetClient()
 	scheme := mgr.GetScheme()
-	evtRec := mgr.GetEventRecorderFor("access-log-policy-controller")
+	evtRec := mgr.GetEventRecorderFor("access-log-policy")
 
 	modelBuilder := gateway.NewAccessLogSubscriptionModelBuilder(log, mgrClient)
 	stackDeployer := deploy.NewAccessLogSubscriptionStackDeployer(log, cloud, mgrClient)
@@ -159,6 +160,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
+	// Validate Group
 	if alp.Spec.TargetRef.Group != gwv1beta1.GroupName {
 		message := fmt.Sprintf("The targetRef's Group must be \"%s\" but was \"%s\"",
 			gwv1beta1.GroupName, alp.Spec.TargetRef.Group)
@@ -166,6 +168,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
 
+	// Validate targetRef Kind
 	validKinds := []string{"Gateway", "HTTPRoute", "GRPCRoute"}
 	if !slices.Contains(validKinds, string(alp.Spec.TargetRef.Kind)) {
 		message := fmt.Sprintf("The targetRef's Kind must be \"Gateway\", \"HTTPRoute\", or \"GRPCRoute\""+
@@ -174,6 +177,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
 
+	// Validate targetRef Namespace
 	targetRefNamespace := k8s.NamespaceOrDefault(alp.Spec.TargetRef.Namespace)
 	if targetRefNamespace != alp.Namespace {
 		message := fmt.Sprintf("The targetRef's namespace, \"%s\", does not match the Access Log Policy's"+
@@ -182,26 +186,48 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
 
-	targetRefExists, err := r.targetRefExists(ctx, alp)
+	// Check if targetRef exists
+	targetRef, err := r.findTargetRef(ctx, alp)
 	if err != nil {
 		return err
 	}
-	if !targetRefExists {
+	if targetRef == nil {
 		message := fmt.Sprintf("%s target \"%s/%s\" could not be found", alp.Spec.TargetRef.Kind, targetRefNamespace, alp.Spec.TargetRef.Name)
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
 	}
 
+	// Check for conflicting Access Log Policies
+	alpsOnSameTarget := utils.SliceFilter(r.findAccessLogPoliciesOnObj(ctx, targetRef), func(p anv1alpha1.AccessLogPolicy) bool {
+		return alp.Namespace != p.Namespace || alp.Name != p.Name
+	})
+	alpDestinationParts := strings.Split(*alp.Spec.DestinationArn, ":")
+	for _, p := range alpsOnSameTarget {
+		pDestinationParts := strings.Split(*p.Spec.DestinationArn, ":")
+		if len(alpDestinationParts) > 3 && len(pDestinationParts) > 3 && alpDestinationParts[2] == pDestinationParts[2] {
+			message := "An Access Log Policy with a Destination Arn for the same destination type already exists for this targetRef"
+			r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
+			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonConflicted, config.LatticeGatewayControllerName)
+		}
+	}
+
+	err = r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonAccepted, config.LatticeGatewayControllerName)
+	if err != nil {
+		return err
+	}
+
 	stack, err := r.buildAndDeployModel(ctx, alp)
 	if err != nil {
 		if services.IsConflictError(err) {
-			message := "An Access Log Policy with a Destination Arn for the same destination type already exists for this targetRef"
+			message := "A VPC Lattice Access Log Subscription with a Destination Arn for the same destination type already exists for this targetRef"
 			r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonConflicted, message)
+			r.log.Infow(message)
+			return nil
 		} else if services.IsInvalidError(err) {
 			message := fmt.Sprintf("The AWS resource with Destination Arn \"%s\" could not be found", *alp.Spec.DestinationArn)
 			r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+			r.log.Infow(message)
+			return nil
 		}
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent,
 			"Failed to create or update due to "+err.Error())
@@ -213,17 +239,12 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
-	err = r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonAccepted, config.LatticeGatewayControllerName)
-	if err != nil {
-		return err
-	}
-
 	r.eventRecorder.Event(alp, corev1.EventTypeNormal, k8s.ReconciledEvent, "Successfully reconciled")
 
 	return nil
 }
 
-func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) (bool, error) {
+func (r *accessLogPolicyReconciler) findTargetRef(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) (client.Object, error) {
 	targetRefNamespacedName := types.NamespacedName{
 		Name:      string(alp.Spec.TargetRef.Name),
 		Namespace: k8s.NamespaceOrDefault(alp.Spec.TargetRef.Namespace),
@@ -234,22 +255,28 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 	switch alp.Spec.TargetRef.Kind {
 	case "Gateway":
 		gw := &gwv1beta1.Gateway{}
-		err = r.client.Get(ctx, targetRefNamespacedName, gw)
+		if err = r.client.Get(ctx, targetRefNamespacedName, gw); err == nil {
+			return gw, nil
+		}
 	case "HTTPRoute":
 		httpRoute := &gwv1beta1.HTTPRoute{}
-		err = r.client.Get(ctx, targetRefNamespacedName, httpRoute)
+		if err = r.client.Get(ctx, targetRefNamespacedName, httpRoute); err == nil {
+			return httpRoute, nil
+		}
 	case "GRPCRoute":
 		grpcRoute := &gwv1alpha2.GRPCRoute{}
-		err = r.client.Get(ctx, targetRefNamespacedName, grpcRoute)
+		if err = r.client.Get(ctx, targetRefNamespacedName, grpcRoute); err == nil {
+			return grpcRoute, nil
+		}
 	default:
-		return false, fmt.Errorf("Access Log Policy targetRef is for unsupported Kind: %s", alp.Spec.TargetRef.Kind)
+		return nil, fmt.Errorf("Access Log Policy targetRef is for unsupported Kind: %s", alp.Spec.TargetRef.Kind)
 	}
 
-	if err != nil && !errors.IsNotFound(err) {
-		return false, err
+	if errors.IsNotFound(err) {
+		return nil, nil
 	}
 
-	return err == nil, nil
+	return nil, err
 }
 
 func (r *accessLogPolicyReconciler) buildAndDeployModel(
@@ -334,37 +361,46 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(
 }
 
 func (r *accessLogPolicyReconciler) findImpactedAccessLogPolicies(ctx context.Context, eventObj client.Object) []reconcile.Request {
+	alps := r.findAccessLogPoliciesOnObj(ctx, eventObj)
+	return utils.SliceMap(alps, func(alp anv1alpha1.AccessLogPolicy) reconcile.Request {
+		return reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: alp.Namespace,
+				Name:      alp.Name,
+			},
+		}
+	})
+}
+
+func (r *accessLogPolicyReconciler) findAccessLogPoliciesOnObj(
+	ctx context.Context,
+	obj client.Object,
+) []anv1alpha1.AccessLogPolicy {
 	listOptions := &client.ListOptions{
-		Namespace: eventObj.GetNamespace(),
+		Namespace: obj.GetNamespace(),
 	}
 
 	alps := &anv1alpha1.AccessLogPolicyList{}
 	err := r.client.List(ctx, alps, listOptions)
 	if err != nil {
 		r.log.Errorf("Failed to list all Access Log Policies, %s", err)
-		return []reconcile.Request{}
+		return []anv1alpha1.AccessLogPolicy{}
 	}
 
-	requests := make([]reconcile.Request, 0, len(alps.Items))
+	alpsOnObj := make([]anv1alpha1.AccessLogPolicy, 0, len(alps.Items))
 	for _, alp := range alps.Items {
-		if string(alp.Spec.TargetRef.Name) != eventObj.GetName() {
+		if string(alp.Spec.TargetRef.Name) != obj.GetName() {
 			continue
 		}
 
 		targetRefKind := string(alp.Spec.TargetRef.Kind)
-		eventObjKind := reflect.TypeOf(eventObj).Elem().Name()
+		eventObjKind := reflect.TypeOf(obj).Elem().Name()
 		if targetRefKind != eventObjKind {
 			continue
 		}
 
-		r.log.Debugf("Adding Access Log Policy %s/%s to queue due to %s event", alp.Namespace, alp.Name, targetRefKind)
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: alp.Namespace,
-				Name:      alp.Name,
-			},
-		})
+		alpsOnObj = append(alpsOnObj, alp)
 	}
 
-	return requests
+	return alpsOnObj
 }

@@ -22,13 +22,14 @@ import (
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var _ = Describe("Access Log Policy", Ordered, func() {
@@ -493,41 +494,6 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("creation sets Access Log Policy status to Invalid when the destination does not exist", func() {
-		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      k8sResourceName,
-				Namespace: k8snamespace,
-			},
-			Spec: anv1alpha1.AccessLogPolicySpec{
-				DestinationArn: aws.String(bucketArn + "foo"),
-				TargetRef: &gwv1alpha2.PolicyTargetReference{
-					Group:     gwv1beta1.GroupName,
-					Kind:      "Gateway",
-					Name:      gwv1alpha2.ObjectName(testGateway.Name),
-					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
-				},
-			},
-		}
-		testFramework.ExpectCreated(ctx, accessLogPolicy)
-
-		// Policy status should be Invalid
-		Eventually(func(g Gomega) {
-			alpNamespacedName := types.NamespacedName{
-				Name:      accessLogPolicy.Name,
-				Namespace: accessLogPolicy.Namespace,
-			}
-			alp := &anv1alpha1.AccessLogPolicy{}
-			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
-			g.Expect(err).To(BeNil())
-			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
-			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
-			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
-		}).Should(Succeed())
-	})
-
 	It("creation sets Access Log Policy status to Invalid when the targetRef's Group is not gateway.networking.k8s.io", func() {
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -810,15 +776,15 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		expectedGeneration = expectedGeneration + 1
 
 		Eventually(func(g Gomega) {
-			// Policy status should be Invalid
+			// Policy status should be Accepted
 			alp := &anv1alpha1.AccessLogPolicy{}
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
 			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
-			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
 
 			// VPC Lattice Service should still have previous Access Log Subscription
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{

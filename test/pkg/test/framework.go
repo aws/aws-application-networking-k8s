@@ -180,6 +180,7 @@ func objectsInfo(objs []client.Object) string {
 func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Object) {
 	env.Log.Infof("Creating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		Expect(env.Create(ctx, obj)).WithOffset(1).To(Succeed())
 	})
 }
@@ -187,6 +188,7 @@ func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Objec
 func (env *Framework) ExpectUpdated(ctx context.Context, objects ...client.Object) {
 	env.Log.Infof("Updating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		Expect(env.Update(ctx, obj)).WithOffset(1).To(Succeed())
 	})
 }
