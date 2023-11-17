@@ -292,7 +292,11 @@ func findHostedZone(client *route53.Route53, name string) (*route53.HostedZone, 
 	if len(out.HostedZones) == 0 {
 		return nil, nil
 	}
-	return out.HostedZones[0], nil
+	hz := out.HostedZones[0]
+	if aws.StringValue(hz.Name) != name {
+		return nil, nil
+	}
+	return hz, nil
 }
 
 func createHostedZone(client *route53.Route53, name string) (*route53.HostedZone, error) {

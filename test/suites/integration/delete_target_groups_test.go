@@ -72,9 +72,9 @@ var _ = Describe("Delete Unused Target Groups", Ordered, func() {
 		verifyTargetGroupDeleted(targetGroups[0])
 	})
 
-	It("Kubernetes Deployment deletion deletes target groups", func() {
+	It("Kubernetes Deployment deletion triggers targets de-registering", func() {
 		testFramework.ExpectDeleted(ctx, deployments[1])
-		verifyTargetGroupDeleted(targetGroups[1])
+		verifyNoTargetsForTargetGroup(targetGroups[1])
 	})
 
 	AfterAll(func() {
@@ -106,5 +106,19 @@ func verifyTargetGroupDeleted(targetGroup *vpclattice.TargetGroupSummary) {
 		}
 
 		g.Expect(true).To(BeFalse())
+	}).Should(Succeed())
+}
+
+func verifyNoTargetsForTargetGroup(targetGroup *vpclattice.TargetGroupSummary) {
+	Eventually(func(g Gomega) {
+		log.Println("Verifying VPC lattice Targets deregistered")
+		targets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{
+			TargetGroupIdentifier: targetGroup.Id,
+		})
+		g.Expect(err).To(BeNil())
+		log.Println("targets:", targets)
+		for _, target := range targets {
+			g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusDraining))
+		}
 	}).Should(Succeed())
 }

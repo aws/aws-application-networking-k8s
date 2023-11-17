@@ -177,7 +177,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		}
 		resp, err := vpcLatticeSess.CreateServiceNetworkWithContext(ctx, &serviceNetworkInput)
 		if err != nil {
-			return model.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
+			return model.ServiceNetworkStatus{}, err
 		}
 
 		serviceNetworkId = aws.StringValue(resp.Id)
@@ -201,6 +201,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 	createServiceNetworkVpcAssociationInput := vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: &serviceNetworkId,
 		VpcIdentifier:            &config.VpcID,
+		Tags:                     m.cloud.DefaultTags(),
 	}
 	_, err = vpcLatticeSess.CreateServiceNetworkVpcAssociationWithContext(ctx, &createServiceNetworkVpcAssociationInput)
 	if err != nil {

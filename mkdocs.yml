@@ -16,12 +16,13 @@ nav:
     - TLS: configure/https.md
     - Custom Domain Name: configure/custom-domain-name.md
     - GRPC: configure/grpc.md
-  - API Reference:
-    - GRPCRoute: reference/grpc-route.md
-    - TargetGroupPolicy: reference/target-group-policy.md
-    - VpcAssociationPolicy: reference/vpc-association-policy.md
-    - AccessLogPolicy: reference/access-log-policy.md
-    - IAMAuthPolicy:  reference/iam-auth-policy.md
+  - API Specification: api-reference.md
+  - API Types:
+    - GRPCRoute: api-types/grpc-route.md
+    - TargetGroupPolicy: api-types/target-group-policy.md
+    - VpcAssociationPolicy: api-types/vpc-association-policy.md
+    - AccessLogPolicy: api-types/access-log-policy.md
+    - IAMAuthPolicy:  api-types/iam-auth-policy.md
   - Design Overview: overview.md
 
 plugins:

@@ -26,7 +26,7 @@ var testFramework *test.Framework
 var ctx context.Context
 var testGateway *gwv1.Gateway
 var testServiceNetwork *vpclattice.ServiceNetworkSummary
-var _ = BeforeSuite(func() {
+var _ = SynchronizedBeforeSuite(func() {
 	vpcId := os.Getenv("CLUSTER_VPC_ID")
 	if vpcId == "" {
 		Fail("CLUSTER_VPC_ID environment variable must be set to run integration tests")
@@ -49,9 +49,16 @@ var _ = BeforeSuite(func() {
 
 	testFramework.Log.Infof("Expecting VPC %s and service network %s association", vpcId, *testServiceNetwork.Id)
 	Eventually(func(g Gomega) {
-		associated, _, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcId, testServiceNetwork)
+		associated, snva, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcId, testServiceNetwork)
 		g.Expect(associated).To(BeTrue())
+		managed, _ := testFramework.Cloud.IsArnManaged(ctx, *snva.Arn)
+		g.Expect(managed).To(BeTrue())
 	}).Should(Succeed())
+
+}, func() {
+	testGateway = testFramework.NewGateway("test-gateway", k8snamespace)
+	testServiceNetwork = testFramework.GetServiceNetwork(ctx, testGateway)
+	testFramework.GrpcurlRunner = test.NewGrpcurlRunnerPod("grpc-runner", k8snamespace)
 })
 
 func TestIntegration(t *testing.T) {
@@ -62,6 +69,6 @@ func TestIntegration(t *testing.T) {
 	RunSpecs(t, "Integration")
 }
 
-var _ = AfterSuite(func() {
+var _ = SynchronizedAfterSuite(func() {}, func() {
 	testFramework.ExpectDeletedThenNotFound(ctx, testGateway, testFramework.GrpcurlRunner)
 })

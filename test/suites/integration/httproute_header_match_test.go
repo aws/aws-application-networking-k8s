@@ -28,7 +28,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 	)
 
 	It("Create a HttpRoute with a header match rule, http traffic should work if pass the correct headers", func() {
-		deployment, service = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v3", Namespace: k8snamespace})
+		deployment, service = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "header-match-test-v3", Namespace: k8snamespace})
 		headerMatchHttpRoute = testFramework.NewHeaderMatchHttpRoute(testGateway, []*v1.Service{service})
 
 		testFramework.ExpectCreated(ctx,

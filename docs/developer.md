@@ -61,10 +61,20 @@ eksctl create iamserviceaccount \
    --approve
 ```
 
-Once cluster is ready. We need to apply CRDs for gateway-api resources.
-
+Once cluster is ready. We need to apply CRDs for gateway-api resources. First install core gateway-api CRDs:
 ```bash
 kubectl apply -f config/crds/bases/k8s-gateway-v0.6.1.yaml
+```
+
+The above command will install gateway-api v1beta1 CRDs. If you prefer using the latest v1 CRDs, you can install them instead:
+```bash
+kubectl apply -f config/crds/bases/k8s-gateway-v1.0.0.yaml
+```
+Note that v1 CRDs are not included in `deploy-*.yaml` and helm chart by default.
+
+And install additional CRDs for the controller:
+
+```bash
 kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceimports.yaml

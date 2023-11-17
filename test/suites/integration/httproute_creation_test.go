@@ -17,7 +17,7 @@ import (
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-var _ = Describe("HTTPRoute Creation", func() {
+var _ = Describe("HTTPRoute Creation", Ordered, func() {
 
 	var (
 		deployment    *appsv1.Deployment

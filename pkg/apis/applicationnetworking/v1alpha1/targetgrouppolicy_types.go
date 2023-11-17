@@ -16,6 +16,7 @@ const (
 
 // +genclient
 // +kubebuilder:object:root=true
+
 // +kubebuilder:resource:categories=gateway-api,shortName=tgp
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`

@@ -17,53 +17,59 @@ This example creates a single cluster in a single VPC, then configures two route
 
 ![Single cluster/VPC service-to-service communications](images/example1.png)
 
-**Steps**
+### Steps
 
-   **Set up Service-to-Service communications**
+**Set up service-to-service communications**
 
+1. Use AWS CLI to create a VPC Lattice service network, with the name `my-hotel`:
+   ```bash
+   aws vpc-lattice create-service-network --name my-hotel 
+   {
+    "arn": "<my-hotel-sn-arn>",
+    "authType": "NONE",
+    "id": "<my-hotel-sn-id>",
+    "name": "my-hotel"
+   }
+   ```
+   
+1. Create the service network VPC association between current k8s cluster VPC and `my-hotel` service network:
+   ```bash
+     aws vpc-lattice create-service-network-vpc-association --service-network-identifier <my-hotel-sn-id> --vpc-identifier <k8s-cluster-vpc-id>
+      {
+       "arn": "<snva-arn>",
+       "createdBy": "<timestamp>",
+       "id": "<snva-id>",
+       "status": "CREATE_IN_PROGRESS"
+       }
+      ```
+   
+   Wait until above ServiceNetworkVpcAssociation status change to `ACTIVE`:
+   ```bash
+   aws vpc-lattice  get-service-network-vpc-association --service-network-vpc-association-identifier snva-0041ace3a8658371e
+   {
+       ....
+       "status": "ACTIVE",
+   }
+   ```
 1. Create the Kubernetes Gateway `my-hotel`:
    ```bash
    kubectl apply -f examples/my-hotel-gateway.yaml
    ```
-   ***Note***: By default, the gateway (lattice service network) is not associated with cluster's VPC.  To associate a gateway (lattice service network) to VPC, `my-hotel-gateway.yaml` includes the following annotation.
-   ```
-   apiVersion: gateway.networking.k8s.io/v1beta1
-   kind: Gateway
-   metadata:
-     name: my-hotel
-     annotations:
-       application-networking.k8s.aws/lattice-vpc-association: "true"
-   ```
-1. Verify that `my-hotel` gateway is created (this could take about five minutes):
+   Verify that `my-hotel` Gateway is created with `PROGRAMMED` status equals to `True`:
    ```bash
    kubectl get gateway  
+   
+   NAME       CLASS                ADDRESS   PROGRAMMED   AGE
+   my-hotel   amazon-vpc-lattice               True      7d12h
    ```
-   ```
-   NAME       CLASS                ADDRESS   READY   AGE
-   my-hotel   amazon-vpc-lattice                     7d12h
-   ```
-1. Once the gateway is created, find the VPC Lattice service network:
-   ```bash
-   kubectl get gateway my-hotel -o yaml
-   ```
-   ```
-   apiVersion: gateway.networking.k8s.io/v1beta1
-   kind: Gateway
-   ...
-   status:
-   conditions:
-   message: 'aws-gateway-arn: arn:aws:vpc-lattice:us-west-2:694065802095:servicenetwork/sn-0ab6bb70055929edd'
-   reason: Reconciled
-   status: "True"
-   type: Schedules
-   ```
-1. Create the Kubernetes HTTPRoute rates for the parking service, review service, and HTTPRoute rate:
+
+1. Create the Kubernetes HTTPRoute `rates` that can has path matches routing to the `parking` service and `review` service (this could take about a few minutes)
    ```bash
    kubectl apply -f examples/parking.yaml
    kubectl apply -f examples/review.yaml
    kubectl apply -f examples/rate-route-path.yaml
    ```
-1. Create the Kubernetes HTTPRoute inventory (this could take about five minutes):
+1. Create another Kubernetes HTTPRoute `inventory` (this could take about a few minutes):
    ```bash
    kubectl apply -f examples/inventory-ver1.yaml
    kubectl apply -f examples/inventory-route.yaml
@@ -71,17 +77,15 @@ This example creates a single cluster in a single VPC, then configures two route
 1. Find out HTTPRoute's DNS name from HTTPRoute status:
    ```bash
    kubectl get httproute
-   ```
-   ```
+   
    NAME        HOSTNAMES   AGE
    inventory               51s
    rates                   6m11s
    ```
-1. List the route’s yaml file to see the DNS address (highlighted here on the `message` line):
+1. Check VPC Lattice generated DNS address for HTTPRoute `inventory` and `rates` :
       ```bash
       kubectl get httproute inventory -o yaml
-      ```
-      ```
+      
       apiVersion: gateway.networking.k8s.io/v1beta1
       kind: HTTPRoute
       metadata:
@@ -89,11 +93,10 @@ This example creates a single cluster in a single VPC, then configures two route
           application-networking.k8s.aws/lattice-assigned-domain-name: inventory-default-02fb06f1acdeb5b55.7d67968.vpc-lattice-svcs.us-west-2.on.aws
       ...
       ```
-      
+
       ```bash
       kubectl get httproute rates -o yaml
-      ```
-      ```
+      
       apiVersion: v1
       items:
       - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -104,65 +107,38 @@ This example creates a single cluster in a single VPC, then configures two route
       ...
       ```
 
-1. if the previous step returns the expected response, store assigned DNS names to variables.
-
+1. If the previous step returns the expected response, store VPC Lattice assigned DNS names to variables.
 
    ```bash
-   ratesdns=$(kubectl get httproute rates -o json | jq -r '.status.parents[].conditions[0].message')
-   inventorydns=$(kubectl get httproute inventory -o json | jq -r '.status.parents[].conditions[0].message')
+   ratesFQDN=$(kubectl get httproute rates -o json | jq -r '.metadata.annotations."application-networking.k8s.aws/lattice-assigned-domain-name"')
+   inventoryFQDN=$(kubectl get httproute inventory -o json | jq -r '.metadata.annotations."application-networking.k8s.aws/lattice-assigned-domain-name"')
    ```
+
+   Confirm that the URLs are stored correctly:
    
-   remove preceding extra text:
-   
    ```bash
-   prefix="DNS Name: "
-   echo $ratesdns
-   echo $inventorydns
-   ratesFQDN=${ratesdns#$prefix}
-   inventoryFQDN=${inventorydns#$prefix}
+   echo $ratesFQDN $inventoryFQDN
+   rates-default-034e0056410499722.7d67968.vpc-lattice-svcs.us-west-2.on.aws inventory-default-0c54a5e5a426f92c2.7d67968.vpc-lattice-svcs.us-west-2.on.aws
    ```
+   **Verify service-to-service communications**
 
-confirm that the URLs are stored correctly:
-
-```bash
-echo $ratesFQDN $inventoryFQDN
-```
-
-```
-rates-default-034e0056410499722.7d67968.vpc-lattice-svcs.us-west-2.on.aws inventory-default-0c54a5e5a426f92c2.7d67968.vpc-lattice-svcs.us-west-2.on.aws
-```
-
-**Check service connectivity**
-
-1. Check Service-Inventory Pod access for Service-Rates/parking or Service-Rates/review by executing into the pod, then curling each service.
+1. Check connectivity from  the `inventory-ver1` service to `parking` and `review` services:
    ```bash
-   kubectl get pod
-   ```
-   ```
-   NAME                                    READY   STATUS    RESTARTS   AGE
-   inventory-ver1-7bb6989d9d-2p2hk         1/1     Running   0          7d13h
-   inventory-ver1-7bb6989d9d-464rk         1/1     Running   0          7d13h
-   parking-6cdcd5b4b4-bbzvt                1/1     Running   0          103m
-   parking-6cdcd5b4b4-g8dkb                1/1     Running   0          103m
-   review-5888566ff6-2plsj                 1/1     Running   0          101m
-   review-5888566ff6-89fqk                 1/1     Running   0          101m
-   ```
-1. Exec into an inventory pod to check connectivity to parking and review services:
-   ```bash
-   kubectl exec -it deploy/inventory-ver1 -- curl $ratesFQDN/parking $ratesFQDN/review
+   kubectl exec deploy/inventory-ver1 -- curl $ratesFQDN/parking $ratesFQDN/review
    ```
    ```
    Requsting to Pod(parking-8548d7f98d-57whb): parking handler pod
    Requsting to Pod(review-6df847686d-dhzwc): review handler pod
    ```
- 
-1. Exec into a parking pod to check connectivity to the inventory-ver1 service:
+
+1. Check connectivity from the `parking` service to the `inventory-ver1` service:
    ```bash
-   kubectl exec -it deploy/parking -- curl $inventoryFQDN
+   kubectl exec deploy/parking -- curl $inventoryFQDN
    ```
    ```
    Requsting to Pod(inventory-ver1-99d48958c-whr2q): Inventory-ver1 handler pod
    ```
+Now you could confirm the service-to-service communications within one cluster is working as expected.
 
 ## Set up multi-cluster/multi-VPC service-to-service communications
 
@@ -176,49 +152,47 @@ The following figure illustrates this:
 
 ![Multiple clusters/VPCs service-to-service communications](images/example2.png)
 
-**Steps**
+### Steps
 
+**Set up `inventory-ver2` service and serviceExport in the second cluster** 
 
-   **Set up inventory on a second cluster** 
+1. Create a second Kubernetes cluster `cluster2` (using the same instructions used to create the first).
 
-1. Create a second cluster (using the same instructions used to create the first).
-   **Important**: Note that each cluster requires its own gateway.
-
-1. Ensure you're using the second cluster profile. 
+1. Ensure you're using the second cluster's `kubectl` context. 
    ```bash
    kubectl config get-contexts 
    ```
-   If your profile is set to the first cluster, switch your credentials to use the second cluster:
+   If your context is set to the first cluster, switch it to use the second cluster one:
    ```bash
-   kubectl config use-context <yourcluster2info>
+   kubectl config use-context <cluster2-context>
    ```
 1. Create a Kubernetes inventory-ver2 service in the second cluster:
    ```bash
    kubectl apply -f examples/inventory-ver2.yaml
    ```
-1. Export this Kubernetes inventory-ver2 from the second cluster, so that it can be referenced by HTTPRoute in the other cluster:
+1. Export this Kubernetes inventory-ver2 from the second cluster, so that it can be referenced by HTTPRoute in the first cluster:
    ```bash
    kubectl apply -f examples/inventory-ver2-export.yaml
    ```
+   
    **Switch back to the first cluster**
 
-1. Switch credentials back to the first cluster
+1. Switch context back to the first cluster
    ```bash
-   kubectl config use-context <yourcluster1info>
+   kubectl config use-context <cluster1-context>
    ```
-1. Import the Kubernetes inventory-ver2 into first cluster:
+1. Create Kubernetes ServiceImport `inventory-ver2` in the first cluster:
    ```bash
    kubectl apply -f examples/inventory-ver2-import.yaml
    ```
-1. Update the HTTPRoute inventory to route 10% traffic to the first cluster and 90% traffic to the second cluster:
+1. Update the HTTPRoute `inventory` rules to route 10% traffic to the first cluster and 90% traffic to the second cluster:
    ```bash
    kubectl apply -f examples/inventory-route-bluegreen.yaml
    ```
-1. Check the Service-Rates/parking pod access to Service-Inventory by execing into the parking pod:
+1. Check the service-to-service connectivity from `parking`(in cluster1) to `inventory-ver1`(in cluster1) and `inventory-ver2`(in cluster2):
    ```bash
-   kubectl exec -it deploy/parking -- sh -c 'for ((i=1; i<=30; i++)); do curl "$0"; done' "$inventoryFQDN"
-   ```
-   ```
+   kubectl exec deploy/parking -- sh -c 'for ((i=1; i<=30; i++)); do curl "$0"; done' "$inventoryFQDN"
+   
    Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod <----> in 2nd cluster
    Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
    Requsting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod

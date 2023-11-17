@@ -30,8 +30,8 @@ var _ = Describe("HTTPRoute path matches", func() {
 	)
 
 	It("HTTPRoute should support multiple path matches", func() {
-		deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v1", Namespace: k8snamespace})
-		deployment2, service2 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "test-v2", Namespace: k8snamespace})
+		deployment1, service1 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "path-match-test-v1", Namespace: k8snamespace})
+		deployment2, service2 = testFramework.NewHttpApp(test.HTTPAppOptions{Name: "path-match-test-v2", Namespace: k8snamespace})
 		pathMatchHttpRoute = testFramework.NewPathMatchHttpRoute(testGateway, []client.Object{service1, service2}, "http",
 			"", k8snamespace)
 

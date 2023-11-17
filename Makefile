@@ -1,8 +1,12 @@
-export KUBEBUILDER_ASSETS ?= ${HOME}/.kubebuilder/bin
-export CLUSTER_NAME ?= $(shell kubectl config view --minify -o jsonpath='{.clusters[].name}' | rev | cut -d"/" -f1 | rev | cut -d"." -f1)
-export CLUSTER_VPC_ID ?= $(shell aws eks describe-cluster --name $(CLUSTER_NAME) | jq -r ".cluster.resourcesVpcConfig.vpcId")
-export AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text)
-export REGION ?= $(shell aws configure get region)
+# For all targets except `help` and default target (which is also `help`), export environment variables
+ifneq (,$(filter-out help,$(MAKECMDGOALS)))
+	export KUBEBUILDER_ASSETS ?= ${HOME}/.kubebuilder/bin
+	export CLUSTER_NAME ?= $(shell kubectl config view --minify -o jsonpath='{.clusters[].name}' | rev | cut -d"/" -f1 | rev | cut -d"." -f1)
+	export CLUSTER_VPC_ID ?= $(shell aws eks describe-cluster --name $(CLUSTER_NAME) | jq -r ".cluster.resourcesVpcConfig.vpcId")
+	export AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text)
+	export REGION ?= $(shell aws configure get region)
+endif
+
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 VERSION ?= $(shell git tag --sort=v:refname | tail -1)
@@ -115,3 +119,9 @@ e2e-clean: ## Delete eks resources created in the e2e test namespace
 	@kubectl delete namespace $(e2e-test-namespace) > /dev/null 2>&1
 	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1
 	@echo "Done!"
+
+.PHONY: api-reference
+api-reference: ## Update documentation in docs/api-reference.md
+	@cd docgen && \
+	gen-crd-api-reference-docs -config config.json -api-dir "../pkg/apis/applicationnetworking/v1alpha1/" -out-file docs.html && \
+	cat api-reference-base.md docs.html > ../docs/api-reference.md
