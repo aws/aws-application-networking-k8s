@@ -20,8 +20,9 @@ nav:
   - API Specification: api-reference.md
   - API Reference:
     - AccessLogPolicy: api-types/access-log-policy.md
+    - Gateway: api-types/gateway.md
     - GRPCRoute: api-types/grpc-route.md
-    - HttpRoute: api-types/http-route.md
+    - HTTPRoute: api-types/http-route.md
     - IAMAuthPolicy:  api-types/iam-auth-policy.md
     - Service: api-types/service.md
     - TargetGroupPolicy: api-types/target-group-policy.md

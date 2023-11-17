@@ -5,13 +5,13 @@
 VpcAssociationPolicy is a Custom Resource Definition (CRD) that can be attached to a Gateway to define the configuration
 of the ServiceNetworkVpcAssociation between the Gateway's associated VPC Lattice Service Network and the cluster VPC.
 
-## Recommended Security Group Inbound Rules
+### Recommended Security Group Inbound Rules
 
 | Source                                                  | Protocol                                            | Port Range                                      | Comment                                                   |
 |---------------------------------------------------------|-----------------------------------------------------|-------------------------------------------------|-----------------------------------------------------------|
 | Kubernetes cluster VPC CIDR or security group reference | Protocols defined in the gateway's listener section | Ports defined in the gateway's listener section | Allow inbound traffic from current cluster vpc to gateway |
 
-## Limitations and Considerations
+### Limitations and Considerations
 
 When attaching a VpcAssociationPolicy to a resource, the following restrictions apply:
 
@@ -24,7 +24,7 @@ The security group will not take effect if:
 * The `associateWithVpc` field is set to false.
 
 
-### WARNING
+### :warning: Removing Security Groups
 
 The VPC Lattice `UpdateServiceNetworkVpcAssociation` API cannot be used to remove all security groups.
 If you have a VpcAssociationPolicy attached to a gateway that already has security groups applied, updating the VpcAssociationPolicy with empty security group ids or deleting the VpcAssociationPolicy will NOT remove the security groups from the gateway.

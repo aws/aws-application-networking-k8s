@@ -121,7 +121,3 @@ Greeting: Hello world
 ```
 
 This confirms that our gRPC request was successfully routed through VPC Lattice and processed by our `greeter-grpc-server`.
-
----
-
-We hope this guide helps you get started with using `GRPCRoute` in the EKS Controller project!

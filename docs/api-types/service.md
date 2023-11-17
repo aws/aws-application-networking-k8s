@@ -5,7 +5,7 @@
 Kubernetes Services define a logical set of Pods and a policy by which to access them, often referred to as a
 microservice. The set of Pods targeted by a Service is determined by a `selector`.
 
-### Service Key Features & Limitations:
+### Service Key Features & Limitations
 
 **Features**:
 

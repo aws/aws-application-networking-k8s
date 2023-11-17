@@ -21,7 +21,7 @@ The policy will not take effect if:
 These restrictions are not forced; for example, users may create a policy that targets a service that is not created yet.
 However, the policy will not take effect unless the target is valid.
 
-**Limitations and Considerations**
+### Limitations and Considerations
 
 - Attaching TargetGroupPolicy to a resource that is already referenced by a route will result in a replacement
   of VPC Lattice TargetGroup resource, except for health check updates.
