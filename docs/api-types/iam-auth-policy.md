@@ -11,7 +11,7 @@ An IAMAuthPolicy can be attached to a Gateway, HTTPRoute, or GRPCRoute.
 Please visit the [VPC Lattice Auth Policy documentation page](https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html)
 for more details about Auth Policies.
 
-## Features
+### Features
 
 - Attaching a policy to a Gateway results in an AuthPolicy being applied to the Gateway's associated
 VPC Lattice Service Network.

@@ -2,10 +2,10 @@
 
 ## Introduction
 
-With integration of the Gateway API, the EKS Controller project supports `HTTPRoute`.
+With integration of the Gateway API, AWS Gateway API Controller supports `HTTPRoute`.
 This allows you to define and manage the routing of HTTP and HTTPS traffic within your Kubernetes cluster.
 
-### HTTPRoute Key Features & Limitations:
+### HTTPRoute Key Features & Limitations
 
 **Features**:
 
@@ -24,7 +24,13 @@ This allows you to define and manage the routing of HTTP and HTTPS traffic withi
 - **Header Matches Limit**: A maximum of 5 header matches per rule is supported.
 - **Case Insensitivity**: All path matches are currently case-insensitive.
 
-## Example Configuration:
+### Annotations
+
+- `application-networking.k8s.aws/lattice-assigned-domain-name`
+  Represents a VPC Lattice generated domain name for the resource. This annotation will automatically set
+  when a `HTTPRoute` is programmed and ready.
+
+## Example Configuration
 
 ### Example 1
 
@@ -113,5 +119,5 @@ In this example:
 ---
 
 This `HTTPRoute` documentation provides a detailed introduction, feature set, and a basic example of how to configure
-and use the resource within the EKS Controller project. For in-depth details and specifications, you can refer to the
+and use the resource within AWS Gateway API Controller project. For in-depth details and specifications, you can refer to the
 official [Gateway API documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRoute).

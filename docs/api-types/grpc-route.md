@@ -2,10 +2,10 @@
 
 ## Introduction
 
-With integration of the Gateway API, the EKS Controller project supports `GRPCRoute`.
+With integration of the Gateway API, AWS Gateway API Controller supports `GRPCRoute`.
 This allows you to define and manage the routing of gRPC traffic within your Kubernetes cluster.
 
-### GRPCRoute Key Features & Limitations:
+### GRPCRoute Key Features & Limitations
 
 **Features**:
 
@@ -25,7 +25,13 @@ This allows you to define and manage the routing of gRPC traffic within your Kub
 - **No Method Without Service**: Matching only by a gRPC method without specifying a service is not supported.
 - **Case Insensitivity**: All method matches are currently case-insensitive.
 
-## Example Configuration:
+### Annotations
+
+- `application-networking.k8s.aws/lattice-assigned-domain-name`
+  Represents a VPC Lattice generated domain name for the resource. This annotation will automatically set
+  when a `GRPCRoute` is programmed and ready.
+
+## Example Configuration
 
 Here is a sample configuration that demonstrates how to set up a `GRPCRoute` for a HelloWorld gRPC service:
 
@@ -71,5 +77,5 @@ In this example:
 ---
 
 This `GRPCRoute` documentation provides a detailed introduction, feature set, and a basic example of how to configure
-and use the resource within the EKS Controller project. For in-depth details and specifications, you can refer to the
+and use the resource within AWS Gateway API Controller project. For in-depth details and specifications, you can refer to the
 official [Gateway API documentation](https://gateway-api.sigs.k8s.io/references/spec/#networking.x-k8s.io/v1alpha2.GRPCRoute).
