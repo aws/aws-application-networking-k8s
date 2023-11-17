@@ -59,7 +59,7 @@ With VPC Lattice you can also avoid some of these common problems:
 As a Kubernetes user, you can have a very Kubernetes-native experience using the VPC Lattice APIs.
 The following figure illustrates how VPC Lattice objects connect to [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) objects:
 
-![VPC Lattice objects relation to Kubernetes objects](images/personae.png)
+![VPC Lattice objects relation to Kubernetes objects](../images/personae.png)
 
 As shown in the figure, there are different personas associated with different levels of control in VPC Lattice.
 Notice that the Kubernetes Gateway API syntax is used to create the gateway, HTTPRoute and services, but Kubernetes gets the details of those items from VPC Lattice:

@@ -6,49 +6,46 @@ The first part of this section provides an example of setting up of service-to-s
 The second section extends that example by creating another inventory service on a second cluster on a different VPC, and spreading traffic to that service across the two clusters and VPCs.
 Both clusters are created using `eksctl`, with both clusters created from the same account by the same cluster admin.
 
-Using these examples as a foundation, see the [Configuration](configure/index.md) section for ways to further configure service-to-service communications.
+Using these examples as a foundation, see the [Configuration](../concepts/index.md) section for ways to further configure service-to-service communications.
 
 
-**NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller for VPC Lattice](https://github.com/aws/aws-application-networking-k8s) site. The files are in the `examples/` directory.
+**NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller](https://github.com/aws/aws-application-networking-k8s) repository.
 
 ## Set up single-cluster/VPC service-to-service communications
 
 This example creates a single cluster in a single VPC, then configures two routes (rates and inventory) and three services (parking, review, and inventory-1). The following figure illustrates this setup:
 
-![Single cluster/VPC service-to-service communications](images/example1.png)
+![Single cluster/VPC service-to-service communications](../images/example1.png)
 
 ### Steps
 
-**Set up service-to-service communications**
+#### Setup service-to-service communications
 
-1. Use AWS CLI to create a VPC Lattice service network, with the name `my-hotel`:
+1. AWS Gateway API Controller needs a VPC Lattice service network to operate.
+   When `DEFAULT_SERVICE_NETWORK` environment variable is specified, the controller will automatically configure a service network for you.
+  For example:
    ```bash
-   aws vpc-lattice create-service-network --name my-hotel 
-   {
-    "arn": "<my-hotel-sn-arn>",
-    "authType": "NONE",
-    "id": "<my-hotel-sn-id>",
-    "name": "my-hotel"
-   }
+   helm upgrade gateway-api-controller \
+     oci://281979210680.dkr.ecr.us-west-2.amazonaws.com/aws-gateway-controller-chart \
+     --reuse-values \
+     --set=defaultServiceNetwork=my-hotel
    ```
-   
-1. Create the service network VPC association between current k8s cluster VPC and `my-hotel` service network:
+   Alternatively, you can use AWS CLI to manually create a VPC Lattice service network, with the name `my-hotel`:
    ```bash
-     aws vpc-lattice create-service-network-vpc-association --service-network-identifier <my-hotel-sn-id> --vpc-identifier <k8s-cluster-vpc-id>
-      {
-       "arn": "<snva-arn>",
-       "createdBy": "<timestamp>",
-       "id": "<snva-id>",
-       "status": "CREATE_IN_PROGRESS"
-       }
-      ```
-   
-   Wait until above ServiceNetworkVpcAssociation status change to `ACTIVE`:
+   aws vpc-lattice create-service-network --name my-hotel # grab service network ID
+   aws vpc-lattice create-service-network-vpc-association --service-network-identifier <service-network-id> --vpc-identifier <k8s-cluster-vpc-id>
+   ```
+   Ensure the service network created above is ready to accept traffic, by checking if the VPC association status is `ACTIVE`:
    ```bash
-   aws vpc-lattice  get-service-network-vpc-association --service-network-vpc-association-identifier snva-0041ace3a8658371e
+   aws vpc-lattice list-service-network-vpc-associations --vpc-id <k8s-cluster-vpc-id>
    {
-       ....
-       "status": "ACTIVE",
+      "items": [
+         {
+             ...
+            "status": "ACTIVE",
+             ...
+         }
+      ]
    }
    ```
 1. Create the Kubernetes Gateway `my-hotel`:
@@ -120,7 +117,8 @@ This example creates a single cluster in a single VPC, then configures two route
    echo $ratesFQDN $inventoryFQDN
    rates-default-034e0056410499722.7d67968.vpc-lattice-svcs.us-west-2.on.aws inventory-default-0c54a5e5a426f92c2.7d67968.vpc-lattice-svcs.us-west-2.on.aws
    ```
-   **Verify service-to-service communications**
+
+#### Verify service-to-service communications
 
 1. Check connectivity from  the `inventory-ver1` service to `parking` and `review` services:
    ```bash
@@ -150,7 +148,7 @@ For example, it will:
 
 The following figure illustrates this:
 
-![Multiple clusters/VPCs service-to-service communications](images/example2.png)
+![Multiple clusters/VPCs service-to-service communications](../images/example2.png)
 
 ### Steps
 
@@ -204,32 +202,3 @@ The following figure illustrates this:
    Requsting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
    ```
    You can see that the traffic is distributed between *inventory-ver1* and *inventory-ver2* as expected.
-
-## IPv6 Support
-
-IPv6 address type is automatically used for your services and pods if
-[your cluster is configured to use IPv6 addresses](https://docs.aws.amazon.com/eks/latest/userguide/cni-ipv6.html).
-
-```bash
-# To create an IPv6 cluster
-kubectl apply -f examples/ipv6-cluster.yaml
-```
-
-If your cluster is configured to be dual-stack, you can set the IP address type
-of your service using the `ipFamilies` field. For example:
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: ipv4-target-in-dual-stack-cluster
-spec:
-  ipFamilies:
-    - "IPv4"
-  selector:
-    app: parking
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8090
-```
