@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -61,7 +62,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		log.Infof("created certificate: %s", certArn)
 
 		// add new certificate to gateway spec
-		addGatewayBYOCListener(certArn)
+		addGatewayBYOCListener(cname, certArn)
 		log.Infof("added listener with cert to gateway")
 
 		// create and deploy service for traffic test
@@ -234,7 +235,7 @@ func deleteCert(client *acm.ACM, arn string) error {
 	return err
 }
 
-func addGatewayBYOCListener(certArn string) {
+func addGatewayBYOCListener(cname, certArn string) {
 	gw := &gwv1.Gateway{}
 	testFramework.Get(context.TODO(), types.NamespacedName{
 		Namespace: testGateway.Namespace,
@@ -244,11 +245,17 @@ func addGatewayBYOCListener(certArn string) {
 	byocListener := gwv1.Listener{
 		Name:     "byoc",
 		Port:     443,
+		Hostname: lo.ToPtr(gwv1.Hostname(cname)),
 		Protocol: gwv1.HTTPSProtocolType,
 		TLS: &gwv1.GatewayTLSConfig{
 			Mode: &tlsMode,
 			Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
 				"application-networking.k8s.aws/certificate-arn": gwv1.AnnotationValue(certArn),
+			},
+			CertificateRefs: []gwv1.SecretObjectReference{
+				{
+					Name: "dummy",
+				},
 			},
 		},
 	}

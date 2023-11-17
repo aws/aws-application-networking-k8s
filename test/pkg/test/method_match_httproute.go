@@ -16,6 +16,7 @@ func (env *Framework) NewMethodMatchHttpRoute(parentRefsGateway *gwv1.Gateway, g
 				BackendObjectReference: gwv1.BackendObjectReference{
 					Name: gwv1.ObjectName(getService.Name),
 					Kind: lo.ToPtr(gwv1.Kind("Service")),
+					Port: (*gwv1.PortNumber)(&postService.Spec.Ports[0].Port),
 				},
 			},
 		}},
@@ -32,6 +33,7 @@ func (env *Framework) NewMethodMatchHttpRoute(parentRefsGateway *gwv1.Gateway, g
 				BackendObjectReference: gwv1.BackendObjectReference{
 					Name: gwv1.ObjectName(postService.Name),
 					Kind: lo.ToPtr(gwv1.Kind("Service")),
+					Port: (*gwv1.PortNumber)(&postService.Spec.Ports[0].Port),
 				},
 			},
 		}},
