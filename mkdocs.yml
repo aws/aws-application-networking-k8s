@@ -19,11 +19,13 @@ nav:
     - Cross-Account Sharing: concepts/ram-sharing.md
   - API Specification: api-reference.md
   - API Reference:
-    - GRPCRoute: reference/grpc-route.md
-    - TargetGroupPolicy: reference/target-group-policy.md
-    - VpcAssociationPolicy: reference/vpc-association-policy.md
-    - AccessLogPolicy: reference/access-log-policy.md
-    - IAMAuthPolicy:  reference/iam-auth-policy.md
+    - AccessLogPolicy: api-types/access-log-policy.md
+    - GRPCRoute: api-types/grpc-route.md
+    - HttpRoute: api-types/http-route.md
+    - IAMAuthPolicy:  api-types/iam-auth-policy.md
+    - Service: api-types/service.md
+    - TargetGroupPolicy: api-types/target-group-policy.md
+    - VpcAssociationPolicy: api-types/vpc-association-policy.md
   - Contributing:
     - Developer Guide: contributing/developer.md
     - Developer Cheat Sheet: contributing/developer-cheat-sheet.md
