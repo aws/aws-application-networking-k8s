@@ -302,6 +302,24 @@ func (m *defaultServiceManager) deleteAllAssociations(ctx context.Context, svc *
 	return nil
 }
 
+func (m *defaultServiceManager) deleteAllListeners(ctx context.Context, svc *SvcSummary) error {
+	listeners, err := m.cloud.Lattice().ListListenersAsList(ctx, &vpclattice.ListListenersInput{
+		ServiceIdentifier: svc.Id,
+	})
+	if err != nil {
+		return err
+	}
+	for _, listener := range listeners {
+		_, err = m.cloud.Lattice().DeleteListenerWithContext(ctx, &vpclattice.DeleteListenerInput{
+			ListenerIdentifier: listener.Id,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (m *defaultServiceManager) deleteAssociation(ctx context.Context, assocArn *string) error {
 	delReq := &DelSnSvcAssocReq{ServiceNetworkServiceAssociationIdentifier: assocArn}
 	_, err := m.cloud.Lattice().DeleteServiceNetworkServiceAssociationWithContext(ctx, delReq)
@@ -367,6 +385,12 @@ func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error 
 	}
 
 	err = m.deleteAllAssociations(ctx, svcSum)
+	if err != nil {
+		return err
+	}
+
+	// deleting listeners explicitly helps ensure target groups are free to delete
+	err = m.deleteAllListeners(ctx, svcSum)
 	if err != nil {
 		return err
 	}

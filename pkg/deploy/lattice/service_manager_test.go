@@ -311,6 +311,23 @@ func TestServiceManagerInteg(t *testing.T) {
 			DeleteServiceWithContext(gomock.Any(), gomock.Any()).Return(nil, nil).
 			Times(1)
 
+		// assert we delete listeners
+		mockLattice.EXPECT().
+			ListListenersAsList(gomock.Any(), gomock.Any()).
+			Return([]*vpclattice.ListenerSummary{
+				{
+					Id: aws.String("L1"),
+				},
+				{
+					Id: aws.String("L2"),
+				},
+			}, nil)
+
+		mockLattice.EXPECT().
+			DeleteListenerWithContext(gomock.Any(), gomock.Any()).
+			Return(nil, nil).
+			Times(2)
+
 		err := m.Delete(ctx, svc)
 		assert.Nil(t, err)
 	})
