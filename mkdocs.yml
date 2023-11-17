@@ -10,9 +10,9 @@ nav:
   - User Guides:
     - Quick Start: guides/deploy.md
     - Basic Setup: guides/getstarted.md
+    - Configuration: guides/environment.md
   - Concepts:
     - Design Overview: concepts/overview.md
-    - Environment Variables: concepts/environment.md
     - TLS: concepts/https.md
     - Custom Domain Name: concepts/custom-domain-name.md
     - GRPC: concepts/grpc.md

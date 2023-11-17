@@ -131,14 +131,11 @@ Alternatively, you can manually provide configuration variables when installing 
 
 ## Controller Installation
 
-1. Run either `kubectl` or `helm` to deploy the controller. Check [Environment Variables](../concepts/environment.md) for detailed explanation of each configuration option.
-
+1. Run either `kubectl` or `helm` to deploy the controller. Check [Environment Variables](../guides/environment.md) for detailed explanation of each configuration option.
    ```bash
    kubectl apply -f examples/deploy-v0.0.18.yaml
    ```
-
    or
-
    ```bash
    # login to ECR
    aws ecr-public get-login-password --region us-east-1 | helm registry login --username AWS --password-stdin public.ecr.aws

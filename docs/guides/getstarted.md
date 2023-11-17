@@ -6,7 +6,7 @@ The first part of this section provides an example of setting up of service-to-s
 The second section extends that example by creating another inventory service on a second cluster on a different VPC, and spreading traffic to that service across the two clusters and VPCs.
 Both clusters are created using `eksctl`, with both clusters created from the same account by the same cluster admin.
 
-Using these examples as a foundation, see the [Configuration](../concepts/index.md) section for ways to further configure service-to-service communications.
+Using these examples as a foundation, see the [Concepts](../concepts/overview.md) section for ways to further configure service-to-service communications.
 
 **NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller](https://github.com/aws/aws-application-networking-k8s) repository.
 
