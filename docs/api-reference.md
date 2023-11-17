@@ -1524,7 +1524,7 @@ HealthCheckConfig
 (<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.TargetGroupPolicy">TargetGroupPolicy</a>)
 </p>
 <div>
-<p>TargetGroupPolicyStatus defines the observed state of AccessLogPolicy.</p>
+<p>TargetGroupPolicyStatus defines the observed state of TargetGroupPolicy.</p>
 </div>
 <table>
 <thead>
