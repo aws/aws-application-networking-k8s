@@ -62,6 +62,7 @@ spec:
     - backendRefs:
         - name: second-account-gw1-svc
           kind: Service
+          port: 80
       matches:
         - path:
             type: PathPrefix

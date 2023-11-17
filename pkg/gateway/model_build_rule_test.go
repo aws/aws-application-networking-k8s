@@ -153,6 +153,8 @@ func Test_RuleModelBuild(t *testing.T) {
 			expectedSpec: []model.RuleSpec{ // note priority is only calculated at synthesis b/c it requires access to existing rules
 				{
 					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -195,6 +197,8 @@ func Test_RuleModelBuild(t *testing.T) {
 			expectedSpec: []model.RuleSpec{
 				{
 					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -243,6 +247,8 @@ func Test_RuleModelBuild(t *testing.T) {
 			expectedSpec: []model.RuleSpec{
 				{
 					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -564,6 +570,9 @@ func Test_RuleModelBuild(t *testing.T) {
 			expectedSpec: []model.RuleSpec{
 				{
 					StackListenerId: "listener-id",
+					Method:          string(httpPost),
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -1407,6 +1416,8 @@ func Test_RuleModelBuild(t *testing.T) {
 			expectedSpec: []model.RuleSpec{
 				{
 					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -1453,6 +1464,8 @@ func Test_RuleModelBuild(t *testing.T) {
 			expectedSpec: []model.RuleSpec{
 				{
 					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{

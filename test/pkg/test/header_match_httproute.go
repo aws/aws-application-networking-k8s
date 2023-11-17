@@ -16,6 +16,7 @@ func (env *Framework) NewHeaderMatchHttpRoute(parentRefsGateway *gwv1.Gateway, s
 					BackendObjectReference: gwv1.BackendObjectReference{
 						Name: gwv1.ObjectName(service.Name),
 						Kind: lo.ToPtr(gwv1.Kind("Service")),
+						Port: (*gwv1.PortNumber)(&service.Spec.Ports[0].Port),
 					},
 				},
 			}},

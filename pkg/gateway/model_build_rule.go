@@ -61,6 +61,13 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 			if err := t.updateRuleSpecWithHeaderMatches(match, &ruleSpec); err != nil {
 				return err
 			}
+		} else {
+			// Match every traffic on no matches
+			ruleSpec.PathMatchValue = "/"
+			ruleSpec.PathMatchPrefix = true
+			if _, ok := rule.(*core.GRPCRouteRule); ok {
+				ruleSpec.Method = string(gwv1.HTTPMethodPost)
+			}
 		}
 
 		ruleTgList, err := t.getTargetGroupsForRuleAction(ctx, rule)
