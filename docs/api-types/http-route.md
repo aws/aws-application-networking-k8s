@@ -52,6 +52,7 @@ spec:
     - backendRefs:
         - name: inventory-ver2
           kind: ServiceImport
+          port: 80
       matches:
         - path:
             type: PathPrefix
@@ -65,7 +66,7 @@ In this example:
 - The first routing rule forwards traffic to a backend Service named `inventory-ver1` on port `80`.
   The rule also specifies a path match condition, where traffic must have a path starting with `/ver1` for the routing
   rule to apply.
-- The second routing rule forwards traffic to a backend ServiceImport named `inventory-ver2` on the default port.
+- The second routing rule forwards traffic to a backend ServiceImport named `inventory-ver2` on port `80`.
   The rule also specifies a path match condition, where traffic must have a path starting with `/ver2` for the routing
   rule to apply.
 
@@ -94,6 +95,7 @@ spec:
           weight: 10
         - name: inventory-ver2
           kind: ServiceImport
+          port: 80
           weight: 90
 ```
 
@@ -103,7 +105,7 @@ In this example:
   two sections, named `http` and `https`.
 - The first routing rule forwards traffic to a backend Service named `inventory-ver1` on port `80`.
   The rule also specifies a weight of `10`.
-- The second routing rule forwards traffic to a backend ServiceImport named `inventory-ver2` on the default port.
+- The second routing rule forwards traffic to a backend ServiceImport named `inventory-ver2` on port `80`.
   The rule also specifies a weight of `90`.
 - The amount of traffic forwarded to a backendRef is `(rule weight / total weight) * 100%`. Thus, 10% of the traffic is
   forwarded to `inventory-ver1` at port `80` and 90% of the traffic is forwarded to `inventory-ver2` at the default port.

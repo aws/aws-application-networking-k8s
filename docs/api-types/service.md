@@ -12,13 +12,12 @@ microservice. The set of Pods targeted by a Service is determined by a `selector
 - **Load Balancing**: Services offer load balancing, distributing network traffic across the Pods.
 - **Service Types**: Supports different types, such as ClusterIP (default), NodePort, LoadBalancer, and ExternalName.
 - **Stable IP Address**: Each Service has a stable IP address, even when the Pods it routes to change.
-- **DNS Naming**: Automatically assigns a DNS name to the Service for easy referencing.
 
 **Limitations**:
 
 - **Immutable Selector**: Once a Service is created, its `selector` and `type` fields cannot be updated.
 - **Single Namespace**: Services can only route to Pods within the same namespace.
-- **ExternalName Limitation**: `ExternalName` type does not offer any load balancing, failover, or other "normal" Service features.
+- **ExternalName Limitation**: `ExternalName` type is not supported by this controller.
 
 ## Example Configuration:
 
