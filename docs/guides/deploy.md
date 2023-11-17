@@ -20,6 +20,7 @@ EKS is a simple, recommended way of preparing a cluster for running services wit
    ```bash
    eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION
    ```
+
 1. Configure security group to receive traffic from the VPC Lattice network. You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic from the VPC Lattice managed prefix lists.  See [Control traffic to resources using security groups](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html) for details. Lattice has both an IPv4 and IPv6 prefix lists available.
     ```bash
     CLUSTER_SG=$(aws eks describe-cluster --name $CLUSTER_NAME --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
@@ -33,6 +34,7 @@ EKS is a simple, recommended way of preparing a cluster for running services wit
    eksctl utils associate-iam-oidc-provider --cluster $CLUSTER_NAME --approve --region $AWS_REGION
    ```
 1. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the gateway API and copy the policy arn for later use:
+
    ```bash
    {
        "Version": "2012-10-17",
@@ -62,6 +64,7 @@ EKS is a simple, recommended way of preparing a cluster for running services wit
       --policy-name VPCLatticeControllerIAMPolicy \
       --policy-document file://examples/recommended-inline-policy.json
    ```
+
 1. Create the `aws-application-networking-system` namespace:
    ```bash
    kubectl apply -f examples/deploy-namesystem.yaml
@@ -71,6 +74,7 @@ EKS is a simple, recommended way of preparing a cluster for running services wit
    export VPCLatticeControllerIAMPolicyArn=$(aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text)
    ```
 1. Create an iamserviceaccount for pod level permission:
+
    ```bash
    eksctl create iamserviceaccount \
       --cluster=$CLUSTER_NAME \
@@ -128,10 +132,13 @@ Alternatively, you can manually provide configuration variables when installing 
 ## Controller Installation
 
 1. Run either `kubectl` or `helm` to deploy the controller. Check [Environment Variables](../concepts/environment.md) for detailed explanation of each configuration option.
+
    ```bash
    kubectl apply -f examples/deploy-v0.0.18.yaml
    ```
+
    or
+
    ```bash
    # login to ECR
    aws ecr-public get-login-password --region us-east-1 | helm registry login --username AWS --password-stdin public.ecr.aws
@@ -154,3 +161,4 @@ Alternatively, you can manually provide configuration variables when installing 
    kubectl apply -f examples/gatewayclass.yaml
    ```
 1. You are all set! Check our [Getting Started Guide](getstarted.md) to try setting up service-to-service communication.
+

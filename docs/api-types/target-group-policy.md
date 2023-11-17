@@ -8,23 +8,24 @@ health check configurations of those backend resources.
 
 When attaching a policy to a resource, the following restrictions apply:
 
-* A policy can be only attached to `Service` resources.
-* The attached resource can only be `backendRef` of `HTTPRoute` and `GRPCRoute`.
-* The attached resource should exist in the same namespace as the policy resource.
+- A policy can be only attached to `Service` resources.
+- The attached resource can only be `backendRef` of `HTTPRoute` and `GRPCRoute`.
+- The attached resource should exist in the same namespace as the policy resource.
 
 The policy will not take effect if:
 
-* The resource does not exist
-* The resource is not referenced by any route
-* The resource is referenced by a route of unsupported type
+- The resource does not exist
+- The resource is not referenced by any route
+- The resource is referenced by a route of unsupported type
 
 These restrictions are not forced; for example, users may create a policy that targets a service that is not created yet.
 However, the policy will not take effect unless the target is valid.
 
 **Limitations and Considerations**
-* Attaching TargetGroupPolicy to a resource that is already referenced by a route will result in a replacement
-of VPC Lattice TargetGroup resource, except for health check updates.
-* Removing TargetGroupPolicy of a resource will roll back protocol configuration to default setting. (HTTP1/HTTP plaintext)
+
+- Attaching TargetGroupPolicy to a resource that is already referenced by a route will result in a replacement
+  of VPC Lattice TargetGroup resource, except for health check updates.
+- Removing TargetGroupPolicy of a resource will roll back protocol configuration to default setting. (HTTP1/HTTP plaintext)
 
 ## Example Configuration
 
