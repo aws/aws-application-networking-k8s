@@ -43,13 +43,13 @@ AWS Gateway API Controller supports ExternalDNS integration through CRD source -
    The following example command runs ExternalDNS compiled from source, using AWS Route53 provider:
    ```sh
    build/external-dns --source crd --crd-source-apiversion externaldns.k8s.io/v1alpha1 \
-   --crd-source-kind DNSEndpoint --provider aws
+   --crd-source-kind DNSEndpoint --provider aws --txt-prefix "prefix."
    ```
 1. Create HTTPRoutes and Services. The controller should create `DNSEndpoint` resource owned by the HTTPRoute you created.
 1. ExternalDNS will watch the changes and create DNS record on the configured DNS provider.
 
 ## Notes
 
-* You MUST have a registered domain name (e.g. `my-test.com`) in route53 and complete the `Prerequisites` mentioned in [Configure a custom domain name for your service](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-custom-domain-name.html#dns-associate-custom).
+* You MUST have a registered hosted zone (e.g. `my-test.com`) in route53 and complete the `Prerequisites` mentioned in [Configure a custom domain name for your service](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-custom-domain-name.html#dns-associate-custom).
 * If you are not using ExternalDNS, you should manually associate your custom domain name with your service following [Configure a custom domain name for your service](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-custom-domain-name.html#dns-associate-custom).
 

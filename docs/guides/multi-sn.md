@@ -11,7 +11,7 @@ You can see a production usecase at AirBnb [airbnb mullti-cluster](https://www.y
 
 Here is our example
 
-![Config Cluster and multiple workload cluster](images/multi-sn.png)
+![Config Cluster and multiple workload cluster](../images/multi-sn.png)
 
 * there are 2 gateway(s), gateway-1/lattice-service-network-1 and gateway-2/lattice-service-network-2
 * gateway-1 contains HTTPRoute1 and HTTPRoute2
@@ -120,7 +120,7 @@ spec:
 
 ## Defining HTTPRoute in Config Cluster
 
-![ServiceImport](images/serviceimport.png)
+![ServiceImport](../images/serviceimport.png)
 
 ### Exporting Kubernetes Service to AWS Lattice Service
 
