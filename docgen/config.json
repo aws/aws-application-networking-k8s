@@ -8,6 +8,10 @@
     ],
     "externalPackages": [
         {
+            "typeMatchPrefix": "^sigs\\.k8s\\.io/gateway-api/apis/v1alpha2\\.PolicyTargetReference",
+            "docsURLTemplate": "https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api"
+        },
+        {
             "typeMatchPrefix": "^k8s\\.io/apimachinery/pkg/apis/meta/v1\\.Duration$",
             "docsURLTemplate": "https://pkg.go.dev/k8s.io/apimachinery/pkg/apis/meta/v1#Duration"
         },

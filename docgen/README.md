@@ -3,7 +3,7 @@
 Install doc generator
 
 ```sh
-go install github.com/ahmetb/gen-crd-api-reference-docs
+go install github.com/ahmetb/gen-crd-api-reference-docs@v0.3.0
 ```
 
 Generate html docs
