@@ -3,6 +3,7 @@ package policyhelper
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -206,4 +207,37 @@ func Test_GetAttachedPolicies(t *testing.T) {
 			assert.ElementsMatch(t, got, tt.want)
 		})
 	}
+}
+
+func TestConflictResolutionSort(t *testing.T) {
+
+	t.Run("CreationTimestamp", func(t *testing.T) {
+		tnow := metav1.Now()
+		policies := []*anv1alpha1.TargetGroupPolicy{
+			{ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.Time{Time: tnow.Add(time.Hour)}}},
+			{ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.Time{Time: tnow.Add(time.Second)}}},
+			{ObjectMeta: metav1.ObjectMeta{CreationTimestamp: tnow}},
+		}
+		conflictResolutionSort(policies)
+		if policies[0].CreationTimestamp != tnow {
+			t.Errorf("wrong order, expect ts=%s, got ts=%s", tnow, policies[0].CreationTimestamp)
+		}
+	})
+
+	t.Run("Namespace and Name", func(t *testing.T) {
+		policies := []*anv1alpha1.TargetGroupPolicy{
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "b"}},
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "c"}},
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "a"}},
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "b", Name: "z"}},
+			{ObjectMeta: metav1.ObjectMeta{Namespace: "b", Name: "y"}},
+		}
+		conflictResolutionSort(policies)
+		if policies[0].Name != "a" {
+			t.Errorf("expect 'a' being first, got %s", policies[0].Name)
+		}
+		if policies[4].Name != "z" {
+			t.Errorf("expect 'z' being last, got %s", policies[4].Name)
+		}
+	})
 }

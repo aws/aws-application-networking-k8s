@@ -3,7 +3,9 @@ package policyhelper
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,6 +20,19 @@ type policyInfo struct {
 	policyList core.PolicyList
 	group      gwv1beta1.Group
 	kind       gwv1beta1.Kind
+}
+
+func GetValidPolicy[T core.Policy](ctx context.Context, k8sClient client.Client, searchTargetRef types.NamespacedName, policy T) (T, error) {
+	var empty T
+	policies, err := GetAttachedPolicies(ctx, k8sClient, searchTargetRef, policy)
+	conflictResolutionSort(policies)
+	if err != nil {
+		return empty, err
+	}
+	if len(policies) == 0 {
+		return empty, nil
+	}
+	return policies[0], nil
 }
 
 func GetAttachedPolicies[T core.Policy](ctx context.Context, k8sClient client.Client, searchTargetRef types.NamespacedName, policy T) ([]T, error) {
@@ -75,4 +90,32 @@ func getPolicyInfo(policyType core.Policy) (policyInfo, error) {
 	default:
 		return policyInfo{}, fmt.Errorf("unsupported policy type %T", policyType)
 	}
+}
+
+// sort in-place for policy conflict resolution
+// 1. older policy (CreationTimeStamp) has precedence
+// 2. alphabetical order namespace, then name
+func conflictResolutionSort[T core.Policy](policies []T) {
+	slices.SortFunc(policies, func(a, b T) int {
+		tsA := a.GetCreationTimestamp().Time
+		tsB := b.GetCreationTimestamp().Time
+		switch {
+		case tsA.Before(tsB):
+			return -1
+		case tsA.After(tsB):
+			return 1
+		default:
+			nsnA := a.GetNamespacedName()
+			nsnB := b.GetNamespacedName()
+			nsA := nsnA.Namespace
+			nsB := nsnB.Namespace
+			nsCmp := strings.Compare(nsA, nsB)
+			if nsCmp != 0 {
+				return nsCmp
+			}
+			nA := nsnA.Name
+			nB := nsnB.Name
+			return strings.Compare(nA, nB)
+		}
+	})
 }

@@ -5,16 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -22,6 +17,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type InvalidBackendRefError struct {
@@ -149,7 +145,8 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 		}
 	}
 
-	tgps, err := policyhelper.GetAttachedPolicies(ctx, t.client, k8s.NamespacedName(t.serviceExport), &anv1alpha1.TargetGroupPolicy{})
+	tgp, err := policyhelper.GetValidPolicy(ctx, t.client,
+		k8s.NamespacedName(t.serviceExport), &anv1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return nil, err
 	}
@@ -157,9 +154,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
 	var healthCheckConfig *vpclattice.HealthCheckConfig
-	if len(tgps) > 0 {
-		// TODO: TGP conflicts should be handled correctly w/ status update, for now just picking up one
-		tgp := tgps[0]
+	if tgp != nil {
 		if tgp.Spec.Protocol != nil {
 			protocol = *tgp.Spec.Protocol
 		}
@@ -318,7 +313,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		}
 	}
 
-	tgps, err := policyhelper.GetAttachedPolicies(ctx, t.client, backendRefNsName, &anv1alpha1.TargetGroupPolicy{})
+	tgp, err := policyhelper.GetValidPolicy(ctx, t.client, backendRefNsName, &anv1alpha1.TargetGroupPolicy{})
 	if err != nil {
 		return model.TargetGroupSpec{}, err
 	}
@@ -326,9 +321,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	protocol := "HTTP"
 	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
 	var healthCheckConfig *vpclattice.HealthCheckConfig
-	if len(tgps) > 0 {
-		// TODO: TGP conflicts should be handled correctly w/ status update, for now just picking up one
-		tgp := tgps[0]
+	if tgp != nil {
 		if tgp.Spec.Protocol != nil {
 			protocol = *tgp.Spec.Protocol
 		}
