@@ -52,7 +52,8 @@ EKS is a simple, recommended way of preparing a cluster for running services wit
                    "logs:GetLogDelivery",
                    "logs:UpdateLogDelivery",
                    "logs:DeleteLogDelivery",
-                   "logs:ListLogDeliveries"
+                   "logs:ListLogDeliveries",
+                   "tag:GetResources"
                ],
                "Resource": "*"
            }
