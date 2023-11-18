@@ -133,7 +133,7 @@ Alternatively, you can manually provide configuration variables when installing 
 
 1. Run either `kubectl` or `helm` to deploy the controller. Check [Environment Variables](../guides/environment.md) for detailed explanation of each configuration option.
    ```bash
-   kubectl apply -f examples/deploy-v0.0.18.yaml
+   kubectl apply -f examples/deploy-v1.0.0.yaml
    ```
    or
    ```bash
@@ -142,7 +142,7 @@ Alternatively, you can manually provide configuration variables when installing 
    # Run helm with either install or upgrade
    helm install gateway-api-controller \
       oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
-      --version=v0.0.18 \
+      --version=v1.0.0 \
       --set=serviceAccount.create=false --namespace aws-application-networking-system \
       # awsRegion, clusterVpcId, awsAccountId are required for case IMDS is not available.
       --set=awsRegion= \
