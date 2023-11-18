@@ -13,7 +13,8 @@
                 "logs:GetLogDelivery",
                 "logs:UpdateLogDelivery",
                 "logs:DeleteLogDelivery",
-                "logs:ListLogDeliveries"
+                "logs:ListLogDeliveries",
+                "tags:GetResources"
             ],
             "Resource": "*"
         },
