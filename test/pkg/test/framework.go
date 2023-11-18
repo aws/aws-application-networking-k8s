@@ -262,6 +262,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 		if err != nil {
 			// not found is probably OK - means it was deleted elsewhere
 			if !errors.IsNotFound(err) {
+				env.Log.Error(err)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		}
