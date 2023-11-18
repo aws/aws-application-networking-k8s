@@ -2,6 +2,8 @@ package integration
 
 import (
 	"fmt"
+	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -35,7 +37,6 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	const (
 		k8sResourceName          = "test-access-log-policy"
 		k8sResourceName2         = "test-access-log-policy-secondary"
-		bucketName               = "k8s-test-lattice-bucket"
 		logGroupName             = "k8s-test-lattice-log-group"
 		logGroup2Name            = "k8s-test-lattice-log-group-secondary"
 		deliveryStreamName       = "k8s-test-lattice-delivery-stream"
@@ -80,6 +81,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		logGroup2Arn      string
 		deliveryStreamArn string
 		roleArn           string
+		bucketName        = "eks-gateway-api-access-log-test-" + strconv.Itoa(rand.Int())
 	)
 
 	BeforeAll(func() {
