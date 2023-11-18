@@ -94,6 +94,7 @@ func IsInvalidError(err error) bool {
 
 type Lattice interface {
 	vpclatticeiface.VPCLatticeAPI
+	ListListenersAsList(ctx context.Context, input *vpclattice.ListListenersInput) ([]*vpclattice.ListenerSummary, error)
 	GetRulesAsList(ctx context.Context, input *vpclattice.ListRulesInput) ([]*vpclattice.GetRuleOutput, error)
 	ListRulesAsList(ctx context.Context, input *vpclattice.ListRulesInput) ([]*vpclattice.RuleSummary, error)
 	ListServiceNetworksAsList(ctx context.Context, input *vpclattice.ListServiceNetworksInput) ([]*vpclattice.ServiceNetworkSummary, error)
@@ -126,6 +127,23 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 	cache := expirable.NewLRU[string, any](1000, nil, time.Second*60)
 
 	return &defaultLattice{VPCLatticeAPI: latticeSess, cache: cache}
+}
+
+func (d *defaultLattice) ListListenersAsList(ctx context.Context, input *vpclattice.ListListenersInput) ([]*vpclattice.ListenerSummary, error) {
+	var result []*vpclattice.ListenerSummary
+
+	err := d.ListListenersPagesWithContext(ctx, input, func(page *vpclattice.ListListenersOutput, lastPage bool) bool {
+		for _, l := range page.Items {
+			result = append(result, l)
+		}
+		return true
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func (d *defaultLattice) GetRulesAsList(ctx context.Context, input *vpclattice.ListRulesInput) ([]*vpclattice.GetRuleOutput, error) {
