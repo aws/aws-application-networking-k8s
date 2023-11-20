@@ -1679,6 +1679,21 @@ func (mr *MockLatticeMockRecorder) ListListeners(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListeners", reflect.TypeOf((*MockLattice)(nil).ListListeners), arg0)
 }
 
+// ListListenersAsList mocks base method.
+func (m *MockLattice) ListListenersAsList(arg0 context.Context, arg1 *vpclattice.ListListenersInput) ([]*vpclattice.ListenerSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListListenersAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*vpclattice.ListenerSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListListenersAsList indicates an expected call of ListListenersAsList.
+func (mr *MockLatticeMockRecorder) ListListenersAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListenersAsList", reflect.TypeOf((*MockLattice)(nil).ListListenersAsList), arg0, arg1)
+}
+
 // ListListenersPages mocks base method.
 func (m *MockLattice) ListListenersPages(arg0 *vpclattice.ListListenersInput, arg1 func(*vpclattice.ListListenersOutput, bool) bool) error {
 	m.ctrl.T.Helper()

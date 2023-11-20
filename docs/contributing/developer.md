@@ -93,7 +93,7 @@ make e2e-clean
 
 ## Local Development
 
-A minimal sanity check on changes can be done with make presubmit. This command will also run on PR.
+A minimal test of changes can be done with ```make presubmit```. This command will also run on PR.
 
 ```
 make presubmit

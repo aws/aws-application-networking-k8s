@@ -50,10 +50,10 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 This project is licensed under the Apache-2.0 License.
 
 [ghp]: https://www.gateway-api-controller.eks.aws.dev/
-[dev]: https://www.gateway-api-controller.eks.aws.dev/developer/
+[dev]: https://www.gateway-api-controller.eks.aws.dev/contributing/developer/
 [slack]: https://kubernetes.slack.com/messages/aws-gateway-api-controller
-[getting-started]: https://www.gateway-api-controller.eks.aws.dev/getstarted/
-[spec]: https://www.gateway-api-controller.eks.aws.dev/reference/grpc-route/
-[concepts]: https://www.gateway-api-controller.eks.aws.dev/configure/
-[gh_release]: https://github.com/aws/aws-application-networking-k8s/releases/tag/v0.0.18
+[getting-started]: https://www.gateway-api-controller.eks.aws.dev/guides/getstarted/
+[spec]: https://www.gateway-api-controller.eks.aws.dev/api-reference/
+[concepts]: https://www.gateway-api-controller.eks.aws.dev/concepts/
+[gh_release]: https://github.com/aws/aws-application-networking-k8s/releases/tag/v1.0.0
 [godoc]: https://www.gateway-api-controller.eks.aws.dev/

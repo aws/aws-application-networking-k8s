@@ -107,6 +107,7 @@ type Framework struct {
 	controllerRuntimeConfig *rest.Config
 	Log                     gwlog.Logger
 	LatticeClient           services.Lattice
+	TaggingClient           services.Tagging
 	Ec2Client               *ec2.EC2
 	GrpcurlRunner           *corev1.Pod
 	DefaultTags             services.Tags
@@ -123,10 +124,12 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 		Region:      config.Region,
 		ClusterName: config.ClusterName,
 	}
+	sess := session.Must(session.NewSession())
 	framework := &Framework{
 		Client:                  lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: testScheme})),
-		LatticeClient:           services.NewDefaultLattice(session.Must(session.NewSession()), config.Region), // region is currently hardcoded
-		Ec2Client:               ec2.New(session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)}))),
+		LatticeClient:           services.NewDefaultLattice(sess, config.Region),
+		TaggingClient:           services.NewDefaultTagging(sess, config.Region),
+		Ec2Client:               ec2.New(sess, &aws.Config{Region: aws.String(config.Region)}),
 		GrpcurlRunner:           &corev1.Pod{},
 		ctx:                     ctx,
 		Log:                     log,
@@ -150,25 +153,17 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	})
 
 	Eventually(func(g Gomega) {
-		retrievedServices, _ := env.LatticeClient.ListServicesAsList(ctx, &vpclattice.ListServicesInput{})
-		for _, service := range retrievedServices {
-			env.Log.Infof("Found service, checking if created by current EKS Cluster: %v", service)
-			managed, err := env.Cloud.IsArnManaged(ctx, *service.Arn)
-			if err == nil { // ignore error as they can be a shared resource.
-				g.Expect(managed).To(BeFalse())
-			}
-		}
+		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeService, env.DefaultTags)
+		env.Log.Infow("Expecting no services created by the controller", "found", arns)
+		g.Expect(err).To(BeNil())
+		g.Expect(arns).To(BeEmpty())
+	}).Should(Succeed())
 
-		retrievedTargetGroups, _ := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{
-			VpcIdentifier: &config.VpcID,
-		})
-		for _, tg := range retrievedTargetGroups {
-			env.Log.Infof("Found TargetGroup: %s, checking if created by current EKS Cluster", *tg.Id)
-			managed, err := env.Cloud.IsArnManaged(ctx, *tg.Arn)
-			if err == nil { // ignore error as they can be a shared resource.
-				g.Expect(managed).To(BeFalse())
-			}
-		}
+	Eventually(func(g Gomega) {
+		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeTargetGroup, env.DefaultTags)
+		env.Log.Infow("Expecting no target groups created by the controller", "found", arns)
+		g.Expect(err).To(BeNil())
+		g.Expect(arns).To(BeEmpty())
 	}).Should(Succeed())
 }
 
@@ -267,6 +262,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 		if err != nil {
 			// not found is probably OK - means it was deleted elsewhere
 			if !errors.IsNotFound(err) {
+				env.Log.Error(err)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		}

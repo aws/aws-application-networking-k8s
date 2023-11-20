@@ -7,7 +7,7 @@ spec:
   - tls-parking.my-test.com
   parentRefs:
   - name: my-hotel
-    sectionName: tls-with-customer-cert
+    sectionName: https
   rules:
   - backendRefs:
     - name: parking-ver3

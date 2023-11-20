@@ -157,7 +157,14 @@ spec:
             - targetRef
             type: object
           status:
-            description: TargetGroupPolicyStatus defines the observed state of AccessLogPolicy.
+            default:
+              conditions:
+              - lastTransitionTime: "1970-01-01T00:00:00Z"
+                message: Waiting for controller
+                reason: NotReconciled
+                status: Unknown
+                type: Accepted
+            description: Status defines the current state of TargetGroupPolicy.
             properties:
               conditions:
                 default:
@@ -171,12 +178,12 @@ spec:
                   reason: Pending
                   status: Unknown
                   type: Programmed
-                description: "Conditions describe the current conditions of the AccessLogPolicy.
+                description: "Conditions describe the current conditions of the TargetGroup.
                   \n Implementations should prefer to express Policy conditions using
                   the `PolicyConditionType` and `PolicyConditionReason` constants
                   so that operators and tools can converge on a common vocabulary
-                  to describe AccessLogPolicy state. \n Known condition types are:
-                  \n * \"Accepted\" * \"Ready\""
+                  to describe TargetGroup state. \n Known condition types are: \n
+                  * \"Accepted\" * \"Ready\""
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -254,4 +261,5 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}

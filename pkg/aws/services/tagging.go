@@ -17,6 +17,7 @@ const (
 	resourceTypePrefix = "vpc-lattice:"
 
 	ResourceTypeTargetGroup ResourceType = resourceTypePrefix + "targetgroup"
+	ResourceTypeService     ResourceType = resourceTypePrefix + "service"
 
 	// https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/API_GetResources.html#API_GetResources_RequestSyntax
 	maxArnsPerGetResourcesApi = 100

@@ -10,6 +10,7 @@ spec:
   - backendRefs:
     - name: parking-ver1
       kind: Service
+      port: 80
     matches:
     - path:
         type: PathPrefix

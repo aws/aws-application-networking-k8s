@@ -9,22 +9,6 @@ Gateways, HTTPRoutes, and GRPCRoutes by specifying a destination for the access 
 - When an AccessLogPolicy is created for a Gateway target, VPC Lattice traffic to any Route that is a child of that Gateway will have access logs published to the provided destination
 - When an AccessLogPolicy is created for an HTTPRoute or GRPCRoute target, VPC Lattice traffic to that Route will have access logs published to the provided destination
 
-## Definition
-
-| Field        | Type                                                                                                     | Description                                      |
-|--------------|----------------------------------------------------------------------------------------------------------|--------------------------------------------------|
-| `apiVersion` | *string*                                                                                                 | `application-networking.k8s.aws/v1alpha1`       |
-| `kind`       | *string*                                                                                                 | `AccessLogPolicy`                                |
-| `metadata`   | [*ObjectMeta*](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#objectmeta-v1-meta) | Kubernetes metadata for the resource.            |
-| `spec`       | *AccessLogPolicySpec*                                                                                    | Defines the desired state of AccessLogPolicy.    |
-
-### AccessLogPolicySpec
-
-| Field                                       | Type                                                                                           | Description                                                                                                                                           |
-|---------------------------------------------|------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `destinationArn`                            | *string*                                                                                       | The ARN of the Amazon S3 Bucket, Amazon CloudWatch Log Group, or Amazon Kinesis Data Firehose Delivery Stream that will have access logs published to it. |
-| `targetRef`                                 | *[PolicyTargetReference](https://gateway-api.sigs.k8s.io/geps/gep-713/#policy-targetref-api)* | TargetRef points to the kubernetes `Gateway`, `HTTPRoute`, or `GRPCRoute` resource that will have this policy attached. This field is following the guidelines of Kubernetes Gateway API policy attachment. |
-
 ## Example Configurations
 
 ### Example 1

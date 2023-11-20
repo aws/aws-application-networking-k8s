@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -20,6 +21,11 @@ func (env *Framework) NewPathMatchHttpRoute(parentRefsGateway *gwv1.Gateway, bac
 		httpns = &namespace
 	}
 	for i, object := range backendRefObjects {
+		var port *gwv1.PortNumber
+		if svc, ok := object.(*corev1.Service); ok {
+			pv := gwv1.PortNumber(svc.Spec.Ports[0].Port)
+			port = &pv
+		}
 		rule := gwv1.HTTPRouteRule{
 			BackendRefs: []gwv1.HTTPBackendRef{{
 				BackendRef: gwv1.BackendRef{
@@ -27,6 +33,7 @@ func (env *Framework) NewPathMatchHttpRoute(parentRefsGateway *gwv1.Gateway, bac
 						Name:      gwv1.ObjectName(object.GetName()),
 						Namespace: (*gwv1.Namespace)(httpns),
 						Kind:      lo.ToPtr(gwv1.Kind(object.GetObjectKind().GroupVersionKind().Kind)),
+						Port:      port,
 					},
 				},
 			}},

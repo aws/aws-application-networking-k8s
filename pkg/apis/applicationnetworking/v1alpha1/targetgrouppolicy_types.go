@@ -20,12 +20,16 @@ const (
 // +kubebuilder:resource:categories=gateway-api,shortName=tgp
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:subresource:status
 type TargetGroupPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec TargetGroupPolicySpec `json:"spec"`
 
+	// Status defines the current state of TargetGroupPolicy.
+	//
+	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", reason:"NotReconciled", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
 	Status TargetGroupPolicyStatus `json:"status,omitempty"`
 }
 
@@ -118,14 +122,14 @@ type HealthCheckConfig struct {
 	ProtocolVersion *HealthCheckProtocolVersion `json:"protocolVersion,omitempty"`
 }
 
-// TargetGroupPolicyStatus defines the observed state of AccessLogPolicy.
+// TargetGroupPolicyStatus defines the observed state of TargetGroup.
 type TargetGroupPolicyStatus struct {
-	// Conditions describe the current conditions of the AccessLogPolicy.
+	// Conditions describe the current conditions of the TargetGroup.
 	//
 	// Implementations should prefer to express Policy conditions
 	// using the `PolicyConditionType` and `PolicyConditionReason`
 	// constants so that operators and tools can converge on a common
-	// vocabulary to describe AccessLogPolicy state.
+	// vocabulary to describe TargetGroup state.
 	//
 	// Known condition types are:
 	//

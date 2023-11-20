@@ -7022,7 +7022,7 @@ spec:
             - targetRef
             type: object
           status:
-            description: TargetGroupPolicyStatus defines the observed state of AccessLogPolicy.
+            description: TargetGroupPolicyStatus defines the observed state of TargetGroupPolicy.
             properties:
               conditions:
                 default:
@@ -7036,11 +7036,11 @@ spec:
                   reason: Pending
                   status: Unknown
                   type: Programmed
-                description: "Conditions describe the current conditions of the AccessLogPolicy.
+                description: "Conditions describe the current conditions of the TargetGroupPolicy.
                   \n Implementations should prefer to express Policy conditions using
                   the `PolicyConditionType` and `PolicyConditionReason` constants
                   so that operators and tools can converge on a common vocabulary
-                  to describe AccessLogPolicy state. \n Known condition types are:
+                  to describe TargetGroupPolicy state. \n Known condition types are:
                   \n * \"Accepted\" * \"Ready\""
                 items:
                   description: "Condition contains details for one aspect of the current

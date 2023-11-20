@@ -10,20 +10,23 @@ nav:
   - User Guides:
     - Quick Start: guides/deploy.md
     - Basic Setup: guides/getstarted.md
+    - Configuration: guides/environment.md
   - Concepts:
     - Design Overview: concepts/overview.md
-    - Environment Variables: concepts/environment.md
     - TLS: concepts/https.md
     - Custom Domain Name: concepts/custom-domain-name.md
     - GRPC: concepts/grpc.md
     - Cross-Account Sharing: concepts/ram-sharing.md
   - API Specification: api-reference.md
   - API Reference:
-    - GRPCRoute: reference/grpc-route.md
-    - TargetGroupPolicy: reference/target-group-policy.md
-    - VpcAssociationPolicy: reference/vpc-association-policy.md
-    - AccessLogPolicy: reference/access-log-policy.md
-    - IAMAuthPolicy:  reference/iam-auth-policy.md
+    - AccessLogPolicy: api-types/access-log-policy.md
+    - Gateway: api-types/gateway.md
+    - GRPCRoute: api-types/grpc-route.md
+    - HTTPRoute: api-types/http-route.md
+    - IAMAuthPolicy:  api-types/iam-auth-policy.md
+    - Service: api-types/service.md
+    - TargetGroupPolicy: api-types/target-group-policy.md
+    - VpcAssociationPolicy: api-types/vpc-association-policy.md
   - Contributing:
     - Developer Guide: contributing/developer.md
     - Developer Cheat Sheet: contributing/developer-cheat-sheet.md
@@ -62,6 +65,6 @@ extra_css:
 extra_javascript:
   - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js
 
-# Hosted with AWS Amplify
+# Hosted with AWS Amplify in us-east-2
 # Isengard: aws-mercury+gateway-controller-docs@
 # Account Ownership Group: aws-mercury
