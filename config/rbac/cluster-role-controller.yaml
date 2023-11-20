@@ -276,6 +276,7 @@ rules:
   - patch
   - update
   - watch
+
 - apiGroups:
     - application-networking.k8s.aws
   resources:
@@ -297,6 +298,15 @@ rules:
 - apiGroups:
     - application-networking.k8s.aws
   resources:
+    - targetgrouppolicies/status
+  verbs:
+    - get
+    - patch
+    - update
+
+- apiGroups:
+    - application-networking.k8s.aws
+  resources:
     - vpcassociationpolicies
   verbs:
     - create
@@ -312,6 +322,15 @@ rules:
     - vpcassociationpolicies/finalizers
   verbs:
     - update
+- apiGroups:
+    - application-networking.k8s.aws
+  resources:
+    - vpcassociationpolicies/status
+  verbs:
+    - get
+    - patch
+    - update
+
 - apiGroups:
     - application-networking.k8s.aws
   resources:
