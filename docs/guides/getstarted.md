@@ -8,7 +8,6 @@ Both clusters are created using `eksctl`, with both clusters created from the sa
 
 Using these examples as a foundation, see the [Concepts](../concepts/overview.md) section for ways to further configure service-to-service communications.
 
-
 **NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller](https://github.com/aws/aws-application-networking-k8s) repository.
 
 ## Set up single-cluster/VPC service-to-service communications

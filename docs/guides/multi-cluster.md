@@ -1,8 +1,8 @@
 # Recommended Multi-Cluster Architecture
 
-Here is a recommended multi-cluster architecture if you'd like to setup kubernetes service-to-service communications across multiple clusters, 
+Here is a recommended multi-cluster architecture if you'd like to setup kubernetes service-to-service communications across multiple clusters.
 
-Suppose your organization have one "conceptual service mesh" that spans multiple clusters in one aws account, this service mesh should include the following components:
+Suppose your organization have one "service mesh" that spans multiple clusters in one aws account, this service mesh should include the following components:
 - One manually created VPC Lattice service network, (it could create by either AWS Console, CLI, CloudFormation, Terraform or any other tools)
 - Create VPC Service Network Associations between VPC Lattice service network and each config cluster's VPC and workload clusters' VPCs
 - Multiple workload cluster(s), where are used to run application workload(s), workload cluster(s) should only have following workloads related kubernetes objects:
@@ -42,16 +42,3 @@ Following  steps will show you how to set up this recommended multi-cluster arch
     ```
 1. At this point, the connectivity setup finished, pods in workload cluster1 are able to communicate with `service-2` in workload cluster2 (and vice versa) via the `my-httproute` dns name.
 1. Furthermore, you could have more workloads clusters to join the `my-hotel` service network by creating the `ServiceNewtorkAssociation(s)`, they will all be able to communicate with `service-1` and `service-2` via the `my-httproute` dns name and path matching.
-
-
-
-
-
-
-
-
-
-
-
-
-
