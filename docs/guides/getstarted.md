@@ -6,7 +6,7 @@ The first part of this section provides an example of setting up of service-to-s
 The second section extends that example by creating another inventory service on a second cluster on a different VPC, and spreading traffic to that service across the two clusters and VPCs.
 Both clusters are created using `eksctl`, with both clusters created from the same account by the same cluster admin.
 
-Using these examples as a foundation, see the [Configuration](configure/index.md) section for ways to further configure service-to-service communications.
+Using these examples as a foundation, see the [Configuration](../concepts/index.md) section for ways to further configure service-to-service communications.
 
 
 **NOTE**: You can get the yaml files used on this page by cloning the [AWS Gateway API Controller for VPC Lattice](https://github.com/aws/aws-application-networking-k8s) site. The files are in the `examples/` directory.
@@ -15,7 +15,7 @@ Using these examples as a foundation, see the [Configuration](configure/index.md
 
 This example creates a single cluster in a single VPC, then configures two routes (rates and inventory) and three services (parking, review, and inventory-1). The following figure illustrates this setup:
 
-![Single cluster/VPC service-to-service communications](images/example1.png)
+![Single cluster/VPC service-to-service communications](../images/example1.png)
 
 ### Steps
 
@@ -150,7 +150,7 @@ For example, it will:
 
 The following figure illustrates this:
 
-![Multiple clusters/VPCs service-to-service communications](images/example2.png)
+![Multiple clusters/VPCs service-to-service communications](../images/example2.png)
 
 ### Steps
 
