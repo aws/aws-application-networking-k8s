@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/go-logr/zapr"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -91,17 +92,16 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	var debug bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&debug, "debug", false, "enable debug mode")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
 
-	log := gwlog.NewLogger(debug)
+	logLevel := logLevel()
+	log := gwlog.NewLogger(logLevel)
 	ctrl.SetLogger(zapr.NewLogger(log.Desugar()).WithName("runtime"))
 
 	setupLog := log.Named("setup")
@@ -219,4 +219,18 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+func logLevel() zapcore.Level {
+	level := os.Getenv("LOG_LEVEL")
+	switch level {
+	case "debug":
+		return zapcore.DebugLevel
+	case "error":
+		return zapcore.ErrorLevel
+	case "panic":
+		return zapcore.PanicLevel
+	default:
+		return zapcore.InfoLevel
+	}
 }

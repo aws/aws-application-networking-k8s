@@ -44,7 +44,7 @@ When running AWS Gateway API Controller outside the Kubernetes Cluster, this spe
 
 ---
 
-#### `GATEWAY_API_CONTROLLER_LOGLEVEL`
+#### `LOG_LEVEL`
 
 Type: string
 
