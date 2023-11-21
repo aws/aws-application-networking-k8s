@@ -15,13 +15,11 @@ if [ -z "$KUBEBUILDER_ASSETS" ]; then
 fi
 echo "KUBEBUILDER_ASSETS=$KUBEBUILDER_ASSETS" >> envFile
 
-
 # Set CLUSTER_NAME if not set
 if [ -z "$CLUSTER_NAME" ]; then
   CLUSTER_NAME=$(kubectl config view --minify -o jsonpath='{.clusters[].name}' | rev | cut -d"/" -f1 | rev | cut -d"." -f1)
 fi
 echo "CLUSTER_NAME=$CLUSTER_NAME" >> envFile
-
 
 # Set CLUSTER_VPC_ID if not set
 if [ -z "$CLUSTER_VPC_ID" ]; then
@@ -40,7 +38,4 @@ if [ -z "$REGION" ]; then
 fi
 echo "REGION=$REGION" >> envFile
 
-
-GATEWAY_API_CONTROLLER_LOGLEVEL=debug
-echo "GATEWAY_API_CONTROLLER_LOGLEVEL=$GATEWAY_API_CONTROLLER_LOGLEVEL" >> envFile
-
+echo "LOG_LEVEL=debug" >> envFile
