@@ -9,4 +9,4 @@ data:
     clusterName: {{ .Values.clusterName | quote }}
     latticeEndpoint: {{ .Values.latticeEndpoint | quote }}
     defaultServiceNetwork: {{ .Values.defaultServiceNetwork | quote }}
-
+    logLevel: {{ .Values.log.level | quote }}

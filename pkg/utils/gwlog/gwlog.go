@@ -2,6 +2,7 @@ package gwlog
 
 import (
 	"log"
+	"os"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -9,16 +10,20 @@ import (
 
 type Logger = *zap.SugaredLogger
 
-func NewLogger(debug bool) Logger {
+func NewLogger(level zapcore.Level) Logger {
 	var zc zap.Config
-	if debug {
+
+	dev := os.Getenv("DEV_MODE")
+	if dev != "" {
 		zc = zap.NewDevelopmentConfig()
-		zc.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	} else {
 		zc = zap.NewProductionConfig()
 		zc.DisableStacktrace = true
 		zc.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
+
+	zc.Level = zap.NewAtomicLevelAt(level)
+
 	z, err := zc.Build()
 	if err != nil {
 		log.Fatal("cannot initialize zapr logger", err)
@@ -26,4 +31,4 @@ func NewLogger(debug bool) Logger {
 	return z.Sugar()
 }
 
-var FallbackLogger = NewLogger(true)
+var FallbackLogger = NewLogger(zap.DebugLevel)

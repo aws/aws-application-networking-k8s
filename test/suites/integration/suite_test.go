@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -63,7 +64,7 @@ var _ = SynchronizedBeforeSuite(func() {
 
 func TestIntegration(t *testing.T) {
 	ctx = test.NewContext(t)
-	logger := gwlog.NewLogger(true)
+	logger := gwlog.NewLogger(zap.DebugLevel)
 	testFramework = test.NewFramework(ctx, logger, k8snamespace)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Integration")

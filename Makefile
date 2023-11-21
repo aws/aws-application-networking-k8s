@@ -49,7 +49,7 @@ help: ## Display this help.
 
 .PHONY: run
 run: ## Run in development mode
-	go run cmd/aws-application-networking-k8s/main.go --debug
+	DEV_MODE=1 LOG_LEVEL=debug go run cmd/aws-application-networking-k8s/main.go
 
 
 .PHONY: presubmit
