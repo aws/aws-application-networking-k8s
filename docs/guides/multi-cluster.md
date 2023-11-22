@@ -19,7 +19,10 @@ Suppose your organization would like to have one large infrastructure that have 
 
 Above architecture is recommended for following reasons:
 - Putting all Route(s) and only one Gateway in the config cluster is easier to manage and have less chance to have conflict.
-- It is easier to have seperated roles in your organization. The infra operator team only manages the resource in the config cluster and VPC Lattice resource, and the application developer teams only manage the resource in the workload cluster(s).
+- Reduce blast radius. If there is any issue in the config cluster, it won't affect the applications in the workload cluster(s).
+- It is easier to separate permissions and duties by different roles in your organization. For example:
+    - The infra operator role only has permissions and manages the resource in the config cluster and VPC Lattice resource, 
+    - The application developer role only has permissions and manages the resource in the workload cluster(s).
 
 
 
