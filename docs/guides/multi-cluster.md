@@ -4,7 +4,7 @@ Here is a recommended multi-cluster architecture if you'd like to setup kubernet
 
 Suppose your organization would like to have one large infrastructure that have many clusters in one AWS account. It's recommended your infrastructure includes the following components:
 - One manually created VPC Lattice service network, (it could be created by either AWS Console, CLI, CloudFormation, Terraform or any other tools)
-- Create  vpc service network associations between VPC Lattice service network and each config cluster's VPC and workload clusters' VPCs
+- Create vpc service network associations between VPC Lattice service network and each config cluster's VPC and workload clusters' VPCs
 - Multiple workload cluster(s), that are used to run application workload(s). Workload cluster(s) should only have following workloads related kubernetes objects:
   - Application workload(s) (`Pod(s)`, `Deployment(s)` etc.)
   - `Service(s)` for application workload(s)
@@ -45,4 +45,4 @@ Following steps show you how to set up this recommended multi-cluster architectu
     kubectl apply -f examples/service-2-import.yaml
     ```
 1. At this point, the connectivity setup finished, pods in workload cluster1 are able to communicate with `service-2` in workload cluster2 (and vice versa) via the `my-httproute` DNS name.
-1. Furthermore, you could have more workloads clusters to join the `my-gateway` service network by creating the `ServiceNewtorkAssociation(s)`, they will all be able to communicate with `service-1` and `service-2` via the `my-httproute` DNS name and path matching.
+1. Furthermore, you could have more workload clusters to join the `my-gateway` service network by creating the `ServiceNewtorkAssociation(s)`, workloads there all be able to communicate with `service-1` and `service-2` via the `my-httproute` DNS name and path matching.
