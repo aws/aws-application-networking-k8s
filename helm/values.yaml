@@ -77,4 +77,3 @@ clusterVpcId:
 clusterName:
 defaultServiceNetwork:
 latticeEndpoint:
-logLevel:
