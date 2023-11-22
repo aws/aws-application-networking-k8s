@@ -145,6 +145,8 @@ Alternatively, you can manually provide configuration variables when installing 
       oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart\
       --version=v1.0.1 \
       --set=serviceAccount.create=false --namespace aws-application-networking-system \
+      # use "debug" for debug level logs
+      --log.level=info \
       # awsRegion, clusterVpcId, awsAccountId are required for case IMDS is not available.
       --set=awsRegion= \
       --set=clusterVpcId= \
