@@ -69,7 +69,7 @@ vet: ## Vet the code and dependencies
 
 .PHONY: test
 test: ## Run tests.
-	go test ./pkg/... ./controllers/... -coverprofile coverage.out
+	go test ./pkg/... -coverprofile coverage.out
 
 .PHONY: toolchain
 toolchain: ## Install developer toolchain

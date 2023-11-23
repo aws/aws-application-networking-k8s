@@ -10,7 +10,7 @@ import (
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
+	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"

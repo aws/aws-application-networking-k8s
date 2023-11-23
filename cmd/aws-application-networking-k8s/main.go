@@ -42,7 +42,7 @@ import (
 	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/aws/aws-application-networking-k8s/controllers"
+	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
 
 	//+kubebuilder:scaffold:imports
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"

@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -40,7 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/aws/aws-application-networking-k8s/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
