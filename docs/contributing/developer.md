@@ -162,7 +162,7 @@ To build and verify your changes locally:
 pip install -r requirements.txt
 make docs
 ```
-The website will be located in `sites/` directory. You can also run a local dev-server by running `mkdocs serve`.
+The website will be located in `site/` directory. You can also run a local dev-server by running `mkdocs serve`.
 
 ## Contributing
 
