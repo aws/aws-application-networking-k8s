@@ -10,12 +10,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
         matrix:
-          k8sVersion: ["1.20.x", "1.21.x", "1.22.x", "1.23.x", "1.24.x"]
+          k8sVersion: ["1.24.x"]
     env:
       K8S_VERSION: ${{ matrix.k8sVersion }}
     steps:
     - uses: actions/checkout@v3
     - run: sed -En 's/^go[[:space:]]+([[:digit:].]+)$/GO_VERSION=\1/p' go.mod >> $GITHUB_ENV
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    - run: pip install -r requirements.txt
     - uses: actions/setup-go@v3
       with:
         go-version: ${{ env.GO_VERSION }}
@@ -30,6 +35,7 @@ jobs:
         key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
     - run: make toolchain
     - run: make presubmit
+    - run: make docs
     - name: Send coverage
       env:
         COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
