@@ -125,3 +125,8 @@ api-reference: ## Update documentation in docs/api-reference.md
 	@cd docgen && \
 	gen-crd-api-reference-docs -config config.json -api-dir "../pkg/apis/applicationnetworking/v1alpha1/" -out-file docs.html && \
 	cat api-reference-base.md docs.html > ../docs/api-reference.md
+
+.PHONY: docs
+docs:
+	mkdir -p site
+	mkdocs build

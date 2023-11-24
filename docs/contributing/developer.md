@@ -154,6 +154,16 @@ Notice: the prerequisites for running the end-to-end tests success are:
 
 After all test cases running finished, in the `AfterSuite()` function, it will clean up k8s and vpc lattice resource created by current test cases running.
 
+## Documentations
+
+The controller documentation is managed in `docs/` directory, and built with [mkdocs](https://www.mkdocs.org/).
+To build and verify your changes locally:
+```shell
+pip install -r requirements.txt
+make docs
+```
+The website will be located in `sites/` directory. You can also run a local dev-server by running `mkdocs serve`.
+
 ## Contributing
 
 Before sending a Pull Request, you should run unit tests:
