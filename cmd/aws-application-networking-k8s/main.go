@@ -39,8 +39,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/external-dns/endpoint"
-	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gateway_api_v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
 
@@ -60,8 +61,9 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	//+kubebuilder:scaffold:scheme
-	utilruntime.Must(gateway_api_v1alpha2.AddToScheme(scheme))
-	utilruntime.Must(gateway_api_v1beta1.AddToScheme(scheme))
+	utilruntime.Must(gwv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(gwv1beta1.AddToScheme(scheme))
+	utilruntime.Must(gwv1.AddToScheme(scheme))
 	utilruntime.Must(anv1alpha1.AddToScheme(scheme))
 	addOptionalCRDs(scheme)
 }
