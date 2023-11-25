@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -63,6 +64,23 @@ func (c *TargetGroupPolicyController) Reconcile(ctx context.Context, req ctrl.Re
 		"targetRef", tgPolicy.Spec.TargetRef,
 	)
 	return ctrl.Result{}, nil
+}
+
+func validationErrToStatusReason(validationErr error) gwv1alpha2.PolicyConditionReason {
+	var reason gwv1alpha2.PolicyConditionReason
+	switch {
+	case validationErr == nil:
+		reason = gwv1alpha2.PolicyReasonAccepted
+	case errors.Is(validationErr, GroupNameError) || errors.Is(validationErr, KindError):
+		reason = gwv1alpha2.PolicyReasonInvalid
+	case errors.Is(validationErr, TargetRefNotFound):
+		reason = gwv1alpha2.PolicyReasonTargetNotFound
+	case errors.Is(validationErr, TargetRefConflict):
+		reason = gwv1alpha2.PolicyReasonConflicted
+	default:
+		panic("unexpected validation error: " + validationErr.Error())
+	}
+	return reason
 }
 
 func (c *TargetGroupPolicyController) validateSpec(ctx context.Context, tgPolicy *anv1alpha1.TargetGroupPolicy) error {

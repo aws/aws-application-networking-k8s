@@ -201,11 +201,11 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 })
 
 type StatusConditionsReader interface {
-	GetStatusConditions() []apimachineryv1.Condition
+	GetStatusConditions() *[]apimachineryv1.Condition
 }
 
 func GetPolicyStatusReason(obj StatusConditionsReader) gwv1alpha2.PolicyConditionReason {
-	cnd := meta.FindStatusCondition(obj.GetStatusConditions(), string(gwv1alpha2.PolicyConditionAccepted))
+	cnd := meta.FindStatusCondition(*obj.GetStatusConditions(), string(gwv1alpha2.PolicyConditionAccepted))
 	if cnd != nil {
 		return gwv1alpha2.PolicyConditionReason(cnd.Reason)
 	}
