@@ -52,7 +52,7 @@ EKS is a simple, recommended way of preparing a cluster for running services wit
                 "logs:UpdateLogDelivery",
                 "logs:DeleteLogDelivery",
                 "logs:ListLogDeliveries",
-                "tags:GetResources"
+                "tag:GetResources"
             ],
             "Resource": "*"
         },
@@ -165,7 +165,7 @@ Alternatively, you can manually provide configuration variables when installing 
       --version=v1.0.1 \
       --set=serviceAccount.create=false --namespace aws-application-networking-system \
       # use "debug" for debug level logs
-      --log.level=info \
+      --set=log.level=info \
       # awsRegion, clusterVpcId, awsAccountId are required for case IMDS is not available.
       --set=awsRegion= \
       --set=clusterVpcId= \
