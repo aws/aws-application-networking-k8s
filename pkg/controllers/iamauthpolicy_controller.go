@@ -29,8 +29,10 @@ const (
 	IAMAuthPolicyFinalizer       = k8s.AnnotationPrefix + IAMAuthPolicyAnnotation
 )
 
-type IAP = anv1alpha1.IAMAuthPolicy
-type IAPL = anv1alpha1.IAMAuthPolicyList
+type (
+	IAP  = anv1alpha1.IAMAuthPolicy
+	IAPL = anv1alpha1.IAMAuthPolicyList
+)
 
 type IAMAuthPolicyController struct {
 	log    gwlog.Logger

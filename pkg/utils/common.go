@@ -113,6 +113,9 @@ func (s *Set[T]) Delete(t T) {
 }
 
 func (s *Set[T]) Contains(t T) bool {
+	if s.set == nil {
+		s.set = map[T]none{}
+	}
 	_, ok := s.set[t]
 	return ok
 }
