@@ -47,7 +47,6 @@ func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud p
 	phcfg := policy.PolicyHandlerConfig{
 		Log:            log,
 		Client:         mgr.GetClient(),
-		Watch:          watchObj,
 		TargetRefKinds: policy.NewGroupKindSet(watchObj),
 	}
 	ph := policy.NewPolicyHandler[IAP, IAPL](phcfg)
@@ -63,7 +62,7 @@ func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud p
 	b := ctrl.
 		NewControllerManagedBy(mgr).
 		For(&anv1alpha1.IAMAuthPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}))
-	ph.AddWatchers(b)
+	ph.AddWatchers(b, watchObj...)
 	err := b.Complete(controller)
 	return err
 }

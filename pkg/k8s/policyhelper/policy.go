@@ -186,14 +186,12 @@ func NewGroupKindSet(l []k8sclient.Object) *GroupKindSet {
 type PolicyHandler[P Policy] struct {
 	log    gwlog.Logger
 	kinds  *GroupKindSet
-	watch  []k8sclient.Object
 	client PolicyClient[P]
 }
 
 type PolicyHandlerConfig struct {
 	Log            gwlog.Logger
 	Client         k8sclient.Client
-	Watch          []k8sclient.Object
 	TargetRefKinds *GroupKindSet
 }
 
@@ -205,7 +203,6 @@ func NewPolicyHandler[T, TL any, P policyPtr[T], PL policyListPtr[TL, P]](cfg Po
 	ph := &PolicyHandler[P]{
 		log:    cfg.Log,
 		client: newK8sPolicyClient[T, TL, P, PL](cfg.Client),
-		watch:  cfg.Watch,
 		kinds:  cfg.TargetRefKinds,
 	}
 	return ph
@@ -318,9 +315,9 @@ func (h *PolicyHandler[P]) ObjResolvedPolicy(ctx context.Context, obj k8sclient.
 }
 
 // Add Watchers for configured Kinds to controller builder
-func (h *PolicyHandler[P]) AddWatchers(b *builder.Builder) {
-	h.log.Debugf("add watchers for types: %v", NewGroupKindSet(h.watch).Items())
-	for _, watchObj := range h.watch {
+func (h *PolicyHandler[P]) AddWatchers(b *builder.Builder, objs ...k8sclient.Object) {
+	h.log.Debugf("add watchers for types: %v", NewGroupKindSet(objs).Items())
+	for _, watchObj := range objs {
 		b.Watches(watchObj, handler.EnqueueRequestsFromMapFunc(h.watchMapFn))
 	}
 }
