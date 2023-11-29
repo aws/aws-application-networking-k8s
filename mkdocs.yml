@@ -25,6 +25,8 @@ nav:
     - HTTPRoute: api-types/http-route.md
     - IAMAuthPolicy:  api-types/iam-auth-policy.md
     - Service: api-types/service.md
+    - ServiceExport: api-types/service-export.md
+    - ServiceImport: api-types/service-import.md
     - TargetGroupPolicy: api-types/target-group-policy.md
     - VpcAssociationPolicy: api-types/vpc-association-policy.md
   - Contributing:

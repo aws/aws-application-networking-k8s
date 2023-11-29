@@ -26,7 +26,7 @@ This allows you to define and manage the routing of HTTP and HTTPS traffic withi
 
 ### Annotations
 
-- `application-networking.k8s.aws/lattice-assigned-domain-name`
+- `application-networking.k8s.aws/lattice-assigned-domain-name`  
   Represents a VPC Lattice generated domain name for the resource. This annotation will automatically set
   when a `HTTPRoute` is programmed and ready.
 
