@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core/graph"
-	"github.com/pkg/errors"
 	"reflect"
+
+	"github.com/pkg/errors"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core/graph"
 )
 
 //go:generate mockgen -destination stack_mock.go -package core github.com/aws/aws-application-networking-k8s/pkg/model/core Stack
@@ -119,7 +121,7 @@ func (s *defaultStack) ListResources(pResourceSlice interface{}) error {
 	var resForType []Resource
 	for _, node := range s.resourceGraph.Nodes() {
 		if node.ResType == resType {
-			res, _ := s.resources[node]
+			res := s.resources[node]
 			resForType = append(resForType, res)
 		}
 	}

@@ -49,12 +49,8 @@ func ListAllRoutes(context context.Context, client client.Client) ([]Route, erro
 	}
 
 	var routes []Route
-	for _, route := range httpRoutes {
-		routes = append(routes, route)
-	}
-	for _, route := range grpcRoutes {
-		routes = append(routes, route)
-	}
+	routes = append(routes, httpRoutes...)
+	routes = append(routes, grpcRoutes...)
 
 	return routes, nil
 }

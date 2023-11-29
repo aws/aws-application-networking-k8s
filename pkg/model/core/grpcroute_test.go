@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
@@ -236,7 +236,7 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 					BackendRefs: []gwv1alpha2.GRPCBackendRef{
 						{
 							BackendRef: gwv1alpha2.BackendRef{
-								Weight: pointer.Int32(1),
+								Weight: ptr.To(int32(1)),
 							},
 						},
 					},
@@ -247,7 +247,7 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 					BackendRefs: []gwv1alpha2.GRPCBackendRef{
 						{
 							BackendRef: gwv1alpha2.BackendRef{
-								Weight: pointer.Int32(2),
+								Weight: ptr.To(int32(2)),
 							},
 						},
 					},
@@ -317,8 +317,8 @@ func TestGRPCRouteRule_Equals(t *testing.T) {
 }
 
 func TestGRPCBackendRef_Equals(t *testing.T) {
-	weight1 := pointer.Int32(1)
-	weight2 := pointer.Int32(2)
+	weight1 := ptr.To(int32(1))
+	weight2 := ptr.To(int32(2))
 	group1 := gwv1alpha2.Group("group1")
 	group2 := gwv1alpha2.Group("group2")
 	kind1 := gwv1alpha2.Kind("kind1")

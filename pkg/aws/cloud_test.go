@@ -11,6 +11,7 @@ import (
 
 	"context"
 	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 )
 
@@ -110,7 +111,7 @@ func Test_DefaultTagsMergedWith(t *testing.T) {
 	t.Run("Given overlapping tags, returns default tags overwritten by new tags", func(t *testing.T) {
 		input := services.Tags{}
 		expected := cloud.DefaultTags()
-		for k, _ := range expected {
+		for k := range expected {
 			input[k] = aws.String("TestValue")
 			expected[k] = aws.String("TestValue")
 		}

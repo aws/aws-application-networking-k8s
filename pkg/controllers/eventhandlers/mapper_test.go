@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -48,7 +48,7 @@ func TestServiceToRoutes(t *testing.T) {
 
 	routes := []gwv1beta1.HTTPRoute{
 		createHTTPRoute("invalid-kind", "ns1", gwv1beta1.BackendObjectReference{
-			Kind: (*gwv1beta1.Kind)(pointer.String("NotService")),
+			Kind: (*gwv1beta1.Kind)(ptr.To("NotService")),
 			Name: "test-service",
 		}),
 		createHTTPRoute("invalid-nil-kind", "ns1", gwv1beta1.BackendObjectReference{
@@ -57,36 +57,36 @@ func TestServiceToRoutes(t *testing.T) {
 			Name:      "test-service",
 		}),
 		createHTTPRoute("invalid-nil-group", "ns1", gwv1beta1.BackendObjectReference{
-			Kind:      (*gwv1beta1.Kind)(pointer.String("Service")),
+			Kind:      (*gwv1beta1.Kind)(ptr.To("Service")),
 			Namespace: nil,
 			Name:      "test-service",
 		}),
 		createHTTPRoute("invalid-group", "ns1", gwv1beta1.BackendObjectReference{
-			Group:     (*gwv1beta1.Group)(pointer.String("not-core")),
-			Kind:      (*gwv1beta1.Kind)(pointer.String("Service")),
+			Group:     (*gwv1beta1.Group)(ptr.To("not-core")),
+			Kind:      (*gwv1beta1.Kind)(ptr.To("Service")),
 			Namespace: nil,
 			Name:      "test-service",
 		}),
 		createHTTPRoute("valid-inferred-namespace", "ns1", gwv1beta1.BackendObjectReference{
-			Group:     (*gwv1beta1.Group)(pointer.String("")),
-			Kind:      (*gwv1beta1.Kind)(pointer.String("Service")),
+			Group:     (*gwv1beta1.Group)(ptr.To("")),
+			Kind:      (*gwv1beta1.Kind)(ptr.To("Service")),
 			Namespace: nil,
 			Name:      "test-service",
 		}),
 		createHTTPRoute("valid-explicit-namespace", "ns1", gwv1beta1.BackendObjectReference{
-			Group:     (*gwv1beta1.Group)(pointer.String("")),
-			Kind:      (*gwv1beta1.Kind)(pointer.String("Service")),
-			Namespace: (*gwv1beta1.Namespace)(pointer.String("ns1")),
+			Group:     (*gwv1beta1.Group)(ptr.To("")),
+			Kind:      (*gwv1beta1.Kind)(ptr.To("Service")),
+			Namespace: (*gwv1beta1.Namespace)(ptr.To("ns1")),
 			Name:      "test-service",
 		}),
 		createHTTPRoute("invalid-different-namespace", "ns1", gwv1beta1.BackendObjectReference{
-			Kind:      (*gwv1beta1.Kind)(pointer.String("Service")),
-			Namespace: (*gwv1beta1.Namespace)(pointer.String("ns2")),
+			Kind:      (*gwv1beta1.Kind)(ptr.To("Service")),
+			Namespace: (*gwv1beta1.Namespace)(ptr.To("ns2")),
 			Name:      "test-service",
 		}),
 		createHTTPRoute("invalid-different-name", "ns1", gwv1beta1.BackendObjectReference{
-			Kind:      (*gwv1beta1.Kind)(pointer.String("Service")),
-			Namespace: (*gwv1beta1.Namespace)(pointer.String("ns1")),
+			Kind:      (*gwv1beta1.Kind)(ptr.To("Service")),
+			Namespace: (*gwv1beta1.Namespace)(ptr.To("ns1")),
 			Name:      "not-test-service",
 		}),
 	}
@@ -98,9 +98,7 @@ func TestServiceToRoutes(t *testing.T) {
 	mockClient := mock_client.NewMockClient(c)
 	mockClient.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, routeList *gwv1beta1.HTTPRouteList, _ ...interface{}) error {
-			for _, route := range routes {
-				routeList.Items = append(routeList.Items, route)
-			}
+			routeList.Items = append(routeList.Items, routes...)
 			return nil
 		},
 	)

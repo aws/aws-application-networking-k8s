@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -65,6 +66,7 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 	latticeListenersAsModel, err := l.getLatticeListenersAsModels(ctx)
 	if err != nil {
 		listenerErr = errors.Join(listenerErr, err)
+		return listenerErr
 	}
 
 	for _, latticeListenerAsModel := range latticeListenersAsModel {

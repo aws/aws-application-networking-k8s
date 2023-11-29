@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 type ruleSynthesizer struct {
@@ -193,7 +195,7 @@ func (r *ruleSynthesizer) deleteStaleLatticeRules(ctx context.Context, snlRules 
 			return fmt.Errorf("failed RuleManager.List %s/%s, due to %s", snl.SvcId, snl.ListenerId, err)
 		}
 
-		activeRules, _ := snlRules[snl]
+		activeRules := snlRules[snl]
 		for _, lr := range allLatticeRules {
 			if aws.BoolValue(lr.IsDefault) {
 				continue
@@ -217,7 +219,7 @@ func (r *ruleSynthesizer) deleteStaleLatticeRules(ctx context.Context, snlRules 
 func (r *ruleSynthesizer) adjustPriorities(ctx context.Context, snlStackRules map[snlKey]ruleIdMap, resRule []*model.Rule) error {
 	var updateErr error
 	for snl := range snlStackRules {
-		activeRules, _ := snlStackRules[snl]
+		activeRules := snlStackRules[snl]
 		for _, rule := range activeRules {
 			if rule.Spec.Priority != rule.Status.Priority {
 				// *any* mismatch in priority prompts a batch update of ALL priorities

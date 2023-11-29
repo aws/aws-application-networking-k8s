@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"reflect"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -143,27 +144,6 @@ func (r *defaultRuleManager) buildLatticeRule(modelRule *model.Rule) (*vpclattic
 	return &gro, nil
 }
 
-func (r *defaultRuleManager) update(ctx context.Context,
-	latticeRule *vpclattice.GetRuleOutput, latticeSvcId, latticeListenerId string) error {
-
-	uri := vpclattice.UpdateRuleInput{
-		Action:             latticeRule.Action,
-		ServiceIdentifier:  aws.String(latticeSvcId),
-		ListenerIdentifier: aws.String(latticeListenerId),
-		RuleIdentifier:     latticeRule.Id,
-		Match:              latticeRule.Match,
-		Priority:           latticeRule.Priority,
-	}
-
-	res, err := r.cloud.Lattice().UpdateRuleWithContext(ctx, &uri)
-	if err != nil {
-		return fmt.Errorf("failed UpdateRule %s due to %s", aws.StringValue(latticeRule.Id), err)
-	}
-
-	r.log.Infof("Success UpdateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
-	return nil
-}
-
 func (r *defaultRuleManager) Upsert(
 	ctx context.Context,
 	modelRule *model.Rule,
@@ -200,6 +180,9 @@ func (r *defaultRuleManager) Upsert(
 	}
 	// TODO: fetching all rules every time is not efficient - maybe have a separate public method to prepopulate?
 	currentLatticeRules, err := r.cloud.Lattice().GetRulesAsList(ctx, &lri)
+	if err != nil {
+		return model.RuleStatus{}, fmt.Errorf("failed to GetRulesAsList, err: %s", err)
+	}
 
 	var matchingRule *vpclattice.GetRuleOutput
 	for _, clr := range currentLatticeRules {

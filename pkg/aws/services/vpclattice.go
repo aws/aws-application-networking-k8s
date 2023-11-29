@@ -10,13 +10,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice/vpclatticeiface"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 )
 
 //go:generate mockgen -destination vpclattice_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Lattice
@@ -133,9 +134,7 @@ func (d *defaultLattice) ListListenersAsList(ctx context.Context, input *vpclatt
 	var result []*vpclattice.ListenerSummary
 
 	err := d.ListListenersPagesWithContext(ctx, input, func(page *vpclattice.ListListenersOutput, lastPage bool) bool {
-		for _, l := range page.Items {
-			result = append(result, l)
-		}
+		result = append(result, page.Items...)
 		return true
 	})
 
@@ -183,9 +182,7 @@ func (d *defaultLattice) ListRulesAsList(ctx context.Context, input *vpclattice.
 	var result []*vpclattice.RuleSummary
 
 	err := d.ListRulesPagesWithContext(ctx, input, func(page *vpclattice.ListRulesOutput, lastPage bool) bool {
-		for _, r := range page.Items {
-			result = append(result, r)
-		}
+		result = append(result, page.Items...)
 		return true
 	})
 
@@ -200,9 +197,7 @@ func (d *defaultLattice) ListServiceNetworksAsList(ctx context.Context, input *v
 	result := []*vpclattice.ServiceNetworkSummary{}
 
 	err := d.ListServiceNetworksPagesWithContext(ctx, input, func(page *vpclattice.ListServiceNetworksOutput, lastPage bool) bool {
-		for _, sn := range page.Items {
-			result = append(result, sn)
-		}
+		result = append(result, page.Items...)
 		return true
 	})
 
@@ -217,9 +212,7 @@ func (d *defaultLattice) ListServicesAsList(ctx context.Context, input *vpclatti
 	result := []*vpclattice.ServiceSummary{}
 
 	err := d.ListServicesPagesWithContext(ctx, input, func(page *vpclattice.ListServicesOutput, lastPage bool) bool {
-		for _, svc := range page.Items {
-			result = append(result, svc)
-		}
+		result = append(result, page.Items...)
 		return true
 	})
 
@@ -234,9 +227,7 @@ func (d *defaultLattice) ListTargetGroupsAsList(ctx context.Context, input *vpcl
 	result := []*vpclattice.TargetGroupSummary{}
 
 	err := d.ListTargetGroupsPagesWithContext(ctx, input, func(page *vpclattice.ListTargetGroupsOutput, lastPage bool) bool {
-		for _, tg := range page.Items {
-			result = append(result, tg)
-		}
+		result = append(result, page.Items...)
 		return true
 	})
 
@@ -281,9 +272,7 @@ func (d *defaultLattice) ListTargetsAsList(ctx context.Context, input *vpclattic
 	result := []*vpclattice.TargetSummary{}
 
 	err := d.ListTargetsPagesWithContext(ctx, input, func(page *vpclattice.ListTargetsOutput, lastPage bool) bool {
-		for _, target := range page.Items {
-			result = append(result, target)
-		}
+		result = append(result, page.Items...)
 		return true
 	})
 
@@ -298,9 +287,7 @@ func (d *defaultLattice) ListServiceNetworkVpcAssociationsAsList(ctx context.Con
 	result := []*vpclattice.ServiceNetworkVpcAssociationSummary{}
 
 	err := d.ListServiceNetworkVpcAssociationsPagesWithContext(ctx, input, func(page *vpclattice.ListServiceNetworkVpcAssociationsOutput, lastPage bool) bool {
-		for _, assoc := range page.Items {
-			result = append(result, assoc)
-		}
+		result = append(result, page.Items...)
 		return true
 	})
 
@@ -315,9 +302,7 @@ func (d *defaultLattice) ListServiceNetworkServiceAssociationsAsList(ctx context
 	result := []*vpclattice.ServiceNetworkServiceAssociationSummary{}
 
 	err := d.ListServiceNetworkServiceAssociationsPagesWithContext(ctx, input, func(page *vpclattice.ListServiceNetworkServiceAssociationsOutput, lastPage bool) bool {
-		for _, assoc := range page.Items {
-			result = append(result, assoc)
-		}
+		result = append(result, page.Items...)
 		return true
 	})
 

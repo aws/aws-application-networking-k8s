@@ -38,6 +38,10 @@ import (
 
 	"sigs.k8s.io/external-dns/endpoint"
 
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -48,9 +52,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var routeTypeToFinalizer = map[core.RouteType]string{
@@ -328,7 +329,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
 			Reason:             string(gwv1beta1.RouteReasonUnsupportedValue),
-			Message:            fmt.Sprintf("Dual stack Service is not supported"),
+			Message:            "Dual stack Service is not supported",
 		})
 
 		if err := r.client.Status().Patch(ctx, route.K8sObject(), client.MergeFrom(httpRouteOld.K8sObject())); err != nil {

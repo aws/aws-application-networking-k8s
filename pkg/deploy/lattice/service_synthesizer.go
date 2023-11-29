@@ -60,8 +60,6 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 			if err != nil {
 				svcErr = errors.Join(svcErr,
 					fmt.Errorf("failed DnsEndpointManager.Create %s due to %w", svcName, err))
-
-				svcErr = err
 				continue
 			}
 		}
