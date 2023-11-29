@@ -10,7 +10,7 @@ endif
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 VERSION ?= $(shell git tag --sort=v:refname | tail -1)
-ECRIMAGES ?=public.ecr.aws/m7r9p7b3/aws-gateway-controller:${VERSION}
+ECRIMAGES ?=public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:${VERSION}
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.22

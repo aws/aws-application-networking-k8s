@@ -7836,7 +7836,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: public.ecr.aws/m7r9p7b3/aws-gateway-controller:v1.0.1
+        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v1.0.1
         livenessProbe:
           httpGet:
             path: /healthz
@@ -7859,6 +7859,10 @@ spec:
             memory: 64Mi
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
       securityContext:
         runAsNonRoot: true
       serviceAccountName: gateway-api-controller

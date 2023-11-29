@@ -16,7 +16,7 @@ spec:
   selector:
     matchLabels:
       control-plane: gateway-api-controller
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       annotations:
@@ -35,6 +35,10 @@ spec:
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
         livenessProbe:
           httpGet:
             path: /healthz
