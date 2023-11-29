@@ -7137,7 +7137,6 @@ spec:
             memory: 64Mi
         securityContext:
           allowPrivilegeEscalation: false
-          runAsUser: 65532
           capabilities:
             drop:
               - ALL
