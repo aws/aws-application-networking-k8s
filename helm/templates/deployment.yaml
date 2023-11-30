@@ -39,6 +39,8 @@ spec:
         - name: {{ . }}
       {{- end }}
       {{- end }}
+      securityContext:
+        runAsNonRoot: true
       containers:
       - command:
         - /manager
@@ -66,6 +68,10 @@ spec:
           periodSeconds: 10
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
         env:
           - name: REGION
             valueFrom:
