@@ -1,4 +1,4 @@
 # https://golangci-lint.run/usage/configuration
 linters:
-  disable:
-    - errcheck
+#  disable:
+#    - errcheck
