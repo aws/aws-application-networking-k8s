@@ -68,8 +68,10 @@ vet: ## Vet the code and dependencies
 		fi;}
 
 .PHONY: golangci-lint
-golangci-lint: ## Run golangci-lint
-	golangci-lint run
+golangci-lint: ## Run golangci-lint only if from local machine not from CI
+	if [ ! "${CI}" = true ]; then \
+		golangci-lint run; \
+	fi
 
 
 .PHONY: test
