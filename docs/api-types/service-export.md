@@ -2,14 +2,15 @@
 
 ## Introduction
 
-In AWS Gateway API Controller, `ServiceExport` is the way of enabling a Service for multi-cluster traffic setup.
-Once a Service is exported, other clusters can refer to it using [`ServiceImport`](service-import.md) resource.
+In AWS Gateway API Controller, `ServiceExport` enables a Service for multi-cluster traffic setup.
+Clusters can import the exported service with [`ServiceImport`](service-import.md) resource.
 
-ServiceExport is a term originated from Kubernetes [Multicluster Service APIs](https://multicluster.sigs.k8s.io/concepts/multicluster-services-api/);
-but AWS Gateway API Controller uses its own version of ServiceExport resource with a certain set of features.
+Internally, creating a ServiceExport creates a standalone VPC Lattice [target group](https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-groups.html).
+Even without ServiceImports, creating ServiceExports can be useful in case you only need the target groups created;
+for example, using target groups in the VPC Lattice setup outside Kubernetes.
 
-Internally, creating a ServiceExport creates a VPC Lattice [target group](https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-groups.html).
-You can take advantage of this by using the created target group in VPC Lattice setup outside Kubernetes.
+Note that ServiceExport is not the implementation of Kubernetes [Multicluster Service APIs](https://multicluster.sigs.k8s.io/concepts/multicluster-services-api/);
+instead AWS Gateway API Controller uses its own version of the resource for the purpose of Gateway API integration.
 
 For more multi-cluster use cases and detailed explanation, please refer to [our recommended multi-cluster architecture](../guides/multi-cluster.md).
 

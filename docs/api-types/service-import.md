@@ -2,13 +2,18 @@
 
 ## Introduction
 
-`ServiceImport` is a resource referring to a Service outside the cluster, paired with [`ServiceExport`](service-export.md)
-resource defined in the other clusters. Just like Services, ServiceImports can be a backend reference of HTTPRoutes.
-Along with the cluster's own Services (and ServiceImports from even more clusters), you can distribute the traffic
-across multiple VPCs and clusters.
+`ServiceImport` is a resource referring to a Service outside the cluster. The primary use-case of ServiceImport is
+to pair with [`ServiceExport`](service-export.md) resource, defined in the other clusters.
 
-ServiceImport is a term originated from Kubernetes [Multicluster Service APIs](https://multicluster.sigs.k8s.io/concepts/multicluster-services-api/);
-but AWS Gateway API Controller uses its own version of ServiceImport resource with a certain set of features.
+Just like Services, ServiceImports can be a backend reference of HTTPRoutes. Along with the cluster's own Services
+(and ServiceImports from even more clusters), you can distribute the traffic across multiple VPCs and clusters.
+
+Internally, `ServiceImport` is simply a reference to a VPC Lattice target group. Even if a target group is not created
+by ServiceExport, the controller can still recognize it as long as its name matches the ServiceImport.
+This way, you can also send traffic to target groups with EC2 or Lambda targets.
+
+Note that ServiceImport is not the implementation of Kubernetes [Multicluster Service APIs](https://multicluster.sigs.k8s.io/concepts/multicluster-services-api/);
+instead AWS Gateway API Controller uses its own version of the resource for the purpose of Gateway API integration.
 
 For more multi-cluster use cases, please refer to [our recommended multi-cluster architecture](../guides/multi-cluster.md).
 
@@ -19,9 +24,9 @@ For more multi-cluster use cases, please refer to [our recommended multi-cluster
 
 ### Annotations
 * `application-networking.k8s.aws/aws-eks-cluster-name`  
-  Indicates the cluster name owning the exported service.
+  (Optional) When specified, the controller will only find target groups exported from the cluster.
 * `application-networking.k8s.aws/aws-vpc`  
-  Indicates the VPC ID owning the exported service.
+  (Optional) When specified, the controller will only find target groups exported from the cluster with the provided VPC ID.
 
 ## Example Configuration
 
