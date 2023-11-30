@@ -81,9 +81,5 @@ func (p *IAMAuthPolicy) GetStatusConditions() *[]metav1.Condition {
 }
 
 func (pl *IAMAuthPolicyList) GetItems() []*IAMAuthPolicy {
-	items := make([]*IAMAuthPolicy, len(pl.Items))
-	for i, p := range pl.Items {
-		items[i] = &p
-	}
-	return items
+	return toPtrSlice(pl.Items)
 }

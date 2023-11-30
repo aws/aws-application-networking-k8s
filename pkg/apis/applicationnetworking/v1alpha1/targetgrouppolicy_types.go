@@ -164,13 +164,5 @@ func (p *TargetGroupPolicy) GetStatusConditions() *[]metav1.Condition {
 }
 
 func (pl *TargetGroupPolicyList) GetItems() []*TargetGroupPolicy {
-	out := make([]*TargetGroupPolicy, len(pl.Items))
-	for i, p := range pl.Items {
-		out[i] = &p
-	}
-	return out
-}
-
-func (p *TargetGroupPolicy) NewList() *TargetGroupPolicyList {
-	return &TargetGroupPolicyList{}
+	return toPtrSlice(pl.Items)
 }

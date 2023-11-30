@@ -83,8 +83,10 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
 	c.log.Infow("reconcile IAM policy", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
 	isDelete := !k8sPolicy.DeletionTimestamp.IsZero()
+
 	var res ctrl.Result
 	if isDelete {
 		res, err = c.reconcileDelete(ctx, k8sPolicy)
@@ -94,10 +96,12 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	err = c.client.Update(ctx, k8sPolicy)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	c.log.Infow("reconciled IAM policy",
 		"req", req,
 		"targetRef", k8sPolicy.Spec.TargetRef,

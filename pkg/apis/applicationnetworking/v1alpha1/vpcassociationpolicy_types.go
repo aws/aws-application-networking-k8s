@@ -92,9 +92,5 @@ func (p *VpcAssociationPolicy) GetStatusConditions() *[]metav1.Condition {
 }
 
 func (pl *VpcAssociationPolicyList) GetItems() []*VpcAssociationPolicy {
-	out := make([]*VpcAssociationPolicy, len(pl.Items))
-	for i, p := range pl.Items {
-		out[i] = &p
-	}
-	return out
+	return toPtrSlice(pl.Items)
 }
