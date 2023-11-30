@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -181,7 +180,7 @@ func (r *defaultRuleManager) Upsert(
 	// TODO: fetching all rules every time is not efficient - maybe have a separate public method to prepopulate?
 	currentLatticeRules, err := r.cloud.Lattice().GetRulesAsList(ctx, &lri)
 	if err != nil {
-		return model.RuleStatus{}, fmt.Errorf("failed to GetRulesAsList, err: %s", err)
+		return model.RuleStatus{}, err
 	}
 
 	var matchingRule *vpclattice.GetRuleOutput
