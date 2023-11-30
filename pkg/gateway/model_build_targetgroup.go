@@ -300,7 +300,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	vpc := config.VpcID
 	eksCluster := config.ClusterName
 	backendRefNsName := getBackendRefNsName(t.route, t.backendRef)
-	svc := new(corev1.Service)
+	svc := &corev1.Service{}
 	if err := t.client.Get(ctx, backendRefNsName, svc); err != nil {
 		if apierrors.IsNotFound(err) {
 			return model.TargetGroupSpec{}, &InvalidBackendRefError{

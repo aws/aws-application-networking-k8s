@@ -53,7 +53,7 @@ run: ## Run in development mode
 
 
 .PHONY: presubmit
-presubmit: manifest vet test ## Run all commands before submitting code
+presubmit: golangci-lint manifest vet test ## Run all commands before submitting code
 
 .PHONY: vet
 vet: ## Vet the code and dependencies
@@ -66,6 +66,20 @@ vet: ## Vet the code and dependencies
 		if [ "${CI}" = true ]; then\
 			exit 1;\
 		fi;}
+
+.PHONY: golangci-lint
+golangci-lint:
+# Run golangci-lint only from local machine
+	if [ "${CI}" != "true" ]; then \
+		if command -v golangci-lint &> /dev/null; then \
+			echo "Running golangci-lint"; \
+			golangci-lint run; \
+		else \
+			echo "Error: golangci-lint is not installed. Please run the 'make toolchain'"; \
+			exit 1; \
+		fi \
+	fi
+
 
 .PHONY: test
 test: ## Run tests.
