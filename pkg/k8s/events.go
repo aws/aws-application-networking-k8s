@@ -30,8 +30,7 @@ const (
 	ServiceExportEventReasonFailedDeployModel  = "FailedDeployModel"
 
 	// ServiceImport events
-	ServiceImportEventReasonFailedAddFinalizer    = "FailedAddFinalizer"
-	ServiceImportEventReasonFailedRemoveFinalizer = "FailedRemoveFinalizer"
-	ServiceImportEventReasonFailedBuildModel      = "FailedBuildModel"
-	ServiceImportEventReasonFailedDeployModel     = "FailedDeployModel"
+	ServiceImportEventReasonFailedAddFinalizer = "FailedAddFinalizer"
+	ServiceImportEventReasonFailedBuildModel   = "FailedBuildModel"
+	ServiceImportEventReasonFailedDeployModel  = "FailedDeployModel"
 )
