@@ -167,11 +167,9 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 			CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
 			ServiceIdentifier: svcSum.Id,
 		}
-		if updReq != nil {
-			_, err := m.cloud.Lattice().UpdateService(updReq)
-			if err != nil {
-				return ServiceInfo{}, err
-			}
+		_, err := m.cloud.Lattice().UpdateService(updReq)
+		if err != nil {
+			return ServiceInfo{}, err
 		}
 	}
 

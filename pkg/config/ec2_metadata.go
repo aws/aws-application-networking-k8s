@@ -38,7 +38,7 @@ func (c *defaultEC2Metadata) VpcID() (string, error) {
 }
 
 func (c *defaultEC2Metadata) Region() (string, error) {
-	region, err := c.GetMetadata(fmt.Sprintf("placement/region"))
+	region, err := c.GetMetadata("placement/region")
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +46,7 @@ func (c *defaultEC2Metadata) Region() (string, error) {
 }
 
 func (c *defaultEC2Metadata) AccountId() (string, error) {
-	ec2Info, err := c.GetMetadata(fmt.Sprintf("identity-credentials/ec2/info"))
+	ec2Info, err := c.GetMetadata("identity-credentials/ec2/info")
 	type accountInfo struct {
 		Code        string `json:"code"`
 		LastUpdated string `json:"LastUpdated"`

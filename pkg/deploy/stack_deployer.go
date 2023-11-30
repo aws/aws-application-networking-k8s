@@ -3,6 +3,7 @@ package deploy
 import (
 	"context"
 	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
@@ -159,7 +160,6 @@ func (d *latticeTargetGroupStackDeployer) Deploy(ctx context.Context, stack core
 type accessLogSubscriptionStackDeployer struct {
 	log       gwlog.Logger
 	k8sClient client.Client
-	stack     core.Stack
 	manager   lattice.AccessLogSubscriptionManager
 }
 

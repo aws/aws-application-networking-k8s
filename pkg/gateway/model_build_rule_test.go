@@ -14,17 +14,18 @@ import (
 	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type dummyTgBuilder struct {
@@ -610,8 +611,8 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
-										Service: pointer.String("service"),
-										Method:  pointer.String("method1"),
+										Service: ptr.To("service"),
+										Method:  ptr.To("method1"),
 									},
 								},
 							},
@@ -626,8 +627,8 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
-										Service: pointer.String("service"),
-										Method:  pointer.String("method2"),
+										Service: ptr.To("service"),
+										Method:  ptr.To("method2"),
 									},
 								},
 							},
@@ -642,8 +643,8 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
-										Service: pointer.String("service"),
-										Method:  pointer.String("method3"),
+										Service: ptr.To("service"),
+										Method:  ptr.To("method3"),
 									},
 								},
 							},
@@ -1136,8 +1137,8 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
-										Service: pointer.String("service"),
-										Method:  pointer.String("method"),
+										Service: ptr.To("service"),
+										Method:  ptr.To("method"),
 									},
 								},
 							},
@@ -1190,7 +1191,7 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
-										Service: pointer.String("service"),
+										Service: ptr.To("service"),
 									},
 								},
 							},
@@ -1296,7 +1297,7 @@ func Test_RuleModelBuild(t *testing.T) {
 								{
 									Method: &gwv1alpha2.GRPCMethodMatch{
 										Type:    &k8sMethodMatchExactType,
-										Service: pointer.String("service"),
+										Service: ptr.To("service"),
 									},
 									Headers: []gwv1alpha2.GRPCHeaderMatch{
 										{

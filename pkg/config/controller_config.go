@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"os"
 
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"strings"
 )
 
 const (
@@ -29,7 +30,6 @@ const (
 var VpcID = ""
 var AccountID = ""
 var Region = ""
-var logLevel = defaultLogLevel
 var DefaultServiceNetwork = ""
 var ClusterName = ""
 

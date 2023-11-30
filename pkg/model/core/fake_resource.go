@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 )
 
@@ -15,15 +16,6 @@ func NewFakeResource(stack Stack, resType string, id string, spec FakeResourceSp
 	}
 	stack.AddResource(r)
 	return r
-}
-
-// register dependencies for LoadBalancer.
-func (r *FakeResource) registerDependencies(stack Stack) {
-	for _, field := range r.Spec.FieldA {
-		for _, dep := range field.Dependencies() {
-			stack.AddDependency(dep, r)
-		}
-	}
 }
 
 func (r *FakeResource) FieldB() StringToken {

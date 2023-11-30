@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -26,9 +26,9 @@ func TestServiceEventHandler_MapToRoute(t *testing.T) {
 
 	routes := []gwv1beta1.HTTPRoute{
 		createHTTPRoute("valid-route", "ns1", gwv1beta1.BackendObjectReference{
-			Group:     (*gwv1beta1.Group)(pointer.String("")),
-			Kind:      (*gwv1beta1.Kind)(pointer.String("Service")),
-			Namespace: (*gwv1beta1.Namespace)(pointer.String("ns1")),
+			Group:     (*gwv1beta1.Group)(ptr.To("")),
+			Kind:      (*gwv1beta1.Kind)(ptr.To("Service")),
+			Namespace: (*gwv1beta1.Namespace)(ptr.To("ns1")),
 			Name:      "test-service",
 		}),
 	}
@@ -43,9 +43,7 @@ func TestServiceEventHandler_MapToRoute(t *testing.T) {
 	).AnyTimes()
 	mockClient.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, routeList *gwv1beta1.HTTPRouteList, _ ...interface{}) error {
-			for _, route := range routes {
-				routeList.Items = append(routeList.Items, route)
-			}
+			routeList.Items = append(routeList.Items, routes...)
 			return nil
 		},
 	).AnyTimes()

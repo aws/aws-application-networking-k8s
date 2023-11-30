@@ -286,11 +286,7 @@ func (m *GRPCRouteMatch) Equals(routeMatch RouteMatch) bool {
 		}
 	}
 
-	if !reflect.DeepEqual(m.Method(), other.Method()) {
-		return false
-	}
-
-	return true
+	return reflect.DeepEqual(m.Method(), other.Method())
 }
 
 type GRPCHeaderMatch struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -64,7 +65,7 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 	// services, since service deletion will delete its listeners
 	latticeListenersAsModel, err := l.getLatticeListenersAsModels(ctx)
 	if err != nil {
-		listenerErr = errors.Join(listenerErr, err)
+		return err
 	}
 
 	for _, latticeListenerAsModel := range latticeListenersAsModel {

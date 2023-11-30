@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
@@ -22,9 +22,9 @@ func TestServiceImportEventHandler_MapToRoute(t *testing.T) {
 
 	routes := []gwv1beta1.HTTPRoute{
 		createHTTPRoute("valid-route", "ns1", gwv1beta1.BackendObjectReference{
-			Group:     (*gwv1beta1.Group)(pointer.String("application-networking.k8s.aws")),
-			Kind:      (*gwv1beta1.Kind)(pointer.String("ServiceImport")),
-			Namespace: (*gwv1beta1.Namespace)(pointer.String("ns1")),
+			Group:     (*gwv1beta1.Group)(ptr.To("application-networking.k8s.aws")),
+			Kind:      (*gwv1beta1.Kind)(ptr.To("ServiceImport")),
+			Namespace: (*gwv1beta1.Namespace)(ptr.To("ns1")),
 			Name:      "test-service",
 		}),
 	}
@@ -32,9 +32,7 @@ func TestServiceImportEventHandler_MapToRoute(t *testing.T) {
 	h := NewServiceImportEventHandler(gwlog.FallbackLogger, mockClient)
 	mockClient.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, routeList *gwv1beta1.HTTPRouteList, _ ...interface{}) error {
-			for _, route := range routes {
-				routeList.Items = append(routeList.Items, route)
-			}
+			routeList.Items = append(routeList.Items, routes...)
 			return nil
 		},
 	).AnyTimes()

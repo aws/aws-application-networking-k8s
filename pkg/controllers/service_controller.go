@@ -26,8 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
-	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -43,9 +41,6 @@ type serviceReconciler struct {
 	scheme           *runtime.Scheme
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
-	targetsBuilder   gateway.LatticeTargetsBuilder
-	stackDeployer    deploy.StackDeployer
-	stackMashaller   deploy.StackMarshaller
 }
 
 func RegisterServiceController(

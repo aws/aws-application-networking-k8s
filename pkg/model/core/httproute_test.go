@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -236,7 +236,7 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 					BackendRefs: []gwv1beta1.HTTPBackendRef{
 						{
 							BackendRef: gwv1beta1.BackendRef{
-								Weight: pointer.Int32(1),
+								Weight: ptr.To(int32(1)),
 							},
 						},
 					},
@@ -247,7 +247,7 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 					BackendRefs: []gwv1beta1.HTTPBackendRef{
 						{
 							BackendRef: gwv1beta1.BackendRef{
-								Weight: pointer.Int32(2),
+								Weight: ptr.To(int32(2)),
 							},
 						},
 					},
@@ -313,8 +313,8 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 }
 
 func TestHTTPBackendRef_Equals(t *testing.T) {
-	weight1 := pointer.Int32(1)
-	weight2 := pointer.Int32(2)
+	weight1 := ptr.To(int32(1))
+	weight2 := ptr.To(int32(2))
 	group1 := gwv1beta1.Group("group1")
 	group2 := gwv1beta1.Group("group2")
 	kind1 := gwv1beta1.Kind("kind1")

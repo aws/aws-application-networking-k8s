@@ -313,13 +313,10 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		}
 	}
 
-	ipAddressType := vpclattice.IpAddressTypeIpv4
 	var err error
-	if svc != nil {
-		ipAddressType, err = buildTargetGroupIpAddressType(svc)
-		if err != nil {
-			return model.TargetGroupSpec{}, err
-		}
+	ipAddressType, err := buildTargetGroupIpAddressType(svc)
+	if err != nil {
+		return model.TargetGroupSpec{}, err
 	}
 
 	tgp, err := t.tgp.ObjResolvedPolicy(ctx, svc)

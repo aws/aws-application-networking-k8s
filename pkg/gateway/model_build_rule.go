@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -15,8 +16,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 const (
@@ -242,16 +244,14 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 					return nil, err
 				}
 			}
-			if svcImport != nil {
-				vpc, ok := svcImport.Annotations["application-networking.k8s.aws/aws-vpc"]
-				if ok {
-					svcImportTg.VpcId = vpc
-				}
+			vpc, ok := svcImport.Annotations["application-networking.k8s.aws/aws-vpc"]
+			if ok {
+				svcImportTg.VpcId = vpc
+			}
 
-				eksCluster, ok := svcImport.Annotations["application-networking.k8s.aws/aws-eks-cluster-name"]
-				if ok {
-					svcImportTg.K8SClusterName = eksCluster
-				}
+			eksCluster, ok := svcImport.Annotations["application-networking.k8s.aws/aws-eks-cluster-name"]
+			if ok {
+				svcImportTg.K8SClusterName = eksCluster
 			}
 			ruleTG.SvcImportTG = &svcImportTg
 		}
