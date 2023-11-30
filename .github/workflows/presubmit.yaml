@@ -6,6 +6,19 @@ on:
   pull_request:
   workflow_dispatch:
 jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: false
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.54
   presubmit:
     runs-on: ubuntu-latest
     strategy:

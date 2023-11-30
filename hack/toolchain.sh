@@ -7,7 +7,15 @@ KUBEBUILDER_ASSETS="${KUBEBUILDER_ASSETS:="${HOME}/.kubebuilder/bin"}"
 main() {
     tools
     kubebuilder
+    golangci-lint
 }
+
+golangci-lint() {
+    if ! command -v golangci-lint &> /dev/null; then
+        echo "golangci-lint is not installed. Installing..."
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+
+    fi
 
 tools() {
     if ! echo "$PATH" | grep -q "${GOPATH:-undefined}/bin\|$HOME/go/bin"; then
