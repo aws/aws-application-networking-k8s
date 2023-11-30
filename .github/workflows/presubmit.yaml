@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  golangci:
+  golangci-lint:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
@@ -20,7 +20,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.54
-          args: ./... --verbose --timeout 30m
+          args:  --verbose --timeout 30m
 
   presubmit:
     runs-on: ubuntu-latest
