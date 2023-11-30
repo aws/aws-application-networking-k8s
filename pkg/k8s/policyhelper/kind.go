@@ -12,7 +12,7 @@ type GroupKind struct {
 	Kind  string
 }
 
-func ObjGroupKind(obj client.Object) GroupKind {
+func ObjToGroupKind(obj client.Object) GroupKind {
 	switch obj.(type) {
 	case *gwv1beta1.Gateway:
 		return GroupKind{gwv1beta1.GroupName, "Gateway"}
@@ -34,17 +34,17 @@ func TargetRefGroupKind(tr *TargetRef) GroupKind {
 	}
 }
 
-func GroupKindObj(gk GroupKind) client.Object {
+func GroupKindToObj(gk GroupKind) (client.Object, bool) {
 	switch gk {
 	case GroupKind{gwv1beta1.GroupName, "Gateway"}:
-		return &gwv1beta1.Gateway{}
+		return &gwv1beta1.Gateway{}, true
 	case GroupKind{gwv1beta1.GroupName, "HTTPRoute"}:
-		return &gwv1beta1.HTTPRoute{}
+		return &gwv1beta1.HTTPRoute{}, true
 	case GroupKind{gwv1alpha2.GroupName, "GRPCRoute"}:
-		return &gwv1alpha2.GRPCRoute{}
+		return &gwv1alpha2.GRPCRoute{}, true
 	case GroupKind{corev1.GroupName, "Service"}:
-		return &corev1.Service{}
+		return &corev1.Service{}, true
 	default:
-		panic("unsupported group kind")
+		return nil, false
 	}
 }

@@ -2,12 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
 const (
@@ -164,20 +159,18 @@ func (p *TargetGroupPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
 	return p.Spec.TargetRef
 }
 
-func (p *TargetGroupPolicy) GetNamespacedName() types.NamespacedName {
-	return k8s.NamespacedName(p)
+func (p *TargetGroupPolicy) GetStatusConditions() *[]metav1.Condition {
+	return &p.Status.Conditions
 }
 
-func (p *TargetGroupPolicy) GetStatusConditions() []metav1.Condition {
-	return p.Status.Conditions
+func (pl *TargetGroupPolicyList) GetItems() []*TargetGroupPolicy {
+	out := make([]*TargetGroupPolicy, len(pl.Items))
+	for i, p := range pl.Items {
+		out[i] = &p
+	}
+	return out
 }
 
-func (p *TargetGroupPolicy) SetStatusConditions(conditions []metav1.Condition) {
-	p.Status.Conditions = conditions
-}
-
-func (pl *TargetGroupPolicyList) GetItems() []core.Policy {
-	return utils.SliceMap(pl.Items, func(p TargetGroupPolicy) core.Policy {
-		return &p
-	})
+func (p *TargetGroupPolicy) NewList() *TargetGroupPolicyList {
+	return &TargetGroupPolicyList{}
 }

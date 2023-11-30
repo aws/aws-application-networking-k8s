@@ -30,8 +30,7 @@ const (
 )
 
 type (
-	IAP  = anv1alpha1.IAMAuthPolicy
-	IAPL = anv1alpha1.IAMAuthPolicyList
+	IAP = anv1alpha1.IAMAuthPolicy
 )
 
 type IAMAuthPolicyController struct {
@@ -43,13 +42,7 @@ type IAMAuthPolicyController struct {
 }
 
 func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud pkg_aws.Cloud) error {
-	watchObj := []client.Object{&gwv1beta1.Gateway{}, &gwv1beta1.HTTPRoute{}, &gwv1alpha2.GRPCRoute{}}
-	phcfg := policy.PolicyHandlerConfig{
-		Log:            log,
-		Client:         mgr.GetClient(),
-		TargetRefKinds: policy.NewGroupKindSet(watchObj),
-	}
-	ph := policy.NewPolicyHandler[IAP, IAPL](phcfg)
+	ph := policy.NewIAMAuthPolicyHandler(log, mgr.GetClient())
 
 	controller := &IAMAuthPolicyController{
 		log:    log,
@@ -62,7 +55,7 @@ func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud p
 	b := ctrl.
 		NewControllerManagedBy(mgr).
 		For(&anv1alpha1.IAMAuthPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}))
-	ph.AddWatchers(b, watchObj...)
+	ph.AddWatchers(b, &gwv1beta1.Gateway{}, &gwv1beta1.HTTPRoute{}, &gwv1alpha2.GRPCRoute{})
 	err := b.Complete(controller)
 	return err
 }

@@ -14,10 +14,14 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
+	policy "github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+)
+
+type (
+	TGP = anv1alpha1.TargetGroupPolicy
 )
 
 type InvalidBackendRefError struct {
@@ -57,6 +61,7 @@ func NewSvcExportTargetGroupBuilder(
 type svcExportTargetGroupModelBuildTask struct {
 	log           gwlog.Logger
 	client        client.Client
+	tgp           *policy.PolicyHandler[*TGP]
 	serviceExport *anv1alpha1.ServiceExport
 	stack         core.Stack
 }
@@ -72,6 +77,7 @@ func (b *SvcExportTargetGroupBuilder) Build(
 		serviceExport: svcExport,
 		stack:         stack,
 		client:        b.client,
+		tgp:           policy.NewTargetGroupPolicyHandler(b.log, b.client),
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -89,6 +95,7 @@ func (b *SvcExportTargetGroupBuilder) BuildTargetGroup(ctx context.Context, svcE
 		serviceExport: svcExport,
 		stack:         stack,
 		client:        b.client,
+		tgp:           policy.NewTargetGroupPolicyHandler(b.log, b.client),
 	}
 
 	return task.buildTargetGroup(ctx)
@@ -130,7 +137,8 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 			// if we're deleting, it's OK if the service isn't there
 			noSvcFoundAndDeleting = true
 		} else { // either it's some other error or we aren't deleting
-			return nil, fmt.Errorf("Failed to find corresponding k8sService %s, error :%w ", k8s.NamespacedName(t.serviceExport), err)
+			return nil, fmt.Errorf("failed to find corresponding k8sService %s, error :%w ",
+				k8s.NamespacedName(t.serviceExport), err)
 		}
 	}
 
@@ -145,8 +153,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 		}
 	}
 
-	tgp, err := policyhelper.GetValidPolicy(ctx, t.client,
-		k8s.NamespacedName(t.serviceExport), &anv1alpha1.TargetGroupPolicy{})
+	tgp, err := t.tgp.ObjResolvedPolicy(ctx, t.serviceExport)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +217,7 @@ type backendRefTargetGroupModelBuildTask struct {
 	stack      core.Stack
 	route      core.Route
 	backendRef core.BackendRef
+	tgp        *policy.PolicyHandler[*TGP]
 }
 
 func (b *BackendRefTargetGroupBuilder) Build(
@@ -229,6 +237,7 @@ func (b *BackendRefTargetGroupBuilder) Build(
 		stack:      stack,
 		route:      route,
 		backendRef: backendRef,
+		tgp:        policy.NewTargetGroupPolicyHandler(b.log, b.client),
 	}
 
 	stackTg, err := task.buildTargetGroup(ctx)
@@ -313,7 +322,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		}
 	}
 
-	tgp, err := policyhelper.GetValidPolicy(ctx, t.client, backendRefNsName, &anv1alpha1.TargetGroupPolicy{})
+	tgp, err := t.tgp.ObjResolvedPolicy(ctx, svc)
 	if err != nil {
 		return model.TargetGroupSpec{}, err
 	}

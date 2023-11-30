@@ -91,11 +91,11 @@ type Set[T comparable] struct {
 	set map[T]none
 }
 
-func NewSet[T comparable](l []T) Set[T] {
+func NewSet[T comparable](objs ...T) Set[T] {
 	s := Set[T]{
-		set: make(map[T]none, len(l)),
+		set: make(map[T]none, len(objs)),
 	}
-	for _, t := range l {
+	for _, t := range objs {
 		s.set[t] = none{}
 	}
 	return s

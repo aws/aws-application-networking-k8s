@@ -14,13 +14,8 @@ import (
 
 const AnnotationPrefix = "application-networking.k8s.aws/"
 
-type NamespacedAndNamed interface {
-	GetNamespace() string
-	GetName() string
-}
-
 // NamespacedName returns the namespaced name for k8s objects
-func NamespacedName(obj NamespacedAndNamed) types.NamespacedName {
+func NamespacedName(obj client.Object) types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),

@@ -20,7 +20,6 @@ import (
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -52,118 +51,47 @@ const (
 	ReasonUnknown = ConditionReason("Unknown")
 )
 
-// TODO: remove code below after migration to generic policy handler
-type policyInfo struct {
-	policyList core.PolicyList
-	group      gwv1beta1.Group
-	kind       gwv1beta1.Kind
+type (
+	TGP  = anv1alpha1.TargetGroupPolicy
+	TGPL = anv1alpha1.TargetGroupPolicyList
+	IAP  = anv1alpha1.IAMAuthPolicy
+	IAPL = anv1alpha1.IAMAuthPolicyList
+	VAP  = anv1alpha1.VpcAssociationPolicy
+	VAPL = anv1alpha1.VpcAssociationPolicyList
+)
+
+func NewVpcAssociationPolicyHandler(log gwlog.Logger, c k8sclient.Client) *PolicyHandler[*VAP] {
+	phcfg := PolicyHandlerConfig{
+		Log:            log,
+		Client:         c,
+		TargetRefKinds: NewGroupKindSet(&gwv1beta1.Gateway{}),
+	}
+	return NewPolicyHandler[VAP, VAPL](phcfg)
 }
 
-func GetValidPolicy[T core.Policy](ctx context.Context, k8sClient k8sclient.Client, searchTargetRef types.NamespacedName, policy T) (T, error) {
-	var empty T
-	policies, err := GetAttachedPolicies(ctx, k8sClient, searchTargetRef, policy)
-	conflictResolutionSort(policies)
-	if err != nil {
-		return empty, err
+func NewTargetGroupPolicyHandler(log gwlog.Logger, c k8sclient.Client) *PolicyHandler[*TGP] {
+	phcfg := PolicyHandlerConfig{
+		Log:            log,
+		Client:         c,
+		TargetRefKinds: NewGroupKindSet(&corev1.Service{}),
 	}
-	if len(policies) == 0 {
-		return empty, nil
-	}
-	return policies[0], nil
+	return NewPolicyHandler[TGP, TGPL](phcfg)
 }
 
-func GetAttachedPolicies[T core.Policy](ctx context.Context, k8sClient k8sclient.Client, searchTargetRef types.NamespacedName, policy T) ([]T, error) {
-	var policies []T
-	info, err := getPolicyInfo(policy)
-	if err != nil {
-		return policies, err
+func NewIAMAuthPolicyHandler(log gwlog.Logger, c k8sclient.Client) *PolicyHandler[*IAP] {
+	phcfg := PolicyHandlerConfig{
+		Log:            log,
+		Client:         c,
+		TargetRefKinds: NewGroupKindSet(&gwv1beta1.Gateway{}, &gwv1beta1.HTTPRoute{}, &gwv1alpha2.GRPCRoute{}),
 	}
-
-	pl := info.policyList
-	err = k8sClient.List(ctx, pl.(k8sclient.ObjectList), &k8sclient.ListOptions{
-		Namespace: searchTargetRef.Namespace,
-	})
-	if err != nil {
-		if meta.IsNoMatchError(err) {
-			// CRD does not exist
-			return policies, nil
-		}
-		return policies, err
-	}
-	for _, p := range pl.GetItems() {
-		targetRef := p.GetTargetRef()
-		if targetRef == nil {
-			continue
-		}
-		groupKindMatch := targetRef.Group == info.group && targetRef.Kind == info.kind
-		nameMatch := string(targetRef.Name) == searchTargetRef.Name
-
-		retrievedNamespace := p.GetNamespacedName().Namespace
-		if targetRef.Namespace != nil {
-			retrievedNamespace = string(*targetRef.Namespace)
-		}
-		namespaceMatch := retrievedNamespace == searchTargetRef.Namespace
-		if groupKindMatch && nameMatch && namespaceMatch {
-			policies = append(policies, p.(T))
-		}
-	}
-	return policies, nil
+	return NewPolicyHandler[IAP, IAPL](phcfg)
 }
-
-func getPolicyInfo(policyType core.Policy) (policyInfo, error) {
-	switch policyType.(type) {
-	case *anv1alpha1.VpcAssociationPolicy:
-		return policyInfo{
-			policyList: &anv1alpha1.VpcAssociationPolicyList{},
-			group:      gwv1beta1.GroupName,
-			kind:       "Gateway",
-		}, nil
-	case *anv1alpha1.TargetGroupPolicy:
-		return policyInfo{
-			policyList: &anv1alpha1.TargetGroupPolicyList{},
-			group:      corev1.GroupName,
-			kind:       "Service",
-		}, nil
-	default:
-		return policyInfo{}, fmt.Errorf("unsupported policy type %T", policyType)
-	}
-}
-
-// sort in-place for policy conflict resolution
-// 1. older policy (CreationTimeStamp) has precedence
-// 2. alphabetical order namespace, then name
-func conflictResolutionSort[T core.Policy](policies []T) {
-	slices.SortFunc(policies, func(a, b T) int {
-		tsA := a.GetCreationTimestamp().Time
-		tsB := b.GetCreationTimestamp().Time
-		switch {
-		case tsA.Before(tsB):
-			return -1
-		case tsA.After(tsB):
-			return 1
-		default:
-			nsnA := a.GetNamespacedName()
-			nsnB := b.GetNamespacedName()
-			nsA := nsnA.Namespace
-			nsB := nsnB.Namespace
-			nsCmp := strings.Compare(nsA, nsB)
-			if nsCmp != 0 {
-				return nsCmp
-			}
-			nA := nsnA.Name
-			nB := nsnB.Name
-			return strings.Compare(nA, nB)
-		}
-	})
-}
-
-// TODO: remove code above after migration to generic policy handler
 
 // Policy with PolicyTargetReference
 type Policy interface {
 	k8sclient.Object
-	GetStatusConditions() *[]metav1.Condition
 	GetTargetRef() *TargetRef
+	GetStatusConditions() *[]metav1.Condition
 }
 
 type PolicyList[P Policy] interface {
@@ -173,13 +101,12 @@ type PolicyList[P Policy] interface {
 
 type GroupKindSet = utils.Set[GroupKind]
 
-func NewGroupKindSet(l []k8sclient.Object) *GroupKindSet {
-	gks := &GroupKindSet{}
-	for _, obj := range l {
-		gk := ObjGroupKind(obj)
-		gks.Put(gk)
-	}
-	return gks
+func NewGroupKindSet(objs ...k8sclient.Object) *GroupKindSet {
+	gks := utils.SliceMap(objs, func(o k8sclient.Object) GroupKind {
+		return ObjToGroupKind(o)
+	})
+	set := utils.NewSet(gks...)
+	return &set
 }
 
 // A generic handler for common operations on particular policy type
@@ -247,11 +174,7 @@ func (pc *k8sPolicyClient[T, U, P, PL]) newPolicy() P {
 
 func (pc *k8sPolicyClient[T, U, P, PL]) List(ctx context.Context, namespace string) ([]P, error) {
 	l := pc.newList()
-	opts := &k8sclient.ListOptions{}
-	if namespace != "" { // policies suppose to be namespaced
-		opts.Namespace = namespace
-	}
-	err := pc.client.List(ctx, l, opts)
+	err := pc.client.List(ctx, l, &k8sclient.ListOptions{Namespace: namespace})
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +189,11 @@ func (pc *k8sPolicyClient[T, U, P, PL]) Get(ctx context.Context, nsname types.Na
 
 func (pc *k8sPolicyClient[T, U, P, PL]) TargetRefObj(ctx context.Context, p P) (k8sclient.Object, error) {
 	tr := p.GetTargetRef()
-	obj := GroupKindObj(TargetRefGroupKind(tr))
+	obj, ok := GroupKindToObj(TargetRefGroupKind(tr))
+	if !ok {
+		return nil, fmt.Errorf("not supported GroupKind of targetRef, group/kind=%s/%s",
+			tr.Group, tr.Kind)
+	}
 	key := types.NamespacedName{
 		Namespace: p.GetNamespace(),
 		Name:      string(tr.Name),
@@ -282,8 +209,9 @@ func (pc *k8sPolicyClient[T, U, P, PL]) UpdateStatus(ctx context.Context, policy
 	return pc.client.Status().Update(ctx, policy)
 }
 
-// Get all policies for given object, filtered by targetRef match.
-// List might include invalid and conflicting policies, for non-conflicting policy use ObjResolvedPolicy
+// Get all policies for given object, filtered by targetRef match and sorted by conflict resolution
+// rules. First policy in the list is not-conflicting policy, but it might be in Accepted or Invalid
+// state. Conflict resolution order uses CreationTimestamp and Name.
 func (h *PolicyHandler[P]) ObjPolicies(ctx context.Context, obj k8sclient.Object) ([]P, error) {
 	allPolicies, err := h.client.List(ctx, obj.GetNamespace())
 	if err != nil {
@@ -296,11 +224,12 @@ func (h *PolicyHandler[P]) ObjPolicies(ctx context.Context, obj k8sclient.Object
 			out = append(out, policy)
 		}
 	}
+	h.conflictResolutionSort(out)
 	return out, nil
 }
 
-// Get resolved policy. Returns policy with conflict resolution. Will return at most single policy.
-// Every policy is implicitly Direct Policy Attachment and having more that 1 will result in conflict.
+// Get Accepted policy for given object. Returns policy with conflict resolution and status
+// Accepted.  Will return at most single policy.
 func (h *PolicyHandler[P]) ObjResolvedPolicy(ctx context.Context, obj k8sclient.Object) (P, error) {
 	var empty P
 	objPolicies, err := h.ObjPolicies(ctx, obj)
@@ -310,13 +239,17 @@ func (h *PolicyHandler[P]) ObjResolvedPolicy(ctx context.Context, obj k8sclient.
 	if len(objPolicies) == 0 {
 		return empty, nil
 	}
-	h.conflictResolutionSort(objPolicies)
+	policy := objPolicies[0]
+	cnd := meta.FindStatusCondition(*policy.GetStatusConditions(), string(ConditionTypeAccepted))
+	if cnd != nil && cnd.Reason != string(ReasonAccepted) {
+		return empty, nil
+	}
 	return objPolicies[0], nil
 }
 
 // Add Watchers for configured Kinds to controller builder
 func (h *PolicyHandler[P]) AddWatchers(b *builder.Builder, objs ...k8sclient.Object) {
-	h.log.Debugf("add watchers for types: %v", NewGroupKindSet(objs).Items())
+	h.log.Debugf("add watchers for types: %v", NewGroupKindSet(objs...).Items())
 	for _, watchObj := range objs {
 		b.Watches(watchObj, handler.EnqueueRequestsFromMapFunc(h.watchMapFn))
 	}
@@ -347,11 +280,12 @@ func (h *PolicyHandler[P]) watchMapFn(ctx context.Context, obj k8sclient.Object)
 // targetRef might not have namespace set, it should be inferred from policy itself.
 // In this case we assume namespace already checked
 func (h *PolicyHandler[P]) targetRefMatch(obj k8sclient.Object, tr *gwv1alpha2.PolicyTargetReference) bool {
-	objGk := ObjGroupKind(obj)
+	objGk := ObjToGroupKind(obj)
 	trGk := TargetRefGroupKind(tr)
 	return objGk == trGk && obj.GetName() == string(tr.Name)
 }
 
+// Validate Policy and update Accepted status condition.
 func (h *PolicyHandler[P]) ValidateAndUpdateCondition(ctx context.Context, policy P) (ConditionReason, error) {
 	validationErr := h.ValidateTargetRef(ctx, policy)
 	reason := errToReason(validationErr)
@@ -368,11 +302,15 @@ func (h *PolicyHandler[P]) ValidateAndUpdateCondition(ctx context.Context, polic
 
 func (h *PolicyHandler[P]) ValidateTargetRef(ctx context.Context, policy P) error {
 	tr := policy.GetTargetRef()
+
+	// invalid
 	trGk := TargetRefGroupKind(tr)
 	if !h.kinds.Contains(trGk) {
 		return fmt.Errorf("%w: not supported GroupKind=%s/%s",
 			ErrGroupKind, tr.Group, tr.Kind)
 	}
+
+	// not found
 	targetRefObj, err := h.client.TargetRefObj(ctx, policy)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -381,14 +319,21 @@ func (h *PolicyHandler[P]) ValidateTargetRef(ctx context.Context, policy P) erro
 		}
 		return err
 	}
-	resolvedPolicy, err := h.ObjResolvedPolicy(ctx, targetRefObj)
+
+	// conflicted
+	objPolicies, err := h.ObjPolicies(ctx, targetRefObj)
 	if err != nil {
 		return err
 	}
-	if resolvedPolicy.GetName() != policy.GetName() {
-		return fmt.Errorf("%w, policy=%s",
-			ErrTargetRefConflict, resolvedPolicy.GetName())
+	if len(objPolicies) > 0 {
+		resolvedPolicy := objPolicies[0]
+		if resolvedPolicy.GetName() != policy.GetName() {
+			return fmt.Errorf("%w, policy=%s",
+				ErrTargetRefConflict, resolvedPolicy.GetName())
+		}
 	}
+
+	// valid
 	return nil
 }
 

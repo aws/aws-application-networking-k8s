@@ -25,13 +25,14 @@ func TestGroupKind(t *testing.T) {
 
 	t.Run("obj to kind", func(t *testing.T) {
 		for _, tt := range tests {
-			assert.Equal(t, ObjGroupKind(tt.obj), tt.kind)
+			assert.Equal(t, ObjToGroupKind(tt.obj), tt.kind)
 		}
 	})
 
 	t.Run("kind to obj", func(t *testing.T) {
 		for _, tt := range tests {
-			assert.Equal(t, GroupKindObj(tt.kind), tt.obj)
+			kind, _ := GroupKindToObj(tt.kind)
+			assert.Equal(t, kind, tt.obj)
 		}
 	})
 }
