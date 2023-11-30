@@ -39,9 +39,9 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 	)
 
 	var (
-		log       = testFramework.Log.Named("byoc")
-		sess      = session.New()
-		awsCfg    = aws.NewConfig().WithRegion(config.Region)
+		log     = testFramework.Log.Named("byoc")
+		awsCfg  = aws.NewConfig().WithRegion(config.Region)
+		sess, _ = session.NewSession(awsCfg)
 		acmClient = acm.New(sess, awsCfg)
 		r53Client = route53.New(sess)
 

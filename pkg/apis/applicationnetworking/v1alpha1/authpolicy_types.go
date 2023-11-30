@@ -1,12 +1,8 @@
 package v1alpha1
 
 import (
-	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
 const (
@@ -21,8 +17,8 @@ const (
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 // +kubebuilder:subresource:status
 type IAMAuthPolicy struct {
-	apimachineryv1.TypeMeta   `json:",inline"`
-	apimachineryv1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec IAMAuthPolicySpec `json:"spec"`
 
@@ -35,9 +31,9 @@ type IAMAuthPolicy struct {
 // +kubebuilder:object:root=true
 // IAMAuthPolicyList contains a list of IAMAuthPolicies.
 type IAMAuthPolicyList struct {
-	apimachineryv1.TypeMeta `json:",inline"`
-	apimachineryv1.ListMeta `json:"metadata,omitempty"`
-	Items                   []IAMAuthPolicy `json:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []IAMAuthPolicy `json:"items"`
 }
 
 // IAMAuthPolicySpec defines the desired state of IAMAuthPolicy.
@@ -73,29 +69,17 @@ type IAMAuthPolicyStatus struct {
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=8
 	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
-	Conditions []apimachineryv1.Condition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 func (p *IAMAuthPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
 	return p.Spec.TargetRef
 }
 
-func (p *IAMAuthPolicy) GetStatusConditions() []apimachineryv1.Condition {
-	return p.Status.Conditions
+func (p *IAMAuthPolicy) GetStatusConditions() *[]metav1.Condition {
+	return &p.Status.Conditions
 }
 
-func (p *IAMAuthPolicy) SetStatusConditions(conditions []apimachineryv1.Condition) {
-	p.Status.Conditions = conditions
-}
-
-func (p *IAMAuthPolicy) GetNamespacedName() types.NamespacedName {
-	return k8s.NamespacedName(p)
-}
-
-func (pl *IAMAuthPolicyList) GetItems() []core.Policy {
-	items := make([]core.Policy, len(pl.Items))
-	for i, item := range pl.Items {
-		items[i] = &item
-	}
-	return items
+func (pl *IAMAuthPolicyList) GetItems() []*IAMAuthPolicy {
+	return toPtrSlice(pl.Items)
 }

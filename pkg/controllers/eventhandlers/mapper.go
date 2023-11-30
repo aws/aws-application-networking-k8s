@@ -12,7 +12,8 @@ import (
 	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	k8sutils "github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -47,7 +48,7 @@ func (r *resourceMapper) ServiceToServiceExport(ctx context.Context, svc *corev1
 		return nil
 	}
 	svcExport := &anv1alpha1.ServiceExport{}
-	if err := r.client.Get(ctx, k8s.NamespacedName(svc), svcExport); err != nil {
+	if err := r.client.Get(ctx, k8sutils.NamespacedName(svc), svcExport); err != nil {
 		return nil
 	}
 	return svcExport
@@ -58,7 +59,7 @@ func (r *resourceMapper) EndpointsToService(ctx context.Context, ep *corev1.Endp
 		return nil
 	}
 	svc := &corev1.Service{}
-	if err := r.client.Get(ctx, k8s.NamespacedName(ep), svc); err != nil {
+	if err := r.client.Get(ctx, k8sutils.NamespacedName(ep), svc); err != nil {
 		return nil
 	}
 	return svc
@@ -72,12 +73,12 @@ func (r *resourceMapper) VpcAssociationPolicyToGateway(ctx context.Context, vap 
 	return policyToTargetRefObj(r, ctx, vap, &gateway_api.Gateway{})
 }
 
-func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Context, policy core.Policy, retObj T) T {
+func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Context, policy policyhelper.Policy, retObj T) T {
 	null := *new(T)
 	if policy == nil {
 		return null
 	}
-	policyNamespacedName := policy.GetNamespacedName()
+	policyNamespacedName := k8sutils.NamespacedName(policy)
 
 	targetRef := policy.GetTargetRef()
 	if targetRef == nil {
@@ -173,7 +174,7 @@ func (r *resourceMapper) backendRefToRoutes(ctx context.Context, obj client.Obje
 	return filteredRoutes
 }
 
-func (r *resourceMapper) isBackendRefUsedByRoute(route core.Route, obj k8s.NamespacedAndNamed, group, kind string) bool {
+func (r *resourceMapper) isBackendRefUsedByRoute(route core.Route, obj client.Object, group, kind string) bool {
 	for _, rule := range route.Spec().Rules() {
 		for _, backendRef := range rule.BackendRefs() {
 			isGroupEqual := backendRef.Group() != nil && string(*backendRef.Group()) == group

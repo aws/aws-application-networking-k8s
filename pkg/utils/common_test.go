@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestChunks(t *testing.T) {
@@ -48,4 +50,14 @@ func makeIntSlice(s int) []int {
 		out[i] = i
 	}
 	return out
+}
+
+func TestSet(t *testing.T) {
+
+	t.Run("empty set", func(t *testing.T) {
+		s := Set[int]{}
+		s.Put(1)
+		assert.True(t, s.Contains(1))
+	})
+
 }

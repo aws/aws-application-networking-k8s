@@ -45,6 +45,10 @@ func SliceMap[T any, U any](in []T, f MapFunc[T, U]) []U {
 	return out
 }
 
+func SliceMapToPtr[T any](in []T) []*T {
+	return SliceMap(in, func(t T) *T { return &t })
+}
+
 func SliceFilter[T any](in []T, f FilterFunc[T]) []T {
 	out := []T{}
 	for _, t := range in {
@@ -79,4 +83,49 @@ func TargetRefToLatticeResourceName(
 	}
 
 	return "", fmt.Errorf("unsupported targetRef Kind: %s", targetRef.Kind)
+}
+
+type none struct{}
+
+type Set[T comparable] struct {
+	set map[T]none
+}
+
+func NewSet[T comparable](objs ...T) Set[T] {
+	s := Set[T]{
+		set: make(map[T]none, len(objs)),
+	}
+	for _, t := range objs {
+		s.set[t] = none{}
+	}
+	return s
+}
+
+func (s *Set[T]) Put(t T) {
+	if s.set == nil {
+		s.set = map[T]none{}
+	}
+	s.set[t] = none{}
+}
+
+func (s *Set[T]) Delete(t T) {
+	delete(s.set, t)
+}
+
+func (s *Set[T]) Contains(t T) bool {
+	if s.set == nil {
+		s.set = map[T]none{}
+	}
+	_, ok := s.set[t]
+	return ok
+}
+
+func (s *Set[T]) Items() []T {
+	out := make([]T, len(s.set))
+	i := 0
+	for t := range s.set {
+		out[i] = t
+		i++
+	}
+	return out
 }

@@ -139,7 +139,8 @@ func (m *defaultServiceNetworkManager) getActiveVpcAssociation(ctx context.Conte
 	if aws.StringValue(snva.Status) == vpclattice.ServiceNetworkVpcAssociationStatusActive {
 		return snva, nil
 	}
-	m.log.Debugf("snva %s status: %s", snva.Arn, snva.Status)
+	m.log.Debugf("snva %s status: %s",
+		aws.StringValue(snva.Arn), aws.StringValue(snva.Status))
 	switch aws.StringValue(snva.Status) {
 	case vpclattice.ServiceNetworkVpcAssociationStatusActive,
 		vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed,

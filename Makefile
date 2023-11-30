@@ -49,7 +49,7 @@ help: ## Display this help.
 
 .PHONY: run
 run: ## Run in development mode
-	DEV_MODE=1 go run cmd/aws-application-networking-k8s/main.go
+	DEV_MODE=1 LOG_LEVEL=debug go run cmd/aws-application-networking-k8s/main.go
 
 
 .PHONY: presubmit
@@ -102,6 +102,7 @@ e2e-test-namespace := "e2e-test"
 .PHONY: e2e-test
 e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1 || true # ignore already exists error
+	LOG_LEVEL=debug
 	cd test && go test \
 		-p 1 \
 		-count 1 \
