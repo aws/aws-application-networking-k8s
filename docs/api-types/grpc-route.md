@@ -27,7 +27,7 @@ This allows you to define and manage the routing of gRPC traffic within your Kub
 
 ### Annotations
 
-- `application-networking.k8s.aws/lattice-assigned-domain-name`
+- `application-networking.k8s.aws/lattice-assigned-domain-name`  
   Represents a VPC Lattice generated domain name for the resource. This annotation will automatically set
   when a `GRPCRoute` is programmed and ready.
 
