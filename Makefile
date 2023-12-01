@@ -53,7 +53,7 @@ run: ## Run in development mode
 
 
 .PHONY: presubmit
-presubmit: lint manifest vet test ## Run all commands before submitting code
+presubmit: manifest vet lint test ## Run all commands before submitting code
 
 .PHONY: vet
 vet: ## Vet the code and dependencies
