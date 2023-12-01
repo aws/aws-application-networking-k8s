@@ -7,6 +7,15 @@ KUBEBUILDER_ASSETS="${KUBEBUILDER_ASSETS:="${HOME}/.kubebuilder/bin"}"
 main() {
     tools
     kubebuilder
+    install_golangci_lint
+}
+
+install_golangci_lint() {
+    if { [ -z "${CI+x}" ] || [ "${CI}" != "true" ]; } && ! command -v golangci-lint &> /dev/null; then
+        echo "golangci-lint is not installed in local machine. Installing..."
+        # https://golangci-lint.run/usage/install/#local-installation
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+    fi
 }
 
 tools() {
