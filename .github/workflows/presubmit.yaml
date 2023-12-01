@@ -49,7 +49,9 @@ jobs:
           ~/.kubebuilder/bin
         key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
     - run: make toolchain
-    - run: make presubmit
+    - run: make manifest
+    - run: make vet
+    - run: make test
     - run: make docs
     - name: Send coverage
       env:
