@@ -22,6 +22,7 @@ type Route interface {
 	DeletionTimestamp() *metav1.Time
 	DeepCopy() Route
 	K8sObject() client.Object
+	GroupKind() metav1.GroupKind
 }
 
 func NewRoute(object client.Object) (Route, error) {

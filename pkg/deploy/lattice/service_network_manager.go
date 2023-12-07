@@ -193,7 +193,8 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 			return model.ServiceNetworkStatus{}, err
 		}
 		if snva != nil {
-			m.log.Debugf("ServiceNetwork %s already has VPC association %s", serviceNetwork.Spec.Name, snva.Arn)
+			m.log.Debugf("ServiceNetwork %s already has VPC association %s",
+				serviceNetwork.Spec.Name, aws.StringValue(snva.Arn))
 			return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
 		}
 	}

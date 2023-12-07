@@ -42,7 +42,11 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	gwv1beta1.AddToScheme(k8sScheme)
 	addOptionalCRDs(k8sScheme)
 
-	k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
+	k8sClient := testclient.
+		NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithStatusSubresource(&gwv1beta1.HTTPRoute{}).
+		Build()
 
 	gwClass := &gwv1beta1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
