@@ -191,7 +191,7 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1beta1.G
 		}
 
 		if httpGw.Name == gw.Name && httpGw.Namespace == gw.Namespace {
-			return fmt.Errorf("Cannot delete gateway %s/%s - found referencing route %s/%s",
+			return fmt.Errorf("cannot delete gateway %s/%s - found referencing route %s/%s",
 				gw.Namespace, gw.Name, route.Namespace(), route.Name())
 		}
 	}
