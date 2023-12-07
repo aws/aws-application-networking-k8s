@@ -79,7 +79,7 @@ func (r *GRPCRoute) Inner() *gwv1alpha2.GRPCRoute {
 	return &r.r
 }
 
-func (r *GRPCRoute) GK() metav1.GroupKind {
+func (r *GRPCRoute) GroupKind() metav1.GroupKind {
 	return metav1.GroupKind{
 		Group: gwv1beta1.GroupName,
 		Kind:  "GRPCRoute",

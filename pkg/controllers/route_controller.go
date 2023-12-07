@@ -151,10 +151,6 @@ func RegisterAllRouteControllers(
 func (r *routeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.Infow("reconcile", "name", req.Name)
 	recErr := r.reconcile(ctx, req)
-	if errors.Is(recErr, ErrValidation) {
-		r.log.Infof("non-retryable error: %s", recErr)
-		return ctrl.Result{}, nil // validation errors are not retryable, operator need to update spec
-	}
 	if recErr != nil {
 		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
 	}
@@ -321,7 +317,11 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 	}
 
 	if err := r.validateRoute(ctx, route); err != nil {
-		return fmt.Errorf("upsert: %w", err)
+		// TODO: we suppose to stop reconciliation here, but that will create problem when
+		// we delete Service and we suppose to delete TargetGroup, this validation will
+		// throw error if Service is not found.  For now just update route status and log
+		// error.
+		r.log.Infof("route: %s: %s", route.Name(), err)
 	}
 
 	backendRefIPFamiliesErr := r.validateBackendRefsIpFamilies(ctx, route)
@@ -446,24 +446,24 @@ var (
 // We dont support PartiallyInvalid for now and reject entire route if there is at least one invalid field.
 // Accepted type is related to parentRefs, and ResolvedRefs to backendRefs. These 2 are validated independently.
 func (r *routeReconciler) validateRoute(ctx context.Context, route core.Route) error {
-	ps, err := r.validateRouteParentRefs(ctx, route)
+	parentRefsAccepted, err := r.validateRouteParentRefs(ctx, route)
 	if err != nil {
 		return err
 	}
 
-	cnd, err := r.validateBackedRefs(ctx, route)
+	resolvedRefsCnd, err := r.validateBackedRefs(ctx, route)
 	if err != nil {
 		return err
 	}
 
 	// we need to update each parentRef with backendRef status
-	psbr := make([]gwv1.RouteParentStatus, len(ps))
-	for i, rps := range ps {
-		meta.SetStatusCondition(&rps.Conditions, cnd)
-		psbr[i] = rps
+	parentRefsAcceptedResolvedRefs := make([]gwv1.RouteParentStatus, len(parentRefsAccepted))
+	for i, rps := range parentRefsAccepted {
+		meta.SetStatusCondition(&rps.Conditions, resolvedRefsCnd)
+		parentRefsAcceptedResolvedRefs[i] = rps
 	}
 
-	route.Status().SetParents(psbr)
+	route.Status().SetParents(parentRefsAcceptedResolvedRefs)
 
 	err = r.client.Status().Update(ctx, route.K8sObject())
 	if err != nil {

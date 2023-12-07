@@ -78,7 +78,7 @@ func (r *HTTPRoute) Inner() *gwv1beta1.HTTPRoute {
 	return &r.r
 }
 
-func (r *HTTPRoute) GK() metav1.GroupKind {
+func (r *HTTPRoute) GroupKind() metav1.GroupKind {
 	return metav1.GroupKind{
 		Group: gwv1beta1.GroupName,
 		Kind:  "HTTPRoute",
