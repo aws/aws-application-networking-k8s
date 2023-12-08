@@ -40,7 +40,7 @@ type defaultServiceNetworkManager struct {
 }
 
 func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string) (string, error) {
-	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName, "")
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName)
 	if err != nil {
 		return "", err
 	}
@@ -85,7 +85,7 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 }
 
 func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context, snName string) error {
-	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName, "")
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (m *defaultServiceNetworkManager) getActiveVpcAssociation(ctx context.Conte
 // This function does not care about the association status, the caller is not supposed to wait for it.
 func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, serviceNetwork *model.ServiceNetwork) (model.ServiceNetworkStatus, error) {
 	// check if exists
-	foundSnSummary, err := m.cloud.Lattice().FindServiceNetwork(ctx, serviceNetwork.Spec.Name, "")
+	foundSnSummary, err := m.cloud.Lattice().FindServiceNetwork(ctx, serviceNetwork.Spec.Name)
 	if err != nil && !services.IsNotFoundError(err) {
 		return model.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""}, err
 	}

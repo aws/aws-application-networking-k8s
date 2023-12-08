@@ -12,7 +12,6 @@ import (
 
 	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -96,7 +95,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	t.Run("Create_NewALSForServiceNetwork_ReturnsNewALSStatus", func(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
 
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -129,7 +128,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			ResourceId:   aws.String(serviceNetworkArn),
 		}
 
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -166,7 +165,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			ResourceId:   aws.String(s3DestinationArn),
 		}
 
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -188,7 +187,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			ResourceId:   aws.String(cloudWatchDestinationArn),
 		}
 
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -210,7 +209,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			ResourceId:   aws.String(firehoseDestinationArn),
 		}
 
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -244,7 +243,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			},
 		}
 
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(nil, createALSErr)
 		mockLattice.EXPECT().ListAccessLogSubscriptionsWithContext(ctx, listALSInput).Return(listALSOutput, nil)
 		mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, listTagsInput).Return(listTagsOutput, nil)
@@ -280,7 +279,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			},
 		}
 
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(nil, createALSErr)
 		mockLattice.EXPECT().ListAccessLogSubscriptionsWithContext(ctx, listALSInput).Return(listALSOutput, nil)
 		mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, listTagsInput).Return(listTagsOutput, nil)
@@ -295,7 +294,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
 		notFoundErr := services.NewNotFoundError("", "")
 
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(nil, notFoundErr)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(nil, notFoundErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -323,7 +322,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		}
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -346,9 +345,9 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		}
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSErr)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
 		mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(deleteALSOutput, nil)
 
@@ -383,8 +382,8 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		}
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, newSourceName, config.AccountID).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, newSourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, newSourceName).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, newSourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(createALSOutput, nil)
 		mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(deleteALSOutput, nil)
 
@@ -406,7 +405,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		createALSOutput.Arn = aws.String(newAccessLogSubscriptionArn)
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(nil, getALSError)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -427,9 +426,9 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		createALSOutput.Arn = aws.String(newAccessLogSubscriptionArn)
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -461,7 +460,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		updateALSError := &vpclattice.AccessDeniedException{}
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -480,7 +479,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		}
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
@@ -499,7 +498,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		}
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
-		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName, config.AccountID).Return(serviceNetworkInfo, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)

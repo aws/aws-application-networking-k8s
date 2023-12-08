@@ -9,7 +9,6 @@ import (
 
 	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -199,7 +198,7 @@ func (m *defaultAccessLogSubscriptionManager) getSourceArn(
 
 	switch sourceType {
 	case lattice.ServiceNetworkSourceType:
-		serviceNetwork, err := vpcLatticeSess.FindServiceNetwork(ctx, sourceName, config.AccountID)
+		serviceNetwork, err := vpcLatticeSess.FindServiceNetwork(ctx, sourceName)
 		if err != nil {
 			return nil, err
 		}

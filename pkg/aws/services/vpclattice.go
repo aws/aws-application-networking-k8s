@@ -7,17 +7,18 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/aws/aws-sdk-go/service/vpclattice/vpclatticeiface"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
 //go:generate mockgen -destination vpclattice_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Lattice
@@ -104,17 +105,17 @@ type Lattice interface {
 	ListTargetsAsList(ctx context.Context, input *vpclattice.ListTargetsInput) ([]*vpclattice.TargetSummary, error)
 	ListServiceNetworkVpcAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput) ([]*vpclattice.ServiceNetworkVpcAssociationSummary, error)
 	ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error)
-	FindServiceNetwork(ctx context.Context, name string, accountId string) (*ServiceNetworkInfo, error)
+	FindServiceNetwork(ctx context.Context, name string) (*ServiceNetworkInfo, error)
 	FindService(ctx context.Context, latticeServiceName string) (*vpclattice.ServiceSummary, error)
 }
 
 type defaultLattice struct {
 	vpclatticeiface.VPCLatticeAPI
-
-	cache *expirable.LRU[string, any]
+	ownAccount string
+	cache      *expirable.LRU[string, any]
 }
 
-func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
+func NewDefaultLattice(sess *session.Session, acc string, region string) *defaultLattice {
 
 	latticeEndpoint := "https://vpc-lattice." + region + ".amazonaws.com"
 	endpoint := os.Getenv("LATTICE_ENDPOINT")
@@ -127,7 +128,11 @@ func NewDefaultLattice(sess *session.Session, region string) *defaultLattice {
 
 	cache := expirable.NewLRU[string, any](1000, nil, time.Second*60)
 
-	return &defaultLattice{VPCLatticeAPI: latticeSess, cache: cache}
+	return &defaultLattice{
+		VPCLatticeAPI: latticeSess,
+		ownAccount:    acc,
+		cache:         cache,
+	}
 }
 
 func (d *defaultLattice) ListListenersAsList(ctx context.Context, input *vpclattice.ListListenersInput) ([]*vpclattice.ListenerSummary, error) {
@@ -313,60 +318,78 @@ func (d *defaultLattice) ListServiceNetworkServiceAssociationsAsList(ctx context
 	return result, nil
 }
 
-func (d *defaultLattice) FindServiceNetwork(ctx context.Context, name string, optionalAccountId string) (*ServiceNetworkInfo, error) {
+func (d *defaultLattice) snSummaryToLog(snSum []*vpclattice.ServiceNetworkSummary) []string {
+	out := make([]string, len(snSum))
+	for i, s := range snSum {
+		out[i] = fmt.Sprintf("name=%s, id=%s", aws.StringValue(s.Name), aws.StringValue(s.Id))
+	}
+	return out
+}
+
+func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrId string) (*ServiceNetworkInfo, error) {
 	// When default service network is provided, override for any kind of SN search
 	if config.ServiceNetworkOverrideMode {
-		name = config.DefaultServiceNetwork
+		nameOrId = config.DefaultServiceNetwork
 	}
-	input := vpclattice.ListServiceNetworksInput{}
 
-	var innerErr error
-	var snMatch *ServiceNetworkInfo
-	err := d.ListServiceNetworksPagesWithContext(ctx, &input, func(page *vpclattice.ListServiceNetworksOutput, lastPage bool) bool {
-		for _, r := range page.Items {
-			if aws.StringValue(r.Name) != name {
-				continue
-			}
-			acctIdMatches, err1 := accountIdMatches(optionalAccountId, *r.Arn)
-			if err1 != nil {
-				innerErr = err1
-				return false
-			}
-			if !acctIdMatches {
-				continue
-			}
-
-			tagsInput := vpclattice.ListTagsForResourceInput{
-				ResourceArn: r.Arn,
-			}
-
-			tagsOutput, err2 := d.ListTagsForResourceWithContext(ctx, &tagsInput)
-			if err2 != nil {
-				innerErr = err2
-				return false
-			}
-
-			snMatch = &ServiceNetworkInfo{
-				SvcNetwork: *r,
-				Tags:       tagsOutput.Tags,
-			}
-			return false
-		}
-
-		return true
-	})
-
-	if innerErr != nil {
-		return nil, innerErr
-	}
+	input := &vpclattice.ListServiceNetworksInput{}
+	allSn, err := d.ListServiceNetworksAsList(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-	if snMatch == nil {
-		return nil, NewNotFoundError("Service network", name)
+
+	// Try find by name first, if there is no single match, continue with id
+	// match. Ideally name match should work just fine, but in desperate
+	// scenario of shared SN when naming collision happens using ID can be
+	// an option
+	var snMatch *vpclattice.ServiceNetworkSummary
+	nameMatch := utils.SliceFilter(allSn, func(snSum *vpclattice.ServiceNetworkSummary) bool {
+		return aws.StringValue(snSum.Name) == nameOrId
+	})
+	idMatch := utils.SliceFilter(allSn, func(snSum *vpclattice.ServiceNetworkSummary) bool {
+		return aws.StringValue(snSum.Id) == nameOrId
+	})
+
+	switch {
+	case len(nameMatch) == 1:
+		snMatch = nameMatch[0]
+	case len(idMatch) == 1:
+		snMatch = idMatch[0]
+	case len(nameMatch) == 0 && len(idMatch) == 0:
+		return nil, NewNotFoundError("Service network", nameOrId)
+	case len(nameMatch) > 1:
+		return nil, fmt.Errorf("multiple SN found by name, cannot disambiguate: %v", d.snSummaryToLog(nameMatch))
+	case len(idMatch) > 1: // bizarre, should never happen, lattice ID must be globally unique
+		return nil, fmt.Errorf("multiple SN found by ID, cannot disambiguate: %v", d.snSummaryToLog(idMatch))
+	default: // more bizarre, cases above should cover all variants
+		return nil, fmt.Errorf("find service network: internal error: unreachable")
 	}
 
-	return snMatch, nil
+	snArn, err := arn.Parse(*snMatch.Arn)
+	if err != nil {
+		return nil, err
+	}
+
+	// try to fetch tags only if SN in the same aws account with controller's config
+	tags := Tags{}
+	if snArn.AccountID == d.ownAccount {
+		tagsInput := vpclattice.ListTagsForResourceInput{ResourceArn: snMatch.Arn}
+		tagsOutput, err := d.ListTagsForResourceWithContext(ctx, &tagsInput)
+		if err != nil {
+			aerr, ok := err.(awserr.Error)
+			// In case ownAccount is not set, we still can encounter
+			// access denied.  Silently ignore and move on.
+			if !ok || aerr.Code() != vpclattice.ErrCodeAccessDeniedException {
+				return nil, err
+			}
+		}
+		tags = tagsOutput.Tags
+	}
+
+	return &ServiceNetworkInfo{
+		SvcNetwork: *snMatch,
+		Tags:       tags,
+	}, nil
 }
 
 // see utils.LatticeServiceName
@@ -392,19 +415,6 @@ func (d *defaultLattice) FindService(ctx context.Context, latticeServiceName str
 	}
 
 	return svcMatch, nil
-}
-
-func accountIdMatches(accountId string, itemArn string) (bool, error) {
-	if accountId == "" {
-		return true, nil
-	}
-
-	parsedArn, err := arn.Parse(itemArn)
-	if err != nil {
-		return false, err
-	}
-
-	return accountId == parsedArn.AccountID, nil
 }
 
 func IsLatticeAPINotFoundErr(err error) bool {

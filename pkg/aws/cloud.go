@@ -70,7 +70,7 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig) (Cloud, error) {
 		}
 	})
 
-	lattice := services.NewDefaultLattice(sess, cfg.Region)
+	lattice := services.NewDefaultLattice(sess, cfg.AccountId, cfg.Region)
 	tagging := services.NewDefaultTagging(sess, cfg.Region)
 	cl := NewDefaultCloudWithTagging(lattice, tagging, cfg)
 	return cl, nil
