@@ -372,13 +372,13 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrId string
 
 	// try to fetch tags only if SN in the same aws account with controller's config
 	tags := Tags{}
-	if snArn.AccountID == d.ownAccount {
+	if snArn.AccountID == d.ownAccount || d.ownAccount == "" {
 		tagsInput := vpclattice.ListTagsForResourceInput{ResourceArn: snMatch.Arn}
 		tagsOutput, err := d.ListTagsForResourceWithContext(ctx, &tagsInput)
 		if err != nil {
 			aerr, ok := err.(awserr.Error)
-			// In case ownAccount is not set, we still can encounter
-			// access denied.  Silently ignore and move on.
+			// In case ownAccount is not set, we cant tell if SN is foreign.
+			// In this case access denied is expected.
 			if !ok || aerr.Code() != vpclattice.ErrCodeAccessDeniedException {
 				return nil, err
 			}
