@@ -444,19 +444,19 @@ func TestServiceNetworkMatch(t *testing.T) {
 	type SnSum = vpclattice.ServiceNetworkSummary
 
 	type test struct {
-		name        string
-		inAllSn     []*SnSum
-		inNameOrArn string
-		outSn       *SnSum
-		outErrType  error
+		name       string
+		inAllSn    []*SnSum
+		inNameOrId string
+		outSn      *SnSum
+		outErrType error
 	}
 
 	tests := []test{
 		{
-			name:        "not found",
-			inAllSn:     []*SnSum{},
-			inNameOrArn: "any",
-			outErrType:  ErrNotFound,
+			name:       "not found",
+			inAllSn:    []*SnSum{},
+			inNameOrId: "any",
+			outErrType: ErrNotFound,
 		},
 		{
 			name: "name conflict",
@@ -464,17 +464,26 @@ func TestServiceNetworkMatch(t *testing.T) {
 				{Name: aws.String("conflict")},
 				{Name: aws.String("conflict")},
 			},
-			inNameOrArn: "conflict",
-			outErrType:  ErrNameConflict,
+			inNameOrId: "conflict",
+			outErrType: ErrNameConflict,
 		},
 		{
-			name: "internal error: ARN duplicate",
+			name: "name and id conflict",
 			inAllSn: []*SnSum{
-				{Arn: aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-12345678326bb4a62")},
-				{Arn: aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-12345678326bb4a62")},
+				{Name: aws.String("sn-12345678326bb4a62")},
+				{Id: aws.String("sn-12345678326bb4a62")},
 			},
-			inNameOrArn: "arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-12345678326bb4a62",
-			outErrType:  ErrInternal,
+			inNameOrId: "sn-12345678326bb4a62",
+			outErrType: ErrNameConflict,
+		},
+		{
+			name: "id conflict",
+			inAllSn: []*SnSum{
+				{Id: aws.String("sn-12345678326bb4a62")},
+				{Id: aws.String("sn-12345678326bb4a62")},
+			},
+			inNameOrId: "sn-12345678326bb4a62",
+			outErrType: ErrNameConflict,
 		},
 		{
 			name: "name match",
@@ -482,18 +491,18 @@ func TestServiceNetworkMatch(t *testing.T) {
 				{Name: aws.String("not")},
 				{Name: aws.String("match")},
 			},
-			inNameOrArn: "match",
-			outSn:       &SnSum{Name: aws.String("match")},
+			inNameOrId: "match",
+			outSn:      &SnSum{Name: aws.String("match")},
 		},
 		{
-			name: "arn match",
+			name: "id match",
 			inAllSn: []*SnSum{
-				{Arn: aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-match")},
-				{Arn: aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-not")},
+				{Id: aws.String("sn-12345678326bb4a62")},
+				{Id: aws.String("sn-99999999999999999")},
 			},
-			inNameOrArn: "arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-match",
+			inNameOrId: "sn-12345678326bb4a62",
 			outSn: &vpclattice.ServiceNetworkSummary{
-				Arn: aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-match"),
+				Id: aws.String("sn-12345678326bb4a62"),
 			},
 		},
 	}
@@ -502,7 +511,7 @@ func TestServiceNetworkMatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sn, err := d.serviceNetworkMatch(tt.inAllSn, tt.inNameOrArn)
+			sn, err := d.serviceNetworkMatch(tt.inAllSn, tt.inNameOrId)
 			assert.ErrorIs(t, err, tt.outErrType)
 			if tt.outErrType == nil {
 				assert.Equal(
@@ -512,8 +521,8 @@ func TestServiceNetworkMatch(t *testing.T) {
 				)
 				assert.Equal(
 					t,
-					aws.StringValue(tt.outSn.Arn),
-					aws.StringValue(sn.Arn),
+					aws.StringValue(tt.outSn.Id),
+					aws.StringValue(sn.Id),
 				)
 			}
 		})

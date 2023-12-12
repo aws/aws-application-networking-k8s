@@ -102,7 +102,7 @@ type Lattice interface {
 	ListTargetsAsList(ctx context.Context, input *vpclattice.ListTargetsInput) ([]*vpclattice.TargetSummary, error)
 	ListServiceNetworkVpcAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkVpcAssociationsInput) ([]*vpclattice.ServiceNetworkVpcAssociationSummary, error)
 	ListServiceNetworkServiceAssociationsAsList(ctx context.Context, input *vpclattice.ListServiceNetworkServiceAssociationsInput) ([]*vpclattice.ServiceNetworkServiceAssociationSummary, error)
-	FindServiceNetwork(ctx context.Context, name string) (*ServiceNetworkInfo, error)
+	FindServiceNetwork(ctx context.Context, nameOrId string) (*ServiceNetworkInfo, error)
 	FindService(ctx context.Context, latticeServiceName string) (*vpclattice.ServiceSummary, error)
 }
 
@@ -323,28 +323,29 @@ func (d *defaultLattice) snSummaryToLog(snSum []*vpclattice.ServiceNetworkSummar
 	return strings.Join(out, ",")
 }
 
-// Try find by name first, if there is no single match, continue with arn match. Ideally
-// name match should work just fine, but in desperate scenario of shared SN when naming
-// collision happens using arn can be an option
-func (d *defaultLattice) serviceNetworkMatch(allSn []*vpclattice.ServiceNetworkSummary, nameOrArn string) (*vpclattice.ServiceNetworkSummary, error) {
+// Try find by name first, if there is no single match, continue with id match. Ideally name match
+// should work just fine, but in desperate scenario of shared SN when naming collision happens using
+// id can be an option
+func (d *defaultLattice) serviceNetworkMatch(allSn []*vpclattice.ServiceNetworkSummary, nameOrId string) (*vpclattice.ServiceNetworkSummary, error) {
 	var snMatch *vpclattice.ServiceNetworkSummary
 	nameMatch := utils.SliceFilter(allSn, func(snSum *vpclattice.ServiceNetworkSummary) bool {
-		return aws.StringValue(snSum.Name) == nameOrArn
+		return aws.StringValue(snSum.Name) == nameOrId
 	})
-	arnMatch := utils.SliceFilter(allSn, func(snSum *vpclattice.ServiceNetworkSummary) bool {
-		return aws.StringValue(snSum.Arn) == nameOrArn
+	idMatch := utils.SliceFilter(allSn, func(snSum *vpclattice.ServiceNetworkSummary) bool {
+		return aws.StringValue(snSum.Id) == nameOrId
 	})
 
 	switch {
+	case len(nameMatch) == 0 && len(idMatch) == 0:
+		return nil, NewNotFoundError("Service network", nameOrId)
+	case len(nameMatch)+len(idMatch) > 1:
+		return nil, fmt.Errorf("%w, multiple SN found: nameMatch=%s idMatch=%s",
+			ErrNameConflict, d.snSummaryToLog(nameMatch), d.snSummaryToLog(idMatch))
 	case len(nameMatch) == 1:
 		snMatch = nameMatch[0]
-	case len(arnMatch) == 1:
-		snMatch = arnMatch[0]
-	case len(nameMatch) == 0 && len(arnMatch) == 0:
-		return nil, NewNotFoundError("Service network", nameOrArn)
-	case len(nameMatch) > 1:
-		return nil, fmt.Errorf("%w: multiple SN found by name, cannot disambiguate: %s", ErrNameConflict, d.snSummaryToLog(nameMatch))
-	default: // more bizarre, cases above should cover all variants
+	case len(idMatch) == 1:
+		snMatch = idMatch[0]
+	default:
 		return nil, fmt.Errorf("%w: service network match: unreachable", ErrInternal)
 	}
 	return snMatch, nil
@@ -359,10 +360,10 @@ func (d *defaultLattice) isLocalResource(strArn string) (bool, error) {
 	return a.AccountID == d.ownAccount || d.ownAccount == "", nil
 }
 
-func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrArn string) (*ServiceNetworkInfo, error) {
+func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrId string) (*ServiceNetworkInfo, error) {
 	// When default service network is provided, override for any kind of SN search
 	if config.ServiceNetworkOverrideMode {
-		nameOrArn = config.DefaultServiceNetwork
+		nameOrId = config.DefaultServiceNetwork
 	}
 
 	input := &vpclattice.ListServiceNetworksInput{}
@@ -371,7 +372,7 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrArn strin
 		return nil, err
 	}
 
-	snMatch, err := d.serviceNetworkMatch(allSn, nameOrArn)
+	snMatch, err := d.serviceNetworkMatch(allSn, nameOrId)
 	if err != nil {
 		return nil, err
 	}
