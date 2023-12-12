@@ -29,7 +29,7 @@ func (m *IAMAuthPolicyManager) Put(ctx context.Context, policy model.IAMAuthPoli
 }
 
 func (m *IAMAuthPolicyManager) putSn(ctx context.Context, policy model.IAMAuthPolicy) (model.IAMAuthPolicyStatus, error) {
-	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, policy.Name, "")
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, policy.Name)
 	if err != nil {
 		return model.IAMAuthPolicyStatus{}, err
 	}
@@ -84,7 +84,7 @@ func (m *IAMAuthPolicyManager) Delete(ctx context.Context, policy model.IAMAuthP
 
 func (m *IAMAuthPolicyManager) deleteSn(ctx context.Context, policy model.IAMAuthPolicy) (model.IAMAuthPolicyStatus, error) {
 	if policy.ResourceId == "" {
-		sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, policy.Name, "")
+		sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, policy.Name)
 		if err != nil {
 			return model.IAMAuthPolicyStatus{}, err
 		}

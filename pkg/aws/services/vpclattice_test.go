@@ -2,13 +2,10 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/request"
-
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -18,7 +15,7 @@ import (
 func Test_IsNotFoundError(t *testing.T) {
 	err := errors.New("ERROR")
 	nfErr := NewNotFoundError("type", "name")
-	blankNfEff := &NotFoundError{}
+	blankNfEff := ErrNotFound
 
 	assert.False(t, IsNotFoundError(err))
 	assert.False(t, IsNotFoundError(nil))
@@ -344,233 +341,6 @@ func Test_defaultLattice_ListServiceNetworkServiceAssociationsAsList(t *testing.
 	}
 }
 
-func getTestArn(accountId string) string {
-	//arn:<partition>:vpc-lattice:<region>:<account id>:<resource-type>/<resource-id>
-	return fmt.Sprintf("arn:aws:vpc-lattice:region:%s:resource/id", accountId)
-}
-
-func Test_defaultLattice_FindServiceNetwork_happyPath(t *testing.T) {
-	ctx := context.TODO()
-	c := gomock.NewController(t)
-	mockLattice := NewMockLattice(c)
-	d := &defaultLattice{VPCLatticeAPI: mockLattice}
-
-	snName := "sn-name"
-	acctId := "123456"
-	testArn := getTestArn(acctId)
-
-	item := &vpclattice.ServiceNetworkSummary{
-		Name: &snName,
-		Arn:  &testArn,
-		Id:   aws.String("id"),
-	}
-
-	listOutput1 := &vpclattice.ListServiceNetworksOutput{
-		Items:     []*vpclattice.ServiceNetworkSummary{item},
-		NextToken: nil,
-	}
-
-	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
-			f(listOutput1, true)
-			return nil
-		}).AnyTimes()
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
-		&vpclattice.ListTagsForResourceOutput{}, nil).AnyTimes()
-
-	itemFound, err1 := d.FindServiceNetwork(ctx, snName, acctId)
-	assert.Nil(t, err1)
-	assert.NotNil(t, itemFound)
-	assert.Equal(t, snName, *itemFound.SvcNetwork.Name)
-
-	emptyAccountItemFound, err2 := d.FindServiceNetwork(ctx, snName, "")
-	assert.Nil(t, err2)
-	assert.NotNil(t, emptyAccountItemFound)
-	assert.Equal(t, snName, *emptyAccountItemFound.SvcNetwork.Name)
-
-	mismatchedAccountId := "555555"
-	itemNotFound, err3 := d.FindServiceNetwork(ctx, snName, mismatchedAccountId)
-	assert.True(t, IsNotFoundError(err3))
-	assert.Nil(t, itemNotFound)
-}
-
-func Test_defaultLattice_FindServiceNetwork_disambiguateByAccount(t *testing.T) {
-	ctx := context.TODO()
-	c := gomock.NewController(t)
-	mockLattice := NewMockLattice(c)
-	d := &defaultLattice{VPCLatticeAPI: mockLattice}
-
-	acct1 := "12345"
-	acct2 := "88888"
-
-	listOutput1 := &vpclattice.ListServiceNetworksOutput{
-		Items: []*vpclattice.ServiceNetworkSummary{
-			{
-				Arn:  aws.String(getTestArn(acct1)),
-				Name: aws.String("duplicated-name"),
-				Id:   aws.String("id"),
-			},
-			{
-				Arn:  aws.String(getTestArn(acct2)),
-				Name: aws.String("duplicated-name"),
-				Id:   aws.String("id"),
-			},
-		},
-		NextToken: nil,
-	}
-
-	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
-			f(listOutput1, true)
-			return nil
-		}).AnyTimes()
-
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
-		&vpclattice.ListTagsForResourceOutput{
-			Tags: map[string]*string{
-				"foo": aws.String("bar"),
-			},
-		}, nil).AnyTimes()
-
-	item1, err1 := d.FindServiceNetwork(ctx, "duplicated-name", acct1)
-	assert.Nil(t, err1)
-	assert.NotNil(t, item1)
-	arn1, _ := arn.Parse(*item1.SvcNetwork.Arn)
-	assert.Equal(t, acct1, arn1.AccountID)
-	// make sure tags come back too
-	assert.Equal(t, "bar", *item1.Tags["foo"])
-
-	item2, err2 := d.FindServiceNetwork(ctx, "duplicated-name", acct2)
-	assert.Nil(t, err2)
-	assert.NotNil(t, item2)
-	arn2, _ := arn.Parse(*item2.SvcNetwork.Arn)
-	assert.Equal(t, acct2, arn2.AccountID)
-
-	// will just return the first item it finds - is NOT predictable but doesn't fail
-	emptyAcctItem, err3 := d.FindServiceNetwork(ctx, "duplicated-name", "")
-	assert.Nil(t, err3)
-	assert.NotNil(t, emptyAcctItem)
-}
-
-func Test_defaultLattice_FindServiceNetwork_noResults(t *testing.T) {
-	ctx := context.TODO()
-	c := gomock.NewController(t)
-	mockLattice := NewMockLattice(c)
-	d := &defaultLattice{VPCLatticeAPI: mockLattice}
-
-	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
-			f(&vpclattice.ListServiceNetworksOutput{}, true)
-			return nil
-		}).AnyTimes()
-
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
-		&vpclattice.ListTagsForResourceOutput{}, nil).AnyTimes()
-
-	item, err := d.FindServiceNetwork(ctx, "foo", "1234")
-	assert.True(t, IsNotFoundError(err))
-	assert.Nil(t, item)
-}
-
-func Test_defaultLattice_FindServiceNetwork_pagedResults(t *testing.T) {
-	ctx := context.TODO()
-	c := gomock.NewController(t)
-	mockLattice := NewMockLattice(c)
-	d := &defaultLattice{VPCLatticeAPI: mockLattice}
-
-	one := "1"
-	two := "2"
-	tokens := []*string{&one, &two, nil}
-	results := [][]*vpclattice.ServiceNetworkSummary{{}, {}, {}}
-
-	for i := range results {
-		for j := 1; j <= 5; j++ {
-			// ids will be 11 - 15, 21 - 21, 31 - 35
-			id := fmt.Sprintf("%d%d", i+1, j)
-			results[i] = append(results[i],
-				&vpclattice.ServiceNetworkSummary{
-					Arn:  aws.String(getTestArn("1111" + id)),
-					Name: aws.String("name-" + id),
-					Id:   aws.String("id-" + id),
-				})
-		}
-	}
-
-	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
-			for i, result := range results {
-				responsePage := &vpclattice.ListServiceNetworksOutput{
-					Items:     result,
-					NextToken: tokens[i],
-				}
-				cont := f(responsePage, i+1 == len(results))
-				if !cont {
-					break
-				}
-			}
-			return nil
-		}).AnyTimes()
-
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
-		&vpclattice.ListTagsForResourceOutput{}, nil).AnyTimes()
-
-	page3item, err3 := d.FindServiceNetwork(ctx, "name-35", "111135")
-	assert.Nil(t, err3)
-	assert.NotNil(t, page3item)
-	assert.Equal(t, "name-35", *page3item.SvcNetwork.Name)
-
-	page1item, err1 := d.FindServiceNetwork(ctx, "name-13", "111113")
-	assert.Nil(t, err1)
-	assert.NotNil(t, page1item)
-	assert.Equal(t, "name-13", *page1item.SvcNetwork.Name)
-
-	page2item, err2 := d.FindServiceNetwork(ctx, "name-21", "111121")
-	assert.Nil(t, err2)
-	assert.NotNil(t, page2item)
-	assert.Equal(t, "name-21", *page2item.SvcNetwork.Name)
-
-	notPresentItem, err4 := d.FindServiceNetwork(ctx, "no-name", "")
-	assert.True(t, IsNotFoundError(err4))
-	assert.Nil(t, notPresentItem)
-}
-
-func Test_defaultLattice_FindServiceNetwork_errorsRaised(t *testing.T) {
-	ctx := context.TODO()
-	c := gomock.NewController(t)
-	mockLattice := NewMockLattice(c)
-	d := &defaultLattice{VPCLatticeAPI: mockLattice}
-
-	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(errors.New("LIST_ERR")).Times(1)
-
-	_, listErr := d.FindServiceNetwork(ctx, "foo", "1234")
-	assert.NotNil(t, listErr)
-	assert.False(t, IsNotFoundError(listErr))
-
-	listOutput := vpclattice.ListServiceNetworksOutput{
-		Items: []*vpclattice.ServiceNetworkSummary{
-			{
-				Arn:  aws.String(getTestArn("1234")),
-				Name: aws.String("foo"),
-				Id:   aws.String("id"),
-			},
-		},
-		NextToken: nil,
-	}
-	mockLattice.EXPECT().ListServiceNetworksPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx aws.Context, input *vpclattice.ListServiceNetworksInput, f func(*vpclattice.ListServiceNetworksOutput, bool) bool, opts ...request.Option) error {
-			f(&listOutput, true)
-			return nil
-		}).Times(1)
-
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
-		nil, errors.Errorf("TAG_ERR")).Times(1)
-
-	_, tagErr := d.FindServiceNetwork(ctx, "foo", "1234")
-	assert.NotNil(t, tagErr)
-	assert.False(t, IsNotFoundError(tagErr))
-}
-
 func Test_defaultLattice_FindService_happyPath(t *testing.T) {
 	ctx := context.TODO()
 	c := gomock.NewController(t)
@@ -668,4 +438,147 @@ func Test_defaultLattice_FindService_errorsRaised(t *testing.T) {
 	_, listErr := d.FindService(ctx, "foo")
 	assert.NotNil(t, listErr)
 	assert.False(t, IsNotFoundError(listErr))
+}
+
+func TestServiceNetworkMatch(t *testing.T) {
+	type SnSum = vpclattice.ServiceNetworkSummary
+
+	type test struct {
+		name       string
+		inAllSn    []*SnSum
+		inNameOrId string
+		outSn      *SnSum
+		outErrType error
+	}
+
+	tests := []test{
+		{
+			name:       "not found",
+			inAllSn:    []*SnSum{},
+			inNameOrId: "any",
+			outErrType: ErrNotFound,
+		},
+		{
+			name: "name conflict",
+			inAllSn: []*SnSum{
+				{Name: aws.String("conflict")},
+				{Name: aws.String("conflict")},
+			},
+			inNameOrId: "conflict",
+			outErrType: ErrNameConflict,
+		},
+		{
+			name: "name and id conflict",
+			inAllSn: []*SnSum{
+				{Name: aws.String("sn-12345678326bb4a62")},
+				{Id: aws.String("sn-12345678326bb4a62")},
+			},
+			inNameOrId: "sn-12345678326bb4a62",
+			outErrType: ErrNameConflict,
+		},
+		{
+			name: "id conflict",
+			inAllSn: []*SnSum{
+				{Id: aws.String("sn-12345678326bb4a62")},
+				{Id: aws.String("sn-12345678326bb4a62")},
+			},
+			inNameOrId: "sn-12345678326bb4a62",
+			outErrType: ErrNameConflict,
+		},
+		{
+			name: "name match",
+			inAllSn: []*SnSum{
+				{Name: aws.String("not")},
+				{Name: aws.String("match")},
+			},
+			inNameOrId: "match",
+			outSn:      &SnSum{Name: aws.String("match")},
+		},
+		{
+			name: "id match",
+			inAllSn: []*SnSum{
+				{Id: aws.String("sn-12345678326bb4a62")},
+				{Id: aws.String("sn-99999999999999999")},
+			},
+			inNameOrId: "sn-12345678326bb4a62",
+			outSn: &vpclattice.ServiceNetworkSummary{
+				Id: aws.String("sn-12345678326bb4a62"),
+			},
+		},
+	}
+
+	d := defaultLattice{}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sn, err := d.serviceNetworkMatch(tt.inAllSn, tt.inNameOrId)
+			assert.ErrorIs(t, err, tt.outErrType)
+			if tt.outErrType == nil {
+				assert.Equal(
+					t,
+					aws.StringValue(tt.outSn.Name),
+					aws.StringValue(sn.Name),
+				)
+				assert.Equal(
+					t,
+					aws.StringValue(tt.outSn.Id),
+					aws.StringValue(sn.Id),
+				)
+			}
+		})
+	}
+
+}
+
+func TestIsLocalResource(t *testing.T) {
+	type test struct {
+		name         string
+		inArn        string
+		inOwnAccount string
+		outIsLocal   bool
+		outIsErr     bool
+	}
+
+	tests := []test{
+		{
+			name:       "arn parse err",
+			inArn:      "",
+			outIsLocal: false,
+			outIsErr:   true,
+		},
+		{
+			name:         "arn matches ownAccount",
+			inArn:        "arn:aws:vpc-lattice::123456789012:",
+			inOwnAccount: "123456789012",
+			outIsLocal:   true,
+			outIsErr:     false,
+		},
+		{
+			name:         "arn does not match ownAccount",
+			inOwnAccount: "123456789012",
+			inArn:        "arn:aws:vpc-lattice::111222333444:",
+			outIsLocal:   false,
+			outIsErr:     false,
+		},
+		{
+			name:         "own account is empty",
+			inOwnAccount: "",
+			inArn:        "arn:aws:vpc-lattice::111222333444:",
+			outIsLocal:   true,
+			outIsErr:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := defaultLattice{ownAccount: tt.inOwnAccount}
+			isLocal, err := d.isLocalResource(tt.inArn)
+			if err != nil {
+				assert.True(t, tt.outIsErr)
+			} else {
+				assert.Equal(t, tt.outIsLocal, isLocal)
+			}
+		})
+	}
+
 }

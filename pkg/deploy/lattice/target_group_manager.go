@@ -131,7 +131,7 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *mod
 		})
 		if err != nil {
 			return model.TargetGroupStatus{},
-				fmt.Errorf("Failed UpdateTargetGroup %s due to %w", aws.StringValue(latticeTg.Id), err)
+				fmt.Errorf("failed UpdateTargetGroup %s due to %w", aws.StringValue(latticeTg.Id), err)
 		}
 	}
 
@@ -178,7 +178,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 			s.log.Debugf("Target group %s was already deleted", modelTg.Status.Id)
 			return nil
 		}
-		return fmt.Errorf("Failed ListTargets %s due to %s", modelTg.Status.Id, err)
+		return fmt.Errorf("failed ListTargets %s due to %s", modelTg.Status.Id, err)
 	}
 
 	var targetsToDeregister []*vpclattice.Target
@@ -196,7 +196,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 
 	if drainCount > 0 {
 		// no point in trying to deregister may as well wait
-		return fmt.Errorf("Cannot deregister targets for %s as %d targets are DRAINING", modelTg.Status.Id, drainCount)
+		return fmt.Errorf("cannot deregister targets for %s as %d targets are DRAINING", modelTg.Status.Id, drainCount)
 	}
 
 	if len(targetsToDeregister) > 0 {
@@ -209,10 +209,10 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 			}
 			deregisterResponse, err := lattice.DeregisterTargetsWithContext(ctx, &deregisterInput)
 			if err != nil {
-				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("Failed to deregister targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
+				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
 			}
 			if len(deregisterResponse.Unsuccessful) > 0 {
-				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("Failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
+				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
 					modelTg.Status.Id, i+1, len(chunks), deregisterResponse.Unsuccessful))
 			}
 			s.log.Debugf("Successfully deregistered targets from VPC Lattice Target Group %s for chunk %d/%d", modelTg.Status.Id, i+1, len(chunks))

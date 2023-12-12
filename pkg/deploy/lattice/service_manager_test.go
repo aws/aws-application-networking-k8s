@@ -45,7 +45,7 @@ func TestServiceManagerInteg(t *testing.T) {
 		// service does not exist in lattice
 		mockLattice.EXPECT().
 			FindService(gomock.Any(), gomock.Any()).
-			Return(nil, &mocks.NotFoundError{}).
+			Return(nil, mocks.NewNotFoundError("", "")).
 			Times(1)
 
 		// assert that we call create service
@@ -77,9 +77,9 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// expect a call to find the service network
 		mockLattice.EXPECT().
-			FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).
+			FindServiceNetwork(gomock.Any(), gomock.Any()).
 			DoAndReturn(
-				func(ctx context.Context, name string, accountId string) (*mocks.ServiceNetworkInfo, error) {
+				func(ctx context.Context, name string) (*mocks.ServiceNetworkInfo, error) {
 					return &mocks.ServiceNetworkInfo{
 						SvcNetwork: vpclattice.ServiceNetworkSummary{
 							Arn:  aws.String("sn-arn"),
@@ -189,9 +189,9 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// expect calls to find the service network
 		mockLattice.EXPECT().
-			FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).
+			FindServiceNetwork(gomock.Any(), gomock.Any()).
 			DoAndReturn(
-				func(ctx context.Context, name string, accountId string) (*mocks.ServiceNetworkInfo, error) {
+				func(ctx context.Context, name string) (*mocks.ServiceNetworkInfo, error) {
 					return &mocks.ServiceNetworkInfo{
 						SvcNetwork: vpclattice.ServiceNetworkSummary{
 							Arn:  aws.String(name + "-arn"),

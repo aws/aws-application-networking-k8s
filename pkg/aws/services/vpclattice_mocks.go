@@ -1052,18 +1052,18 @@ func (mr *MockLatticeMockRecorder) FindService(arg0, arg1 interface{}) *gomock.C
 }
 
 // FindServiceNetwork mocks base method.
-func (m *MockLattice) FindServiceNetwork(arg0 context.Context, arg1, arg2 string) (*ServiceNetworkInfo, error) {
+func (m *MockLattice) FindServiceNetwork(arg0 context.Context, arg1 string) (*ServiceNetworkInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindServiceNetwork", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "FindServiceNetwork", arg0, arg1)
 	ret0, _ := ret[0].(*ServiceNetworkInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindServiceNetwork indicates an expected call of FindServiceNetwork.
-func (mr *MockLatticeMockRecorder) FindServiceNetwork(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockLatticeMockRecorder) FindServiceNetwork(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindServiceNetwork", reflect.TypeOf((*MockLattice)(nil).FindServiceNetwork), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindServiceNetwork", reflect.TypeOf((*MockLattice)(nil).FindServiceNetwork), arg0, arg1)
 }
 
 // GetAccessLogSubscription mocks base method.

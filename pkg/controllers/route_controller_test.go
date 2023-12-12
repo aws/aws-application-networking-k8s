@@ -175,7 +175,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	mockCloud.EXPECT().DefaultTagsMergedWith(gomock.Any()).Return(mocks.Tags{}).AnyTimes()
 
 	// we expect a fair number of lattice calls
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: vpclattice.ServiceNetworkSummary{
 				Arn:  aws.String("sn-arn"),

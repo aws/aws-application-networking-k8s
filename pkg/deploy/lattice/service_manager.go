@@ -52,7 +52,7 @@ func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, s
 	createSvcReq := m.newCreateSvcReq(svc)
 	createSvcResp, err := m.cloud.Lattice().CreateServiceWithContext(ctx, createSvcReq)
 	if err != nil {
-		return ServiceInfo{}, fmt.Errorf("Failed CreateService %s due to %s", aws.StringValue(createSvcReq.Name), err)
+		return ServiceInfo{}, fmt.Errorf("failed CreateService %s due to %s", aws.StringValue(createSvcReq.Name), err)
 	}
 
 	m.log.Infof("Success CreateService %s %s",
@@ -69,7 +69,7 @@ func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, s
 }
 
 func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *string, snName string) error {
-	snInfo, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName, m.cloud.Config().AccountId)
+	snInfo, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 	}
 	assocResp, err := m.cloud.Lattice().CreateServiceNetworkServiceAssociationWithContext(ctx, assocReq)
 	if err != nil {
-		return fmt.Errorf("Failed CreateServiceNetworkServiceAssociation %s %s due to %s",
+		return fmt.Errorf("failed CreateServiceNetworkServiceAssociation %s %s due to %s",
 			aws.StringValue(assocReq.ServiceNetworkIdentifier), aws.StringValue(assocReq.ServiceIdentifier), err)
 	}
 	m.log.Infof("Success CreateServiceNetworkServiceAssociation %s %s",
@@ -323,7 +323,7 @@ func (m *defaultServiceManager) deleteAssociation(ctx context.Context, assocArn 
 	delReq := &DelSnSvcAssocReq{ServiceNetworkServiceAssociationIdentifier: assocArn}
 	_, err := m.cloud.Lattice().DeleteServiceNetworkServiceAssociationWithContext(ctx, delReq)
 	if err != nil {
-		return fmt.Errorf("Failed DeleteServiceNetworkServiceAssociation %s due to %s",
+		return fmt.Errorf("failed DeleteServiceNetworkServiceAssociation %s due to %s",
 			aws.StringValue(assocArn), err)
 	}
 
@@ -337,7 +337,7 @@ func (m *defaultServiceManager) deleteService(ctx context.Context, svc *SvcSumma
 	}
 	_, err := m.cloud.Lattice().DeleteServiceWithContext(ctx, &delInput)
 	if err != nil {
-		return fmt.Errorf("Failed DeleteService %s due to %s", aws.StringValue(svc.Id), err)
+		return fmt.Errorf("failed DeleteService %s due to %s", aws.StringValue(svc.Id), err)
 	}
 
 	m.log.Infof("Success DeleteService %s", svc.Id)

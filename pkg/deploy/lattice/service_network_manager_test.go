@@ -63,7 +63,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) 
 		Return(createServiceNetworkVPCAssociationOutput, nil)
 
 	mockLattice.EXPECT().
-		FindServiceNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
+		FindServiceNetwork(gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
@@ -89,7 +89,7 @@ func Test_CreateOrUpdateServiceNetwork_ListFailed(t *testing.T) {
 		Status: &model.ServiceNetworkStatus{ServiceNetworkARN: "", ServiceNetworkID: ""},
 	}
 
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, errors.New("ERROR"))
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(nil, errors.New("ERROR"))
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
@@ -137,7 +137,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
@@ -189,7 +189,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
@@ -239,7 +239,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	}
 	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
 
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
@@ -297,7 +297,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
 		Tags: make(map[string]*string),
 	}
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       snTagsOuput.Tags,
@@ -362,7 +362,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_SnAssociatedWithOtherVPC(t
 	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
 		Tags: make(map[string]*string),
 	}
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       snTagsOuput.Tags,
@@ -418,7 +418,7 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationRe
 		Tags:                     cloud.DefaultTags(),
 	}
 
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, snCreateInput).Return(snCreateOutput, nil)
 	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, errors.New("ERROR"))
 
@@ -459,7 +459,7 @@ func Test_CreateSn_SnNotExist_SnCreateFailed(t *testing.T) {
 		Tags: cloud.DefaultTags(),
 	}
 
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, snCreateInput).Return(snCreateOutput, errors.New("ERROR"))
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
@@ -501,7 +501,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Update
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
@@ -562,7 +562,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Securi
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
@@ -616,7 +616,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgr
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
@@ -660,7 +660,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Cannot
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: item,
 			Tags:       nil,
