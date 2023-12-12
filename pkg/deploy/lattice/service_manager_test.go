@@ -45,7 +45,7 @@ func TestServiceManagerInteg(t *testing.T) {
 		// service does not exist in lattice
 		mockLattice.EXPECT().
 			FindService(gomock.Any(), gomock.Any()).
-			Return(nil, &mocks.NotFoundError{}).
+			Return(nil, mocks.NewNotFoundError("", "")).
 			Times(1)
 
 		// assert that we call create service

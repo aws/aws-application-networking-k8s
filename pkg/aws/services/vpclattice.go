@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -23,22 +24,19 @@ import (
 
 //go:generate mockgen -destination vpclattice_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Lattice
 
+var (
+	ErrNameConflict = errors.New("name conflict")
+	ErrNotFound     = errors.New("not found")
+	ErrInternal     = errors.New("internal error")
+)
+
 type ServiceNetworkInfo struct {
 	SvcNetwork vpclattice.ServiceNetworkSummary
 	Tags       Tags
 }
 
-type NotFoundError struct {
-	ResourceType string
-	Name         string
-}
-
-func (e *NotFoundError) Error() string {
-	return fmt.Sprintf("%s %s not found", e.ResourceType, e.Name)
-}
-
 func NewNotFoundError(resourceType string, name string) error {
-	return &NotFoundError{resourceType, name}
+	return fmt.Errorf("%w, %s %s", ErrNotFound, resourceType, name)
 }
 
 func IsNotFoundError(err error) bool {
@@ -47,8 +45,7 @@ func IsNotFoundError(err error) bool {
 			return true
 		}
 	}
-	nfErr := &NotFoundError{}
-	return errors.As(err, &nfErr)
+	return errors.Is(err, ErrNotFound)
 }
 
 func IgnoreNotFound(err error) error {
@@ -318,18 +315,54 @@ func (d *defaultLattice) ListServiceNetworkServiceAssociationsAsList(ctx context
 	return result, nil
 }
 
-func (d *defaultLattice) snSummaryToLog(snSum []*vpclattice.ServiceNetworkSummary) []string {
+func (d *defaultLattice) snSummaryToLog(snSum []*vpclattice.ServiceNetworkSummary) string {
 	out := make([]string, len(snSum))
 	for i, s := range snSum {
-		out[i] = fmt.Sprintf("name=%s, id=%s", aws.StringValue(s.Name), aws.StringValue(s.Id))
+		out[i] = fmt.Sprintf("{name=%s, id=%s}", aws.StringValue(s.Name), aws.StringValue(s.Id))
 	}
-	return out
+	return strings.Join(out, ",")
 }
 
-func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrId string) (*ServiceNetworkInfo, error) {
+// Try find by name first, if there is no single match, continue with arn match. Ideally
+// name match should work just fine, but in desperate scenario of shared SN when naming
+// collision happens using arn can be an option
+func (d *defaultLattice) serviceNetworkMatch(allSn []*vpclattice.ServiceNetworkSummary, nameOrArn string) (*vpclattice.ServiceNetworkSummary, error) {
+	var snMatch *vpclattice.ServiceNetworkSummary
+	nameMatch := utils.SliceFilter(allSn, func(snSum *vpclattice.ServiceNetworkSummary) bool {
+		return aws.StringValue(snSum.Name) == nameOrArn
+	})
+	arnMatch := utils.SliceFilter(allSn, func(snSum *vpclattice.ServiceNetworkSummary) bool {
+		return aws.StringValue(snSum.Arn) == nameOrArn
+	})
+
+	switch {
+	case len(nameMatch) == 1:
+		snMatch = nameMatch[0]
+	case len(arnMatch) == 1:
+		snMatch = arnMatch[0]
+	case len(nameMatch) == 0 && len(arnMatch) == 0:
+		return nil, NewNotFoundError("Service network", nameOrArn)
+	case len(nameMatch) > 1:
+		return nil, fmt.Errorf("%w: multiple SN found by name, cannot disambiguate: %s", ErrNameConflict, d.snSummaryToLog(nameMatch))
+	default: // more bizarre, cases above should cover all variants
+		return nil, fmt.Errorf("%w: service network match: unreachable", ErrInternal)
+	}
+	return snMatch, nil
+}
+
+// checks if given string ARN belongs to given account
+func (d *defaultLattice) isLocalResource(strArn string) (bool, error) {
+	a, err := arn.Parse(strArn)
+	if err != nil {
+		return false, err
+	}
+	return a.AccountID == d.ownAccount || d.ownAccount == "", nil
+}
+
+func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrArn string) (*ServiceNetworkInfo, error) {
 	// When default service network is provided, override for any kind of SN search
 	if config.ServiceNetworkOverrideMode {
-		nameOrId = config.DefaultServiceNetwork
+		nameOrArn = config.DefaultServiceNetwork
 	}
 
 	input := &vpclattice.ListServiceNetworksInput{}
@@ -338,41 +371,18 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrId string
 		return nil, err
 	}
 
-	// Try find by name first, if there is no single match, continue with id
-	// match. Ideally name match should work just fine, but in desperate
-	// scenario of shared SN when naming collision happens using ID can be
-	// an option
-	var snMatch *vpclattice.ServiceNetworkSummary
-	nameMatch := utils.SliceFilter(allSn, func(snSum *vpclattice.ServiceNetworkSummary) bool {
-		return aws.StringValue(snSum.Name) == nameOrId
-	})
-	idMatch := utils.SliceFilter(allSn, func(snSum *vpclattice.ServiceNetworkSummary) bool {
-		return aws.StringValue(snSum.Id) == nameOrId
-	})
-
-	switch {
-	case len(nameMatch) == 1:
-		snMatch = nameMatch[0]
-	case len(idMatch) == 1:
-		snMatch = idMatch[0]
-	case len(nameMatch) == 0 && len(idMatch) == 0:
-		return nil, NewNotFoundError("Service network", nameOrId)
-	case len(nameMatch) > 1:
-		return nil, fmt.Errorf("multiple SN found by name, cannot disambiguate: %v", d.snSummaryToLog(nameMatch))
-	case len(idMatch) > 1: // bizarre, should never happen, lattice ID must be globally unique
-		return nil, fmt.Errorf("multiple SN found by ID, cannot disambiguate: %v", d.snSummaryToLog(idMatch))
-	default: // more bizarre, cases above should cover all variants
-		return nil, fmt.Errorf("find service network: internal error: unreachable")
-	}
-
-	snArn, err := arn.Parse(*snMatch.Arn)
+	snMatch, err := d.serviceNetworkMatch(allSn, nameOrArn)
 	if err != nil {
 		return nil, err
 	}
 
 	// try to fetch tags only if SN in the same aws account with controller's config
 	tags := Tags{}
-	if snArn.AccountID == d.ownAccount || d.ownAccount == "" {
+	isLocal, err := d.isLocalResource(aws.StringValue(snMatch.Arn))
+	if err != nil {
+		return nil, err
+	}
+	if isLocal {
 		tagsInput := vpclattice.ListTagsForResourceInput{ResourceArn: snMatch.Arn}
 		tagsOutput, err := d.ListTagsForResourceWithContext(ctx, &tagsInput)
 		if err != nil {
