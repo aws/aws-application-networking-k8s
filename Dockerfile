@@ -14,7 +14,6 @@ RUN GOPROXY=direct go mod download
 # Copy the go source
 COPY cmd/aws-application-networking-k8s/main.go main.go
 COPY pkg/ pkg/
-COPY controllers/ controllers/
 COPY scripts scripts
 
 # Build
