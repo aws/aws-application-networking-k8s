@@ -16,3 +16,6 @@ go.work*
 
 # gomock generated prog.go
 pkg/aws/services/gomock_reflect_*
+
+# Image build tarballed bundles
+*.tgz

@@ -33,9 +33,6 @@ Environment variables:
                             Default: $DEFAULT_CHART_REPOSITORY
   CHART_TAG:                Controller Helm Chart tag
                             Default: Based on \$PULL_BASE_REF
-  ECR_PUBLISH_ROLE_ARN      IAM Role ARN for the Role that has permission to
-                            publish to the image and Helm chart repositories on ECR Public. This role is
-                            assumed by this script in order to upload artifacts.
 "
 
 # find out the service name and semver tag from the CI environment variable if not specified 
@@ -97,34 +94,17 @@ IMAGE_TAG=${IMAGE_TAG:-$VERSION}
 CHART_REPOSITORY=${CHART_REPOSITORY:-$DEFAULT_CHART_REPOSITORY}
 CHART_REGISTRY=${CHART_REGISTRY:-$DEFAULT_CHART_REGISTRY}
 
-ECR_PUBLISH_ROLE_ARN=${ECR_PUBLISH_ROLE_ARN:-"undefined"}
-
-if [[ "$ECR_PUBLISH_ROLE_ARN" = undefined ]]; then
-    error_msg "Please set the ECR_PUBLISH_ROLE_ARN environment variable to the IAM Role ARN"
-    error_msg  "that has permissions to upload artifacts to the ECR Public registry for"
-    error_msg "$IMAGE_REPOSITORY"
-    exit 2
-fi
-
 echo "VERSION is $VERSION"
 
-# TODO(jaypipes): If we move to Prow setup like ACK, uncomment this. For now,
-# just pass in ECR_PUBLISH_ROLE_ARN manually.
-# ASSUME_EXIT_VALUE=0
-# ECR_PUBLISH_ROLE_ARN=$(aws ssm get-parameter --name /ack/prow/cd/public_ecr/publish_role --query Parameter.Value --output text 2>/dev/null) || ASSUME_EXIT_VALUE=$?
-# if [ "$ASSUME_EXIT_VALUE" -ne 0 ]; then
-#   echo "release-controller.sh] [SETUP] Could not find the iam role to publish images to public ecr repository"
-# exit 1
-# fi
-export ECR_PUBLISH_ROLE_ARN
-echo "release-controller.sh] [SETUP] exported ECR_PUBLISH_ROLE_ARN"
-
+#  This Role has permission to publish to the image and Helm chart repositories on ECR public registry in 606627242267 account.
+#  Make sure the aws principal you use to run this script has permission to assume this role
+ECR_PUBLISH_ROLE_ARN=arn:aws:iam::606627242267:role/ECRPublisher
 ASSUME_COMMAND=$(aws --output json sts assume-role --role-arn $ECR_PUBLISH_ROLE_ARN --role-session-name 'publish-images' --duration-seconds 3600 | jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
 eval $ASSUME_COMMAND
 echo "release-controller.sh] [SETUP] Assumed ECR_PUBLISH_ROLE_ARN"
 
-# Setup the destination repository for buildah and helm
-perform_buildah_and_helm_login
+# Setup the destination repository for docker and helm
+perform_docker_and_helm_login
 
 # Do not rebuild controller image for stable releases
 if [[ "$SKIP_IMAGE_BUILD" != "1" ]]; then
@@ -147,9 +127,7 @@ if [[ "$SKIP_IMAGE_BUILD" != "1" ]]; then
       fi
 
       # build controller image
-      buildah bud \
-        --quiet="$QUIET" \
-        -t "$IMG" \
+      docker build -t "$IMG" \
         -f "$CONTROLLER_IMAGE_DOCKERFILE_PATH" \
         --build-arg service_controller_git_version="$VERSION" \
         --build-arg service_controller_git_commit="$CONTROLLER_GIT_COMMIT" \
@@ -162,7 +140,7 @@ if [[ "$SKIP_IMAGE_BUILD" != "1" ]]; then
 
       echo "Pushing aws-gateway-controller image with tag: ${IMG}"
 
-      buildah push "${IMG}"
+      docker push "${IMG}"
 
       if [ $? -ne 0 ]; then
         exit 2
