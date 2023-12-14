@@ -41,3 +41,17 @@ is_installed() {
         return 1
     fi
 }
+
+function sed_inplace() {
+    local pattern=$1
+    local replacement=$2
+    local file=$3
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS uses BSD sed
+        sed -i '' "s|$pattern|$replacement|g" "$file"
+    else
+        # Assuming Linux uses GNU sed
+        sed -i "s|$pattern|$replacement|g" "$file"
+    fi
+}
