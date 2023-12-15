@@ -66,6 +66,7 @@ vet: ## Vet the code and dependencies
 		if [ "${CI}" = true ]; then\
 			exit 1;\
 		fi;}
+	cd test && go vet ./...
 
 
 .PHONY: lint

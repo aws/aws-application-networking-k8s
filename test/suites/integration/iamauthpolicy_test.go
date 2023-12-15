@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,10 +20,11 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
 var _ = Describe("IAM Auth Policy", Ordered, func() {
@@ -153,7 +155,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 	It("accepted, applied, and removed from Gateway", func() {
 		policy := newPolicy("gw", "Gateway", "test-gateway")
-		sn, _ := lattice.FindServiceNetwork(context.TODO(), "test-gateway", "")
+		sn, _ := lattice.FindServiceNetwork(context.TODO(), "test-gateway")
 		snId := *sn.SvcNetwork.Id
 
 		// accepted
