@@ -49,10 +49,16 @@ EKS is a simple, recommended way of preparing a cluster for running services wit
                 "ec2:DescribeSecurityGroups",
                 "logs:CreateLogDelivery",
                 "logs:GetLogDelivery",
+                "logs:DescribeLogGroups",
+                "logs:PutResourcePolicy",
+                "logs:DescribeResourcePolicies",
                 "logs:UpdateLogDelivery",
                 "logs:DeleteLogDelivery",
                 "logs:ListLogDeliveries",
-                "tag:GetResources"
+                "tag:GetResources",
+                "firehose:TagDeliveryStream",
+                "s3:GetBucketPolicy",
+                "s3:PutBucketPolicy"
             ],
             "Resource": "*"
         },
