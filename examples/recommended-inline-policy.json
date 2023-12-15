@@ -11,10 +11,16 @@
                 "ec2:DescribeSecurityGroups",
                 "logs:CreateLogDelivery",
                 "logs:GetLogDelivery",
+                "logs:DescribeLogGroups",
+                "logs:PutResourcePolicy",
+                "logs:DescribeResourcePolicies",
                 "logs:UpdateLogDelivery",
                 "logs:DeleteLogDelivery",
                 "logs:ListLogDeliveries",
-                "tag:GetResources"
+                "tag:GetResources",
+                "firehose:TagDeliveryStream",
+                "s3:GetBucketPolicy",
+                "s3:PutBucketPolicy"
             ],
             "Resource": "*"
         },
