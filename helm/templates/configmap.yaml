@@ -3,10 +3,10 @@ kind: ConfigMap
 metadata:
     name: env-config
 data:
-    awsRegion: {{ .Values.awsRegion | quote }}
-    awsAccountId: {{ .Values.awsAccountId | quote }}
-    clusterVpcId: {{ .Values.clusterVpcId | quote }}
-    clusterName: {{ .Values.clusterName | quote }}
-    latticeEndpoint: {{ .Values.latticeEndpoint | quote }}
-    defaultServiceNetwork: {{ .Values.defaultServiceNetwork | quote }}
-    logLevel: {{ .Values.log.level | quote }}
+    awsRegion: {{ .Values.awsRegion | default "" | quote }}
+    awsAccountId: {{ .Values.awsAccountId | default ""| quote }}
+    clusterVpcId: {{ .Values.clusterVpcId | default "" | quote }}
+    clusterName: {{ .Values.clusterName | default "" | quote }}
+    latticeEndpoint: {{ .Values.latticeEndpoint | default "" | quote }}
+    defaultServiceNetwork: {{ .Values.defaultServiceNetwork  | default "" | quote }}
+    logLevel: {{ .Values.log.level | default "info" | quote }}
