@@ -54,6 +54,6 @@ spec:
         path: "/healthcheck"
         port: 80
         protocol: HTTP
-        protocolVersion: HTTP
+        protocolVersion: HTTP1
         statusMatch: "200"
 ```
