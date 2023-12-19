@@ -74,19 +74,19 @@ spec:
           readOnlyRootFilesystem: true
         env:
           - name: REGION
-            value: {{ .Values.awsRegion | default "" | quote }}
+            value: {{ .Values.awsRegion | quote }}
           - name: AWS_ACCOUNT_ID
-            value: {{ .Values.awsAccountId | default "" | quote }}
+            value: {{ .Values.awsAccountId | quote }}
           - name: CLUSTER_VPC_ID
-            value: {{ .Values.clusterVpcId | default "" | quote }}
+            value: {{ .Values.clusterVpcId | quote }}
           - name: CLUSTER_NAME
-            value: {{ .Values.clusterName | default "" | quote }}
+            value: {{ .Values.clusterName | quote }}
           - name: LATTICE_ENDPOINT
-            value: {{ .Values.latticeEndpoint | default "" | quote }}
+            value: {{ .Values.latticeEndpoint | quote }}
           - name: DEFAULT_SERVICE_NETWORK
-            value: {{ .Values.defaultServiceNetwork | default "" | quote }}
+            value: {{ .Values.defaultServiceNetwork | quote }}
           - name: LOG_LEVEL
-            value: {{ .Values.log.level | default "info" | quote }}
+            value: {{ .Values.log.level | quote }}
       terminationGracePeriodSeconds: 10
       nodeSelector: {{ toYaml .Values.deployment.nodeSelector | nindent 8 }}
       {{ if .Values.deployment.tolerations -}}
