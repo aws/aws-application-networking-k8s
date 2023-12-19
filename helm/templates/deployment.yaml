@@ -75,6 +75,8 @@ spec:
         env:
           - name: REGION
             value: {{ .Values.awsRegion | default "" | quote }}
+          - name: AWS_ACCOUNT_ID
+            value: {{ .Values.awsAccountId | default "" | quote }}
           - name: CLUSTER_VPC_ID
             value: {{ .Values.clusterVpcId | default "" | quote }}
           - name: CLUSTER_NAME
