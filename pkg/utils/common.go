@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"golang.org/x/exp/constraints"
@@ -83,6 +84,14 @@ func TargetRefToLatticeResourceName(
 	}
 
 	return "", fmt.Errorf("unsupported targetRef Kind: %s", targetRef.Kind)
+}
+
+func RandomString(length int) string {
+	randomSuffix := make([]rune, length)
+	for i := range randomSuffix {
+		randomSuffix[i] = rune(rand.Intn(26) + 'a')
+	}
+	return string(randomSuffix)
 }
 
 type none struct{}

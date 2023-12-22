@@ -121,10 +121,18 @@ And use "EnvFile" GoLand plugin to read the env variables from the generated `.e
 
 For larger changes it's recommended to run e2e suites on your local cluster.
 E2E tests require a service network named `test-gateway` with cluster VPC associated to run.
-You can either setup service network manually or use DEFAULT_SERVICE_NETWORK option when running controller locally. (e.g. `DEFAULT_SERVICE_NETWORK=test-gateway make run`)
+You can either set up service network manually or use DEFAULT_SERVICE_NETWORK option when running controller locally. (e.g. `DEFAULT_SERVICE_NETWORK=test-gateway make run`)
 
 ```
 REGION=us-west-2 make e2e-test
+```
+
+For the `sharing` test suite, which runs cross-account e2e tests, you will need a secondary account with a role that
+can be assumed by the primary account during test execution.
+You can create an IAM Role, with a Trust Policy allowing the primary account to assume it, via the AWS IAM Console.
+
+```
+REGION=us-west-2 export SECONDARY_ACCOUNT_TEST_ROLE_ARN=arn:aws:iam::000000000000:role/MyRole make sharing-test
 ```
 
 You can use `FOCUS` environment variable to run some specific test cases based on filter condition.
