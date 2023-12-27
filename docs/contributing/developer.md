@@ -127,15 +127,16 @@ You can either set up service network manually or use DEFAULT_SERVICE_NETWORK op
 REGION=us-west-2 make e2e-test
 ```
 
-For the `sharing` test suite, which runs cross-account e2e tests, you will need a secondary account with a role that
+For the `RAM Share` test suite, which runs cross-account e2e tests, you will need a secondary account with a role that
 can be assumed by the primary account during test execution.
 You can create an IAM Role, with a Trust Policy allowing the primary account to assume it, via the AWS IAM Console.
 
 ```
-REGION=us-west-2 export SECONDARY_ACCOUNT_TEST_ROLE_ARN=arn:aws:iam::000000000000:role/MyRole make sharing-test
+export SECONDARY_ACCOUNT_TEST_ROLE_ARN=arn:aws:iam::000000000000:role/MyRole
+REGION=us-west-2 make e2e-test
 ```
 
-You can use `FOCUS` environment variable to run some specific test cases based on filter condition.
+You can use the `FOCUS` environment variable to run some specific test cases based on filter condition.
 You could assign the string in the Describe("xxxxxx") or It("xxxxxx") to the FOCUS environment variable to run the specific test cases.
 ```go
 var _ = Describe("HTTPRoute path matches", func() {
@@ -144,13 +145,19 @@ var _ = Describe("HTTPRoute path matches", func() {
     })
 ```
 
-```
+For example, to run the test case "HTTPRoute should support multiple path matches", you could run the following command:
+```sh
 export FOCUS="HTTPRoute should support multiple path matches"
 export REGION=us-west-2
 make e2e-test
 ```
 
-For example, to run the test case "HTTPRoute should support multiple path matches", you could run the following command:
+Conversely, you can use the `SKIP` environment variable to skip specific test cases.
+
+For example, to skip the same test as above, you would run the following command:
+```sh
+export SKIP="HTTPRoute should support multiple path matches"
+```
 
 For more detail on filter condition for ginkgo
 https://onsi.github.io/ginkgo/#focused-specs

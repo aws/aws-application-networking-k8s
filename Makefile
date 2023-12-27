@@ -123,22 +123,7 @@ e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 		-v \
 		./suites/integration/... \
 		--ginkgo.focus="${FOCUS}" \
-		--ginkgo.timeout=90m \
-		--ginkgo.v
-
-.PHONY: sharing-test
-sharing-test: ## Run e2e tests against cluster pointed to by ~/.kube/config and using secondary account role. Cluster VPC must not be associated to a Service Network.
-	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1 || true # ignore already exists error
-	LOG_LEVEL=debug
-	cd test && go test \
-		-p 1 \
-		-count 1 \
-		-timeout 90m \
-		-v \
-		./suites/sharing/... \
-		--ginkgo.focus="${FOCUS}" \
-		--ginkgo.timeout=90m \
-		--ginkgo.v
+		--ginkgo.skip="${SKIP}"
 
 .SILENT:
 .PHONY: e2e-clean

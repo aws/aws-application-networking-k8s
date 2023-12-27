@@ -23,7 +23,6 @@ const (
 	CLUSTER_VPC_ID                  = "CLUSTER_VPC_ID"
 	CLUSTER_NAME                    = "CLUSTER_NAME"
 	DEFAULT_SERVICE_NETWORK         = "DEFAULT_SERVICE_NETWORK"
-	SECONDARY_ACCOUNT_TEST_ROLE_ARN = "SECONDARY_ACCOUNT_TEST_ROLE_ARN"
 	ENABLE_SERVICE_NETWORK_OVERRIDE = "ENABLE_SERVICE_NETWORK_OVERRIDE"
 	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
 )
@@ -33,7 +32,6 @@ var AccountID = ""
 var Region = ""
 var DefaultServiceNetwork = ""
 var ClusterName = ""
-var SecondaryAccountTestRoleArn = ""
 
 var ServiceNetworkOverrideMode = false
 
@@ -86,9 +84,6 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 	if err != nil {
 		return fmt.Errorf("cannot get cluster name: %s", err)
 	}
-
-	// SECONDARY_ACCOUNT_TEST_ROLE_ARN
-	SecondaryAccountTestRoleArn = os.Getenv(SECONDARY_ACCOUNT_TEST_ROLE_ARN)
 
 	return nil
 }

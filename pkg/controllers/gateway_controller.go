@@ -19,9 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -224,35 +223,25 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1beta1.G
 		return err
 	}
 
-	foundSnArns := make([]string, 0, 1)
-	serviceNetworks, err := r.cloud.Lattice().ListServiceNetworksWithContext(ctx, &vpclattice.ListServiceNetworksInput{})
+	snInfo, err := r.cloud.Lattice().FindServiceNetwork(ctx, gw.Name)
 	if err != nil {
+		if services.IsNotFoundError(err) {
+			if err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonPending, "VPC Lattice Service Network not found"); err != nil {
+				return lattice_runtime.NewRetryError()
+			}
+			return nil
+		}
+		if errors.Is(err, services.ErrNameConflict) {
+			if err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonInvalid, "Found multiple VPC Lattice Service Networks matching Gateway name. Either ensure only one Service Network has a matching name, or use the Service Network's id as the Gateway name."); err != nil {
+				return lattice_runtime.NewRetryError()
+			}
+			return nil
+		}
 		return err
 	}
-	for _, sn := range serviceNetworks.Items {
-		if *sn.Id == gw.Name {
-			foundSnArns = []string{*sn.Arn}
-			break
-		} else if *sn.Name == gw.Name {
-			foundSnArns = append(foundSnArns, *sn.Arn)
-		}
-	}
 
-	if len(foundSnArns) == 0 {
-		if err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonPending, "VPC Lattice Service Network not found"); err != nil {
-			return lattice_runtime.NewRetryError()
-		}
-		return nil
-	}
-
-	if len(foundSnArns) > 1 {
-		if err = r.updateGatewayProgrammedStatus(ctx, gw, core.GatewayReasonConflicted, "Multiple service networks with the same name were found. Either ensure only one service network with the same name is visible in the AWS account or use the desired service network's id as the Gateway name."); err != nil {
-			return lattice_runtime.NewRetryError()
-		}
-		return nil
-	}
-
-	if err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonProgrammed, fmt.Sprintf("aws-service-network-arn: %s", foundSnArns[0])); err != nil {
+	err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonProgrammed, fmt.Sprintf("aws-service-network-arn: %s", *snInfo.SvcNetwork.Arn))
+	if err != nil {
 		return err
 	}
 

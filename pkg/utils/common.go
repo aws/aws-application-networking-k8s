@@ -86,12 +86,12 @@ func TargetRefToLatticeResourceName(
 	return "", fmt.Errorf("unsupported targetRef Kind: %s", targetRef.Kind)
 }
 
-func RandomString(length int) string {
-	randomSuffix := make([]rune, length)
-	for i := range randomSuffix {
-		randomSuffix[i] = rune(rand.Intn(26) + 'a')
+func RandomAlphaString(length int) string {
+	str := make([]rune, length)
+	for i := range str {
+		str[i] = rune(rand.Intn(26) + 'a')
 	}
-	return string(randomSuffix)
+	return string(str)
 }
 
 type none struct{}
