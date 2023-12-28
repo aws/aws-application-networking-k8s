@@ -313,21 +313,20 @@ func createSharedServiceNetwork(
 		AllowExternalPrincipals: aws.Bool(true),
 		Tags:                    k8sRamTestTags,
 	}
-	_, err = secondaryRamClient.CreateResourceShareWithContext(ctx, createShareInput)
+	createShareResult, err := secondaryRamClient.CreateResourceShareWithContext(ctx, createShareInput)
 	Expect(err).To(BeNil())
 
 	// Wait for resource share invitation to appear in primary account
 	var invitation *ram.ResourceShareInvitation = nil
 	Eventually(func(g Gomega) {
-		listInvitationsInput := &ram.GetResourceShareInvitationsInput{}
+		listInvitationsInput := &ram.GetResourceShareInvitationsInput{
+			ResourceShareArns: []*string{createShareResult.ResourceShare.ResourceShareArn},
+		}
 		listInvitationsResult, err := primaryRamClient.GetResourceShareInvitations(listInvitationsInput)
 		Expect(err).NotTo(HaveOccurred())
 
-		for _, inv := range listInvitationsResult.ResourceShareInvitations {
-			if *inv.ResourceShareName == serviceNetworkName && *inv.SenderAccountId == secondaryAccountId {
-				invitation = inv
-				break
-			}
+		if len(listInvitationsResult.ResourceShareInvitations) > 0 {
+			invitation = listInvitationsResult.ResourceShareInvitations[0]
 		}
 		g.Expect(invitation).ToNot(BeNil())
 	}).Should(Succeed())

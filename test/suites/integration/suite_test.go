@@ -28,7 +28,7 @@ const (
 )
 
 var k8sTestTags = map[string]*string{
-	anaws.TagBase + "TestSuite": aws.String("sharing"),
+	anaws.TagBase + "TestSuite": aws.String(k8snamespace),
 }
 var k8sRamTestTags []*ram.Tag
 var testFramework *test.Framework
