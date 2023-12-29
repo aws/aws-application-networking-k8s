@@ -20,13 +20,14 @@ import (
 )
 
 const (
-	k8snamespace = "e2e-test"
+	k8snamespace = test.K8sNamespace
 )
 
 var testFramework *test.Framework
 var ctx context.Context
 var testGateway *gwv1.Gateway
 var testServiceNetwork *vpclattice.ServiceNetworkSummary
+
 var _ = SynchronizedBeforeSuite(func() {
 	vpcId := os.Getenv("CLUSTER_VPC_ID")
 	if vpcId == "" {

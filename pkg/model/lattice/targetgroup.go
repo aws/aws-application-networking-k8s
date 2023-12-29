@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"math/rand"
 )
 
 const (
@@ -190,9 +189,6 @@ func TgNamePrefix(spec TargetGroupSpec) string {
 func GenerateTgName(spec TargetGroupSpec) string {
 	// tg max name length 128
 	prefix := TgNamePrefix(spec)
-	randomSuffix := make([]rune, RandomSuffixLength)
-	for i := range randomSuffix {
-		randomSuffix[i] = rune(rand.Intn(26) + 'a')
-	}
-	return fmt.Sprintf("%s-%s", prefix, string(randomSuffix))
+	randomSuffix := utils.RandomAlphaString(RandomSuffixLength)
+	return fmt.Sprintf("%s-%s", prefix, randomSuffix)
 }

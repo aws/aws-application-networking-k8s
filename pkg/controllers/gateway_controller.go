@@ -19,8 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -41,7 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
@@ -227,7 +226,13 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1beta1.G
 	snInfo, err := r.cloud.Lattice().FindServiceNetwork(ctx, gw.Name)
 	if err != nil {
 		if services.IsNotFoundError(err) {
-			if err = r.updateGatewayProgrammedStatus(ctx, "", gw, false); err != nil {
+			if err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonPending, "VPC Lattice Service Network not found"); err != nil {
+				return lattice_runtime.NewRetryError()
+			}
+			return nil
+		}
+		if errors.Is(err, services.ErrNameConflict) {
+			if err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonInvalid, "Found multiple VPC Lattice Service Networks matching Gateway name. Either ensure only one Service Network has a matching name, or use the Service Network's id as the Gateway name."); err != nil {
 				return lattice_runtime.NewRetryError()
 			}
 			return nil
@@ -235,7 +240,8 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1beta1.G
 		return err
 	}
 
-	if err = r.updateGatewayProgrammedStatus(ctx, *snInfo.SvcNetwork.Arn, gw, true); err != nil {
+	err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonProgrammed, fmt.Sprintf("aws-service-network-arn: %s", *snInfo.SvcNetwork.Arn))
+	if err != nil {
 		return err
 	}
 
@@ -244,27 +250,27 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1beta1.G
 
 func (r *gatewayReconciler) updateGatewayProgrammedStatus(
 	ctx context.Context,
-	snArn string,
 	gw *gwv1beta1.Gateway,
-	programmed bool,
+	reason gwv1.GatewayConditionReason,
+	message string,
 ) error {
 	gwOld := gw.DeepCopy()
 
-	if programmed {
+	if reason == gwv1.GatewayReasonProgrammed {
 		gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, metav1.Condition{
 			Type:               string(gwv1.GatewayConditionProgrammed),
 			Status:             metav1.ConditionTrue,
 			ObservedGeneration: gw.Generation,
 			Reason:             string(gwv1.GatewayReasonProgrammed),
-			Message:            fmt.Sprintf("aws-gateway-arn: %s", snArn),
+			Message:            message,
 		})
 	} else {
 		gw.Status.Conditions = utils.GetNewConditions(gw.Status.Conditions, metav1.Condition{
 			Type:               string(gwv1.GatewayConditionProgrammed),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: gw.Generation,
-			Reason:             string(gwv1.GatewayReasonPending),
-			Message:            "VPC Lattice Gateway not found",
+			Reason:             string(reason),
+			Message:            message,
 		})
 	}
 
