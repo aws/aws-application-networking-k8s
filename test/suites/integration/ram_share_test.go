@@ -14,13 +14,24 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"strings"
 	"time"
 )
+
+type testClients struct {
+	ramClient1     *ram.RAM
+	ramClient2     *ram.RAM
+	latticeClient1 *vpclattice.VPCLattice
+	latticeClient2 *vpclattice.VPCLattice
+	rgClient1      *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
+	rgClient2      *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
+}
 
 var _ = Describe("RAM Share", Ordered, func() {
 
@@ -29,24 +40,17 @@ var _ = Describe("RAM Share", Ordered, func() {
 	)
 
 	var (
-		secondaryAccountId            string
-		primaryRamClient              *ram.RAM
-		secondaryRamClient            *ram.RAM
-		primaryVpcLatticeClient       *vpclattice.VPCLattice
-		secondaryVpcLatticeClient     *vpclattice.VPCLattice
-		primaryResourceGroupsClient   *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
-		secondaryResourceGroupsClient *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
+		clients              *testClients
+		secondaryTestRoleArn string
 	)
 
 	BeforeAll(func() {
-		parts := strings.Split(SecondaryAccountTestRoleArn, ":")
-		Expect(len(parts)).To(BeEquivalentTo(6), "Invalid secondary account role arn")
-		secondaryAccountId = parts[4]
+		secondaryTestRoleArn = os.Getenv("SECONDARY_ACCOUNT_TEST_ROLE_ARN")
 
 		primarySess := session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)}))
 		stsClient := sts.New(primarySess)
 		assumeRoleInput := &sts.AssumeRoleInput{
-			RoleArn:         aws.String(SecondaryAccountTestRoleArn),
+			RoleArn:         aws.String(secondaryTestRoleArn),
 			RoleSessionName: aws.String("aws-application-networking-k8s-ram-e2e-test"),
 		}
 
@@ -64,24 +68,19 @@ var _ = Describe("RAM Share", Ordered, func() {
 			),
 		}))
 
-		primaryRamClient = ram.New(primarySess)
-		secondaryRamClient = ram.New(secondarySess)
-		primaryVpcLatticeClient = vpclattice.New(primarySess)
-		secondaryVpcLatticeClient = vpclattice.New(secondarySess)
-		primaryResourceGroupsClient = resourcegroupstaggingapi.New(primarySess)
-		secondaryResourceGroupsClient = resourcegroupstaggingapi.New(secondarySess)
+		clients = &testClients{
+			ramClient1:     ram.New(primarySess),
+			ramClient2:     ram.New(secondarySess),
+			latticeClient1: vpclattice.New(primarySess),
+			latticeClient2: vpclattice.New(secondarySess),
+			rgClient1:      resourcegroupstaggingapi.New(primarySess),
+			rgClient2:      resourcegroupstaggingapi.New(secondarySess),
+		}
 	})
 
 	It("makes service network from secondary account usable for gateway with matching name", func() {
 		randomName := k8sResourceNamePrefix + utils.RandomAlphaString(10)
-		createSharedServiceNetwork(
-			randomName,
-			secondaryAccountId,
-			primaryVpcLatticeClient,
-			secondaryVpcLatticeClient,
-			primaryRamClient,
-			secondaryRamClient,
-		)
+		createSharedServiceNetwork(randomName, clients)
 
 		// Create gateway with same name as service network
 		gateway := &gwv1.Gateway{
@@ -112,24 +111,17 @@ var _ = Describe("RAM Share", Ordered, func() {
 			gw := &gwv1.Gateway{}
 			err := testFramework.Client.Get(ctx, gwNamespacedName, gw)
 			g.Expect(err).To(BeNil())
-			g.Expect(len(gw.Status.Conditions) >= 2).To(BeTrue())
-			g.Expect(gw.Status.Conditions[1].Type).To(BeEquivalentTo(string(gwv1.GatewayConditionProgrammed)))
-			g.Expect(gw.Status.Conditions[1].Status).To(BeEquivalentTo(metav1.ConditionTrue))
-			g.Expect(gw.Status.Conditions[1].Reason).To(BeEquivalentTo(string(gwv1.GatewayReasonProgrammed)))
+			programmedCondition := meta.FindStatusCondition(gw.Status.Conditions, string(gwv1.GatewayConditionProgrammed))
+			g.Expect(programmedCondition).ToNot(BeNil())
+			g.Expect(programmedCondition.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(programmedCondition.Reason).To(BeEquivalentTo(string(gwv1.GatewayReasonProgrammed)))
 		}).Should(Succeed())
 	})
 
 	It("makes service network from secondary account usable for gateway with matching id", func() {
 		randomName := k8sResourceNamePrefix + utils.RandomAlphaString(10)
 
-		serviceNetwork := createSharedServiceNetwork(
-			randomName,
-			secondaryAccountId,
-			primaryVpcLatticeClient,
-			secondaryVpcLatticeClient,
-			primaryRamClient,
-			secondaryRamClient,
-		)
+		serviceNetwork := createSharedServiceNetwork(randomName, clients)
 
 		// Create gateway with service network id as name
 		gateway := &gwv1.Gateway{
@@ -160,10 +152,10 @@ var _ = Describe("RAM Share", Ordered, func() {
 			gw := &gwv1.Gateway{}
 			err := testFramework.Client.Get(ctx, gwNamespacedName, gw)
 			g.Expect(err).To(BeNil())
-			g.Expect(len(gw.Status.Conditions) >= 2).To(BeTrue())
-			g.Expect(gw.Status.Conditions[1].Type).To(BeEquivalentTo(string(gwv1.GatewayConditionProgrammed)))
-			g.Expect(gw.Status.Conditions[1].Status).To(BeEquivalentTo(metav1.ConditionTrue))
-			g.Expect(gw.Status.Conditions[1].Reason).To(BeEquivalentTo(string(gwv1.GatewayReasonProgrammed)))
+			programmedCondition := meta.FindStatusCondition(gw.Status.Conditions, string(gwv1.GatewayConditionProgrammed))
+			g.Expect(programmedCondition).ToNot(BeNil())
+			g.Expect(programmedCondition.Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(programmedCondition.Reason).To(BeEquivalentTo(string(gwv1.GatewayReasonProgrammed)))
 		}).Should(Succeed())
 	})
 
@@ -175,17 +167,10 @@ var _ = Describe("RAM Share", Ordered, func() {
 			Name: aws.String(randomName),
 			Tags: k8sTestTags,
 		}
-		_, err := primaryVpcLatticeClient.CreateServiceNetworkWithContext(ctx, createSNInput)
+		_, err := clients.latticeClient1.CreateServiceNetworkWithContext(ctx, createSNInput)
 		Expect(err).NotTo(HaveOccurred())
 
-		createSharedServiceNetwork(
-			randomName,
-			secondaryAccountId,
-			primaryVpcLatticeClient,
-			secondaryVpcLatticeClient,
-			primaryRamClient,
-			secondaryRamClient,
-		)
+		createSharedServiceNetwork(randomName, clients)
 
 		// Create gateway with same name as service networks
 		gateway := &gwv1.Gateway{
@@ -216,10 +201,10 @@ var _ = Describe("RAM Share", Ordered, func() {
 			gw := &gwv1.Gateway{}
 			err := testFramework.Client.Get(ctx, gwNamespacedName, gw)
 			g.Expect(err).To(BeNil())
-			g.Expect(len(gw.Status.Conditions) >= 2).To(BeTrue())
-			g.Expect(gw.Status.Conditions[1].Type).To(BeEquivalentTo(string(gwv1.GatewayConditionProgrammed)))
-			g.Expect(gw.Status.Conditions[1].Status).To(BeEquivalentTo(metav1.ConditionFalse))
-			g.Expect(gw.Status.Conditions[1].Reason).To(BeEquivalentTo(gwv1.GatewayReasonInvalid))
+			programmedCondition := meta.FindStatusCondition(gw.Status.Conditions, string(gwv1.GatewayConditionProgrammed))
+			g.Expect(programmedCondition).ToNot(BeNil())
+			g.Expect(programmedCondition.Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(programmedCondition.Reason).To(BeEquivalentTo(string(gwv1.GatewayReasonInvalid)))
 		}).Should(Succeed())
 	})
 
@@ -278,31 +263,24 @@ var _ = Describe("RAM Share", Ordered, func() {
 		}
 
 		// Delete secondary account AWS resources
-		secondaryGetResourcesResult, err := secondaryResourceGroupsClient.GetResources(getResourcesInput)
+		secondaryGetResourcesResult, err := clients.rgClient2.GetResources(getResourcesInput)
 		Expect(err).ToNot(HaveOccurred())
-		deleteTaggedResources(secondaryGetResourcesResult, secondaryVpcLatticeClient, secondaryRamClient)
+		deleteTaggedResources(secondaryGetResourcesResult, clients.latticeClient2, clients.ramClient2)
 
 		// Delete primary account AWS resources
-		primaryGetResourcesResult, err := primaryResourceGroupsClient.GetResources(getResourcesInput)
+		primaryGetResourcesResult, err := clients.rgClient1.GetResources(getResourcesInput)
 		Expect(err).ToNot(HaveOccurred())
-		deleteTaggedResources(primaryGetResourcesResult, primaryVpcLatticeClient, primaryRamClient)
+		deleteTaggedResources(primaryGetResourcesResult, clients.latticeClient1, clients.ramClient1)
 	})
 })
 
-func createSharedServiceNetwork(
-	serviceNetworkName string,
-	secondaryAccountId string,
-	primaryVpcLatticeClient *vpclattice.VPCLattice,
-	secondaryVpcLatticeClient *vpclattice.VPCLattice,
-	primaryRamClient *ram.RAM,
-	secondaryRamClient *ram.RAM,
-) *vpclattice.GetServiceNetworkOutput {
+func createSharedServiceNetwork(serviceNetworkName string, clients *testClients) *vpclattice.GetServiceNetworkOutput {
 	// Create secondary account's service network using randomName
 	createSNInput := &vpclattice.CreateServiceNetworkInput{
 		Name: aws.String(serviceNetworkName),
 		Tags: k8sTestTags,
 	}
-	createSNResult, err := secondaryVpcLatticeClient.CreateServiceNetworkWithContext(ctx, createSNInput)
+	createSNResult, err := clients.latticeClient2.CreateServiceNetworkWithContext(ctx, createSNInput)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Share service network to primary account using randomName
@@ -313,7 +291,7 @@ func createSharedServiceNetwork(
 		AllowExternalPrincipals: aws.Bool(true),
 		Tags:                    k8sRamTestTags,
 	}
-	createShareResult, err := secondaryRamClient.CreateResourceShareWithContext(ctx, createShareInput)
+	createShareResult, err := clients.ramClient2.CreateResourceShareWithContext(ctx, createShareInput)
 	Expect(err).To(BeNil())
 
 	// Wait for resource share invitation to appear in primary account
@@ -322,20 +300,20 @@ func createSharedServiceNetwork(
 		listInvitationsInput := &ram.GetResourceShareInvitationsInput{
 			ResourceShareArns: []*string{createShareResult.ResourceShare.ResourceShareArn},
 		}
-		listInvitationsResult, err := primaryRamClient.GetResourceShareInvitations(listInvitationsInput)
+		listInvitationsResult, err := clients.ramClient1.GetResourceShareInvitations(listInvitationsInput)
 		Expect(err).NotTo(HaveOccurred())
 
 		if len(listInvitationsResult.ResourceShareInvitations) > 0 {
 			invitation = listInvitationsResult.ResourceShareInvitations[0]
 		}
 		g.Expect(invitation).ToNot(BeNil())
-	}).Should(Succeed())
+	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
 	// Accept resource share invitation
 	acceptInput := &ram.AcceptResourceShareInvitationInput{
 		ResourceShareInvitationArn: invitation.ResourceShareInvitationArn,
 	}
-	_, err = primaryRamClient.AcceptResourceShareInvitation(acceptInput)
+	_, err = clients.ramClient1.AcceptResourceShareInvitation(acceptInput)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Wait for service network to appear in primary account
@@ -344,7 +322,7 @@ func createSharedServiceNetwork(
 		getSNInput := &vpclattice.GetServiceNetworkInput{
 			ServiceNetworkIdentifier: createSNResult.Id,
 		}
-		sn, err = primaryVpcLatticeClient.GetServiceNetworkWithContext(ctx, getSNInput)
+		sn, err = clients.latticeClient1.GetServiceNetworkWithContext(ctx, getSNInput)
 		g.Expect(err).ToNot(HaveOccurred())
 	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 

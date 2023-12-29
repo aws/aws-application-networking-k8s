@@ -23,8 +23,7 @@ import (
 )
 
 const (
-	k8snamespace                = "e2e-test"
-	secondaryAccountTestRoleArn = "SECONDARY_ACCOUNT_TEST_ROLE_ARN"
+	k8snamespace = "e2e-test"
 )
 
 var k8sTestTags = map[string]*string{
@@ -35,7 +34,6 @@ var testFramework *test.Framework
 var ctx context.Context
 var testGateway *gwv1.Gateway
 var testServiceNetwork *vpclattice.ServiceNetworkSummary
-var SecondaryAccountTestRoleArn string
 
 var _ = SynchronizedBeforeSuite(func() {
 	for key, value := range k8sTestTags {
@@ -44,8 +42,6 @@ var _ = SynchronizedBeforeSuite(func() {
 			Value: value,
 		})
 	}
-
-	SecondaryAccountTestRoleArn = os.Getenv(secondaryAccountTestRoleArn)
 
 	vpcId := os.Getenv("CLUSTER_VPC_ID")
 	if vpcId == "" {
