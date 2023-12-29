@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	anaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/onsi/gomega/format"
@@ -48,6 +48,10 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+)
+
+const (
+	K8sNamespace = "e2e-test"
 )
 
 type TestObject struct {
@@ -111,14 +115,14 @@ type Framework struct {
 	Ec2Client               *ec2.EC2
 	GrpcurlRunner           *corev1.Pod
 	DefaultTags             services.Tags
-	Cloud                   an_aws.Cloud
+	Cloud                   anaws.Cloud
 }
 
 func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *Framework {
 	addOptionalCRDs(testScheme)
 	config.ConfigInit()
 	controllerRuntimeConfig := controllerruntime.GetConfigOrDie()
-	cloudConfig := an_aws.CloudConfig{
+	cloudConfig := anaws.CloudConfig{
 		VpcId:       config.VpcID,
 		AccountId:   config.AccountID,
 		Region:      config.Region,
@@ -137,7 +141,7 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 		namespace:               testNamespace,
 		controllerRuntimeConfig: controllerRuntimeConfig,
 	}
-	framework.Cloud = an_aws.NewDefaultCloud(framework.LatticeClient, cloudConfig)
+	framework.Cloud = anaws.NewDefaultCloud(framework.LatticeClient, cloudConfig)
 	framework.DefaultTags = framework.Cloud.DefaultTags()
 	SetDefaultEventuallyTimeout(3 * time.Minute)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)
@@ -610,4 +614,10 @@ func (env *Framework) RunGrpcurlCmd(opts RunGrpcurlCmdOptions) (string, string, 
 
 func (env *Framework) SleepForRouteUpdate() {
 	time.Sleep(10 * time.Second)
+}
+
+func (env *Framework) NewTestTags() map[string]*string {
+	return env.Cloud.DefaultTagsMergedWith(map[string]*string{
+		anaws.TagBase + "TestSuite": aws.String(K8sNamespace),
+	})
 }

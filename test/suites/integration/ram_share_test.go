@@ -165,7 +165,7 @@ var _ = Describe("RAM Share", Ordered, func() {
 		// Create primary account's service network using randomName
 		createSNInput := &vpclattice.CreateServiceNetworkInput{
 			Name: aws.String(randomName),
-			Tags: k8sTestTags,
+			Tags: testFramework.NewTestTags(),
 		}
 		_, err := clients.latticeClient1.CreateServiceNetworkWithContext(ctx, createSNInput)
 		Expect(err).NotTo(HaveOccurred())
@@ -223,7 +223,7 @@ var _ = Describe("RAM Share", Ordered, func() {
 	AfterAll(func() {
 		// Find all AWS resources created in tests
 		var tagFilters []*resourcegroupstaggingapi.TagFilter
-		for key, value := range k8sTestTags {
+		for key, value := range testFramework.NewTestTags() {
 			tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{
 				Key:    aws.String(key),
 				Values: []*string{value},
@@ -275,13 +275,23 @@ var _ = Describe("RAM Share", Ordered, func() {
 })
 
 func createSharedServiceNetwork(serviceNetworkName string, clients *testClients) *vpclattice.GetServiceNetworkOutput {
-	// Create secondary account's service network using randomName
+	tags := testFramework.NewTestTags()
+
+	// Create secondary account's service network
 	createSNInput := &vpclattice.CreateServiceNetworkInput{
 		Name: aws.String(serviceNetworkName),
-		Tags: k8sTestTags,
+		Tags: tags,
 	}
 	createSNResult, err := clients.latticeClient2.CreateServiceNetworkWithContext(ctx, createSNInput)
 	Expect(err).NotTo(HaveOccurred())
+
+	var k8sRamTestTags []*ram.Tag
+	for key, value := range tags {
+		k8sRamTestTags = append(k8sRamTestTags, &ram.Tag{
+			Key:   aws.String(key),
+			Value: value,
+		})
+	}
 
 	// Share service network to primary account using randomName
 	createShareInput := &ram.CreateResourceShareInput{

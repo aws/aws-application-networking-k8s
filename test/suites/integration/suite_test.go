@@ -2,9 +2,6 @@ package integration
 
 import (
 	"context"
-	anaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ram"
 	"os"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -23,26 +20,15 @@ import (
 )
 
 const (
-	k8snamespace = "e2e-test"
+	k8snamespace = test.K8sNamespace
 )
 
-var k8sTestTags = map[string]*string{
-	anaws.TagBase + "TestSuite": aws.String(k8snamespace),
-}
-var k8sRamTestTags []*ram.Tag
 var testFramework *test.Framework
 var ctx context.Context
 var testGateway *gwv1.Gateway
 var testServiceNetwork *vpclattice.ServiceNetworkSummary
 
 var _ = SynchronizedBeforeSuite(func() {
-	for key, value := range k8sTestTags {
-		k8sRamTestTags = append(k8sRamTestTags, &ram.Tag{
-			Key:   aws.String(key),
-			Value: value,
-		})
-	}
-
 	vpcId := os.Getenv("CLUSTER_VPC_ID")
 	if vpcId == "" {
 		Fail("CLUSTER_VPC_ID environment variable must be set to run integration tests")
