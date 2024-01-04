@@ -2,8 +2,11 @@ package integration
 
 import (
 	"fmt"
-	"math/rand"
-	"strconv"
+	anaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+	arn2 "github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -35,12 +38,10 @@ import (
 
 var _ = Describe("Access Log Policy", Ordered, func() {
 	const (
+		testSuite                = "access-log-policy"
+		awsResourceNamePrefix    = "eks-gateway-api-access-log-test-"
 		k8sResourceName          = "test-access-log-policy"
 		k8sResourceName2         = "test-access-log-policy-secondary"
-		logGroupName             = "k8s-test-lattice-log-group"
-		logGroup2Name            = "k8s-test-lattice-log-group-secondary"
-		deliveryStreamName       = "k8s-test-lattice-delivery-stream"
-		deliveryStreamRoleName   = "k8s-test-lattice-delivery-stream-role"
 		deliveryStreamRolePolicy = `{
 			"Version": "2012-10-17",
 			"Statement": [
@@ -81,45 +82,77 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		logGroup2Arn      string
 		deliveryStreamArn string
 		roleArn           string
-		bucketName        = "eks-gateway-api-access-log-test-" + strconv.Itoa(rand.Int())
+		awsResourceName   string
+		sess              = session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)}))
 	)
 
 	BeforeAll(func() {
+		awsResourceName = awsResourceNamePrefix + utils.RandomAlphaString(10)
+
+		tags := testFramework.NewTestTags(testSuite)
+
 		// Create S3 Bucket
-		s3Client = s3.New(session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)})))
+		s3Client = s3.New(sess)
 		_, err := s3Client.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
-			Bucket: aws.String(bucketName),
+			Bucket: aws.String(awsResourceName),
 		})
 		Expect(err).To(BeNil())
-		bucketArn = "arn:aws:s3:::" + bucketName
+		bucketArn = "arn:aws:s3:::" + awsResourceName
+
+		// Tag S3 Bucket
+		tagging := &s3.Tagging{
+			TagSet: make([]*s3.Tag, 0),
+		}
+		for key, value := range tags {
+			tagging.TagSet = append(tagging.TagSet, &s3.Tag{
+				Key:   aws.String(key),
+				Value: value,
+			})
+		}
+		putTagsRequest := &s3.PutBucketTaggingInput{
+			Bucket:  aws.String(awsResourceName),
+			Tagging: tagging,
+		}
+		_, err = s3Client.PutBucketTaggingWithContext(ctx, putTagsRequest)
+		Expect(err).To(BeNil())
 
 		// Create CloudWatch Log Group
-		logsClient = cloudwatchlogs.New(session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)})))
+		logsClient = cloudwatchlogs.New(sess)
 		_, err = logsClient.CreateLogGroupWithContext(ctx, &cloudwatchlogs.CreateLogGroupInput{
-			LogGroupName: aws.String(logGroupName),
+			LogGroupName: aws.String(awsResourceName),
+			Tags:         tags,
 		})
 		Expect(err).To(BeNil())
-		logGroupArn = fmt.Sprintf("arn:aws:logs:%s:%s:log-group:%s:*", config.Region, config.AccountID, logGroupName)
+		logGroupArn = fmt.Sprintf("arn:aws:logs:%s:%s:log-group:%s:*", config.Region, config.AccountID, awsResourceName)
 
 		// Create secondary CloudWatch Log Group
 		_, err = logsClient.CreateLogGroupWithContext(ctx, &cloudwatchlogs.CreateLogGroupInput{
-			LogGroupName: aws.String(logGroup2Name),
+			LogGroupName: aws.String(awsResourceName + "2"),
+			Tags:         tags,
 		})
 		Expect(err).To(BeNil())
-		logGroup2Arn = fmt.Sprintf("arn:aws:logs:%s:%s:log-group:%s:*", config.Region, config.AccountID, logGroup2Name)
+		logGroup2Arn = fmt.Sprintf("arn:aws:logs:%s:%s:log-group:%s:*", config.Region, config.AccountID, awsResourceName+"2")
 
 		// Create IAM Role for Firehose Delivery Stream
-		iamClient = iam.New(session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)})))
+		iamClient = iam.New(sess)
+		var iamTags []*iam.Tag
+		for key, value := range tags {
+			iamTags = append(iamTags, &iam.Tag{
+				Key:   aws.String(key),
+				Value: value,
+			})
+		}
 		createRoleOutput, err := iamClient.CreateRoleWithContext(ctx, &iam.CreateRoleInput{
-			RoleName:                 aws.String(deliveryStreamRoleName),
+			RoleName:                 aws.String(awsResourceName),
 			AssumeRolePolicyDocument: aws.String(deliveryStreamAssumeRolePolicy),
+			Tags:                     iamTags,
 		})
 		Expect(err).To(BeNil())
 		roleArn = *createRoleOutput.Role.Arn
 
 		// Attach S3 permissions to IAM Role
 		_, err = iamClient.PutRolePolicyWithContext(ctx, &iam.PutRolePolicyInput{
-			RoleName:       aws.String(deliveryStreamRoleName),
+			RoleName:       aws.String(awsResourceName),
 			PolicyName:     aws.String("FirehoseS3Permissions"),
 			PolicyDocument: aws.String(deliveryStreamRolePolicy),
 		})
@@ -129,18 +162,26 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		time.Sleep(30 * time.Second)
 
 		// Create Firehose Delivery Stream
-		firehoseClient = firehose.New(session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)})))
+		var firehoseTags []*firehose.Tag
+		for key, value := range tags {
+			firehoseTags = append(firehoseTags, &firehose.Tag{
+				Key:   aws.String(key),
+				Value: value,
+			})
+		}
+		firehoseClient = firehose.New(sess)
 		_, err = firehoseClient.CreateDeliveryStreamWithContext(ctx, &firehose.CreateDeliveryStreamInput{
-			DeliveryStreamName: aws.String(deliveryStreamName),
+			DeliveryStreamName: aws.String(awsResourceName),
 			DeliveryStreamType: aws.String(firehose.DeliveryStreamTypeDirectPut),
 			ExtendedS3DestinationConfiguration: &firehose.ExtendedS3DestinationConfiguration{
 				BucketARN: aws.String(bucketArn),
 				RoleARN:   aws.String(roleArn),
 			},
+			Tags: firehoseTags,
 		})
 		Expect(err).To(BeNil())
 		describeDeliveryStreamOutput, err := firehoseClient.DescribeDeliveryStreamWithContext(ctx, &firehose.DescribeDeliveryStreamInput{
-			DeliveryStreamName: aws.String(deliveryStreamName),
+			DeliveryStreamName: aws.String(awsResourceName),
 		})
 		deliveryStreamArn = *describeDeliveryStreamOutput.DeliveryStreamDescription.DeliveryStreamARN
 
@@ -1265,86 +1306,124 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			grpcDeployment,
 		)
 
-		// Delete S3 Bucket contents
-		output, err := s3Client.ListObjectsV2WithContext(ctx, &s3.ListObjectsV2Input{
-			Bucket: aws.String(bucketName),
-		})
-		Expect(err).To(BeNil())
-		for _, object := range output.Contents {
-			_, err := s3Client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    object.Key,
+		// Find all AWS resources created in tests
+		// This does not include IAM Roles because they are not supported in the Tagging API
+		var tagFilters []*resourcegroupstaggingapi.TagFilter
+		for key, value := range testFramework.NewTestTags(testSuite) {
+			tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{
+				Key:    aws.String(key),
+				Values: []*string{value},
 			})
-			Expect(err).To(BeNil())
+		}
+		rgClient := resourcegroupstaggingapi.New(sess)
+		getResourcesInput := &resourcegroupstaggingapi.GetResourcesInput{
+			TagFilters: tagFilters,
+		}
+		getResourcesResult, err := rgClient.GetResources(getResourcesInput)
+		Expect(err).ToNot(HaveOccurred())
+
+		for _, mapping := range getResourcesResult.ResourceTagMappingList {
+			arn, err := arn2.Parse(*mapping.ResourceARN)
+			Expect(err).ToNot(HaveOccurred())
+
+			switch arn.Service {
+			case "s3":
+				bucketName := aws.String(arn.Resource)
+				output, err := s3Client.ListObjectsV2WithContext(ctx, &s3.ListObjectsV2Input{
+					Bucket: bucketName,
+				})
+				Expect(err).To(BeNil())
+				for _, object := range output.Contents {
+					_, err := s3Client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+						Bucket: bucketName,
+						Key:    object.Key,
+					})
+					Expect(err).To(BeNil())
+				}
+				_, err = s3Client.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{
+					Bucket: bucketName,
+				})
+				Expect(err).To(BeNil())
+			case "logs":
+				logGroupName := strings.Split(arn.Resource, ":")[1]
+				_, err = logsClient.DeleteLogGroupWithContext(ctx, &cloudwatchlogs.DeleteLogGroupInput{
+					LogGroupName: aws.String(logGroupName),
+				})
+				Expect(err).To(BeNil())
+			case "firehose":
+				deliveryStreamName := strings.Split(arn.Resource, "/")[1]
+				Eventually(func() (string, error) {
+					describeInput := &firehose.DescribeDeliveryStreamInput{
+						DeliveryStreamName: aws.String(deliveryStreamName),
+					}
+					describeOutput, err := firehoseClient.DescribeDeliveryStreamWithContext(ctx, describeInput)
+					if err != nil {
+						return "", err
+					}
+
+					status := *describeOutput.DeliveryStreamDescription.DeliveryStreamStatus
+					if status != firehose.DeliveryStreamStatusActive {
+						return status, fmt.Errorf("expected status to be ACTIVE, got %s", status)
+					}
+
+					_, err = firehoseClient.DeleteDeliveryStreamWithContext(ctx, &firehose.DeleteDeliveryStreamInput{
+						DeliveryStreamName: aws.String(deliveryStreamName),
+					})
+					return status, err
+				}, 5*time.Minute, time.Minute).Should(Equal(firehose.DeliveryStreamStatusActive))
+			default:
+				Fail(fmt.Sprintf("Unknown service type %s", arn.Service))
+			}
 		}
 
-		// Delete S3 Bucket
-		_, err = s3Client.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{
-			Bucket: aws.String(bucketName),
-		})
+		roles, err := iamClient.ListRolesWithContext(ctx, &iam.ListRolesInput{})
 		Expect(err).To(BeNil())
 
-		// Delete CloudWatch Log Groups
-		_, err = logsClient.DeleteLogGroupWithContext(ctx, &cloudwatchlogs.DeleteLogGroupInput{
-			LogGroupName: aws.String(logGroupName),
-		})
-		Expect(err).To(BeNil())
-		_, err = logsClient.DeleteLogGroupWithContext(ctx, &cloudwatchlogs.DeleteLogGroupInput{
-			LogGroupName: aws.String(logGroup2Name),
-		})
-		Expect(err).To(BeNil())
+		for _, role := range roles.Roles {
+			if strings.Contains(*role.RoleName, awsResourceNamePrefix) {
+				tags, err := iamClient.ListRoleTagsWithContext(ctx, &iam.ListRoleTagsInput{
+					RoleName: role.RoleName,
+				})
+				Expect(err).To(BeNil())
 
-		// Delete Firehose Delivery Stream
-		Eventually(func() (string, error) {
-			describeInput := &firehose.DescribeDeliveryStreamInput{
-				DeliveryStreamName: aws.String(deliveryStreamName),
+				for _, tag := range tags.Tags {
+					if *tag.Key == anaws.TagBase+"TestSuite" && *tag.Value == testSuite {
+						// Detach managed policies from IAM Role
+						policies, err := iamClient.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{
+							RoleName: role.RoleName,
+						})
+						Expect(err).To(BeNil())
+						for _, policy := range policies.AttachedPolicies {
+							_, err := iamClient.DetachRolePolicyWithContext(ctx, &iam.DetachRolePolicyInput{
+								RoleName:  role.RoleName,
+								PolicyArn: policy.PolicyArn,
+							})
+							Expect(err).To(BeNil())
+						}
+
+						// Delete inline policies from IAM Role
+						inlinePolicies, err := iamClient.ListRolePoliciesWithContext(ctx, &iam.ListRolePoliciesInput{
+							RoleName: role.RoleName,
+						})
+						Expect(err).To(BeNil())
+						for _, policyName := range inlinePolicies.PolicyNames {
+							_, err := iamClient.DeleteRolePolicyWithContext(ctx, &iam.DeleteRolePolicyInput{
+								RoleName:   role.RoleName,
+								PolicyName: policyName,
+							})
+							Expect(err).To(BeNil())
+						}
+
+						// Delete IAM Role
+						_, err = iamClient.DeleteRoleWithContext(ctx, &iam.DeleteRoleInput{
+							RoleName: role.RoleName,
+						})
+						Expect(err).To(BeNil())
+
+						break
+					}
+				}
 			}
-			describeOutput, err := firehoseClient.DescribeDeliveryStreamWithContext(ctx, describeInput)
-			if err != nil {
-				return "", err
-			}
-
-			status := *describeOutput.DeliveryStreamDescription.DeliveryStreamStatus
-			if status != firehose.DeliveryStreamStatusActive {
-				return status, fmt.Errorf("expected status to be ACTIVE, got %s", status)
-			}
-
-			_, err = firehoseClient.DeleteDeliveryStreamWithContext(ctx, &firehose.DeleteDeliveryStreamInput{
-				DeliveryStreamName: aws.String(deliveryStreamName),
-			})
-			return status, err
-		}, 5*time.Minute, time.Minute).Should(Equal(firehose.DeliveryStreamStatusActive))
-
-		// Detach managed policies from IAM Role
-		policies, err := iamClient.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{
-			RoleName: aws.String(deliveryStreamRoleName),
-		})
-		Expect(err).To(BeNil())
-		for _, policy := range policies.AttachedPolicies {
-			_, err := iamClient.DetachRolePolicyWithContext(ctx, &iam.DetachRolePolicyInput{
-				RoleName:  aws.String(deliveryStreamRoleName),
-				PolicyArn: policy.PolicyArn,
-			})
-			Expect(err).To(BeNil())
 		}
-
-		// Delete inline policies from IAM Role
-		inlinePolicies, err := iamClient.ListRolePoliciesWithContext(ctx, &iam.ListRolePoliciesInput{
-			RoleName: aws.String(deliveryStreamRoleName),
-		})
-		Expect(err).To(BeNil())
-		for _, policyName := range inlinePolicies.PolicyNames {
-			_, err := iamClient.DeleteRolePolicyWithContext(ctx, &iam.DeleteRolePolicyInput{
-				RoleName:   aws.String(deliveryStreamRoleName),
-				PolicyName: policyName,
-			})
-			Expect(err).To(BeNil())
-		}
-
-		// Delete IAM Role
-		_, err = iamClient.DeleteRoleWithContext(ctx, &iam.DeleteRoleInput{
-			RoleName: aws.String(deliveryStreamRoleName),
-		})
-		Expect(err).To(BeNil())
 	})
 })
