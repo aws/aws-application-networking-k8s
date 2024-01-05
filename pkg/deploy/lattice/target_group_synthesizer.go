@@ -116,15 +116,25 @@ func (t *TargetGroupSynthesizer) SynthesizeDelete(ctx context.Context) error {
 	return nil
 }
 
-// this method assumes all synthesis
-func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) error {
+// result of deletion attempt, if err is nil target group was deleted
+type DeleteUnusedResult struct {
+	Arn string
+	Err error
+}
+
+// This method assumes all synthesis. Returns list of deletion results, might include partial
+// failures if cannot produce list for deletion will return error.
+//
+// TODO: we should do parallel deletion calls, preferably with bounded WorkGroup
+func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) ([]DeleteUnusedResult, error) {
 	tgsToDelete, err := t.calculateTargetGroupsToDelete(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var retErr error
-	for _, tg := range tgsToDelete {
+	results := make([]DeleteUnusedResult, len(tgsToDelete))
+
+	for i, tg := range tgsToDelete {
 		modelStatus := model.TargetGroupStatus{
 			Name: aws.StringValue(tg.tgSummary.Name),
 			Arn:  aws.StringValue(tg.tgSummary.Arn),
@@ -136,16 +146,13 @@ func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) err
 		}
 
 		err := t.targetGroupManager.Delete(ctx, &modelTg)
-		if err != nil {
-			retErr = errors.Join(retErr, fmt.Errorf("failed TargetGroupManager.Delete %s due to %s", modelStatus.Id, err))
+		results[i] = DeleteUnusedResult{
+			Arn: modelTg.Status.Arn,
+			Err: err,
 		}
 	}
 
-	if retErr != nil {
-		return retErr
-	}
-
-	return nil
+	return results, nil
 }
 
 func (t *TargetGroupSynthesizer) calculateTargetGroupsToDelete(ctx context.Context) ([]tgListOutput, error) {
