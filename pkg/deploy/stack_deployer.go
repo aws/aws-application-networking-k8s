@@ -175,7 +175,7 @@ func (gc *TgGc) cycle() {
 	if err != nil {
 		gc.log.Debugf("gc cycle error: %s", err)
 	}
-	gc.log.Debugw("tg gc result",
+	gc.log.Debugw("gc stats",
 		"delete_attempts", res.att,
 		"delete_success", res.succ,
 		"duration", res.duration,
@@ -189,11 +189,12 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	listenerSynthesizer := lattice.NewListenerSynthesizer(d.log, d.listenerManager, stack)
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.log, d.ruleManager, d.targetGroupManager, stack)
 
-	// we need to block GC when we deploy stack
-	// stack deployer first creates TG and then associate TG with Service
-	// if GC will run in between it can delete newly created TG before it associated
-	// this lock also prevents concurrent deployments, only one deployment cat run at the time
-	// TODO: This place can become a contention. May be add debug log with waiting time for lock?
+	// We need to block GC when we deploy stack. Stack deployer first creates TG and then
+	// associate TG with Service. If GC will run in between it can delete newly created TG
+	// before association since it's dangling TG. This lock also prevents concurrent
+	// deployments, only one deployment can run at the time.
+	//
+	// TODO: This place can become a contention. May be debug log with lock waiting time?
 	defer func() {
 		tgGc.lock.Unlock()
 	}()

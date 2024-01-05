@@ -122,9 +122,10 @@ type DeleteUnusedResult struct {
 	Err error
 }
 
-// this method assumes all synthesis
-// returns list of deletion results, might include partial failures
-// if cannot produce list for deletion will return error
+// This method assumes all synthesis. Returns list of deletion results, might include partial
+// failures if cannot produce list for deletion will return error.
+//
+// TODO: we should do parallel deletion calls, preferably with bounded WorkGroup
 func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) ([]DeleteUnusedResult, error) {
 	tgsToDelete, err := t.calculateTargetGroupsToDelete(ctx)
 	if err != nil {
