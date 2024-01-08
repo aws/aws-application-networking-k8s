@@ -147,7 +147,7 @@ func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
 
 	mockTGManager.EXPECT().List(ctx).Return(nonManagedTgs, nil)
 	synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, nil, nil, nil)
-	err := synthesizer.SynthesizeUnusedDelete(ctx)
+	_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 	assert.Nil(t, err)
 }
 
@@ -262,7 +262,7 @@ func Test_DoNotDeleteCases(t *testing.T) {
 	synthesizer := NewTargetGroupSynthesizer(
 		gwlog.FallbackLogger, nil, mockClient, mockTGManager, mockSvcExportTgBuilder, mockSvcBuilder, stack)
 
-	err := synthesizer.SynthesizeUnusedDelete(ctx)
+	_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 	assert.Nil(t, err)
 }
 
@@ -302,7 +302,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 		synthesizer := NewTargetGroupSynthesizer(
 			gwlog.FallbackLogger, nil, mockClient, mockTGManager, mockSvcExportTgBuilder, nil, nil)
 
-		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 		assert.Nil(t, err)
 	})
 
@@ -324,7 +324,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 		synthesizer := NewTargetGroupSynthesizer(
 			gwlog.FallbackLogger, nil, mockClient, mockTGManager, mockSvcExportTgBuilder, nil, nil)
 
-		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 		assert.Nil(t, err)
 	})
 
@@ -362,7 +362,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 		synthesizer := NewTargetGroupSynthesizer(
 			gwlog.FallbackLogger, nil, mockClient, mockTGManager, mockSvcExportTgBuilder, nil, nil)
 
-		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 		assert.Nil(t, err)
 	})
 }
@@ -405,7 +405,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 		synthesizer := NewTargetGroupSynthesizer(
 			gwlog.FallbackLogger, nil, mockClient, mockTGManager, nil, mockSvcBuilder, nil)
 
-		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 		assert.Nil(t, err)
 	})
 
@@ -427,7 +427,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 		synthesizer := NewTargetGroupSynthesizer(
 			gwlog.FallbackLogger, nil, mockClient, mockTGManager, nil, mockSvcBuilder, nil)
 
-		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 		assert.Nil(t, err)
 	})
 
@@ -477,7 +477,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 		synthesizer := NewTargetGroupSynthesizer(
 			gwlog.FallbackLogger, nil, mockClient, mockTGManager, nil, mockSvcBuilder, nil)
 
-		err := synthesizer.SynthesizeUnusedDelete(ctx)
+		_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 		assert.Nil(t, err)
 	})
 }

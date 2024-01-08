@@ -620,8 +620,8 @@ func (env *Framework) SleepForRouteUpdate() {
 	time.Sleep(10 * time.Second)
 }
 
-func (env *Framework) NewTestTags() map[string]*string {
+func (env *Framework) NewTestTags(testSuite string) map[string]*string {
 	return env.Cloud.DefaultTagsMergedWith(map[string]*string{
-		anaws.TagBase + "TestSuite": aws.String(K8sNamespace),
+		anaws.TagBase + "TestSuite": aws.String(testSuite),
 	})
 }

@@ -3,16 +3,22 @@ package deploy
 import (
 	"context"
 	"fmt"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+)
+
+const (
+	TG_GC_IVL = time.Second * 30
 )
 
 type StackDeployer interface {
@@ -54,6 +60,9 @@ type latticeServiceStackDeployer struct {
 	svcBuilder            gateway.LatticeServiceBuilder
 }
 
+var tgGcOnce sync.Once
+var tgGc *TgGc
+
 func NewLatticeServiceStackDeploy(
 	log gwlog.Logger,
 	cloud pkg_aws.Cloud,
@@ -61,19 +70,116 @@ func NewLatticeServiceStackDeploy(
 ) *latticeServiceStackDeployer {
 	brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(log, k8sClient)
 
+	tgMgr := lattice.NewTargetGroupManager(log, cloud)
+	tgSvcExpBuilder := gateway.NewSvcExportTargetGroupBuilder(log, k8sClient)
+	svcBuilder := gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder)
+
+	tgGcOnce.Do(func() {
+		// TODO: need to refactor TG synthesizer. Remove stack from constructor
+		// arguments and use it as Synth argument. That will help with Synth
+		// reuse for GC purposes
+		tgGcSynth := lattice.NewTargetGroupSynthesizer(log, cloud, k8sClient, tgMgr, tgSvcExpBuilder, svcBuilder, nil)
+		tgGcFn := NewTgGcFn(tgGcSynth)
+		tgGc = &TgGc{
+			lock:    sync.Mutex{},
+			log:     log.Named("tg-gc"),
+			ctx:     context.TODO(),
+			isDone:  atomic.Bool{},
+			ivl:     TG_GC_IVL,
+			cycleFn: tgGcFn,
+		}
+		tgGc.start()
+	})
+
 	return &latticeServiceStackDeployer{
 		log:                   log,
 		cloud:                 cloud,
 		k8sClient:             k8sClient,
 		latticeServiceManager: lattice.NewServiceManager(log, cloud),
-		targetGroupManager:    lattice.NewTargetGroupManager(log, cloud),
+		targetGroupManager:    tgMgr,
 		targetsManager:        lattice.NewTargetsManager(log, cloud),
 		listenerManager:       lattice.NewListenerManager(log, cloud),
 		ruleManager:           lattice.NewRuleManager(log, cloud),
 		dnsEndpointManager:    externaldns.NewDnsEndpointManager(log, k8sClient),
-		svcExportTgBuilder:    gateway.NewSvcExportTargetGroupBuilder(log, k8sClient),
-		svcBuilder:            gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder),
+		svcExportTgBuilder:    tgSvcExpBuilder,
+		svcBuilder:            svcBuilder,
 	}
+}
+
+type TgGcCycleFn = func(context.Context) (TgGcResult, error)
+
+func NewTgGcFn(tgSynth *lattice.TargetGroupSynthesizer) TgGcCycleFn {
+	return func(ctx context.Context) (TgGcResult, error) {
+		t0 := time.Now()
+		results, err := tgSynth.SynthesizeUnusedDelete(ctx)
+		if err != nil {
+			return TgGcResult{}, err
+		}
+		succ := 0
+		for _, res := range results {
+			if res.Err == nil {
+				succ += 1
+			}
+		}
+		return TgGcResult{
+			att:      len(results),
+			succ:     succ,
+			duration: time.Since(t0),
+		}, nil
+	}
+}
+
+type TgGc struct {
+	lock    sync.Mutex
+	log     gwlog.Logger
+	ctx     context.Context
+	isDone  atomic.Bool
+	ivl     time.Duration
+	cycleFn TgGcCycleFn
+}
+
+type TgGcResult struct {
+	// number deletion attempts
+	att int
+	// number of successful deletions
+	succ int
+	// cycle duration
+	duration time.Duration
+}
+
+func (gc *TgGc) start() {
+	ticker := time.NewTicker(gc.ivl)
+	go func() {
+		for {
+			select {
+			case <-gc.ctx.Done():
+				gc.log.Info("stop GC, ctx is done")
+				gc.isDone.Store(true)
+				return
+			case <-ticker.C:
+				gc.cycle()
+			}
+		}
+	}()
+}
+
+func (gc *TgGc) cycle() {
+	defer func() {
+		if r := recover(); r != nil {
+			gc.log.Errorf("gc cycle panic: %s", r)
+		}
+		gc.lock.Unlock()
+	}()
+	gc.lock.Lock()
+	res, err := gc.cycleFn(gc.ctx)
+	if err != nil {
+		gc.log.Debugf("gc cycle error: %s", err)
+	}
+	gc.log.Debugw("gc stats",
+		"delete_attempts", res.att,
+		"delete_success", res.succ,
+		"duration", res.duration,
+	)
 }
 
 func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
@@ -82,6 +188,17 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	serviceSynthesizer := lattice.NewServiceSynthesizer(d.log, d.latticeServiceManager, d.dnsEndpointManager, stack)
 	listenerSynthesizer := lattice.NewListenerSynthesizer(d.log, d.listenerManager, stack)
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.log, d.ruleManager, d.targetGroupManager, stack)
+
+	// We need to block GC when we deploy stack. Stack deployer first creates TG and then
+	// associate TG with Service. If GC will run in between it can delete newly created TG
+	// before association since it's dangling TG. This lock also prevents concurrent
+	// deployments, only one deployment can run at the time.
+	//
+	// TODO: This place can become a contention. May be debug log with lock waiting time?
+	defer func() {
+		tgGc.lock.Unlock()
+	}()
+	tgGc.lock.Lock()
 
 	//Handle targetGroups creation request
 	if err := targetGroupSynthesizer.SynthesizeCreate(ctx); err != nil {
@@ -111,12 +228,6 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	//Handle targetGroup deletion request
 	if err := targetGroupSynthesizer.SynthesizeDelete(ctx); err != nil {
 		return fmt.Errorf("error during tg delete synthesis %w", err)
-	}
-
-	// Do garbage collection for not-in-use targetGroups
-	//TODO: run SynthesizeSDKTargetGroups(ctx) as a global garbage collector scheduled background task (i.e., run it as a goroutine in main.go)
-	if err := targetGroupSynthesizer.SynthesizeUnusedDelete(ctx); err != nil {
-		return fmt.Errorf("error during tg unused delete synthesis %w", err)
 	}
 
 	return nil
