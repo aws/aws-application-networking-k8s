@@ -1,8 +1,6 @@
 package integration
 
 import (
-	"os"
-
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
@@ -56,7 +54,7 @@ var _ = Describe("Defined Target Ports", Ordered, func() {
 	})
 
 	It("take effect when on port annotation of ServiceExport", func() {
-		performVerification(service, deployment, definedPorts)
+		performVerification(service, definedPorts)
 	})
 
 	It("take effect when on HttpRoute BackendRef", func() {
@@ -66,25 +64,34 @@ var _ = Describe("Defined Target Ports", Ordered, func() {
 		lsn := utils.LatticeServiceName(route.Name(), route.Namespace())
 		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(lsn))
 
-		performVerification(service, deployment, definedPorts)
+		performVerification(service, definedPorts)
 	})
 })
 
-func performVerification(service *v1.Service, deployment *appsv1.Deployment, definedPorts []int64) {
-	// Verify VPC Lattice Target Group exists
-	targetGroup := testFramework.GetHttpTargetGroup(ctx, service)
-	Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-	Expect(*targetGroup.Protocol).To(Equal("HTTP"))
-	Expect(*targetGroup.Port).To(BeEquivalentTo(80))
-	targets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroup.Id})
-	Expect(err).To(BeNil())
-	for _, target := range targets {
-		Expect(targetUsesDefinedPort(definedPorts, target)).To(BeTrue())
-		Expect(*target.Status).To(Or(
-			Equal(vpclattice.TargetStatusInitial),
-			Equal(vpclattice.TargetStatusHealthy),
-			Equal(vpclattice.TargetStatusUnused),
-		))
+func performVerification(service *v1.Service, definedPorts []int64) {
+	// Verify VPC Lattice Target Groups exist and have valid configs
+	httpTargetGroup := testFramework.GetHttpTargetGroup(ctx, service)
+	Expect(httpTargetGroup).ToNot(BeNil())
+	Expect(*httpTargetGroup.Protocol).To(Equal("HTTP"))
+	Expect(*httpTargetGroup.Port).To(BeEquivalentTo(80))
+
+	grpcTargetGroup := testFramework.GetGrpcTargetGroup(ctx, service)
+	Expect(grpcTargetGroup).ToNot(BeNil())
+	Expect(*grpcTargetGroup.Protocol).To(Equal("HTTPS"))
+	Expect(*grpcTargetGroup.Port).To(BeEquivalentTo(443))
+
+	for _, tg := range []*vpclattice.TargetGroupSummary{httpTargetGroup, grpcTargetGroup} {
+		Expect(*tg.VpcIdentifier).To(Equal(test.CurrentClusterVpcId))
+		targets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: tg.Id})
+		Expect(err).To(BeNil())
+		for _, target := range targets {
+			Expect(targetUsesDefinedPort(definedPorts, target)).To(BeTrue())
+			Expect(*target.Status).To(Or(
+				Equal(vpclattice.TargetStatusInitial),
+				Equal(vpclattice.TargetStatusHealthy),
+				Equal(vpclattice.TargetStatusUnused),
+			))
+		}
 	}
 }
 

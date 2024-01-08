@@ -66,8 +66,6 @@ var _ = Describe("ServiceExport Mutation Test", Ordered, func() {
 			)
 		})
 
-		// TODO: Update all opened test files so that they account for the fact that we now create two TGs per export.
-		//         This file is only partially done.
 		When("Update number of pods for a k8s service", func() {
 			It("Expect corresponding serviceExport created target group's targets change as well", func() {
 				//Get lattice targets before change deployment Replicas number
