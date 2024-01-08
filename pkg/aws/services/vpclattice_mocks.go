@@ -1534,7 +1534,7 @@ func (mr *MockLatticeMockRecorder) GetServiceWithContext(arg0, arg1 interface{},
 // GetTargetGroup mocks base method.
 func (m *MockLattice) GetTargetGroup(arg0 *vpclattice.GetTargetGroupInput) (*vpclattice.GetTargetGroupOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTargetGroup", arg0)
+	ret := m.ctrl.Call(m, "GetHttpTargetGroup", arg0)
 	ret0, _ := ret[0].(*vpclattice.GetTargetGroupOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -1543,7 +1543,7 @@ func (m *MockLattice) GetTargetGroup(arg0 *vpclattice.GetTargetGroupInput) (*vpc
 // GetTargetGroup indicates an expected call of GetTargetGroup.
 func (mr *MockLatticeMockRecorder) GetTargetGroup(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTargetGroup", reflect.TypeOf((*MockLattice)(nil).GetTargetGroup), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHttpTargetGroup", reflect.TypeOf((*MockLattice)(nil).GetTargetGroup), arg0)
 }
 
 // GetTargetGroupRequest mocks base method.

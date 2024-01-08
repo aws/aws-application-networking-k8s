@@ -100,7 +100,7 @@ var _ = Describe("HTTPRoute Creation", Ordered, func() {
 				service,
 			)
 
-			testFramework.GetTargetGroup(ctx, service)
+			testFramework.GetHttpTargetGroup(ctx, service)
 			testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 		})
 	})
@@ -123,7 +123,7 @@ func verifyResourceCreation(
 	route, _ := core.NewRoute(httpRoute)
 	_ = testFramework.GetVpcLatticeService(ctx, route)
 
-	targetGroup := testFramework.GetTargetGroup(ctx, service)
+	targetGroup := testFramework.GetHttpTargetGroup(ctx, service)
 	Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 	Expect(*targetGroup.Protocol).To(Equal("HTTP"))
 }

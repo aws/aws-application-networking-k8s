@@ -49,7 +49,7 @@ var _ = Describe("Delete Unused Target Groups", Ordered, func() {
 
 		for i, service := range services {
 			// Verify VPC Lattice Target Group exists
-			targetGroups[i] = testFramework.GetTargetGroup(ctx, service)
+			targetGroups[i] = testFramework.GetHttpTargetGroup(ctx, service)
 			Expect(*targetGroups[i].Port).To(BeEquivalentTo(80))
 			Expect(*targetGroups[i]).To(Not(BeNil()))
 

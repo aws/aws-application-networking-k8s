@@ -72,7 +72,7 @@ var _ = Describe("Defined Target Ports", Ordered, func() {
 
 func performVerification(service *v1.Service, deployment *appsv1.Deployment, definedPorts []int64) {
 	// Verify VPC Lattice Target Group exists
-	targetGroup := testFramework.GetTargetGroup(ctx, service)
+	targetGroup := testFramework.GetHttpTargetGroup(ctx, service)
 	Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 	Expect(*targetGroup.Protocol).To(Equal("HTTP"))
 	Expect(*targetGroup.Port).To(BeEquivalentTo(80))

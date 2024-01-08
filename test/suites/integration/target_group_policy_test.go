@@ -46,7 +46,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 
 		testFramework.ExpectCreated(ctx, policy)
 
-		tg := testFramework.GetTargetGroup(ctx, service)
+		tg := testFramework.GetHttpTargetGroup(ctx, service)
 		Expect(*tg.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
 
 		err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
@@ -77,7 +77,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 		testFramework.ExpectCreated(ctx, policy)
 
 		Eventually(func(g Gomega) {
-			tgSummary := testFramework.GetTargetGroup(ctx, service)
+			tgSummary := testFramework.GetHttpTargetGroup(ctx, service)
 			tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
 			g.Expect(*tg.Config.HealthCheck.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp1))
 			g.Expect(*tg.Config.HealthCheck.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
@@ -88,7 +88,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
 
 		Eventually(func(g Gomega) {
-			tgSummary := testFramework.GetTargetGroup(ctx, service)
+			tgSummary := testFramework.GetHttpTargetGroup(ctx, service)
 
 			tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
 
@@ -124,7 +124,7 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 
 		testFramework.ExpectDeleted(ctx, policy)
 
-		httpTG := testFramework.GetTargetGroup(ctx, service)
+		httpTG := testFramework.GetHttpTargetGroup(ctx, service)
 
 		Expect(*httpTG.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
 	})

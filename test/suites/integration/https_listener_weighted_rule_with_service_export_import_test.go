@@ -6,15 +6,15 @@ import (
 	"os"
 	"time"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -63,8 +63,8 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
 
 			log.Println("Verifying Target Groups")
-			retrievedTg0 := testFramework.GetTargetGroup(ctx, service0)
-			retrievedTg1 := testFramework.GetTargetGroup(ctx, service1)
+			retrievedTg0 := testFramework.GetHttpTargetGroup(ctx, service0)
+			retrievedTg1 := testFramework.GetHttpTargetGroup(ctx, service1)
 			for i, retrievedTargetGroupSummary := range []*vpclattice.TargetGroupSummary{retrievedTg0, retrievedTg1} {
 				Expect(retrievedTargetGroupSummary).NotTo(BeNil())
 				Expect(*retrievedTargetGroupSummary.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))

@@ -46,7 +46,7 @@ var _ = Describe("HTTPRoute path matches", func() {
 		route, _ := core.NewRoute(pathMatchHttpRoute)
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
 
-		targetGroupV1 := testFramework.GetTargetGroup(ctx, service1)
+		targetGroupV1 := testFramework.GetHttpTargetGroup(ctx, service1)
 		Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 		Expect(*targetGroupV1.Protocol).To(Equal("HTTP"))
 		targetsV1 := testFramework.GetTargets(ctx, targetGroupV1, deployment1)
@@ -59,7 +59,7 @@ var _ = Describe("HTTPRoute path matches", func() {
 			))
 		}
 
-		targetGroupV2 := testFramework.GetTargetGroup(ctx, service2)
+		targetGroupV2 := testFramework.GetHttpTargetGroup(ctx, service2)
 		Expect(*targetGroupV2.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 		Expect(*targetGroupV2.Protocol).To(Equal("HTTP"))
 		targetsV2 := testFramework.GetTargets(ctx, targetGroupV2, deployment2)

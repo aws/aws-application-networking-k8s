@@ -228,19 +228,21 @@ func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 	// now we get to the tricky business of seeing if our unused target group actually matches
 	// the current state of the service and service export - the most correct way to do this is to
 	// reconstruct the target group spec from the service export itself, then compare fields
-	modelTg, err := t.svcExportTgBuilder.BuildTargetGroup(ctx, svcExport)
+	stackHttpTg, stackGrpcTg, err := t.svcExportTgBuilder.BuildTargetGroups(ctx, svcExport)
 	if err != nil {
 		t.log.Infof("Received error building svc export target group model %s", err)
 		return false
 	}
 
+	// there are two target groups per service export (http and grpc), so we need to check which stack tg to compare
+	// against by checking which type of lattice target group was passed in.
+	// http1 target groups have http protocol while grpc target groups have https protocol.
+	isHttp := *latticeTg.tgSummary.Protocol == vpclattice.TargetGroupProtocolHttp
+
 	// the main identifiers are validated, just need to check the other essentials.
 	// protocolVersion is not in TG summary so we are bringing it from tags.
-	if int64(modelTg.Spec.Port) != aws.Int64Value(latticeTg.tgSummary.Port) ||
-		modelTg.Spec.Protocol != aws.StringValue(latticeTg.tgSummary.Protocol) ||
-		modelTg.Spec.ProtocolVersion != tagFields.K8SProtocolVersion ||
-		modelTg.Spec.IpAddressType != aws.StringValue(latticeTg.tgSummary.IpAddressType) {
-
+	if (isHttp && t.targetGroupModelDoesNotMatchSummary(stackHttpTg, latticeTg.tgSummary, tagFields)) ||
+		(!isHttp && t.targetGroupModelDoesNotMatchSummary(stackGrpcTg, latticeTg.tgSummary, tagFields)) {
 		// one or more immutable fields differ from the source, so the TG is out of date
 		t.log.Infof("Will delete TargetGroup %s (%s) - fields differ from source service/service export",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
@@ -251,6 +253,17 @@ func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 		*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 
 	return false
+}
+
+func (t *TargetGroupSynthesizer) targetGroupModelDoesNotMatchSummary(
+	tgModel *model.TargetGroup,
+	tgSummary *vpclattice.TargetGroupSummary,
+	tagFields model.TargetGroupTagFields,
+) bool {
+	return int64(tgModel.Spec.Port) != aws.Int64Value(tgSummary.Port) ||
+		tgModel.Spec.Protocol != aws.StringValue(tgSummary.Protocol) ||
+		tgModel.Spec.ProtocolVersion != tagFields.K8SProtocolVersion ||
+		tgModel.Spec.IpAddressType != aws.StringValue(tgSummary.IpAddressType)
 }
 
 func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(

@@ -343,8 +343,12 @@ func (env *Framework) GetFullTargetGroupFromSummary(
 	return tg
 }
 
-func (env *Framework) GetTargetGroup(ctx context.Context, service *corev1.Service) *vpclattice.TargetGroupSummary {
+func (env *Framework) GetHttpTargetGroup(ctx context.Context, service *corev1.Service) *vpclattice.TargetGroupSummary {
 	return env.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttp, vpclattice.TargetGroupProtocolVersionHttp1)
+}
+
+func (env *Framework) GetGrpcTargetGroup(ctx context.Context, service *corev1.Service) *vpclattice.TargetGroupSummary {
+	return env.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttps, vpclattice.TargetGroupProtocolVersionGrpc)
 }
 
 func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *corev1.Service, protocol, protocolVersion string) *vpclattice.TargetGroupSummary {

@@ -52,19 +52,20 @@ func (mr *MockSvcExportTargetGroupModelBuilderMockRecorder) Build(arg0, arg1 int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Build", reflect.TypeOf((*MockSvcExportTargetGroupModelBuilder)(nil).Build), arg0, arg1)
 }
 
-// BuildTargetGroup mocks base method.
-func (m *MockSvcExportTargetGroupModelBuilder) BuildTargetGroup(arg0 context.Context, arg1 *v1alpha1.ServiceExport) (*lattice.TargetGroup, error) {
+// BuildTargetGroups mocks base method.
+func (m *MockSvcExportTargetGroupModelBuilder) BuildTargetGroups(arg0 context.Context, arg1 *v1alpha1.ServiceExport) (*lattice.TargetGroup, *lattice.TargetGroup, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BuildTargetGroup", arg0, arg1)
+	ret := m.ctrl.Call(m, "BuildTargetGroups", arg0, arg1)
 	ret0, _ := ret[0].(*lattice.TargetGroup)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*lattice.TargetGroup)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-// BuildTargetGroup indicates an expected call of BuildTargetGroup.
-func (mr *MockSvcExportTargetGroupModelBuilderMockRecorder) BuildTargetGroup(arg0, arg1 interface{}) *gomock.Call {
+// BuildTargetGroups indicates an expected call of BuildTargetGroups.
+func (mr *MockSvcExportTargetGroupModelBuilderMockRecorder) BuildTargetGroups(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildTargetGroup", reflect.TypeOf((*MockSvcExportTargetGroupModelBuilder)(nil).BuildTargetGroup), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildTargetGroups", reflect.TypeOf((*MockSvcExportTargetGroupModelBuilder)(nil).BuildTargetGroups), arg0, arg1)
 }
 
 // MockBackendRefTargetGroupModelBuilder is a mock of BackendRefTargetGroupModelBuilder interface.

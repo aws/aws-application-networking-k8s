@@ -237,7 +237,7 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 			var resTargetGroups []*model.TargetGroup
 			err = stack.ListResources(&resTargetGroups)
 			assert.Nil(t, err)
-			assert.Equal(t, 1, len(resTargetGroups))
+			assert.Equal(t, 2, len(resTargetGroups))
 
 			stackTg := resTargetGroups[0]
 			spec := model.TargetGroupSpec{}
