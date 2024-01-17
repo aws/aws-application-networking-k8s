@@ -778,6 +778,8 @@ func Test_ListTG_TGsExist(t *testing.T) {
 	id := "123456789"
 	name1 := "test1"
 	config.VpcID = "vpc-id"
+	externalVpc := "external-vpc-id"
+
 	config.ClusterName = "cluster-name"
 	tgType := vpclattice.TargetGroupTypeIp
 	tg1 := &vpclattice.TargetGroupSummary{
@@ -792,7 +794,7 @@ func Test_ListTG_TGsExist(t *testing.T) {
 		Arn:           &arn,
 		Id:            &id,
 		Name:          &name2,
-		VpcIdentifier: &config.VpcID,
+		VpcIdentifier: &externalVpc,
 		Type:          &tgType,
 	}
 	listTGOutput := []*vpclattice.TargetGroupSummary{tg1, tg2}
