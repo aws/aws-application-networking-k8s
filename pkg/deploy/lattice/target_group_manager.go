@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"reflect"
@@ -256,11 +255,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, e
 	if len(resp) == 0 {
 		return nil, nil
 	}
-	validTgs := utils.SliceFilter(resp, func(tg *vpclattice.TargetGroupSummary) bool {
-		return aws.StringValue(tg.VpcIdentifier) == config.VpcID &&
-			aws.StringValue(tg.Type) == vpclattice.TargetGroupTypeIp
-	})
-	tgArns := utils.SliceMap(validTgs, func(tg *vpclattice.TargetGroupSummary) string {
+	tgArns := utils.SliceMap(resp, func(tg *vpclattice.TargetGroupSummary) string {
 		return aws.StringValue(tg.Arn)
 	})
 	tgArnToTagsMap, err := s.cloud.Tagging().GetTagsForArns(ctx, tgArns)
@@ -268,7 +263,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, e
 	if err != nil {
 		return nil, err
 	}
-	for _, tg := range validTgs {
+	for _, tg := range resp {
 		tgList = append(tgList, tgListOutput{
 			tgSummary: tg,
 			tags:      tgArnToTagsMap[*tg.Arn],
