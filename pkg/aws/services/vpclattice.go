@@ -393,8 +393,9 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrId string
 			if !ok || aerr.Code() != vpclattice.ErrCodeAccessDeniedException {
 				return nil, err
 			}
+		} else {
+			tags = tagsOutput.Tags
 		}
-		tags = tagsOutput.Tags
 	}
 
 	return &ServiceNetworkInfo{
