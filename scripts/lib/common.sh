@@ -49,11 +49,9 @@ function sed_inplace() {
 
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS uses BSD sed
-        echo "sed -i '' \"s|$pattern|$replacement|g\" \"$file\""
         sed -i '' "s|$pattern|$replacement|g" "$file"
     else
         # Assuming Linux uses GNU sed
-        echo "sed -i \"s|$pattern|$replacement|g\" \"$file\""
         sed -i "s|$pattern|$replacement|g" "$file"
     fi
 }
