@@ -13,29 +13,45 @@ Environment variables:
 
 source ./scripts/lib/common.sh
 
+SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+WORKSPACE_DIR=$(realpath "$SCRIPTS_DIR/..")
 
 if [ -z "$RELEASE_VERSION" ]; then
   echo "Environment variable RELEASE_VERSION is not set. Please set it to run this script."
   exit 1
 fi
 
-if git rev-parse "$RELEASE_VERSION" >/dev/null 2>&1; then
-    # Delete the tag for local repo if it exists
-    git tag -d "$RELEASE_VERSION"
-fi
+OLD_VERSION=$(grep 'version:' "$WORKSPACE_DIR"/helm/Chart.yaml | awk '{print $2}')
+echo "Old version is $OLD_VERSION"
 
-git fetch origin --tags && git pull origin main && git checkout main
-
-
-OLD_VERSION=$(git tag --sort=v:refname | tail -1)
 if  [ "$OLD_VERSION" == "$RELEASE_VERSION" ]; then
   echo "No new version to release"
   exit 0
 fi
 
+git fetch origin --tags --force
+git pull origin main
+git checkout main
 
-SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-WORKSPACE_DIR=$(realpath "$SCRIPTS_DIR/..")
+if git rev-parse "$RELEASE_VERSION" >/dev/null 2>&1; then
+    echo "Tag '$RELEASE_VERSION' exists locally, deleting it"
+    git tag -d "$RELEASE_VERSION"
+fi
+
+if git rev-parse --verify release-$RELEASE_VERSION >/dev/null 2>&1; then
+    echo "Branch 'release-$RELEASE_VERSION' exists locally, deleting it"
+    git branch -D release-$RELEASE_VERSION
+fi
+
+if git ls-remote --tags origin | grep -q "refs/tags/$RELEASE_VERSION"; then
+    echo "Tag '$RELEASE_VERSION' exists in remote, you should manually delete it from github"
+    exit 1
+fi
+
+if git ls-remote --heads origin | grep -q "refs/heads/release-$RELEASE_VERSION"; then
+    echo "Branch 'release-$RELEASE_VERSION' exists in remote, you should manually delete it from github"
+    exit 1
+fi
 
 # Substitute the version number in files
 sed_inplace "tag/$OLD_VERSION" "tag/$RELEASE_VERSION" "$WORKSPACE_DIR"/README.md
@@ -55,7 +71,7 @@ VERSION_TO_REMOVE=$(git tag --sort=v:refname | grep -v 'rc' | tail -n 5 | head -
 rm -f "$WORKSPACE_DIR/examples/deploy-$VERSION_TO_REMOVE.yaml"
 
 # Crete a new release branch, tag and push the changes
-git branch -D release-$RELEASE_VERSION && git checkout -b release-$RELEASE_VERSION
+git checkout -b release-$RELEASE_VERSION
 git add "$WORKSPACE_DIR/README.md" \
   "$WORKSPACE_DIR/config/manager/kustomization.yaml" \
   "$WORKSPACE_DIR/helm/Chart.yaml" \
