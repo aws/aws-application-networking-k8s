@@ -155,16 +155,17 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		defer GinkgoRecover()
 		env.EventuallyExpectNoneFound(ctx, testObject.ListType)
 	})
-
+	tags := env.DefaultTags
+	tags[model.K8SServiceNamespaceKey] = aws.String(K8sNamespace)
 	Eventually(func(g Gomega) {
-		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeService, env.DefaultTags)
+		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeService, tags)
 		env.Log.Infow("Expecting no services created by the controller", "found", arns)
 		g.Expect(err).To(BeNil())
 		g.Expect(arns).To(BeEmpty())
 	}).Should(Succeed())
 
 	Eventually(func(g Gomega) {
-		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeTargetGroup, env.DefaultTags)
+		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeTargetGroup, tags)
 		env.Log.Infow("Expecting no target groups created by the controller", "found", arns)
 		g.Expect(err).To(BeNil())
 		g.Expect(arns).To(BeEmpty())

@@ -133,6 +133,7 @@ You can create an IAM Role, with a Trust Policy allowing the primary account to 
 
 ```
 export SECONDARY_ACCOUNT_TEST_ROLE_ARN=arn:aws:iam::000000000000:role/MyRole
+export FOCUS="RAM Share"
 REGION=us-west-2 make e2e-test
 ```
 
