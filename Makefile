@@ -53,7 +53,7 @@ run: ## Run in development mode
 
 
 .PHONY: presubmit
-presubmit: manifest vet lint test ## Run all commands before submitting code
+presubmit: vet manifest lint test ## Run all commands before submitting code
 
 .PHONY: vet
 vet: ## Vet the code and dependencies
@@ -123,7 +123,8 @@ e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 		-v \
 		./suites/integration/... \
 		--ginkgo.focus="${FOCUS}" \
-		--ginkgo.skip="${SKIP}"
+		--ginkgo.skip="${SKIP}" \
+		--ginkgo.v
 
 .SILENT:
 .PHONY: e2e-clean
