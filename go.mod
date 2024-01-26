@@ -3,7 +3,7 @@ module github.com/aws/aws-application-networking-k8s
 go 1.20
 
 require (
-	github.com/aws/aws-sdk-go v1.44.321
+	github.com/aws/aws-sdk-go v1.50.3
 	github.com/go-logr/zapr v1.2.4
 	github.com/golang/mock v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
