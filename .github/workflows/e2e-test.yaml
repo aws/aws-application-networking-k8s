@@ -10,6 +10,10 @@ on:
 jobs:
   e2e-test:
     runs-on: ubuntu-latest
+    # Prevent concurrent execution as we only have one cluster at the moment.
+    concurrency:
+      group: e2e-test
+      cancel-in-progress: false
     timeout-minutes: 240
     environment: e2e-test
     env:
@@ -51,9 +55,6 @@ jobs:
       - name: Build and push image
         run: |
           SKIP_BUILD_CHART=1 VERSION=$COMMIT_SHA scripts/release-controller.sh
-      # As a side effect, this will act as a sort of lock -
-      # Running two tests at the same time is prevented as there is only
-      # one test cluster available at the moment.
       - name: Install helm chart
         run: |
           helm install gateway-api-controller ./helm \
