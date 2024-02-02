@@ -3,7 +3,9 @@ permissions:
   id-token: write
   contents: read
 on:
-  pull_request:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 jobs:
   e2e-test:
@@ -15,7 +17,7 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       IMAGE_REPOSITORY: ${{ secrets.PRIVATE_IMAGE_REPOSITORY }}
       ECR_PUBLISH_ROLE_ARN: ${{ secrets.ECR_PUBLISH_IAM_ROLE }}
-      COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      COMMIT_SHA: ${{ github.sha }}
 
       # E2E integration test config
       REGION: ${{ secrets.AWS_DEFAULT_REGION }}
