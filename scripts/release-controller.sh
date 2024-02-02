@@ -17,6 +17,8 @@ Environment variables:
                             controller container image, only the Helm chart.
   SKIP_BUILD_CHART:         If set to 1, does not build and publish the
                             Helm chart, only the controller container image.
+  ECR_PUBLISH_ROLE_ARN:     A role ARN on the ECR repository account to assume.
+                            Requires IAM permissions that allows pushing images/charts.
   PULL_BASE_REF:            The value of tag on the source code repository that triggered the
                             postsubmit CI job. The value will either be in the format '^v\d+\.\d+\.\d+$'
                             or 'stable'.
