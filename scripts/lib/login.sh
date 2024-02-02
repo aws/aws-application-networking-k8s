@@ -9,11 +9,21 @@
 # and helm.sh
 
 perform_docker_and_helm_login() {
-  #ecr-public only exists in us-east-1 so use that region specifically
-  local __pw=$(aws ecr-public get-login-password --region us-east-1)
-  echo "$__pw" | docker login -u AWS --password-stdin public.ecr.aws
-  export HELM_EXPERIMENTAL_OCI=1
-  echo "$__pw" | helm registry login -u AWS --password-stdin public.ecr.aws
+  local full_url="$1"
+  local registry_url=$(echo "$full_url" | cut -d'/' -f1)
+
+  # Check if the registry URL is for the public ECR
+  if [ "$registry_url" = "public.ecr.aws" ]; then
+    local __pw=$(aws ecr-public get-login-password --region us-east-1)
+    echo "$__pw" | docker login --username AWS --password-stdin public.ecr.aws
+    export HELM_EXPERIMENTAL_OCI=1
+    echo "$__pw" | helm registry login -u AWS --password-stdin public.ecr.aws
+  else
+    local __pw=$(aws ecr get-login-password)
+    echo "$__pw" | docker login --username AWS --password-stdin $registry_url
+    export HELM_EXPERIMENTAL_OCI=1
+    echo "$__pw" | helm registry login -u AWS --password-stdin $registry_url
+  fi
 }
 
 ensure_binaries() {

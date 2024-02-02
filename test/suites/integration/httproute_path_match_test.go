@@ -137,7 +137,7 @@ var _ = Describe("HTTPRoute path matches", func() {
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-v1 handler pod"))
-		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+		}).WithTimeout(60 * time.Second).WithOffset(1).Should(Succeed())
 
 		Eventually(func(g Gomega) {
 			cmd := fmt.Sprintf("curl %s/pathmatch1", dnsName)

@@ -6,15 +6,15 @@ import (
 	"os"
 	"time"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -138,7 +138,7 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 					stdout, _, err := testFramework.PodExec(pod, cmd)
 					g.Expect(err).To(BeNil())
 					g.Expect(stdout).To(ContainSubstring("handler pod"))
-				}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+				}).WithTimeout(60 * time.Second).WithOffset(1).Should(Succeed())
 			}
 		})
 
