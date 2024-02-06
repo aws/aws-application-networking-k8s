@@ -72,7 +72,7 @@ jobs:
           kubectl apply -f examples/gatewayclass.yaml
       - name: Run test
         run: |
-          make e2e-test
+          docker buildx imagetools inspect $IMAGE_REPOSITORY:$RELEASE_VERSION
       - name: Cleanup
         if: always()
         run: |

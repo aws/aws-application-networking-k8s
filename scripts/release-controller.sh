@@ -74,6 +74,7 @@ if [[ "$SKIP_BUILD_IMAGE" != "true" ]]; then
   if [[ $CI = "true" ]]; then
     docker buildx build -t "$IMG" \
       -f "$CONTROLLER_IMAGE_DOCKERFILE_PATH" \
+      --platform linux/amd64,linux/arm64
       --cache-from type=gha \
       --cache-to type=gha,mode=max \
       --push \
