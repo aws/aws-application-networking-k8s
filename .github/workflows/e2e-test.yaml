@@ -3,6 +3,7 @@ permissions:
   id-token: write
   contents: read
 on:
+  # TODO: Find a secure enough way to run e2e tests from PR on-demand.
   push:
     branches:
       - main
@@ -19,9 +20,9 @@ jobs:
     env:
       # Image build config
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      IMAGE_REPOSITORY: ${{ secrets.PRIVATE_IMAGE_REPOSITORY }}
       ECR_PUBLISH_ROLE_ARN: ${{ secrets.ECR_PUBLISH_IAM_ROLE }}
-      COMMIT_SHA: ${{ github.sha }}
+      IMAGE_REPOSITORY: ${{ secrets.PRIVATE_IMAGE_REPOSITORY }}
+      RELEASE_VERSION: ${{ github.sha }}
 
       # E2E integration test config
       REGION: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -54,14 +55,14 @@ jobs:
         run: eksctl utils write-kubeconfig --cluster=$CLUSTER_NAME
       - name: Build and push image
         run: |
-          SKIP_BUILD_CHART=1 VERSION=$COMMIT_SHA scripts/release-controller.sh
+          SKIP_BUILD_CHART=true scripts/release-controller.sh
       - name: Install helm chart
         run: |
           helm install gateway-api-controller ./helm \
              --namespace aws-application-networking-system \
              --set=serviceAccount.create=false \
              --set=image.repository=$IMAGE_REPOSITORY \
-             --set=image.tag=$COMMIT_SHA \
+             --set=image.tag=$RELEASE_VERSION \
              --set=log.level=debug
       - name: Install Gateway API v1 CRDs
         run: |
