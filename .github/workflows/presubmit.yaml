@@ -23,6 +23,9 @@ jobs:
 
   presubmit:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        k8sVersion: ["1.24.x"]
     env:
       K8S_VERSION: ${{ matrix.k8sVersion }}
     steps:
