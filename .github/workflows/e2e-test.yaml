@@ -79,7 +79,7 @@ jobs:
           kubectl apply -f examples/gatewayclass.yaml
       - name: Run test
         run: |
-          make e2etest
+          make e2e-test
       - name: Cleanup
         if: always()
         run: |
