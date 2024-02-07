@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM docker.io/library/golang:1.20.5 as builder
+FROM --platform=$BUILDPLATFORM golang:1.20.5 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -16,12 +16,15 @@ COPY cmd/aws-application-networking-k8s/main.go main.go
 COPY pkg/ pkg/
 COPY scripts scripts
 
+ARG TARGETOS
+ARG TARGETARCH
+
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o manager main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+FROM --platform=$TARGETPLATFORM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
 USER 65532:65532

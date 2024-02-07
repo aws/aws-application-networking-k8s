@@ -81,6 +81,7 @@ if [[ "$SKIP_BUILD_IMAGE" != "true" ]]; then
   else
     docker buildx build -t "$IMG" \
       -f "$CONTROLLER_IMAGE_DOCKERFILE_PATH" \
+      --platform linux/amd64,linux/arm64 \
       --push \
       "${DOCKER_BUILD_CONTEXT}"
   fi
