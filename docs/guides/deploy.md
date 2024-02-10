@@ -119,7 +119,7 @@ IPv6 address type is automatically used for your services and pods if
 
 ```bash
 # To create an IPv6 cluster
-kubectl apply -f examples/ipv6-cluster.yaml
+eksctl create cluster -f examples/ipv6-cluster.yaml
 ```
 
 If your cluster is configured to be dual-stack, you can set the IP address type
