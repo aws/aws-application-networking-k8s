@@ -204,29 +204,28 @@ func (m *defaultServiceManager) getAllAssociations(ctx context.Context, svcSum *
 func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
 	assocs, err := m.getAllAssociations(ctx, svcSum)
 	if err != nil {
-		return err
+		return fmt.Errorf("in updateAssociations, getAllAssociations failed with %w", err)
 	}
 
 	toCreate, toDelete, err := associationsDiff(svc, assocs)
 	if err != nil {
-		return err
+		return fmt.Errorf("in updateAssociations, associationsDiff failed with %w", err)
 	}
 	for _, snName := range toCreate {
 		err := m.createAssociation(ctx, svcSum.Id, snName)
 		if err != nil {
-			return err
+			return fmt.Errorf("in updateAssociations, createAssociations failed with %w", err)
 		}
 	}
 
 	for _, assoc := range toDelete {
 		isManaged, err := m.cloud.IsArnManaged(ctx, *assoc.Arn)
 		if err != nil {
-			return err
-		}
-		if isManaged {
+			m.log.Errorf("in updateAssociations failed when attempting IsArnManaged check. Skipping delete association. service: %s, association: %s, %s", svc.LatticeServiceName(), assoc.Arn, err)
+		} else if isManaged {
 			err = m.deleteAssociation(ctx, assoc.Arn)
 			if err != nil {
-				return err
+				return fmt.Errorf("in updateAssociations, deleteAssociation failed with %w", err)
 			}
 		}
 	}
