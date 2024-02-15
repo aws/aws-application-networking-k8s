@@ -23,6 +23,7 @@ func TestTargetsManager(t *testing.T) {
 	targets := model.Target{
 		TargetIP: "192.0.2.10",
 		Port:     int64(8080),
+		Ready:    true,
 	}
 	targetsSpec := model.TargetsSpec{
 		StackTargetGroupId: "tg-stack-id",
@@ -194,14 +195,17 @@ func TestTargetsManager(t *testing.T) {
 		mt1 := model.Target{
 			TargetIP: "192.0.2.10",
 			Port:     int64(8080),
+			Ready:    true,
 		}
 		mt2 := model.Target{
 			TargetIP: "192.0.2.20",
 			Port:     int64(8080),
+			Ready:    true,
 		}
 		mt3 := model.Target{
 			TargetIP: "192.0.2.30",
 			Port:     int64(8080),
+			Ready:    true,
 		}
 
 		existingTargets := []*vpclattice.TargetSummary{
@@ -294,6 +298,7 @@ func TestTargetsManager(t *testing.T) {
 			extraTargets = append(extraTargets, model.Target{
 				TargetIP: "192.0.3." + strconv.Itoa(i+1),
 				Port:     int64(8080),
+				Ready:    true,
 			})
 		}
 		modelTargets.Spec.TargetList = extraTargets

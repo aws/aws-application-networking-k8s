@@ -51,6 +51,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	k8sutils "github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	discoveryv1 "k8s.io/api/discovery/v1"
 )
 
 var routeTypeToFinalizer = map[core.RouteType]string{
@@ -115,7 +116,7 @@ func RegisterAllRouteControllers(
 			Watches(&gwv1beta1.Gateway{}, gwEventHandler).
 			Watches(&corev1.Service{}, svcEventHandler.MapToRoute(routeInfo.routeType)).
 			Watches(&anv1alpha1.ServiceImport{}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
-			Watches(&corev1.Endpoints{}, svcEventHandler.MapToRoute(routeInfo.routeType))
+			Watches(&discoveryv1.EndpointSlice{}, svcEventHandler.MapToRoute(routeInfo.routeType))
 
 		if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
 			builder.Watches(&anv1alpha1.TargetGroupPolicy{}, svcEventHandler.MapToRoute(routeInfo.routeType))

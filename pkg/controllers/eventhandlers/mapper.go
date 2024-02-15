@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	discoveryv1 "k8s.io/api/discovery/v1"
 )
 
 type resourceMapper struct {
@@ -63,6 +64,21 @@ func (r *resourceMapper) EndpointsToService(ctx context.Context, ep *corev1.Endp
 		return nil
 	}
 	return svc
+}
+
+func (r *resourceMapper) EndpointSliceToService(ctx context.Context, epSlice *discoveryv1.EndpointSlice) *corev1.Service {
+	if epSlice == nil {
+		return nil
+	}
+	svcName, ok := epSlice.Labels[discoveryv1.LabelServiceName]
+	if ok {
+		svc := &corev1.Service{}
+		if err := r.client.Get(ctx, types.NamespacedName{Name: svcName, Namespace: epSlice.Namespace}, svc); err != nil {
+			return nil
+		}
+		return svc
+	}
+	return nil
 }
 
 func (r *resourceMapper) TargetGroupPolicyToService(ctx context.Context, tgp *anv1alpha1.TargetGroupPolicy) *corev1.Service {

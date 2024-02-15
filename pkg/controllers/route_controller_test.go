@@ -17,6 +17,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,6 +41,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	k8sScheme := runtime.NewScheme()
 	clientgoscheme.AddToScheme(k8sScheme)
 	gwv1beta1.AddToScheme(k8sScheme)
+	discoveryv1.AddToScheme(k8sScheme)
 	addOptionalCRDs(k8sScheme)
 
 	k8sClient := testclient.
@@ -99,30 +101,25 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	}
 	k8sClient.Create(ctx, svc.DeepCopy())
 
-	endPoints := corev1.Endpoints{
+	epSlice := discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "my-service",
-			Name:      "ns1",
+			Name:      "my-service",
+			Namespace: "ns1",
+			Labels:    map[string]string{discoveryv1.LabelServiceName: "my-service"},
 		},
-		Subsets: []corev1.EndpointSubset{
+		Ports: []discoveryv1.EndpointPort{
+			{Port: aws.Int32(8090)},
+		},
+		Endpoints: []discoveryv1.Endpoint{
 			{
-				Addresses: []corev1.EndpointAddress{
-					{
-						IP: "192.0.2.22",
-					},
-					{
-						IP: "192.0.2.33",
-					},
-				},
-				Ports: []corev1.EndpointPort{
-					{
-						Port: 8090,
-					},
+				Addresses: []string{"192.0.2.22", "192.0.2.33"},
+				Conditions: discoveryv1.EndpointConditions{
+					Ready: aws.Bool(true),
 				},
 			},
 		},
 	}
-	k8sClient.Create(ctx, endPoints.DeepCopy())
+	k8sClient.Create(ctx, epSlice.DeepCopy())
 
 	kind := gwv1beta1.Kind("Service")
 	port := gwv1beta1.PortNumber(80)
@@ -175,6 +172,21 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	mockCloud.EXPECT().DefaultTagsMergedWith(gomock.Any()).Return(mocks.Tags{}).AnyTimes()
 
 	// we expect a fair number of lattice calls
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(
+		[]*vpclattice.TargetSummary{}, nil)
+	mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(
+		&vpclattice.RegisterTargetsOutput{
+			Successful: []*vpclattice.Target{
+				{
+					Id:   aws.String("192.0.2.22"),
+					Port: aws.Int64(8090),
+				},
+				{
+					Id:   aws.String("192.0.2.33"),
+					Port: aws.Int64(8090),
+				},
+			},
+		}, nil)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: vpclattice.ServiceNetworkSummary{

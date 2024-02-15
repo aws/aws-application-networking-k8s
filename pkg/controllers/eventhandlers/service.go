@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -58,6 +59,8 @@ func (h *serviceEventHandler) mapToService(ctx context.Context, obj client.Objec
 		return h.mapper.TargetGroupPolicyToService(ctx, typed)
 	case *corev1.Endpoints:
 		return h.mapper.EndpointsToService(ctx, typed)
+	case *discoveryv1.EndpointSlice:
+		return h.mapper.EndpointSliceToService(ctx, typed)
 	}
 	return nil
 }

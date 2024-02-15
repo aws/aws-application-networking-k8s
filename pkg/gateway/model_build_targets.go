@@ -15,6 +15,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"github.com/aws/aws-sdk-go/aws"
+	discoveryv1 "k8s.io/api/discovery/v1"
 )
 
 const (
@@ -169,28 +171,27 @@ func (t *latticeTargetsModelBuildTask) buildLatticeTargets(ctx context.Context) 
 }
 
 func (t *latticeTargetsModelBuildTask) getTargetListFromEndpoints(ctx context.Context, servicePortNames map[string]struct{}, skipMatch bool) ([]model.Target, error) {
-	nsName := types.NamespacedName{
-		Namespace: t.service.Namespace,
-		Name:      t.service.Name,
-	}
-
-	endpoints := &corev1.Endpoints{}
-	if err := t.client.Get(ctx, nsName, endpoints); err != nil {
+	epSlices := &discoveryv1.EndpointSliceList{}
+	if err := t.client.List(ctx, epSlices,
+		client.InNamespace(t.service.Namespace),
+		client.MatchingLabels{discoveryv1.LabelServiceName: t.service.Name}); err != nil {
 		return nil, err
 	}
 
 	var targetList []model.Target
-	for _, subset := range endpoints.Subsets {
-		for _, address := range subset.Addresses {
-			for _, port := range subset.Ports {
-				// Note that the Endpoint's port name is from ServicePort, but the actual registered port
-				// is from Pods(targets).
-				if _, ok := servicePortNames[port.Name]; ok || skipMatch {
-					target := model.Target{
-						TargetIP: address.IP,
-						Port:     int64(port.Port),
+	for _, epSlice := range epSlices.Items {
+		for _, port := range epSlice.Ports {
+			// Note that the Endpoint's port name is from ServicePort, but the actual registered port
+			// is from Pods(targets).
+			if _, ok := servicePortNames[aws.StringValue(port.Name)]; ok || skipMatch {
+				for _, ep := range epSlice.Endpoints {
+					for _, address := range ep.Addresses {
+						targetList = append(targetList, model.Target{
+							TargetIP: address,
+							Port:     int64(aws.Int32Value(port.Port)),
+							Ready:    aws.BoolValue(ep.Conditions.Ready),
+						})
 					}
-					targetList = append(targetList, target)
 				}
 			}
 		}
