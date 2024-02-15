@@ -46,7 +46,7 @@ func Test_Targets(t *testing.T) {
 		expectedTargetList []model.Target
 	}{
 		{
-			name: "Add all endpoints to build spec",
+			name: "Add all endpoints with readiness to build spec",
 			port: 0,
 			endpointSlice: []discoveryv1.EndpointSlice{
 				{
@@ -60,9 +60,15 @@ func Test_Targets(t *testing.T) {
 					},
 					Endpoints: []discoveryv1.Endpoint{
 						{
-							Addresses: []string{"10.10.1.1", "10.10.2.2"},
+							Addresses: []string{"10.10.1.1"},
 							Conditions: discoveryv1.EndpointConditions{
 								Ready: aws.Bool(true),
+							},
+						},
+						{
+							Addresses: []string{"10.10.2.2"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: aws.Bool(false),
 							},
 						},
 					},
@@ -86,7 +92,7 @@ func Test_Targets(t *testing.T) {
 				{
 					TargetIP: "10.10.2.2",
 					Port:     8675,
-					Ready:    true,
+					Ready:    false,
 				},
 			},
 		},
