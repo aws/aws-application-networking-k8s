@@ -204,28 +204,39 @@ func (m *defaultServiceManager) getAllAssociations(ctx context.Context, svcSum *
 func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
 	assocs, err := m.getAllAssociations(ctx, svcSum)
 	if err != nil {
-		return fmt.Errorf("in updateAssociations, getAllAssociations failed with %w", err)
+		return err
 	}
 
 	toCreate, toDelete, err := associationsDiff(svc, assocs)
 	if err != nil {
-		return fmt.Errorf("in updateAssociations, associationsDiff failed with %w", err)
+		return err
 	}
 	for _, snName := range toCreate {
 		err := m.createAssociation(ctx, svcSum.Id, snName)
 		if err != nil {
-			return fmt.Errorf("in updateAssociations, createAssociations failed with %w", err)
+			return err
 		}
 	}
 
 	for _, assoc := range toDelete {
 		isManaged, err := m.cloud.IsArnManaged(ctx, *assoc.Arn)
 		if err != nil {
-			m.log.Errorf("in updateAssociations failed when attempting IsArnManaged check. Skipping delete association. service: %s, association: %s, %s", svc.LatticeServiceName(), assoc.Arn, err)
-		} else if isManaged {
+			// TODO check for vpclattice.ErrCodeAccessDeniedException or a new error type ErrorCodeNotFoundException
+			// when the api no longer responds with a 404 NotFoundException instead of either of the above.
+			// ErrorCodeNotFoundException currently not part of the golang sdk for the lattice api. This a is a distinct
+			// error from vpclattice.ErrCodeResourceNotFoundException.
+
+			// In a scenario that the service association is created by a foreign account,
+			// the owner account's controller cannot read the tags of this ServiceNetworkServiceAssociation,
+			// and AccessDeniedException is expected.
+			m.log.Warnf("skipping update associations  service: %s, association: %s, error: %s", svc.LatticeServiceName(), *assoc.Arn, err)
+
+			continue
+		}
+		if isManaged {
 			err = m.deleteAssociation(ctx, assoc.Arn)
 			if err != nil {
-				return fmt.Errorf("in updateAssociations, deleteAssociation failed with %w", err)
+				return err
 			}
 		}
 	}

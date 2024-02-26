@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"golang.org/x/exp/slices"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -100,7 +101,17 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 
 		owned, err := m.cloud.IsArnManaged(ctx, *snva.Arn)
 		if err != nil {
-			return err
+			// TODO check for vpclattice.ErrCodeAccessDeniedException or a new error type ErrorCodeNotFoundException
+			// when the api no longer responds with a 404 NotFoundException instead of either of the above.
+			// ErrorCodeNotFoundException currently not part of the golang sdk for the lattice api. This a is a distinct
+			// error from vpclattice.ErrCodeResourceNotFoundException.
+
+			// In a scenario that the vpc association is created by a foreign account,
+			// the owner account's controller cannot read the tags of this ServiceNetworkVpcAssociation,
+			// and AccessDeniedException is expected.
+			m.log.Warnf("skipping delete vpc association, association: %s, error: %s", *snva.Arn, err)
+
+			return nil
 		}
 		if !owned {
 			m.log.Infof("Association %s for %s not owned by controller, skipping deletion", *snva.Arn, snName)
