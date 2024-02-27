@@ -20,7 +20,7 @@ This prevents the rolling update of a deployment from terminating old pods until
 ## Setup
 Pod readiness gates rely on [»admission webhooks«](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/), where the Kubernetes API server makes calls to the AWS Gateway API controller as part of pod creation. This call is made using TLS, so the controller must present a TLS certificate. This certificate is stored as a standard Kubernetes secret. If you are using Helm, the certificate will automatically be configured as part of the Helm install.
 
-If you are manually deploying the controller, for example using the ```deploy.yaml``` file, you will need to also create the tls secret for the webhook in the controller namespace.
+If you are manually deploying the controller, for example using the ```deploy.yaml``` file, you will need to create the tls secret for the webhook in the controller namespace. The ```deploy.yaml``` file includes a placeholder secret, but it must be updated if you wish to use the webhook. The placeholder secret _will not_ pass API server validations, but will ensure the controller container is able to start.
 
 ### Webhook secret requirements
 The webhook requires a specific kubernetes secret to exist in the same namespace as the webhook itself:
@@ -28,6 +28,7 @@ The webhook requires a specific kubernetes secret to exist in the same namespace
 * default controller namespace: ```aws-application-networking-system```
 ```console
 # example create-secret command, assumes tls.cert and tls.key exist in current directory
+# if the placeholder secret exists, you will need to delete it before setting the new value
 kubectl create secret tls webhook-cert --namespace aws-application-networking-system --cert=tls.cert --key=tls.key
 ```
 
@@ -51,13 +52,13 @@ HOST=${WEBHOOK_SVC_NAME}.${WEBHOOK_NAMESPACE}.svc
 openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout ${KEY_FILE} -out ${CERT_FILE} -subj "/CN=${HOST}/O=${HOST}" \
    -addext "subjectAltName = DNS:${HOST}, DNS:${HOST}.cluster.local"
    
-# Step 2: add the secret - can be done so long as the namespace exists
-# note that running "kubectl delete -f deploy.yaml" will remove the controller namespace AND this secret.
+# Step 2: replace the placeholder secret from deploy.yaml
+kubectl delete secret $WEBHOOK_SECRET_NAME --namespace $WEBHOOK_NAMESPACE
 kubectl create secret tls $WEBHOOK_SECRET_NAME --namespace $WEBHOOK_NAMESPACE --cert=${CERT_FILE} --key=${KEY_FILE}
 
-# Step 3: after applying deploy.yaml, patch the webhook CA bundle to exactly the cert being used
-# this will ensure Kubernetes API server is able to trust the certificate presented by the webhook.
-# This step would not be required if you are using a signed certificate that is trusted by the API server
+# Step 3: Patch the webhook CA bundle to exactly the cert being used.
+# This will ensure Kubernetes API server is able to trust the certificate presented by the webhook.
+# This step would not be required if you are using a signed certificate that is already trusted by the API server
 CERT_B64=$(cat tls.crt | base64)
 kubectl patch mutatingwebhookconfigurations.admissionregistration.k8s.io $WEBHOOK_NAME \
     --namespace $WEBHOOK_NAMESPACE --type='json' \
