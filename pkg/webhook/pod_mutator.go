@@ -43,8 +43,6 @@ func (m *podMutator) MutateUpdate(ctx context.Context, obj runtime.Object, oldOb
 	return obj, nil
 }
 
-// +kubebuilder:webhook:path=/mutate-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=mpod.application-networking.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1
-
 func (m *podMutator) SetupWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register(apiPathMutatePod, core.MutatingWebhookForMutator(m.scheme, m))
 }
