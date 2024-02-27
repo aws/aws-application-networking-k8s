@@ -8,9 +8,6 @@ webhooks:
   - admissionReviewVersions:
       - v1
     clientConfig:
-      # placeholder newline for caBundle, can replace with actual CA before install using yq
-      # or afterward with a patch on the webhook
-      caBundle: Cg==
       service:
         name: webhook-service
         namespace: aws-application-networking-system
