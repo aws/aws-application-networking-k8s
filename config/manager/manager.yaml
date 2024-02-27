@@ -60,5 +60,14 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        volumeMounts:
+          - mountPath: /etc/webhook-cert
+            name: webhook-cert
+            readOnly: true
       serviceAccountName: gateway-api-controller
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: webhook-cert
+          secret:
+            defaultMode: 420
+            secretName: webhook-cert

@@ -18,10 +18,11 @@ package main
 
 import (
 	"flag"
-	"os"
-
+	"github.com/aws/aws-application-networking-k8s/pkg/webhook"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap/zapcore"
+	"os"
+	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -49,7 +50,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var (
@@ -128,20 +128,39 @@ func main() {
 		setupLog.Fatal("cloud client setup failed: %s", err)
 	}
 
+	// do not create the webhook server when running locally
+	var webhookServer k8swebhook.Server
+	isLocalDev := config.DevMode != ""
+	if !isLocalDev {
+		webhookServer = k8swebhook.NewServer(k8swebhook.Options{
+			Port:     9443,
+			CertDir:  "/etc/webhook-cert/",
+			CertName: "tls.crt",
+			KeyName:  "tls.key",
+		})
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 		},
-		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: 9443,
-		}),
+		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "amazon-vpc-lattice.io",
 	})
 	if err != nil {
 		setupLog.Fatal("manager setup failed:", err)
+	}
+
+	if !isLocalDev {
+		// register webhook handlers
+		readinessGateInjector := webhook.NewPodReadinessGateInjector(
+			mgr.GetClient(),
+			log.Named("pod-readiness-gate-injector"),
+		)
+		webhook.NewPodMutator(scheme, readinessGateInjector).SetupWithManager(mgr)
 	}
 
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient())

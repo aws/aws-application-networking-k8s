@@ -144,3 +144,20 @@ api-reference: ## Update documentation in docs/api-reference.md
 docs:
 	mkdir -p site
 	mkdocs build
+
+# NB webhook tests can only run if the controller is deployed to the cluster
+webhook-e2e-test-namespace := "webhook-e2e-test"
+
+.PHONY: webhook-e2e-test
+webhook-e2e-test:
+	@kubectl create namespace $(webhook-e2e-test-namespace) > /dev/null 2>&1 || true # ignore already exists error
+	LOG_LEVEL=debug
+	cd test && go test \
+		-p 1 \
+		-count 1 \
+		-timeout 10m \
+		-v \
+		./suites/webhook/... \
+		--ginkgo.focus="${FOCUS}" \
+		--ginkgo.skip="${SKIP}" \
+		--ginkgo.v

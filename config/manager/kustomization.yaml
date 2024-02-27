@@ -12,5 +12,4 @@ configMapGenerator:
   name: manager-config
 images:
 - name: controller
-  newName: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller
-  newTag: v1.0.3
+  newName: 671123684841.dkr.ecr.us-west-2.amazonaws.com/controller
