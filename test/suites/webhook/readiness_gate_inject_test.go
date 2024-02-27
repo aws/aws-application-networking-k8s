@@ -28,15 +28,21 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 	}
 
 	BeforeAll(func() {
-		testFramework.ExpectDeletedThenNotFound(ctx, untaggedNS, taggedNS)
-		testFramework.ExpectCreated(ctx, untaggedNS, taggedNS)
+		Eventually(func(g Gomega) {
+			_ = testFramework.Delete(ctx, untaggedNS)
+			_ = testFramework.Delete(ctx, taggedNS)
+			testFramework.EventuallyExpectNotFound(ctx, untaggedNS, taggedNS)
+		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			testFramework.ExpectCreated(ctx, untaggedNS, taggedNS)
+		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
 	})
 
 	It("create deployment in untagged namespace, no readiness gate", func() {
 		deployment, _ := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "untagged-test-pod", Namespace: untaggedNS.Name})
 		Eventually(func(g Gomega) {
-			testFramework.ExpectCreated(ctx, deployment)
-
+			testFramework.Create(ctx, deployment)
 			testFramework.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 
 			pods := testFramework.GetPodsByDeploymentName(deployment.Name, deployment.Namespace)
@@ -56,7 +62,7 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 	It("create deployment in tagged namespace, has readiness gate", func() {
 		deployment, _ := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "tagged-test-pod", Namespace: taggedNS.Name})
 		Eventually(func(g Gomega) {
-			testFramework.ExpectCreated(ctx, deployment)
+			testFramework.Create(ctx, deployment)
 			testFramework.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 
 			pods := testFramework.GetPodsByDeploymentName(deployment.Name, deployment.Namespace)
