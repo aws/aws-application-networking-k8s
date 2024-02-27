@@ -3,6 +3,8 @@ package lattice
 import (
 	"context"
 	"errors"
+	"testing"
+
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -12,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestServiceManagerInteg(t *testing.T) {
@@ -102,11 +103,13 @@ func TestServiceManagerInteg(t *testing.T) {
 	// sn-delete - managed by gateway and want to delete
 	// sn-create - managed by gateway and want to create
 	// sn-foreign - not managed by gateway and exists in lattice (should keep)
+	// sn-foreign-ram - managed in a different account. management check will be skipped (should keep)
 	t.Run("update service's associations", func(t *testing.T) {
 		snKeep := "sn-keep"
 		snDelete := "sn-delete"
 		snAdd := "sn-add"
 		snForeign := "sn-foreign"
+		snForeignRAM := "sn-foreign-ram"
 
 		svc := &Service{
 			Spec: model.ServiceSpec{
@@ -142,7 +145,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]*SnSvcAssocSummary, error) {
 				assocs := []*SnSvcAssocSummary{}
-				for _, sn := range []string{snKeep, snDelete, snForeign} {
+				for _, sn := range []string{snKeep, snDelete, snForeign, snForeignRAM, snForeignRAM} {
 					assocs = append(assocs, &SnSvcAssocSummary{
 						Arn:                aws.String(sn + "-arn"),
 						Id:                 aws.String(sn + "-id"),
@@ -154,18 +157,20 @@ func TestServiceManagerInteg(t *testing.T) {
 			}).
 			Times(1)
 
-		// return managed by gateway controller tags for all associations except for foreign
+		// return managed by gateway controller tags for all associations except for foreign and foreign ram
 		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				if *req.ResourceArn == snForeign+"-arn" {
 					return &vpclattice.ListTagsForResourceOutput{}, nil
+				} else if *req.ResourceArn == snForeignRAM+"-arn" {
+					return nil, errors.New("some_error")
 				} else {
 					return &vpclattice.ListTagsForResourceOutput{
 						Tags: cl.DefaultTags(),
 					}, nil
 				}
 			}).
-			Times(2) // delete and foreign
+			Times(3) // delete and foreign and foreign ram
 
 		// assert we call create and delete associations on managed resources
 		mockLattice.EXPECT().

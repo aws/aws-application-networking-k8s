@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -38,7 +40,7 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 
 	var svcErr error
 	for _, resService := range resServices {
-		svcName := fmt.Sprintf("%s-%s", resService.Spec.RouteName, resService.Spec.RouteNamespace)
+		svcName := utils.LatticeServiceName(resService.Spec.RouteName, resService.Spec.RouteNamespace)
 		s.log.Debugf("Synthesizing service: %s", svcName)
 		if resService.IsDeleted {
 			err := s.serviceManager.Delete(ctx, resService)
