@@ -20,9 +20,23 @@ This prevents the rolling update of a deployment from terminating old pods until
 ## Setup
 Pod readiness gates rely on [»admission webhooks«](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/), where the Kubernetes API server makes calls to the AWS Gateway API controller as part of pod creation. This call is made using TLS, so the controller must present a TLS certificate. This certificate is stored as a standard Kubernetes secret. If you are using Helm, the certificate will automatically be configured as part of the Helm install.
 
-If you are manually deploying the controller using the ```deploy.yaml``` file, you will need to also create the tls secret in the controller namespace.
+If you are manually deploying the controller, for example using the ```deploy.yaml``` file, you will need to also create the tls secret for the webhook in the controller namespace.
 
+### Webhook secret requirements
+The webhook requires a specific kubernetes secret to exist in the same namespace as the webhook itself:
+* secret name: ```webhook-cert```
+* default controller namespace: ```aws-application-networking-system```
 ```console
+# example create-secret command, assumes tls.cert and tls.key exist in current directory
+kubectl create secret tls webhook-cert --namespace aws-application-networking-system --cert=tls.cert --key=tls.key
+```
+
+### Webhook secret configuration example
+The below example creates an unsigned certificate, adds it as the webhook secret, then patches the webhook configuration so the API server trusts the certificate.
+
+If your cluster uses its own PKI and includes appropriate trust configuration for the API server, the certificate issued would be signed by your internal certificate authority and therefore not require the ```kubectl patch``` command below.
+```console
+# Example commands to configure the webhook to use an unsigned certificate
 CERT_FILE=tls.crt
 KEY_FILE=tls.key
 
@@ -42,7 +56,8 @@ openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout ${KEY_FILE} -out $
 kubectl create secret tls $WEBHOOK_SECRET_NAME --namespace $WEBHOOK_NAMESPACE --cert=${CERT_FILE} --key=${KEY_FILE}
 
 # Step 3: after applying deploy.yaml, patch the webhook CA bundle to exactly the cert being used
-# this will ensure Kubernetes API server is able to trust the certificate presented by the webhook
+# this will ensure Kubernetes API server is able to trust the certificate presented by the webhook.
+# This step would not be required if you are using a signed certificate that is trusted by the API server
 CERT_B64=$(cat tls.crt | base64)
 kubectl patch mutatingwebhookconfigurations.admissionregistration.k8s.io $WEBHOOK_NAME \
     --namespace $WEBHOOK_NAMESPACE --type='json' \
