@@ -221,7 +221,17 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 	for _, assoc := range toDelete {
 		isManaged, err := m.cloud.IsArnManaged(ctx, *assoc.Arn)
 		if err != nil {
-			return err
+			// TODO check for vpclattice.ErrCodeAccessDeniedException or a new error type ErrorCodeNotFoundException
+			// when the api no longer responds with a 404 NotFoundException instead of either of the above.
+			// ErrorCodeNotFoundException currently not part of the golang sdk for the lattice api. This a is a distinct
+			// error from vpclattice.ErrCodeResourceNotFoundException.
+
+			// In a scenario that the service association is created by a foreign account,
+			// the owner account's controller cannot read the tags of this ServiceNetworkServiceAssociation,
+			// and AccessDeniedException is expected.
+			m.log.Warnf("skipping update associations  service: %s, association: %s, error: %s", svc.LatticeServiceName(), *assoc.Arn, err)
+
+			continue
 		}
 		if isManaged {
 			err = m.deleteAssociation(ctx, assoc.Arn)
