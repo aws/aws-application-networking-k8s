@@ -136,7 +136,7 @@ func (t *targetsSynthesizer) syncStatus(ctx context.Context, modelTargets []mode
 
 			// Step 2: Check if the pod readiness condition is owned by controller.
 			cond := utils.FindPodStatusCondition(pod.Status.Conditions, LatticeReadinessGateConditionType)
-			if cond.Status == corev1.ConditionTrue {
+			if cond != nil && cond.Status == corev1.ConditionTrue {
 				continue
 			}
 
