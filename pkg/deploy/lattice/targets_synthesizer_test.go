@@ -119,7 +119,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		TargetIP:  "10.10.1.1",
 		Port:      8675,
 		Ready:     false,
-		TargetRef: types.NamespacedName{"ns", "pod1"},
+		TargetRef: types.NamespacedName{Namespace: "ns", Name: "pod1"},
 	}
 
 	tests := []struct {
@@ -228,7 +228,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 			}
 
 			pod := &corev1.Pod{}
-			k8sClient.Get(ctx, types.NamespacedName{"ns", "pod1"}, pod)
+			k8sClient.Get(ctx, types.NamespacedName{Namespace: "ns", Name: "pod1"}, pod)
 			cond := utils.FindPodStatusCondition(pod.Status.Conditions, LatticeReadinessGateConditionType)
 			assert.NotNil(t, cond)
 
