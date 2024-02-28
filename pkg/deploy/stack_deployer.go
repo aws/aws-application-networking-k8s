@@ -184,7 +184,7 @@ func (gc *TgGc) cycle() {
 
 func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sClient, d.targetGroupManager, d.svcExportTgBuilder, d.svcBuilder, stack)
-	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.log, d.cloud, d.targetsManager, stack)
+	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.log, d.k8sClient, d.targetsManager, stack)
 	serviceSynthesizer := lattice.NewServiceSynthesizer(d.log, d.latticeServiceManager, d.dnsEndpointManager, stack)
 	listenerSynthesizer := lattice.NewListenerSynthesizer(d.log, d.listenerManager, stack)
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.log, d.ruleManager, d.targetGroupManager, stack)
@@ -225,6 +225,11 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 		return fmt.Errorf("error during rule synthesis %w", err)
 	}
 
+	// Handle pod status update for targets.
+	if err := targetsSynthesizer.PostSynthesize(ctx); err != nil {
+		return fmt.Errorf("error during target post synthesis %w", err)
+	}
+
 	//Handle targetGroup deletion request
 	if err := targetGroupSynthesizer.SynthesizeDelete(ctx); err != nil {
 		return fmt.Errorf("error during tg delete synthesis %w", err)
@@ -261,9 +266,14 @@ func NewTargetGroupStackDeploy(
 }
 
 func (d *latticeTargetGroupStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
+	defer func() {
+		tgGc.lock.Unlock()
+	}()
+	tgGc.lock.Lock()
+
 	synthesizers := []ResourceSynthesizer{
 		lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sclient, d.targetGroupManager, d.svcExportTgBuilder, d.svcBuilder, stack),
-		lattice.NewTargetsSynthesizer(d.log, d.cloud, lattice.NewTargetsManager(d.log, d.cloud), stack),
+		lattice.NewTargetsSynthesizer(d.log, d.k8sclient, lattice.NewTargetsManager(d.log, d.cloud), stack),
 	}
 	return deploy(ctx, stack, synthesizers)
 }

@@ -186,11 +186,15 @@ func (t *latticeTargetsModelBuildTask) getTargetListFromEndpoints(ctx context.Co
 			if _, ok := servicePortNames[aws.StringValue(port.Name)]; ok || skipMatch {
 				for _, ep := range epSlice.Endpoints {
 					for _, address := range ep.Addresses {
-						targetList = append(targetList, model.Target{
+						target := model.Target{
 							TargetIP: address,
 							Port:     int64(aws.Int32Value(port.Port)),
 							Ready:    aws.BoolValue(ep.Conditions.Ready),
-						})
+						}
+						if ep.TargetRef != nil && ep.TargetRef.Kind == "Pod" {
+							target.TargetRef = types.NamespacedName{Namespace: ep.TargetRef.Namespace, Name: ep.TargetRef.Name}
+						}
+						targetList = append(targetList, target)
 					}
 				}
 			}

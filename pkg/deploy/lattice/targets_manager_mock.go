@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -33,6 +34,21 @@ func NewMockTargetsManager(ctrl *gomock.Controller) *MockTargetsManager {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTargetsManager) EXPECT() *MockTargetsManagerMockRecorder {
 	return m.recorder
+}
+
+// List mocks base method.
+func (m *MockTargetsManager) List(arg0 context.Context, arg1 *lattice.TargetGroup) ([]*vpclattice.TargetSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", arg0, arg1)
+	ret0, _ := ret[0].([]*vpclattice.TargetSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockTargetsManagerMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockTargetsManager)(nil).List), arg0, arg1)
 }
 
 // Update mocks base method.

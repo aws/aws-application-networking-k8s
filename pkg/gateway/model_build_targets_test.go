@@ -64,11 +64,21 @@ func Test_Targets(t *testing.T) {
 							Conditions: discoveryv1.EndpointConditions{
 								Ready: aws.Bool(true),
 							},
+							TargetRef: &corev1.ObjectReference{
+								Namespace: "ns1",
+								Name:      "pod1",
+								Kind:      "Pod",
+							},
 						},
 						{
 							Addresses: []string{"10.10.2.2"},
 							Conditions: discoveryv1.EndpointConditions{
 								Ready: aws.Bool(false),
+							},
+							TargetRef: &corev1.ObjectReference{
+								Namespace: "ns1",
+								Name:      "pod2",
+								Kind:      "Pod",
 							},
 						},
 					},
@@ -85,14 +95,16 @@ func Test_Targets(t *testing.T) {
 			wantErrIsNil: true,
 			expectedTargetList: []model.Target{
 				{
-					TargetIP: "10.10.1.1",
-					Port:     8675,
-					Ready:    true,
+					TargetIP:  "10.10.1.1",
+					Port:      8675,
+					Ready:     true,
+					TargetRef: types.NamespacedName{Namespace: "ns1", Name: "pod1"},
 				},
 				{
-					TargetIP: "10.10.2.2",
-					Port:     8675,
-					Ready:    false,
+					TargetIP:  "10.10.2.2",
+					Port:      8675,
+					Ready:     false,
+					TargetRef: types.NamespacedName{Namespace: "ns1", Name: "pod2"},
 				},
 			},
 		},
