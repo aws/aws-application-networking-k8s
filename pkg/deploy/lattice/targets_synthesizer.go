@@ -20,6 +20,7 @@ const (
 
 	ReadinessReasonHealthy                = "Healthy"
 	ReadinessReasonUnhealthy              = "Unhealthy"
+	ReadinessReasonUnused                 = "Unused"
 	ReadinessReasonHealthCheckUnavailable = "HealthCheckUnavailable"
 	ReadinessReasonTargetNotFound         = "TargetNotFound"
 )
@@ -153,15 +154,16 @@ func (t *targetsSynthesizer) syncStatus(ctx context.Context, modelTargets []mode
 			// 2. Target group will be always in use, except for ServiceExport TGs.
 			if latticeTarget, ok := latticeTargetMap[targetIpPort]; ok {
 				switch status := aws.StringValue(latticeTarget.Status); status {
-				case vpclattice.TargetStatusHealthy, vpclattice.TargetStatusUnused:
-					// For ServiceExport TGs, we consider the target healthy in the beginning - as there will be
-					// a reasonable time gap between creating a target group and wiring it to the route.
+				case vpclattice.TargetStatusHealthy:
 					newCond.Status = corev1.ConditionTrue
 					newCond.Reason = ReadinessReasonHealthy
 				case vpclattice.TargetStatusUnavailable:
-					// Lattice HC not turned on, do not block deployment on this case.
+					// Lattice HC not turned on. Readiness is designed to work only with HC but do not block deployment on this case.
 					newCond.Status = corev1.ConditionTrue
 					newCond.Reason = ReadinessReasonHealthCheckUnavailable
+				case vpclattice.TargetStatusUnused:
+					// For ServiceExport TGs, we do not have to evaluate them as Healthy, but we also do not have to requeue.
+					newCond.Reason = ReadinessReasonUnused
 				default:
 					requeue = true
 					newCond.Reason = ReadinessReasonUnhealthy

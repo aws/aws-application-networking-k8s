@@ -185,6 +185,15 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 			expectedReason: ReadinessReasonHealthy,
 			requeue:        false,
 		},
+		{
+			name:           "Unused pods keep condition",
+			model:          target,
+			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusUnused),
+			pod:            newPod("ns", "pod1", true, false),
+			expectedStatus: corev1.ConditionFalse,
+			expectedReason: ReadinessReasonUnused,
+			requeue:        false,
+		},
 	}
 
 	for _, tt := range tests {
