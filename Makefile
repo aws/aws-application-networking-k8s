@@ -104,8 +104,8 @@ build-deploy: ## Create a deployment file that can be applied with `kubectl appl
 	cd config/manager && kustomize edit set image controller=${ECRIMAGES}
 	kustomize build config/default > deploy.yaml
 	openssl req -x509 -nodes -days 1 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=not-a-real-cn/O=not-a-real-o" > /dev/null 2>&1
-	export KEY_B64=`cat tls.key | base64`
-	export CERT_B64=`cat tls.crt | base64`
+	$(eval export KEY_B64 := $(shell cat tls.key | base64))
+	$(eval export CERT_B64 := $(shell cat tls.crt | base64))
 	yq -i e '(.[] as $$item | select(.metadata.name == "webhook-cert" and .kind == "Secret") | .data."tls.crt") = env(CERT_B64)' deploy.yaml 2>&1
 	yq -i e '(.[] as $$item | select(.metadata.name == "webhook-cert" and .kind == "Secret") | .data."tls.key") = env(KEY_B64)' deploy.yaml 2>&1
 
