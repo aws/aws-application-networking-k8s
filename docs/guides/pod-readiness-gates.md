@@ -27,9 +27,9 @@ The webhook requires a specific kubernetes secret to exist in the same namespace
 * secret name: ```webhook-cert```
 * default controller namespace: ```aws-application-networking-system```
 ```console
-# example create-secret command, assumes tls.cert and tls.key exist in current directory
+# example create-secret command, assumes tls.crt and tls.key exist in current directory
 # if the placeholder secret exists, you will need to delete it before setting the new value
-kubectl create secret tls webhook-cert --namespace aws-application-networking-system --cert=tls.cert --key=tls.key
+kubectl create secret tls webhook-cert --namespace aws-application-networking-system --cert=tls.crt --key=tls.key
 ```
 
 ### Webhook secret configuration example
