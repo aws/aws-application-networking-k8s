@@ -81,6 +81,18 @@ func Test_Targets(t *testing.T) {
 								Kind:      "Pod",
 							},
 						},
+						{
+							Addresses: []string{"10.10.3.3"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready:       aws.Bool(false),
+								Terminating: aws.Bool(true),
+							},
+							TargetRef: &corev1.ObjectReference{
+								Namespace: "ns1",
+								Name:      "pod3",
+								Kind:      "Pod",
+							},
+						},
 					},
 				},
 			},

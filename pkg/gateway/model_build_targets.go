@@ -186,6 +186,10 @@ func (t *latticeTargetsModelBuildTask) getTargetListFromEndpoints(ctx context.Co
 			if _, ok := servicePortNames[aws.StringValue(port.Name)]; ok || skipMatch {
 				for _, ep := range epSlice.Endpoints {
 					for _, address := range ep.Addresses {
+						// Do not model terminating endpoints so that they can deregister.
+						if aws.BoolValue(ep.Conditions.Terminating) {
+							continue
+						}
 						target := model.Target{
 							TargetIP: address,
 							Port:     int64(aws.Int32Value(port.Port)),
