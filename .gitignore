@@ -19,7 +19,3 @@ pkg/aws/services/gomock_reflect_*
 
 # Image build tarballed bundles
 *.tgz
-
-# generated during make-deploy
-tls.crt
-tls.key

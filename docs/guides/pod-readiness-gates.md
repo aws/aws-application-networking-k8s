@@ -1,7 +1,5 @@
 # Pod readiness gate
 
-# TODO: Update to reflect final implementation of readiness gate logic. Replace <TBD>
-
 AWS Gateway API controller supports [»Pod readiness gates«](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-gate) to indicate that pod is registered to the VPC Lattice and healthy to receive traffic.
 The controller automatically injects the necessary readiness gate configuration to the pod spec via mutating webhook during pod creation.
 
@@ -85,7 +83,7 @@ Status:       Active
 
 Once labelled, the controller will add the pod readiness gates to all subsequently created pods.
 
-The readiness gates have the prefix `<TBD>` and the controller injects the config to the pod spec only during pod creation.
+The readiness gates have the condition type ```application-networking.k8s.aws/pod-readiness-gate``` and the controller injects the config to the pod spec only during pod creation.
 
 ## Object Selector
 The default webhook configuration matches all pods in the namespaces containing the label `aws-application-networking-k8s/pod-readiness-gate-inject=enabled`. You can modify the webhook configuration further to select specific pods from the labeled namespace by specifying the `objectSelector`. For example, in order to select ONLY pods with `aws-application-networking-k8s/pod-readiness-gate-inject: enabled` label instead of all pods in the labeled namespace, you can add the following `objectSelector` to the webhook:
@@ -112,9 +110,6 @@ $ kubectl edit mutatingwebhookconfigurations aws-appnet-gwc-mutating-webhook
 ```
 When you specify multiple selectors, pods matching all the conditions will get mutated.
 
-## Disabling the readiness gate inject
-You can specify the controller flag `--enable-pod-readiness-gate-inject=false` during controller startup to disable the controller from modifying the pod spec.
-
 ## Checking the pod condition status
 
 The status of the readiness gates can be verified with `kubectl get pod -o wide`:
@@ -132,13 +127,12 @@ nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-1
 If a readiness gate doesn't get ready, you can check the reason via:
 
 ```console
-$ kubectl get pod nginx-test-545d8f4d89-l7rcl -o yaml | grep -B7 'type: <TBD>'
+$ kubectl get pod nginx-test-545d8f4d89-l7rcl -o yaml | grep -B7 'type: application-networking.k8s.aws/pod-readiness-gate'
 status:
   conditions:
   - lastProbeTime: null
     lastTransitionTime: null
-    message: <TBD>
     reason: HEALTHY
     status: "True"
-    type: <TBD>
+    type: application-networking.k8s.aws/pod-readiness-gate
 ```

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	PodReadinessGateConditionType = "aws-application-networking-k8s/pod-readiness-gate"
+	PodReadinessGateConditionType = "application-networking.k8s.aws/pod-readiness-gate"
 )
 
 func NewPodReadinessGateInjector(k8sClient client.Client, log gwlog.Logger) *PodReadinessGateInjector {

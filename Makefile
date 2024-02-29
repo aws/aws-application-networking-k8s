@@ -108,6 +108,7 @@ build-deploy: ## Create a deployment file that can be applied with `kubectl appl
 	$(eval export CERT_B64 := $(shell cat tls.crt | base64))
 	yq -i e '(.[] as $$item | select(.metadata.name == "webhook-cert" and .kind == "Secret") | .data."tls.crt") = env(CERT_B64)' deploy.yaml 2>&1
 	yq -i e '(.[] as $$item | select(.metadata.name == "webhook-cert" and .kind == "Secret") | .data."tls.key") = env(KEY_B64)' deploy.yaml 2>&1
+	rm tls.key tls.crt
 
 .PHONY: manifest
 manifest: ## Generate CRD manifest
