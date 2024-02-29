@@ -18,6 +18,7 @@ func PodHasReadinessGate(pod *corev1.Pod, conditionType corev1.PodConditionType)
 	return false
 }
 
+// Copied from: k8s.io/apimachinery/pkg/apis/meta
 func FindPodStatusCondition(conditions []corev1.PodCondition, conditionType corev1.PodConditionType) *corev1.PodCondition {
 	for i := range conditions {
 		if conditions[i].Type == conditionType {
@@ -27,6 +28,7 @@ func FindPodStatusCondition(conditions []corev1.PodCondition, conditionType core
 	return nil
 }
 
+// Copied from: k8s.io/apimachinery/pkg/apis/meta
 func SetPodStatusCondition(conditions *[]corev1.PodCondition, newCondition corev1.PodCondition) {
 	if conditions == nil {
 		return

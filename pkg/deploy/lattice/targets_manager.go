@@ -67,7 +67,7 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 	}
 	staleTargets := s.findStaleTargets(modelTargets, latticeTargets)
 
-	err1 := s.deregisterStaleTargets(ctx, modelTg, staleTargets)
+	err1 := s.deregisterTargets(ctx, modelTg, staleTargets)
 	err2 := s.registerTargets(ctx, modelTg, modelTargets.Spec.TargetList)
 	return errors.Join(err1, err2)
 }
@@ -131,7 +131,7 @@ func (s *defaultTargetsManager) registerTargets(
 	return registerTargetsError
 }
 
-func (s *defaultTargetsManager) deregisterStaleTargets(
+func (s *defaultTargetsManager) deregisterTargets(
 	ctx context.Context,
 	modelTg *model.TargetGroup,
 	targets []model.Target,

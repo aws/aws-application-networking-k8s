@@ -21,6 +21,7 @@ const (
 	ReadinessReasonHealthy                = "Healthy"
 	ReadinessReasonUnhealthy              = "Unhealthy"
 	ReadinessReasonUnused                 = "Unused"
+	ReadinessReasonInitial                = "Initial"
 	ReadinessReasonHealthCheckUnavailable = "HealthCheckUnavailable"
 	ReadinessReasonTargetNotFound         = "TargetNotFound"
 )
@@ -134,7 +135,8 @@ func (t *targetsSynthesizer) syncStatus(ctx context.Context, modelTargets []mode
 				continue
 			}
 
-			// Step 2: Check if the pod readiness condition is owned by controller.
+			// Step 2: Check if the pod readiness condition exists with specific condition type.
+			// The condition is considered false when it does not exist.
 			cond := utils.FindPodStatusCondition(pod.Status.Conditions, LatticeReadinessGateConditionType)
 			if cond != nil && cond.Status == corev1.ConditionTrue {
 				continue
@@ -162,8 +164,12 @@ func (t *targetsSynthesizer) syncStatus(ctx context.Context, modelTargets []mode
 					newCond.Status = corev1.ConditionTrue
 					newCond.Reason = ReadinessReasonHealthCheckUnavailable
 				case vpclattice.TargetStatusUnused:
-					// For ServiceExport TGs, we do not have to evaluate them as Healthy, but we also do not have to requeue.
+					// Since this logic is called after HTTPRoute is wired, this only happens for ServiceExport TGs.
+					// In this case we do not have to evaluate them as Healthy, but we also do not have to requeue.
 					newCond.Reason = ReadinessReasonUnused
+				case vpclattice.TargetStatusInitial:
+					requeue = true
+					newCond.Reason = ReadinessReasonInitial
 				default:
 					requeue = true
 					newCond.Reason = ReadinessReasonUnhealthy
