@@ -35,6 +35,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	discoveryv1 "k8s.io/api/discovery/v1"
 )
 
 type serviceExportReconciler struct {
@@ -82,7 +83,7 @@ func RegisterServiceExportController(
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.ServiceExport{}).
 		Watches(&corev1.Service{}, svcEventHandler.MapToServiceExport()).
-		Watches(&corev1.Endpoints{}, svcEventHandler.MapToServiceExport())
+		Watches(&discoveryv1.EndpointSlice{}, svcEventHandler.MapToServiceExport())
 
 	if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
 		builder.Watches(&anv1alpha1.TargetGroupPolicy{}, svcEventHandler.MapToServiceExport())

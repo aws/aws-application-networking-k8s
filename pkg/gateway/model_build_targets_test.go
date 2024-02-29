@@ -20,6 +20,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"github.com/aws/aws-sdk-go/aws"
+	discoveryv1 "k8s.io/api/discovery/v1"
 )
 
 func Test_Targets(t *testing.T) {
@@ -35,7 +37,7 @@ func Test_Targets(t *testing.T) {
 	tests := []struct {
 		name               string
 		port               int32
-		endPoints          []corev1.Endpoints
+		endpointSlice      []discoveryv1.EndpointSlice
 		svc                corev1.Service
 		serviceExport      anv1alpha1.ServiceExport
 		refByServiceExport bool
@@ -44,18 +46,30 @@ func Test_Targets(t *testing.T) {
 		expectedTargetList []model.Target
 	}{
 		{
-			name: "Add all endpoints to build spec",
+			name: "Add all endpoints with readiness to build spec",
 			port: 0,
-			endPoints: []corev1.Endpoints{
+			endpointSlice: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export1",
+						Labels:    map[string]string{discoveryv1.LabelServiceName: "export1"},
 					},
-					Subsets: []corev1.EndpointSubset{
+					Ports: []discoveryv1.EndpointPort{
+						{Port: aws.Int32(8675)},
+					},
+					Endpoints: []discoveryv1.Endpoint{
 						{
-							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
-							Ports:     []corev1.EndpointPort{{Port: 8675}},
+							Addresses: []string{"10.10.1.1"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: aws.Bool(true),
+							},
+						},
+						{
+							Addresses: []string{"10.10.2.2"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: aws.Bool(false),
+							},
 						},
 					},
 				},
@@ -73,26 +87,41 @@ func Test_Targets(t *testing.T) {
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
+					Ready:    true,
 				},
 				{
 					TargetIP: "10.10.2.2",
 					Port:     8675,
+					Ready:    false,
 				},
 			},
 		},
 		{
 			name: "Add endpoints with matching service port to build spec",
 			port: 80,
-			endPoints: []corev1.Endpoints{
+			endpointSlice: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export1",
+						Labels:    map[string]string{discoveryv1.LabelServiceName: "export1"},
 					},
-					Subsets: []corev1.EndpointSubset{
+					Ports: []discoveryv1.EndpointPort{
 						{
-							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
-							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
+							Name: aws.String("a"),
+							Port: aws.Int32(8675),
+						},
+						{
+							Name: aws.String("b"),
+							Port: aws.Int32(309),
+						},
+					},
+					Endpoints: []discoveryv1.Endpoint{
+						{
+							Addresses: []string{"10.10.1.1", "10.10.2.2"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: aws.Bool(true),
+							},
 						},
 					},
 				},
@@ -124,26 +153,41 @@ func Test_Targets(t *testing.T) {
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
+					Ready:    true,
 				},
 				{
 					TargetIP: "10.10.2.2",
 					Port:     8675,
+					Ready:    true,
 				},
 			},
 		},
 		{
 			name: "Add all endpoints to build spec with port annotation",
 			port: 3090,
-			endPoints: []corev1.Endpoints{
+			endpointSlice: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export1",
+						Labels:    map[string]string{discoveryv1.LabelServiceName: "export1"},
 					},
-					Subsets: []corev1.EndpointSubset{
+					Ports: []discoveryv1.EndpointPort{
 						{
-							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
-							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 3090}},
+							Name: aws.String("a"),
+							Port: aws.Int32(8675),
+						},
+						{
+							Name: aws.String("b"),
+							Port: aws.Int32(3090),
+						},
+					},
+					Endpoints: []discoveryv1.Endpoint{
+						{
+							Addresses: []string{"10.10.1.1", "10.10.2.2"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: aws.Bool(true),
+							},
 						},
 					},
 				},
@@ -183,10 +227,12 @@ func Test_Targets(t *testing.T) {
 				{
 					TargetIP: "10.10.1.1",
 					Port:     3090,
+					Ready:    true,
 				},
 				{
 					TargetIP: "10.10.2.2",
 					Port:     3090,
+					Ready:    true,
 				},
 			},
 		},
@@ -206,16 +252,29 @@ func Test_Targets(t *testing.T) {
 		{
 			name: "Add all endpoints to build spec",
 			port: 0,
-			endPoints: []corev1.Endpoints{
+			endpointSlice: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export5",
+						Labels:    map[string]string{discoveryv1.LabelServiceName: "export5"},
 					},
-					Subsets: []corev1.EndpointSubset{
+					Ports: []discoveryv1.EndpointPort{
 						{
-							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
-							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
+							Name: aws.String("a"),
+							Port: aws.Int32(8675),
+						},
+						{
+							Name: aws.String("b"),
+							Port: aws.Int32(309),
+						},
+					},
+					Endpoints: []discoveryv1.Endpoint{
+						{
+							Addresses: []string{"10.10.1.1", "10.10.2.2"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: aws.Bool(true),
+							},
 						},
 					},
 				},
@@ -233,34 +292,47 @@ func Test_Targets(t *testing.T) {
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
+					Ready:    true,
 				},
 				{
 					TargetIP: "10.10.1.1",
 					Port:     309,
+					Ready:    true,
 				},
 				{
 					TargetIP: "10.10.2.2",
 					Port:     8675,
+					Ready:    true,
 				},
 				{
 					TargetIP: "10.10.2.2",
 					Port:     309,
+					Ready:    true,
 				},
 			},
 		},
 		{
 			name: "Only add endpoints for port 8675 to build spec",
 			port: 8675,
-			endPoints: []corev1.Endpoints{
+			endpointSlice: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export6",
+						Labels:    map[string]string{discoveryv1.LabelServiceName: "export6"},
 					},
-					Subsets: []corev1.EndpointSubset{
+					Ports: []discoveryv1.EndpointPort{
 						{
-							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
-							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}},
+							Name: aws.String("a"),
+							Port: aws.Int32(8675),
+						},
+					},
+					Endpoints: []discoveryv1.Endpoint{
+						{
+							Addresses: []string{"10.10.1.1", "10.10.2.2"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: aws.Bool(true),
+							},
 						},
 					},
 				},
@@ -278,10 +350,12 @@ func Test_Targets(t *testing.T) {
 				{
 					TargetIP: "10.10.1.1",
 					Port:     8675,
+					Ready:    true,
 				},
 				{
 					TargetIP: "10.10.2.2",
 					Port:     8675,
+					Ready:    true,
 				},
 			},
 			serviceExport: anv1alpha1.ServiceExport{
@@ -295,16 +369,29 @@ func Test_Targets(t *testing.T) {
 		{
 			name: "BackendRef port does not match service port",
 			port: 8750,
-			endPoints: []corev1.Endpoints{
+			endpointSlice: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export7",
+						Labels:    map[string]string{discoveryv1.LabelServiceName: "export7"},
 					},
-					Subsets: []corev1.EndpointSubset{
+					Ports: []discoveryv1.EndpointPort{
 						{
-							Addresses: []corev1.EndpointAddress{{IP: "10.10.1.1"}, {IP: "10.10.2.2"}},
-							Ports:     []corev1.EndpointPort{{Name: "a", Port: 8675}, {Name: "b", Port: 309}},
+							Name: aws.String("a"),
+							Port: aws.Int32(8675),
+						},
+						{
+							Name: aws.String("b"),
+							Port: aws.Int32(309),
+						},
+					},
+					Endpoints: []discoveryv1.Endpoint{
+						{
+							Addresses: []string{"10.10.1.1", "10.10.2.2"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: aws.Bool(true),
+							},
 						},
 					},
 				},
@@ -331,14 +418,15 @@ func Test_Targets(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceExport{})
 			clientgoscheme.AddToScheme(k8sSchema)
+			discoveryv1.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			if !reflect.DeepEqual(tt.serviceExport, anv1alpha1.ServiceExport{}) {
 				assert.NoError(t, k8sClient.Create(ctx, tt.serviceExport.DeepCopy()))
 			}
 
-			if len(tt.endPoints) > 0 {
-				assert.NoError(t, k8sClient.Create(ctx, tt.endPoints[0].DeepCopy()))
+			if len(tt.endpointSlice) > 0 {
+				assert.NoError(t, k8sClient.Create(ctx, tt.endpointSlice[0].DeepCopy()))
 			}
 
 			assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
@@ -376,7 +464,7 @@ func Test_Targets(t *testing.T) {
 			st := stackTargets[0]
 
 			assert.Equal(t, "tg-id", st.Spec.StackTargetGroupId)
-			assert.Equal(t, tt.expectedTargetList, st.Spec.TargetList)
+			assert.ElementsMatch(t, tt.expectedTargetList, st.Spec.TargetList)
 		})
 	}
 }

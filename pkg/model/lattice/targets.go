@@ -20,6 +20,7 @@ type TargetsSpec struct {
 type Target struct {
 	TargetIP string `json:"targetip"`
 	Port     int64  `json:"port"`
+	Ready    bool   `json:"ready"`
 }
 
 func NewTargets(stack core.Stack, spec TargetsSpec) (*Targets, error) {

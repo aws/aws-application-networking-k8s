@@ -50,6 +50,12 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 			modelTg.ID(), modelTargets.Spec.StackTargetGroupId)
 	}
 
+	// Only take care of pods that are ready, for backwards compatibility.
+	// TODO: Pod readiness support.
+	modelTargets.Spec.TargetList = utils.SliceFilter(modelTargets.Spec.TargetList, func(t model.Target) bool {
+		return t.Ready
+	})
+
 	s.log.Debugf("Creating targets for target group %s", modelTg.Status.Id)
 
 	lattice := s.cloud.Lattice()
