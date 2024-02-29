@@ -3,7 +3,7 @@
 AWS Gateway API controller supports [»Pod readiness gates«](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-readiness-gate) to indicate that pod is registered to the VPC Lattice and healthy to receive traffic.
 The controller automatically injects the necessary readiness gate configuration to the pod spec via mutating webhook during pod creation.
 
-For readiness gate configuration to be injected to the pod spec, you need to apply the label `aws-application-networking-k8s/pod-readiness-gate-inject: enabled` to the pod namespace. 
+For readiness gate configuration to be injected to the pod spec, you need to apply the label `application-networking.k8s.aws/pod-readiness-gate-inject: enabled` to the pod namespace. 
 
 The pod readiness gate is needed under certain circumstances to achieve full zero downtime rolling deployments. Consider the following example:
 
@@ -70,12 +70,12 @@ Pod readiness gate support is enabled by default on the AWS Gateway API controll
 $ kubectl create namespace example-ns
 namespace/example-ns created
 
-$ kubectl label namespace example-ns aws-application-networking-k8s/pod-readiness-gate-inject=enabled
+$ kubectl label namespace example-ns application-networking.k8s.aws/pod-readiness-gate-inject=enabled
 namespace/example-ns labeled
 
 $ kubectl describe namespace example-ns
 Name:         example-ns
-Labels:       aws-application-networking-k8s/pod-readiness-gate-inject=enabled
+Labels:       application-networking.k8s.aws/pod-readiness-gate-inject=enabled
               kubernetes.io/metadata.name=example-ns
 Annotations:  <none>
 Status:       Active
@@ -86,11 +86,11 @@ Once labelled, the controller will add the pod readiness gates to all subsequent
 The readiness gates have the condition type ```application-networking.k8s.aws/pod-readiness-gate``` and the controller injects the config to the pod spec only during pod creation.
 
 ## Object Selector
-The default webhook configuration matches all pods in the namespaces containing the label `aws-application-networking-k8s/pod-readiness-gate-inject=enabled`. You can modify the webhook configuration further to select specific pods from the labeled namespace by specifying the `objectSelector`. For example, in order to select ONLY pods with `aws-application-networking-k8s/pod-readiness-gate-inject: enabled` label instead of all pods in the labeled namespace, you can add the following `objectSelector` to the webhook:
+The default webhook configuration matches all pods in the namespaces containing the label `application-networking.k8s.aws/pod-readiness-gate-inject=enabled`. You can modify the webhook configuration further to select specific pods from the labeled namespace by specifying the `objectSelector`. For example, in order to select ONLY pods with `application-networking.k8s.aws/pod-readiness-gate-inject: enabled` label instead of all pods in the labeled namespace, you can add the following `objectSelector` to the webhook:
 ```
   objectSelector:
     matchLabels:
-      aws-application-networking-k8s/pod-readiness-gate-inject: enabled
+      application-networking.k8s.aws/pod-readiness-gate-inject: enabled
 ```
 To edit,
 ```
@@ -99,13 +99,13 @@ $ kubectl edit mutatingwebhookconfigurations aws-appnet-gwc-mutating-webhook
   name: mpod.gwc.k8s.aws
   namespaceSelector:
     matchExpressions:
-    - key: aws-application-networking-k8s/pod-readiness-gate-inject
+    - key: application-networking.k8s.aws/pod-readiness-gate-inject
       operator: In
       values:
       - enabled
   objectSelector:
     matchLabels:
-      aws-application-networking-k8s/pod-readiness-gate-inject: enabled
+      application-networking.k8s.aws/pod-readiness-gate-inject: enabled
   ...
 ```
 When you specify multiple selectors, pods matching all the conditions will get mutated.

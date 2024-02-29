@@ -22,7 +22,7 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "webhook-e2e-test-tagged",
 			Labels: map[string]string{
-				"aws-application-networking-k8s/pod-readiness-gate-inject": "enabled",
+				"application-networking.k8s.aws/pod-readiness-gate-inject": "enabled",
 			},
 		},
 	}

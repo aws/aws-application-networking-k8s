@@ -26,7 +26,7 @@ webhooks:
     sideEffects: None
     namespaceSelector:
       matchExpressions:
-        - key: aws-application-networking-k8s/pod-readiness-gate-inject
+        - key: application-networking.k8s.aws/pod-readiness-gate-inject
           operator: In
           values:
             - enabled
