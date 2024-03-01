@@ -174,6 +174,17 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	// we expect a fair number of lattice calls
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(
 		[]*vpclattice.TargetSummary{}, nil)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(
+		[]*vpclattice.TargetSummary{
+			{
+				Id:   aws.String("192.0.2.22"),
+				Port: aws.Int64(8090),
+			},
+			{
+				Id:   aws.String("192.0.2.33"),
+				Port: aws.Int64(8090),
+			},
+		}, nil)
 	mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(
 		&vpclattice.RegisterTargetsOutput{
 			Successful: []*vpclattice.Target{

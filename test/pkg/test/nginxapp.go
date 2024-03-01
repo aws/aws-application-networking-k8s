@@ -1,6 +1,7 @@
 package test
 
 import (
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -18,6 +19,7 @@ type ElasticSearchOptions struct {
 	TargetPort2         int
 	MergeFromDeployment []*appsv1.Deployment
 	MergeFromService    []*v1.Service
+	ReadinessGate       bool
 }
 
 func (env *Framework) NewNginxApp(options ElasticSearchOptions) (*appsv1.Deployment, *v1.Service) {
@@ -32,6 +34,12 @@ func (env *Framework) NewNginxApp(options ElasticSearchOptions) (*appsv1.Deploym
 	}
 	if options.TargetPort2 == 0 {
 		options.TargetPort2 = 9114
+	}
+	var readinessGates []v1.PodReadinessGate
+	if options.ReadinessGate {
+		readinessGates = append(readinessGates, v1.PodReadinessGate{
+			ConditionType: lattice.LatticeReadinessGateConditionType,
+		})
 	}
 	deployment := New(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -53,6 +61,7 @@ func (env *Framework) NewNginxApp(options ElasticSearchOptions) (*appsv1.Deploym
 					},
 				},
 				Spec: v1.PodSpec{
+					ReadinessGates: readinessGates,
 					Containers: []v1.Container{
 						{
 							Name:  options.Name,
