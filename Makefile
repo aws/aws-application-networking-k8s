@@ -87,6 +87,7 @@ test: ## Run tests.
 .PHONY: toolchain
 toolchain: ## Install developer toolchain
 	./hack/toolchain.sh
+	./setup.sh
 
 ##@ Deployment
 
