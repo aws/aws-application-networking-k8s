@@ -92,7 +92,7 @@ func (s *defaultTargetsManager) findStaleTargets(
 			TargetIP: aws.StringValue(target.Id),
 			Port:     aws.Int64Value(target.Port),
 		}
-		if !modelSet.Contains(ipPort) {
+		if aws.StringValue(target.Status) != vpclattice.TargetStatusDraining && !modelSet.Contains(ipPort) {
 			staleTargets = append(staleTargets, ipPort)
 		}
 	}
