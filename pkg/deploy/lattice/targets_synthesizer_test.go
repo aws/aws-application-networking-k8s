@@ -168,6 +168,15 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 			requeue:        true,
 		},
 		{
+			name:           "Draining(unhealthy) targets do not make pod ready",
+			model:          target,
+			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusDraining),
+			pod:            newPod("ns", "pod1", true, false),
+			expectedStatus: corev1.ConditionFalse,
+			expectedReason: ReadinessReasonUnhealthy,
+			requeue:        true,
+		},
+		{
 			name:           "Requeues if target not found",
 			model:          target,
 			lattice:        newLatticeTarget("dummy", 8675, vpclattice.TargetStatusHealthy),
