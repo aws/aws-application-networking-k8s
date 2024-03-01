@@ -25,6 +25,7 @@ const (
 	DEFAULT_SERVICE_NETWORK         = "DEFAULT_SERVICE_NETWORK"
 	ENABLE_SERVICE_NETWORK_OVERRIDE = "ENABLE_SERVICE_NETWORK_OVERRIDE"
 	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
+	DEV_MODE                        = "DEV_MODE"
 )
 
 var VpcID = ""
@@ -32,6 +33,7 @@ var AccountID = ""
 var Region = ""
 var DefaultServiceNetwork = ""
 var ClusterName = ""
+var DevMode = ""
 
 var ServiceNetworkOverrideMode = false
 
@@ -44,7 +46,8 @@ func ConfigInit() error {
 func configInit(sess *session.Session, metadata EC2Metadata) error {
 	var err error
 
-	// CLUSTER_VPC_ID
+	DevMode = os.Getenv(DEV_MODE)
+
 	VpcID = os.Getenv(CLUSTER_VPC_ID)
 	if VpcID == "" {
 		VpcID, err = metadata.VpcID()
@@ -53,7 +56,6 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		}
 	}
 
-	// REGION
 	Region = os.Getenv(REGION)
 	if Region == "" {
 		Region, err = metadata.Region()
@@ -62,7 +64,6 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		}
 	}
 
-	// AWS_ACCOUNT_ID
 	AccountID = os.Getenv(AWS_ACCOUNT_ID)
 	if AccountID == "" {
 		AccountID, err = metadata.AccountId()
@@ -71,7 +72,6 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		}
 	}
 
-	// DEFAULT_SERVICE_NETWORK
 	DefaultServiceNetwork = os.Getenv(DEFAULT_SERVICE_NETWORK)
 
 	overrideFlag := os.Getenv(ENABLE_SERVICE_NETWORK_OVERRIDE)
@@ -79,7 +79,6 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		ServiceNetworkOverrideMode = true
 	}
 
-	// CLUSTER_NAME
 	ClusterName, err = getClusterName(sess)
 	if err != nil {
 		return fmt.Errorf("cannot get cluster name: %s", err)

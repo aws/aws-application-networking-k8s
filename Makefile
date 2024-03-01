@@ -98,10 +98,17 @@ docker-build: test ## Build docker image with the manager.
 docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
 
+# also generates a placeholder cert for the webhook - this cert is not intended to be valid
 .PHONY: build-deploy
 build-deploy: ## Create a deployment file that can be applied with `kubectl apply -f deploy.yaml`
 	cd config/manager && kustomize edit set image controller=${ECRIMAGES}
 	kustomize build config/default > deploy.yaml
+	openssl req -x509 -nodes -days 1 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=not-a-real-cn/O=not-a-real-o" > /dev/null 2>&1
+	$(eval export KEY_B64 := $(shell cat tls.key | base64))
+	$(eval export CERT_B64 := $(shell cat tls.crt | base64))
+	yq -i e '(.[] as $$item | select(.metadata.name == "webhook-cert" and .kind == "Secret") | .data."tls.crt") = env(CERT_B64)' deploy.yaml 2>&1
+	yq -i e '(.[] as $$item | select(.metadata.name == "webhook-cert" and .kind == "Secret") | .data."tls.key") = env(KEY_B64)' deploy.yaml 2>&1
+	rm tls.key tls.crt
 
 .PHONY: manifest
 manifest: ## Generate CRD manifest
@@ -144,3 +151,20 @@ api-reference: ## Update documentation in docs/api-reference.md
 docs:
 	mkdir -p site
 	mkdocs build
+
+# NB webhook tests can only run if the controller is deployed to the cluster
+webhook-e2e-test-namespace := "webhook-e2e-test"
+
+.PHONY: webhook-e2e-test
+webhook-e2e-test:
+	@kubectl create namespace $(webhook-e2e-test-namespace) > /dev/null 2>&1 || true # ignore already exists error
+	LOG_LEVEL=debug
+	cd test && go test \
+		-p 1 \
+		-count 1 \
+		-timeout 10m \
+		-v \
+		./suites/webhook/... \
+		--ginkgo.focus="${FOCUS}" \
+		--ginkgo.skip="${SKIP}" \
+		--ginkgo.v

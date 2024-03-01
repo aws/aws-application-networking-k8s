@@ -60,5 +60,26 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        volumeMounts:
+          - mountPath: /etc/webhook-cert
+            name: webhook-cert
+            readOnly: true
       serviceAccountName: gateway-api-controller
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: webhook-cert
+          secret:
+            defaultMode: 420
+            secretName: webhook-cert
+---
+# placeholder secret so volume can mount successfully and controller can start
+# populated during make-deploy. Will not pass validations (no CA, expires after 1 day, wrong DNS names)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-cert
+  namespace: aws-application-networking-system
+type: kubernetes.io/tls
+data:
+    tls.crt: Cg==
+    tls.key: Cg==

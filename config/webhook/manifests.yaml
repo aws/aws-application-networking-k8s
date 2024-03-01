@@ -1,0 +1,50 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: aws-appnet-gwc-mutating-webhook
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: aws-application-networking-system
+        path: /mutate-pod
+    failurePolicy: Fail
+    name: mpod.gwc.k8s.aws
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
+    sideEffects: None
+    namespaceSelector:
+      matchExpressions:
+        - key: application-networking.k8s.aws/pod-readiness-gate-inject
+          operator: In
+          values:
+            - enabled
+    objectSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: NotIn
+          values:
+            - gateway-api-controller
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-service
+  namespace: aws-application-networking-system
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+  selector:
+    control-plane: gateway-api-controller
