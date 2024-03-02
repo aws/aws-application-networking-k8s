@@ -34,7 +34,7 @@ func Test_SynthesizeListenerCreate(t *testing.T) {
 	}
 	assert.NoError(t, stack.AddResource(l))
 
-	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any()).Return(
+	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		model.ListenerStatus{Id: "new-listener-id"}, nil)
 
 	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{}, nil)
@@ -67,7 +67,7 @@ func Test_SynthesizeListenerCreateWithReconcile(t *testing.T) {
 	}
 	assert.NoError(t, stack.AddResource(l))
 
-	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any()).Return(
+	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		model.ListenerStatus{Id: "new-listener-id"}, nil)
 
 	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{

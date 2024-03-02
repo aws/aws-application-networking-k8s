@@ -40,7 +40,7 @@ func Test_CreateListenerNew(t *testing.T) {
 	)
 
 	lm := NewListenerManager(gwlog.FallbackLogger, cloud)
-	status, err := lm.Upsert(ctx, ml, ms)
+	status, err := lm.Upsert(ctx, ml, ms, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, "new-lid", status.Id)
 	assert.Equal(t, "svc-id", status.ServiceId)
@@ -73,7 +73,7 @@ func Test_CreateListenerExisting(t *testing.T) {
 		}}, nil)
 
 	lm := NewListenerManager(gwlog.FallbackLogger, cloud)
-	status, err := lm.Upsert(ctx, ml, ms)
+	status, err := lm.Upsert(ctx, ml, ms, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, "existing-lid", status.Id)
 	assert.Equal(t, "svc-id", status.ServiceId)
