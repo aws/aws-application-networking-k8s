@@ -74,7 +74,10 @@ func (t *TargetGroupSynthesizer) SynthesizeCreate(ctx context.Context) error {
 
 		prefix := model.TgNamePrefix(resTargetGroup.Spec)
 
+		fmt.Printf("liwwu >> tg SynthesizeCreate %v \n", resTargetGroup)
 		tgStatus, err := t.targetGroupManager.Upsert(ctx, resTargetGroup)
+
+		fmt.Printf("liwwu >> tgStatus %v\n", tgStatus)
 		if err == nil {
 			resTargetGroup.Status = &tgStatus
 		} else {

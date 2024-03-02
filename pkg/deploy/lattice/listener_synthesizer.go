@@ -51,7 +51,9 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 
 		//fmt.Printf("liwwu >> listener's Synthesie stackRules %v \n", *stackRules[0])
 
-		status, err := l.listenerMgr.Upsert(ctx, listener, svc, stackRules)
+		stackTg := &model.TargetGroup{}
+		l.stack.GetResource(stackRules[0].Spec.Action.TargetGroups[0].StackTargetGroupId, stackTg)
+		status, err := l.listenerMgr.Upsert(ctx, listener, svc, stackTg)
 		if err != nil {
 			listenerErr = errors.Join(listenerErr,
 				fmt.Errorf("failed ListenerManager.Upsert %s-%s due to err %s",

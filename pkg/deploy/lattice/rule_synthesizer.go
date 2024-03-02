@@ -46,6 +46,7 @@ func (r *ruleSynthesizer) resolveRuleTgIds(ctx context.Context, modelRule *model
 		}
 
 		if rtg.LatticeTgId != "" {
+			fmt.Printf("liwwu Rule TG %d already resolved %s\n", i, rtg.LatticeTgId)
 			r.log.Debugf("Rule TG %d already resolved %s", i, rtg.LatticeTgId)
 			continue
 		}
@@ -68,6 +69,7 @@ func (r *ruleSynthesizer) resolveRuleTgIds(ctx context.Context, modelRule *model
 			if stackTg.Status == nil {
 				return errors.New("stack target group is missing Status field")
 			}
+			fmt.Printf("liwwu >>> lattice ID %v \n", stackTg.Status.Id)
 			rtg.LatticeTgId = stackTg.Status.Id
 		}
 
