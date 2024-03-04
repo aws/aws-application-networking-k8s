@@ -70,6 +70,11 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 		HealthCheck:     modelTg.Spec.HealthCheckConfig,
 	}
 
+	if modelTg.Spec.Protocol == "TCP" {
+		fmt.Printf("liwwu >> create TCP tg %v \n", latticeTgCfg)
+		latticeTgCfg.ProtocolVersion = nil
+	}
+
 	latticeTgType := string(modelTg.Spec.Type)
 
 	latticeTgName := model.GenerateTgName(modelTg.Spec)

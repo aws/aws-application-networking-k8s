@@ -166,6 +166,11 @@ func (r *ruleSynthesizer) createOrUpdateRules(ctx context.Context, rule *model.R
 		return err
 	}
 
+	if stackListener.Spec.Protocol == "TLS_PASSTHROUGH" {
+		fmt.Printf("liwwu >>> skip update rule, since it is TLS_PASSTHROUGH \n")
+		return nil
+	}
+
 	status, err := r.ruleManager.Upsert(ctx, rule, stackListener, stackSvc)
 	if err != nil {
 		return fmt.Errorf("Failed RuleManager.Upsert due to %s", err)
