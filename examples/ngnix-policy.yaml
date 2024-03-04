@@ -1,0 +1,11 @@
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: TargetGroupPolicy
+metadata:
+    name: test-policy
+spec:
+    targetRef:
+        group: ""
+        kind: Service
+        name: nginx
+    protocol: TCP
+    protocolVersion: HTTP1
