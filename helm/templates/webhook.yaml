@@ -1,3 +1,4 @@
+{{ $tls := fromYaml ( include "aws-gateway-controller.webhookTLS" . ) }}
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -7,9 +8,10 @@ webhooks:
   - admissionReviewVersions:
       - v1
     clientConfig:
+      caBundle: {{ $tls.caCert }}
       service:
         name: webhook-service
-        namespace: aws-application-networking-system
+        namespace: {{ .Release.Namespace }}
         path: /mutate-pod
     failurePolicy: Fail
     name: mpod.gwc.k8s.aws
@@ -40,7 +42,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: webhook-service
-  namespace: aws-application-networking-system
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
     - port: 443

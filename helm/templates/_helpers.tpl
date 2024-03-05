@@ -30,3 +30,20 @@ If release name contains chart name it will be used as a full name.
 {{- define "service-account.name" -}}
     {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
+
+{{/* Import or generate certificates for webhook */}}
+{{- define "aws-gateway-controller.webhookTLS" -}}
+{{- if (and .Values.webhookTLS.caCert .Values.webhookTLS.cert .Values.webhookTLS.key) -}}
+caCert: {{ .Values.webhookTLS.caCert }}
+cert: {{ .Values.webhookTLS.cert }}
+key: {{ .Values.webhookTLS.key }}
+{{- else -}}
+{{- $serviceDefaultName:= printf "webhook-service.%s.svc" .Release.Namespace -}}
+{{- $secretName := "webhook-cert" -}}
+{{- $altNames := list ($serviceDefaultName) (printf "%s.cluster.local" $serviceDefaultName) -}}
+{{- $cert := genSelfSignedCert $serviceDefaultName nil $altNames 365000 -}}
+caCert: {{ $cert.Cert | b64enc }}
+cert: {{ $cert.Cert | b64enc }}
+key: {{ $cert.Key | b64enc }}
+{{- end -}}
+{{- end -}}

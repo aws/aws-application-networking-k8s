@@ -77,3 +77,9 @@ clusterVpcId:
 clusterName:
 defaultServiceNetwork:
 latticeEndpoint:
+
+# TLS cert/key for the webhook. If specified, values must be base64 encoded
+webhookTLS:
+  caCert:
+  cert:
+  key:
