@@ -1,5 +1,3 @@
-{{ $tls := fromYaml ( include "aws-gateway-controller.webhookTLS" . ) }}
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -109,13 +107,3 @@ spec:
       {{ if .Values.deployment.priorityClassName -}}
       priorityClassName: {{ .Values.deployment.priorityClassName }}
       {{ end -}}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: webhook-cert
-  namespace: {{ .Release.Namespace }}
-type: kubernetes.io/tls
-data:
-  tls.crt: {{ $tls.cert }}
-  tls.key: {{ $tls.key }}

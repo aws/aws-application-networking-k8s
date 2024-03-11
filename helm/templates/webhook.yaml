@@ -49,3 +49,14 @@ spec:
       targetPort: 9443
   selector:
     control-plane: gateway-api-controller
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-cert
+  namespace: {{ .Release.Namespace }}
+type: kubernetes.io/tls
+data:
+  ca.crt: {{ $tls.caCert }}
+  tls.crt: {{ $tls.cert }}
+  tls.key: {{ $tls.key }}
