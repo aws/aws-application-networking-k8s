@@ -46,7 +46,7 @@ metadata:
 spec:
   ports:
     - port: 443
-      targetPort: 9443
+      targetPort: webhook-server
   selector:
     control-plane: gateway-api-controller
 ---

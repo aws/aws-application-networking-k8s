@@ -52,6 +52,8 @@ spec:
         ports:
           - name: http
             containerPort: {{ .Values.deployment.containerPort }}
+          - name: webhook-server
+            containerPort: 9443
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         livenessProbe:
