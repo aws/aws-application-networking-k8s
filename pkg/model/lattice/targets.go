@@ -2,6 +2,7 @@ package lattice
 
 import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type Targets struct {
@@ -18,9 +19,10 @@ type TargetsSpec struct {
 }
 
 type Target struct {
-	TargetIP string `json:"targetip"`
-	Port     int64  `json:"port"`
-	Ready    bool   `json:"ready"`
+	TargetIP  string `json:"targetip"`
+	Port      int64  `json:"port"`
+	Ready     bool   `json:"ready"`
+	TargetRef types.NamespacedName
 }
 
 func NewTargets(stack core.Stack, spec TargetsSpec) (*Targets, error) {
