@@ -93,6 +93,8 @@ spec:
             value: {{ .Values.defaultServiceNetwork | quote }}
           - name: LOG_LEVEL
             value: {{ .Values.log.level | quote }}
+          - name: WEBHOOK_ENABLED
+            value: {{ .Values.webhookEnabled | quote }}
       terminationGracePeriodSeconds: 10
       volumes:
         - name: webhook-cert

@@ -81,6 +81,7 @@ jobs:
       - name: Run test
         run: |
           make e2e-test
+          make webhook-e2e-test
       - name: Cleanup
         if: always()
         run: |

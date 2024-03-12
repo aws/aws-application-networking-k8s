@@ -75,3 +75,17 @@ Default: ""
 When set as "true", the controller will run in "single service network" mode that will override all gateways
 to point to default service network, instead of searching for service network with the same name.
 Can be used for small setups and conformance tests.
+
+---
+
+#### `WEBHOOK_ENABLED`
+
+Type: string
+
+Default: ""
+
+When set as "true", the controller will start the webhook listener responsible for pod readiness gate injection 
+(see ```pod-readiness-gates.md```). This is disabled by default for ```deploy.yaml``` because the controller will not start 
+successfully without the TLS certificate for the webhook in place. While this can be fixed by running 
+```scripts/gen-webhook-cert.sh```, it requires manual action. The webhook is enabled by default for the Helm install
+as the Helm install will also generate the necessary certificate.
