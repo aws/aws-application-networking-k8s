@@ -26,6 +26,7 @@ const (
 	ENABLE_SERVICE_NETWORK_OVERRIDE = "ENABLE_SERVICE_NETWORK_OVERRIDE"
 	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
 	DEV_MODE                        = "DEV_MODE"
+	WEBHOOK_ENABLED                 = "WEBHOOK_ENABLED"
 )
 
 var VpcID = ""
@@ -34,6 +35,7 @@ var Region = ""
 var DefaultServiceNetwork = ""
 var ClusterName = ""
 var DevMode = ""
+var WebhookEnabled = ""
 
 var ServiceNetworkOverrideMode = false
 
@@ -47,6 +49,7 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 	var err error
 
 	DevMode = os.Getenv(DEV_MODE)
+	WebhookEnabled = os.Getenv(WEBHOOK_ENABLED)
 
 	VpcID = os.Getenv(CLUSTER_VPC_ID)
 	if VpcID == "" {

@@ -18,53 +18,45 @@ This prevents the rolling update of a deployment from terminating old pods until
 ## Setup
 Pod readiness gates rely on [»admission webhooks«](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/), where the Kubernetes API server makes calls to the AWS Gateway API controller as part of pod creation. This call is made using TLS, so the controller must present a TLS certificate. This certificate is stored as a standard Kubernetes secret. If you are using Helm, the certificate will automatically be configured as part of the Helm install.
 
-If you are manually deploying the controller, for example using the ```deploy.yaml``` file, you will need to create the tls secret for the webhook in the controller namespace. The ```deploy.yaml``` file includes a placeholder secret, but it must be updated if you wish to use the webhook. The placeholder secret _will not_ pass API server validations, but will ensure the controller container is able to start.
+If you are manually deploying the controller using the ```deploy.yaml``` file, you will need to either patch the ```deploy.yaml``` file (see ```scripts/patch-deploy-yaml.sh```) or generate the secret following installation (see ```scripts/gen-webhook-secret.sh```) and manually enable the webhook via the ```WEBHOOK_ENABLED``` environment variable.
 
-### Webhook secret requirements
-The webhook requires a specific kubernetes secret to exist in the same namespace as the webhook itself:
-* secret name: ```webhook-cert```
-* default controller namespace: ```aws-application-networking-system```
-```console
-# example create-secret command, assumes tls.crt and tls.key exist in current directory
-# if the placeholder secret exists, you will need to delete it before setting the new value
-kubectl create secret tls webhook-cert --namespace aws-application-networking-system --cert=tls.crt --key=tls.key
+Note that, without the secret in place, the controller cannot start successfully, and you will see an error message like the following:
 ```
-
-### Webhook secret configuration example
-The below example creates an unsigned certificate, adds it as the webhook secret, then patches the webhook configuration so the API server trusts the certificate.
-
-If your cluster uses its own PKI and includes appropriate trust configuration for the API server, the certificate issued would be signed by your internal certificate authority and therefore not require the ```kubectl patch``` command below.
-```console
-# Example commands to configure the webhook to use an unsigned certificate
-CERT_FILE=tls.crt
-KEY_FILE=tls.key
-
-WEBHOOK_SVC_NAME=webhook-service
-WEBHOOK_NAME=aws-appnet-gwc-mutating-webhook
-WEBHOOK_NAMESPACE=aws-application-networking-system
-WEBHOOK_SECRET_NAME=webhook-cert
-
-# Step 1: generate a certificate if needed, can also be provisioned through orgnanizational PKI, etc
-# This cert includes a 100 year expiry
-HOST=${WEBHOOK_SVC_NAME}.${WEBHOOK_NAMESPACE}.svc
-openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout ${KEY_FILE} -out ${CERT_FILE} -subj "/CN=${HOST}/O=${HOST}" \
-   -addext "subjectAltName = DNS:${HOST}, DNS:${HOST}.cluster.local"
-   
-# Step 2: replace the placeholder secret from deploy.yaml
-kubectl delete secret $WEBHOOK_SECRET_NAME --namespace $WEBHOOK_NAMESPACE
-kubectl create secret tls $WEBHOOK_SECRET_NAME --namespace $WEBHOOK_NAMESPACE --cert=${CERT_FILE} --key=${KEY_FILE}
-
-# Step 3: Patch the webhook CA bundle to exactly the cert being used.
-# This will ensure Kubernetes API server is able to trust the certificate presented by the webhook.
-# This step would not be required if you are using a signed certificate that is already trusted by the API server
-CERT_B64=$(cat tls.crt | base64)
-kubectl patch mutatingwebhookconfigurations.admissionregistration.k8s.io $WEBHOOK_NAME \
-    --namespace $WEBHOOK_NAMESPACE --type='json' \
-    -p="[{'op': 'replace', 'path': '/webhooks/0/clientConfig/caBundle', 'value': '${CERT_B64}'}]"
+{"level":"error","ts":"...","logger":"setup","caller":"workspace/main.go:240","msg":"tls: failed to find any PEM data in certificate inputproblem running manager"}
 ```
+For this reason, the webhook is ```DISABLED``` by default in the controller for the non-Helm install. You can enable the webhook by setting the ```WEBHOOK_ENABLED``` environment variable to "true" in the ```deploy.yaml``` file.
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-api-controller
+  namespace: aws-application-networking-system
+  labels:
+    control-plane: gateway-api-controller
+spec:
+  ...
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: gateway-api-controller
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+      - command:
+        ...
+        name: manager
+        ...
+        env:
+          - name: WEBHOOK_ENABLED
+            value: "true"   # <-- value of "true" enables the webhook in the controller
+```
+If you run ```scripts/patch-deploy-yaml.sh``` prior to installing ```deploy.yaml```, the script will create the necessary TLS certificates and configuration and will enable the webhook in the controller. Note that, even with the webhook enabled, the webhook will only run for namespaces labeled with `application-networking.k8s.aws/pod-readiness-gate-inject: enabled`.  
 
-## Configuration
-Pod readiness gate support is enabled by default on the AWS Gateway API controller. To enable the feature, you must apply a label to each of the namespaces you would like to use this feature. You can create and label a namespace as follows -
+## Enabling the readiness gate
+After a Helm install or manually configuring and enabling the webhook, you are ready to begin using pod readiness gates. Apply a label to each namespace you would like to use this feature. You can create and label a namespace as follows -
 
 ```
 $ kubectl create namespace example-ns
@@ -81,7 +73,7 @@ Annotations:  <none>
 Status:       Active
 ```
 
-Once labelled, the controller will add the pod readiness gates to all subsequently created pods.
+Once labelled, the controller will add the pod readiness gates to all subsequently created pods in the namespace.
 
 The readiness gates have the condition type ```application-networking.k8s.aws/pod-readiness-gate``` and the controller injects the config to the pod spec only during pod creation.
 

@@ -23,6 +23,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"os"
 	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
+	"strings"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -132,14 +133,17 @@ func main() {
 
 	// do not create the webhook server when running locally
 	var webhookServer k8swebhook.Server
-	isLocalDev := config.DevMode != ""
-	if !isLocalDev {
+	enableWebhook := strings.ToLower(config.WebhookEnabled) == "true"
+	if enableWebhook {
+		setupLog.Info("Webhook is enabled, 'webhook-cert' secret must contain a valid TLS key and cert")
 		webhookServer = k8swebhook.NewServer(k8swebhook.Options{
 			Port:     9443,
 			CertDir:  "/etc/webhook-cert/",
 			CertName: "tls.crt",
 			KeyName:  "tls.key",
 		})
+	} else {
+		setupLog.Infof("Webhook is disabled, value: '%s'", config.WebhookEnabled)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -156,8 +160,7 @@ func main() {
 		setupLog.Fatal("manager setup failed:", err)
 	}
 
-	if !isLocalDev {
-		// register webhook handlers
+	if enableWebhook {
 		readinessGateInjector := webhook.NewPodReadinessGateInjector(
 			mgr.GetClient(),
 			log.Named("pod-readiness-gate-injector"),

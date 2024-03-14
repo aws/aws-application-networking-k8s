@@ -52,6 +52,8 @@ spec:
         ports:
           - name: http
             containerPort: {{ .Values.deployment.containerPort }}
+          - name: webhook-server
+            containerPort: 9443
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         livenessProbe:
@@ -72,6 +74,10 @@ spec:
             drop:
               - ALL
           readOnlyRootFilesystem: true
+        volumeMounts:
+          - mountPath: /etc/webhook-cert
+            name: webhook-cert
+            readOnly: true
         env:
           - name: REGION
             value: {{ .Values.awsRegion | quote }}
@@ -87,7 +93,14 @@ spec:
             value: {{ .Values.defaultServiceNetwork | quote }}
           - name: LOG_LEVEL
             value: {{ .Values.log.level | quote }}
+          - name: WEBHOOK_ENABLED
+            value: {{ .Values.webhookEnabled | quote }}
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: webhook-cert
+          secret:
+            defaultMode: 420
+            secretName: webhook-cert
       nodeSelector: {{ toYaml .Values.deployment.nodeSelector | nindent 8 }}
       {{ if .Values.deployment.tolerations -}}
       tolerations: {{ toYaml .Values.deployment.tolerations | nindent 8 }}
