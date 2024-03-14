@@ -19,8 +19,7 @@ HOST=${WEBHOOK_SVC_NAME}.${WEBHOOK_NAMESPACE}.svc
 openssl req -x509 -nodes -days 36500 -newkey rsa:2048 -keyout ${TEMP_KEY} -out ${TEMP_CERT} -subj "/CN=${HOST}/O=${HOST}" \
    -addext "subjectAltName = DNS:${HOST}, DNS:${HOST}.cluster.local"
 
-export KEY_B64=`cat $TEMP_KEY | base64`
-export CERT_B64=`cat $TEMP_CERT | base64`
+CERT_B64=`cat $TEMP_CERT | base64`
 
 echo "Recreating webhook secret"
 kubectl delete secret $WEBHOOK_SECRET_NAME --namespace $WEBHOOK_NAMESPACE
