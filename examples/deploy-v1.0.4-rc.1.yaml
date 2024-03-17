@@ -7022,7 +7022,14 @@ spec:
             - targetRef
             type: object
           status:
-            description: TargetGroupPolicyStatus defines the observed state of TargetGroupPolicy.
+            default:
+              conditions:
+              - lastTransitionTime: "1970-01-01T00:00:00Z"
+                message: Waiting for controller
+                reason: NotReconciled
+                status: Unknown
+                type: Accepted
+            description: Status defines the current state of TargetGroupPolicy.
             properties:
               conditions:
                 default:
@@ -7036,12 +7043,12 @@ spec:
                   reason: Pending
                   status: Unknown
                   type: Programmed
-                description: "Conditions describe the current conditions of the TargetGroupPolicy.
+                description: "Conditions describe the current conditions of the TargetGroup.
                   \n Implementations should prefer to express Policy conditions using
                   the `PolicyConditionType` and `PolicyConditionReason` constants
                   so that operators and tools can converge on a common vocabulary
-                  to describe TargetGroupPolicy state. \n Known condition types are:
-                  \n * \"Accepted\" * \"Ready\""
+                  to describe TargetGroup state. \n Known condition types are: \n
+                  * \"Accepted\" * \"Ready\""
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -7119,7 +7126,8 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -7165,11 +7173,8 @@ spec:
             properties:
               associateWithVpc:
                 description: "AssociateWithVpc indicates whether the VpcServiceNetworkAssociation
-                  should be created for the current VPC of k8s cluster. \n Both this
-                  flag and Gateway annotation \"application-networking.k8s.aws/lattice-vpc-association\"
-                  are reserved tentatively for backward compatibility. Either one
-                  of them set to true or both of them undefined will result in the
-                  VpcServiceNetworkAssociation created."
+                  should be created for the current VPC of k8s cluster. \n This value
+                  will be considered true by default."
                 type: boolean
               securityGroupIds:
                 description: "SecurityGroupIds defines the security groups enforced
@@ -7223,7 +7228,7 @@ spec:
             type: object
           status:
             description: VpcAssociationPolicyStatus defines the observed state of
-              AccessLogPolicy.
+              VpcAssociationPolicy.
             properties:
               conditions:
                 default:
@@ -7232,17 +7237,12 @@ spec:
                   reason: Pending
                   status: Unknown
                   type: Accepted
-                - lastTransitionTime: "1970-01-01T00:00:00Z"
-                  message: Waiting for controller
-                  reason: Pending
-                  status: Unknown
-                  type: Programmed
-                description: "Conditions describe the current conditions of the AccessLogPolicy.
+                description: "Conditions describe the current conditions of the VpcAssociationPolicy.
                   \n Implementations should prefer to express Policy conditions using
                   the `PolicyConditionType` and `PolicyConditionReason` constants
                   so that operators and tools can converge on a common vocabulary
-                  to describe AccessLogPolicy state. \n Known condition types are:
-                  \n * \"Accepted\" * \"Ready\""
+                  to describe VpcAssociationPolicy state. \n Known condition types
+                  are: \n * \"Accepted\""
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
@@ -7320,7 +7320,8 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -7357,6 +7358,26 @@ rules:
   - ""
   resources:
   - endpoints/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices/status
   verbs:
   - get
   - patch
@@ -7626,6 +7647,14 @@ rules:
 - apiGroups:
   - application-networking.k8s.aws
   resources:
+  - targetgrouppolicies/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - application-networking.k8s.aws
+  resources:
   - vpcassociationpolicies
   verbs:
   - create
@@ -7640,6 +7669,14 @@ rules:
   resources:
   - vpcassociationpolicies/finalizers
   verbs:
+  - update
+- apiGroups:
+  - application-networking.k8s.aws
+  resources:
+  - vpcassociationpolicies/status
+  verbs:
+  - get
+  - patch
   - update
 - apiGroups:
   - application-networking.k8s.aws
@@ -7767,6 +7804,16 @@ metadata:
   name: manager-config
 ---
 apiVersion: v1
+data:
+  tls.crt: Cg==
+  tls.key: Cg==
+kind: Secret
+metadata:
+  name: webhook-cert
+  namespace: aws-application-networking-system
+type: kubernetes.io/tls
+---
+apiVersion: v1
 kind: Service
 metadata:
   labels:
@@ -7782,6 +7829,18 @@ spec:
   selector:
     control-plane: gateway-api-controller
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-service
+  namespace: aws-application-networking-system
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    control-plane: gateway-api-controller
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7790,7 +7849,7 @@ metadata:
   name: gateway-api-controller
   namespace: aws-application-networking-system
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       control-plane: gateway-api-controller
@@ -7819,7 +7878,10 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v0.0.18
+        env:
+        - name: WEBHOOK_ENABLED
+          value: ""
+        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v1.0.4-rc.1
         livenessProbe:
           httpGet:
             path: /healthz
@@ -7844,9 +7906,55 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - ALL
+            - ALL
           readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /etc/webhook-cert
+          name: webhook-cert
+          readOnly: true
       securityContext:
         runAsNonRoot: true
       serviceAccountName: gateway-api-controller
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: webhook-cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-cert
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: aws-appnet-gwc-mutating-webhook
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: aws-application-networking-system
+      path: /mutate-pod
+  failurePolicy: Fail
+  name: mpod.gwc.k8s.aws
+  namespaceSelector:
+    matchExpressions:
+    - key: application-networking.k8s.aws/pod-readiness-gate-inject
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - gateway-api-controller
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
