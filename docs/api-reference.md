@@ -1,4 +1,4 @@
-# API Reference
+# API Specification
 
 This page contains the API field specification for Gateway API.
 

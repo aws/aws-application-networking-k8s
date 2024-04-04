@@ -32,20 +32,20 @@ Following steps show you how to set up this recommended multi-cluster architectu
 1. Create `VPCServiceNetworkAssociation(s)` between previous step created service network and each config cluster's VPC and workload clusters' VPCs
 1. Setup following resource in the workload cluster1:
     ```
-    kubectl apply -f examples/service-1.yaml
-    kubectl apply -f examples/service-1-export.yaml
+    kubectl apply -f files/examples/service-1.yaml
+    kubectl apply -f files/examples/service-1-export.yaml
     ```
 1. Setup following resource in the workload cluster2:
     ```
-    kubectl apply -f examples/service-2.yaml
-    kubectl apply -f examples/service-2-export.yaml
+    kubectl apply -f files/examples/service-2.yaml
+    kubectl apply -f files/examples/service-2-export.yaml
     ```
 1. Setup following resource in the config cluster:
     ```
-    kubectl apply -f examples/my-gateway.yaml
-    kubectl apply -f examples/my-httproute.yaml
-    kubectl apply -f examples/service-1-import.yaml
-    kubectl apply -f examples/service-2-import.yaml
+    kubectl apply -f files/examples/my-gateway.yaml
+    kubectl apply -f files/examples/my-httproute.yaml
+    kubectl apply -f files/examples/service-1-import.yaml
+    kubectl apply -f files/examples/service-2-import.yaml
     ```
 1. At this point, the connectivity setup finished, pods in workload cluster1 are able to communicate with `service-2` in workload cluster2 (and vice versa) via the `my-httproute` DNS name.
 1. Furthermore, you could have more workload clusters to join the `my-gateway` service network by creating the `ServiceNewtorkAssociation(s)`, workloads there all be able to communicate with `service-1` and `service-2` via the `my-httproute` DNS name and path matching.

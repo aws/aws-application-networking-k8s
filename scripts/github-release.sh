@@ -64,11 +64,11 @@ sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DI
 
 # Build the deploy.yaml
 make build-deploy
-cp "deploy.yaml" "examples/deploy-$RELEASE_VERSION.yaml"
+cp "deploy.yaml" "files/controller-installation/deploy-$RELEASE_VERSION.yaml"
 
 #only keep 4 recent versions deploy.yaml, removing the oldest one
 VERSION_TO_REMOVE=$(git tag --sort=v:refname | grep -v 'rc' | tail -n 5 | head -n 1)
-rm -f "$WORKSPACE_DIR/examples/deploy-$VERSION_TO_REMOVE.yaml"
+rm -f "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml"
 
 # Crete a new release branch, tag and push the changes
 git checkout -b release-$RELEASE_VERSION
@@ -76,8 +76,8 @@ git add "$WORKSPACE_DIR/README.md" \
   "$WORKSPACE_DIR/config/manager/kustomization.yaml" \
   "$WORKSPACE_DIR/helm/Chart.yaml" \
   "$WORKSPACE_DIR/helm/values.yaml" \
-  "$WORKSPACE_DIR/examples/deploy-$RELEASE_VERSION.yaml" \
-  "$WORKSPACE_DIR/examples/deploy-$VERSION_TO_REMOVE.yaml" \
+  "$WORKSPACE_DIR/files/controller-installation/deploy-$RELEASE_VERSION.yaml" \
+  "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml" \
   "$WORKSPACE_DIR/docs/guides/deploy.md"
 git commit -m "Release artifacts for release $RELEASE_VERSION"
 git push origin release-$RELEASE_VERSION

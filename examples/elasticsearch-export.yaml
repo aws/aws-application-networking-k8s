@@ -1,7 +1,0 @@
-apiVersion: application-networking.k8s.aws/v1alpha1
-kind: ServiceExport
-metadata:
-  name: elasticsearch
-  annotations:
-    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
-    application-networking.k8s.aws/port: "9200"
