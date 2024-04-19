@@ -5,6 +5,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 )
 
 type GroupKind struct {
@@ -20,6 +22,8 @@ func ObjToGroupKind(obj client.Object) GroupKind {
 		return GroupKind{gwv1beta1.GroupName, "HTTPRoute"}
 	case *gwv1alpha2.GRPCRoute:
 		return GroupKind{gwv1alpha2.GroupName, "GRPCRoute"}
+	case *anv1alpha1.ServiceExport:
+		return GroupKind{anv1alpha1.GroupName, "ServiceExport"}
 	case *corev1.Service:
 		return GroupKind{corev1.GroupName, "Service"}
 	default:
@@ -44,6 +48,8 @@ func GroupKindToObj(gk GroupKind) (client.Object, bool) {
 		return &gwv1alpha2.GRPCRoute{}, true
 	case GroupKind{corev1.GroupName, "Service"}:
 		return &corev1.Service{}, true
+	case GroupKind{anv1alpha1.GroupName, "ServiceExport"}:
+		return &anv1alpha1.ServiceExport{}, true
 	default:
 		return nil, false
 	}

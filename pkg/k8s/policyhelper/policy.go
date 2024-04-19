@@ -73,7 +73,7 @@ func NewTargetGroupPolicyHandler(log gwlog.Logger, c k8sclient.Client) *PolicyHa
 	phcfg := PolicyHandlerConfig{
 		Log:            log,
 		Client:         c,
-		TargetRefKinds: NewGroupKindSet(&corev1.Service{}),
+		TargetRefKinds: NewGroupKindSet(&corev1.Service{}, &anv1alpha1.ServiceExport{}),
 	}
 	return NewPolicyHandler[TGP, TGPL](phcfg)
 }
