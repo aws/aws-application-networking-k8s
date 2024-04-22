@@ -9,7 +9,7 @@ COPY go.sum go.sum
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
 #RUN go mod download
-RUN GOPROXY=direct go mod download
+#RUN GOPROXY=direct go mod download
 
 # Copy the go source
 COPY cmd/aws-application-networking-k8s/main.go main.go
@@ -18,6 +18,11 @@ COPY scripts scripts
 
 ARG TARGETOS
 ARG TARGETARCH
+
+# Test
+COPY mocks/ mocks/
+COPY test/ test/
+RUN CGO_ENABLED=0 go test ./...
 
 # Build
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o manager main.go
