@@ -55,14 +55,14 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig) (Cloud, error) {
 
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		if r.Error != nil {
-			log.Debugw("error",
+			log.Debugw(context.TODO(), "error",
 				"error", r.Error.Error(),
 				"serviceName", r.ClientInfo.ServiceName,
 				"operation", r.Operation.Name,
 				"params", r.Params,
 			)
 		} else {
-			log.Debugw("response",
+			log.Debugw(context.TODO(), "response",
 				"serviceName", r.ClientInfo.ServiceName,
 				"operation", r.Operation.Name,
 				"params", r.Params,

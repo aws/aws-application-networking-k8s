@@ -49,14 +49,14 @@ func (h *enqueueRequestsForGatewayClassEvent) enqueueImpactedGateway(
 	gwList := &gateway_api.GatewayList{}
 	err := h.client.List(ctx, gwList)
 	if err != nil {
-		h.log.Errorf("Error listing Gateways during GatewayClass event %s", err)
+		h.log.Errorf(ctx, "Error listing Gateways during GatewayClass event %s", err)
 		return
 	}
 
 	for _, gw := range gwList.Items {
 		if string(gw.Spec.GatewayClassName) == gwClass.Name {
 			if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-				h.log.Debugf("Found matching gateway, %s-%s", gw.Name, gw.Namespace)
+				h.log.Debugf(ctx, "Found matching gateway, %s-%s", gw.Name, gw.Namespace)
 				queue.Add(reconcile.Request{
 					NamespacedName: types.NamespacedName{
 						Namespace: gw.Namespace,

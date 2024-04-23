@@ -50,7 +50,7 @@ func (d *defaultListenerManager) Upsert(
 		return model.ListenerStatus{}, errors.New("model service is missing id")
 	}
 
-	d.log.Infof("Upsert listener %s-%s", modelListener.Spec.K8SRouteName, modelListener.Spec.K8SRouteNamespace)
+	d.log.Infof(ctx, "Upsert listener %s-%s", modelListener.Spec.K8SRouteName, modelListener.Spec.K8SRouteNamespace)
 
 	latticeListener, err := d.findListenerByPort(ctx, modelSvc.Status.Id, modelListener.Spec.Port)
 	if err != nil {
@@ -60,7 +60,7 @@ func (d *defaultListenerManager) Upsert(
 		// we do not support listener updates as the only mutable property
 		// is the default action, which we set to 404 as required by the gw spec
 		// so here we just return the existing one
-		d.log.Debugf("Found existing listener %s, nothing to update", aws.StringValue(latticeListener.Id))
+		d.log.Debugf(ctx, "Found existing listener %s, nothing to update", aws.StringValue(latticeListener.Id))
 		return model.ListenerStatus{
 			Name:        aws.StringValue(latticeListener.Name),
 			ListenerArn: aws.StringValue(latticeListener.Arn),
@@ -92,7 +92,7 @@ func (d *defaultListenerManager) Upsert(
 		return model.ListenerStatus{},
 			fmt.Errorf("Failed CreateListener %s due to %s", aws.StringValue(listenerInput.Name), err)
 	}
-	d.log.Infof("Success CreateListener %s, %s", aws.StringValue(resp.Name), aws.StringValue(resp.Id))
+	d.log.Infof(ctx, "Success CreateListener %s, %s", aws.StringValue(resp.Name), aws.StringValue(resp.Id))
 
 	return model.ListenerStatus{
 		Name:        aws.StringValue(resp.Name),
@@ -114,7 +114,7 @@ func k8sLatticeListenerName(modelListener *model.Listener) string {
 func (d *defaultListenerManager) List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error) {
 	var sdkListeners []*vpclattice.ListenerSummary
 
-	d.log.Debugf("Listing listeners for service %s", serviceID)
+	d.log.Debugf(ctx, "Listing listeners for service %s", serviceID)
 	listenerListInput := vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(serviceID),
 	}
@@ -154,7 +154,7 @@ func (d *defaultListenerManager) findListenerByPort(
 
 	for _, r := range resp.Items {
 		if aws.Int64Value(r.Port) == port {
-			d.log.Debugf("Port %d already in use by listener %s for service %s", port, *r.Arn, latticeSvcId)
+			d.log.Debugf(ctx, "Port %d already in use by listener %s for service %s", port, *r.Arn, latticeSvcId)
 			return r, nil
 		}
 	}
@@ -167,7 +167,7 @@ func (d *defaultListenerManager) Delete(ctx context.Context, modelListener *mode
 		return errors.New("model listener and model listener status cannot be nil")
 	}
 
-	d.log.Debugf("Deleting listener %s in service %s", modelListener.Status.Id, modelListener.Status.ServiceId)
+	d.log.Debugf(ctx, "Deleting listener %s in service %s", modelListener.Status.Id, modelListener.Status.ServiceId)
 	listenerDeleteInput := vpclattice.DeleteListenerInput{
 		ServiceIdentifier:  aws.String(modelListener.Status.ServiceId),
 		ListenerIdentifier: aws.String(modelListener.Status.Id),
@@ -176,12 +176,12 @@ func (d *defaultListenerManager) Delete(ctx context.Context, modelListener *mode
 	_, err := d.cloud.Lattice().DeleteListenerWithContext(ctx, &listenerDeleteInput)
 	if err != nil {
 		if services.IsLatticeAPINotFoundErr(err) {
-			d.log.Debugf("Listener already deleted")
+			d.log.Debugf(ctx, "Listener already deleted")
 			return nil
 		}
 		return fmt.Errorf("Failed DeleteListener %s, %s due to %s", modelListener.Status.Id, modelListener.Status.ServiceId, err)
 	}
 
-	d.log.Infof("Success DeleteListener %s, %s", modelListener.Status.Id, modelListener.Status.ServiceId)
+	d.log.Infof(ctx, "Success DeleteListener %s, %s", modelListener.Status.Id, modelListener.Status.ServiceId)
 	return nil
 }

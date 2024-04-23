@@ -36,7 +36,7 @@ func NewRuleSynthesizer(
 // populates all target group ids in the rule's actions
 func (r *ruleSynthesizer) resolveRuleTgIds(ctx context.Context, modelRule *model.Rule) error {
 	if len(modelRule.Spec.Action.TargetGroups) == 0 {
-		r.log.Debugf("no target groups to resolve for rule %d", modelRule.Spec.Priority)
+		r.log.Debugf(ctx, "no target groups to resolve for rule %d", modelRule.Spec.Priority)
 		return nil
 	}
 
@@ -46,18 +46,18 @@ func (r *ruleSynthesizer) resolveRuleTgIds(ctx context.Context, modelRule *model
 		}
 
 		if rtg.LatticeTgId != "" {
-			r.log.Debugf("Rule TG %d already resolved %s", i, rtg.LatticeTgId)
+			r.log.Debugf(ctx, "Rule TG %d already resolved %s", i, rtg.LatticeTgId)
 			continue
 		}
 
 		if rtg.StackTargetGroupId != "" {
 			if rtg.StackTargetGroupId == model.InvalidBackendRefTgId {
-				r.log.Debugf("Rule TG has an invalid backendref, setting TG id to invalid")
+				r.log.Debugf(ctx, "Rule TG has an invalid backendref, setting TG id to invalid")
 				rtg.LatticeTgId = model.InvalidBackendRefTgId
 				continue
 			}
 
-			r.log.Debugf("Fetching TG %d from the stack (ID %s)", i, rtg.StackTargetGroupId)
+			r.log.Debugf(ctx, "Fetching TG %d from the stack (ID %s)", i, rtg.StackTargetGroupId)
 
 			stackTg := &model.TargetGroup{}
 			err := r.stack.GetResource(rtg.StackTargetGroupId, stackTg)
@@ -72,7 +72,7 @@ func (r *ruleSynthesizer) resolveRuleTgIds(ctx context.Context, modelRule *model
 		}
 
 		if rtg.SvcImportTG != nil {
-			r.log.Debugf("Getting target group for service import %s %s (%s, %s)",
+			r.log.Debugf(ctx, "Getting target group for service import %s %s (%s, %s)",
 				rtg.SvcImportTG.K8SServiceName, rtg.SvcImportTG.K8SServiceNamespace,
 				rtg.SvcImportTG.K8SClusterName, rtg.SvcImportTG.VpcId)
 			tgId, err := r.findSvcExportTG(ctx, *rtg.SvcImportTG)
@@ -223,7 +223,7 @@ func (r *ruleSynthesizer) adjustPriorities(ctx context.Context, snlStackRules ma
 		for _, rule := range activeRules {
 			if rule.Spec.Priority != rule.Status.Priority {
 				// *any* mismatch in priority prompts a batch update of ALL priorities
-				r.log.Debugf("Found rule priority mismatch, update required")
+				r.log.Debugf(ctx, "Found rule priority mismatch, update required")
 
 				var rulesToUpdate []*model.Rule
 				for _, snlRule := range activeRules {

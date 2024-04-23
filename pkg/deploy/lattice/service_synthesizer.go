@@ -41,7 +41,7 @@ func (s *serviceSynthesizer) Synthesize(ctx context.Context) error {
 	var svcErr error
 	for _, resService := range resServices {
 		svcName := utils.LatticeServiceName(resService.Spec.RouteName, resService.Spec.RouteNamespace)
-		s.log.Debugf("Synthesizing service: %s", svcName)
+		s.log.Debugf(ctx, "Synthesizing service: %s", svcName)
 		if resService.IsDeleted {
 			err := s.serviceManager.Delete(ctx, resService)
 			if err != nil {

@@ -59,7 +59,7 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 			modelTg.ID(), modelTargets.Spec.StackTargetGroupId)
 	}
 
-	s.log.Debugf("Creating targets for target group %s", modelTg.Status.Id)
+	s.log.Debugf(ctx, "Creating targets for target group %s", modelTg.Status.Id)
 
 	latticeTargets, err := s.List(ctx, modelTg)
 	if err != nil {
@@ -125,7 +125,7 @@ func (s *defaultTargetsManager) registerTargets(
 			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("Failed to register targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
 				modelTg.Status.Id, i+1, len(chunks), resp.Unsuccessful))
 		}
-		s.log.Debugf("Successfully registered %d targets from VPC Lattice Target Group %s for chunk %d/%d",
+		s.log.Debugf(ctx, "Successfully registered %d targets from VPC Lattice Target Group %s for chunk %d/%d",
 			len(resp.Successful), modelTg.Status.Id, i+1, len(chunks))
 	}
 	return registerTargetsError
@@ -158,7 +158,7 @@ func (s *defaultTargetsManager) deregisterTargets(
 			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("Failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
 				modelTg.Status.Id, i+1, len(chunks), resp.Unsuccessful))
 		}
-		s.log.Debugf("Successfully deregistered %d targets from VPC Lattice Target Group %s for chunk %d/%d", resp.Successful, modelTg.Status.Id, i+1, len(chunks))
+		s.log.Debugf(ctx, "Successfully deregistered %d targets from VPC Lattice Target Group %s for chunk %d/%d", resp.Successful, modelTg.Status.Id, i+1, len(chunks))
 	}
 	return deregisterTargetsError
 }

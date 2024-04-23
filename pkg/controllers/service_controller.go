@@ -73,10 +73,10 @@ func RegisterServiceController(
 //+kubebuilder:rbac:groups=core,resources=configmaps, verbs=create;delete;patch;update;get;list;watch
 
 func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow("reconcile", "name", req.Name)
+	r.log.Infow(ctx, "reconcile", "name", req.Name)
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
-		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	return lattice_runtime.HandleReconcileError(recErr)
 }
@@ -94,6 +94,6 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer)
 	}
 
-	r.log.Infow("reconciled", "name", req.Name)
+	r.log.Infow(ctx, "reconciled", "name", req.Name)
 	return nil
 }

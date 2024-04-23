@@ -44,14 +44,14 @@ func (c *TargetGroupPolicyController) Reconcile(ctx context.Context, req ctrl.Re
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	c.log.Infow("reconcile target group policy", "req", req, "targetRef", tgPolicy.Spec.TargetRef)
+	c.log.Infow(ctx, "reconcile target group policy", "req", req, "targetRef", tgPolicy.Spec.TargetRef)
 
 	_, err = c.ph.ValidateAndUpdateCondition(ctx, tgPolicy)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	c.log.Infow("reconciled target group policy",
+	c.log.Infow(ctx, "reconciled target group policy",
 		"req", req,
 		"targetRef", tgPolicy.Spec.TargetRef,
 	)

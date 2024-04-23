@@ -81,7 +81,7 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	t.log.Debugf("Building rules for %d listeners", len(modelListeners))
+	t.log.Debugf(ctx, "Building rules for %d listeners", len(modelListeners))
 	for _, modelListener := range modelListeners {
 		// building rules will also build target groups and targets as needed
 		// even on delete we try to build everything we may then need to remove
@@ -119,10 +119,10 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		// The 1st hostname will be used as lattice customer-domain-name
 		spec.CustomerDomainName = string(t.route.Spec().Hostnames()[0])
 
-		t.log.Infof("Setting customer-domain-name: %s for route %s-%s",
+		t.log.Infof(ctx, "Setting customer-domain-name: %s for route %s-%s",
 			spec.CustomerDomainName, t.route.Name(), t.route.Namespace())
 	} else {
-		t.log.Infof("No custom-domain-name for route %s-%s",
+		t.log.Infof(ctx, "No custom-domain-name for route %s-%s",
 			t.route.Name(), t.route.Namespace())
 		spec.CustomerDomainName = ""
 	}
@@ -138,7 +138,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		return nil, err
 	}
 
-	t.log.Debugf("Added service %s to the stack (ID %s)", svc.Spec.LatticeServiceName(), svc.ID())
+	t.log.Debugf(ctx, "Added service %s to the stack (ID %s)", svc.Spec.LatticeServiceName(), svc.ID())
 	svc.IsDeleted = !t.route.DeletionTimestamp().IsZero()
 	return svc, nil
 }
@@ -157,7 +157,7 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
 			// when a service is associate to multiple service network(s), all listener config MUST be same
 			// so here we are only using the 1st gateway
-			t.log.Debugf("Ignore ParentRef of different gateway %s-%s", parentRef.Name, parentRef.Namespace)
+			t.log.Debugf(ctx, "Ignore ParentRef of different gateway %s-%s", parentRef.Name, parentRef.Namespace)
 			continue
 		}
 
@@ -170,7 +170,7 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 				if section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModeTerminate {
 					curCertARN, ok := section.TLS.Options[awsCustomCertARN]
 					if ok {
-						t.log.Debugf("Found certification %s under section %s", curCertARN, section.Name)
+						t.log.Debugf(ctx, "Found certification %s under section %s", curCertARN, section.Name)
 						return string(curCertARN), nil
 					}
 				}

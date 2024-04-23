@@ -105,9 +105,9 @@ func main() {
 
 	logLevel := logLevel()
 	log := gwlog.NewLogger(logLevel)
-	ctrl.SetLogger(zapr.NewLogger(log.Desugar()).WithName("runtime"))
+	ctrl.SetLogger(zapr.NewLogger(log.InnerLogger.Desugar()).WithName("runtime"))
 
-	setupLog := log.Named("setup")
+	setupLog := log.InnerLogger.Named("setup")
 	err := config.ConfigInit()
 	if err != nil {
 		setupLog.Fatalf("init config failed: %s", err)

@@ -25,7 +25,7 @@ type PodReadinessGateInjector struct {
 
 func (m *PodReadinessGateInjector) Mutate(ctx context.Context, pod *corev1.Pod) error {
 	pct := corev1.PodConditionType(PodReadinessGateConditionType)
-	m.log.Debugf("Webhook invoked for pod %s/%s", pod.Name, pod.Namespace)
+	m.log.Debugf(ctx, "Webhook invoked for pod %s/%s", pod.Name, pod.Namespace)
 
 	found := false
 	for _, rg := range pod.Spec.ReadinessGates {

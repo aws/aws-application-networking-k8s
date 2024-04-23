@@ -38,7 +38,7 @@ var ZeroTransitionTime = metav1.NewTime(time.Time{})
 func (h *enqueueRequestsForGatewayEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	gwNew := e.Object.(*gateway_api.Gateway)
 
-	h.log.Infof("Received Create event for Gateway %s-%s", gwNew.Name, gwNew.Namespace)
+	h.log.Infof(ctx, "Received Create event for Gateway %s-%s", gwNew.Name, gwNew.Namespace)
 
 	// initialize transition time
 	gwNew.Status.Conditions[0].LastTransitionTime = ZeroTransitionTime
@@ -49,7 +49,7 @@ func (h *enqueueRequestsForGatewayEvent) Update(ctx context.Context, e event.Upd
 	gwOld := e.ObjectOld.(*gateway_api.Gateway)
 	gwNew := e.ObjectNew.(*gateway_api.Gateway)
 
-	h.log.Infof("Received Update event for Gateway %s-%s", gwNew.GetName(), gwNew.GetNamespace())
+	h.log.Infof(ctx, "Received Update event for Gateway %s-%s", gwNew.GetName(), gwNew.GetNamespace())
 
 	if !equality.Semantic.DeepEqual(gwOld.Spec, gwNew.Spec) {
 		// initialize transition time
@@ -69,13 +69,13 @@ func (h *enqueueRequestsForGatewayEvent) Generic(ctx context.Context, e event.Ge
 func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(ctx context.Context, queue workqueue.RateLimitingInterface) {
 	routes, err := core.ListAllRoutes(ctx, h.client)
 	if err != nil {
-		h.log.Errorf("Failed to list all routes, %s", err)
+		h.log.Errorf(ctx, "Failed to list all routes, %s", err)
 		return
 	}
 
 	for _, route := range routes {
 		if len(route.Spec().ParentRefs()) <= 0 {
-			h.log.Debugf("Ignoring Route with no parentRef %s-%s", route.Name(), route.Namespace())
+			h.log.Debugf(ctx, "Ignoring Route with no parentRef %s-%s", route.Name(), route.Namespace())
 			continue
 		}
 
@@ -92,7 +92,7 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(ctx context.Conte
 
 		gw := &gateway_api.Gateway{}
 		if err := h.client.Get(ctx, gwName, gw); err != nil {
-			h.log.Debugf("Ignoring Route with unknown parentRef %s-%s", route.Name(), route.Namespace())
+			h.log.Debugf(ctx, "Ignoring Route with unknown parentRef %s-%s", route.Name(), route.Namespace())
 			continue
 		}
 
@@ -104,12 +104,12 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(ctx context.Conte
 		}
 
 		if err := h.client.Get(ctx, gwClassName, gwClass); err != nil {
-			h.log.Debugf("Ignoring Route with unknown Gateway %s-%s", route.Name(), route.Namespace())
+			h.log.Debugf(ctx, "Ignoring Route with unknown Gateway %s-%s", route.Name(), route.Namespace())
 			continue
 		}
 
 		if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-			h.log.Debugf("Adding Route %s-%s to queue due to Gateway event", route.Name(), route.Namespace())
+			h.log.Debugf(ctx, "Adding Route %s-%s to queue due to Gateway event", route.Name(), route.Namespace())
 			queue.Add(reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: route.Namespace(),

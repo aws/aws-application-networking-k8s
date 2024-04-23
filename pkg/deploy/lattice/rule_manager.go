@@ -85,7 +85,7 @@ func (r *defaultRuleManager) UpdatePriorities(ctx context.Context, svcId string,
 		return fmt.Errorf("failed BatchUpdateRule %s, %s, due to %s", svcId, listenerId, err)
 	}
 
-	r.log.Infof("Success BatchUpdateRule %s, %s", svcId, listenerId)
+	r.log.Infof(ctx, "Success BatchUpdateRule %s, %s", svcId, listenerId)
 	return nil
 }
 
@@ -131,7 +131,7 @@ func (r *defaultRuleManager) buildLatticeRule(modelRule *model.Rule) (*vpclattic
 			},
 		}
 	} else {
-		r.log.Debugf("There are no valid target groups, defaulting to 404 Fixed response")
+		r.log.Debugf(context.TODO(), "There are no valid target groups, defaulting to 404 Fixed response")
 		gro.Action = &vpclattice.RuleAction{
 			FixedResponse: &vpclattice.FixedResponseAction{
 				StatusCode: aws.Int64(404),
@@ -169,7 +169,7 @@ func (r *defaultRuleManager) Upsert(
 		return model.RuleStatus{}, err
 	}
 
-	r.log.Debugf("Upsert rule %s for service %s-%s and listener port %d and protocol %s",
+	r.log.Debugf(ctx, "Upsert rule %s for service %s-%s and listener port %d and protocol %s",
 		aws.StringValue(latticeRuleFromModel.Name), latticeServiceId, latticeListenerId,
 		modelListener.Spec.Port, modelListener.Spec.Protocol)
 
@@ -217,7 +217,7 @@ func (r *defaultRuleManager) updateIfNeeded(
 	// we already validated Match, if Action is also the same then no updates required
 	updateNeeded := !reflect.DeepEqual(ruleToUpdate.Action, matchingRule.Action)
 	if !updateNeeded {
-		r.log.Debugf("rule unchanged, no updates required")
+		r.log.Debugf(ctx, "rule unchanged, no updates required")
 		return updatedRuleStatus, nil
 	}
 
@@ -240,7 +240,7 @@ func (r *defaultRuleManager) updateIfNeeded(
 			ruleToUpdate.Priority, latticeListenerId, latticeSvcId, err)
 	}
 
-	r.log.Infof("Success UpdateRule %d for %s, %s", ruleToUpdate.Priority, latticeListenerId, latticeSvcId)
+	r.log.Infof(ctx, "Success UpdateRule %d for %s, %s", ruleToUpdate.Priority, latticeListenerId, latticeSvcId)
 	return updatedRuleStatus, nil
 }
 
@@ -276,7 +276,7 @@ func (r *defaultRuleManager) create(
 		return model.RuleStatus{}, fmt.Errorf("failed CreateRule %s, %s due to %s", latticeListenerId, latticeSvcId, err)
 	}
 
-	r.log.Infof("Success CreateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
+	r.log.Infof(ctx, "Success CreateRule %s, %s", aws.StringValue(res.Name), aws.StringValue(res.Id))
 
 	return model.RuleStatus{
 		Name:       aws.StringValue(res.Name),
@@ -364,7 +364,7 @@ func (r *defaultRuleManager) nextAvailablePriority(latticeRules []*vpclattice.Ge
 }
 
 func (r *defaultRuleManager) Delete(ctx context.Context, ruleId string, serviceId string, listenerId string) error {
-	r.log.Debugf("Deleting rule %s for listener %s and service %s", ruleId, listenerId, serviceId)
+	r.log.Debugf(ctx, "Deleting rule %s for listener %s and service %s", ruleId, listenerId, serviceId)
 
 	deleteInput := vpclattice.DeleteRuleInput{
 		ServiceIdentifier:  aws.String(serviceId),
@@ -377,6 +377,6 @@ func (r *defaultRuleManager) Delete(ctx context.Context, ruleId string, serviceI
 		return fmt.Errorf("failed DeleteRule %s/%s/%s due to %s", serviceId, listenerId, ruleId, err)
 	}
 
-	r.log.Infof("Success DeleteRule %s/%s/%s", serviceId, listenerId, ruleId)
+	r.log.Infof(ctx, "Success DeleteRule %s/%s/%s", serviceId, listenerId, ruleId)
 	return nil
 }

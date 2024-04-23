@@ -249,7 +249,7 @@ func (h *PolicyHandler[P]) ObjResolvedPolicy(ctx context.Context, obj k8sclient.
 
 // Add Watchers for configured Kinds to controller builder
 func (h *PolicyHandler[P]) AddWatchers(b *builder.Builder, objs ...k8sclient.Object) {
-	h.log.Debugf("add watchers for types: %v", NewGroupKindSet(objs...).Items())
+	h.log.Debugf(context.TODO(), "add watchers for types: %v", NewGroupKindSet(objs...).Items())
 	for _, watchObj := range objs {
 		b.Watches(watchObj, handler.EnqueueRequestsFromMapFunc(h.watchMapFn))
 	}
@@ -259,7 +259,7 @@ func (h *PolicyHandler[P]) watchMapFn(ctx context.Context, obj k8sclient.Object)
 	out := []reconcile.Request{}
 	policies, err := h.client.List(ctx, obj.GetNamespace())
 	if err != nil {
-		h.log.Errorf("watch mapfn error: for obj=%s/%s: %w",
+		h.log.Errorf(ctx, "watch mapfn error: for obj=%s/%s: %w",
 			obj.GetName(), obj.GetNamespace(), err)
 		return nil
 	}

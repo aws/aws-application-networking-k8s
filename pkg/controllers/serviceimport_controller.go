@@ -71,17 +71,17 @@ func RegisterServiceImportController(
 //+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceimports/finalizers,verbs=update
 
 func (r *serviceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow("reconcile", "name", req.Name)
+	r.log.Infow(ctx, "reconcile", "name", req.Name)
 
 	serviceImport := &anv1alpha1.ServiceImport{}
 
 	if err := r.client.Get(ctx, req.NamespacedName, serviceImport); err != nil {
-		r.log.Info("Item Not Found")
+		r.log.Info(ctx, "Item Not Found")
 		return ctrl.Result{}, nil
 	}
 
 	if !serviceImport.DeletionTimestamp.IsZero() {
-		r.log.Info("Deleting")
+		r.log.Info(ctx, "Deleting")
 		r.finalizerManager.RemoveFinalizers(ctx, serviceImport, serviceImportFinalizer)
 		return ctrl.Result{}, nil
 	} else {
@@ -89,7 +89,7 @@ func (r *serviceImportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.eventRecorder.Event(serviceImport, corev1.EventTypeWarning, k8s.ServiceImportEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 			return ctrl.Result{}, nil
 		}
-		r.log.Info("Adding/Updating")
+		r.log.Info(ctx, "Adding/Updating")
 
 		return ctrl.Result{}, nil
 	}

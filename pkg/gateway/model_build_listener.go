@@ -20,10 +20,10 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 ) (int64, string, error) {
 	protocol := gwv1.HTTPProtocolType
 	if parentRef.SectionName != nil {
-		t.log.Debugf("Listener parentRef SectionName is %s", *parentRef.SectionName)
+		t.log.Debugf(ctx, "Listener parentRef SectionName is %s", *parentRef.SectionName)
 	}
 
-	t.log.Debugf("Building Listener for Route %s-%s", t.route.Name(), t.route.Namespace())
+	t.log.Debugf(ctx, "Building Listener for Route %s-%s", t.route.Name(), t.route.Namespace())
 	gw, err := t.getGateway(ctx)
 	if err != nil {
 		return 0, "", err
@@ -77,10 +77,10 @@ func (t *latticeServiceModelBuildTask) getGateway(ctx context.Context) (*gwv1bet
 
 func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stackSvcId string) error {
 	if len(t.route.Spec().ParentRefs()) == 0 {
-		t.log.Debugf("No ParentRefs on route %s-%s, nothing to do", t.route.Name(), t.route.Namespace())
+		t.log.Debugf(ctx, "No ParentRefs on route %s-%s, nothing to do", t.route.Name(), t.route.Namespace())
 	}
 	if !t.route.DeletionTimestamp().IsZero() {
-		t.log.Debugf("Route %s-%s is deleted, skipping listener build", t.route.Name(), t.route.Namespace())
+		t.log.Debugf(ctx, "Route %s-%s is deleted, skipping listener build", t.route.Name(), t.route.Namespace())
 		return nil
 	}
 
@@ -88,7 +88,7 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
 			// when a service is associate to multiple service network(s), all listener config MUST be same
 			// so here we are only using the 1st gateway
-			t.log.Debugf("Ignore parentref of different gateway %s-%s", parentRef.Name, parentRef.Namespace)
+			t.log.Debugf(ctx, "Ignore parentref of different gateway %s-%s", parentRef.Name, parentRef.Namespace)
 			continue
 		}
 
@@ -110,7 +110,7 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 			return err
 		}
 
-		t.log.Debugf("Added listener %s-%s to the stack (ID %s)",
+		t.log.Debugf(ctx, "Added listener %s-%s to the stack (ID %s)",
 			modelListener.Spec.K8SRouteName, modelListener.Spec.K8SRouteNamespace, modelListener.ID())
 	}
 

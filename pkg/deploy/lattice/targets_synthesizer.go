@@ -51,7 +51,7 @@ func (t *targetsSynthesizer) Synthesize(ctx context.Context) error {
 	var resTargets []*model.Targets
 	err := t.stack.ListResources(&resTargets)
 	if err != nil {
-		t.log.Errorf("Failed to list targets due to %s", err)
+		t.log.Errorf(ctx, "Failed to list targets due to %s", err)
 	}
 
 	for _, targets := range resTargets {
@@ -77,7 +77,7 @@ func (t *targetsSynthesizer) PostSynthesize(ctx context.Context) error {
 	var resTargets []*model.Targets
 	err := t.stack.ListResources(&resTargets)
 	if err != nil {
-		t.log.Errorf("Failed to list targets due to %s", err)
+		t.log.Errorf(ctx, "Failed to list targets due to %s", err)
 	}
 
 	requeueNeeded := false

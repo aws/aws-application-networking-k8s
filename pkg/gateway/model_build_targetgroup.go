@@ -111,7 +111,7 @@ func (t *svcExportTargetGroupModelBuildTask) run(ctx context.Context) error {
 	if !tg.IsDeleted {
 		err = t.buildTargets(ctx, tg.ID())
 		if err != nil {
-			t.log.Debugf("Failed to build targets for service export %s-%s due to %s",
+			t.log.Debugf(ctx, "Failed to build targets for service export %s-%s due to %s",
 				t.serviceExport.Name, t.serviceExport.Namespace, err)
 			return err
 		}
@@ -228,7 +228,7 @@ func (b *BackendRefTargetGroupBuilder) Build(
 ) (core.Stack, *model.TargetGroup, error) {
 	if stack == nil {
 		stack = core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
-		b.log.Debugf("Creating new stack for build task")
+		b.log.Debugf(ctx, "Creating new stack for build task")
 	}
 
 	task := backendRefTargetGroupModelBuildTask{
@@ -261,7 +261,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroup(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	t.log.Debugf("Added target group for backendRef %s to the stack %s", t.backendRef.Name(), stackTG.ID())
+	t.log.Debugf(ctx, "Added target group for backendRef %s to the stack %s", t.backendRef.Name(), stackTG.ID())
 
 	stackTG.IsDeleted = !t.route.DeletionTimestamp().IsZero() // should always be false
 	if !stackTG.IsDeleted {
@@ -273,7 +273,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroup(ctx context.Conte
 
 func (t *backendRefTargetGroupModelBuildTask) buildTargets(ctx context.Context, stackTgId string) error {
 	if string(*t.backendRef.Kind()) == "ServiceImport" {
-		t.log.Debugf("Service import does not manage targets, returning")
+		t.log.Debugf(ctx, "Service import does not manage targets, returning")
 		return nil
 	}
 	backendRefNsName := getBackendRefNsName(t.route, t.backendRef)
@@ -295,7 +295,7 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargets(ctx context.Context, 
 func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.Context) (model.TargetGroupSpec, error) {
 	// note we only build target groups for backendRefs on non-deleted routes
 	backendKind := string(*t.backendRef.Kind())
-	t.log.Debugf("buildTargetGroupSpec, kind %s", backendKind)
+	t.log.Debugf(ctx, "buildTargetGroupSpec, kind %s", backendKind)
 
 	vpc := config.VpcID
 	eksCluster := config.ClusterName

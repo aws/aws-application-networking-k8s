@@ -103,18 +103,18 @@ func RegisterAccessLogPolicyController(
 }
 
 func (r *accessLogPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow("reconcile", "name", req.Name)
+	r.log.Infow(context.TODO(), "reconcile", "name", req.Name)
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
-		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+		r.log.Infow(context.TODO(), "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
-		r.log.Infow("requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
+		r.log.Infow(context.TODO(), "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
 	} else if res.Requeue {
-		r.log.Infow("requeue request", "name", req.Name)
+		r.log.Infow(context.TODO(), "requeue request", "name", req.Name)
 	} else if retryErr == nil {
-		r.log.Infow("reconciled", "name", req.Name)
+		r.log.Infow(context.TODO(), "reconciled", "name", req.Name)
 	}
 	return res, retryErr
 }
@@ -265,12 +265,12 @@ func (r *accessLogPolicyReconciler) buildAndDeployModel(
 	if err != nil {
 		return nil, err
 	}
-	r.log.Debugw("Successfully built model", "stack", jsonStack)
+	r.log.Debugw(context.TODO(), "Successfully built model", "stack", jsonStack)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		return nil, err
 	}
-	r.log.Debugf("successfully deployed model for stack %s:%s", stack.StackID().Name, stack.StackID().Namespace)
+	r.log.Debugf(context.TODO(), "successfully deployed model for stack %s:%s", stack.StackID().Name, stack.StackID().Namespace)
 
 	return stack, nil
 }
@@ -341,7 +341,7 @@ func (r *accessLogPolicyReconciler) findImpactedAccessLogPolicies(ctx context.Co
 	alps := &anv1alpha1.AccessLogPolicyList{}
 	err := r.client.List(ctx, alps, listOptions)
 	if err != nil {
-		r.log.Errorf("Failed to list all Access Log Policies, %s", err)
+		r.log.Errorf(context.TODO(), "Failed to list all Access Log Policies, %s", err)
 		return []reconcile.Request{}
 	}
 
@@ -357,7 +357,7 @@ func (r *accessLogPolicyReconciler) findImpactedAccessLogPolicies(ctx context.Co
 			continue
 		}
 
-		r.log.Debugf("Adding Access Log Policy %s/%s to queue due to %s event", alp.Namespace, alp.Name, targetRefKind)
+		r.log.Debugf(context.TODO(), "Adding Access Log Policy %s/%s to queue due to %s event", alp.Namespace, alp.Name, targetRefKind)
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: alp.Namespace,

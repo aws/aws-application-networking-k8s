@@ -72,7 +72,7 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 		if l.shouldDelete(latticeListenerAsModel, stackListeners) {
 			err = l.listenerMgr.Delete(ctx, latticeListenerAsModel)
 			if err != nil {
-				l.log.Infof("Failed ListenerManager.Delete %s due to %s", latticeListenerAsModel.Status.Id, err)
+				l.log.Infof(ctx, "Failed ListenerManager.Delete %s due to %s", latticeListenerAsModel.Status.Id, err)
 			}
 		}
 	}
@@ -104,13 +104,13 @@ func (l *listenerSynthesizer) getLatticeListenersAsModels(ctx context.Context) (
 	// get the listeners for each service
 	for _, modelSvc := range modelSvcs {
 		if modelSvc.IsDeleted {
-			l.log.Debugf("Ignoring deleted service %s", modelSvc.LatticeServiceName())
+			l.log.Debugf(ctx, "Ignoring deleted service %s", modelSvc.LatticeServiceName())
 			continue
 		}
 
 		listenerSummaries, err := l.listenerMgr.List(ctx, modelSvc.Status.Id)
 		if err != nil {
-			l.log.Infof("Ignoring error when listing listeners %s", err)
+			l.log.Infof(ctx, "Ignoring error when listing listeners %s", err)
 			continue
 		}
 		for _, latticeListener := range listenerSummaries {

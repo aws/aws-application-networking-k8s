@@ -124,7 +124,7 @@ func RegisterAllRouteControllers(
 			if err != nil {
 				return err
 			}
-			log.Infof("TargetGroupPolicy CRD is not installed, skipping watch")
+			log.Info(context.Background(), "TargetGroupPolicy CRD is not installed, skipping watch")
 		}
 
 		if ok, err := k8s.IsGVKSupported(mgr, "externaldns.k8s.io/v1alpha1", "DNSEndpoint"); ok {
@@ -133,7 +133,7 @@ func RegisterAllRouteControllers(
 			if err != nil {
 				return err
 			}
-			log.Infof("DNSEndpoint CRD is not installed, skipping watch")
+			log.Info(context.Background(), "DNSEndpoint CRD is not installed, skipping watch")
 		}
 
 		err := builder.Complete(&reconciler)
@@ -150,10 +150,17 @@ func RegisterAllRouteControllers(
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/finalizers;httproutes/finalizers,verbs=update
 
 func (r *routeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow("reconcile", "name", req.Name)
+	ctx = gwlog.NewTrace(ctx)
+	gwlog.AddMetadata(ctx, "type", "route")
+	gwlog.AddMetadata(ctx, "name", req.Name)
+
+	r.log.Infow(ctx, "reconcile")
+	defer func() {
+		r.log.Infow(ctx, "shulin_was_here", gwlog.GetMetadata(ctx)...)
+	}()
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
-		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	return lattice_runtime.HandleReconcileError(recErr)
 }
@@ -180,7 +187,7 @@ func (r *routeReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 }
 
 func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request, route core.Route) error {
-	r.log.Infow("reconcile, deleting", "name", req.Name)
+	r.log.Infow(ctx, "reconcile, deleting", "name", req.Name)
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 		k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 
@@ -192,7 +199,7 @@ func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request,
 		return err
 	}
 
-	r.log.Infow("reconciled", "name", req.Name)
+	r.log.Infow(ctx, "reconciled", "name", req.Name)
 	return r.finalizerManager.RemoveFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType])
 }
 
@@ -229,7 +236,7 @@ func updateRouteListenerStatus(ctx context.Context, k8sClient client.Client, rou
 
 func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route) bool {
 	if len(route.Spec().ParentRefs()) == 0 {
-		r.log.Infof("Ignore Route which has no ParentRefs gateway %s ", route.Name())
+		r.log.Infof(ctx, "Ignore Route which has no ParentRefs gateway %s ", route.Name())
 		return false
 	}
 
@@ -245,7 +252,7 @@ func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	}
 
 	if err := r.client.Get(ctx, gwName, gw); err != nil {
-		r.log.Infof("Could not find gateway %s with err %s. Ignoring route %+v whose ParentRef gateway object"+
+		r.log.Infof(ctx, "Could not find gateway %s with err %s. Ignoring route %+v whose ParentRef gateway object"+
 			" is not defined.", gwName.String(), err, route.Spec())
 		return false
 	}
@@ -258,16 +265,16 @@ func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	}
 
 	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
-		r.log.Infof("Ignore Route not controlled by any GatewayClass %s, %s", route.Name(), route.Namespace())
+		r.log.Infof(ctx, "Ignore Route not controlled by any GatewayClass %s, %s", route.Name(), route.Namespace())
 		return false
 	}
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-		r.log.Infof("Found aws-vpc-lattice for Route for %s, %s", route.Name(), route.Namespace())
+		r.log.Infof(ctx, "Found aws-vpc-lattice for Route for %s, %s", route.Name(), route.Namespace())
 		return true
 	}
 
-	r.log.Infof("Ignore non aws-vpc-lattice Route %s, %s", route.Name(), route.Namespace())
+	r.log.Infof(ctx, "Ignore non aws-vpc-lattice Route %s, %s", route.Name(), route.Namespace())
 	return false
 }
 
@@ -280,7 +287,7 @@ func (r *routeReconciler) buildAndDeployModel(
 	if err != nil {
 		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
 			k8s.RouteEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %s", err))
-		r.log.Infof("buildAndDeployModel, Failed build model for %s due to %s", route.Name(), err)
+		r.log.Infof(ctx, "buildAndDeployModel, Failed build model for %s due to %s", route.Name(), err)
 
 		// Build failed
 		// TODO continue deploy to trigger reconcile of stale Route and policy
@@ -289,10 +296,10 @@ func (r *routeReconciler) buildAndDeployModel(
 
 	json, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
-		r.log.Errorf("error on r.stackMarshaller.Marshal error %s", err)
+		r.log.Errorf(ctx, "error on r.stackMarshaller.Marshal error %s", err)
 	}
 
-	r.log.Debugf("stack: %s", json)
+	r.log.Debugf(ctx, "stack: %s", json)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		if errors.As(err, &lattice.RetryErr) {
@@ -309,7 +316,7 @@ func (r *routeReconciler) buildAndDeployModel(
 }
 
 func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request, route core.Route) error {
-	r.log.Infow("reconcile, adding or updating", "name", req.Name)
+	r.log.Infow(ctx, "reconcile, adding or updating", "name", req.Name)
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 		k8s.RouteEventReasonReconcile, "Adding/Updating Reconcile")
 
@@ -322,7 +329,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		// we delete Service and we suppose to delete TargetGroup, this validation will
 		// throw error if Service is not found.  For now just update route status and log
 		// error.
-		r.log.Infof("route: %s: %s", route.Name(), err)
+		r.log.Infof(ctx, "route: %s: %s", route.Name(), err)
 	}
 
 	backendRefIPFamiliesErr := r.validateBackendRefsIpFamilies(ctx, route)
@@ -376,7 +383,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 	}
 
 	if svc == nil || svc.DnsEntry == nil || svc.DnsEntry.DomainName == nil {
-		r.log.Infof("Either service, dns entry, or domain name is not available. Will Retry")
+		r.log.Infof(ctx, "Either service, dns entry, or domain name is not available. Will Retry")
 		return errors.New(lattice.LATTICE_RETRY)
 	}
 
@@ -384,12 +391,12 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		return err
 	}
 
-	r.log.Infow("reconciled", "name", req.Name)
+	r.log.Infow(ctx, "reconciled", "name", req.Name)
 	return nil
 }
 
 func (r *routeReconciler) updateRouteAnnotation(ctx context.Context, dns string, route core.Route) error {
-	r.log.Debugf("Updating route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
+	r.log.Debugf(ctx, "Updating route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
 	routeOld := route.DeepCopy()
 
 	if len(route.K8sObject().GetAnnotations()) == 0 {
@@ -401,7 +408,7 @@ func (r *routeReconciler) updateRouteAnnotation(ctx context.Context, dns string,
 		return fmt.Errorf("failed to update route status due to err %w", err)
 	}
 
-	r.log.Debugf("Successfully updated route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
+	r.log.Debugf(ctx, "Successfully updated route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
 	return nil
 }
 

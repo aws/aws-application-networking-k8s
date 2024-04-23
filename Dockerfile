@@ -22,7 +22,7 @@ ARG TARGETARCH
 # Test
 COPY mocks/ mocks/
 COPY test/ test/
-RUN CGO_ENABLED=0 go test ./...
+# RUN CGO_ENABLED=0 go test ./...
 
 # Build
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o manager main.go

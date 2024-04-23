@@ -41,7 +41,7 @@ func (h *serviceImportEventHandler) mapToRoute(ctx context.Context, obj client.O
 	for _, route := range routes {
 		routeName := k8s.NamespacedName(route.K8sObject())
 		requests = append(requests, reconcile.Request{NamespacedName: routeName})
-		h.log.Infow("ServiceImport resource change triggered Route update",
+		h.log.Infow(ctx, "ServiceImport resource change triggered Route update",
 			"serviceName", obj.GetNamespace()+"/"+obj.GetName(), "routeName", routeName, "routeType", routeType)
 	}
 	return requests
