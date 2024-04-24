@@ -71,7 +71,14 @@ func RegisterServiceImportController(
 //+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceimports/finalizers,verbs=update
 
 func (r *serviceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow(ctx, "reconcile", "name", req.Name)
+	ctx = gwlog.NewTrace(ctx)
+	gwlog.AddMetadata(ctx, "type", "serviceimport")
+	gwlog.AddMetadata(ctx, "name", req.Name)
+
+	r.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	defer func() {
+		r.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+	}()
 
 	serviceImport := &anv1alpha1.ServiceImport{}
 

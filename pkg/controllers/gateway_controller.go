@@ -119,9 +119,18 @@ func RegisterGatewayController(
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/finalizers,verbs=update
 
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow(ctx, "reconcile", "name", req.Name)
+	ctx = gwlog.NewTrace(ctx)
+	gwlog.AddMetadata(ctx, "type", "gateway")
+	gwlog.AddMetadata(ctx, "name", req.Name)
+
+	r.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	defer func() {
+		r.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+	}()
+
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
+		gwlog.AddMetadata(ctx, "error", recErr.Error())
 		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)

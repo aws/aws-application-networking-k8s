@@ -73,7 +73,14 @@ func RegisterServiceController(
 //+kubebuilder:rbac:groups=core,resources=configmaps, verbs=create;delete;patch;update;get;list;watch
 
 func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow(ctx, "reconcile", "name", req.Name)
+	ctx = gwlog.NewTrace(ctx)
+	gwlog.AddMetadata(ctx, "type", "service")
+	gwlog.AddMetadata(ctx, "name", req.Name)
+
+	r.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	defer func() {
+		r.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+	}()
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
 		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())

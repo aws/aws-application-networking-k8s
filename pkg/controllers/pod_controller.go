@@ -49,6 +49,15 @@ func RegisterPodController(log gwlog.Logger, mgr ctrl.Manager) error {
 //+kubebuilder:rbac:groups=core,resources=pods/finalizers,verbs=update
 
 func (r *podReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = gwlog.NewTrace(ctx)
+	gwlog.AddMetadata(ctx, "type", "pod")
+	gwlog.AddMetadata(ctx, "name", req.Name)
+
+	r.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	defer func() {
+		r.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+	}()
+
 	pod := &corev1.Pod{}
 	if err := r.client.Get(ctx, req.NamespacedName, pod); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)

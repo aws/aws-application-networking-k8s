@@ -56,7 +56,14 @@ func RegisterGatewayClassController(log gwlog.Logger, mgr ctrl.Manager) error {
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses/finalizers,verbs=update
 
 func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow(ctx, "reconcile", "name", req.Name)
+	ctx = gwlog.NewTrace(ctx)
+	gwlog.AddMetadata(ctx, "type", "gatewayclass")
+	gwlog.AddMetadata(ctx, "name", req.Name)
+
+	r.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	defer func() {
+		r.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+	}()
 
 	gwClass := &gwv1beta1.GatewayClass{}
 	if err := r.client.Get(ctx, req.NamespacedName, gwClass); err != nil {

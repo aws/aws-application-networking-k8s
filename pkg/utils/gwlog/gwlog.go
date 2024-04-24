@@ -17,9 +17,8 @@ type TracedLogger struct {
 func (t *TracedLogger) Infow(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	if GetTrace(ctx) != "" {
 		keysAndValues = append(keysAndValues, string(traceID), GetTrace(ctx))
-		return
 	}
-	t.InnerLogger.Infow(msg, keysAndValues)
+	t.InnerLogger.Infow(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Infof(ctx context.Context, template string, args ...interface{}) {
@@ -27,7 +26,7 @@ func (t *TracedLogger) Infof(ctx context.Context, template string, args ...inter
 		t.InnerLogger.Infow(fmt.Sprintf(template, args...), string(traceID), GetTrace(ctx))
 		return
 	}
-	t.InnerLogger.Infof(template, args)
+	t.InnerLogger.Infof(template, args...)
 }
 
 func (t *TracedLogger) Info(ctx context.Context, msg string) {
@@ -41,7 +40,6 @@ func (t *TracedLogger) Info(ctx context.Context, msg string) {
 func (t *TracedLogger) Errorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	if GetTrace(ctx) != "" {
 		keysAndValues = append(keysAndValues, string(traceID), GetTrace(ctx))
-		return
 	}
 	t.InnerLogger.Errorw(msg, keysAndValues)
 }
@@ -51,7 +49,7 @@ func (t *TracedLogger) Errorf(ctx context.Context, template string, args ...inte
 		t.InnerLogger.Errorw(fmt.Sprintf(template, args...), string(traceID), GetTrace(ctx))
 		return
 	}
-	t.InnerLogger.Errorf(template, args)
+	t.InnerLogger.Errorf(template, args...)
 }
 
 func (t *TracedLogger) Error(ctx context.Context, msg string) {
@@ -65,9 +63,8 @@ func (t *TracedLogger) Error(ctx context.Context, msg string) {
 func (t *TracedLogger) Debugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	if GetTrace(ctx) != "" {
 		keysAndValues = append(keysAndValues, string(traceID), GetTrace(ctx))
-		return
 	}
-	t.InnerLogger.Debugw(msg, keysAndValues)
+	t.InnerLogger.Debugw(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Debugf(ctx context.Context, template string, args ...interface{}) {
@@ -75,7 +72,7 @@ func (t *TracedLogger) Debugf(ctx context.Context, template string, args ...inte
 		t.InnerLogger.Debugw(fmt.Sprintf(template, args...), string(traceID), GetTrace(ctx))
 		return
 	}
-	t.InnerLogger.Debugf(template, args)
+	t.InnerLogger.Debugf(template, args...)
 }
 
 func (t *TracedLogger) Debug(ctx context.Context, msg string) {
@@ -89,9 +86,8 @@ func (t *TracedLogger) Debug(ctx context.Context, msg string) {
 func (t *TracedLogger) Warnw(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	if GetTrace(ctx) != "" {
 		keysAndValues = append(keysAndValues, string(traceID), GetTrace(ctx))
-		return
 	}
-	t.InnerLogger.Warnw(msg, keysAndValues)
+	t.InnerLogger.Warnw(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Warnf(ctx context.Context, template string, args ...interface{}) {
@@ -99,7 +95,7 @@ func (t *TracedLogger) Warnf(ctx context.Context, template string, args ...inter
 		t.InnerLogger.Warnw(fmt.Sprintf(template, args...), string(traceID), GetTrace(ctx))
 		return
 	}
-	t.InnerLogger.Warnf(template, args)
+	t.InnerLogger.Warnf(template, args...)
 }
 
 func (t *TracedLogger) Warn(ctx context.Context, msg string) {
@@ -134,6 +130,7 @@ func NewLogger(level zapcore.Level) Logger {
 	if err != nil {
 		log.Fatal("cannot initialize zapr logger", err)
 	}
+
 	return &TracedLogger{InnerLogger: z.Sugar().WithOptions(zap.AddCallerSkip(1))}
 }
 
