@@ -3,12 +3,15 @@ package aws
 import (
 	"fmt"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"golang.org/x/exp/maps"
 
 	"context"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/metrics"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -47,7 +50,7 @@ type Cloud interface {
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud(log gwlog.Logger, cfg CloudConfig) (Cloud, error) {
+func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
 	sess, err := session.NewSession()
 	if err != nil {
 		return nil, err
@@ -69,6 +72,14 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig) (Cloud, error) {
 			)
 		}
 	})
+
+	if metricsRegisterer != nil {
+		metricsCollector, err := metrics.NewCollector(metricsRegisterer)
+		if err != nil {
+			return nil, err
+		}
+		metricsCollector.InjectHandlers(&sess.Handlers)
+	}
 
 	lattice := services.NewDefaultLattice(sess, cfg.AccountId, cfg.Region)
 	tagging := services.NewDefaultTagging(sess, cfg.Region)
