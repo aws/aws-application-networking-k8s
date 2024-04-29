@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"testing"
+
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	aws2 "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -27,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/external-dns/endpoint"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"testing"
 )
 
 func TestRouteReconciler_ReconcileCreates(t *testing.T) {
@@ -170,6 +171,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 		}).AnyTimes()
 	mockCloud.EXPECT().DefaultTags().Return(mocks.Tags{}).AnyTimes()
 	mockCloud.EXPECT().DefaultTagsMergedWith(gomock.Any()).Return(mocks.Tags{}).AnyTimes()
+	mockCloud.EXPECT().FindTargetGroupARNs(ctx, gomock.Any()).Return([]string{}, nil).AnyTimes()
 
 	// we expect a fair number of lattice calls
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(
@@ -233,7 +235,6 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			},
 		}, nil) // will trigger DNS Update
 
-	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(
 		[]*vpclattice.TargetGroupSummary{}, nil).AnyTimes() // this will cause us to skip "unused delete" step
 	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(

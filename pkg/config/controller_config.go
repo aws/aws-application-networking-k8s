@@ -23,6 +23,7 @@ const (
 	CLUSTER_VPC_ID                  = "CLUSTER_VPC_ID"
 	CLUSTER_NAME                    = "CLUSTER_NAME"
 	DEFAULT_SERVICE_NETWORK         = "DEFAULT_SERVICE_NETWORK"
+	ENABLE_PRIVATE_VPC              = "ENABLE_PRIVATE_VPC"
 	ENABLE_SERVICE_NETWORK_OVERRIDE = "ENABLE_SERVICE_NETWORK_OVERRIDE"
 	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
 	DEV_MODE                        = "DEV_MODE"
@@ -37,6 +38,7 @@ var ClusterName = ""
 var DevMode = ""
 var WebhookEnabled = ""
 
+var EnablePrivateVPC = false
 var ServiceNetworkOverrideMode = false
 
 func ConfigInit() error {
@@ -80,6 +82,12 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 	overrideFlag := os.Getenv(ENABLE_SERVICE_NETWORK_OVERRIDE)
 	if strings.ToLower(overrideFlag) == "true" && DefaultServiceNetwork != "" {
 		ServiceNetworkOverrideMode = true
+	}
+
+	privateVPC := os.Getenv(ENABLE_PRIVATE_VPC)
+
+	if strings.ToLower(privateVPC) == "true" {
+		EnablePrivateVPC = true
 	}
 
 	ClusterName, err = getClusterName(sess)

@@ -18,12 +18,13 @@ package main
 
 import (
 	"flag"
+	"os"
+	"strings"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/webhook"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap/zapcore"
-	"os"
 	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
-	"strings"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -121,6 +122,7 @@ func main() {
 		"DefaultServiceNetwork", config.DefaultServiceNetwork,
 		"ClusterName", config.ClusterName,
 		"LogLevel", logLevel,
+		"EnablePrivateVPC", config.EnablePrivateVPC,
 	)
 
 	cloud, err := aws.NewCloud(log.Named("cloud"), aws.CloudConfig{
@@ -128,6 +130,7 @@ func main() {
 		AccountId:   config.AccountID,
 		Region:      config.Region,
 		ClusterName: config.ClusterName,
+		PrivateVPC:  config.EnablePrivateVPC,
 	}, metrics.Registry)
 	if err != nil {
 		setupLog.Fatal("cloud client setup failed: %s", err)

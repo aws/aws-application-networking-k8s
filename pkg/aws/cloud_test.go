@@ -30,7 +30,7 @@ func TestGetManagedByTag(t *testing.T) {
 }
 
 func TestDefaultTags(t *testing.T) {
-	cfg := CloudConfig{"acc", "vpc", "region", "cluster"}
+	cfg := CloudConfig{"acc", "vpc", "region", "cluster", false}
 	c := NewDefaultCloud(nil, cfg)
 	tags := c.DefaultTags()
 	tagWant := getManagedByTag(cfg)
