@@ -102,11 +102,9 @@ func errorCodeForRequest(r *request.Request) string {
 }
 
 // operationForRequest returns the operation for request.
-/*
 func operationForRequest(r *request.Request) string {
 	if r.Operation != nil {
 		return r.Operation.Name
 	}
 	return "?"
 }
-*/
