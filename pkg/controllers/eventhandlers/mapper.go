@@ -193,7 +193,15 @@ func (r *resourceMapper) backendRefToRoutes(ctx context.Context, obj client.Obje
 func (r *resourceMapper) isBackendRefUsedByRoute(route core.Route, obj client.Object, group, kind string) bool {
 	for _, rule := range route.Spec().Rules() {
 		for _, backendRef := range rule.BackendRefs() {
-			isGroupEqual := backendRef.Group() != nil && string(*backendRef.Group()) == group
+			var isGroupEqual bool
+			if group == corev1.GroupName || (group == anv1alpha1.GroupName && kind == serviceImportKind) {
+				// from spec: "When [Group] unspecified or empty string, core API group is inferred."
+				// we deviate from spec slightly that for ServiceImport we have not historically required a Group
+				isGroupEqual = backendRef.Group() == nil || string(*backendRef.Group()) == group
+			} else {
+				// otherwise, make sure the group matches
+				isGroupEqual = backendRef.Group() != nil && string(*backendRef.Group()) == group
+			}
 			isKindEqual := backendRef.Kind() != nil && string(*backendRef.Kind()) == kind
 			isNameEqual := string(backendRef.Name()) == obj.GetName()
 

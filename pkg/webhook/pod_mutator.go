@@ -33,7 +33,7 @@ func (m *podMutator) Prototype(_ admission.Request) (runtime.Object, error) {
 
 func (m *podMutator) MutateCreate(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
 	pod := obj.(*corev1.Pod)
-	if err := m.podReadinessGateInjector.Mutate(ctx, pod); err != nil {
+	if err := m.podReadinessGateInjector.MutateCreate(ctx, pod); err != nil {
 		return pod, err
 	}
 	return pod, nil
