@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"fmt"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/webhook"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	. "github.com/onsi/ginkgo/v2"
@@ -59,8 +60,33 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
 	})
 
-	It("create deployment in tagged namespace, has readiness gate", func() {
+	It("create deployment in tagged namespace, but no gateway/route reference, no readiness gate", func() {
 		deployment, _ := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "tagged-test-pod", Namespace: taggedNS.Name})
+		Eventually(func(g Gomega) {
+			testFramework.Create(ctx, deployment)
+			testFramework.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+
+			pods := testFramework.GetPodsByDeploymentName(deployment.Name, deployment.Namespace)
+			g.Expect(len(pods)).To(BeEquivalentTo(1))
+
+			pod := pods[0]
+			pct := corev1.PodConditionType(webhook.PodReadinessGateConditionType)
+
+			for _, rg := range pod.Spec.ReadinessGates {
+				if rg.ConditionType == pct {
+					g.Expect(true).To(BeFalse(), "Pod readiness gate was injected without gateway/route reference")
+				}
+			}
+		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+	})
+
+	It("create deployment in tagged namespace, gate injected and transitions to healthy", func() {
+		deployment, service := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "tagged-test-pod", Namespace: taggedNS.Name})
+		httpRoute := testFramework.NewHttpRoute(testGateway, service, "Service")
+
+		// first create the http route so we can be sure the readiness gate gets flagged
+		testFramework.Create(ctx, httpRoute)
+
 		Eventually(func(g Gomega) {
 			testFramework.Create(ctx, deployment)
 			testFramework.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
@@ -80,6 +106,10 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 
 			g.Expect(foundCount).To(Equal(1),
 				fmt.Sprintf("Pod readiness gate was expected on labeled namespace. Found %d times", foundCount))
+
+			status := utils.FindPodStatusCondition(pod.Status.Conditions, pct)
+			g.Expect(status.Status).ToNot(BeNil(), "Pod status should update with readiness gate")
+			g.Expect(status.Status).To(Equal(corev1.ConditionTrue), "Pod status should be true")
 		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
 	})
 
