@@ -52,6 +52,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var (
@@ -126,7 +128,7 @@ func main() {
 		AccountId:   config.AccountID,
 		Region:      config.Region,
 		ClusterName: config.ClusterName,
-	})
+	}, metrics.Registry)
 	if err != nil {
 		setupLog.Fatal("cloud client setup failed: %s", err)
 	}
