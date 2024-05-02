@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -389,6 +390,7 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 			}
 
 			h := &mutatingHandler{
+				log:     gwlog.FallbackLogger,
 				mutator: mutator,
 				decoder: tt.fields.decoder,
 			}

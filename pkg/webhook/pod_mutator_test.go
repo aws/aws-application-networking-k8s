@@ -1114,7 +1114,7 @@ func Test_ReadinessGateInjection(t *testing.T) {
 			}
 
 			injector := NewPodReadinessGateInjector(k8sClient, gwlog.FallbackLogger)
-			m := NewPodMutator(k8sScheme, injector)
+			m := NewPodMutator(gwlog.FallbackLogger, k8sScheme, injector)
 
 			var retPod runtime.Object
 			var err error

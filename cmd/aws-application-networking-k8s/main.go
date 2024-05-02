@@ -161,11 +161,12 @@ func main() {
 	}
 
 	if enableWebhook {
+		logger := log.Named("pod-readiness-gate-injector")
 		readinessGateInjector := webhook.NewPodReadinessGateInjector(
 			mgr.GetClient(),
-			log.Named("pod-readiness-gate-injector"),
+			logger,
 		)
-		webhook.NewPodMutator(scheme, readinessGateInjector).SetupWithManager(mgr)
+		webhook.NewPodMutator(logger, scheme, readinessGateInjector).SetupWithManager(logger, mgr)
 	}
 
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient())

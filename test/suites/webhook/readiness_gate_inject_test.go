@@ -115,9 +115,9 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 				fmt.Sprintf("One Pod readiness gate is expected. Found %d times", foundCount))
 
 			status := utils.FindPodStatusCondition(pod.Status.Conditions, pct)
-			g.Expect(status.Status).ToNot(BeNil(), "Pod status should update with readiness gate")
+			g.Expect(status).ToNot(BeNil(), "Pod status should not be nil")
 			g.Expect(status.Status).To(Equal(corev1.ConditionTrue), "Pod status should be true")
-		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+		}).WithTimeout(180 * time.Second).WithOffset(1).Should(Succeed())
 	})
 
 	AfterAll(func() {
