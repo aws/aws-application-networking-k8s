@@ -2,17 +2,14 @@ package webhook
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"os"
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"os"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
 )
 
@@ -31,14 +28,6 @@ var _ = SynchronizedBeforeSuite(func() {
 		Fail("CLUSTER_VPC_ID environment variable must be set to run integration tests")
 	}
 
-	grpcurlRunnerPod := test.NewGrpcurlRunnerPod("grpc-runner", k8snamespace)
-	if err := testFramework.Get(ctx, client.ObjectKeyFromObject(grpcurlRunnerPod), testFramework.GrpcurlRunner); err != nil {
-		if apierrors.IsNotFound(err) {
-			testFramework.ExpectCreated(ctx, grpcurlRunnerPod)
-			testFramework.GrpcurlRunner = grpcurlRunnerPod
-		}
-	}
-
 	// provision gateway, wait for service network association
 	testGateway = testFramework.NewGateway("test-gateway", k8snamespace)
 	testFramework.ExpectCreated(ctx, testGateway)
@@ -53,7 +42,6 @@ var _ = SynchronizedBeforeSuite(func() {
 }, func() {
 	testGateway = testFramework.NewGateway("test-gateway", k8snamespace)
 	testServiceNetwork = testFramework.GetServiceNetwork(ctx, testGateway)
-	testFramework.GrpcurlRunner = test.NewGrpcurlRunnerPod("grpc-runner", k8snamespace)
 })
 
 func TestIntegration(t *testing.T) {
@@ -65,5 +53,5 @@ func TestIntegration(t *testing.T) {
 }
 
 var _ = SynchronizedAfterSuite(func() {}, func() {
-	testFramework.ExpectDeletedThenNotFound(ctx, testGateway, testFramework.GrpcurlRunner)
+	testFramework.ExpectDeletedThenNotFound(ctx, testGateway)
 })

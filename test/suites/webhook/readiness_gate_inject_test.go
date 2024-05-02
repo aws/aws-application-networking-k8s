@@ -41,8 +41,9 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 	})
 
 	It("create deployment in untagged namespace, no readiness gate", func() {
-		deployment, _ := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "untagged-test-pod", Namespace: untaggedNS.Name})
+		deployment, service := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "untagged-test-pod", Namespace: untaggedNS.Name})
 		Eventually(func(g Gomega) {
+			testFramework.Create(ctx, service)
 			testFramework.Create(ctx, deployment)
 			testFramework.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 
@@ -61,8 +62,9 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 	})
 
 	It("create deployment in tagged namespace, but no gateway/route reference, no readiness gate", func() {
-		deployment, _ := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "tagged-test-pod", Namespace: taggedNS.Name})
+		deployment, service := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "tagged-nope-pod", Namespace: taggedNS.Name})
 		Eventually(func(g Gomega) {
+			testFramework.Create(ctx, service)
 			testFramework.Create(ctx, deployment)
 			testFramework.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 
@@ -81,14 +83,19 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 	})
 
 	It("create deployment in tagged namespace, gate injected and transitions to healthy", func() {
-		deployment, service := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "tagged-test-pod", Namespace: taggedNS.Name})
+		deployment, service := testFramework.NewHttpApp(test.HTTPAppOptions{Name: "tagged-yes-pod", Namespace: taggedNS.Name})
 		httpRoute := testFramework.NewHttpRoute(testGateway, service, "Service")
 
 		// first create the http route so we can be sure the readiness gate gets flagged
-		testFramework.Create(ctx, httpRoute)
+		err := testFramework.Create(ctx, httpRoute)
+		Expect(err).ToNot(HaveOccurred())
+		err = testFramework.Create(ctx, service)
+		Expect(err).ToNot(HaveOccurred())
+		// creating the deployment will trigger the readiness gate injection
+		err = testFramework.Create(ctx, deployment)
+		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func(g Gomega) {
-			testFramework.Create(ctx, deployment)
 			testFramework.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 
 			pods := testFramework.GetPodsByDeploymentName(deployment.Name, deployment.Namespace)
@@ -105,7 +112,7 @@ var _ = Describe("Readiness Gate Inject", Ordered, func() {
 			}
 
 			g.Expect(foundCount).To(Equal(1),
-				fmt.Sprintf("Pod readiness gate was expected on labeled namespace. Found %d times", foundCount))
+				fmt.Sprintf("One Pod readiness gate is expected. Found %d times", foundCount))
 
 			status := utils.FindPodStatusCondition(pod.Status.Conditions, pct)
 			g.Expect(status.Status).ToNot(BeNil(), "Pod status should update with readiness gate")

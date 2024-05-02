@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"testing"
@@ -27,6 +28,7 @@ func Test_ReadinessGateInjection(t *testing.T) {
 		pod                    corev1.Pod
 		services               []corev1.Service
 		httpRoutes             []gwv1beta1.HTTPRoute
+		v1HttpRoutes           []gwv1.HTTPRoute
 		grpcRoutes             []gwv1alpha2.GRPCRoute
 		gateways               []gwv1beta1.Gateway
 		svcExport              *anv1alpha1.ServiceExport
@@ -1072,6 +1074,7 @@ func Test_ReadinessGateInjection(t *testing.T) {
 
 			k8sScheme := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sScheme)
+			gwv1.AddToScheme(k8sScheme)
 			gwv1beta1.AddToScheme(k8sScheme)
 			gwv1alpha2.AddToScheme(k8sScheme)
 			anv1alpha1.AddToScheme(k8sScheme)
@@ -1096,6 +1099,9 @@ func Test_ReadinessGateInjection(t *testing.T) {
 			}
 			for _, httpRoute := range tt.httpRoutes {
 				assert.NoError(t, k8sClient.Create(ctx, httpRoute.DeepCopy()))
+			}
+			for _, v1HttpRoute := range tt.v1HttpRoutes {
+				assert.NoError(t, k8sClient.Create(ctx, v1HttpRoute.DeepCopy()))
 			}
 			for _, grpcRoute := range tt.grpcRoutes {
 				assert.NoError(t, k8sClient.Create(ctx, grpcRoute.DeepCopy()))
