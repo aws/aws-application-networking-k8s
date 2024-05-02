@@ -21,7 +21,7 @@ func (h *mutatingHandler) SetDecoder(d *admission.Decoder) {
 
 // Handle handles admission requests.
 func (h *mutatingHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	h.log.Debugf("mutating webhook request: %s", req.String())
+	h.log.Debugw("mutating webhook request", "operation", req.Operation, "name", req.Name, "namespace", req.Namespace)
 	var resp admission.Response
 	switch req.Operation {
 	case admissionv1.Create:
@@ -31,7 +31,7 @@ func (h *mutatingHandler) Handle(ctx context.Context, req admission.Request) adm
 	default:
 		resp = admission.Allowed("")
 	}
-	h.log.Debugf("mutating webhook request: %s", resp.String())
+	h.log.Debugw("mutating webhook response", "patches", resp.Patches)
 	return resp
 }
 
