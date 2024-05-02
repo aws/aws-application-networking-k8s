@@ -176,11 +176,11 @@ func (m *PodReadinessGateInjector) isPodUsedByRoute(route core.Route, svcMap map
 
 func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, route core.Route) bool {
 	if len(route.Spec().ParentRefs()) == 0 {
+		m.log.Debugf("Route %s/%s has no parentRefs", route.Namespace(), route.Name())
 		return false
 	}
 
 	gw := &gwv1beta1.Gateway{}
-
 	gwNamespace := route.Namespace()
 	if route.Spec().ParentRefs()[0].Namespace != nil {
 		gwNamespace = string(*route.Spec().ParentRefs()[0].Namespace)
@@ -191,6 +191,8 @@ func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, r
 	}
 
 	if err := m.k8sClient.Get(ctx, gwName, gw); err != nil {
+		m.log.Debugf("Unable to retrieve gateway %s/%s for route %s/%s, %s",
+			gwName.Namespace, gwName.Name, route.Namespace(), route.Name(), err)
 		return false
 	}
 
@@ -202,12 +204,16 @@ func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, r
 	}
 
 	if err := m.k8sClient.Get(ctx, gwClassName, gwClass); err != nil {
+		m.log.Debugf("Unable to retrieve gateway class %s/%s for gateway %s/%s, %s",
+			gwClassName.Namespace, gwClass.Name, gwName.Namespace, gwName.Name, err)
 		return false
 	}
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
+		m.log.Debugf("Gateway %s/%s is a lattice gateway", gwName.Namespace, gwName.Name)
 		return true
 	}
 
+	m.log.Debugf("Gateway %s/%s is not a lattice gateway", gwName.Namespace, gwName.Name)
 	return false
 }
