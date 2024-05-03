@@ -185,7 +185,11 @@ func objectsInfo(objs []client.Object) string {
 func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Object) {
 	env.Log.Infof("Creating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
-		Expect(env.Create(ctx, obj)).WithOffset(1).To(Succeed())
+		err := env.Create(ctx, obj)
+		if err != nil {
+			env.Log.Errorf("Error creating object %s, %s", obj, err)
+		}
+		Expect(err).WithOffset(1).To(BeNil())
 	})
 }
 

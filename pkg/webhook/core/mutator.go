@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -18,9 +19,10 @@ type Mutator interface {
 }
 
 // MutatingWebhookForMutator creates a new mutating Webhook.
-func MutatingWebhookForMutator(scheme *runtime.Scheme, mutator Mutator) *admission.Webhook {
+func MutatingWebhookForMutator(log gwlog.Logger, scheme *runtime.Scheme, mutator Mutator) *admission.Webhook {
 	return &admission.Webhook{
 		Handler: &mutatingHandler{
+			log:     log,
 			mutator: mutator,
 			decoder: admission.NewDecoder(scheme),
 		},

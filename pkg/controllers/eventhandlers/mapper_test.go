@@ -56,7 +56,8 @@ func TestServiceToRoutes(t *testing.T) {
 			Namespace: nil,
 			Name:      "test-service",
 		}),
-		createHTTPRoute("invalid-nil-group", "ns1", gwv1beta1.BackendObjectReference{
+		createHTTPRoute("valid-nil-group", "ns1", gwv1beta1.BackendObjectReference{
+			Group:     nil,
 			Kind:      (*gwv1beta1.Kind)(ptr.To("Service")),
 			Namespace: nil,
 			Name:      "test-service",
@@ -91,6 +92,7 @@ func TestServiceToRoutes(t *testing.T) {
 		}),
 	}
 	validRoutes := []string{
+		"valid-nil-group",
 		"valid-inferred-namespace",
 		"valid-explicit-namespace",
 	}

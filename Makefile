@@ -146,9 +146,12 @@ docs:
 	mkdir -p site
 	mkdocs build
 
+e2e-webhook-namespace := "webhook-e2e-test"
+
 # NB webhook tests can only run if the controller is deployed to the cluster
 .PHONY: webhook-e2e-test
 webhook-e2e-test:
+	@kubectl create namespace $(e2e-webhook-namespace) > /dev/null 2>&1 || true # ignore already exists error
 	LOG_LEVEL=debug
 	cd test && go test \
 		-p 1 \
