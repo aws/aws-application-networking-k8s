@@ -35,7 +35,7 @@ An independently deployable unit of software that delivers a specific task or fu
 A logical boundary for a collection of services. A client is any resource deployed in a VPC that is associated with the service network. Clients and services that are associated with the same service network can communicate with each other if they are authorized to do so.
 
 <figure markdown="span">
-  ![VPC Lattice Service Network](../images/service-network.png){ width="400" }
+  ![VPC Lattice service network](../images/service-network.png){ width="400" }
   <figcaption>In the following figure, the clients can communicate with both services, because the VPC and services are associated with the same service network.</figcaption>
 </figure>
 
@@ -79,7 +79,7 @@ As shown in the figure, there are different personas associated with different l
 Notice that the Kubernetes Gateway API syntax is used to create the gateway, HTTPRoute and services, but Kubernetes gets the details of those items from VPC Lattice:
 
 - **Infrastructure provider**: Creates the Kubernetes `GatewayClass` to identify VPC Lattice as the GatewayClass.
-- **Cluster operator**: Creates the Kubernetes `Gateway`, which gets information from VPC Lattice related to the Service Gateway and Service Networks, as well as their related Service Policies.
+- **Cluster operator**: Creates the Kubernetes `Gateway`, which gets information from VPC Lattice related to the Service Gateway and service networks, as well as their related Service Policies.
 - **Application developer**: Creates `HTTPRoute` objects that point to Kubernetes services, which in turn are directed to particular pods, in this case.
 
 This is all done by checking the related VPC Lattice Services (and related policies), Target Groups, and Targets.

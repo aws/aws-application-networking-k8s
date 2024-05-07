@@ -56,6 +56,6 @@ To use ExternalDNS with the AWS Gateway API Controller, you need to:
 
 ## Notes
 
-* You MUST have a registered hosted zone (e.g. `my-test.com`) in Route53 and complete the `Prerequisites` mentioned in [this section](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-custom-domain-name.html#dns-associate-custom) of the Amazon VPC Lattice documentation.
+* You MUST have a registered hosted zone (e.g. `my-test.com`) in Route53 and complete the `Prerequisites` mentioned in [this section](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-custom-domain-name.html) of the Amazon VPC Lattice documentation.
 * If you are not using ExternalDNS, you should manually associate your custom domain name with your service following [this section](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-custom-domain-name.html#dns-associate-custom) of the Amazon VPC Lattice documentation.
 

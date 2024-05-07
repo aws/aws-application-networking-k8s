@@ -33,7 +33,7 @@ This example creates a single cluster in a single VPC, then configures two HTTPR
 
 **Setup in-cluster service-to-service communications**
 
-1. AWS Gateway API Controller needs a VPC Lattice Service Network to operate.
+1. AWS Gateway API Controller needs a VPC Lattice service network to operate.
 
     === "Helm"
         If you installed the controller with `helm`, you can update chart configurations by specifying the `defaultServiceNetwork` variable:
@@ -50,7 +50,7 @@ This example creates a single cluster in a single VPC, then configures two HTTPR
 
     === "AWS CLI"
 
-        You can use AWS CLI to manually create a VPC Lattice Service Network association to the previously created `my-hotel` Service Network:
+        You can use AWS CLI to manually create a VPC Lattice service network association to the previously created `my-hotel` service network:
 
         ```bash linenums="1"
         aws vpc-lattice create-service-network --name my-hotel
@@ -212,7 +212,7 @@ This section builds on the previous one. We will be migrating the Kubernetes `in
     ```bash 
     kubectl config use-context gw-api-controller-demo-2
     ```
-1. Create the Service Network association.
+1. Create the service network association.
 
     === "Helm"
         If you installed the controller with `helm`, you can update chart configurations by specifying the `defaultServiceNetwork` variable:
@@ -229,7 +229,7 @@ This section builds on the previous one. We will be migrating the Kubernetes `in
 
     === "AWS CLI"
 
-        You can use AWS CLI to manually create a VPC Lattice Service Network association to the previously created `my-hotel` Service Network:
+        You can use AWS CLI to manually create a VPC Lattice service network association to the previously created `my-hotel` service network:
 
         ```bash linenums="1"
         SERVICE_NETWORK_ID=$(aws vpc-lattice list-service-networks --query "items[?name=="\'my-hotel\'"].id" | jq -r '.[]')
@@ -285,7 +285,7 @@ This section builds on the previous one. We will be migrating the Kubernetes `in
     ```bash 
     kubectl config use-context gw-api-controller-demo
     ```
-1. Create Kubernetes ServiceImport `inventory-ver2` in the first cluster:
+1. Create Kubernetes service import `inventory-ver2` in the first cluster:
     ```bash 
     kubectl apply -f files/examples/inventory-ver2-import.yaml
     ```
@@ -328,21 +328,21 @@ Delete resources in the Multi-cluster walkthrough.
     export AWS_REGION=<cluster_region>
     ```
 
-1. Cleanup VPC Lattice Service and Service Import in `gw-api-controller-demo` cluster:
+1. Cleanup VPC Lattice service and service import in `gw-api-controller-demo` cluster:
 ```bash
 kubectl config use-context gw-api-controller-demo
 kubectl delete -f files/examples/inventory-route-bluegreen.yaml
 kubectl delete -f files/examples/inventory-ver2-import.yaml
 ```
 
-1. Delete Service Export and applications in `gw-api-controller-demo-2` cluster:
+1. Delete service export and applications in `gw-api-controller-demo-2` cluster:
 ```bash
 kubectl config use-context gw-api-controller-demo-2
 kubectl delete -f files/examples/inventory-ver2-export.yaml
 kubectl delete -f files/examples/inventory-ver2.yaml
 ```
 
-1. Delete the Service Network Association **(this could take up to one minute)**:
+1. Delete the service network association **(this could take up to one minute)**:
 ```bash
 CLUSTER_NAME=gw-api-controller-demo-2
 CLUSTER_VPC_ID=$(aws eks describe-cluster --name $CLUSTER_NAME | jq -r .cluster.resourcesVpcConfig.vpcId)
@@ -362,7 +362,7 @@ Delete resources in the Single cluster walkthrough.
     ```
 
 
-1. Delete VPC Lattice Services adnd applications in `gw-api-controller-demo` cluster:
+1. Delete VPC Lattice services and applications in `gw-api-controller-demo` cluster:
 ```bash
 kubectl config use-context gw-api-controller-demo
 kubectl delete -f files/examples/inventory-route.yaml
@@ -373,7 +373,7 @@ kubectl delete -f files/examples/review.yaml
 kubectl delete -f files/examples/my-hotel-gateway.yaml
 ```
 
-1. Delete the Service Network Association **(this could take up to one minute)**:
+1. Delete the service network association **(this could take up to one minute)**:
 ```bash
 CLUSTER_NAME=gw-api-controller-demo
 CLUSTER_VPC_ID=$(aws eks describe-cluster --name $CLUSTER_NAME | jq -r .cluster.resourcesVpcConfig.vpcId)
@@ -406,18 +406,18 @@ aws vpc-lattice delete-service-network-vpc-association  --service-network-vpc-as
         kubectl delete -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.0.4.yaml
         ```
 
-1. Delete the Service Network:
+1. Delete the service network:
 
-    1. Ensure the Service Network Associations have been deleted (do not move forward if the deletion is still `IN PROGRESS`):
+    1. Ensure the service network associations have been deleted (do not move forward if the deletion is still `IN PROGRESS`):
     ```bash
     SN_IDENTIFIER=$(aws vpc-lattice list-service-networks --query "items[?name=="\'my-hotel\'"].id" | jq -r '.[]')
     aws vpc-lattice list-service-network-vpc-associations --service-network-identifier $SN_IDENTIFIER
     ```
-    1. Delete `my-hotel` Service Network:
+    1. Delete `my-hotel` service network:
     ```bash 
     aws vpc-lattice delete-service-network --service-network-identifier $SN_IDENTIFIER
     ```
-    1. Ensure the Service Network `my-hotel` is deleted:
+    1. Ensure the service network `my-hotel` is deleted:
     ```bash 
     aws vpc-lattice list-service-networks
     ```

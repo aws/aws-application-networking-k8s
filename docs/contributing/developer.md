@@ -101,8 +101,8 @@ And use "EnvFile" GoLand plugin to read the env variables from the generated `.e
 ## End-to-End Testing
 
 For larger changes it's recommended to run e2e suites on your local cluster.
-E2E tests require a Service Network named `test-gateway` with cluster VPC associated to run.
-You can either set up Service Network manually or use DEFAULT_SERVICE_NETWORK option when running controller locally. (e.g. `DEFAULT_SERVICE_NETWORK=test-gateway make run`)
+E2E tests require a service network named `test-gateway` with cluster VPC associated to run.
+You can either set up service network manually or use DEFAULT_SERVICE_NETWORK option when running controller locally. (e.g. `DEFAULT_SERVICE_NETWORK=test-gateway make run`)
 
 ```sh
 REGION=us-west-2 make e2e-test
