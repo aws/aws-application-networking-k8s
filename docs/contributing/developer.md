@@ -1,76 +1,58 @@
 # Developer Guide
 
-## Tools
 
-Before you start you need to have following:
 
-- aws account - https://aws.amazon.com/
-- aws cli - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-- eksctl - https://github.com/eksctl-io/eksctl/blob/main/README.md#installation
-- kubectl - https://docs.aws.amazon.com/eks/latest/userguide/install-kubectl.html
-- go v1.20.x - https://go.dev/doc/install
-- yq - https://github.com/mikefarah/yq#install
-- jq - https://jqlang.github.io/jq/
-- make 
+## Prerequisites
 
-After pulling repo toolchain.sh script will install other dependencies.
+**Tools**
 
-```bash
-make toolchain
-```
+Install these tools before proceeding:
 
-## Cluster Setup
+1. [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html),
+2. `kubectl` - [the Kubernetes CLI](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/),
+3. `helm` - [the package manager for Kubernetes](https://helm.sh/docs/intro/install/),
+4. `eksctl`- [the CLI for Amazon EKS](https://docs.aws.amazon.com/eks/latest/userguide/setting-up.html),
+5. `go v1.20.x` - [language](https://go.dev/doc/install),
+6. `yq` - [CLI to manipulate yaml files](https://github.com/mikefarah/yq#install),
+7. `jq` - [CLI to manipulate json files](https://jqlang.github.io/jq/),
+8. `make`- build automation tool. 
 
-To run controller in cluster or in development mode you need an EKS cluster. It's a one time setup.
-Running controller in development mode will start controller locally and connects to EKS cluster, 
-this is preferable way for local development.
+**Cluster creation and setup**
 
-Once you have eksctl and aws account you can create EKS cluster. It's handy to set env variables, since many places relies on them.
+Before proceeding to the next sections, you need to:
 
-```bash
-export AWS_ACCOUNT= {your account}
-export AWS_REGION= {region with eks and lattice}
-export CLUSTER_NAME=dev-cluster
-```
+1. Create a and set up a cluster `dev-cluster` with the controller following the [AWS Gateway API Controller installation guide on Amazon EKS](../guides/deploy.md).
 
-Create an EKS cluster and allow Lattice traffic into cluster.
+    !!! Note
+        You can either install the Controller and CRDs following the [steps in the installation guide](../guides/deploy.md/#install-the-controller) or using the steps below if you prefer to create the individual CRDs.
 
-```bash
-eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION
+1. Clone the [AWS Gateway API Controller](https://github.com/aws/aws-application-networking-k8s) repository.
+    ```bash
+    git clone git@github.com:aws/aws-application-networking-k8s.git
+    cd aws-application-networking-k8s
+    ```
+1. Install dependencies with `toolchain.sh` script:
+    ```bash
+    make toolchain
+    ```
 
-CLUSTER_SG=$(aws eks describe-cluster --name $CLUSTER_NAME --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
-PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
-aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID}}],IpProtocol=-1"
-PREFIX_LIST_ID_IPV6=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.ipv6.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
-aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID_IPV6}}],IpProtocol=-1"
-eksctl utils associate-iam-oidc-provider --cluster $CLUSTER_NAME --approve --region $AWS_REGION
 
-aws iam create-policy \
-   --policy-name VPCLatticeControllerIAMPolicy \
-   --policy-document file://examples/recommended-inline-policy.json
-   
-export VPCLatticeControllerIAMPolicyArn=$(aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text)
+## Setup
 
-eksctl create iamserviceaccount \
-   --cluster=$CLUSTER_NAME \
-   --namespace=aws-application-networking-system \
-   --name=gateway-api-controller \
-   --attach-policy-arn=$VPCLatticeControllerIAMPolicyArn \
-   --override-existing-serviceaccounts \
-   --region $AWS_REGION \
-   --approve
-```
+Once cluster is ready, we need to apply CRDs for `gateway-api` resources. First install core `gateway-api` CRDs:
 
-Once cluster is ready. We need to apply CRDs for gateway-api resources. First install core gateway-api CRDs:
-```bash
-kubectl apply -f config/crds/bases/k8s-gateway-v0.6.1.yaml
-```
-
-The above command will install gateway-api v1beta1 CRDs. If you prefer using the latest v1 CRDs, you can install them instead:
-```bash
-kubectl apply -f config/crds/bases/k8s-gateway-v1.0.0.yaml
-```
-Note that v1 CRDs are not included in `deploy-*.yaml` and helm chart by default.
+=== "v1 CRDs (latest, recommended)"
+    Install the latest `v1` CRDs:
+    ```bash
+    kubectl apply -f config/crds/bases/k8s-gateway-v1.0.0.yaml
+    ```
+    !!! Note
+        Note that v1 CRDs are **not included** in `deploy-*.yaml` and `helm` chart by default. 
+=== "v1beta1 CRDs"
+    Install `gateway-api` `v1beta1` CRDs.
+    ```bash
+    kubectl apply -f config/crds/bases/k8s-gateway-v0.6.1.yaml
+    ```
 
 And install additional CRDs for the controller:
 
@@ -82,7 +64,6 @@ kubectl apply -f config/crds/bases/application-networking.k8s.aws_targetgrouppol
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
-kubectl apply -f examples/gatewayclass.yaml
 ```
 
 When e2e tests are terminated during execution, it might break clean-up stage and resources will leak. To delete dangling resources manually use cleanup script:
@@ -93,15 +74,15 @@ make e2e-clean
 
 ## Local Development
 
-A minimal test of changes can be done with ```make presubmit```. This command will also run on PR.
+A minimal test of changes can be done with `make presubmit`. This command will also run on PR.
 
-```
+```sh
 make presubmit
 ```
 
 Start controller in development mode, that will point to cluster (see setup above).
 
-```
+```sh
 // should be region of the cluster
 REGION=us-west-2 make run
 ```
@@ -110,7 +91,7 @@ You can explore a collection of different yaml configurations in the examples fo
 
 To run it against specific lattice service endpoint.
 
-```
+```sh
 LATTICE_ENDPOINT=https://vpc-lattice.us-west-2.amazonaws.com/ make run
 ```
 
@@ -123,15 +104,15 @@ For larger changes it's recommended to run e2e suites on your local cluster.
 E2E tests require a service network named `test-gateway` with cluster VPC associated to run.
 You can either set up service network manually or use DEFAULT_SERVICE_NETWORK option when running controller locally. (e.g. `DEFAULT_SERVICE_NETWORK=test-gateway make run`)
 
-```
+```sh
 REGION=us-west-2 make e2e-test
 ```
 
-For the `RAM Share` test suite, which runs cross-account e2e tests, you will need a secondary account with a role that
+For the `RAM Share` test suite, which runs cross-account e2e tests, you will need a secondary AWS Account with a role that
 can be assumed by the primary account during test execution.
 You can create an IAM Role, with a Trust Policy allowing the primary account to assume it, via the AWS IAM Console.
 
-```
+```sh
 export SECONDARY_ACCOUNT_TEST_ROLE_ARN=arn:aws:iam::000000000000:role/MyRole
 export FOCUS="RAM Share"
 REGION=us-west-2 make e2e-test
@@ -164,17 +145,13 @@ For more detail on filter condition for ginkgo
 https://onsi.github.io/ginkgo/#focused-specs
 https://onsi.github.io/ginkgo/#description-based-filtering
 
-Notice: the prerequisites for running the end-to-end tests success are:
-- Current eks cluster don't have any k8s resource
-- The vpc used by current eks cluster don't have any vpc service network association
-
 After all test cases running finished, in the `AfterSuite()` function, it will clean up k8s and vpc lattice resource created by current test cases running.
 
 ## Documentations
 
 The controller documentation is managed in `docs/` directory, and built with [mkdocs](https://www.mkdocs.org/).
 To build and verify your changes locally:
-```shell
+```sh
 pip install -r requirements.txt
 make docs
 ```
@@ -201,9 +178,10 @@ make docker-build
 
 ## Deploy Controller inside a Kubernetes Cluster
 
-### Generate deploy.yaml
+Generate `deploy.yaml`
 
-```
+``` sh
 make build-deploy
 ```
-Then follow [Deploying the AWS Gateway API Controller](https://github.com/aws/aws-application-networking-k8s/blob/main/docs/deploy.md) to configure and deploy the docker image
+
+Then follow [Deploying the AWS Gateway API Controller](../guides/deploy.md) to configure and deploy the docker image.
