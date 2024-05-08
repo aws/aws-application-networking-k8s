@@ -7363,6 +7363,26 @@ rules:
   - patch
   - update
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - ""
   resources:
   - configmaps
@@ -7627,6 +7647,14 @@ rules:
 - apiGroups:
   - application-networking.k8s.aws
   resources:
+  - targetgrouppolicies/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - application-networking.k8s.aws
+  resources:
   - vpcassociationpolicies
   verbs:
   - create
@@ -7641,6 +7669,14 @@ rules:
   resources:
   - vpcassociationpolicies/finalizers
   verbs:
+  - update
+- apiGroups:
+  - application-networking.k8s.aws
+  resources:
+  - vpcassociationpolicies/status
+  verbs:
+  - get
+  - patch
   - update
 - apiGroups:
   - application-networking.k8s.aws
@@ -7768,6 +7804,16 @@ metadata:
   name: manager-config
 ---
 apiVersion: v1
+data:
+  tls.crt: Cg==
+  tls.key: Cg==
+kind: Secret
+metadata:
+  name: webhook-cert
+  namespace: aws-application-networking-system
+type: kubernetes.io/tls
+---
+apiVersion: v1
 kind: Service
 metadata:
   labels:
@@ -7783,6 +7829,18 @@ spec:
   selector:
     control-plane: gateway-api-controller
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-service
+  namespace: aws-application-networking-system
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    control-plane: gateway-api-controller
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7791,7 +7849,7 @@ metadata:
   name: gateway-api-controller
   namespace: aws-application-networking-system
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       control-plane: gateway-api-controller
@@ -7820,7 +7878,10 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v1.0.0
+        env:
+        - name: WEBHOOK_ENABLED
+          value: ""
+        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v1.0.5
         livenessProbe:
           httpGet:
             path: /healthz
@@ -7845,9 +7906,55 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - ALL
+            - ALL
           readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /etc/webhook-cert
+          name: webhook-cert
+          readOnly: true
       securityContext:
         runAsNonRoot: true
       serviceAccountName: gateway-api-controller
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: webhook-cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-cert
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: aws-appnet-gwc-mutating-webhook
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: aws-application-networking-system
+      path: /mutate-pod
+  failurePolicy: Fail
+  name: mpod.gwc.k8s.aws
+  namespaceSelector:
+    matchExpressions:
+    - key: application-networking.k8s.aws/pod-readiness-gate-inject
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - gateway-api-controller
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
