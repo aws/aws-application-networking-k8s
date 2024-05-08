@@ -43,12 +43,12 @@ if git rev-parse --verify release-$RELEASE_VERSION >/dev/null 2>&1; then
     git branch -D release-$RELEASE_VERSION
 fi
 
-if git ls-remote --tags origin | grep -q "refs/tags/$RELEASE_VERSION"; then
+if git ls-remote --tags origin | grep -q "refs/tags/$RELEASE_VERSION$"; then
     echo "Tag '$RELEASE_VERSION' exists in remote, you should manually delete it from github"
     exit 1
 fi
 
-if git ls-remote --heads origin | grep -q "refs/heads/release-$RELEASE_VERSION"; then
+if git ls-remote --heads origin | grep -q "refs/heads/release-$RELEASE_VERSION$"; then
     echo "Branch 'release-$RELEASE_VERSION' exists in remote, you should manually delete it from github"
     exit 1
 fi
