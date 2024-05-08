@@ -77,36 +77,6 @@ func (mr *MockCloudMockRecorder) DefaultTagsMergedWith(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultTagsMergedWith", reflect.TypeOf((*MockCloud)(nil).DefaultTagsMergedWith), arg0)
 }
 
-// FindTagsForARNs mocks base method.
-func (m *MockCloud) FindTagsForARNs(arg0 context.Context, arg1 []string) (map[string]map[string]*string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindTagsForARNs", arg0, arg1)
-	ret0, _ := ret[0].(map[string]map[string]*string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindTagsForARNs indicates an expected call of FindTagsForARNs.
-func (mr *MockCloudMockRecorder) FindTagsForARNs(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindTagsForARNs", reflect.TypeOf((*MockCloud)(nil).FindTagsForARNs), arg0, arg1)
-}
-
-// FindTargetGroupARNs mocks base method.
-func (m *MockCloud) FindTargetGroupARNs(arg0 context.Context, arg1 map[string]*string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindTargetGroupARNs", arg0, arg1)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindTargetGroupARNs indicates an expected call of FindTargetGroupARNs.
-func (mr *MockCloudMockRecorder) FindTargetGroupARNs(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindTargetGroupARNs", reflect.TypeOf((*MockCloud)(nil).FindTargetGroupARNs), arg0, arg1)
-}
-
 // IsArnManaged mocks base method.
 func (m *MockCloud) IsArnManaged(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()

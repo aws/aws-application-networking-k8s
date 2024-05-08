@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
@@ -14,6 +13,7 @@ import (
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"reflect"
 )
 
 //go:generate mockgen -destination target_group_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice TargetGroupManager
@@ -258,7 +258,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, e
 	tgArns := utils.SliceMap(resp, func(tg *vpclattice.TargetGroupSummary) string {
 		return aws.StringValue(tg.Arn)
 	})
-	tgArnToTagsMap, err := s.cloud.FindTagsForARNs(ctx, tgArns)
+	tgArnToTagsMap, err := s.cloud.Tagging().GetTagsForArns(ctx, tgArns)
 
 	if err != nil {
 		return nil, err
@@ -276,7 +276,8 @@ func (s *defaultTargetGroupManager) findTargetGroup(
 	ctx context.Context,
 	modelTargetGroup *model.TargetGroup,
 ) (*vpclattice.GetTargetGroupOutput, error) {
-	arns, err := s.cloud.FindTargetGroupARNs(ctx, model.TagsFromTGTagFields(modelTargetGroup.Spec.TargetGroupTagFields))
+	arns, err := s.cloud.Tagging().FindResourcesByTags(ctx, services.ResourceTypeTargetGroup,
+		model.TagsFromTGTagFields(modelTargetGroup.Spec.TargetGroupTagFields))
 	if err != nil {
 		return nil, err
 	}

@@ -23,7 +23,7 @@ const (
 	CLUSTER_VPC_ID                  = "CLUSTER_VPC_ID"
 	CLUSTER_NAME                    = "CLUSTER_NAME"
 	DEFAULT_SERVICE_NETWORK         = "DEFAULT_SERVICE_NETWORK"
-	ENABLE_PRIVATE_VPC              = "ENABLE_PRIVATE_VPC"
+	DISABLE_TAGGING_SERVICE_API     = "DISABLE_TAGGING_SERVICE_API"
 	ENABLE_SERVICE_NETWORK_OVERRIDE = "ENABLE_SERVICE_NETWORK_OVERRIDE"
 	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
 	DEV_MODE                        = "DEV_MODE"
@@ -38,7 +38,7 @@ var ClusterName = ""
 var DevMode = ""
 var WebhookEnabled = ""
 
-var EnablePrivateVPC = false
+var DisableTaggingServiceAPI = false
 var ServiceNetworkOverrideMode = false
 
 func ConfigInit() error {
@@ -84,10 +84,10 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		ServiceNetworkOverrideMode = true
 	}
 
-	privateVPC := os.Getenv(ENABLE_PRIVATE_VPC)
+	privateVPC := os.Getenv(DISABLE_TAGGING_SERVICE_API)
 
 	if strings.ToLower(privateVPC) == "true" {
-		EnablePrivateVPC = true
+		DisableTaggingServiceAPI = true
 	}
 
 	ClusterName, err = getClusterName(sess)

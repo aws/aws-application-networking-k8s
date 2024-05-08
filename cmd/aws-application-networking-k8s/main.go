@@ -122,15 +122,15 @@ func main() {
 		"DefaultServiceNetwork", config.DefaultServiceNetwork,
 		"ClusterName", config.ClusterName,
 		"LogLevel", logLevel,
-		"EnablePrivateVPC", config.EnablePrivateVPC,
+		"DisableTaggingServiceAPI", config.DisableTaggingServiceAPI,
 	)
 
 	cloud, err := aws.NewCloud(log.Named("cloud"), aws.CloudConfig{
-		VpcId:       config.VpcID,
-		AccountId:   config.AccountID,
-		Region:      config.Region,
-		ClusterName: config.ClusterName,
-		PrivateVPC:  config.EnablePrivateVPC,
+		VpcId:                     config.VpcID,
+		AccountId:                 config.AccountID,
+		Region:                    config.Region,
+		ClusterName:               config.ClusterName,
+		TaggingServiceAPIDisabled: config.DisableTaggingServiceAPI,
 	}, metrics.Registry)
 	if err != nil {
 		setupLog.Fatal("cloud client setup failed: %s", err)

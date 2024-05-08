@@ -6,7 +6,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -25,11 +24,11 @@ const (
 //go:generate mockgen -destination cloud_mocks.go -package aws github.com/aws/aws-application-networking-k8s/pkg/aws Cloud
 
 type CloudConfig struct {
-	VpcId       string
-	AccountId   string
-	Region      string
-	ClusterName string
-	PrivateVPC  bool
+	VpcId                     string
+	AccountId                 string
+	Region                    string
+	ClusterName               string
+	TaggingServiceAPIDisabled bool
 }
 
 type Cloud interface {
@@ -42,12 +41,6 @@ type Cloud interface {
 
 	// creates lattice tags with default values populated and merges them with provided tags
 	DefaultTagsMergedWith(services.Tags) services.Tags
-
-	// find tags on lattice resources
-	FindTagsForARNs(ctx context.Context, arns []string) (map[string]services.Tags, error)
-
-	// find lattice target group ARNs using tags
-	FindTargetGroupARNs(context.Context, services.Tags) ([]string, error)
 
 	// check if managedBy tag set for lattice resource
 	IsArnManaged(ctx context.Context, arn string) (bool, error)
@@ -90,7 +83,14 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Re
 	}
 
 	lattice := services.NewDefaultLattice(sess, cfg.AccountId, cfg.Region)
-	tagging := services.NewDefaultTagging(sess, cfg.Region)
+	var tagging services.Tagging
+
+	if cfg.TaggingServiceAPIDisabled {
+		tagging = services.NewLatticeTagging(sess, cfg.AccountId, cfg.Region, cfg.VpcId)
+	} else {
+		tagging = services.NewDefaultTagging(sess, cfg.Region)
+	}
+
 	cl := NewDefaultCloudWithTagging(lattice, tagging, cfg)
 	return cl, nil
 }
@@ -144,55 +144,6 @@ func (c *defaultCloud) DefaultTagsMergedWith(tags services.Tags) services.Tags {
 	return newTags
 }
 
-func (c *defaultCloud) FindTagsForARNs(ctx context.Context, arns []string) (map[string]services.Tags, error) {
-	if !c.cfg.PrivateVPC {
-		return c.tagging.GetTagsForArns(ctx, arns)
-	}
-
-	tagsForARNs := map[string]services.Tags{}
-
-	for _, arn := range arns {
-		tags, err := c.lattice.ListTagsForResourceWithContext(ctx,
-			&vpclattice.ListTagsForResourceInput{ResourceArn: aws.String(arn)},
-		)
-		if err != nil {
-			return nil, err
-		}
-		tagsForARNs[arn] = tags.Tags
-	}
-	return tagsForARNs, nil
-}
-
-func (c *defaultCloud) FindTargetGroupARNs(ctx context.Context, tags services.Tags) ([]string, error) {
-	if !c.cfg.PrivateVPC {
-		return c.tagging.FindResourcesByTags(ctx, services.ResourceTypeTargetGroup, tags)
-	}
-
-	tgs, err := c.lattice.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{
-		VpcIdentifier: aws.String(c.cfg.VpcId),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	arns := make([]string, 0, len(tgs))
-
-	for _, tg := range tgs {
-		resp, err := c.lattice.ListTagsForResourceWithContext(ctx,
-			&vpclattice.ListTagsForResourceInput{ResourceArn: tg.Arn},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if containsTags(tags, resp.Tags) {
-			arns = append(arns, aws.StringValue(tg.Arn))
-		}
-	}
-
-	return arns, nil
-}
-
 func (c *defaultCloud) getTags(ctx context.Context, arn string) (services.Tags, error) {
 	tagsReq := &vpclattice.ListTagsForResourceInput{ResourceArn: &arn}
 	resp, err := c.lattice.ListTagsForResourceWithContext(ctx, tagsReq)
@@ -238,15 +189,6 @@ func (c *defaultCloud) TryOwnFromTags(ctx context.Context, arn string, tags serv
 		return true, nil
 	}
 	return c.isOwner(managedBy), nil
-}
-
-func containsTags(source, check services.Tags) bool {
-	for k, v := range source {
-		if aws.StringValue(check[k]) != aws.StringValue(v) {
-			return false
-		}
-	}
-	return true
 }
 
 func (c *defaultCloud) ownResource(ctx context.Context, arn string) error {
