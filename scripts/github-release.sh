@@ -61,6 +61,7 @@ sed_inplace "appVersion: $OLD_VERSION" "appVersion: $RELEASE_VERSION" "$WORKSPAC
 sed_inplace "tag: $OLD_VERSION" "tag: $RELEASE_VERSION" "$WORKSPACE_DIR"/helm/values.yaml
 sed_inplace "deploy-$OLD_VERSION.yaml" "deploy-$RELEASE_VERSION.yaml" "$WORKSPACE_DIR"/docs/guides/deploy.md
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/deploy.md
+sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/getstarted.md
 
 # Build the deploy.yaml
 make build-deploy
