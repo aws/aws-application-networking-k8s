@@ -129,7 +129,7 @@ func (t *latticeTagging) FindResourcesByTags(ctx context.Context, resourceType R
 			return nil, err
 		}
 
-		if containsTags(tags, resp.Tags) {
+		if containsTags(resp.Tags, tags) {
 			arns = append(arns, aws.StringValue(tg.Arn))
 		}
 	}
@@ -138,8 +138,9 @@ func (t *latticeTagging) FindResourcesByTags(ctx context.Context, resourceType R
 }
 
 func containsTags(source, check Tags) bool {
-	for k, v := range source {
-		if aws.StringValue(check[k]) != aws.StringValue(v) {
+	for k, v := range check {
+		sourceV, ok := source[k]
+		if !ok || aws.StringValue(sourceV) != aws.StringValue(v) {
 			return false
 		}
 	}

@@ -84,9 +84,9 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		ServiceNetworkOverrideMode = true
 	}
 
-	privateVPC := os.Getenv(DISABLE_TAGGING_SERVICE_API)
+	disableTaggingAPI := os.Getenv(DISABLE_TAGGING_SERVICE_API)
 
-	if strings.ToLower(privateVPC) == "true" {
+	if strings.ToLower(disableTaggingAPI) == "true" {
 		DisableTaggingServiceAPI = true
 	}
 
