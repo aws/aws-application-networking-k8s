@@ -3,6 +3,8 @@ repo_name: aws/aws-application-networking-k8s
 repo_url: https://github.com/aws/aws-application-networking-k8s
 edit_uri: edit/main/docs/
 strict: true
+site_url: https://www.gateway-api-controller.eks.aws.dev/
+
 
 nav:
   - Home: index.md
@@ -17,6 +19,7 @@ nav:
     - TLS: guides/https.md
     - Custom Domain Name: guides/custom-domain-name.md
     - GRPC: guides/grpc.md
+    - Pod Readiness Gates: guides/pod-readiness-gates.md
     - Configuration: guides/environment.md
   - API Specification: api-reference.md
   - API Reference:
@@ -111,6 +114,5 @@ extra_javascript:
 
 extra:
   generator: false
-#   version:
-#     provider: mike #mike deploy --push --update-aliases 0.1 latest
-#     site_url: 'https://docs.example.com/'
+  version:
+    provider: mike

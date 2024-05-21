@@ -62,6 +62,8 @@ sed_inplace "tag: $OLD_VERSION" "tag: $RELEASE_VERSION" "$WORKSPACE_DIR"/helm/va
 sed_inplace "deploy-$OLD_VERSION.yaml" "deploy-$RELEASE_VERSION.yaml" "$WORKSPACE_DIR"/docs/guides/deploy.md
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/deploy.md
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/getstarted.md
+sed_inplace "mike deploy $OLD_VERSION" "mike deploy $RELEASE_VERSION" "$WORKSPACE_DIR"/.github/workflows/publish-doc.yml
+
 
 # Build the deploy.yaml
 make build-deploy
