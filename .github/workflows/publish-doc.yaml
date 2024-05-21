@@ -1,0 +1,33 @@
+name: publish-doc
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  publish-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Configure git
+        run: |
+          git config --global user.email "ci-bot@amazon.com"
+          git config --global user.name "ci-bot"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs-material mike
+      - name: Build
+        run: |
+          mike deploy 1.0.5 latest --update-aliases --push
+          mike set-default latest --allow-empty --push
+          
+          
+

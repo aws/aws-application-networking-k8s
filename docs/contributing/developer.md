@@ -149,13 +149,13 @@ After all test cases running finished, in the `AfterSuite()` function, it will c
 
 ## Documentations
 
-The controller documentation is managed in `docs/` directory, and built with [mkdocs](https://www.mkdocs.org/).
+The controller documentation is managed in `docs/` directory, and built with [mkdocs](https://www.mkdocs.org/). It uses [mike](https://github.com/jimporter/mike) to manage versioning.
 To build and verify your changes locally:
 ```sh
 pip install -r requirements.txt
 make docs
 ```
-The website will be located in `site/` directory. You can also run a local dev-server by running `mkdocs serve`.
+The website will be located in `site/` directory. You can also run a local dev-server by running `mike serve` or `mkdocs serve`.
 
 ## Contributing
 
