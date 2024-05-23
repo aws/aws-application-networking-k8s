@@ -2,11 +2,14 @@ package services
 
 import (
 	"context"
+	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	taggingapi "github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	taggingapiiface "github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
 //go:generate mockgen -destination tagging_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services Tagging
@@ -26,8 +29,6 @@ const (
 type Tags = map[string]*string
 
 type Tagging interface {
-	taggingapiiface.ResourceGroupsTaggingAPIAPI
-
 	// Receives a list of arns and returns arn-to-tags map.
 	GetTagsForArns(ctx context.Context, arns []string) (map[string]Tags, error)
 
@@ -37,6 +38,11 @@ type Tagging interface {
 
 type defaultTagging struct {
 	taggingapiiface.ResourceGroupsTaggingAPIAPI
+}
+
+type latticeTagging struct {
+	Lattice
+	vpcId string
 }
 
 func (t *defaultTagging) GetTagsForArns(ctx context.Context, arns []string) (map[string]Tags, error) {
@@ -78,6 +84,67 @@ func (t *defaultTagging) FindResourcesByTags(ctx context.Context, resourceType R
 func NewDefaultTagging(sess *session.Session, region string) *defaultTagging {
 	api := taggingapi.New(sess, &aws.Config{Region: aws.String(region)})
 	return &defaultTagging{ResourceGroupsTaggingAPIAPI: api}
+}
+
+// Use VPC Lattice API instead of the Resource Groups Tagging API
+func NewLatticeTagging(sess *session.Session, acc string, region string, vpcId string) *latticeTagging {
+	api := NewDefaultLattice(sess, acc, region)
+	return &latticeTagging{Lattice: api, vpcId: vpcId}
+}
+
+func (t *latticeTagging) GetTagsForArns(ctx context.Context, arns []string) (map[string]Tags, error) {
+	result := map[string]Tags{}
+
+	for _, arn := range arns {
+		tags, err := t.ListTagsForResourceWithContext(ctx,
+			&vpclattice.ListTagsForResourceInput{ResourceArn: aws.String(arn)},
+		)
+		if err != nil {
+			return nil, err
+		}
+		result[arn] = tags.Tags
+	}
+	return result, nil
+}
+
+func (t *latticeTagging) FindResourcesByTags(ctx context.Context, resourceType ResourceType, tags Tags) ([]string, error) {
+	if resourceType != ResourceTypeTargetGroup {
+		return nil, fmt.Errorf("unsupported resource type %q for FindResourcesByTags", resourceType)
+	}
+
+	tgs, err := t.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{
+		VpcIdentifier: aws.String(t.vpcId),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	arns := make([]string, 0, len(tgs))
+
+	for _, tg := range tgs {
+		resp, err := t.ListTagsForResourceWithContext(ctx,
+			&vpclattice.ListTagsForResourceInput{ResourceArn: tg.Arn},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if containsTags(resp.Tags, tags) {
+			arns = append(arns, aws.StringValue(tg.Arn))
+		}
+	}
+
+	return arns, nil
+}
+
+func containsTags(source, check Tags) bool {
+	for k, v := range check {
+		sourceV, ok := source[k]
+		if !ok || aws.StringValue(sourceV) != aws.StringValue(v) {
+			return false
+		}
+	}
+	return len(check) != 0
 }
 
 func convertTags(tags []*taggingapi.Tag) Tags {

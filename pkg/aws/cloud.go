@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -10,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"golang.org/x/exp/maps"
 
-	"context"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/metrics"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -24,10 +24,11 @@ const (
 //go:generate mockgen -destination cloud_mocks.go -package aws github.com/aws/aws-application-networking-k8s/pkg/aws Cloud
 
 type CloudConfig struct {
-	VpcId       string
-	AccountId   string
-	Region      string
-	ClusterName string
+	VpcId                     string
+	AccountId                 string
+	Region                    string
+	ClusterName               string
+	TaggingServiceAPIDisabled bool
 }
 
 type Cloud interface {
@@ -82,7 +83,14 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Re
 	}
 
 	lattice := services.NewDefaultLattice(sess, cfg.AccountId, cfg.Region)
-	tagging := services.NewDefaultTagging(sess, cfg.Region)
+	var tagging services.Tagging
+
+	if cfg.TaggingServiceAPIDisabled {
+		tagging = services.NewLatticeTagging(sess, cfg.AccountId, cfg.Region, cfg.VpcId)
+	} else {
+		tagging = services.NewDefaultTagging(sess, cfg.Region)
+	}
+
 	cl := NewDefaultCloudWithTagging(lattice, tagging, cfg)
 	return cl, nil
 }
