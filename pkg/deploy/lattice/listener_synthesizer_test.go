@@ -2,14 +2,16 @@ package lattice
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func Test_SynthesizeListenerCreate(t *testing.T) {
@@ -17,6 +19,7 @@ func Test_SynthesizeListenerCreate(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockListenerMgr := NewMockListenerManager(c)
+	mockTargetGroupManager := NewMockTargetGroupManager(c)
 
 	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
 
@@ -34,12 +37,12 @@ func Test_SynthesizeListenerCreate(t *testing.T) {
 	}
 	assert.NoError(t, stack.AddResource(l))
 
-	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any()).Return(
+	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		model.ListenerStatus{Id: "new-listener-id"}, nil)
 
 	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{}, nil)
 
-	ls := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerMgr, stack)
+	ls := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerMgr, mockTargetGroupManager, stack)
 	err := ls.Synthesize(ctx)
 	assert.Nil(t, err)
 }
@@ -49,6 +52,7 @@ func Test_SynthesizeListenerCreateWithReconcile(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockListenerMgr := NewMockListenerManager(c)
+	mockTargetGroupManager := NewMockTargetGroupManager(c)
 
 	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
 
@@ -67,7 +71,7 @@ func Test_SynthesizeListenerCreateWithReconcile(t *testing.T) {
 	}
 	assert.NoError(t, stack.AddResource(l))
 
-	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any()).Return(
+	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		model.ListenerStatus{Id: "new-listener-id"}, nil)
 
 	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{
@@ -84,7 +88,7 @@ func Test_SynthesizeListenerCreateWithReconcile(t *testing.T) {
 			return nil
 		})
 
-	ls := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerMgr, stack)
+	ls := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerMgr, mockTargetGroupManager, stack)
 	err := ls.Synthesize(ctx)
 	assert.Nil(t, err)
 }

@@ -66,16 +66,16 @@ func (mr *MockListenerManagerMockRecorder) List(arg0, arg1 interface{}) *gomock.
 }
 
 // Upsert mocks base method.
-func (m *MockListenerManager) Upsert(arg0 context.Context, arg1 *lattice.Listener, arg2 *lattice.Service) (lattice.ListenerStatus, error) {
+func (m *MockListenerManager) Upsert(arg0 context.Context, arg1 *lattice.Listener, arg2 *lattice.Service, arg3 []*lattice.RuleTargetGroup) (lattice.ListenerStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Upsert", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Upsert", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(lattice.ListenerStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Upsert indicates an expected call of Upsert.
-func (mr *MockListenerManagerMockRecorder) Upsert(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockListenerManagerMockRecorder) Upsert(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockListenerManager)(nil).Upsert), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockListenerManager)(nil).Upsert), arg0, arg1, arg2, arg3)
 }

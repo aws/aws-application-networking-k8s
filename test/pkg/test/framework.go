@@ -185,11 +185,7 @@ func objectsInfo(objs []client.Object) string {
 func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Object) {
 	env.Log.Infof("Creating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
-		err := env.Create(ctx, obj)
-		if err != nil {
-			env.Log.Errorf("Error creating object %s, %s", obj, err)
-		}
-		Expect(err).WithOffset(1).To(BeNil())
+		Expect(env.Create(ctx, obj)).WithOffset(1).To(Succeed())
 	})
 }
 
@@ -352,6 +348,10 @@ func (env *Framework) GetTargetGroup(ctx context.Context, service *corev1.Servic
 	return env.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttp, vpclattice.TargetGroupProtocolVersionHttp1)
 }
 
+func (env *Framework) GetTCPTargetGroup(ctx context.Context, service *corev1.Service) *vpclattice.TargetGroupSummary {
+	return env.GetTargetGroupWithProtocol(ctx, service, "TCP", "")
+}
+
 func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *corev1.Service, protocol, protocolVersion string) *vpclattice.TargetGroupSummary {
 	tgSpec := model.TargetGroupSpec{
 		TargetGroupTagFields: model.TargetGroupTagFields{
@@ -427,7 +427,8 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 		targetIps := lo.Filter(retrievedTargets, func(target *vpclattice.TargetSummary, _ int) bool {
 			return lo.Contains(podIps, *target.Id) &&
 				(*target.Status == vpclattice.TargetStatusInitial ||
-					*target.Status == vpclattice.TargetStatusHealthy)
+					*target.Status == vpclattice.TargetStatusHealthy ||
+					*target.Status == vpclattice.TargetStatusUnavailable)
 		})
 
 		g.Expect(targetIps).Should(HaveLen(len(podIps)))
@@ -565,6 +566,19 @@ func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNam
 		env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
 		g.Expect(httproute.Annotations).To(HaveKey(controllers.LatticeAssignedDomainName))
 		vpcLatticeServiceDns = httproute.Annotations[controllers.LatticeAssignedDomainName]
+	}).Should(Succeed())
+
+	return vpcLatticeServiceDns
+}
+
+func (env *Framework) GetVpcLatticeServiceTLSDns(httpRouteName string, httpRouteNamespace string) string {
+	env.Log.Infoln("GetVpcLatticeServiceTLSDns: ", httpRouteName, httpRouteNamespace)
+	vpcLatticeServiceDns := ""
+	Eventually(func(g Gomega) {
+		tlsroute := gwv1alpha2.TLSRoute{}
+		env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &tlsroute)
+		g.Expect(tlsroute.Annotations).To(HaveKey(controllers.LatticeAssignedDomainName))
+		vpcLatticeServiceDns = tlsroute.Annotations[controllers.LatticeAssignedDomainName]
 	}).Should(Succeed())
 
 	return vpcLatticeServiceDns

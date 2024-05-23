@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 const (
@@ -18,7 +21,6 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 	ctx context.Context,
 	parentRef gwv1beta1.ParentReference,
 ) (int64, string, error) {
-	protocol := gwv1.HTTPProtocolType
 	if parentRef.SectionName != nil {
 		t.log.Debugf("Listener parentRef SectionName is %s", *parentRef.SectionName)
 	}
@@ -28,33 +30,29 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 	if err != nil {
 		return 0, "", err
 	}
-
-	// go through parent find out the matching section name
-	var listenerPort int
-	if parentRef.SectionName != nil {
-		found := false
-		for _, section := range gw.Spec.Listeners {
-			if section.Name == *parentRef.SectionName {
-				listenerPort = int(section.Port)
-				protocol = section.Protocol
-				found = true
-				break
-			}
-		}
-		if !found {
-			return 0, "", fmt.Errorf("error building listener, no matching sectionName in parentRef for Name %s, Section %s", parentRef.Name, *parentRef.SectionName)
-		}
-	} else {
-		// use 1st listener port
+	// If no SectionName is specified, use the first listener port
+	if parentRef.SectionName == nil {
 		if len(gw.Spec.Listeners) == 0 {
 			return 0, "", errors.New("error building listener, there is NO listeners on GW")
 		}
-
-		listenerPort = int(gw.Spec.Listeners[0].Port)
-		protocol = gw.Spec.Listeners[0].Protocol
+		listenerPort := int(gw.Spec.Listeners[0].Port)
+		protocol := gw.Spec.Listeners[0].Protocol
+		return int64(listenerPort), string(protocol), nil
 	}
-
-	return int64(listenerPort), string(protocol), nil
+	// Find the matching section name
+	for _, section := range gw.Spec.Listeners {
+		if section.Name == *parentRef.SectionName {
+			listenerPort := int(section.Port)
+			protocol := section.Protocol
+			if section.TLS != nil && section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModePassthrough {
+				t.log.Debugf("Found TLS passthrough section %v", section.TLS)
+				// if the k8s gw.listener section has tls.mode: Passthrough, the lattice service listener protocol should be TLS_PASSTHROUGH
+				protocol = vpclattice.ListenerProtocolTlsPassthrough
+			}
+			return int64(listenerPort), string(protocol), nil
+		}
+	}
+	return 0, "", fmt.Errorf("error building listener, no matching sectionName in parentRef for Name %s, Section %s", parentRef.Name, *parentRef.SectionName)
 }
 
 func (t *latticeServiceModelBuildTask) getGateway(ctx context.Context) (*gwv1beta1.Gateway, error) {

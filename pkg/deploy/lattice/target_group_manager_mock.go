@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	core "github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	lattice0 "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
 	gomock "github.com/golang/mock/gomock"
@@ -78,6 +79,20 @@ func (m *MockTargetGroupManager) List(arg0 context.Context) ([]tgListOutput, err
 func (mr *MockTargetGroupManagerMockRecorder) List(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockTargetGroupManager)(nil).List), arg0)
+}
+
+// ResolveRuleTgIds mocks base method.
+func (m *MockTargetGroupManager) ResolveRuleTgIds(arg0 context.Context, arg1 *lattice0.Rule, arg2 core.Stack) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveRuleTgIds", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ResolveRuleTgIds indicates an expected call of ResolveRuleTgIds.
+func (mr *MockTargetGroupManagerMockRecorder) ResolveRuleTgIds(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveRuleTgIds", reflect.TypeOf((*MockTargetGroupManager)(nil).ResolveRuleTgIds), arg0, arg1, arg2)
 }
 
 // Upsert mocks base method.

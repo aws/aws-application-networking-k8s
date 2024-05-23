@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
@@ -21,7 +22,7 @@ import (
 //go:generate mockgen -destination listener_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ListenerManager
 
 type ListenerManager interface {
-	Upsert(ctx context.Context, modelListener *model.Listener, modelSvc *model.Service) (model.ListenerStatus, error)
+	Upsert(ctx context.Context, modelListener *model.Listener, modelSvc *model.Service, defaultActionTgs []*model.RuleTargetGroup) (model.ListenerStatus, error)
 	Delete(ctx context.Context, modelListener *model.Listener) error
 	List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error)
 }
@@ -45,6 +46,7 @@ func (d *defaultListenerManager) Upsert(
 	ctx context.Context,
 	modelListener *model.Listener,
 	modelSvc *model.Service,
+	defaultActionTgs []*model.RuleTargetGroup,
 ) (model.ListenerStatus, error) {
 	if modelSvc.Status == nil || modelSvc.Status.Id == "" {
 		return model.ListenerStatus{}, errors.New("model service is missing id")
@@ -70,16 +72,32 @@ func (d *defaultListenerManager) Upsert(
 	}
 
 	// no listener currently exists, create
-	defaultStatus := aws.Int64(404)
-	defaultResp := vpclattice.FixedResponseAction{
-		StatusCode: defaultStatus,
+	defaultAction := vpclattice.RuleAction{
+		FixedResponse: &vpclattice.FixedResponseAction{
+			StatusCode: aws.Int64(404),
+		},
 	}
 
+	if modelListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+		// Fill the defaultAction tgs for TLS_PASSTHROUGH lattice listener
+		var latticeTGs []*vpclattice.WeightedTargetGroup
+		for _, modelTG := range defaultActionTgs {
+			latticeTG := vpclattice.WeightedTargetGroup{
+				TargetGroupIdentifier: aws.String(modelTG.LatticeTgId),
+				Weight:                aws.Int64(modelTG.Weight),
+			}
+			latticeTGs = append(latticeTGs, &latticeTG)
+		}
+		d.log.Debugf("For TLS_PASSTHROUGH listener, forward to default target groups %v", latticeTGs)
+		defaultAction = vpclattice.RuleAction{
+			Forward: &vpclattice.ForwardAction{
+				TargetGroups: latticeTGs,
+			},
+		}
+	}
 	listenerInput := vpclattice.CreateListenerInput{
-		ClientToken: nil,
-		DefaultAction: &vpclattice.RuleAction{
-			FixedResponse: &defaultResp,
-		},
+		ClientToken:       nil,
+		DefaultAction:     &defaultAction,
 		Name:              aws.String(k8sLatticeListenerName(modelListener)),
 		Port:              aws.Int64(modelListener.Spec.Port),
 		Protocol:          aws.String(modelListener.Spec.Protocol),
@@ -103,11 +121,16 @@ func (d *defaultListenerManager) Upsert(
 }
 
 func k8sLatticeListenerName(modelListener *model.Listener) string {
+	protocol := strings.ToLower(modelListener.Spec.Protocol)
+	if modelListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+		protocol = "tls"
+	}
+
 	listenerName := fmt.Sprintf("%s-%s-%d-%s",
 		utils.Truncate(modelListener.Spec.K8SRouteName, 20),
 		utils.Truncate(modelListener.Spec.K8SRouteNamespace, 18),
 		modelListener.Spec.Port,
-		strings.ToLower(modelListener.Spec.Protocol))
+		protocol)
 	return listenerName
 }
 

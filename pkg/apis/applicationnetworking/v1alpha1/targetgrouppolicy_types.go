@@ -38,14 +38,15 @@ type TargetGroupPolicyList struct {
 
 // TargetGroupPolicySpec defines the desired state of TargetGroupPolicy.
 type TargetGroupPolicySpec struct {
-	// The protocol to use for routing traffic to the targets. Supported values are HTTP (default) and HTTPS.
+	// The protocol to use for routing traffic to the targets. Supported values are HTTP (default), HTTPS and TCP.
 	//
 	// Changes to this value results in a replacement of VPC Lattice target group.
 	// +optional
 	Protocol *string `json:"protocol,omitempty"`
 
-	// The protocol version to use. Supported values are HTTP1 (default) and HTTP2. When a policy is behind GRPCRoute,
-	// this field value will be ignored as GRPC is only supported through HTTP/2.
+	// The protocol version to use. Supported values are HTTP1 (default) and HTTP2.
+	// When a policy Protocol is TCP, this field value will be ignored.
+	// When a policy is behind GRPCRoute, this field value will be ignored as GRPC is only supported through HTTP/2.
 	//
 	// Changes to this value results in a replacement of VPC Lattice target group.
 	// +optional

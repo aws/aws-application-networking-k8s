@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -15,17 +16,20 @@ import (
 type listenerSynthesizer struct {
 	log         gwlog.Logger
 	listenerMgr ListenerManager
+	tgManager   TargetGroupManager
 	stack       core.Stack
 }
 
 func NewListenerSynthesizer(
 	log gwlog.Logger,
 	ListenerManager ListenerManager,
+	tgManager TargetGroupManager,
 	stack core.Stack,
 ) *listenerSynthesizer {
 	return &listenerSynthesizer{
 		log:         log,
 		listenerMgr: ListenerManager,
+		tgManager:   tgManager,
 		stack:       stack,
 	}
 }
@@ -46,7 +50,19 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 			return err
 		}
 
-		status, err := l.listenerMgr.Upsert(ctx, listener, svc)
+		var stackRules []*model.Rule
+		var defaultActionTgs []*model.RuleTargetGroup
+		if listener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+			_ = l.stack.ListResources(&stackRules)
+			if err := l.tgManager.ResolveRuleTgIds(ctx, stackRules[0], l.stack); err != nil {
+				l.log.Infof("Failed to update TGId, err = %v", err)
+				return err
+			}
+			// Fill the default action target groups for TLS_PASSTHROUGH listener, since TLS_PASSTHROUGH listener only has the defaultAction and no extra listener rules
+			defaultActionTgs = stackRules[0].Spec.Action.TargetGroups
+		}
+
+		status, err := l.listenerMgr.Upsert(ctx, listener, svc, defaultActionTgs)
 		if err != nil {
 			listenerErr = errors.Join(listenerErr,
 				fmt.Errorf("failed ListenerManager.Upsert %s-%s due to err %s",

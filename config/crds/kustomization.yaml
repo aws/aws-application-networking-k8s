@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - bases/k8s-gateway-v0.6.1.yaml
+  - bases/gateway.networking.k8s.io_tlsroutes.yaml
   - bases/externaldns.k8s.io_dnsendpoints.yaml
   - bases/application-networking.k8s.aws_serviceexports.yaml
   - bases/application-networking.k8s.aws_serviceimports.yaml

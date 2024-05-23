@@ -7,7 +7,7 @@ replace github.com/aws/aws-application-networking-k8s => ../
 require (
 	github.com/Pallinder/go-randomdata v1.2.0
 	github.com/aws/aws-application-networking-k8s v0.3.0
-	github.com/aws/aws-sdk-go v1.50.3
+	github.com/aws/aws-sdk-go v1.53.7
 	github.com/imdario/mergo v0.3.16
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.10

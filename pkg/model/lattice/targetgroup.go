@@ -3,10 +3,12 @@ package lattice
 import (
 	"errors"
 	"fmt"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
 const (
@@ -69,6 +71,7 @@ const (
 	SourceTypeSvcExport K8SSourceType = "ServiceExport"
 	SourceTypeHTTPRoute K8SSourceType = "HTTPRoute"
 	SourceTypeGRPCRoute K8SSourceType = "GRPCRoute"
+	SourceTypeTLSRoute  K8SSourceType = "TLSRoute"
 	SourceTypeInvalid   K8SSourceType = "INVALID"
 )
 
@@ -119,6 +122,8 @@ func GetParentRefType(s string) K8SSourceType {
 		return SourceTypeHTTPRoute
 	case string(SourceTypeGRPCRoute):
 		return SourceTypeGRPCRoute
+	case string(SourceTypeTLSRoute):
+		return SourceTypeTLSRoute
 	case string(SourceTypeSvcExport):
 		return SourceTypeSvcExport
 	default:
@@ -157,12 +162,13 @@ func (t *TargetGroupTagFields) IsSourceTypeServiceExport() bool {
 
 func (t *TargetGroupTagFields) IsSourceTypeRoute() bool {
 	return t.K8SSourceType == SourceTypeHTTPRoute ||
-		t.K8SSourceType == SourceTypeGRPCRoute
+		t.K8SSourceType == SourceTypeGRPCRoute ||
+		t.K8SSourceType == SourceTypeTLSRoute
 }
 
 func (t *TargetGroupSpec) Validate() error {
 	requiredFields := []string{t.K8SServiceName, t.K8SServiceNamespace,
-		t.Protocol, t.ProtocolVersion, t.VpcId, t.K8SClusterName, t.IpAddressType,
+		t.Protocol, t.VpcId, t.K8SClusterName, t.IpAddressType,
 		string(t.K8SSourceType)}
 
 	for _, s := range requiredFields {

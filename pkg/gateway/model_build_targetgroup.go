@@ -166,7 +166,11 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 			protocol = *tgp.Spec.Protocol
 		}
 		if tgp.Spec.ProtocolVersion != nil {
-			protocolVersion = *tgp.Spec.ProtocolVersion
+			if *tgp.Spec.Protocol == vpclattice.TargetGroupProtocolTcp {
+				protocolVersion = ""
+			} else {
+				protocolVersion = *tgp.Spec.ProtocolVersion
+			}
 		}
 		healthCheckConfig = parseHealthCheckConfig(tgp)
 	}
@@ -331,18 +335,25 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		if tgp.Spec.Protocol != nil {
 			protocol = *tgp.Spec.Protocol
 		}
-
 		if tgp.Spec.ProtocolVersion != nil {
 			protocolVersion = *tgp.Spec.ProtocolVersion
 		}
 		healthCheckConfig = parseHealthCheckConfig(tgp)
 	}
 
-	// GRPC takes precedence over other protocolVersions.
-	parentRefType := model.SourceTypeHTTPRoute
-	if _, ok := t.route.(*core.GRPCRoute); ok {
+	var parentRefType model.K8SSourceType
+	switch t.route.(type) {
+	case *core.HTTPRoute:
+		parentRefType = model.SourceTypeHTTPRoute
+	case *core.GRPCRoute:
+		// protocolVersion:GRPC takes precedence over other protocolVersions for k8s svc backendref by GRPCRoutes
 		protocolVersion = vpclattice.TargetGroupProtocolVersionGrpc
 		parentRefType = model.SourceTypeGRPCRoute
+	case *core.TLSRoute:
+		// protocol:TCP takes precedence over other protocol for k8s svc backendref by TLSRoutes
+		protocol = vpclattice.TargetGroupProtocolTcp
+		protocolVersion = ""
+		parentRefType = model.SourceTypeTLSRoute
 	}
 
 	spec := model.TargetGroupSpec{

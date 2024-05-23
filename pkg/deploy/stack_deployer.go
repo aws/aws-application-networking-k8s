@@ -186,7 +186,7 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	targetGroupSynthesizer := lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sClient, d.targetGroupManager, d.svcExportTgBuilder, d.svcBuilder, stack)
 	targetsSynthesizer := lattice.NewTargetsSynthesizer(d.log, d.k8sClient, d.targetsManager, stack)
 	serviceSynthesizer := lattice.NewServiceSynthesizer(d.log, d.latticeServiceManager, d.dnsEndpointManager, stack)
-	listenerSynthesizer := lattice.NewListenerSynthesizer(d.log, d.listenerManager, stack)
+	listenerSynthesizer := lattice.NewListenerSynthesizer(d.log, d.listenerManager, d.targetGroupManager, stack)
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.log, d.ruleManager, d.targetGroupManager, stack)
 
 	// We need to block GC when we deploy stack. Stack deployer first creates TG and then

@@ -59,6 +59,8 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 	}
 	if service.Spec.RouteType == core.GrpcRouteType {
 		route, err = core.GetGRPCRoute(ctx, s.k8sClient, routeNamespacedName)
+	} else if service.Spec.RouteType == core.TlsRouteType {
+		route, err = core.GetTLSRoute(ctx, s.k8sClient, routeNamespacedName)
 	} else {
 		route, err = core.GetHTTPRoute(ctx, s.k8sClient, routeNamespacedName)
 	}

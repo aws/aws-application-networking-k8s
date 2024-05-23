@@ -2,16 +2,18 @@ package lattice
 
 import (
 	"context"
-	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
+
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func Test_CreateListenerNew(t *testing.T) {
@@ -40,7 +42,7 @@ func Test_CreateListenerNew(t *testing.T) {
 	)
 
 	lm := NewListenerManager(gwlog.FallbackLogger, cloud)
-	status, err := lm.Upsert(ctx, ml, ms)
+	status, err := lm.Upsert(ctx, ml, ms, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, "new-lid", status.Id)
 	assert.Equal(t, "svc-id", status.ServiceId)
@@ -73,7 +75,7 @@ func Test_CreateListenerExisting(t *testing.T) {
 		}}, nil)
 
 	lm := NewListenerManager(gwlog.FallbackLogger, cloud)
-	status, err := lm.Upsert(ctx, ml, ms)
+	status, err := lm.Upsert(ctx, ml, ms, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, "existing-lid", status.Id)
 	assert.Equal(t, "svc-id", status.ServiceId)
