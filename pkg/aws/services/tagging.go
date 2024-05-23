@@ -144,7 +144,7 @@ func containsTags(source, check Tags) bool {
 			return false
 		}
 	}
-	return true
+	return len(check) != 0
 }
 
 func convertTags(tags []*taggingapi.Tag) Tags {

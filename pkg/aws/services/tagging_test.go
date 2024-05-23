@@ -58,11 +58,11 @@ func TestContainsTags(t *testing.T) {
 				"Key2": aws.String("Value2"),
 			},
 			sourceTags: Tags{
-				"Key1": aws.String("Value1"),
-				"Key2": aws.String("Value2"),
 				"Key3": aws.String("Value3"),
+				"Key2": aws.String("Value2"),
+				"Key1": aws.String("Value1"),
 			},
-			testName: "match subnet of tags from source's multiple tags",
+			testName: "match subset of tags from source's multiple tags",
 		},
 		{
 			contains: false,
@@ -114,6 +114,16 @@ func TestContainsTags(t *testing.T) {
 		},
 		{
 			contains: false,
+			findTags: Tags{},
+			sourceTags: Tags{
+				"Key1": aws.String("Value1"),
+				"Key2": aws.String("Value2"),
+				"Key3": aws.String("Value3"),
+			},
+			testName: "no match when searching for empty tags",
+		},
+		{
+			contains: false,
 			findTags: Tags{
 				"Key1": aws.String(""),
 			},
@@ -158,7 +168,7 @@ func Test_latticeTagging_FindResourcesByTags_nonTargetGroupTypeError(t *testing.
 	nonTargetGroupResourceType := ResourceTypeService
 
 	_, err := lt.FindResourcesByTags(ctx, nonTargetGroupResourceType, Tags{})
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func Test_latticeTagging_FindResourcesByTags_ListTagsError(t *testing.T) {
