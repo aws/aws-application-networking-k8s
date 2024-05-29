@@ -22,7 +22,7 @@ import (
 //go:generate mockgen -destination listener_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ListenerManager
 
 type ListenerManager interface {
-	Upsert(ctx context.Context, modelListener *model.Listener, modelSvc *model.Service, defaultActionTgs []*model.RuleTargetGroup) (model.ListenerStatus, error)
+	Upsert(ctx context.Context, modelListener *model.Listener, modelSvc *model.Service, defaultAction *vpclattice.RuleAction) (model.ListenerStatus, error)
 	Delete(ctx context.Context, modelListener *model.Listener) error
 	List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error)
 }
@@ -46,7 +46,7 @@ func (d *defaultListenerManager) Upsert(
 	ctx context.Context,
 	modelListener *model.Listener,
 	modelSvc *model.Service,
-	defaultActionTgs []*model.RuleTargetGroup,
+	defaultAction *vpclattice.RuleAction,
 ) (model.ListenerStatus, error) {
 	if modelSvc.Status == nil || modelSvc.Status.Id == "" {
 		return model.ListenerStatus{}, errors.New("model service is missing id")
@@ -59,9 +59,8 @@ func (d *defaultListenerManager) Upsert(
 		return model.ListenerStatus{}, err
 	}
 	if latticeListener != nil {
-		// we do not support listener updates as the only mutable property
-		// is the default action, which we set to 404 as required by the gw spec
-		// so here we just return the existing one
+		// we don't need to do vpclattice.UpdateListener(), if we can find a existing one.
+		// Since we can make sure the every time when calling the vpclattice.CreateListener() it must have the latest and correct defaultAction.
 		d.log.Debugf("Found existing listener %s, nothing to update", aws.StringValue(latticeListener.Id))
 		return model.ListenerStatus{
 			Name:        aws.StringValue(latticeListener.Name),
@@ -71,33 +70,9 @@ func (d *defaultListenerManager) Upsert(
 		}, nil
 	}
 
-	// no listener currently exists, create
-	defaultAction := vpclattice.RuleAction{
-		FixedResponse: &vpclattice.FixedResponseAction{
-			StatusCode: aws.Int64(404),
-		},
-	}
-
-	if modelListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
-		// Fill the defaultAction tgs for TLS_PASSTHROUGH lattice listener
-		var latticeTGs []*vpclattice.WeightedTargetGroup
-		for _, modelTG := range defaultActionTgs {
-			latticeTG := vpclattice.WeightedTargetGroup{
-				TargetGroupIdentifier: aws.String(modelTG.LatticeTgId),
-				Weight:                aws.Int64(modelTG.Weight),
-			}
-			latticeTGs = append(latticeTGs, &latticeTG)
-		}
-		d.log.Debugf("For TLS_PASSTHROUGH listener, forward to default target groups %v", latticeTGs)
-		defaultAction = vpclattice.RuleAction{
-			Forward: &vpclattice.ForwardAction{
-				TargetGroups: latticeTGs,
-			},
-		}
-	}
 	listenerInput := vpclattice.CreateListenerInput{
 		ClientToken:       nil,
-		DefaultAction:     &defaultAction,
+		DefaultAction:     defaultAction,
 		Name:              aws.String(k8sLatticeListenerName(modelListener)),
 		Port:              aws.Int64(modelListener.Spec.Port),
 		Protocol:          aws.String(modelListener.Spec.Protocol),

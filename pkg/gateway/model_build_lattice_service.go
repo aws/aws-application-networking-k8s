@@ -105,6 +105,8 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		routeType = core.GrpcRouteType
 	case *core.TLSRoute:
 		routeType = core.TlsRouteType
+	default:
+		return nil, fmt.Errorf("unsupported route type: %T", t.route)
 	}
 
 	spec := model.ServiceSpec{

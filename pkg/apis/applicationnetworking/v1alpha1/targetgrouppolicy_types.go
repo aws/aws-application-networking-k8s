@@ -65,7 +65,7 @@ type TargetGroupPolicySpec struct {
 }
 
 // HealthCheckConfig defines health check configuration for given VPC Lattice target group.
-// For the detailed explanation and supported values, please refer to VPC Lattice documentationon health checks.
+// For the detailed explanation and supported values, please refer to [VPC Lattice health checks documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html).
 type HealthCheckConfig struct {
 	// Indicates whether health checking is enabled.
 	// +optional
@@ -113,7 +113,7 @@ type HealthCheckConfig struct {
 	// +optional
 	Protocol *HealthCheckProtocol `json:"protocol,omitempty"`
 
-	// The protocol version used when performing health checks on targets. Defaults to HTTP/1.
+	// The protocol version used when performing health checks on targets.
 	// +optional
 	ProtocolVersion *HealthCheckProtocolVersion `json:"protocolVersion,omitempty"`
 }

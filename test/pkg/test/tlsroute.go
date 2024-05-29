@@ -21,7 +21,7 @@ func (env *Framework) NewTLSRoute(namespace string, parentRefsGateway *gwv1.Gate
 					SectionName: lo.ToPtr(gwv1.SectionName("tls")),
 				}},
 			},
-			Hostnames: []gwv1.Hostname{"tls.test.com"},
+			Hostnames: []gwv1.Hostname{"lattice-k8s-tls-passthrough-test.com"},
 			Rules:     rules,
 		},
 	})

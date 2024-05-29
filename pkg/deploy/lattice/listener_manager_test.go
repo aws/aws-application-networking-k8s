@@ -40,9 +40,13 @@ func Test_CreateListenerNew(t *testing.T) {
 			return &vpclattice.CreateListenerOutput{Id: aws.String("new-lid")}, nil
 		},
 	)
-
+	defaultAction := &vpclattice.RuleAction{
+		FixedResponse: &vpclattice.FixedResponseAction{
+			StatusCode: aws.Int64(404),
+		},
+	}
 	lm := NewListenerManager(gwlog.FallbackLogger, cloud)
-	status, err := lm.Upsert(ctx, ml, ms, nil)
+	status, err := lm.Upsert(ctx, ml, ms, defaultAction)
 	assert.Nil(t, err)
 	assert.Equal(t, "new-lid", status.Id)
 	assert.Equal(t, "svc-id", status.ServiceId)

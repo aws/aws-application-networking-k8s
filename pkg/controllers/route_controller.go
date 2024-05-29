@@ -148,9 +148,6 @@ func RegisterAllRouteControllers(
 	return nil
 }
 
-// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=tlsroutes;grpcroutes;httproutes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=tlsroutes/status;grpcroutes/status;httproutes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=tlsroutes/finalizers;grpcroutes/finalizers;httproutes/finalizers,verbs=update
 func (r *routeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.Infow("reconcile", "name", req.Name)
 	recErr := r.reconcile(ctx, req)

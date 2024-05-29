@@ -354,6 +354,8 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		protocol = vpclattice.TargetGroupProtocolTcp
 		protocolVersion = ""
 		parentRefType = model.SourceTypeTLSRoute
+	default:
+		return model.TargetGroupSpec{}, fmt.Errorf("unsupported route type %T", t.route)
 	}
 
 	spec := model.TargetGroupSpec{

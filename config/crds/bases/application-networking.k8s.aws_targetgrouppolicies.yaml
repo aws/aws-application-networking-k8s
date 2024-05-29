@@ -82,7 +82,7 @@ spec:
                     type: string
                   protocolVersion:
                     description: The protocol version used when performing health
-                      checks on targets. Defaults to HTTP/1.
+                      checks on targets.
                     enum:
                     - HTTP1
                     - HTTP2

@@ -66,7 +66,7 @@ func (mr *MockListenerManagerMockRecorder) List(arg0, arg1 interface{}) *gomock.
 }
 
 // Upsert mocks base method.
-func (m *MockListenerManager) Upsert(arg0 context.Context, arg1 *lattice.Listener, arg2 *lattice.Service, arg3 []*lattice.RuleTargetGroup) (lattice.ListenerStatus, error) {
+func (m *MockListenerManager) Upsert(arg0 context.Context, arg1 *lattice.Listener, arg2 *lattice.Service, arg3 *vpclattice.RuleAction) (lattice.ListenerStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upsert", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(lattice.ListenerStatus)

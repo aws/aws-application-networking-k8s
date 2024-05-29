@@ -105,7 +105,7 @@ var _ = Describe("TLSRoute ServiceExport ServiceImport Test", func() {
 		pod := pods[0]
 
 		Eventually(func(g Gomega) {
-			cmd := fmt.Sprintf("curl -k https://tls.test.com:444 --resolve tls.test.com:444:%s", dnsIP[0])
+			cmd := fmt.Sprintf("curl -k https://lattice-k8s-tls-passthrough-test.com:444 --resolve tls.test.com:444:%s", dnsIP[0])
 			log.Printf("Executing command [%s] \n", cmd)
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())

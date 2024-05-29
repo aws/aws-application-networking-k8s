@@ -26,7 +26,7 @@ jobs:
           pip install mkdocs-material mike
       - name: Build
         run: |
-          mike deploy v1.0.6-rc1 latest --update-aliases --push
+          mike deploy 1.0.5 latest --update-aliases --push
           mike set-default latest --allow-empty --push
           
           
