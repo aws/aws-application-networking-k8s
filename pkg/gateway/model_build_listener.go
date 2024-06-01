@@ -44,15 +44,35 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 		if section.Name == *parentRef.SectionName {
 			listenerPort := int(section.Port)
 			protocol := section.Protocol
-			if section.TLS != nil && section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModePassthrough {
+			if isTLSPassthroughGatewayListener(&section) {
 				t.log.Debugf("Found TLS passthrough section %v", section.TLS)
-				// if the k8s gw.listener section has tls.mode: Passthrough, the lattice service listener protocol should be TLS_PASSTHROUGH
 				protocol = vpclattice.ListenerProtocolTlsPassthrough
 			}
 			return int64(listenerPort), string(protocol), nil
 		}
 	}
 	return 0, "", fmt.Errorf("error building listener, no matching sectionName in parentRef for Name %s, Section %s", parentRef.Name, *parentRef.SectionName)
+}
+
+func isTLSPassthroughGatewayListener(listener *gwv1.Listener) bool {
+	/*
+		tls-passthrough gateway listener example:
+
+		apiVersion: gateway.networking.k8s.io/v1
+		kind: Gateway
+		metadata:
+		  name: my-gateway-tls-passthrough
+		spec:
+		  gatewayClassName: amazon-vpc-lattice
+		  listeners:
+		    - name: tls
+		      protocol: TLS
+		      port: 443
+		      tls:
+		        mode: Passthrough
+	*/
+	return listener.Protocol == gwv1.TCPProtocolType && listener.TLS != nil && listener.TLS.Mode != nil && *listener.TLS.Mode == gwv1.TLSModePassthrough
+
 }
 
 func (t *latticeServiceModelBuildTask) getGateway(ctx context.Context) (*gwv1beta1.Gateway, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -53,30 +54,48 @@ func (d *defaultListenerManager) Upsert(
 	}
 
 	d.log.Infof("Upsert listener %s-%s", modelListener.Spec.K8SRouteName, modelListener.Spec.K8SRouteNamespace)
-
-	latticeListener, err := d.findListenerByPort(ctx, modelSvc.Status.Id, modelListener.Spec.Port)
+	latticeSvcId := modelSvc.Status.Id
+	latticeListenerSummary, err := d.findListenerByPort(ctx, latticeSvcId, modelListener.Spec.Port)
 	if err != nil {
 		return model.ListenerStatus{}, err
 	}
-	if latticeListener != nil {
-		// we don't need to do vpclattice.UpdateListener(), if we can find a existing one.
-		// Since we can make sure the every time when calling the vpclattice.CreateListener() it must have the latest and correct defaultAction.
-		d.log.Debugf("Found existing listener %s, nothing to update", aws.StringValue(latticeListener.Id))
-		return model.ListenerStatus{
-			Name:        aws.StringValue(latticeListener.Name),
-			ListenerArn: aws.StringValue(latticeListener.Arn),
-			Id:          aws.StringValue(latticeListener.Id),
-			ServiceId:   modelSvc.Status.Id,
-		}, nil
+	if latticeListenerSummary == nil {
+		// listener not found, create new one
+		return d.create(ctx, latticeSvcId, modelListener, defaultAction)
 	}
 
+	existingListenerStatus := model.ListenerStatus{
+		Name:        aws.StringValue(latticeListenerSummary.Name),
+		ListenerArn: aws.StringValue(latticeListenerSummary.Arn),
+		Id:          aws.StringValue(latticeListenerSummary.Id),
+		ServiceId:   latticeSvcId,
+	}
+	if modelListener.Spec.Protocol != vpclattice.ListenerProtocolTlsPassthrough {
+		// the only mutable field for lattice listener is defaultAction, for non-TLS_PASSTHROUGH listener, the defaultAction are always the FixedResponse 404. Don't need to update.
+		return existingListenerStatus, nil
+	}
+
+	needToUpdateDefaultAction, err := d.needToUpdateDefaultAction(ctx, latticeSvcId, *latticeListenerSummary.Id, defaultAction)
+	if err != nil {
+		return model.ListenerStatus{}, err
+	}
+	if needToUpdateDefaultAction {
+		if err = d.update(ctx, latticeSvcId, latticeListenerSummary, defaultAction); err != nil {
+			return model.ListenerStatus{}, err
+		}
+	}
+	return existingListenerStatus, nil
+}
+
+func (d *defaultListenerManager) create(ctx context.Context, latticeSvcId string, modelListener *model.Listener, defaultAction *vpclattice.RuleAction) (
+	model.ListenerStatus, error) {
 	listenerInput := vpclattice.CreateListenerInput{
 		ClientToken:       nil,
 		DefaultAction:     defaultAction,
 		Name:              aws.String(k8sLatticeListenerName(modelListener)),
 		Port:              aws.Int64(modelListener.Spec.Port),
 		Protocol:          aws.String(modelListener.Spec.Protocol),
-		ServiceIdentifier: aws.String(modelSvc.Status.Id),
+		ServiceIdentifier: aws.String(latticeSvcId),
 		Tags:              d.cloud.DefaultTags(),
 	}
 
@@ -91,8 +110,23 @@ func (d *defaultListenerManager) Upsert(
 		Name:        aws.StringValue(resp.Name),
 		ListenerArn: aws.StringValue(resp.Arn),
 		Id:          aws.StringValue(resp.Id),
-		ServiceId:   modelSvc.Status.Id,
+		ServiceId:   latticeSvcId,
 	}, nil
+}
+
+func (d *defaultListenerManager) update(ctx context.Context, latticeSvcId string, listener *vpclattice.ListenerSummary, defaultAction *vpclattice.RuleAction) error {
+
+	d.log.Debugf("Updating listener %s default action", aws.StringValue(listener.Id))
+	_, err := d.cloud.Lattice().UpdateListenerWithContext(ctx, &vpclattice.UpdateListenerInput{
+		DefaultAction:      defaultAction,
+		ListenerIdentifier: listener.Id,
+		ServiceIdentifier:  aws.String(latticeSvcId),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update lattice listener %s due to %s", aws.StringValue(listener.Id), err)
+	}
+	d.log.Infof("Success update listener %s default action", aws.StringValue(listener.Id))
+	return nil
 }
 
 func k8sLatticeListenerName(modelListener *model.Listener) string {
@@ -134,6 +168,23 @@ func (d *defaultListenerManager) List(ctx context.Context, serviceID string) ([]
 	}
 
 	return sdkListeners, nil
+}
+
+func (d *defaultListenerManager) needToUpdateDefaultAction(
+	ctx context.Context,
+	latticeSvcId string,
+	latticeListenerId string,
+	listenerDefaultActionFromStack *vpclattice.RuleAction) (bool, error) {
+
+	resp, err := d.cloud.Lattice().GetListenerWithContext(ctx, &vpclattice.GetListenerInput{
+		ServiceIdentifier:  &latticeSvcId,
+		ListenerIdentifier: &latticeListenerId,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return !reflect.DeepEqual(resp.DefaultAction, listenerDefaultActionFromStack), nil
 }
 
 func (d *defaultListenerManager) findListenerByPort(

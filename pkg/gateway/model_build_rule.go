@@ -33,9 +33,8 @@ const (
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackListenerId string) error {
 	// note we only build rules for non-deleted routes
 	t.log.Debugf("Processing %d rules", len(t.route.Spec().Rules()))
-
-	if t.route.GroupKind().Kind == "TLSRoute" && len(t.route.Spec().Rules()) > 1 {
-		return errors.New("TLSRoute only supports 1 rule")
+	if t.route.GroupKind().Kind == core.TlsRouteKind && len(t.route.Spec().Rules()) != 1 {
+		return fmt.Errorf("only support to have 1 rule for TLSRoute %s/%s, but got %d rules", t.route.Namespace(), t.route.Name(), len(t.route.Spec().Rules()))
 	}
 
 	for i, rule := range t.route.Spec().Rules() {

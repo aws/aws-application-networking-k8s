@@ -15,6 +15,7 @@ import (
 
 const (
 	TlsRouteType RouteType = "tls"
+	TlsRouteKind string    = "TLSRoute"
 )
 
 type TLSRoute struct {
@@ -82,7 +83,7 @@ func (r *TLSRoute) Inner() *gwv1alpha2.TLSRoute {
 func (r *TLSRoute) GroupKind() metav1.GroupKind {
 	return metav1.GroupKind{
 		Group: gwv1beta1.GroupName,
-		Kind:  "TLSRoute",
+		Kind:  TlsRouteKind,
 	}
 }
 

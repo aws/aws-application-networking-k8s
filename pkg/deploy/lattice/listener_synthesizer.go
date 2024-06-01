@@ -100,10 +100,12 @@ func (l *listenerSynthesizer) getLatticeListenerDefaultAction(ctx context.Contex
 		}, nil
 	}
 
-	// For TLS_PASSTHROUGH listener, we need to fill the stackRules[0].Spec.Action.TargetGroups to the lattice listener's defaultAction tgs
+	// For TLS_PASSTHROUGH listener, we need to fill the stackRules[0].Spec.Action.TargetGroups to the lattice listener's defaultAction ForwardAction TargetGroups ,
 	var stackRules []*model.Rule
 	_ = l.stack.ListResources(&stackRules)
-	// Fill the default action target groups for TLS_PASSTHROUGH listener, since TLS_PASSTHROUGH listener only has the defaultAction and no extra listener rules
+	if len(stackRules) != 1 {
+		return nil, fmt.Errorf("TLS_PASSTHROUGH listener can only have one default action and without any other additional rule, but got %d rules", len(stackRules))
+	}
 	if err := l.tgManager.ResolveRuleTgIds(ctx, stackRules[0], l.stack); err != nil {
 		return nil, fmt.Errorf("failed to resolve rule tg ids, err = %v", err)
 	}

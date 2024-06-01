@@ -171,6 +171,10 @@ func (t *TargetGroupSpec) Validate() error {
 		t.Protocol, t.VpcId, t.K8SClusterName, t.IpAddressType,
 		string(t.K8SSourceType)}
 
+	if t.Protocol != "TCP" {
+		requiredFields = append(requiredFields, t.ProtocolVersion)
+	}
+
 	for _, s := range requiredFields {
 		if s == "" {
 			return errors.New("one or more required fields are missing")

@@ -83,7 +83,7 @@ func (r *ruleSynthesizer) createOrUpdateRules(ctx context.Context, rule *model.R
 	}
 
 	if stackListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
-		r.log.Debugf("Skip updating rule=%v, since TLS_PASSTHROUGH listener can only have one default action and without any other additional rules", *rule)
+		r.log.Debugf("Skip updating rule=%v, since TLS_PASSTHROUGH listener can only have one default action and without any other additional rule", *rule)
 		return nil
 	}
 

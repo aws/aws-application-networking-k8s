@@ -132,7 +132,7 @@ func TestTLSRouteBackendRef_Equals(t *testing.T) {
 			expectEqual: true,
 		},
 		{
-			description: "Instances populatd with the same values are equal",
+			description: "es are equal",
 			backendRef1: &TLSBackendRef{
 				r: gwv1alpha2.BackendRef{
 					Weight: weight1,
