@@ -75,7 +75,7 @@ kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networkin
 
 You can choose from [Pod Identities](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) (recommended) and [IAM Roles For Service Accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) to set up controller permissions.
 
-=== "Pod Identities (recommended)"
+=== "Pod Identities (not recommended)" **This method doesn't work and has to be updated** **Please go with IRSA for now**
 
     **Set up the Pod Identities Agent**
 
@@ -147,7 +147,7 @@ You can choose from [Pod Identities](https://docs.aws.amazon.com/eks/latest/user
         aws eks create-pod-identity-association --cluster-name $CLUSTER_NAME --role-arn $VPCLatticeControllerIAMRoleArn --namespace aws-application-networking-system --service-account gateway-api-controller
         ```
 
-=== "IRSA"
+=== "IRSA (recommended)"
 
     You can use AWS IAM Roles for Service Accounts (IRSA) to assign the Controller necessary permissions via a ServiceAccount.
 
