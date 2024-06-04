@@ -158,21 +158,9 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 		return nil, err
 	}
 
-	protocol := "HTTP"
-	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
-	var healthCheckConfig *vpclattice.HealthCheckConfig
-	if tgp != nil {
-		if tgp.Spec.Protocol != nil {
-			protocol = *tgp.Spec.Protocol
-		}
-		if tgp.Spec.ProtocolVersion != nil {
-			if *tgp.Spec.Protocol == vpclattice.TargetGroupProtocolTcp {
-				protocolVersion = ""
-			} else {
-				protocolVersion = *tgp.Spec.ProtocolVersion
-			}
-		}
-		healthCheckConfig = parseHealthCheckConfig(tgp)
+	protocol, protocolVersion, healthCheckConfig, err := parseTargetGroupConfig(tgp)
+	if err != nil {
+		return nil, err
 	}
 
 	spec := model.TargetGroupSpec{
@@ -328,17 +316,9 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		return model.TargetGroupSpec{}, err
 	}
 
-	protocol := "HTTP"
-	protocolVersion := vpclattice.TargetGroupProtocolVersionHttp1
-	var healthCheckConfig *vpclattice.HealthCheckConfig
-	if tgp != nil {
-		if tgp.Spec.Protocol != nil {
-			protocol = *tgp.Spec.Protocol
-		}
-		if tgp.Spec.ProtocolVersion != nil {
-			protocolVersion = *tgp.Spec.ProtocolVersion
-		}
-		healthCheckConfig = parseHealthCheckConfig(tgp)
+	protocol, protocolVersion, healthCheckConfig, err := parseTargetGroupConfig(tgp)
+	if err != nil {
+		return model.TargetGroupSpec{}, err
 	}
 
 	var parentRefType model.K8SSourceType
@@ -389,6 +369,31 @@ func getBackendRefNsName(route core.Route, backendRef core.BackendRef) types.Nam
 		Name:      string(backendRef.Name()),
 	}
 	return backendRefNsName
+}
+
+func parseTargetGroupConfig(tgp *anv1alpha1.TargetGroupPolicy) (
+	protocol string, protocolVersion string, healthCheckConfig *vpclattice.HealthCheckConfig, err error) {
+	protocol = "HTTP"
+	protocolVersion = vpclattice.TargetGroupProtocolVersionHttp1
+	if tgp == nil {
+		return protocol, protocolVersion, nil, nil
+	}
+	if tgp.Spec.Protocol != nil && *tgp.Spec.Protocol == vpclattice.TargetGroupProtocolTcp {
+		if tgp.Spec.ProtocolVersion != nil {
+			return "", "", nil, fmt.Errorf("protocolVersion is not supported for TCP protocol TargetGroupPolicy")
+		}
+		protocolVersion = ""
+	}
+	// Override protocol if specified in the TargetGroupPolicy
+	if tgp.Spec.Protocol != nil {
+		protocol = *tgp.Spec.Protocol
+	}
+	// Override protocolVersion if specified in the TargetGroupPolicy for non-TCP protocol
+	if tgp.Spec.ProtocolVersion != nil && protocol != vpclattice.TargetGroupProtocolTcp {
+		protocolVersion = *tgp.Spec.ProtocolVersion
+	}
+	healthCheckConfig = parseHealthCheckConfig(tgp)
+	return protocol, protocolVersion, healthCheckConfig, nil
 }
 
 func parseHealthCheckConfig(tgp *anv1alpha1.TargetGroupPolicy) *vpclattice.HealthCheckConfig {

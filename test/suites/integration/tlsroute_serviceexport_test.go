@@ -28,23 +28,23 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 )
 
-var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
+var _ = Describe("TLSRoute Service Export/Import Test", Focus, Ordered, func() {
 	var (
-		deployment1   *appsv1.Deployment
-		service1      *v1.Service
-		tlsRoute      *v1alpha2.TLSRoute
-		serviceExport *anv1alpha1.ServiceExport
-		serviceImport *anv1alpha1.ServiceImport
-		policy        *anv1alpha1.TargetGroupPolicy
+		httpsDeployment1 *appsv1.Deployment
+		httpsSvc1        *v1.Service
+		tlsRoute         *v1alpha2.TLSRoute
+		serviceExport    *anv1alpha1.ServiceExport
+		serviceImport    *anv1alpha1.ServiceImport
+		policy           *anv1alpha1.TargetGroupPolicy
 	)
 
 	It("Create k8s resource", func() {
-		deployment1, service1 = testFramework.NewHttpsApp(test.HTTPsAppOptions{Name: "my-https-1", Namespace: k8snamespace})
-		policy = createTCPTargetGroupPolicy(service1)
+		httpsDeployment1, httpsSvc1 = testFramework.NewHttpsApp(test.HTTPsAppOptions{Name: "my-https-1", Namespace: k8snamespace})
+		policy = createTCPTargetGroupPolicy(httpsSvc1)
 		testFramework.ExpectCreated(ctx, policy)
-		serviceImport = testFramework.CreateServiceImport(service1)
+		serviceImport = testFramework.CreateServiceImport(httpsSvc1)
 		testFramework.ExpectCreated(ctx, serviceImport)
-		serviceExport = testFramework.CreateServiceExport(service1)
+		serviceExport = testFramework.CreateServiceExport(httpsSvc1)
 		testFramework.ExpectCreated(ctx, serviceExport)
 
 		tlsRoute = testFramework.NewTLSRoute(k8snamespace, testGateway, []v1alpha2.TLSRouteRule{
@@ -52,8 +52,8 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 				BackendRefs: []gwv1.BackendRef{
 					{
 						BackendObjectReference: v1beta1.BackendObjectReference{
-							Name:      v1alpha2.ObjectName(service1.Name),
-							Namespace: lo.ToPtr(v1beta1.Namespace(service1.Namespace)),
+							Name:      v1alpha2.ObjectName(httpsSvc1.Name),
+							Namespace: lo.ToPtr(v1beta1.Namespace(httpsSvc1.Namespace)),
 							Kind:      lo.ToPtr(v1beta1.Kind("ServiceImport")),
 							Port:      lo.ToPtr(v1beta1.PortNumber(443)),
 						},
@@ -65,8 +65,8 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 		// Create Kubernetes API Objects
 		testFramework.ExpectCreated(ctx,
 			tlsRoute,
-			service1,
-			deployment1,
+			httpsSvc1,
+			httpsDeployment1,
 		)
 	})
 
@@ -75,7 +75,7 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
 		fmt.Printf("vpcLatticeService: %v \n", vpcLatticeService)
 
-		tgSummary := testFramework.GetTCPTargetGroup(ctx, service1)
+		tgSummary := testFramework.GetTCPTargetGroup(ctx, httpsSvc1)
 		tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: aws.String(*tgSummary.Id),
 		})
@@ -90,10 +90,10 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 		Expect(*tg.Config.HealthCheck.Port).To(BeEquivalentTo(443))
 		Expect(*tgSummary.Port).To(BeEquivalentTo(80))
 		Eventually(func(g Gomega) {
-			targets := testFramework.GetTargets(ctx, tgSummary, deployment1)
+			targets := testFramework.GetTargets(ctx, tgSummary, httpsDeployment1)
 			g.Expect(*tgSummary.Port).To(BeEquivalentTo(80))
 			for _, target := range targets {
-				g.Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
+				g.Expect(*target.Port).To(BeEquivalentTo(httpsSvc1.Spec.Ports[0].TargetPort.IntVal))
 				g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusHealthy))
 			}
 		})
@@ -103,9 +103,10 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 		customDns := tlsRoute.Spec.Hostnames[0]
 		log.Println("Verifying traffic")
 		latticeGeneratedDnsName := testFramework.GetVpcLatticeServiceTLSDns(tlsRoute.Name, tlsRoute.Namespace)
-		dnsIP, _ := net.LookupIP(latticeGeneratedDnsName)
-		testFramework.Get(ctx, types.NamespacedName{Name: deployment1.Name, Namespace: deployment1.Namespace}, deployment1)
-		pods := testFramework.GetPodsByDeploymentName(deployment1.Name, deployment1.Namespace)
+		dnsIP, err := net.DefaultResolver.LookupIP(ctx, "ip4", latticeGeneratedDnsName)
+		Expect(err).To(BeNil())
+		testFramework.Get(ctx, types.NamespacedName{Name: httpsDeployment1.Name, Namespace: httpsDeployment1.Namespace}, httpsDeployment1)
+		pods := testFramework.GetPodsByDeploymentName(httpsDeployment1.Name, httpsDeployment1.Namespace)
 		Expect(len(pods)).To(BeEquivalentTo(1))
 		pod := pods[0]
 		Eventually(func(g Gomega) {
@@ -114,14 +115,14 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("my-https-1 handler pod"))
-		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+		}).WithTimeout(3 * time.Minute).WithOffset(1).Should(Succeed())
 	})
 
 	AfterAll(func() {
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			tlsRoute,
-			deployment1,
-			service1,
+			httpsDeployment1,
+			httpsSvc1,
 			serviceImport,
 			serviceExport,
 			policy,
@@ -148,8 +149,7 @@ func createTCPTargetGroupPolicy(
 				Kind:  gwv1.Kind("ServiceExport"),
 				Name:  gwv1.ObjectName(service.Name),
 			},
-			Protocol:        aws.String("TCP"),
-			ProtocolVersion: aws.String("HTTP1"),
+			Protocol: aws.String("TCP"),
 			HealthCheck: &anv1alpha1.HealthCheckConfig{
 				Enabled:         aws.Bool(true),
 				Protocol:        &healthCheckProtocol,

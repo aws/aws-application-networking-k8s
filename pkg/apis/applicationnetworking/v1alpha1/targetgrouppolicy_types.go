@@ -45,7 +45,7 @@ type TargetGroupPolicySpec struct {
 	Protocol *string `json:"protocol,omitempty"`
 
 	// The protocol version to use. Supported values are HTTP1 (default) and HTTP2.
-	// When a policy Protocol is TCP, this field value will be ignored.
+	// When a policy Protocol is TCP, you should not set this field. Otherwise, the whole TargetGroupPolicy will not take effect.
 	// When a policy is behind GRPCRoute, this field value will be ignored as GRPC is only supported through HTTP/2.
 	//
 	// Changes to this value results in a replacement of VPC Lattice target group.

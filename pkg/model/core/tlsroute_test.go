@@ -18,23 +18,27 @@ func TestTLSRouteSpec_Equals(t *testing.T) {
 		description string
 	}{
 		{
-			description: "Empty instance are equal",
-			routeSpec1:  &TLSRouteSpec{},
-			routeSpec2:  &TLSRouteSpec{},
-			expectEqual: true,
-		},
-		{
 			description: "Instance populated with the same values are equal",
 			routeSpec1: &TLSRouteSpec{
 				s: gwv1alpha2.TLSRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
-							{},
+							{
+								Name: "gateway1",
+							},
 						},
 					},
 					Hostnames: []gwv1alpha2.Hostname{"example.com"},
 					Rules: []gwv1alpha2.TLSRouteRule{
-						{},
+						{
+							BackendRefs: []gwv1alpha2.BackendRef{
+								{
+									BackendObjectReference: gwv1alpha2.BackendObjectReference{
+										Name: "service1",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -42,22 +46,26 @@ func TestTLSRouteSpec_Equals(t *testing.T) {
 				s: gwv1alpha2.TLSRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
-							{},
+							{
+								Name: "gateway1",
+							},
 						},
 					},
 					Hostnames: []gwv1alpha2.Hostname{"example.com"},
 					Rules: []gwv1alpha2.TLSRouteRule{
-						{},
+						{
+							BackendRefs: []gwv1alpha2.BackendRef{
+								{
+									BackendObjectReference: gwv1alpha2.BackendObjectReference{
+										Name: "service1",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
 			expectEqual: true,
-		},
-		{
-			description: "Instances of different types are not equal",
-			routeSpec1:  &TLSRouteSpec{},
-			routeSpec2:  &HTTPRouteSpec{},
-			expectEqual: false,
 		},
 		{
 			description: "Instance with different ParentRefs are not equal",
@@ -90,6 +98,52 @@ func TestTLSRouteSpec_Equals(t *testing.T) {
 				},
 			},
 			expectEqual: false,
+		},
+		{
+			description: "Instance with different Rules are not equal",
+			routeSpec1: &TLSRouteSpec{
+				s: gwv1alpha2.TLSRouteSpec{
+					Rules: []gwv1alpha2.TLSRouteRule{
+						{
+							BackendRefs: []gwv1alpha2.BackendRef{
+								{
+									BackendObjectReference: gwv1alpha2.BackendObjectReference{
+										Name: "service1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			routeSpec2: &TLSRouteSpec{
+				s: gwv1alpha2.TLSRouteSpec{
+					Rules: []gwv1alpha2.TLSRouteRule{
+						{
+							BackendRefs: []gwv1alpha2.BackendRef{
+								{
+									BackendObjectReference: gwv1alpha2.BackendObjectReference{
+										Name: "service2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectEqual: false,
+		},
+		{
+			description: "Instances of different types are not equal",
+			routeSpec1:  &TLSRouteSpec{},
+			routeSpec2:  &HTTPRouteSpec{},
+			expectEqual: false,
+		},
+		{
+			description: "Empty instance are equal",
+			routeSpec1:  &TLSRouteSpec{},
+			routeSpec2:  &TLSRouteSpec{},
+			expectEqual: true,
 		},
 		{
 			routeSpec1:  &TLSRouteSpec{},

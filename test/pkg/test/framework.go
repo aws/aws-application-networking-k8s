@@ -571,12 +571,12 @@ func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNam
 	return vpcLatticeServiceDns
 }
 
-func (env *Framework) GetVpcLatticeServiceTLSDns(httpRouteName string, httpRouteNamespace string) string {
-	env.Log.Infoln("GetVpcLatticeServiceTLSDns: ", httpRouteName, httpRouteNamespace)
+func (env *Framework) GetVpcLatticeServiceTLSDns(tlsRouteName string, tlsRouteNamespace string) string {
+	env.Log.Infoln("GetVpcLatticeServiceTLSDns: ", tlsRouteName, tlsRouteNamespace)
 	vpcLatticeServiceDns := ""
 	Eventually(func(g Gomega) {
 		tlsroute := gwv1alpha2.TLSRoute{}
-		env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &tlsroute)
+		env.Get(env.ctx, types.NamespacedName{Name: tlsRouteName, Namespace: tlsRouteNamespace}, &tlsroute)
 		g.Expect(tlsroute.Annotations).To(HaveKey(controllers.LatticeAssignedDomainName))
 		vpcLatticeServiceDns = tlsroute.Annotations[controllers.LatticeAssignedDomainName]
 	}).Should(Succeed())
