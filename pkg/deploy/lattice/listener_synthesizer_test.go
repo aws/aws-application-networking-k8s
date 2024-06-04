@@ -48,13 +48,17 @@ func Test_SynthesizeListenerCreate(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func Test_SynthesizeListenerCreateWithReconcile(t *testing.T) {
+func Test_SynthesizeListener_CreatNewHTTPListener_DeleteStaleHTTPSListener(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
 	mockListenerMgr := NewMockListenerManager(c)
 	mockTargetGroupManager := NewMockTargetGroupManager(c)
-
+	fixResponse404 := &vpclattice.RuleAction{
+		FixedResponse: &vpclattice.FixedResponseAction{
+			StatusCode: aws.Int64(404),
+		},
+	}
 	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
 
 	svc := &model.Service{
@@ -67,18 +71,20 @@ func Test_SynthesizeListenerCreateWithReconcile(t *testing.T) {
 		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "l-id"),
 		Spec: model.ListenerSpec{
 			StackServiceId: "stack-svc-id",
+			Protocol:       vpclattice.ListenerProtocolHttp,
 			Port:           80,
 		},
 	}
 	assert.NoError(t, stack.AddResource(l))
 
-	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(
+	mockListenerMgr.EXPECT().Upsert(ctx, l, svc, fixResponse404).Return(
 		model.ListenerStatus{Id: "new-listener-id"}, nil)
 
 	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{
 		{
-			Id:   aws.String("to-delete-id"),
-			Port: aws.Int64(443), // <-- makes this listener unique
+			Id:       aws.String("to-delete-id"),
+			Protocol: aws.String(vpclattice.ListenerProtocolHttps),
+			Port:     aws.Int64(443), // <-- makes this listener unique
 		},
 	}, nil)
 
@@ -94,54 +100,98 @@ func Test_SynthesizeListenerCreateWithReconcile(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-//func Test_SynthesizeTlsPassthroughListenerCreateWithReconcile(t *testing.T) {
-//	c := gomock.NewController(t)
-//	defer c.Finish()
-//	ctx := context.TODO()
-//	mockListenerMgr := NewMockListenerManager(c)
-//	mockTargetGroupManager := NewMockTargetGroupManager(c)
-//
-//	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
-//
-//	svc := &model.Service{
-//		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Service", "stack-svc-id"),
-//		Status:       &model.ServiceStatus{Id: "svc-id"},
-//	}
-//	assert.NoError(t, stack.AddResource(svc))
-//
-//	l := &model.Listener{
-//		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "l-id"),
-//		Spec: model.ListenerSpec{
-//			StackServiceId: "stack-svc-id",
-//			Port:           80,
-//			Protocol:       "TLS_PASSTHROUGH",
-//		},
-//	}
-//	assert.NoError(t, stack.AddResource(l))
-//
-//	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(
-//		model.ListenerStatus{Id: "new-listener-id"}, nil)
-//
-//	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{
-//		{
-//			Id:   aws.String("to-delete-id"),
-//			Port: aws.Int64(443), // <-- makes this listener unique
-//		},
-//	}, nil)
-//
-//	mockListenerMgr.EXPECT().Delete(ctx, gomock.Any()).DoAndReturn(
-//		func(ctx context.Context, ml *model.Listener) error {
-//			assert.Equal(t, "to-delete-id", ml.Status.Id)
-//			assert.Equal(t, "svc-id", ml.Status.ServiceId)
-//			return nil
-//		})
-//
-//	ls := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerMgr, mockTargetGroupManager, stack)
-//	err := ls.Synthesize(ctx)
-//	assert.Nil(t, err)
-//}
+func Test_SynthesizeListener_CreatNewTLSPassthroughListener_DeleteStaleHTTPSListener(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	ctx := context.TODO()
+	mockListenerMgr := NewMockListenerManager(c)
+	mockTargetGroupManager := NewMockTargetGroupManager(c)
+
+	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
+
+	svc := &model.Service{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Service", "stack-svc-id"),
+		Status:       &model.ServiceStatus{Id: "svc-id"},
+	}
+
+	assert.NoError(t, stack.AddResource(svc))
+	rule := &model.Rule{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Rule", "rule-id"),
+		Spec: model.RuleSpec{
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{
+						StackTargetGroupId: "stack-tg-id-1",
+						Weight:             10,
+					},
+					{
+						StackTargetGroupId: "stack-tg-id-2",
+						Weight:             90,
+					},
+				},
+			},
+		},
+	}
+	assert.NoError(t, stack.AddResource(rule))
+	mockTargetGroupManager.EXPECT().ResolveRuleTgIds(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, rule *model.Rule, stack core.Stack) error {
+			rule.Spec.Action.TargetGroups[0].LatticeTgId = "lattice-tg-id-1"
+			rule.Spec.Action.TargetGroups[1].LatticeTgId = "lattice-tg-id-2"
+			return nil
+		})
+	l := &model.Listener{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "l-id"),
+		Spec: model.ListenerSpec{
+			StackServiceId: "stack-svc-id",
+			Protocol:       vpclattice.ListenerProtocolTlsPassthrough,
+			Port:           80,
+		},
+	}
+	assert.NoError(t, stack.AddResource(l))
+	expectedDefaultAction := &vpclattice.RuleAction{
+		Forward: &vpclattice.ForwardAction{
+			TargetGroups: []*vpclattice.WeightedTargetGroup{
+				{
+					TargetGroupIdentifier: aws.String("lattice-tg-id-1"),
+					Weight:                aws.Int64(10),
+				},
+				{
+					TargetGroupIdentifier: aws.String("lattice-tg-id-2"),
+					Weight:                aws.Int64(90),
+				},
+			},
+		},
+	}
+	mockListenerMgr.EXPECT().Upsert(ctx, l, svc, expectedDefaultAction).Return(
+		model.ListenerStatus{Id: "new-listener-id"}, nil)
+
+	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{
+		{
+			Id:       aws.String("to-delete-id"),
+			Protocol: aws.String(vpclattice.ListenerProtocolHttps),
+			Port:     aws.Int64(443),
+		},
+	}, nil)
+
+	mockListenerMgr.EXPECT().Delete(ctx, gomock.Any()).DoAndReturn(
+		func(ctx context.Context, ml *model.Listener) error {
+			assert.Equal(t, "to-delete-id", ml.Status.Id)
+			assert.Equal(t, "svc-id", ml.Status.ServiceId)
+			return nil
+		})
+
+	ls := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerMgr, mockTargetGroupManager, stack)
+	err := ls.Synthesize(ctx)
+	assert.Nil(t, err)
+}
 
 func Test_listenerSynthesizer_getLatticeListenerDefaultAction_FixedResponse404(t *testing.T) {
+	fixResponseAction404 := &vpclattice.RuleAction{
+		FixedResponse: &vpclattice.FixedResponseAction{
+			StatusCode: aws.Int64(404),
+		},
+	}
 	tests := []struct {
 		name             string
 		listenerProtocol string
@@ -151,22 +201,14 @@ func Test_listenerSynthesizer_getLatticeListenerDefaultAction_FixedResponse404(t
 		{
 			name:             "HTTP protocol Listener has the 404 fixed response default action",
 			listenerProtocol: "HTTP",
-			want: &vpclattice.RuleAction{
-				FixedResponse: &vpclattice.FixedResponseAction{
-					StatusCode: aws.Int64(404),
-				},
-			},
-			wantErr: nil,
+			want:             fixResponseAction404,
+			wantErr:          nil,
 		},
 		{
 			name:             "HTTPS protocol Listener has the 404 fixed response default action",
 			listenerProtocol: "HTTPS",
-			want: &vpclattice.RuleAction{
-				FixedResponse: &vpclattice.FixedResponseAction{
-					StatusCode: aws.Int64(404),
-				},
-			},
-			wantErr: nil,
+			want:             fixResponseAction404,
+			wantErr:          nil,
 		},
 	}
 
@@ -199,7 +241,7 @@ func Test_listenerSynthesizer_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Li
 	c := gomock.NewController(t)
 	defer c.Finish()
 
-	t.Run("ResolveRuleTgIds success, backfill TLS_PASSTHROUGH Listener DefaultAction", func(t *testing.T) {
+	t.Run("ResolveRuleTgIds success, backfill TLS_PASSTHROUGH Listener DefaultAction target group ids", func(t *testing.T) {
 		mockListenerMgr := NewMockListenerManager(c)
 		mockTargetGroupManager := NewMockTargetGroupManager(c)
 		mockTargetGroupManager.EXPECT().ResolveRuleTgIds(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(

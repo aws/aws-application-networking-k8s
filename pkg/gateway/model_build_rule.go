@@ -66,8 +66,8 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 			if err := t.updateRuleSpecWithHeaderMatches(match, &ruleSpec); err != nil {
 				return err
 			}
-		} else {
-			// rule.Matches() ==0, TLSRoute with go to this branch since it doesn't have any match
+		} else { // rule.Matches() ==0
+			// TLSRoute with go to this branch since it doesn't have any match
 
 			// Match every traffic on no matches
 			ruleSpec.PathMatchValue = "/"

@@ -100,7 +100,6 @@ func (l *listenerSynthesizer) getLatticeListenerDefaultAction(ctx context.Contex
 		}, nil
 	}
 
-	// For TLS_PASSTHROUGH listener, we need to fill the stackRules[0].Spec.Action.TargetGroups to the lattice listener's defaultAction ForwardAction TargetGroups ,
 	var stackRules []*model.Rule
 	_ = l.stack.ListResources(&stackRules)
 	if len(stackRules) != 1 {
@@ -110,7 +109,7 @@ func (l *listenerSynthesizer) getLatticeListenerDefaultAction(ctx context.Contex
 		return nil, fmt.Errorf("failed to resolve rule tg ids, err = %v", err)
 	}
 
-	// Fill the defaultAction tgs for TLS_PASSTHROUGH lattice listener
+	// For TLS_PASSTHROUGH listener, we need to fill the stackRules[0].Spec.Action.TargetGroups to the lattice listener's defaultAction ForwardAction TargetGroups
 	var latticeTGs []*vpclattice.WeightedTargetGroup
 	for _, modelTG := range stackRules[0].Spec.Action.TargetGroups {
 		latticeTG := vpclattice.WeightedTargetGroup{

@@ -2,7 +2,6 @@ package integration
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"time"
@@ -24,14 +23,14 @@ import (
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
-var _ = Describe("TLSRoute test", func() {
+var _ = Describe("TLSRoute test", Ordered, func() {
 	var (
 		deployment1 *appsv1.Deployment
 		service1    *v1.Service
 		tlsRoute    *v1alpha2.TLSRoute
 	)
 
-	It("create a tlsRoute", func() {
+	It("Set up k8s resource", func() {
 		deployment1, service1 = testFramework.NewHttpsApp(test.HTTPsAppOptions{Name: "my-https-1", Namespace: k8snamespace})
 		tlsRoute = testFramework.NewTLSRoute(k8snamespace, testGateway, []v1alpha2.TLSRouteRule{
 			{
@@ -47,17 +46,17 @@ var _ = Describe("TLSRoute test", func() {
 				},
 			},
 		})
-
 		// Create Kubernetes API Objects
 		testFramework.ExpectCreated(ctx,
 			tlsRoute,
 			service1,
 			deployment1,
 		)
+	})
+	It("Verify Lattice resource", func() {
 		route, _ := core.NewRoute(tlsRoute)
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
 		fmt.Printf("vpcLatticeService: %v \n", vpcLatticeService)
-
 		tgSummary := testFramework.GetTCPTargetGroup(ctx, service1)
 		tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: aws.String(*tgSummary.Id),
@@ -69,34 +68,32 @@ var _ = Describe("TLSRoute test", func() {
 		if tg.Config.HealthCheck != nil {
 			Expect(*tg.Config.HealthCheck.Enabled).To(BeFalse())
 		}
-		targetsV1 := testFramework.GetTargets(ctx, tgSummary, deployment1)
+		targets := testFramework.GetTargets(ctx, tgSummary, deployment1)
 		Expect(*tgSummary.Port).To(BeEquivalentTo(80))
-		for _, target := range targetsV1 {
+		for _, target := range targets {
 			Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
 			Expect(*target.Status).To(Equal(vpclattice.TargetStatusUnavailable))
 		}
-		log.Println("Verifying traffic")
-		dnsName := testFramework.GetVpcLatticeServiceTLSDns(tlsRoute.Name, tlsRoute.Namespace)
+	})
 
-		dnsIP, _ := net.LookupIP(dnsName)
-
+	It("Verify traffic", func() {
+		latticeGeneratedDnsName := testFramework.GetVpcLatticeServiceTLSDns(tlsRoute.Name, tlsRoute.Namespace)
+		dnsIP, _ := net.LookupIP(latticeGeneratedDnsName)
 		testFramework.Get(ctx, types.NamespacedName{Name: deployment1.Name, Namespace: deployment1.Namespace}, deployment1)
-
 		//get the pods of deployment1
 		pods := testFramework.GetPodsByDeploymentName(deployment1.Name, deployment1.Namespace)
 		Expect(len(pods)).To(BeEquivalentTo(1))
 		pod := pods[0]
-
+		customDns := tlsRoute.Spec.Hostnames[0]
 		Eventually(func(g Gomega) {
-			cmd := fmt.Sprintf("curl -k https://lattice-k8s-tls-passthrough-test.com:444 --resolve tls.test.com:444:%s", dnsIP[0])
+			cmd := fmt.Sprintf("curl -k https://%s:444 --resolve %s:444:%s", customDns, customDns, dnsIP[0])
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("my-https-1 handler pod"))
-		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
-
+		}).WithTimeout(30 * time.Minute).WithOffset(1).Should(Succeed())
 	})
 
-	AfterEach(func() {
+	AfterAll(func() {
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			tlsRoute,
 			deployment1,

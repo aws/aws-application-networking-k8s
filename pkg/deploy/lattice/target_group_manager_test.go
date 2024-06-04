@@ -890,6 +890,25 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "HTTPS TargetGroup default health check config",
+			args: args{
+				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttps,
+				targetGroupProtocolVersion: "",
+			},
+			want: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
+				Matcher:                    defaultMatcher,
+				Path:                       defaultPath,
+				Port:                       nil,
+				Protocol:                   defaultProtocol,
+				ProtocolVersion:            aws.String(vpclattice.HealthCheckProtocolVersionHttp1),
+			},
+		},
+		{
 			name: "empty target group protocol version default health check config",
 			args: args{
 				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttp,

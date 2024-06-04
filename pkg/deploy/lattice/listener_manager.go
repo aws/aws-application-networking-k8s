@@ -71,10 +71,11 @@ func (d *defaultListenerManager) Upsert(
 		ServiceId:   latticeSvcId,
 	}
 	if modelListener.Spec.Protocol != vpclattice.ListenerProtocolTlsPassthrough {
-		// the only mutable field for lattice listener is defaultAction, for non-TLS_PASSTHROUGH listener, the defaultAction are always the FixedResponse 404. Don't need to update.
+		// The only mutable field for lattice listener is defaultAction, for non-TLS_PASSTHROUGH listener, the defaultAction is always the FixedResponse 404. Don't need to update.
 		return existingListenerStatus, nil
 	}
 
+	// For TLS_PASSTHROUGH listener, check whether it needs to update defaultAction
 	needToUpdateDefaultAction, err := d.needToUpdateDefaultAction(ctx, latticeSvcId, *latticeListenerSummary.Id, defaultAction)
 	if err != nil {
 		return model.ListenerStatus{}, err

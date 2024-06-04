@@ -28,7 +28,7 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 )
 
-var _ = Describe("TLSRoute ServiceExport ServiceImport Test", func() {
+var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 	var (
 		deployment1   *appsv1.Deployment
 		service1      *v1.Service
@@ -38,7 +38,7 @@ var _ = Describe("TLSRoute ServiceExport ServiceImport Test", func() {
 		policy        *anv1alpha1.TargetGroupPolicy
 	)
 
-	It("create a tlsRoute2serviceimport", func() {
+	It("Create k8s resource", func() {
 		deployment1, service1 = testFramework.NewHttpsApp(test.HTTPsAppOptions{Name: "my-https-1", Namespace: k8snamespace})
 		policy = createTCPTargetGroupPolicy(service1)
 		testFramework.ExpectCreated(ctx, policy)
@@ -68,6 +68,9 @@ var _ = Describe("TLSRoute ServiceExport ServiceImport Test", func() {
 			service1,
 			deployment1,
 		)
+	})
+
+	It("Verify lattice resource ", func() {
 		route, _ := core.NewRoute(tlsRoute)
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
 		fmt.Printf("vpcLatticeService: %v \n", vpcLatticeService)
@@ -80,41 +83,41 @@ var _ = Describe("TLSRoute ServiceExport ServiceImport Test", func() {
 		Expect(err).To(BeNil())
 		Expect(*tgSummary.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 		Expect(*tgSummary.Protocol).To(Equal("TCP"))
-		if tg.Config.HealthCheck != nil {
-			Expect(*tg.Config.HealthCheck.Enabled).To(BeFalse())
-		}
-
-		targetsV1 := testFramework.GetTargets(ctx, tgSummary, deployment1)
+		Expect(tg.Config.HealthCheck).To(Not(BeNil()))
+		Expect(*tg.Config.HealthCheck.Enabled).To(BeTrue())
+		Expect(*tg.Config.HealthCheck.Protocol).To(Equal("HTTPS"))
+		Expect(*tg.Config.HealthCheck.ProtocolVersion).To(Equal("HTTP1"))
+		Expect(*tg.Config.HealthCheck.Port).To(BeEquivalentTo(443))
 		Expect(*tgSummary.Port).To(BeEquivalentTo(80))
-		for _, target := range targetsV1 {
-			Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
-			Expect(*target.Status).To(
-				Equal(vpclattice.TargetStatusUnavailable),
-			)
-		}
+		Eventually(func(g Gomega) {
+			targets := testFramework.GetTargets(ctx, tgSummary, deployment1)
+			g.Expect(*tgSummary.Port).To(BeEquivalentTo(80))
+			for _, target := range targets {
+				g.Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
+				g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusHealthy))
+			}
+		})
+	})
+
+	It("Verify traffic", func() {
+		customDns := tlsRoute.Spec.Hostnames[0]
 		log.Println("Verifying traffic")
-		dnsName := testFramework.GetVpcLatticeServiceTLSDns(tlsRoute.Name, tlsRoute.Namespace)
-
-		dnsIP, _ := net.LookupIP(dnsName)
-
+		latticeGeneratedDnsName := testFramework.GetVpcLatticeServiceTLSDns(tlsRoute.Name, tlsRoute.Namespace)
+		dnsIP, _ := net.LookupIP(latticeGeneratedDnsName)
 		testFramework.Get(ctx, types.NamespacedName{Name: deployment1.Name, Namespace: deployment1.Namespace}, deployment1)
-
-		//get the pods of deployment1
 		pods := testFramework.GetPodsByDeploymentName(deployment1.Name, deployment1.Namespace)
 		Expect(len(pods)).To(BeEquivalentTo(1))
 		pod := pods[0]
-
 		Eventually(func(g Gomega) {
-			cmd := fmt.Sprintf("curl -k https://lattice-k8s-tls-passthrough-test.com:444 --resolve tls.test.com:444:%s", dnsIP[0])
+			cmd := fmt.Sprintf("curl -k https:/%s:444 --resolve %s:444:%s", customDns, customDns, dnsIP[0])
 			log.Printf("Executing command [%s] \n", cmd)
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("my-https-1 handler pod"))
 		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
-
 	})
 
-	AfterEach(func() {
+	AfterAll(func() {
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			tlsRoute,
 			deployment1,
@@ -129,6 +132,8 @@ var _ = Describe("TLSRoute ServiceExport ServiceImport Test", func() {
 func createTCPTargetGroupPolicy(
 	service *corev1.Service,
 ) *anv1alpha1.TargetGroupPolicy {
+	healthCheckProtocol := anv1alpha1.HealthCheckProtocol("HTTPS")
+	healthCheckProtocolVersion := anv1alpha1.HealthCheckProtocolVersion("HTTP1")
 	return &anv1alpha1.TargetGroupPolicy{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "TargetGroupPolicy",
@@ -145,6 +150,12 @@ func createTCPTargetGroupPolicy(
 			},
 			Protocol:        aws.String("TCP"),
 			ProtocolVersion: aws.String("HTTP1"),
+			HealthCheck: &anv1alpha1.HealthCheckConfig{
+				Enabled:         aws.Bool(true),
+				Protocol:        &healthCheckProtocol,
+				ProtocolVersion: &healthCheckProtocolVersion,
+				Port:            aws.Int64(443),
+			},
 		},
 	}
 }

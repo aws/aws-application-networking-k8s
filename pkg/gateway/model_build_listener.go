@@ -55,24 +55,7 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 }
 
 func isTLSPassthroughGatewayListener(listener *gwv1.Listener) bool {
-	/*
-		tls-passthrough gateway listener example:
-
-		apiVersion: gateway.networking.k8s.io/v1
-		kind: Gateway
-		metadata:
-		  name: my-gateway-tls-passthrough
-		spec:
-		  gatewayClassName: amazon-vpc-lattice
-		  listeners:
-		    - name: tls
-		      protocol: TLS
-		      port: 443
-		      tls:
-		        mode: Passthrough
-	*/
-	return listener.Protocol == gwv1.TCPProtocolType && listener.TLS != nil && listener.TLS.Mode != nil && *listener.TLS.Mode == gwv1.TLSModePassthrough
-
+	return listener.Protocol == gwv1.TLSProtocolType && listener.TLS != nil && listener.TLS.Mode != nil && *listener.TLS.Mode == gwv1.TLSModePassthrough
 }
 
 func (t *latticeServiceModelBuildTask) getGateway(ctx context.Context) (*gwv1beta1.Gateway, error) {
