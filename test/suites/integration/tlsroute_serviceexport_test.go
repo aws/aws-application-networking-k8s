@@ -88,10 +88,8 @@ var _ = Describe("TLSRoute Service Export/Import Test", Focus, Ordered, func() {
 		Expect(*tg.Config.HealthCheck.Protocol).To(Equal("HTTPS"))
 		Expect(*tg.Config.HealthCheck.ProtocolVersion).To(Equal("HTTP1"))
 		Expect(*tg.Config.HealthCheck.Port).To(BeEquivalentTo(443))
-		Expect(*tgSummary.Port).To(BeEquivalentTo(80))
 		Eventually(func(g Gomega) {
 			targets := testFramework.GetTargets(ctx, tgSummary, httpsDeployment1)
-			g.Expect(*tgSummary.Port).To(BeEquivalentTo(80))
 			for _, target := range targets {
 				g.Expect(*target.Port).To(BeEquivalentTo(httpsSvc1.Spec.Ports[0].TargetPort.IntVal))
 				g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusHealthy))

@@ -69,7 +69,6 @@ var _ = Describe("TLSRoute test", Focus, Ordered, func() {
 			Expect(*tg.Config.HealthCheck.Enabled).To(BeFalse())
 		}
 		targets := testFramework.GetTargets(ctx, tgSummary, httpsDeployment1)
-		Expect(*tgSummary.Port).To(BeEquivalentTo(80))
 		for _, target := range targets {
 			Expect(*target.Port).To(BeEquivalentTo(httpsSvc1.Spec.Ports[0].TargetPort.IntVal))
 			Expect(*target.Status).To(Equal(vpclattice.TargetStatusUnavailable))

@@ -58,7 +58,7 @@ import (
 var routeTypeToFinalizer = map[core.RouteType]string{
 	core.HttpRouteType: "httproute.k8s.aws/resources",
 	core.GrpcRouteType: "grpcroute.k8s.aws/resources",
-	core.TlsRouteType:  "tlsroute.k8s.aws/resource",
+	core.TlsRouteType:  "tlsroute.k8s.aws/resources",
 }
 
 type routeReconciler struct {
