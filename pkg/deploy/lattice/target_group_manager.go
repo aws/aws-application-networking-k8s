@@ -27,7 +27,7 @@ type TargetGroupManager interface {
 	List(ctx context.Context) ([]tgListOutput, error)
 	IsTargetGroupMatch(ctx context.Context, modelTg *model.TargetGroup, latticeTg *vpclattice.TargetGroupSummary,
 		latticeTags *model.TargetGroupTagFields) (bool, error)
-	ResolveRuleTgIds(ctx context.Context, modelRule *model.Rule, stack core.Stack) error
+	ResolveRuleTgIds(ctx context.Context, modelRuleAction *model.RuleAction, stack core.Stack) error
 }
 
 type defaultTargetGroupManager struct {
@@ -456,12 +456,12 @@ func (s *defaultTargetGroupManager) findSvcExportTG(ctx context.Context, svcImpo
 }
 
 // ResolveRuleTgIds populates all target group ids in the rule's actions
-func (s *defaultTargetGroupManager) ResolveRuleTgIds(ctx context.Context, modelRule *model.Rule, stack core.Stack) error {
-	if len(modelRule.Spec.Action.TargetGroups) == 0 {
-		s.log.Debugf("no target groups to resolve for rule %d", modelRule.Spec.Priority)
+func (s *defaultTargetGroupManager) ResolveRuleTgIds(ctx context.Context, ruleAction *model.RuleAction, stack core.Stack) error {
+	if len(ruleAction.TargetGroups) == 0 {
+		s.log.Debugf("no target groups to resolve for rule")
 		return nil
 	}
-	for i, ruleActionTg := range modelRule.Spec.Action.TargetGroups {
+	for i, ruleActionTg := range ruleAction.TargetGroups {
 		if ruleActionTg.StackTargetGroupId == "" && ruleActionTg.SvcImportTG == nil && ruleActionTg.LatticeTgId == "" {
 			return errors.New("rule TG is missing a required target group identifier")
 		}

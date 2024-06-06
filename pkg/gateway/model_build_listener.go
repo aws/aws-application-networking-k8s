@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -14,7 +15,8 @@ import (
 )
 
 const (
-	awsCustomCertARN = "application-networking.k8s.aws/certificate-arn"
+	awsCustomCertARN                     = "application-networking.k8s.aws/certificate-arn"
+	defaultActionFixedResponseStatusCode = 404
 )
 
 func (t *latticeServiceModelBuildTask) extractListenerInfo(
@@ -98,12 +100,17 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 			return err
 		}
 
+		defaultAction, err := t.getListenerDefaultAction(ctx, protocol)
+		if err != nil {
+			return err
+		}
 		spec := model.ListenerSpec{
 			StackServiceId:    stackSvcId,
 			K8SRouteName:      t.route.Name(),
 			K8SRouteNamespace: t.route.Namespace(),
 			Port:              port,
 			Protocol:          protocol,
+			DefaultAction:     defaultAction,
 		}
 
 		modelListener, err := model.NewListener(t.stack, spec)
@@ -116,4 +123,29 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 	}
 
 	return nil
+}
+
+func (t *latticeServiceModelBuildTask) getListenerDefaultAction(ctx context.Context, modelListenerProtocol string) (
+	*model.DefaultAction, error,
+) {
+	if modelListenerProtocol != vpclattice.ListenerProtocolTlsPassthrough {
+		return &model.DefaultAction{
+			FixedResponseStatusCode: aws.Int64(defaultActionFixedResponseStatusCode),
+		}, nil
+	}
+
+	if len(t.route.Spec().Rules()) != 1 {
+		return nil, fmt.Errorf("TLS_PASSTHROUGH listener can only have one rule for lattice listener default action, but got %d rules", len(t.route.Spec().Rules()))
+	}
+	modelRouteRule := t.route.Spec().Rules()[0]
+	ruleTgList, err := t.getTargetGroupsForRuleAction(ctx, modelRouteRule)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.DefaultAction{
+		Forward: &model.RuleAction{
+			TargetGroups: ruleTgList,
+		},
+	}, nil
 }

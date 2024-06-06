@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -82,12 +81,7 @@ func (r *ruleSynthesizer) createOrUpdateRules(ctx context.Context, rule *model.R
 		return err
 	}
 
-	if stackListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
-		r.log.Debugf("Skip updating rule=%v, since TLS_PASSTHROUGH listener can only have one default action and without any other additional rule", *rule)
-		return nil
-	}
-
-	err = r.tgManager.ResolveRuleTgIds(ctx, rule, r.stack)
+	err = r.tgManager.ResolveRuleTgIds(ctx, &rule.Spec.Action, r.stack)
 	if err != nil {
 		return err
 	}

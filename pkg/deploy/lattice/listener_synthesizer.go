@@ -50,7 +50,7 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 			return err
 		}
 
-		defaultAction, err := l.getLatticeListenerDefaultAction(ctx, listener.Spec.Protocol)
+		defaultAction, err := l.getLatticeListenerDefaultAction(ctx, listener)
 		if err != nil {
 			return err
 		}
@@ -89,29 +89,29 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 	return nil
 }
 
-func (l *listenerSynthesizer) getLatticeListenerDefaultAction(ctx context.Context, modelListenerProtocol string) (
+func (l *listenerSynthesizer) getLatticeListenerDefaultAction(ctx context.Context, stackListener *model.Listener) (
 	*vpclattice.RuleAction, error,
 ) {
-	if modelListenerProtocol != vpclattice.ListenerProtocolTlsPassthrough {
+	if stackListener.Spec.DefaultAction == nil ||
+		(stackListener.Spec.DefaultAction.FixedResponseStatusCode == nil && stackListener.Spec.DefaultAction.Forward == nil) {
+		return nil, fmt.Errorf("invalid listener default action, must be either fixed response or forward")
+	}
+
+	if stackListener.Spec.DefaultAction.FixedResponseStatusCode != nil {
 		return &vpclattice.RuleAction{
 			FixedResponse: &vpclattice.FixedResponseAction{
-				StatusCode: aws.Int64(404),
+				StatusCode: stackListener.Spec.DefaultAction.FixedResponseStatusCode,
 			},
 		}, nil
 	}
 
-	var stackRules []*model.Rule
-	_ = l.stack.ListResources(&stackRules)
-	if len(stackRules) != 1 {
-		return nil, fmt.Errorf("TLS_PASSTHROUGH listener can only have one default action and without any other additional rule, but got %d rules", len(stackRules))
-	}
-	if err := l.tgManager.ResolveRuleTgIds(ctx, stackRules[0], l.stack); err != nil {
+	// If the listener DefaultAction is not fixed response, for example for TLS_PASSTHROUGH listener, it must be a forward action, fill the forward action target group ids for it
+	if err := l.tgManager.ResolveRuleTgIds(ctx, stackListener.Spec.DefaultAction.Forward, l.stack); err != nil {
 		return nil, fmt.Errorf("failed to resolve rule tg ids, err = %v", err)
 	}
 
-	// For TLS_PASSTHROUGH listener, we need to fill the stackRules[0].Spec.Action.TargetGroups to the lattice listener's defaultAction ForwardAction TargetGroups
 	var latticeTGs []*vpclattice.WeightedTargetGroup
-	for _, modelTG := range stackRules[0].Spec.Action.TargetGroups {
+	for _, modelTG := range stackListener.Spec.DefaultAction.Forward.TargetGroups {
 		latticeTG := vpclattice.WeightedTargetGroup{
 			TargetGroupIdentifier: aws.String(modelTG.LatticeTgId),
 			Weight:                aws.Int64(modelTG.Weight),
@@ -119,7 +119,7 @@ func (l *listenerSynthesizer) getLatticeListenerDefaultAction(ctx context.Contex
 		latticeTGs = append(latticeTGs, &latticeTG)
 	}
 
-	l.log.Debugf("For TLS_PASSTHROUGH listener, forward to default target groups %v", latticeTGs)
+	l.log.Debugf("DefaultAction Forward target groups: %v", latticeTGs)
 	return &vpclattice.RuleAction{
 		Forward: &vpclattice.ForwardAction{
 			TargetGroups: latticeTGs,

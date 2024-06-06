@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -85,6 +86,11 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	}
 	t.log.Debugf("Building rules for %d listeners", len(modelListeners))
 	for _, modelListener := range modelListeners {
+		if modelListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+			t.log.Debugf("Skip building rules for TLS_PASSTHROUGH listener %s, since lattice TLS_PASSTHROUGH listener can only have listener defaultAction and without any other rule", modelListener.ID())
+			continue
+		}
+
 		// building rules will also build target groups and targets as needed
 		// even on delete we try to build everything we may then need to remove
 		err = t.buildRules(ctx, modelListener.ID())

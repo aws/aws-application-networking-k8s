@@ -23,7 +23,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 )
 
-var _ = Describe("TLSRoute test", Focus, Ordered, func() {
+var _ = Describe("TLSRoute test", Ordered, func() {
 	var (
 		httpsDeployment1 *appsv1.Deployment
 		httpsSvc1        *v1.Service

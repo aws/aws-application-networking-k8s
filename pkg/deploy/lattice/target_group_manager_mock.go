@@ -82,7 +82,7 @@ func (mr *MockTargetGroupManagerMockRecorder) List(arg0 interface{}) *gomock.Cal
 }
 
 // ResolveRuleTgIds mocks base method.
-func (m *MockTargetGroupManager) ResolveRuleTgIds(arg0 context.Context, arg1 *lattice0.Rule, arg2 core.Stack) error {
+func (m *MockTargetGroupManager) ResolveRuleTgIds(arg0 context.Context, arg1 *lattice0.RuleAction, arg2 core.Stack) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveRuleTgIds", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

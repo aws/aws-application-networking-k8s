@@ -1147,7 +1147,7 @@ func Test_ResolveRuleTgIds(t *testing.T) {
 	assert.NoError(t, stack.AddResource(stackRule))
 
 	s := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
-	assert.NoError(t, s.ResolveRuleTgIds(ctx, stackRule, stack))
+	assert.NoError(t, s.ResolveRuleTgIds(ctx, &stackRule.Spec.Action, stack))
 
 	assert.Equal(t, "svc-export-tg-id", stackRule.Spec.Action.TargetGroups[0].LatticeTgId)
 	assert.Equal(t, "tg-id", stackRule.Spec.Action.TargetGroups[1].LatticeTgId)

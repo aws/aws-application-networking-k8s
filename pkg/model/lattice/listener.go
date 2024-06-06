@@ -11,11 +11,17 @@ type Listener struct {
 }
 
 type ListenerSpec struct {
-	StackServiceId    string `json:"stackserviceid"`
-	K8SRouteName      string `json:"k8sroutename"`
-	K8SRouteNamespace string `json:"k8sroutenamespace"`
-	Port              int64  `json:"port"`
-	Protocol          string `json:"protocol"`
+	StackServiceId    string         `json:"stackserviceid"`
+	K8SRouteName      string         `json:"k8sroutename"`
+	K8SRouteNamespace string         `json:"k8sroutenamespace"`
+	Port              int64          `json:"port"`
+	Protocol          string         `json:"protocol"`
+	DefaultAction     *DefaultAction `json:"defaultaction"`
+}
+
+type DefaultAction struct {
+	FixedResponseStatusCode *int64      `json:"fixedresponsestatuscode"`
+	Forward                 *RuleAction `json:"forward"`
 }
 
 type ListenerStatus struct {

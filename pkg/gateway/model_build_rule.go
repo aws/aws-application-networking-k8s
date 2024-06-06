@@ -33,10 +33,6 @@ const (
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackListenerId string) error {
 	// note we only build rules for non-deleted routes
 	t.log.Debugf("Processing %d rules", len(t.route.Spec().Rules()))
-	if t.route.GroupKind().Kind == core.TlsRouteKind && len(t.route.Spec().Rules()) != 1 {
-		return fmt.Errorf("only support to have 1 rule for TLSRoute %s/%s, but got %d rules", t.route.Namespace(), t.route.Name(), len(t.route.Spec().Rules()))
-	}
-
 	for i, rule := range t.route.Spec().Rules() {
 		ruleSpec := model.RuleSpec{
 			StackListenerId: stackListenerId,
@@ -66,8 +62,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 			if err := t.updateRuleSpecWithHeaderMatches(match, &ruleSpec); err != nil {
 				return err
 			}
-		} else { // rule.Matches() ==0
-			// TLSRoute with go to this branch since it doesn't have any match
+		} else {
 
 			// Match every traffic on no matches
 			ruleSpec.PathMatchValue = "/"
@@ -76,10 +71,6 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 				ruleSpec.Method = string(gwv1.HTTPMethodPost)
 			}
 
-			// For TLSRoute, although in here we create a lattice listener rule with PathMatchValue = "/", but it will not be used in the rule_synthesizer,
-			// Since vpc lattice doesn't support any rule matching for TLS_PASSTHROUGH listener,
-			// the rule_synthesizer will skip updating the rule while the listener_synthesizer will fill the listener with the default action route to the referenced  TCP target groups
-			// https://docs.aws.amazon.com/vpc-lattice/latest/ug/tls-listeners.html
 		}
 
 		ruleTgList, err := t.getTargetGroupsForRuleAction(ctx, rule)

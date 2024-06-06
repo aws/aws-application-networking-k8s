@@ -34,6 +34,9 @@ func Test_SynthesizeListenerCreate(t *testing.T) {
 		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "l-id"),
 		Spec: model.ListenerSpec{
 			StackServiceId: "stack-svc-id",
+			DefaultAction: &model.DefaultAction{
+				FixedResponseStatusCode: aws.Int64(404),
+			},
 		},
 	}
 	assert.NoError(t, stack.AddResource(l))
@@ -73,6 +76,9 @@ func Test_SynthesizeListener_CreatNewHTTPListener_DeleteStaleHTTPSListener(t *te
 			StackServiceId: "stack-svc-id",
 			Protocol:       vpclattice.ListenerProtocolHttp,
 			Port:           80,
+			DefaultAction: &model.DefaultAction{
+				FixedResponseStatusCode: aws.Int64(404),
+			},
 		},
 	}
 	assert.NoError(t, stack.AddResource(l))
@@ -135,9 +141,9 @@ func Test_SynthesizeListener_CreatNewTLSPassthroughListener_DeleteStaleHTTPSList
 	}
 	assert.NoError(t, stack.AddResource(rule))
 	mockTargetGroupManager.EXPECT().ResolveRuleTgIds(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, rule *model.Rule, stack core.Stack) error {
-			rule.Spec.Action.TargetGroups[0].LatticeTgId = "lattice-tg-id-1"
-			rule.Spec.Action.TargetGroups[1].LatticeTgId = "lattice-tg-id-2"
+		func(ctx context.Context, ruleAction *model.RuleAction, stack core.Stack) error {
+			ruleAction.TargetGroups[0].LatticeTgId = "lattice-tg-id-1"
+			ruleAction.TargetGroups[1].LatticeTgId = "lattice-tg-id-2"
 			return nil
 		})
 	l := &model.Listener{
@@ -146,6 +152,7 @@ func Test_SynthesizeListener_CreatNewTLSPassthroughListener_DeleteStaleHTTPSList
 			StackServiceId: "stack-svc-id",
 			Protocol:       vpclattice.ListenerProtocolTlsPassthrough,
 			Port:           80,
+			DefaultAction:  &model.DefaultAction{Forward: &model.RuleAction{TargetGroups: rule.Spec.Action.TargetGroups}},
 		},
 	}
 	assert.NoError(t, stack.AddResource(l))
@@ -187,28 +194,31 @@ func Test_SynthesizeListener_CreatNewTLSPassthroughListener_DeleteStaleHTTPSList
 }
 
 func Test_listenerSynthesizer_getLatticeListenerDefaultAction_FixedResponse404(t *testing.T) {
-	fixResponseAction404 := &vpclattice.RuleAction{
+	latticeFixResponseAction404 := &vpclattice.RuleAction{
 		FixedResponse: &vpclattice.FixedResponseAction{
 			StatusCode: aws.Int64(404),
 		},
 	}
 	tests := []struct {
-		name             string
-		listenerProtocol string
-		want             *vpclattice.RuleAction
-		wantErr          error
+		name                       string
+		stackListenerDefaultAction *model.DefaultAction
+		listenerProtocol           string
+		want                       *vpclattice.RuleAction
+		wantErr                    error
 	}{
 		{
-			name:             "HTTP protocol Listener has the 404 fixed response default action",
-			listenerProtocol: "HTTP",
-			want:             fixResponseAction404,
-			wantErr:          nil,
+			name:                       "HTTP protocol Listener has the 404 fixed response modelListenerDefaultAction, return lattice fixed response 404 DefaultAction",
+			stackListenerDefaultAction: &model.DefaultAction{FixedResponseStatusCode: aws.Int64(404)},
+			listenerProtocol:           vpclattice.ListenerProtocolHttp,
+			want:                       latticeFixResponseAction404,
+			wantErr:                    nil,
 		},
 		{
-			name:             "HTTPS protocol Listener has the 404 fixed response default action",
-			listenerProtocol: "HTTPS",
-			want:             fixResponseAction404,
-			wantErr:          nil,
+			name:                       "HTTPS protocol Listener has the 404 fixed response modelListenerDefaultAction, return lattice fixed response 404 DefaultAction",
+			stackListenerDefaultAction: &model.DefaultAction{FixedResponseStatusCode: aws.Int64(404)},
+			listenerProtocol:           vpclattice.ListenerProtocolHttps,
+			want:                       latticeFixResponseAction404,
+			wantErr:                    nil,
 		},
 	}
 
@@ -216,17 +226,28 @@ func Test_listenerSynthesizer_getLatticeListenerDefaultAction_FixedResponse404(t
 	defer c.Finish()
 	mockListenerMgr := NewMockListenerManager(c)
 	mockTargetGroupManager := NewMockTargetGroupManager(c)
-	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
+			modelListener := &model.Listener{
+				ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "modelListener-id"),
+				Spec: model.ListenerSpec{
+					StackServiceId: "stack-svc-id",
+					Protocol:       tt.listenerProtocol,
+					Port:           80,
+					DefaultAction:  tt.stackListenerDefaultAction,
+				},
+			}
+			assert.NoError(t, stack.AddResource(modelListener))
+
 			l := &listenerSynthesizer{
 				log:         gwlog.FallbackLogger,
 				listenerMgr: mockListenerMgr,
 				tgManager:   mockTargetGroupManager,
 				stack:       stack,
 			}
-			got, err := l.getLatticeListenerDefaultAction(context.TODO(), tt.listenerProtocol)
+			got, err := l.getLatticeListenerDefaultAction(context.TODO(), modelListener)
 
 			assert.Equalf(t, tt.want, got, "getLatticeListenerDefaultAction() listenerProtocol: %v", tt.listenerProtocol)
 			assert.Equal(t, tt.wantErr, err)
@@ -245,49 +266,56 @@ func Test_listenerSynthesizer_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Li
 		mockListenerMgr := NewMockListenerManager(c)
 		mockTargetGroupManager := NewMockTargetGroupManager(c)
 		mockTargetGroupManager.EXPECT().ResolveRuleTgIds(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, rule *model.Rule, stack core.Stack) error {
-				rule.Spec.Action.TargetGroups[0].LatticeTgId = "lattice-service-export-tg-id-1"
-				rule.Spec.Action.TargetGroups[1].LatticeTgId = "lattice-tg-id-2"
-				rule.Spec.Action.TargetGroups[2].LatticeTgId = model.InvalidBackendRefTgId
+			func(ctx context.Context, ruleAction *model.RuleAction, stack core.Stack) error {
+				ruleAction.TargetGroups[0].LatticeTgId = "lattice-service-export-tg-id-1"
+				ruleAction.TargetGroups[1].LatticeTgId = "lattice-tg-id-2"
+				ruleAction.TargetGroups[2].LatticeTgId = model.InvalidBackendRefTgId
 				return nil
 
 			})
 		stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
-		stackRule := &model.Rule{
-			ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Rule", "rule-id"),
-			Spec: model.RuleSpec{
-				Action: model.RuleAction{
-					TargetGroups: []*model.RuleTargetGroup{
-						{
-							SvcImportTG: &model.SvcImportTargetGroup{
-								K8SClusterName:      "cluster-name",
-								K8SServiceName:      "svc-name",
-								K8SServiceNamespace: "ns",
-								VpcId:               "vpc-id",
+
+		modelListener := &model.Listener{
+			ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "modelListener-id"),
+			Spec: model.ListenerSpec{
+				StackServiceId: "stack-svc-id",
+				Protocol:       vpclattice.ListenerProtocolTlsPassthrough,
+				Port:           80,
+				DefaultAction: &model.DefaultAction{
+					Forward: &model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SClusterName:      "cluster-name",
+									K8SServiceName:      "svc-name",
+									K8SServiceNamespace: "ns",
+									VpcId:               "vpc-id",
+								},
+								Weight: 10,
 							},
-							Weight: 10,
-						},
-						{
-							StackTargetGroupId: "stack-tg-id-2",
-							Weight:             30,
-						},
-						{
-							StackTargetGroupId: model.InvalidBackendRefTgId,
-							Weight:             60,
+							{
+								StackTargetGroupId: "lattice-tg-id-2",
+								Weight:             30,
+							},
+							{
+								StackTargetGroupId: model.InvalidBackendRefTgId,
+								Weight:             60,
+							},
 						},
 					},
 				},
 			},
 		}
-		assert.NoError(t, stack.AddResource(stackRule))
+		assert.NoError(t, stack.AddResource(modelListener))
+
 		l := &listenerSynthesizer{
 			log:         gwlog.FallbackLogger,
 			listenerMgr: mockListenerMgr,
 			tgManager:   mockTargetGroupManager,
 			stack:       stack,
 		}
-		gotDefaultAction, err := l.getLatticeListenerDefaultAction(context.TODO(), tlspassthroughListenerProtocol)
-		wantedListenerDefaultAction := &vpclattice.RuleAction{
+		gotDefaultAction, err := l.getLatticeListenerDefaultAction(context.TODO(), modelListener)
+		wantedLatticeListenerDefaultAction := &vpclattice.RuleAction{
 			Forward: &vpclattice.ForwardAction{
 				TargetGroups: []*vpclattice.WeightedTargetGroup{
 					{
@@ -305,7 +333,7 @@ func Test_listenerSynthesizer_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Li
 				},
 			},
 		}
-		assert.Equalf(t, wantedListenerDefaultAction, gotDefaultAction, "getLatticeListenerDefaultAction() tlspassthroughListenerProtocol: %v", tlspassthroughListenerProtocol)
+		assert.Equalf(t, wantedLatticeListenerDefaultAction, gotDefaultAction, "getLatticeListenerDefaultAction() tlspassthroughListenerProtocol: %v", tlspassthroughListenerProtocol)
 		assert.Nil(t, err)
 	})
 
@@ -313,7 +341,7 @@ func Test_listenerSynthesizer_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Li
 		mockListenerMgr := NewMockListenerManager(c)
 		mockTargetGroupManager := NewMockTargetGroupManager(c)
 		mockTargetGroupManager.EXPECT().ResolveRuleTgIds(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, rule *model.Rule, stack core.Stack) error {
+			func(ctx context.Context, ruleAction *model.RuleAction, stack core.Stack) error {
 				return fmt.Errorf("failed to resolve rule tg ids")
 			})
 		stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
@@ -324,13 +352,31 @@ func Test_listenerSynthesizer_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Li
 			},
 		}
 		assert.NoError(t, stack.AddResource(stackRule))
+		modelListener := &model.Listener{
+			ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "modelListener-id"),
+			Spec: model.ListenerSpec{
+				StackServiceId: "stack-svc-id",
+				Protocol:       vpclattice.ListenerProtocolTlsPassthrough,
+				Port:           80,
+				DefaultAction: &model.DefaultAction{
+					Forward: &model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "lattice-tg-id-1",
+								Weight:             100,
+							},
+						},
+					},
+				},
+			},
+		}
 		l := &listenerSynthesizer{
 			log:         gwlog.FallbackLogger,
 			listenerMgr: mockListenerMgr,
 			tgManager:   mockTargetGroupManager,
 			stack:       stack,
 		}
-		gotDefaultAction, err := l.getLatticeListenerDefaultAction(context.TODO(), tlspassthroughListenerProtocol)
+		gotDefaultAction, err := l.getLatticeListenerDefaultAction(context.TODO(), modelListener)
 		assert.Nil(t, gotDefaultAction)
 		assert.NotNil(t, err)
 

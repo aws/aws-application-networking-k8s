@@ -49,6 +49,7 @@ func Test_SynthesizeRule(t *testing.T) {
 			StackListenerId: l.ID(),
 			Priority:        1,
 			CreateTime:      time.Time{},
+			Action:          model.RuleAction{},
 		},
 		Status: nil,
 	}
@@ -72,7 +73,7 @@ func Test_SynthesizeRule(t *testing.T) {
 					Id: aws.String("rule-id"),
 				},
 			}, nil)
-		mockTgMgr.EXPECT().ResolveRuleTgIds(ctx, r, stack).Return(nil)
+		mockTgMgr.EXPECT().ResolveRuleTgIds(ctx, &r.Spec.Action, stack).Return(nil)
 		rs := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleMgr, mockTgMgr, stack)
 		rs.Synthesize(ctx)
 	})
@@ -99,7 +100,7 @@ func Test_SynthesizeRule(t *testing.T) {
 			}, nil)
 
 		mockRuleMgr.EXPECT().Delete(ctx, "delete-rule-id", "svc-id", "listener-id").Return(nil)
-		mockTgMgr.EXPECT().ResolveRuleTgIds(ctx, r, stack).Return(nil)
+		mockTgMgr.EXPECT().ResolveRuleTgIds(ctx, &r.Spec.Action, stack).Return(nil)
 
 		rs := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleMgr, mockTgMgr, stack)
 		rs.Synthesize(ctx)
@@ -128,7 +129,7 @@ func Test_SynthesizeRule(t *testing.T) {
 				assert.Equal(t, 1, len(rules))
 				return nil
 			})
-		mockTgMgr.EXPECT().ResolveRuleTgIds(ctx, r, stack).Return(nil)
+		mockTgMgr.EXPECT().ResolveRuleTgIds(ctx, &r.Spec.Action, stack).Return(nil)
 
 		rs := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleMgr, mockTgMgr, stack)
 		rs.Synthesize(ctx)

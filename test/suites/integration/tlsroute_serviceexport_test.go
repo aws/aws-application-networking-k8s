@@ -28,7 +28,7 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 )
 
-var _ = Describe("TLSRoute Service Export/Import Test", Focus, Ordered, func() {
+var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 	var (
 		httpsDeployment1 *appsv1.Deployment
 		httpsSvc1        *v1.Service
