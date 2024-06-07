@@ -272,6 +272,8 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 	var route core.Route
 	if tagFields.K8SProtocolVersion == vpclattice.TargetGroupProtocolVersionGrpc {
 		route, err = core.GetGRPCRoute(ctx, t.client, routeName)
+	} else if *latticeTg.tgSummary.Protocol == vpclattice.TargetGroupProtocolTcp {
+		route, err = core.GetTLSRoute(ctx, t.client, routeName)
 	} else {
 		route, err = core.GetHTTPRoute(ctx, t.client, routeName)
 	}

@@ -38,14 +38,15 @@ type TargetGroupPolicyList struct {
 
 // TargetGroupPolicySpec defines the desired state of TargetGroupPolicy.
 type TargetGroupPolicySpec struct {
-	// The protocol to use for routing traffic to the targets. Supported values are HTTP (default) and HTTPS.
+	// The protocol to use for routing traffic to the targets. Supported values are HTTP (default), HTTPS and TCP.
 	//
 	// Changes to this value results in a replacement of VPC Lattice target group.
 	// +optional
 	Protocol *string `json:"protocol,omitempty"`
 
-	// The protocol version to use. Supported values are HTTP1 (default) and HTTP2. When a policy is behind GRPCRoute,
-	// this field value will be ignored as GRPC is only supported through HTTP/2.
+	// The protocol version to use. Supported values are HTTP1 (default) and HTTP2.
+	// When a policy Protocol is TCP, you should not set this field. Otherwise, the whole TargetGroupPolicy will not take effect.
+	// When a policy is behind GRPCRoute, this field value will be ignored as GRPC is only supported through HTTP/2.
 	//
 	// Changes to this value results in a replacement of VPC Lattice target group.
 	// +optional
@@ -64,7 +65,7 @@ type TargetGroupPolicySpec struct {
 }
 
 // HealthCheckConfig defines health check configuration for given VPC Lattice target group.
-// For the detailed explanation and supported values, please refer to VPC Lattice documentationon health checks.
+// For the detailed explanation and supported values, please refer to [VPC Lattice health checks documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html).
 type HealthCheckConfig struct {
 	// Indicates whether health checking is enabled.
 	// +optional
@@ -112,7 +113,7 @@ type HealthCheckConfig struct {
 	// +optional
 	Protocol *HealthCheckProtocol `json:"protocol,omitempty"`
 
-	// The protocol version used when performing health checks on targets. Defaults to HTTP/1.
+	// The protocol version used when performing health checks on targets.
 	// +optional
 	ProtocolVersion *HealthCheckProtocolVersion `json:"protocolVersion,omitempty"`
 }

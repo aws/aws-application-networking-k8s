@@ -232,6 +232,32 @@ rules:
 - apiGroups:
     - gateway.networking.k8s.io
   resources:
+    - tlsroutes
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - gateway.networking.k8s.io
+  resources:
+    - tlsroutes/finalizers
+  verbs:
+    - update
+- apiGroups:
+    - gateway.networking.k8s.io
+  resources:
+    - tlsroutes/status
+  verbs:
+    - get
+    - patch
+    - update
+- apiGroups:
+    - gateway.networking.k8s.io
+  resources:
     - grpcroutes
   verbs:
     - create

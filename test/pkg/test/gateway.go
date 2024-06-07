@@ -37,6 +37,14 @@ func (env *Framework) NewGateway(name string, namespace string) *gwv1.Gateway {
 							},
 						},
 					},
+					{
+						Name:     "tls",
+						Protocol: gwv1.TLSProtocolType,
+						Port:     444,
+						TLS: &gwv1.GatewayTLSConfig{
+							Mode: lo.ToPtr(gwv1.TLSModePassthrough),
+						},
+					},
 				},
 			},
 			Status: gwv1.GatewayStatus{},

@@ -2,8 +2,10 @@ package integration
 
 import (
 	"fmt"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	arn2 "github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -17,11 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strings"
-	"time"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
 type testClients struct {

@@ -22,6 +22,8 @@ func ObjToGroupKind(obj client.Object) GroupKind {
 		return GroupKind{gwv1beta1.GroupName, "HTTPRoute"}
 	case *gwv1alpha2.GRPCRoute:
 		return GroupKind{gwv1alpha2.GroupName, "GRPCRoute"}
+	case *gwv1alpha2.TCPRoute:
+		return GroupKind{gwv1alpha2.GroupName, "TCPRoute"}
 	case *anv1alpha1.ServiceExport:
 		return GroupKind{anv1alpha1.GroupName, "ServiceExport"}
 	case *corev1.Service:
@@ -46,6 +48,8 @@ func GroupKindToObj(gk GroupKind) (client.Object, bool) {
 		return &gwv1beta1.HTTPRoute{}, true
 	case GroupKind{gwv1alpha2.GroupName, "GRPCRoute"}:
 		return &gwv1alpha2.GRPCRoute{}, true
+	case GroupKind{gwv1alpha2.GroupName, "TCPRoute"}:
+		return &gwv1alpha2.TCPRoute{}, true
 	case GroupKind{corev1.GroupName, "Service"}:
 		return &corev1.Service{}, true
 	case GroupKind{anv1alpha1.GroupName, "ServiceExport"}:

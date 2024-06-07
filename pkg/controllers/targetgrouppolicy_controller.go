@@ -35,6 +35,8 @@ func RegisterTargetGroupPolicyController(log gwlog.Logger, mgr ctrl.Manager) err
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&TGP{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 	ph.AddWatchers(b, &corev1.Service{})
+	ph.AddWatchers(b, &anv1alpha1.ServiceExport{})
+
 	return b.Complete(controller)
 }
 

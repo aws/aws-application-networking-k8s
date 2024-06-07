@@ -15,17 +15,20 @@ import (
 type listenerSynthesizer struct {
 	log         gwlog.Logger
 	listenerMgr ListenerManager
+	tgManager   TargetGroupManager
 	stack       core.Stack
 }
 
 func NewListenerSynthesizer(
 	log gwlog.Logger,
 	ListenerManager ListenerManager,
+	tgManager TargetGroupManager,
 	stack core.Stack,
 ) *listenerSynthesizer {
 	return &listenerSynthesizer{
 		log:         log,
 		listenerMgr: ListenerManager,
+		tgManager:   tgManager,
 		stack:       stack,
 	}
 }
@@ -44,6 +47,13 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 		err := l.stack.GetResource(listener.Spec.StackServiceId, svc)
 		if err != nil {
 			return err
+		}
+
+		if listener.Spec.DefaultAction.Forward != nil {
+			// Fill the listener forward action target group ids
+			if err := l.tgManager.ResolveRuleTgIds(ctx, listener.Spec.DefaultAction.Forward, l.stack); err != nil {
+				return fmt.Errorf("failed to resolve rule tg ids, err = %v", err)
+			}
 		}
 
 		status, err := l.listenerMgr.Upsert(ctx, listener, svc)

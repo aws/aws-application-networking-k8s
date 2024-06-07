@@ -5,15 +5,18 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+
+	"reflect"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"reflect"
 )
 
 //go:generate mockgen -destination target_group_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice TargetGroupManager
@@ -24,6 +27,7 @@ type TargetGroupManager interface {
 	List(ctx context.Context) ([]tgListOutput, error)
 	IsTargetGroupMatch(ctx context.Context, modelTg *model.TargetGroup, latticeTg *vpclattice.TargetGroupSummary,
 		latticeTags *model.TargetGroupTagFields) (bool, error)
+	ResolveRuleTgIds(ctx context.Context, modelRuleAction *model.RuleAction, stack core.Stack) error
 }
 
 type defaultTargetGroupManager struct {
@@ -56,15 +60,20 @@ func (s *defaultTargetGroupManager) Upsert(
 }
 
 func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.TargetGroup) (model.TargetGroupStatus, error) {
-	var ipAddressType *string
+	var ipAddressType, protocolVersion *string
 	if modelTg.Spec.IpAddressType != "" {
 		ipAddressType = &modelTg.Spec.IpAddressType
+	}
+	if modelTg.Spec.ProtocolVersion == "" {
+		protocolVersion = nil
+	} else {
+		protocolVersion = &modelTg.Spec.ProtocolVersion
 	}
 
 	latticeTgCfg := &vpclattice.TargetGroupConfig{
 		Port:            aws.Int64(int64(modelTg.Spec.Port)),
 		Protocol:        &modelTg.Spec.Protocol,
-		ProtocolVersion: &modelTg.Spec.ProtocolVersion,
+		ProtocolVersion: protocolVersion,
 		VpcIdentifier:   &modelTg.Spec.VpcId,
 		IpAddressType:   ipAddressType,
 		HealthCheck:     modelTg.Spec.HealthCheckConfig,
@@ -121,7 +130,7 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *mod
 		s.log.Debugf("HealthCheck is empty. Resetting to default settings")
 		healthCheckConfig = &vpclattice.HealthCheckConfig{}
 	}
-	s.fillDefaultHealthCheckConfig(healthCheckConfig, targetGroup.Spec.ProtocolVersion)
+	s.fillDefaultHealthCheckConfig(healthCheckConfig, targetGroup.Spec.Protocol, targetGroup.Spec.ProtocolVersion)
 
 	if !reflect.DeepEqual(healthCheckConfig, latticeTg.Config.HealthCheck) {
 		_, err := s.cloud.Lattice().UpdateTargetGroupWithContext(ctx, &vpclattice.UpdateTargetGroupInput{
@@ -353,14 +362,19 @@ func (s *defaultTargetGroupManager) IsTargetGroupMatch(ctx context.Context,
 
 // Get default health check configuration according to
 // https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html#health-check-settings
-func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProtocolVersion string) *vpclattice.HealthCheckConfig {
+func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProtocol string, targetGroupProtocolVersion string) *vpclattice.HealthCheckConfig {
+	if targetGroupProtocol == vpclattice.TargetGroupProtocolTcp {
+		return &vpclattice.HealthCheckConfig{
+			Enabled: aws.Bool(false),
+		}
+	}
+
 	var (
 		defaultHealthCheckIntervalSeconds int64 = 30
 		defaultHealthCheckTimeoutSeconds  int64 = 5
 		defaultHealthyThresholdCount      int64 = 5
 		defaultUnhealthyThresholdCount    int64 = 2
-
-		defaultMatcher = vpclattice.Matcher{
+		defaultMatcher                          = vpclattice.Matcher{
 			HttpCode: aws.String("200"),
 		}
 		defaultPath     = "/"
@@ -392,8 +406,8 @@ func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProto
 	}
 }
 
-func (s *defaultTargetGroupManager) fillDefaultHealthCheckConfig(hc *vpclattice.HealthCheckConfig, targetGroupProtocolVersion string) {
-	defaultCfg := s.getDefaultHealthCheckConfig(targetGroupProtocolVersion)
+func (s *defaultTargetGroupManager) fillDefaultHealthCheckConfig(hc *vpclattice.HealthCheckConfig, targetGroupProtocol string, targetGroupProtocolVersion string) {
+	defaultCfg := s.getDefaultHealthCheckConfig(targetGroupProtocol, targetGroupProtocolVersion)
 	if hc.Enabled == nil {
 		hc.Enabled = defaultCfg.Enabled
 	}
@@ -421,4 +435,68 @@ func (s *defaultTargetGroupManager) fillDefaultHealthCheckConfig(hc *vpclattice.
 	if hc.UnhealthyThresholdCount == nil {
 		hc.UnhealthyThresholdCount = defaultCfg.UnhealthyThresholdCount
 	}
+}
+
+func (s *defaultTargetGroupManager) findSvcExportTG(ctx context.Context, svcImportTg model.SvcImportTargetGroup) (string, error) {
+	tgs, err := s.List(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, tg := range tgs {
+		tgTags := model.TGTagFieldsFromTags(tg.tags)
+		svcMatch := tgTags.IsSourceTypeServiceExport() && (tgTags.K8SServiceName == svcImportTg.K8SServiceName) &&
+			(tgTags.K8SServiceNamespace == svcImportTg.K8SServiceNamespace)
+		clusterMatch := (svcImportTg.K8SClusterName == "") || (tgTags.K8SClusterName == svcImportTg.K8SClusterName)
+		vpcMatch := (svcImportTg.VpcId == "") || (svcImportTg.VpcId == aws.StringValue(tg.tgSummary.VpcIdentifier))
+		if svcMatch && clusterMatch && vpcMatch {
+			return *tg.tgSummary.Id, nil
+		}
+	}
+	return "", errors.New("target group for service import could not be found")
+}
+
+// ResolveRuleTgIds populates all target group ids in the rule's actions
+func (s *defaultTargetGroupManager) ResolveRuleTgIds(ctx context.Context, ruleAction *model.RuleAction, stack core.Stack) error {
+	if len(ruleAction.TargetGroups) == 0 {
+		s.log.Debugf("no target groups to resolve for rule")
+		return nil
+	}
+	for i, ruleActionTg := range ruleAction.TargetGroups {
+		if ruleActionTg.StackTargetGroupId == "" && ruleActionTg.SvcImportTG == nil && ruleActionTg.LatticeTgId == "" {
+			return errors.New("rule TG is missing a required target group identifier")
+		}
+		if ruleActionTg.LatticeTgId != "" {
+			s.log.Debugf("Rule TG %d already resolved %s", i, ruleActionTg.LatticeTgId)
+			continue
+		}
+		if ruleActionTg.StackTargetGroupId != "" {
+			if ruleActionTg.StackTargetGroupId == model.InvalidBackendRefTgId {
+				s.log.Debugf("Rule TG has an invalid backendref, setting TG id to invalid")
+				ruleActionTg.LatticeTgId = model.InvalidBackendRefTgId
+				continue
+			}
+			s.log.Debugf("Fetching TG %d from the stack (ID %s)", i, ruleActionTg.StackTargetGroupId)
+			stackTg := &model.TargetGroup{}
+			err := stack.GetResource(ruleActionTg.StackTargetGroupId, stackTg)
+			if err != nil {
+				return err
+			}
+			if stackTg.Status == nil {
+				return errors.New("stack target group is missing Status field")
+			}
+			ruleActionTg.LatticeTgId = stackTg.Status.Id
+		}
+		if ruleActionTg.SvcImportTG != nil {
+			s.log.Debugf("Getting target group for service import %s %s (%s, %s)",
+				ruleActionTg.SvcImportTG.K8SServiceName, ruleActionTg.SvcImportTG.K8SServiceNamespace,
+				ruleActionTg.SvcImportTG.K8SClusterName, ruleActionTg.SvcImportTG.VpcId)
+			tgId, err := s.findSvcExportTG(ctx, *ruleActionTg.SvcImportTG)
+
+			if err != nil {
+				return err
+			}
+			ruleActionTg.LatticeTgId = tgId
+		}
+	}
+	return nil
 }

@@ -82,7 +82,7 @@ spec:
                     type: string
                   protocolVersion:
                     description: The protocol version used when performing health
-                      checks on targets. Defaults to HTTP/1.
+                      checks on targets.
                     enum:
                     - HTTP1
                     - HTTP2
@@ -108,15 +108,16 @@ spec:
                 type: object
               protocol:
                 description: "The protocol to use for routing traffic to the targets.
-                  Supported values are HTTP (default) and HTTPS. \n Changes to this
-                  value results in a replacement of VPC Lattice target group."
+                  Supported values are HTTP (default), HTTPS and TCP. \n Changes to
+                  this value results in a replacement of VPC Lattice target group."
                 type: string
               protocolVersion:
                 description: "The protocol version to use. Supported values are HTTP1
-                  (default) and HTTP2. When a policy is behind GRPCRoute, this field
-                  value will be ignored as GRPC is only supported through HTTP/2.
-                  \n Changes to this value results in a replacement of VPC Lattice
-                  target group."
+                  (default) and HTTP2. When a policy Protocol is TCP, you should not
+                  set this field. Otherwise, the whole TargetGroupPolicy will not
+                  take effect. When a policy is behind GRPCRoute, this field value
+                  will be ignored as GRPC is only supported through HTTP/2. \n Changes
+                  to this value results in a replacement of VPC Lattice target group."
                 type: string
               targetRef:
                 description: "TargetRef points to the kubernetes Service resource

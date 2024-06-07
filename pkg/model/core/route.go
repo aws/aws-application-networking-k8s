@@ -33,6 +33,8 @@ func NewRoute(object client.Object) (Route, error) {
 		return NewHTTPRoute(*obj), nil
 	case *gwv1alpha2.GRPCRoute:
 		return NewGRPCRoute(*obj), nil
+	case *gwv1alpha2.TLSRoute:
+		return NewTLSRoute((*obj)), nil
 	default:
 		return nil, fmt.Errorf("unexpected route type for object %+v", object)
 	}
@@ -48,11 +50,14 @@ func ListAllRoutes(context context.Context, client client.Client) ([]Route, erro
 	if err != nil {
 		return nil, err
 	}
-
+	tlsRoutes, err := ListTLSRoutes(context, client)
+	if err != nil {
+		return nil, err
+	}
 	var routes []Route
 	routes = append(routes, httpRoutes...)
 	routes = append(routes, grpcRoutes...)
-
+	routes = append(routes, tlsRoutes...)
 	return routes, nil
 }
 

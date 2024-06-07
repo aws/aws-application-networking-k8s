@@ -2,16 +2,17 @@ package lattice
 
 import (
 	"context"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func Test_SynthesizeRule(t *testing.T) {
@@ -48,6 +49,7 @@ func Test_SynthesizeRule(t *testing.T) {
 			StackListenerId: l.ID(),
 			Priority:        1,
 			CreateTime:      time.Time{},
+			Action:          model.RuleAction{},
 		},
 		Status: nil,
 	}
@@ -71,7 +73,7 @@ func Test_SynthesizeRule(t *testing.T) {
 					Id: aws.String("rule-id"),
 				},
 			}, nil)
-
+		mockTgMgr.EXPECT().ResolveRuleTgIds(ctx, &r.Spec.Action, stack).Return(nil)
 		rs := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleMgr, mockTgMgr, stack)
 		rs.Synthesize(ctx)
 	})
@@ -98,6 +100,7 @@ func Test_SynthesizeRule(t *testing.T) {
 			}, nil)
 
 		mockRuleMgr.EXPECT().Delete(ctx, "delete-rule-id", "svc-id", "listener-id").Return(nil)
+		mockTgMgr.EXPECT().ResolveRuleTgIds(ctx, &r.Spec.Action, stack).Return(nil)
 
 		rs := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleMgr, mockTgMgr, stack)
 		rs.Synthesize(ctx)
@@ -126,77 +129,9 @@ func Test_SynthesizeRule(t *testing.T) {
 				assert.Equal(t, 1, len(rules))
 				return nil
 			})
+		mockTgMgr.EXPECT().ResolveRuleTgIds(ctx, &r.Spec.Action, stack).Return(nil)
 
 		rs := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleMgr, mockTgMgr, stack)
 		rs.Synthesize(ctx)
 	})
-}
-
-func Test_resolveRuleTgs(t *testing.T) {
-	config.VpcID = "vpc-id"
-	config.ClusterName = "cluster-name"
-
-	c := gomock.NewController(t)
-	defer c.Finish()
-	ctx := context.TODO()
-	mockRuleMgr := NewMockRuleManager(c)
-	mockTgMgr := NewMockTargetGroupManager(c)
-
-	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
-
-	tg := &model.TargetGroup{
-		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "stack-tg-id"),
-		Status:       &model.TargetGroupStatus{Id: "tg-id"},
-	}
-	assert.NoError(t, stack.AddResource(tg))
-
-	r := &model.Rule{
-		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Rule", "rule-id"),
-		Spec: model.RuleSpec{
-			Action: model.RuleAction{
-				TargetGroups: []*model.RuleTargetGroup{
-					{
-						SvcImportTG: &model.SvcImportTargetGroup{
-							K8SClusterName:      "cluster-name",
-							K8SServiceName:      "svc-name",
-							K8SServiceNamespace: "ns",
-							VpcId:               "vpc-id",
-						},
-					},
-					{
-						StackTargetGroupId: "stack-tg-id",
-					},
-					{
-						StackTargetGroupId: model.InvalidBackendRefTgId,
-					},
-				},
-			},
-		},
-	}
-	assert.NoError(t, stack.AddResource(r))
-
-	mockTgMgr.EXPECT().List(ctx).Return(
-		[]tgListOutput{
-			{
-				tgSummary: &vpclattice.TargetGroupSummary{
-					Arn:           aws.String("svc-export-tg-arn"),
-					VpcIdentifier: aws.String("vpc-id"),
-					Id:            aws.String("svc-export-tg-id"),
-					Name:          aws.String("svc-export-tg-name"),
-				},
-				tags: map[string]*string{
-					model.K8SServiceNameKey:      aws.String("svc-name"),
-					model.K8SServiceNamespaceKey: aws.String("ns"),
-					model.K8SClusterNameKey:      aws.String("cluster-name"),
-					model.K8SSourceTypeKey:       aws.String(string(model.SourceTypeSvcExport)),
-				},
-			},
-		}, nil)
-
-	rs := NewRuleSynthesizer(gwlog.FallbackLogger, mockRuleMgr, mockTgMgr, stack)
-	assert.NoError(t, rs.resolveRuleTgIds(ctx, r))
-
-	assert.Equal(t, "svc-export-tg-id", r.Spec.Action.TargetGroups[0].LatticeTgId)
-	assert.Equal(t, "tg-id", r.Spec.Action.TargetGroups[1].LatticeTgId)
-	assert.Equal(t, model.InvalidBackendRefTgId, r.Spec.Action.TargetGroups[2].LatticeTgId)
 }

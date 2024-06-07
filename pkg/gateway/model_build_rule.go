@@ -33,7 +33,6 @@ const (
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackListenerId string) error {
 	// note we only build rules for non-deleted routes
 	t.log.Debugf("Processing %d rules", len(t.route.Spec().Rules()))
-
 	for i, rule := range t.route.Spec().Rules() {
 		ruleSpec := model.RuleSpec{
 			StackListenerId: stackListenerId,
@@ -64,12 +63,14 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 				return err
 			}
 		} else {
+
 			// Match every traffic on no matches
 			ruleSpec.PathMatchValue = "/"
 			ruleSpec.PathMatchPrefix = true
 			if _, ok := rule.(*core.GRPCRouteRule); ok {
 				ruleSpec.Method = string(gwv1.HTTPMethodPost)
 			}
+
 		}
 
 		ruleTgList, err := t.getTargetGroupsForRuleAction(ctx, rule)

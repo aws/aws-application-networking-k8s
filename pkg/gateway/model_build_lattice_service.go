@@ -3,16 +3,19 @@ package gateway
 import (
 	"context"
 	"fmt"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 //go:generate mockgen -destination model_build_lattice_service_mock.go -package gateway github.com/aws/aws-application-networking-k8s/pkg/gateway LatticeServiceBuilder
@@ -83,6 +86,11 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	}
 	t.log.Debugf("Building rules for %d listeners", len(modelListeners))
 	for _, modelListener := range modelListeners {
+		if modelListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+			t.log.Debugf("Skip building rules for TLS_PASSTHROUGH listener %s, since lattice TLS_PASSTHROUGH listener can only have listener defaultAction and without any other rule", modelListener.ID())
+			continue
+		}
+
 		// building rules will also build target groups and targets as needed
 		// even on delete we try to build everything we may then need to remove
 		err = t.buildRules(ctx, modelListener.ID())
@@ -95,9 +103,16 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 }
 
 func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) (*model.Service, error) {
-	routeType := core.HttpRouteType
-	if _, ok := t.route.(*core.GRPCRoute); ok {
+	var routeType core.RouteType
+	switch t.route.(type) {
+	case *core.HTTPRoute:
+		routeType = core.HttpRouteType
+	case *core.GRPCRoute:
 		routeType = core.GrpcRouteType
+	case *core.TLSRoute:
+		routeType = core.TlsRouteType
+	default:
+		return nil, fmt.Errorf("unsupported route type: %T", t.route)
 	}
 
 	spec := model.ServiceSpec{

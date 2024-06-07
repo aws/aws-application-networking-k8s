@@ -66,7 +66,7 @@ vet: ## Vet the code and dependencies
 		if [ "${CI}" = true ]; then\
 			exit 1;\
 		fi;}
-	cd test && go vet ./...
+	cd test && go mod tidy && go vet ./...
 
 
 .PHONY: lint
@@ -131,8 +131,8 @@ e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 .PHONY: e2e-clean
 e2e-clean: ## Delete eks resources created in the e2e test namespace
 	@echo -n "Cleaning up e2e tests... "
-	@kubectl delete namespace $(e2e-test-namespace) > /dev/null 2>&1
-	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1
+	-@kubectl delete namespace $(e2e-test-namespace)
+	@kubectl create namespace $(e2e-test-namespace)
 	@echo "Done!"
 
 .PHONY: api-reference
