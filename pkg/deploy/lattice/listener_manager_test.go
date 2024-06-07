@@ -471,21 +471,19 @@ func Test_defaultListenerManager_getLatticeListenerDefaultAction_HTTP_HTTPS_List
 		modelDefaultAction *model.DefaultAction
 		listenerProtocol   string
 		want               *vpclattice.RuleAction
-		wantErr            error
+		wantErr            bool
 	}{
 		{
 			name:               "HTTP protocol Listener has the 404 fixed response modelListenerDefaultAction, return lattice fixed response 404 DefaultAction",
 			modelDefaultAction: &model.DefaultAction{FixedResponseStatusCode: aws.Int64(404)},
 			listenerProtocol:   vpclattice.ListenerProtocolHttp,
 			want:               latticeFixResponseAction404,
-			wantErr:            nil,
 		},
 		{
 			name:               "HTTPS protocol Listener has the 404 fixed response modelListenerDefaultAction, return lattice fixed response 404 DefaultAction",
 			modelDefaultAction: &model.DefaultAction{FixedResponseStatusCode: aws.Int64(404)},
 			listenerProtocol:   vpclattice.ListenerProtocolHttps,
 			want:               latticeFixResponseAction404,
-			wantErr:            nil,
 		},
 	}
 
@@ -512,8 +510,13 @@ func Test_defaultListenerManager_getLatticeListenerDefaultAction_HTTP_HTTPS_List
 				log:   gwlog.FallbackLogger,
 				cloud: cloud,
 			}
-			got := d.getLatticeListenerDefaultAction(modelListener)
-			assert.Equalf(t, tt.want, got, "getLatticeListenerDefaultAction() listenerProtocol: %v", tt.listenerProtocol)
+			got, err := d.getLatticeListenerDefaultAction(modelListener)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.Equal(t, tt.want, got)
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
@@ -524,6 +527,7 @@ func Test_ListenerManager_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Listen
 		name                       string
 		modelDefaultAction         *model.DefaultAction
 		wantedLatticeDefaultAction *vpclattice.RuleAction
+		wantErr                    bool
 	}{
 		{
 			name: "1 resolved LatticeTgId",
@@ -548,6 +552,7 @@ func Test_ListenerManager_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Listen
 					},
 				},
 			},
+			wantErr: false,
 		},
 		{
 			name: "2 resolved LatticeTgIds, 1 InvalidBackendRefTgId",
@@ -591,6 +596,7 @@ func Test_ListenerManager_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Listen
 					},
 				},
 			},
+			wantErr: false,
 		},
 		{
 			name: "All InvalidBackendRefTgIds",
@@ -610,11 +616,8 @@ func Test_ListenerManager_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Listen
 					},
 				},
 			},
-			wantedLatticeDefaultAction: &vpclattice.RuleAction{
-				FixedResponse: &vpclattice.FixedResponseAction{
-					StatusCode: aws.Int64(model.DefaultActionFixedResponseStatusCode),
-				},
-			},
+			wantedLatticeDefaultAction: nil,
+			wantErr:                    true,
 		},
 	}
 
@@ -640,8 +643,13 @@ func Test_ListenerManager_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Listen
 				log:   gwlog.FallbackLogger,
 				cloud: cloud,
 			}
-			gotDefaultAction := d.getLatticeListenerDefaultAction(modelListener)
-			assert.Equal(t, tt.wantedLatticeDefaultAction, gotDefaultAction)
+			gotDefaultAction, err := d.getLatticeListenerDefaultAction(modelListener)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantedLatticeDefaultAction, gotDefaultAction)
+			}
 		})
 	}
 }

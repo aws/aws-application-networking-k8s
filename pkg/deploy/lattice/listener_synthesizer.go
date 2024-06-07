@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -50,8 +49,8 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 			return err
 		}
 
-		if listener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
-			// Fill the TLS_PASSTHROUGH listener forward action target group ids
+		if listener.Spec.DefaultAction.Forward != nil {
+			// Fill the listener forward action target group ids
 			if err := l.tgManager.ResolveRuleTgIds(ctx, listener.Spec.DefaultAction.Forward, l.stack); err != nil {
 				return fmt.Errorf("failed to resolve rule tg ids, err = %v", err)
 			}

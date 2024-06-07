@@ -134,7 +134,7 @@ func (t *latticeServiceModelBuildTask) getListenerDefaultAction(ctx context.Cont
 	}
 
 	if len(t.route.Spec().Rules()) != 1 {
-		return nil, fmt.Errorf("TLS_PASSTHROUGH listener can only have one rule for lattice listener default action, but got %d rules", len(t.route.Spec().Rules()))
+		return nil, fmt.Errorf("only support exactly 1 rule for TLSRoute %s/%s, but got %d", t.route.Namespace(), t.route.Name(), len(t.route.Spec().Rules()))
 	}
 	modelRouteRule := t.route.Spec().Rules()[0]
 	ruleTgList, err := t.getTargetGroupsForRuleAction(ctx, modelRouteRule)

@@ -59,7 +59,10 @@ func (d *defaultListenerManager) Upsert(
 		return model.ListenerStatus{}, err
 	}
 
-	defaultAction := d.getLatticeListenerDefaultAction(modelListener)
+	defaultAction, err := d.getLatticeListenerDefaultAction(modelListener)
+	if err != nil {
+		return model.ListenerStatus{}, err
+	}
 
 	if latticeListenerSummary == nil {
 		// listener not found, create new one
@@ -132,13 +135,13 @@ func (d *defaultListenerManager) update(ctx context.Context, latticeSvcId string
 	return nil
 }
 
-func (d *defaultListenerManager) getLatticeListenerDefaultAction(stackListener *model.Listener) *vpclattice.RuleAction {
+func (d *defaultListenerManager) getLatticeListenerDefaultAction(stackListener *model.Listener) (*vpclattice.RuleAction, error) {
 	if stackListener.Spec.DefaultAction.FixedResponseStatusCode != nil {
 		return &vpclattice.RuleAction{
 			FixedResponse: &vpclattice.FixedResponseAction{
 				StatusCode: stackListener.Spec.DefaultAction.FixedResponseStatusCode,
 			},
-		}
+		}, nil
 	}
 	hasValidTargetGroup := false
 	for _, tg := range stackListener.Spec.DefaultAction.Forward.TargetGroups {
@@ -148,10 +151,10 @@ func (d *defaultListenerManager) getLatticeListenerDefaultAction(stackListener *
 		}
 	}
 	if !hasValidTargetGroup {
-		return &vpclattice.RuleAction{
-			FixedResponse: &vpclattice.FixedResponseAction{
-				StatusCode: aws.Int64(model.DefaultActionFixedResponseStatusCode),
-			},
+		if stackListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+			return nil, fmt.Errorf("TLSRoute %s/%s must have at least one valid backendRef target group", stackListener.Spec.K8SRouteNamespace, stackListener.Spec.K8SRouteName)
+		} else {
+			return nil, fmt.Errorf("unreachable code, since the defaultAction for non-TLS_PASSTHROUGH listener is always the FixedResponse 404")
 		}
 	}
 
@@ -174,7 +177,7 @@ func (d *defaultListenerManager) getLatticeListenerDefaultAction(stackListener *
 		Forward: &vpclattice.ForwardAction{
 			TargetGroups: latticeTGs,
 		},
-	}
+	}, nil
 }
 
 func k8sLatticeListenerName(modelListener *model.Listener) string {
