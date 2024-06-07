@@ -158,6 +158,7 @@ func (r *routeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	defer func() {
 		r.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
 	}()
+
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
 		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())

@@ -41,6 +41,15 @@ func RegisterTargetGroupPolicyController(log gwlog.Logger, mgr ctrl.Manager) err
 }
 
 func (c *TargetGroupPolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = gwlog.NewTrace(ctx)
+	gwlog.AddMetadata(ctx, "type", "targetgrouppolicy")
+	gwlog.AddMetadata(ctx, "name", req.Name)
+
+	c.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	defer func() {
+		c.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+	}()
+
 	tgPolicy := &TGP{}
 	err := c.client.Get(ctx, req.NamespacedName, tgPolicy)
 	if err != nil {
