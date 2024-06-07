@@ -104,13 +104,9 @@ func RegisterAccessLogPolicyController(
 }
 
 func (r *accessLogPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = gwlog.NewTrace(ctx)
-	gwlog.AddMetadata(ctx, "type", "accesslogpolicy")
-	gwlog.AddMetadata(ctx, "name", req.Name)
-
-	r.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "accesslogpolicy", req.Name)
 	defer func() {
-		r.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+		gwlog.EndReconcileTrace(ctx, r.log)
 	}()
 
 	recErr := r.reconcile(ctx, req)

@@ -149,9 +149,10 @@ func RegisterAllRouteControllers(
 }
 
 func (r *routeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = gwlog.NewTrace(ctx)
-	gwlog.AddMetadata(ctx, "type", "route")
-	gwlog.AddMetadata(ctx, "name", req.Name)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "route", req.Name)
+	defer func() {
+		gwlog.EndReconcileTrace(ctx, r.log)
+	}()
 
 	r.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
 

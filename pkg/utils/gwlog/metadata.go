@@ -49,6 +49,10 @@ func GetMetadata(ctx context.Context) []interface{} {
 
 	if ctx.Value(metadata) != nil {
 		for k, v := range ctx.Value(metadata).(*metadataValue).m {
+			if k == traceID {
+				// skip since there's a separate method to grab the trace id
+				continue
+			}
 			fields = append(fields, k)
 			fields = append(fields, v)
 		}
@@ -65,4 +69,18 @@ func GetTrace(ctx context.Context) string {
 		return ctx.Value(metadata).(*metadataValue).m[traceID]
 	}
 	return ""
+}
+
+func StartReconcileTrace(ctx context.Context, log Logger, k8sresourcetype, name string) context.Context {
+	ctx = NewTrace(ctx)
+	AddMetadata(ctx, "type", k8sresourcetype)
+	AddMetadata(ctx, "name", name)
+
+	log.Infow(ctx, ReconcileStart, GetMetadata(ctx)...)
+
+	return ctx
+}
+
+func EndReconcileTrace(ctx context.Context, log Logger) {
+	log.Infow(ctx, ReconcileEnd, GetMetadata(ctx)...)
 }

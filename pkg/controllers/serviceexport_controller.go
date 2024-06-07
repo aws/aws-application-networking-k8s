@@ -102,13 +102,9 @@ func RegisterServiceExportController(
 //+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceexports/finalizers,verbs=update
 
 func (r *serviceExportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = gwlog.NewTrace(ctx)
-	gwlog.AddMetadata(ctx, "type", "serviceexport")
-	gwlog.AddMetadata(ctx, "name", req.Name)
-
-	r.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "serviceexport", req.Name)
 	defer func() {
-		r.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+		gwlog.EndReconcileTrace(ctx, r.log)
 	}()
 
 	recErr := r.reconcile(ctx, req)

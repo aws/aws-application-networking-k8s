@@ -119,13 +119,9 @@ func RegisterGatewayController(
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/finalizers,verbs=update
 
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = gwlog.NewTrace(ctx)
-	gwlog.AddMetadata(ctx, "type", "gateway")
-	gwlog.AddMetadata(ctx, "name", req.Name)
-
-	r.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "gateway", req.Name)
 	defer func() {
-		r.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+		gwlog.EndReconcileTrace(ctx, r.log)
 	}()
 
 	recErr := r.reconcile(ctx, req)

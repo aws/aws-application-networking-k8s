@@ -55,13 +55,9 @@ func RegisterVpcAssociationPolicyController(log gwlog.Logger, cloud pkg_aws.Clou
 }
 
 func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = gwlog.NewTrace(ctx)
-	gwlog.AddMetadata(ctx, "type", "vpcassociationpolicy")
-	gwlog.AddMetadata(ctx, "name", req.Name)
-
-	c.log.Infow(ctx, "reconcile starting", gwlog.GetMetadata(ctx)...)
+	ctx = gwlog.StartReconcileTrace(ctx, c.log, "vpcassociationpolicy", req.Name)
 	defer func() {
-		c.log.Infow(ctx, "reconcile completed", gwlog.GetMetadata(ctx)...)
+		gwlog.EndReconcileTrace(ctx, c.log)
 	}()
 
 	k8sPolicy := &anv1alpha1.VpcAssociationPolicy{}
