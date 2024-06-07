@@ -34,7 +34,7 @@ type PodReadinessGateInjector struct {
 
 func (m *PodReadinessGateInjector) MutateCreate(ctx context.Context, pod *corev1.Pod) error {
 	pct := corev1.PodConditionType(PodReadinessGateConditionType)
-	m.log.Debugf("Webhook invoked for pod %s/%s", pod.Namespace, getPodName(pod))
+	m.log.Debugf(ctx, "Webhook invoked for pod %s/%s", pod.Namespace, getPodName(pod))
 
 	found := false
 	for _, rg := range pod.Spec.ReadinessGates {
@@ -68,7 +68,7 @@ func (m *PodReadinessGateInjector) requiresReadinessGate(ctx context.Context, po
 
 	svcMatches := m.servicesForPod(pod, svcList)
 	if len(svcMatches) == 0 {
-		m.log.Debugf("No services found for pod %s/%s", pod.Namespace, getPodName(pod))
+		m.log.Debugf(ctx, "No services found for pod %s/%s", pod.Namespace, getPodName(pod))
 		return false, nil
 	}
 
@@ -77,7 +77,7 @@ func (m *PodReadinessGateInjector) requiresReadinessGate(ctx context.Context, po
 	for _, route := range routes {
 		if svc := m.isPodUsedByRoute(route, svcMatches); svc != nil {
 			if m.routeHasLatticeGateway(ctx, route) {
-				m.log.Debugf("Pod %s/%s is used by service %s/%s and route %s/%s", pod.Namespace, getPodName(pod),
+				m.log.Debugf(ctx, "Pod %s/%s is used by service %s/%s and route %s/%s", pod.Namespace, getPodName(pod),
 					svc.Namespace, svc.Name, route.Namespace(), route.Name())
 				return true, nil
 			}
@@ -91,12 +91,12 @@ func (m *PodReadinessGateInjector) requiresReadinessGate(ctx context.Context, po
 			continue
 		}
 
-		m.log.Debugf("Pod %s/%s is used by service %s/%s and service export %s/%s", pod.Namespace, getPodName(pod),
+		m.log.Debugf(ctx, "Pod %s/%s is used by service %s/%s and service export %s/%s", pod.Namespace, getPodName(pod),
 			svc.Namespace, svc.Name, svcExport.Namespace, svcExport.Name)
 		return true, nil
 	}
 
-	m.log.Debugf("Pod %s/%s does not require a readiness gate", pod.Namespace, getPodName(pod))
+	m.log.Debugf(ctx, "Pod %s/%s does not require a readiness gate", pod.Namespace, getPodName(pod))
 	return false, nil
 }
 
@@ -106,7 +106,7 @@ func (m *PodReadinessGateInjector) listAllRoutes(ctx context.Context) []core.Rou
 	httpRouteList := &gwv1beta1.HTTPRouteList{}
 	err := m.k8sClient.List(ctx, httpRouteList)
 	if err != nil {
-		m.log.Errorf("Error fetching beta1 HTTPRoutes: %s", err)
+		m.log.Errorf(ctx, "Error fetching beta1 HTTPRoutes: %s", err)
 	}
 	for _, k8sRoute := range httpRouteList.Items {
 		routes = append(routes, core.NewHTTPRoute(k8sRoute))
@@ -115,7 +115,7 @@ func (m *PodReadinessGateInjector) listAllRoutes(ctx context.Context) []core.Rou
 	grpcRouteList := &gwv1alpha2.GRPCRouteList{}
 	err = m.k8sClient.List(ctx, grpcRouteList)
 	if err != nil {
-		m.log.Errorf("Error fetching GRPCRoutes: %s", err)
+		m.log.Errorf(ctx, "Error fetching GRPCRoutes: %s", err)
 	}
 	for _, k8sRoute := range grpcRouteList.Items {
 		routes = append(routes, core.NewGRPCRoute(k8sRoute))
@@ -140,7 +140,7 @@ func (m *PodReadinessGateInjector) servicesForPod(pod *corev1.Pod, svcList *core
 	for _, svc := range svcList.Items {
 		svcSelector := labels.SelectorFromSet(svc.Spec.Selector)
 		if svcSelector.Matches(podLabels) {
-			m.log.Debugf("Found service %s/%s that matches pod %s/%s",
+			m.log.Debugf(context.TODO(), "Found service %s/%s that matches pod %s/%s",
 				svc.Namespace, svc.Name, pod.Namespace, getPodName(pod))
 
 			svcMatches[svc.Name] = &svc
@@ -164,7 +164,7 @@ func (m *PodReadinessGateInjector) isPodUsedByRoute(route core.Route, svcMap map
 			isNamespaceEqual := svc != nil && namespace == svc.GetNamespace()
 
 			if isGroupEqual && isKindEqual && isNameEqual && isNamespaceEqual {
-				m.log.Debugf("Found route %s/%s that matches service %s/%s",
+				m.log.Debugf(context.TODO(), "Found route %s/%s that matches service %s/%s",
 					route.Namespace(), route.Name(), svc.Namespace, svc.Name)
 
 				return svc
@@ -176,7 +176,7 @@ func (m *PodReadinessGateInjector) isPodUsedByRoute(route core.Route, svcMap map
 
 func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, route core.Route) bool {
 	if len(route.Spec().ParentRefs()) == 0 {
-		m.log.Debugf("Route %s/%s has no parentRefs", route.Namespace(), route.Name())
+		m.log.Debugf(ctx, "Route %s/%s has no parentRefs", route.Namespace(), route.Name())
 		return false
 	}
 
@@ -191,7 +191,7 @@ func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, r
 	}
 
 	if err := m.k8sClient.Get(ctx, gwName, gw); err != nil {
-		m.log.Debugf("Unable to retrieve gateway %s/%s for route %s/%s, %s",
+		m.log.Debugf(ctx, "Unable to retrieve gateway %s/%s for route %s/%s, %s",
 			gwName.Namespace, gwName.Name, route.Namespace(), route.Name(), err)
 		return false
 	}
@@ -204,16 +204,16 @@ func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, r
 	}
 
 	if err := m.k8sClient.Get(ctx, gwClassName, gwClass); err != nil {
-		m.log.Debugf("Unable to retrieve gateway class %s/%s for gateway %s/%s, %s",
+		m.log.Debugf(ctx, "Unable to retrieve gateway class %s/%s for gateway %s/%s, %s",
 			gwClassName.Namespace, gwClass.Name, gwName.Namespace, gwName.Name, err)
 		return false
 	}
 
 	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-		m.log.Debugf("Gateway %s/%s is a lattice gateway", gwName.Namespace, gwName.Name)
+		m.log.Debugf(ctx, "Gateway %s/%s is a lattice gateway", gwName.Namespace, gwName.Name)
 		return true
 	}
 
-	m.log.Debugf("Gateway %s/%s is not a lattice gateway", gwName.Namespace, gwName.Name)
+	m.log.Debugf(ctx, "Gateway %s/%s is not a lattice gateway", gwName.Namespace, gwName.Name)
 	return false
 }

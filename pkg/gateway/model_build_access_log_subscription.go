@@ -91,7 +91,7 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 				Arn: value,
 			}
 		} else {
-			t.log.Debugf("access log policy is missing %s annotation during %s event",
+			t.log.Debugf(ctx, "access log policy is missing %s annotation during %s event",
 				anv1alpha1.AccessLogSubscriptionAnnotationKey, eventType)
 		}
 	}

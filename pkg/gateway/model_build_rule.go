@@ -32,7 +32,8 @@ const (
 
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackListenerId string) error {
 	// note we only build rules for non-deleted routes
-	t.log.Debugf("Processing %d rules", len(t.route.Spec().Rules()))
+	t.log.Debugf(ctx, "Processing %d rules", len(t.route.Spec().Rules()))
+
 	for i, rule := range t.route.Spec().Rules() {
 		ruleSpec := model.RuleSpec{
 			StackListenerId: stackListenerId,
@@ -43,7 +44,7 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 			// only support 1 match today
 			return errors.New(LATTICE_NO_SUPPORT_FOR_MULTIPLE_MATCHES)
 		} else if len(rule.Matches()) > 0 {
-			t.log.Debugf("Processing rule match")
+			t.log.Debugf(ctx, "Processing rule match")
 			match := rule.Matches()[0]
 
 			switch m := match.(type) {
@@ -89,9 +90,9 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 			if err != nil {
 				return err
 			}
-			t.log.Debugf("Added rule %d to the stack (ID %s)", stackRule.Spec.Priority, stackRule.ID())
+			t.log.Debugf(ctx, "Added rule %d to the stack (ID %s)", stackRule.Spec.Priority, stackRule.ID())
 		} else {
-			t.log.Debugf("Skipping adding rule %d to the stack since the route is deleted", ruleSpec.Priority)
+			t.log.Debugf(ctx, "Skipping adding rule %d to the stack since the route is deleted", ruleSpec.Priority)
 		}
 	}
 
@@ -107,21 +108,21 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecForHttpRoute(m *core.HTTPRo
 	}
 
 	if hasPath {
-		t.log.Debugf("Examining pathmatch type %s value %s for for httproute %s-%s ",
+		t.log.Debugf(context.TODO(), "Examining pathmatch type %s value %s for for httproute %s-%s ",
 			*m.Path().Type, *m.Path().Value, t.route.Name(), t.route.Namespace())
 
 		switch *m.Path().Type {
 		case gwv1.PathMatchExact:
-			t.log.Debugf("Using PathMatchExact for httproute %s-%s ",
+			t.log.Debugf(context.TODO(), "Using PathMatchExact for httproute %s-%s ",
 				t.route.Name(), t.route.Namespace())
 			ruleSpec.PathMatchExact = true
 
 		case gwv1.PathMatchPathPrefix:
-			t.log.Debugf("Using PathMatchPathPrefix for httproute %s-%s ",
+			t.log.Debugf(context.TODO(), "Using PathMatchPathPrefix for httproute %s-%s ",
 				t.route.Name(), t.route.Namespace())
 			ruleSpec.PathMatchPrefix = true
 		default:
-			t.log.Debugf("Unsupported path match type %s for httproute %s-%s",
+			t.log.Debugf(context.TODO(), "Unsupported path match type %s for httproute %s-%s",
 				*m.Path().Type, t.route.Name(), t.route.Namespace())
 			return errors.New(LATTICE_UNSUPPORTED_PATH_MATCH_TYPE)
 		}
@@ -130,7 +131,7 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecForHttpRoute(m *core.HTTPRo
 
 	// method based match
 	if m.Method() != nil {
-		t.log.Infof("Examining http method %s for httproute %s-%s",
+		t.log.Infof(context.TODO(), "Examining http method %s for httproute %s-%s",
 			*m.Method(), t.route.Name(), t.route.Namespace())
 
 		ruleSpec.Method = string(*m.Method())
@@ -138,7 +139,7 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecForHttpRoute(m *core.HTTPRo
 
 	// controller does not support query matcher type today
 	if m.QueryParams() != nil {
-		t.log.Infof("Unsupported match type for httproute %s, namespace %s",
+		t.log.Infof(context.TODO(), "Unsupported match type for httproute %s, namespace %s",
 			t.route.Name(), t.route.Namespace())
 		return errors.New(LATTICE_UNSUPPORTED_MATCH_TYPE)
 	}
@@ -146,7 +147,7 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecForHttpRoute(m *core.HTTPRo
 }
 
 func (t *latticeServiceModelBuildTask) updateRuleSpecForGrpcRoute(m *core.GRPCRouteMatch, ruleSpec *model.RuleSpec) error {
-	t.log.Debugf("Building rule with GRPCRouteMatch, %+v", *m)
+	t.log.Debugf(context.TODO(), "Building rule with GRPCRouteMatch, %+v", *m)
 	ruleSpec.Method = string(gwv1.HTTPMethodPost) // GRPC is always POST
 	method := m.Method()
 	// VPC Lattice doesn't support suffix/regex matching, so we can't support method match without service
@@ -156,15 +157,15 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecForGrpcRoute(m *core.GRPCRo
 	switch *method.Type {
 	case gwv1alpha2.GRPCMethodMatchExact:
 		if method.Service == nil {
-			t.log.Debugf("Match all paths due to nil service and nil method")
+			t.log.Debugf(context.TODO(), "Match all paths due to nil service and nil method")
 			ruleSpec.PathMatchPrefix = true
 			ruleSpec.PathMatchValue = "/"
 		} else if method.Method == nil {
-			t.log.Debugf("Match by specific gRPC service %s, regardless of method", *method.Service)
+			t.log.Debugf(context.TODO(), "Match by specific gRPC service %s, regardless of method", *method.Service)
 			ruleSpec.PathMatchPrefix = true
 			ruleSpec.PathMatchValue = fmt.Sprintf("/%s/", *method.Service)
 		} else {
-			t.log.Debugf("Match by specific gRPC service %s and method %s", *method.Service, *method.Method)
+			t.log.Debugf(context.TODO(), "Match by specific gRPC service %s and method %s", *method.Service, *method.Method)
 			ruleSpec.PathMatchExact = true
 			ruleSpec.PathMatchValue = fmt.Sprintf("/%s/%s", *method.Service, *method.Method)
 		}
@@ -183,12 +184,12 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecWithHeaderMatches(match cor
 		return errors.New(LATTICE_EXCEED_MAX_HEADER_MATCHES)
 	}
 
-	t.log.Debugf("Examining match headers for route %s-%s", t.route.Name(), t.route.Namespace())
+	t.log.Debugf(context.TODO(), "Examining match headers for route %s-%s", t.route.Name(), t.route.Namespace())
 
 	for _, header := range match.Headers() {
-		t.log.Debugf("Examining match.Header: header.Type %s", *header.Type())
+		t.log.Debugf(context.TODO(), "Examining match.Header: header.Type %s", *header.Type())
 		if header.Type() != nil && *header.Type() != gwv1.HeaderMatchExact {
-			t.log.Debugf("Unsupported header matchtype %s for httproute %s-%s",
+			t.log.Debugf(context.TODO(), "Unsupported header matchtype %s for httproute %s-%s",
 				*header.Type(), t.route.Name(), t.route.Namespace())
 			return errors.New(LATTICE_UNSUPPORTED_HEADER_MATCH_TYPE)
 		}
@@ -224,7 +225,7 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 			namespace = string(*backendRef.Namespace())
 		}
 
-		t.log.Debugf("Processing %s backendRef %s-%s", string(*backendRef.Kind()), backendRef.Name(), namespace)
+		t.log.Debugf(ctx, "Processing %s backendRef %s-%s", string(*backendRef.Kind()), backendRef.Name(), namespace)
 
 		if string(*backendRef.Kind()) == "ServiceImport" {
 			// there needs to be a pre-existing target group, we fetch all the fields
@@ -266,7 +267,7 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 					return nil, err
 				}
 
-				t.log.Infof("Invalid backendRef found on route %s", t.route.Name())
+				t.log.Infof(ctx, "Invalid backendRef found on route %s", t.route.Name())
 				ruleTG.StackTargetGroupId = model.InvalidBackendRefTgId
 			} else {
 				ruleTG.StackTargetGroupId = tg.ID()

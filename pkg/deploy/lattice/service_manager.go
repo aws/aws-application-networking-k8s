@@ -55,7 +55,7 @@ func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, s
 		return ServiceInfo{}, fmt.Errorf("failed CreateService %s due to %s", aws.StringValue(createSvcReq.Name), err)
 	}
 
-	m.log.Infof("Success CreateService %s %s",
+	m.log.Infof(ctx, "Success CreateService %s %s",
 		aws.StringValue(createSvcResp.Name), aws.StringValue(createSvcResp.Id))
 
 	for _, snName := range svc.Spec.ServiceNetworkNames {
@@ -84,7 +84,7 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 		return fmt.Errorf("failed CreateServiceNetworkServiceAssociation %s %s due to %s",
 			aws.StringValue(assocReq.ServiceNetworkIdentifier), aws.StringValue(assocReq.ServiceIdentifier), err)
 	}
-	m.log.Infof("Success CreateServiceNetworkServiceAssociation %s %s",
+	m.log.Infof(ctx, "Success CreateServiceNetworkServiceAssociation %s %s",
 		aws.StringValue(assocReq.ServiceNetworkIdentifier), aws.StringValue(assocReq.ServiceIdentifier))
 
 	err = handleCreateAssociationResp(assocResp)
@@ -229,7 +229,7 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 			// In a scenario that the service association is created by a foreign account,
 			// the owner account's controller cannot read the tags of this ServiceNetworkServiceAssociation,
 			// and AccessDeniedException is expected.
-			m.log.Warnf("skipping update associations  service: %s, association: %s, error: %s", svc.LatticeServiceName(), *assoc.Arn, err)
+			m.log.Warnf(ctx, "skipping update associations  service: %s, association: %s, error: %s", svc.LatticeServiceName(), *assoc.Arn, err)
 
 			continue
 		}
@@ -337,7 +337,7 @@ func (m *defaultServiceManager) deleteAssociation(ctx context.Context, assocArn 
 			aws.StringValue(assocArn), err)
 	}
 
-	m.log.Infof("Success DeleteServiceNetworkServiceAssociation %s", aws.StringValue(assocArn))
+	m.log.Infof(ctx, "Success DeleteServiceNetworkServiceAssociation %s", aws.StringValue(assocArn))
 	return nil
 }
 
@@ -350,7 +350,7 @@ func (m *defaultServiceManager) deleteService(ctx context.Context, svc *SvcSumma
 		return fmt.Errorf("failed DeleteService %s due to %s", aws.StringValue(svc.Id), err)
 	}
 
-	m.log.Infof("Success DeleteService %s", svc.Id)
+	m.log.Infof(ctx, "Success DeleteService %s", *svc.Id)
 	return nil
 }
 
@@ -389,7 +389,7 @@ func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error 
 
 	err = m.checkAndUpdateTags(ctx, svc, svcSum)
 	if err != nil {
-		m.log.Infof("Service %s is either invalid or not owned. Skipping VPC Lattice resource deletion.", svc.LatticeServiceName())
+		m.log.Infof(ctx, "Service %s is either invalid or not owned. Skipping VPC Lattice resource deletion.", svc.LatticeServiceName())
 		return nil
 	}
 

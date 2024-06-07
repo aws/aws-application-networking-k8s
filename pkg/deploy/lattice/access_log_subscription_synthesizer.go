@@ -41,23 +41,23 @@ func (s *accessLogSubscriptionSynthesizer) Synthesize(ctx context.Context) error
 	for _, als := range accessLogSubscriptions {
 		switch als.Spec.EventType {
 		case core.CreateEvent:
-			s.log.Debugf("Started creating Access Log Subscription %s", als.ID())
+			s.log.Debugf(ctx, "Started creating Access Log Subscription %s", als.ID())
 			alsStatus, err := s.accessLogSubscriptionManager.Create(ctx, als)
 			if err != nil {
 				return err
 			}
 			als.Status = alsStatus
 		case core.UpdateEvent:
-			s.log.Debugf("Started updating Access Log Subscription %s", als.ID())
+			s.log.Debugf(ctx, "Started updating Access Log Subscription %s", als.ID())
 			alsStatus, err := s.accessLogSubscriptionManager.Update(ctx, als)
 			if err != nil {
 				return err
 			}
 			als.Status = alsStatus
 		case core.DeleteEvent:
-			s.log.Debugf("Started deleting Access Log Subscription %s", als.ID())
+			s.log.Debugf(ctx, "Started deleting Access Log Subscription %s", als.ID())
 			if als.Status == nil {
-				s.log.Debugf("Ignoring deletion of Access Log Subscription because als %s has no ARN", als.ID())
+				s.log.Debugf(ctx, "Ignoring deletion of Access Log Subscription because als %s has no ARN", als.ID())
 				return nil
 			}
 			err := s.accessLogSubscriptionManager.Delete(ctx, als.Status.Arn)

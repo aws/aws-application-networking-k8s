@@ -73,7 +73,7 @@ func (b *LatticeTargetsModelBuilder) build(ctx context.Context,
 	}
 
 	if isServiceExport {
-		b.log.Debugf("Processing targets for service export %s-%s", serviceExport.Name, serviceExport.Namespace)
+		b.log.Debugf(ctx, "Processing targets for service export %s-%s", serviceExport.Name, serviceExport.Namespace)
 
 		serviceName := types.NamespacedName{
 			Namespace: serviceExport.Namespace,
@@ -86,7 +86,7 @@ func (b *LatticeTargetsModelBuilder) build(ctx context.Context,
 		}
 		service = tmpSvc
 	} else {
-		b.log.Debugf("Processing targets for service %s-%s", service.Name, service.Namespace)
+		b.log.Debugf(ctx, "Processing targets for service %s-%s", service.Name, service.Namespace)
 	}
 
 	if stack == nil {
@@ -94,7 +94,7 @@ func (b *LatticeTargetsModelBuilder) build(ctx context.Context,
 	}
 
 	if !service.DeletionTimestamp.IsZero() {
-		b.log.Debugf("service %s/%s is deleted, skipping target build", service.Name, service.Namespace)
+		b.log.Debugf(ctx, "service %s/%s is deleted, skipping target build", service.Name, service.Namespace)
 		return stack, nil
 	}
 
@@ -218,7 +218,7 @@ func (t *latticeTargetsModelBuildTask) getDefinedPorts() map[int32]struct{} {
 			if portAnnotation != "" {
 				definedPort, err := strconv.ParseInt(portAnnotation, 10, 32)
 				if err != nil {
-					t.log.Infof("failed to read Annotations/Port: %s due to %s",
+					t.log.Infof(context.TODO(), "failed to read Annotations/Port: %s due to %s",
 						t.serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
 				} else {
 					definedPorts[int32(definedPort)] = struct{}{}
