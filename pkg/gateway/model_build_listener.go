@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	awsCustomCertARN                     = "application-networking.k8s.aws/certificate-arn"
-	defaultActionFixedResponseStatusCode = 404
+	awsCustomCertARN = "application-networking.k8s.aws/certificate-arn"
 )
 
 func (t *latticeServiceModelBuildTask) extractListenerInfo(
@@ -130,7 +129,7 @@ func (t *latticeServiceModelBuildTask) getListenerDefaultAction(ctx context.Cont
 ) {
 	if modelListenerProtocol != vpclattice.ListenerProtocolTlsPassthrough {
 		return &model.DefaultAction{
-			FixedResponseStatusCode: aws.Int64(defaultActionFixedResponseStatusCode),
+			FixedResponseStatusCode: aws.Int64(model.DefaultActionFixedResponseStatusCode),
 		}, nil
 	}
 

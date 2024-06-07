@@ -23,7 +23,7 @@ import (
 //go:generate mockgen -destination listener_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ListenerManager
 
 type ListenerManager interface {
-	Upsert(ctx context.Context, modelListener *model.Listener, modelSvc *model.Service, defaultAction *vpclattice.RuleAction) (model.ListenerStatus, error)
+	Upsert(ctx context.Context, modelListener *model.Listener, modelSvc *model.Service) (model.ListenerStatus, error)
 	Delete(ctx context.Context, modelListener *model.Listener) error
 	List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error)
 }
@@ -47,7 +47,6 @@ func (d *defaultListenerManager) Upsert(
 	ctx context.Context,
 	modelListener *model.Listener,
 	modelSvc *model.Service,
-	defaultAction *vpclattice.RuleAction,
 ) (model.ListenerStatus, error) {
 	if modelSvc.Status == nil || modelSvc.Status.Id == "" {
 		return model.ListenerStatus{}, errors.New("model service is missing id")
@@ -59,6 +58,9 @@ func (d *defaultListenerManager) Upsert(
 	if err != nil {
 		return model.ListenerStatus{}, err
 	}
+
+	defaultAction := d.getLatticeListenerDefaultAction(modelListener)
+
 	if latticeListenerSummary == nil {
 		// listener not found, create new one
 		return d.create(ctx, latticeSvcId, modelListener, defaultAction)
@@ -128,6 +130,51 @@ func (d *defaultListenerManager) update(ctx context.Context, latticeSvcId string
 	}
 	d.log.Infof("Success update listener %s default action", aws.StringValue(listener.Id))
 	return nil
+}
+
+func (d *defaultListenerManager) getLatticeListenerDefaultAction(stackListener *model.Listener) *vpclattice.RuleAction {
+	if stackListener.Spec.DefaultAction.FixedResponseStatusCode != nil {
+		return &vpclattice.RuleAction{
+			FixedResponse: &vpclattice.FixedResponseAction{
+				StatusCode: stackListener.Spec.DefaultAction.FixedResponseStatusCode,
+			},
+		}
+	}
+	hasValidTargetGroup := false
+	for _, tg := range stackListener.Spec.DefaultAction.Forward.TargetGroups {
+		if tg.LatticeTgId != model.InvalidBackendRefTgId {
+			hasValidTargetGroup = true
+			break
+		}
+	}
+	if !hasValidTargetGroup {
+		return &vpclattice.RuleAction{
+			FixedResponse: &vpclattice.FixedResponseAction{
+				StatusCode: aws.Int64(model.DefaultActionFixedResponseStatusCode),
+			},
+		}
+	}
+
+	var latticeTGs []*vpclattice.WeightedTargetGroup
+	for _, modelTg := range stackListener.Spec.DefaultAction.Forward.TargetGroups {
+		// skip any invalid TGs - eventually VPC Lattice may support weighted fixed response
+		// and this logic can be more in line with the spec
+		if modelTg.LatticeTgId == model.InvalidBackendRefTgId {
+			continue
+		}
+		latticeTG := vpclattice.WeightedTargetGroup{
+			TargetGroupIdentifier: aws.String(modelTg.LatticeTgId),
+			Weight:                aws.Int64(modelTg.Weight),
+		}
+		latticeTGs = append(latticeTGs, &latticeTG)
+	}
+
+	d.log.Debugf("DefaultAction Forward target groups: %v", latticeTGs)
+	return &vpclattice.RuleAction{
+		Forward: &vpclattice.ForwardAction{
+			TargetGroups: latticeTGs,
+		},
+	}
 }
 
 func k8sLatticeListenerName(modelListener *model.Listener) string {

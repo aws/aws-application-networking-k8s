@@ -181,12 +181,19 @@ func Test_ListenerModelBuild(t *testing.T) {
 									BackendObjectReference: gwv1beta1.BackendObjectReference{
 										Name: "k8s-service1",
 										Kind: &serviceKind,
+										// No weight specified, default to 1
+									},
+								},
+								{
+									BackendObjectReference: gwv1beta1.BackendObjectReference{
+										Name: "k8s-service2",
+										Kind: &serviceKind,
 									},
 									Weight: aws.Int32(10),
 								},
 								{
 									BackendObjectReference: gwv1beta1.BackendObjectReference{
-										Name: "k8s-service2",
+										Name: "k8s-service3",
 										Kind: &serviceImportKind,
 									},
 									Weight: aws.Int32(90),
@@ -208,12 +215,16 @@ func Test_ListenerModelBuild(t *testing.T) {
 							TargetGroups: []*model.RuleTargetGroup{
 								{
 									StackTargetGroupId: "k8s-service1",
+									Weight:             1, // No weight specified, default to 1
+								},
+								{
+									StackTargetGroupId: "k8s-service2",
 									Weight:             10,
 								},
 								{
 									SvcImportTG: &model.SvcImportTargetGroup{
 										K8SServiceNamespace: "default",
-										K8SServiceName:      "k8s-service2",
+										K8SServiceName:      "k8s-service3",
 										VpcId:               "vpc-123",
 										K8SClusterName:      "eks-cluster",
 									},
@@ -454,10 +465,16 @@ func Test_ListenerModelBuild(t *testing.T) {
 				)
 			}
 			if tt.brTgBuilderBuildCall {
-				mockBrTgBuilder.EXPECT().Build(ctx, tt.route, gomock.Any(), gomock.Any()).
-					Return(nil, &model.TargetGroup{
-						ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "k8s-service1"),
-					}, nil)
+				gomock.InOrder(
+					mockBrTgBuilder.EXPECT().Build(ctx, tt.route, gomock.Any(), gomock.Any()).
+						Return(nil, &model.TargetGroup{
+							ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "k8s-service1"),
+						}, nil),
+					mockBrTgBuilder.EXPECT().Build(ctx, tt.route, gomock.Any(), gomock.Any()).
+						Return(nil, &model.TargetGroup{
+							ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "k8s-service2"),
+						}, nil),
+				)
 			}
 			task := &latticeServiceModelBuildTask{
 				log:         gwlog.FallbackLogger,

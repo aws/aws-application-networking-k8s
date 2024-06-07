@@ -13,6 +13,7 @@ import (
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -23,45 +24,98 @@ func Test_UpsertListener_NewListener(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-
-	ml := &model.Listener{}
-	ms := &model.Service{
-		Status: &model.ServiceStatus{Id: "svc-id"},
-	}
-
-	mockLattice.EXPECT().ListListenersWithContext(ctx, gomock.Any()).Return(
-		&vpclattice.ListListenersOutput{Items: []*vpclattice.ListenerSummary{}}, nil)
-
-	mockLattice.EXPECT().CreateListenerWithContext(ctx, gomock.Any()).DoAndReturn(
-		func(ctx aws.Context, input *vpclattice.CreateListenerInput, opts ...request.Option) (*vpclattice.CreateListenerOutput, error) {
-			// part of the gw spec is to default to 404, so assert that here
-			assert.Equal(t, int64(404), *input.DefaultAction.FixedResponse.StatusCode)
-			assert.Equal(t, "svc-id", *input.ServiceIdentifier)
-
-			return &vpclattice.CreateListenerOutput{Id: aws.String("new-lid")}, nil
+	tests := []struct {
+		name                         string
+		listenerProtocol             string
+		modelDefaultAction           *model.DefaultAction
+		expectedLatticeDefaultAction *vpclattice.RuleAction
+	}{
+		{
+			name:             "HTTP Listener",
+			listenerProtocol: vpclattice.ListenerProtocolHttp,
+			modelDefaultAction: &model.DefaultAction{
+				FixedResponseStatusCode: aws.Int64(404),
+			},
+			expectedLatticeDefaultAction: &vpclattice.RuleAction{
+				FixedResponse: &vpclattice.FixedResponseAction{
+					StatusCode: aws.Int64(404),
+				},
+			},
 		},
-	)
-	fixedResponse404 := &vpclattice.RuleAction{
-		FixedResponse: &vpclattice.FixedResponseAction{
-			StatusCode: aws.Int64(404),
+		{
+			name:             "HTTPS Listener",
+			listenerProtocol: vpclattice.ListenerProtocolHttps,
+			modelDefaultAction: &model.DefaultAction{
+				FixedResponseStatusCode: aws.Int64(404),
+			},
+			expectedLatticeDefaultAction: &vpclattice.RuleAction{
+				FixedResponse: &vpclattice.FixedResponseAction{
+					StatusCode: aws.Int64(404),
+				},
+			},
+		},
+		{
+			name:             "TLS_PASSTHROUGH Listener",
+			listenerProtocol: vpclattice.ListenerProtocolTlsPassthrough,
+			modelDefaultAction: &model.DefaultAction{
+				Forward: &model.RuleAction{
+					TargetGroups: []*model.RuleTargetGroup{
+						{
+							LatticeTgId:        "lattice-tg-id-1",
+							StackTargetGroupId: "stack-tg-id-1",
+							Weight:             100,
+						},
+					},
+				},
+			},
+			expectedLatticeDefaultAction: &vpclattice.RuleAction{
+				Forward: &vpclattice.ForwardAction{
+					TargetGroups: []*vpclattice.WeightedTargetGroup{
+						{
+							TargetGroupIdentifier: aws.String("lattice-tg-id-1"),
+							Weight:                aws.Int64(100),
+						},
+					},
+				},
+			},
 		},
 	}
-	lm := NewListenerManager(gwlog.FallbackLogger, cloud)
-	status, err := lm.Upsert(ctx, ml, ms, fixedResponse404)
-	assert.Nil(t, err)
-	assert.Equal(t, "new-lid", status.Id)
-	assert.Equal(t, "svc-id", status.ServiceId)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ml := &model.Listener{
+				Spec: model.ListenerSpec{
+					Protocol:      tt.listenerProtocol,
+					Port:          8181,
+					DefaultAction: tt.modelDefaultAction,
+				},
+			}
+			assert.NoError(t, ml.Spec.Validate())
+			ms := &model.Service{
+				Status: &model.ServiceStatus{Id: "svc-id"},
+			}
+			assert.NoError(t, ml.Spec.Validate())
+			mockLattice.EXPECT().ListListenersWithContext(ctx, gomock.Any()).Return(
+				&vpclattice.ListListenersOutput{Items: []*vpclattice.ListenerSummary{}}, nil)
+
+			mockLattice.EXPECT().CreateListenerWithContext(ctx, gomock.Any()).DoAndReturn(
+				func(ctx aws.Context, input *vpclattice.CreateListenerInput, opts ...request.Option) (*vpclattice.CreateListenerOutput, error) {
+					assert.Equal(t, tt.expectedLatticeDefaultAction, input.DefaultAction)
+					return &vpclattice.CreateListenerOutput{Id: aws.String("new-lid")}, nil
+				},
+			)
+			lm := NewListenerManager(gwlog.FallbackLogger, cloud)
+			status, err := lm.Upsert(ctx, ml, ms)
+			assert.Nil(t, err)
+			assert.Equal(t, "new-lid", status.Id)
+			assert.Equal(t, "svc-id", status.ServiceId)
+		})
+	}
 }
 
 func Test_UpsertListener_DoNotNeedToUpdateExistingHTTPAndHTTPSListener(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
-	fixedResponse404 := &vpclattice.RuleAction{
-		FixedResponse: &vpclattice.FixedResponseAction{
-			StatusCode: aws.Int64(404),
-		},
-	}
 	ms := &model.Service{
 		Status: &model.ServiceStatus{Id: "svc-id"},
 	}
@@ -71,6 +125,9 @@ func Test_UpsertListener_DoNotNeedToUpdateExistingHTTPAndHTTPSListener(t *testin
 				Spec: model.ListenerSpec{
 					Protocol: listenerProtocol,
 					Port:     8181,
+					DefaultAction: &model.DefaultAction{
+						FixedResponseStatusCode: aws.Int64(404),
+					},
 				},
 			}
 
@@ -90,7 +147,7 @@ func Test_UpsertListener_DoNotNeedToUpdateExistingHTTPAndHTTPSListener(t *testin
 			mockLattice.EXPECT().UpdateListenerWithContext(ctx, gomock.Any()).Times(0)
 
 			lm := NewListenerManager(gwlog.FallbackLogger, cloud)
-			status, err := lm.Upsert(ctx, ml, ms, fixedResponse404)
+			status, err := lm.Upsert(ctx, ml, ms)
 			assert.Nil(t, err)
 			assert.Equal(t, "existing-listener-id", status.Id)
 			assert.Equal(t, "svc-id", status.ServiceId)
@@ -99,95 +156,158 @@ func Test_UpsertListener_DoNotNeedToUpdateExistingHTTPAndHTTPSListener(t *testin
 
 		})
 	}
-
 }
+func Test_UpsertListener_Update_TLS_PASSTHROUGHListener(t *testing.T) {
+	tests := []struct {
+		name                            string
+		oldLatticeListenerDefaultAction *vpclattice.RuleAction
+		newLatticeListenerDefaultAction *vpclattice.RuleAction
+		newModelListenerDefaultAction   *model.DefaultAction
+		expectUpdateListenerCall        bool
+	}{
+		{
+			name: "Old and new default actions are the same, do not need to call vpclattice.UpdateListener()",
+			oldLatticeListenerDefaultAction: &vpclattice.RuleAction{
+				Forward: &vpclattice.ForwardAction{
+					TargetGroups: []*vpclattice.WeightedTargetGroup{
+						{
+							TargetGroupIdentifier: aws.String("tg-id-1"),
+							Weight:                aws.Int64(15),
+						},
+					},
+				},
+			},
+			newLatticeListenerDefaultAction: &vpclattice.RuleAction{
+				Forward: &vpclattice.ForwardAction{
+					TargetGroups: []*vpclattice.WeightedTargetGroup{
+						{
+							TargetGroupIdentifier: aws.String("tg-id-1"),
+							Weight:                aws.Int64(15),
+						},
+					},
+				},
+			},
+			newModelListenerDefaultAction: &model.DefaultAction{
+				Forward: &model.RuleAction{
+					TargetGroups: []*model.RuleTargetGroup{
+						{
+							LatticeTgId: "tg-id-1",
+							Weight:      15,
+						},
+					},
+				},
+			},
+			expectUpdateListenerCall: false,
+		},
+		{
+			name: "Old and new default actions are different, need to call vpclattice.UpdateListener()",
+			oldLatticeListenerDefaultAction: &vpclattice.RuleAction{
+				Forward: &vpclattice.ForwardAction{
+					TargetGroups: []*vpclattice.WeightedTargetGroup{
+						{
+							TargetGroupIdentifier: aws.String("tg-id-1"),
+							Weight:                aws.Int64(15),
+						},
+						{
+							TargetGroupIdentifier: aws.String("tg-id-2"),
+							Weight:                aws.Int64(85),
+						},
+					},
+				},
+			},
+			newLatticeListenerDefaultAction: &vpclattice.RuleAction{
+				Forward: &vpclattice.ForwardAction{
+					TargetGroups: []*vpclattice.WeightedTargetGroup{
+						{
+							TargetGroupIdentifier: aws.String("tg-id-1"),
+							Weight:                aws.Int64(20),
+						},
+						{
+							TargetGroupIdentifier: aws.String("tg-id-3"),
+							Weight:                aws.Int64(80),
+						},
+					},
+				},
+			},
+			newModelListenerDefaultAction: &model.DefaultAction{
+				Forward: &model.RuleAction{
+					TargetGroups: []*model.RuleTargetGroup{
+						{
+							LatticeTgId: "tg-id-1",
+							Weight:      20,
+						},
+						{
+							LatticeTgId: "tg-id-3",
+							Weight:      80,
+						},
+					},
+				},
+			},
+			expectUpdateListenerCall: true,
+		},
+	}
 
-func Test_UpsertListener_NeedToUpdateExistingTLS_PASSTHROUGHListenerDefaultAction(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
-
-	ml := &model.Listener{
-		Spec: model.ListenerSpec{
-			Protocol: vpclattice.ListenerProtocolTlsPassthrough,
-			Port:     8181,
-		},
-	}
-	ms := &model.Service{
-		Status: &model.ServiceStatus{Id: "svc-id"},
-	}
-
-	mockLattice.EXPECT().ListListenersWithContext(ctx, gomock.Any()).Return(
-		&vpclattice.ListListenersOutput{Items: []*vpclattice.ListenerSummary{
-			{
-				Arn:      aws.String("existing-arn"),
-				Id:       aws.String("existing-listener-id"),
-				Name:     aws.String("existing-name"),
-				Protocol: aws.String(vpclattice.ListenerProtocolTlsPassthrough),
-				Port:     aws.Int64(8181),
-			},
-		}}, nil)
-	oldDefaultAction := &vpclattice.RuleAction{
-		Forward: &vpclattice.ForwardAction{
-			TargetGroups: []*vpclattice.WeightedTargetGroup{
-				{
-					TargetGroupIdentifier: aws.String("tg-id-1"),
-					Weight:                aws.Int64(15),
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ml := &model.Listener{
+				Spec: model.ListenerSpec{
+					Protocol:      vpclattice.ListenerProtocolTlsPassthrough,
+					Port:          8181,
+					DefaultAction: tt.newModelListenerDefaultAction,
 				},
-				{
-					TargetGroupIdentifier: aws.String("tg-id-2"),
-					Weight:                aws.Int64(85),
-				},
-			},
-		},
+			}
+			ms := &model.Service{
+				Status: &model.ServiceStatus{Id: "svc-id"},
+			}
+			mockLattice.EXPECT().ListListenersWithContext(ctx, gomock.Any()).Return(
+				&vpclattice.ListListenersOutput{Items: []*vpclattice.ListenerSummary{
+					{
+						Arn:      aws.String("existing-arn"),
+						Id:       aws.String("existing-listener-id"),
+						Name:     aws.String("existing-name"),
+						Protocol: aws.String(vpclattice.ListenerProtocolTlsPassthrough),
+						Port:     aws.Int64(8181),
+					},
+				}}, nil)
+
+			mockLattice.EXPECT().GetListenerWithContext(ctx, &vpclattice.GetListenerInput{
+				ServiceIdentifier:  aws.String("svc-id"),
+				ListenerIdentifier: aws.String("existing-listener-id"),
+			}).Return(
+				&vpclattice.GetListenerOutput{
+					DefaultAction: tt.oldLatticeListenerDefaultAction,
+					Id:            aws.String("existing-listener-id"),
+					Port:          aws.Int64(8181),
+					Protocol:      aws.String(vpclattice.ListenerProtocolTlsPassthrough),
+				}, nil).Times(1)
+
+			if tt.expectUpdateListenerCall {
+				mockLattice.EXPECT().UpdateListenerWithContext(ctx, &vpclattice.UpdateListenerInput{
+					ListenerIdentifier: aws.String("existing-listener-id"),
+					ServiceIdentifier:  aws.String("svc-id"),
+					DefaultAction:      tt.newLatticeListenerDefaultAction,
+				}).Return(&vpclattice.UpdateListenerOutput{
+					Id:            aws.String("existing-listener-id"),
+					DefaultAction: tt.newLatticeListenerDefaultAction,
+					Port:          aws.Int64(8181),
+					Protocol:      aws.String(vpclattice.ListenerProtocolTlsPassthrough),
+				}, nil)
+			}
+
+			lm := NewListenerManager(gwlog.FallbackLogger, cloud)
+			status, err := lm.Upsert(ctx, ml, ms)
+			assert.Nil(t, err)
+			assert.Equal(t, "existing-listener-id", status.Id)
+			assert.Equal(t, "svc-id", status.ServiceId)
+			assert.Equal(t, "existing-name", status.Name)
+			assert.Equal(t, "existing-arn", status.ListenerArn)
+		})
 	}
-
-	newDefaultAction := &vpclattice.RuleAction{
-		Forward: &vpclattice.ForwardAction{
-			TargetGroups: []*vpclattice.WeightedTargetGroup{
-				{
-					TargetGroupIdentifier: aws.String("tg-id-1"),
-					Weight:                aws.Int64(20),
-				},
-				{
-					TargetGroupIdentifier: aws.String("tg-id-3"),
-					Weight:                aws.Int64(80),
-				},
-			},
-		},
-	}
-
-	mockLattice.EXPECT().GetListenerWithContext(ctx, &vpclattice.GetListenerInput{
-		ServiceIdentifier:  aws.String("svc-id"),
-		ListenerIdentifier: aws.String("existing-listener-id"),
-	}).Return(
-		&vpclattice.GetListenerOutput{
-			DefaultAction: oldDefaultAction,
-			Id:            aws.String("existing-listener-id"),
-			Port:          aws.Int64(8181),
-			Protocol:      aws.String(vpclattice.ListenerProtocolTlsPassthrough),
-		}, nil).Times(1)
-
-	mockLattice.EXPECT().UpdateListenerWithContext(ctx, &vpclattice.UpdateListenerInput{
-		ListenerIdentifier: aws.String("existing-listener-id"),
-		ServiceIdentifier:  aws.String("svc-id"),
-		DefaultAction:      newDefaultAction,
-	}).Return(&vpclattice.UpdateListenerOutput{
-		Id:            aws.String("existing-listener-id"),
-		DefaultAction: newDefaultAction,
-		Port:          aws.Int64(8181),
-		Protocol:      aws.String("HTTP"),
-	}, nil)
-
-	lm := NewListenerManager(gwlog.FallbackLogger, cloud)
-	status, err := lm.Upsert(ctx, ml, ms, newDefaultAction)
-	assert.Nil(t, err)
-	assert.Equal(t, "existing-listener-id", status.Id)
-	assert.Equal(t, "svc-id", status.ServiceId)
-	assert.Equal(t, "existing-name", status.Name)
-	assert.Equal(t, "existing-arn", status.ListenerArn)
 }
 
 func Test_DeleteListener(t *testing.T) {
@@ -336,6 +456,192 @@ func Test_defaultListenerManager_needToUpdateDefaultAction(t *testing.T) {
 			got, err := d.needToUpdateDefaultAction(context.TODO(), latticeSvcId, latticeListenerId, tt.listenerDefaultActionFromStack)
 			assert.Equal(t, tt.wantErr, err)
 			assert.Equal(t, tt.expectNeedToUpdateDefaultAction, got)
+		})
+	}
+}
+
+func Test_defaultListenerManager_getLatticeListenerDefaultAction_HTTP_HTTPS_Listener(t *testing.T) {
+	latticeFixResponseAction404 := &vpclattice.RuleAction{
+		FixedResponse: &vpclattice.FixedResponseAction{
+			StatusCode: aws.Int64(404),
+		},
+	}
+	tests := []struct {
+		name               string
+		modelDefaultAction *model.DefaultAction
+		listenerProtocol   string
+		want               *vpclattice.RuleAction
+		wantErr            error
+	}{
+		{
+			name:               "HTTP protocol Listener has the 404 fixed response modelListenerDefaultAction, return lattice fixed response 404 DefaultAction",
+			modelDefaultAction: &model.DefaultAction{FixedResponseStatusCode: aws.Int64(404)},
+			listenerProtocol:   vpclattice.ListenerProtocolHttp,
+			want:               latticeFixResponseAction404,
+			wantErr:            nil,
+		},
+		{
+			name:               "HTTPS protocol Listener has the 404 fixed response modelListenerDefaultAction, return lattice fixed response 404 DefaultAction",
+			modelDefaultAction: &model.DefaultAction{FixedResponseStatusCode: aws.Int64(404)},
+			listenerProtocol:   vpclattice.ListenerProtocolHttps,
+			want:               latticeFixResponseAction404,
+			wantErr:            nil,
+		},
+	}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
+			modelListener := &model.Listener{
+				ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "modelListener-id"),
+				Spec: model.ListenerSpec{
+					StackServiceId: "stack-svc-id",
+					Protocol:       tt.listenerProtocol,
+					Port:           80,
+					DefaultAction:  tt.modelDefaultAction,
+				},
+			}
+			assert.NoError(t, modelListener.Spec.Validate())
+			assert.NoError(t, stack.AddResource(modelListener))
+
+			d := &defaultListenerManager{
+				log:   gwlog.FallbackLogger,
+				cloud: cloud,
+			}
+			got := d.getLatticeListenerDefaultAction(modelListener)
+			assert.Equalf(t, tt.want, got, "getLatticeListenerDefaultAction() listenerProtocol: %v", tt.listenerProtocol)
+		})
+	}
+}
+
+func Test_ListenerManager_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Listener(t *testing.T) {
+
+	tests := []struct {
+		name                       string
+		modelDefaultAction         *model.DefaultAction
+		wantedLatticeDefaultAction *vpclattice.RuleAction
+	}{
+		{
+			name: "1 resolved LatticeTgId",
+			modelDefaultAction: &model.DefaultAction{
+				Forward: &model.RuleAction{
+					TargetGroups: []*model.RuleTargetGroup{
+						{
+							LatticeTgId:        "lattice-tg-id-1",
+							StackTargetGroupId: "stack-tg-id-1",
+							Weight:             1,
+						},
+					},
+				},
+			},
+			wantedLatticeDefaultAction: &vpclattice.RuleAction{
+				Forward: &vpclattice.ForwardAction{
+					TargetGroups: []*vpclattice.WeightedTargetGroup{
+						{
+							TargetGroupIdentifier: aws.String("lattice-tg-id-1"),
+							Weight:                aws.Int64(1),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "2 resolved LatticeTgIds, 1 InvalidBackendRefTgId",
+			modelDefaultAction: &model.DefaultAction{
+				Forward: &model.RuleAction{
+					TargetGroups: []*model.RuleTargetGroup{
+						{
+							LatticeTgId: "lattice-service-export-tg-id-1",
+							SvcImportTG: &model.SvcImportTargetGroup{
+								K8SClusterName:      "cluster-name",
+								K8SServiceName:      "svc-name",
+								K8SServiceNamespace: "ns",
+								VpcId:               "vpc-id",
+							},
+							Weight: 10,
+						},
+						{
+							LatticeTgId:        model.InvalidBackendRefTgId,
+							StackTargetGroupId: model.InvalidBackendRefTgId,
+							Weight:             60,
+						},
+						{
+							LatticeTgId:        "lattice-tg-id-2",
+							StackTargetGroupId: "stack-tg-id-2",
+							Weight:             30,
+						},
+					},
+				},
+			},
+			wantedLatticeDefaultAction: &vpclattice.RuleAction{
+				Forward: &vpclattice.ForwardAction{
+					TargetGroups: []*vpclattice.WeightedTargetGroup{
+						{
+							TargetGroupIdentifier: aws.String("lattice-service-export-tg-id-1"),
+							Weight:                aws.Int64(10),
+						},
+						{
+							TargetGroupIdentifier: aws.String("lattice-tg-id-2"),
+							Weight:                aws.Int64(30),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "All InvalidBackendRefTgIds",
+			modelDefaultAction: &model.DefaultAction{
+				Forward: &model.RuleAction{
+					TargetGroups: []*model.RuleTargetGroup{
+						{
+							LatticeTgId:        model.InvalidBackendRefTgId,
+							StackTargetGroupId: model.InvalidBackendRefTgId,
+							Weight:             20,
+						},
+						{
+							LatticeTgId:        model.InvalidBackendRefTgId,
+							StackTargetGroupId: model.InvalidBackendRefTgId,
+							Weight:             80,
+						},
+					},
+				},
+			},
+			wantedLatticeDefaultAction: &vpclattice.RuleAction{
+				FixedResponse: &vpclattice.FixedResponseAction{
+					StatusCode: aws.Int64(model.DefaultActionFixedResponseStatusCode),
+				},
+			},
+		},
+	}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
+			modelListener := &model.Listener{
+				ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "modelListener-id"),
+				Spec: model.ListenerSpec{
+					StackServiceId: "stack-svc-id",
+					Protocol:       vpclattice.ListenerProtocolTlsPassthrough,
+					Port:           80,
+					DefaultAction:  tt.modelDefaultAction,
+				},
+			}
+			assert.NoError(t, stack.AddResource(modelListener))
+
+			d := &defaultListenerManager{
+				log:   gwlog.FallbackLogger,
+				cloud: cloud,
+			}
+			gotDefaultAction := d.getLatticeListenerDefaultAction(modelListener)
+			assert.Equal(t, tt.wantedLatticeDefaultAction, gotDefaultAction)
 		})
 	}
 }

@@ -50,12 +50,14 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 			return err
 		}
 
-		defaultAction, err := l.getLatticeListenerDefaultAction(ctx, listener)
-		if err != nil {
-			return err
+		if listener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+			// Fill the TLS_PASSTHROUGH listener forward action target group ids
+			if err := l.tgManager.ResolveRuleTgIds(ctx, listener.Spec.DefaultAction.Forward, l.stack); err != nil {
+				return fmt.Errorf("failed to resolve rule tg ids, err = %v", err)
+			}
 		}
 
-		status, err := l.listenerMgr.Upsert(ctx, listener, svc, defaultAction)
+		status, err := l.listenerMgr.Upsert(ctx, listener, svc)
 		if err != nil {
 			listenerErr = errors.Join(listenerErr,
 				fmt.Errorf("failed ListenerManager.Upsert %s-%s due to err %s",
@@ -87,45 +89,6 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func (l *listenerSynthesizer) getLatticeListenerDefaultAction(ctx context.Context, stackListener *model.Listener) (
-	*vpclattice.RuleAction, error,
-) {
-	if stackListener.Spec.DefaultAction == nil ||
-		(stackListener.Spec.DefaultAction.FixedResponseStatusCode == nil && stackListener.Spec.DefaultAction.Forward == nil) {
-		return nil, fmt.Errorf("invalid listener default action, must be either fixed response or forward")
-	}
-
-	if stackListener.Spec.DefaultAction.FixedResponseStatusCode != nil {
-		return &vpclattice.RuleAction{
-			FixedResponse: &vpclattice.FixedResponseAction{
-				StatusCode: stackListener.Spec.DefaultAction.FixedResponseStatusCode,
-			},
-		}, nil
-	}
-
-	// If the listener DefaultAction is not fixed response, for example for TLS_PASSTHROUGH listener, it must be a forward action, fill the forward action target group ids for it
-	if err := l.tgManager.ResolveRuleTgIds(ctx, stackListener.Spec.DefaultAction.Forward, l.stack); err != nil {
-		return nil, fmt.Errorf("failed to resolve rule tg ids, err = %v", err)
-	}
-
-	var latticeTGs []*vpclattice.WeightedTargetGroup
-	for _, modelTG := range stackListener.Spec.DefaultAction.Forward.TargetGroups {
-		latticeTG := vpclattice.WeightedTargetGroup{
-			TargetGroupIdentifier: aws.String(modelTG.LatticeTgId),
-			Weight:                aws.Int64(modelTG.Weight),
-		}
-		latticeTGs = append(latticeTGs, &latticeTG)
-	}
-
-	l.log.Debugf("DefaultAction Forward target groups: %v", latticeTGs)
-	return &vpclattice.RuleAction{
-		Forward: &vpclattice.ForwardAction{
-			TargetGroups: latticeTGs,
-		},
-	}, nil
-
 }
 
 func (l *listenerSynthesizer) shouldDelete(listenerToFind *model.Listener, stackListeners []*model.Listener) bool {
