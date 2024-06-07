@@ -49,7 +49,7 @@ var _ = SynchronizedBeforeSuite(func() {
 
 	testServiceNetwork = testFramework.GetServiceNetwork(ctx, testGateway)
 
-	testFramework.Log.Infof("Expecting VPC %s and service network %s association", vpcId, *testServiceNetwork.Id)
+	testFramework.Log.Infof(ctx, "Expecting VPC %s and service network %s association", vpcId, *testServiceNetwork.Id)
 	Eventually(func(g Gomega) {
 		associated, _, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcId, testServiceNetwork)
 		g.Expect(associated).To(BeTrue())

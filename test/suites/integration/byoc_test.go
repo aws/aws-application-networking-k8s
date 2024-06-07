@@ -39,9 +39,9 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 	)
 
 	var (
-		log     = testFramework.Log.Named("byoc")
-		awsCfg  = aws.NewConfig().WithRegion(config.Region)
-		sess, _ = session.NewSession(awsCfg)
+		log       = testFramework.Log.Named("byoc")
+		awsCfg    = aws.NewConfig().WithRegion(config.Region)
+		sess, _   = session.NewSession(awsCfg)
 		acmClient = acm.New(sess, awsCfg)
 		r53Client = route53.New(sess)
 
@@ -59,11 +59,11 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		// create and deploy certificate to acm
 		certArn, err = createCertIfNotExists(acmClient, certDnsName)
 		Expect(err).To(BeNil())
-		log.Infof("created certificate: %s", certArn)
+		log.Infof(ctx, "created certificate: %s", certArn)
 
 		// add new certificate to gateway spec
 		addGatewayBYOCListener(cname, certArn)
-		log.Infof("added listener with cert to gateway")
+		log.Infof(ctx, "added listener with cert to gateway")
 
 		// create and deploy service for traffic test
 		deployment, service = testFramework.NewHttpApp(test.HTTPAppOptions{
@@ -81,16 +81,16 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		// get lattice service dns name for route53 cname
 		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
 		latticeSvcDns = *svc.DnsEntry.DomainName
-		log.Infof("depoloyed lattice service, dns name: %s", latticeSvcDns)
+		log.Infof(ctx, "depoloyed lattice service, dns name: %s", latticeSvcDns)
 
 		// create route 53 hosted zone and cname
 		hz, err := createHostedZoneIfNotExists(r53Client, hostedZoneName)
 		Expect(err).To(BeNil())
 		hostedZoneId = *hz.Id
-		log.Infof("created route53 hosted zone, id: %s", hostedZoneId)
+		log.Infof(ctx, "created route53 hosted zone, id: %s", hostedZoneId)
 		err = createCnameIfNotExists(r53Client, hostedZoneId, cname, latticeSvcDns)
 		Expect(err).To(BeNil())
-		log.Infof("created cname for lattice service, cname: %s, value: %s", cname, latticeSvcDns)
+		log.Infof(ctx, "created cname for lattice service, cname: %s, value: %s", cname, latticeSvcDns)
 	})
 
 	It("same pod https traffic test", func() {
@@ -99,7 +99,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		pod := pods[0]
 		Eventually(func(g Gomega) {
 			cmd := fmt.Sprintf("curl -v -k https://%s/", cname)
-			log.Infof("calling lattice service, cmd=%s, pod=%s/%s", cmd, pod.Namespace, pod.Name)
+			log.Infof(ctx, "calling lattice service, cmd=%s, pod=%s/%s", cmd, pod.Namespace, pod.Name)
 			stdout, stderr, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("byoc-app handler pod"))
@@ -111,20 +111,20 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		log := log.Named("after-all")
 		err = deleteHostedZoneRecords(r53Client, hostedZoneId)
 		Expect(err).To(BeNil())
-		log.Infof("deleted hosted zone records for, id: %s", hostedZoneId)
+		log.Infof(ctx, "deleted hosted zone records for, id: %s", hostedZoneId)
 
 		err = deleteHostedZone(r53Client, hostedZoneId)
 		Expect(err).To(BeNil())
-		log.Infof("deleted route53 hosted zone, id: %s", hostedZoneId)
+		log.Infof(ctx, "deleted route53 hosted zone, id: %s", hostedZoneId)
 
 		testFramework.ExpectDeletedThenNotFound(context.TODO(), httpRoute, service, deployment)
 
 		removeGatewayBYOCListener()
-		log.Infof("removed listener with custom cert from gateway")
+		log.Infof(ctx, "removed listener with custom cert from gateway")
 
 		err = deleteCert(acmClient, certArn)
 		Expect(err).To(BeNil())
-		log.Infof("removed custom cert from acm, arn: %s", certArn)
+		log.Infof(ctx, "removed custom cert from acm, arn: %s", certArn)
 	})
 })
 

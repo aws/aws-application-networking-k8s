@@ -14,6 +14,10 @@ type TracedLogger struct {
 	InnerLogger *zap.SugaredLogger
 }
 
+func (s *TracedLogger) Infoln(args ...interface{}) {
+	s.InnerLogger.Infoln(args...)
+}
+
 func (t *TracedLogger) Infow(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	if GetTrace(ctx) != "" {
 		keysAndValues = append(keysAndValues, string(traceID), GetTrace(ctx))
