@@ -20,14 +20,14 @@ func (s *TracedLogger) Infoln(args ...interface{}) {
 
 func (t *TracedLogger) Infow(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	if GetTrace(ctx) != "" {
-		keysAndValues = append(keysAndValues, string(traceID), GetTrace(ctx))
+		keysAndValues = append(keysAndValues, traceID, GetTrace(ctx))
 	}
 	t.InnerLogger.Infow(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Infof(ctx context.Context, template string, args ...interface{}) {
 	if GetTrace(ctx) != "" {
-		t.InnerLogger.Infow(fmt.Sprintf(template, args...), string(traceID), GetTrace(ctx))
+		t.InnerLogger.Infow(fmt.Sprintf(template, args...), traceID, GetTrace(ctx))
 		return
 	}
 	t.InnerLogger.Infof(template, args...)
@@ -35,7 +35,7 @@ func (t *TracedLogger) Infof(ctx context.Context, template string, args ...inter
 
 func (t *TracedLogger) Info(ctx context.Context, msg string) {
 	if GetTrace(ctx) != "" {
-		t.InnerLogger.Infow(msg, string(traceID), GetTrace(ctx))
+		t.InnerLogger.Infow(msg, traceID, GetTrace(ctx))
 		return
 	}
 	t.InnerLogger.Info(msg)
@@ -43,14 +43,14 @@ func (t *TracedLogger) Info(ctx context.Context, msg string) {
 
 func (t *TracedLogger) Errorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	if GetTrace(ctx) != "" {
-		keysAndValues = append(keysAndValues, string(traceID), GetTrace(ctx))
+		keysAndValues = append(keysAndValues, traceID, GetTrace(ctx))
 	}
 	t.InnerLogger.Errorw(msg, keysAndValues)
 }
 
 func (t *TracedLogger) Errorf(ctx context.Context, template string, args ...interface{}) {
 	if GetTrace(ctx) != "" {
-		t.InnerLogger.Errorw(fmt.Sprintf(template, args...), string(traceID), GetTrace(ctx))
+		t.InnerLogger.Errorw(fmt.Sprintf(template, args...), traceID, GetTrace(ctx))
 		return
 	}
 	t.InnerLogger.Errorf(template, args...)
@@ -58,7 +58,7 @@ func (t *TracedLogger) Errorf(ctx context.Context, template string, args ...inte
 
 func (t *TracedLogger) Error(ctx context.Context, msg string) {
 	if GetTrace(ctx) != "" {
-		t.InnerLogger.Errorw(msg, string(traceID), GetTrace(ctx))
+		t.InnerLogger.Errorw(msg, traceID, GetTrace(ctx))
 		return
 	}
 	t.InnerLogger.Error(msg)
@@ -66,14 +66,14 @@ func (t *TracedLogger) Error(ctx context.Context, msg string) {
 
 func (t *TracedLogger) Debugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	if GetTrace(ctx) != "" {
-		keysAndValues = append(keysAndValues, string(traceID), GetTrace(ctx))
+		keysAndValues = append(keysAndValues, traceID, GetTrace(ctx))
 	}
 	t.InnerLogger.Debugw(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Debugf(ctx context.Context, template string, args ...interface{}) {
 	if GetTrace(ctx) != "" {
-		t.InnerLogger.Debugw(fmt.Sprintf(template, args...), string(traceID), GetTrace(ctx))
+		t.InnerLogger.Debugw(fmt.Sprintf(template, args...), traceID, GetTrace(ctx))
 		return
 	}
 	t.InnerLogger.Debugf(template, args...)
@@ -81,7 +81,7 @@ func (t *TracedLogger) Debugf(ctx context.Context, template string, args ...inte
 
 func (t *TracedLogger) Debug(ctx context.Context, msg string) {
 	if GetTrace(ctx) != "" {
-		t.InnerLogger.Debugw(msg, string(traceID), GetTrace(ctx))
+		t.InnerLogger.Debugw(msg, traceID, GetTrace(ctx))
 		return
 	}
 	t.InnerLogger.Debug(msg)
@@ -89,14 +89,14 @@ func (t *TracedLogger) Debug(ctx context.Context, msg string) {
 
 func (t *TracedLogger) Warnw(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	if GetTrace(ctx) != "" {
-		keysAndValues = append(keysAndValues, string(traceID), GetTrace(ctx))
+		keysAndValues = append(keysAndValues, traceID, GetTrace(ctx))
 	}
 	t.InnerLogger.Warnw(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Warnf(ctx context.Context, template string, args ...interface{}) {
 	if GetTrace(ctx) != "" {
-		t.InnerLogger.Warnw(fmt.Sprintf(template, args...), string(traceID), GetTrace(ctx))
+		t.InnerLogger.Warnw(fmt.Sprintf(template, args...), traceID, GetTrace(ctx))
 		return
 	}
 	t.InnerLogger.Warnf(template, args...)
@@ -104,7 +104,7 @@ func (t *TracedLogger) Warnf(ctx context.Context, template string, args ...inter
 
 func (t *TracedLogger) Warn(ctx context.Context, msg string) {
 	if GetTrace(ctx) != "" {
-		t.InnerLogger.Warnw(msg, string(traceID), GetTrace(ctx))
+		t.InnerLogger.Warnw(msg, traceID, GetTrace(ctx))
 		return
 	}
 	t.InnerLogger.Warn(msg)

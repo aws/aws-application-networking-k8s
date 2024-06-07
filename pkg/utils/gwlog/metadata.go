@@ -7,8 +7,9 @@ import (
 
 type key string
 
-const traceID key = "trace_id"
 const metadata key = "metadata"
+
+const traceID string = "trace_id"
 
 type metadataValue struct {
 	m map[string]string
@@ -30,7 +31,11 @@ func newMetadata() *metadataValue {
 
 func NewTrace(ctx context.Context) context.Context {
 	currID := uuid.New()
-	return context.WithValue(context.WithValue(ctx, traceID, currID.String()), metadata, newMetadata())
+
+	newCtx := context.WithValue(ctx, metadata, newMetadata())
+	AddMetadata(newCtx, traceID, currID.String())
+
+	return newCtx
 }
 
 func AddMetadata(ctx context.Context, key, value string) {
@@ -41,12 +46,7 @@ func AddMetadata(ctx context.Context, key, value string) {
 
 func GetMetadata(ctx context.Context) []interface{} {
 	var fields []interface{}
-	/*
-		if ctx.Value(traceID) != nil {
-			fields = append(fields, string(traceID))
-			fields = append(fields, ctx.Value(traceID))
-		}
-	*/
+
 	if ctx.Value(metadata) != nil {
 		for k, v := range ctx.Value(metadata).(*metadataValue).m {
 			fields = append(fields, k)
@@ -57,9 +57,12 @@ func GetMetadata(ctx context.Context) []interface{} {
 }
 
 func GetTrace(ctx context.Context) string {
-	t := ctx.Value(traceID)
-	if t == nil {
-		return ""
+	if ctx.Value(metadata) != nil {
+		m := ctx.Value(metadata).(*metadataValue).m
+		if m == nil {
+			return ""
+		}
+		return ctx.Value(metadata).(*metadataValue).m[traceID]
 	}
-	return t.(string)
+	return ""
 }
