@@ -4,7 +4,7 @@
 
 By default, AWS Gateway API Controller assumes plaintext HTTP/1 traffic for backend Kubernetes resources.
 TargetGroupPolicy is a CRD that can be attached to Service or ServiceExport, which allows the users to define protocol, protocol version and
-health check configurations of those backend resources. 
+health check configurations of those backend resources.
 
 When attaching a policy to a resource, the following restrictions apply:
 
@@ -28,9 +28,9 @@ However, the policy will not take effect unless the target is valid.
 
 ### Limitations and Considerations
 
-- Attaching TargetGroupPolicy to a Service that is already referenced by a route  will result in a replacement
+- Attaching TargetGroupPolicy to an existing Service that is already referenced by a route will result in a replacement
   of VPC Lattice TargetGroup resource, except for health check updates.
-- Attaching TargetGroupPolicy to a ServiceExport will result in a replacement of VPC Lattice TargetGroup resource, except for health check updates.
+- Attaching TargetGroupPolicy to an existing ServiceExport will result in a replacement of VPC Lattice TargetGroup resource, except for health check updates.
 - Removing TargetGroupPolicy of a resource will roll back protocol configuration to default setting. (HTTP1/HTTP plaintext)
 
 ## Example Configuration

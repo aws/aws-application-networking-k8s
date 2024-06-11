@@ -4,8 +4,8 @@
 
 ## Install Gateway API TLSRoute CRD
 
-The TLSRoute CRD already included in the helm chart and deployment.yaml, If you are using these 2 methods to install the controller no extra steps are needed.
-If you want to install the CRD manually by yourself:
+The TLSRoute CRD already included in the helm chart and deployment.yaml, if you are using these 2 methods to install the controller no extra steps are needed.
+If you want to install the TLSRoute CRD manually by yourself:
 ```
 # Install CRD
 kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
