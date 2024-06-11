@@ -30,6 +30,7 @@ jobs:
           if [[ ${{ github.ref }} == refs/heads/main ]]; then 
             # Deploy to the mike doc version `dev` and update the `latest` alias for the main branch new git commits
             mike deploy dev latest --update-aliases --push
+            mike set-default latest
           elif [[ ${{ github.ref }} == refs/heads/release-v* ]]; then
             # Deploy to the mike doc version `vx.x.x` for the new git branches `release-vx.x.x`
             branch_name=${{ github.ref }}
