@@ -9,7 +9,7 @@ This allows you to define and manage end-to-end TLS encrypted traffic routing to
 
 - `TLSRoute` sectionName must refer to an `TLS` protocol listener with `mode: Passthrough` in the parentRefs `Gateway`.
 - `TLSRoute` only supports to have one rule.
-- `TLSRoute` don't support any rule matching condition.
+- `TLSRoute` doesn't support any rule matching condition.
 - The `hostnames` field with exactly one host name is required. This domain name is used as a vpc lattice's Service Name Indication (SNI) match to route the traffic to the correct backend service.
 
 
