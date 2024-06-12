@@ -35,7 +35,7 @@ deployment:
 
 # If "installScope: cluster" then these labels will be applied to ClusterRole
 role:
- labels: {}
+  labels: {}
 
 metrics:
   service:
@@ -53,6 +53,11 @@ resources:
   limits:
     memory: "128Mi"
     cpu: "100m"
+
+pdb:
+  enabled: false
+  minAvailable:
+  maxUnavailable:
 
 # log level for the controller
 log:
