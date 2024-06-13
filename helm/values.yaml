@@ -32,6 +32,7 @@ deployment:
   priorityClassName: ""
   # Number of replicas.
   replicas: 2
+  topologySpreadConstraints: []
 
 # If "installScope: cluster" then these labels will be applied to ClusterRole
 role:
