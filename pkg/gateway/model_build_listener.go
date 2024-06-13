@@ -46,7 +46,7 @@ func (t *latticeServiceModelBuildTask) extractListenerInfo(
 			listenerPort := int(section.Port)
 			protocol := section.Protocol
 			if isTLSPassthroughGatewayListener(&section) {
-				t.log.Debugf("Found TLS passthrough section %v", section.TLS)
+				t.log.Debugf(ctx, "Found TLS passthrough section %v", section.TLS)
 				protocol = vpclattice.ListenerProtocolTlsPassthrough
 			}
 			return int64(listenerPort), string(protocol), nil

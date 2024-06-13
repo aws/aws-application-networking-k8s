@@ -55,7 +55,7 @@ func RegisterVpcAssociationPolicyController(log gwlog.Logger, cloud pkg_aws.Clou
 }
 
 func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = gwlog.StartReconcileTrace(ctx, c.log, "vpcassociationpolicy", req.Name)
+	ctx = gwlog.StartReconcileTrace(ctx, c.log, "vpcassociationpolicy", req.Name, req.Namespace)
 	defer func() {
 		gwlog.EndReconcileTrace(ctx, c.log)
 	}()

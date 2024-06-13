@@ -2,29 +2,27 @@ package gwlog
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 )
 
-type key string
-
-const metadata key = "metadata"
-
+const metadataKey string = "metadata_key"
 const traceID string = "trace_id"
 
-type metadataValue struct {
+type metadata struct {
 	m map[string]string
 }
 
-func (mv *metadataValue) get(key string) string {
+func (mv *metadata) get(key string) string {
 	return mv.m[key]
 }
 
-func (mv *metadataValue) set(key, val string) {
+func (mv *metadata) set(key, val string) {
 	mv.m[key] = val
 }
 
-func newMetadata() *metadataValue {
-	return &metadataValue{
+func newMetadata() *metadata {
+	return &metadata{
 		m: make(map[string]string),
 	}
 }
@@ -32,23 +30,23 @@ func newMetadata() *metadataValue {
 func NewTrace(ctx context.Context) context.Context {
 	currID := uuid.New()
 
-	newCtx := context.WithValue(ctx, metadata, newMetadata())
+	newCtx := context.WithValue(ctx, metadataKey, newMetadata())
 	AddMetadata(newCtx, traceID, currID.String())
 
 	return newCtx
 }
 
 func AddMetadata(ctx context.Context, key, value string) {
-	if ctx.Value(metadata) != nil {
-		ctx.Value(metadata).(*metadataValue).set(key, value)
+	if ctx.Value(metadataKey) != nil {
+		ctx.Value(metadataKey).(*metadata).set(key, value)
 	}
 }
 
-func GetMetadata(ctx context.Context) []interface{} {
+func getMetadata(ctx context.Context) []interface{} {
 	var fields []interface{}
 
-	if ctx.Value(metadata) != nil {
-		for k, v := range ctx.Value(metadata).(*metadataValue).m {
+	if ctx.Value(metadataKey) != nil {
+		for k, v := range ctx.Value(metadataKey).(*metadata).m {
 			if k == traceID {
 				// skip since there's a separate method to grab the trace id
 				continue
@@ -60,27 +58,28 @@ func GetMetadata(ctx context.Context) []interface{} {
 	return fields
 }
 
-func GetTrace(ctx context.Context) string {
-	if ctx.Value(metadata) != nil {
-		m := ctx.Value(metadata).(*metadataValue).m
+func GetTraceID(ctx context.Context) string {
+	if ctx.Value(metadataKey) != nil {
+		m := ctx.Value(metadataKey).(*metadata).m
 		if m == nil {
 			return ""
 		}
-		return ctx.Value(metadata).(*metadataValue).m[traceID]
+		return ctx.Value(metadataKey).(*metadata).m[traceID]
 	}
 	return ""
 }
 
-func StartReconcileTrace(ctx context.Context, log Logger, k8sresourcetype, name string) context.Context {
+func StartReconcileTrace(ctx context.Context, log Logger, k8sresourcetype, name, namespace string) context.Context {
 	ctx = NewTrace(ctx)
 	AddMetadata(ctx, "type", k8sresourcetype)
 	AddMetadata(ctx, "name", name)
+	AddMetadata(ctx, "namespace", namespace)
 
-	log.Infow(ctx, ReconcileStart, GetMetadata(ctx)...)
+	log.Infow(ctx, ReconcileStart, getMetadata(ctx)...)
 
 	return ctx
 }
 
 func EndReconcileTrace(ctx context.Context, log Logger) {
-	log.Infow(ctx, ReconcileEnd, GetMetadata(ctx)...)
+	log.Infow(ctx, ReconcileEnd, getMetadata(ctx)...)
 }

@@ -78,7 +78,7 @@ func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud p
 //
 // Policy Attachment Spec is defined in [GEP-713]: https://gateway-api.sigs.k8s.io/geps/gep-713/.
 func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = gwlog.StartReconcileTrace(ctx, c.log, "iamauthpolicy", req.Name)
+	ctx = gwlog.StartReconcileTrace(ctx, c.log, "iamauthpolicy", req.Name, req.Namespace)
 	defer func() {
 		gwlog.EndReconcileTrace(ctx, c.log)
 	}()

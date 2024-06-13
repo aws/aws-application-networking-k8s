@@ -14,97 +14,97 @@ type TracedLogger struct {
 	InnerLogger *zap.SugaredLogger
 }
 
-func (s *TracedLogger) Infoln(args ...interface{}) {
-	s.InnerLogger.Infoln(args...)
+func (t *TracedLogger) Infoln(args ...interface{}) {
+	t.InnerLogger.Infoln(args...)
 }
 
 func (t *TracedLogger) Infow(ctx context.Context, msg string, keysAndValues ...interface{}) {
-	if GetTrace(ctx) != "" {
-		keysAndValues = append(keysAndValues, traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		keysAndValues = append(keysAndValues, traceID, tr)
 	}
 	t.InnerLogger.Infow(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Infof(ctx context.Context, template string, args ...interface{}) {
-	if GetTrace(ctx) != "" {
-		t.InnerLogger.Infow(fmt.Sprintf(template, args...), traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		t.InnerLogger.Infow(fmt.Sprintf(template, args...), traceID, tr)
 		return
 	}
 	t.InnerLogger.Infof(template, args...)
 }
 
 func (t *TracedLogger) Info(ctx context.Context, msg string) {
-	if GetTrace(ctx) != "" {
-		t.InnerLogger.Infow(msg, traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		t.InnerLogger.Infow(msg, traceID, tr)
 		return
 	}
 	t.InnerLogger.Info(msg)
 }
 
 func (t *TracedLogger) Errorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
-	if GetTrace(ctx) != "" {
-		keysAndValues = append(keysAndValues, traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		keysAndValues = append(keysAndValues, traceID, tr)
 	}
 	t.InnerLogger.Errorw(msg, keysAndValues)
 }
 
 func (t *TracedLogger) Errorf(ctx context.Context, template string, args ...interface{}) {
-	if GetTrace(ctx) != "" {
-		t.InnerLogger.Errorw(fmt.Sprintf(template, args...), traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		t.InnerLogger.Errorw(fmt.Sprintf(template, args...), traceID, tr)
 		return
 	}
 	t.InnerLogger.Errorf(template, args...)
 }
 
 func (t *TracedLogger) Error(ctx context.Context, msg string) {
-	if GetTrace(ctx) != "" {
-		t.InnerLogger.Errorw(msg, traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		t.InnerLogger.Errorw(msg, traceID, tr)
 		return
 	}
 	t.InnerLogger.Error(msg)
 }
 
 func (t *TracedLogger) Debugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
-	if GetTrace(ctx) != "" {
-		keysAndValues = append(keysAndValues, traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		keysAndValues = append(keysAndValues, traceID, tr)
 	}
 	t.InnerLogger.Debugw(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Debugf(ctx context.Context, template string, args ...interface{}) {
-	if GetTrace(ctx) != "" {
-		t.InnerLogger.Debugw(fmt.Sprintf(template, args...), traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		t.InnerLogger.Debugw(fmt.Sprintf(template, args...), traceID, tr)
 		return
 	}
 	t.InnerLogger.Debugf(template, args...)
 }
 
 func (t *TracedLogger) Debug(ctx context.Context, msg string) {
-	if GetTrace(ctx) != "" {
-		t.InnerLogger.Debugw(msg, traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		t.InnerLogger.Debugw(msg, traceID, tr)
 		return
 	}
 	t.InnerLogger.Debug(msg)
 }
 
 func (t *TracedLogger) Warnw(ctx context.Context, msg string, keysAndValues ...interface{}) {
-	if GetTrace(ctx) != "" {
-		keysAndValues = append(keysAndValues, traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		keysAndValues = append(keysAndValues, traceID, tr)
 	}
 	t.InnerLogger.Warnw(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Warnf(ctx context.Context, template string, args ...interface{}) {
-	if GetTrace(ctx) != "" {
-		t.InnerLogger.Warnw(fmt.Sprintf(template, args...), traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		t.InnerLogger.Warnw(fmt.Sprintf(template, args...), traceID, tr)
 		return
 	}
 	t.InnerLogger.Warnf(template, args...)
 }
 
 func (t *TracedLogger) Warn(ctx context.Context, msg string) {
-	if GetTrace(ctx) != "" {
-		t.InnerLogger.Warnw(msg, traceID, GetTrace(ctx))
+	if tr := GetTraceID(ctx); tr != "" {
+		t.InnerLogger.Warnw(msg, traceID, tr)
 		return
 	}
 	t.InnerLogger.Warn(msg)

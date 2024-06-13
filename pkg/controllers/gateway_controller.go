@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
@@ -119,7 +120,7 @@ func RegisterGatewayController(
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/finalizers,verbs=update
 
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ctx = gwlog.StartReconcileTrace(ctx, r.log, "gateway", req.Name)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "gateway", req.Name, req.Namespace)
 	defer func() {
 		gwlog.EndReconcileTrace(ctx, r.log)
 	}()

@@ -458,7 +458,7 @@ func (s *defaultTargetGroupManager) findSvcExportTG(ctx context.Context, svcImpo
 // ResolveRuleTgIds populates all target group ids in the rule's actions
 func (s *defaultTargetGroupManager) ResolveRuleTgIds(ctx context.Context, ruleAction *model.RuleAction, stack core.Stack) error {
 	if len(ruleAction.TargetGroups) == 0 {
-		s.log.Debugf("no target groups to resolve for rule")
+		s.log.Debugf(ctx, "no target groups to resolve for rule")
 		return nil
 	}
 	for i, ruleActionTg := range ruleAction.TargetGroups {
@@ -466,16 +466,16 @@ func (s *defaultTargetGroupManager) ResolveRuleTgIds(ctx context.Context, ruleAc
 			return errors.New("rule TG is missing a required target group identifier")
 		}
 		if ruleActionTg.LatticeTgId != "" {
-			s.log.Debugf("Rule TG %d already resolved %s", i, ruleActionTg.LatticeTgId)
+			s.log.Debugf(ctx, "Rule TG %d already resolved %s", i, ruleActionTg.LatticeTgId)
 			continue
 		}
 		if ruleActionTg.StackTargetGroupId != "" {
 			if ruleActionTg.StackTargetGroupId == model.InvalidBackendRefTgId {
-				s.log.Debugf("Rule TG has an invalid backendref, setting TG id to invalid")
+				s.log.Debugf(ctx, "Rule TG has an invalid backendref, setting TG id to invalid")
 				ruleActionTg.LatticeTgId = model.InvalidBackendRefTgId
 				continue
 			}
-			s.log.Debugf("Fetching TG %d from the stack (ID %s)", i, ruleActionTg.StackTargetGroupId)
+			s.log.Debugf(ctx, "Fetching TG %d from the stack (ID %s)", i, ruleActionTg.StackTargetGroupId)
 			stackTg := &model.TargetGroup{}
 			err := stack.GetResource(ruleActionTg.StackTargetGroupId, stackTg)
 			if err != nil {
@@ -487,7 +487,7 @@ func (s *defaultTargetGroupManager) ResolveRuleTgIds(ctx context.Context, ruleAc
 			ruleActionTg.LatticeTgId = stackTg.Status.Id
 		}
 		if ruleActionTg.SvcImportTG != nil {
-			s.log.Debugf("Getting target group for service import %s %s (%s, %s)",
+			s.log.Debugf(ctx, "Getting target group for service import %s %s (%s, %s)",
 				ruleActionTg.SvcImportTG.K8SServiceName, ruleActionTg.SvcImportTG.K8SServiceNamespace,
 				ruleActionTg.SvcImportTG.K8SClusterName, ruleActionTg.SvcImportTG.VpcId)
 			tgId, err := s.findSvcExportTG(ctx, *ruleActionTg.SvcImportTG)

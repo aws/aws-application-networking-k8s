@@ -1,4 +1,4 @@
 package gwlog
 
-const ReconcileStart = "[ACTION_RECONCILE_START]"
-const ReconcileEnd = "[ACTION_RECONCILE_END]"
+const ReconcileStart = "RECONCILE_START_MARKER"
+const ReconcileEnd = "RECONCILE_END_MARKER"
