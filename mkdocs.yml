@@ -16,9 +16,10 @@ nav:
     - Getting Started: guides/getstarted.md
     - Cross-Account Sharing: guides/ram-sharing.md
     - Advanced Configurations: guides/advanced-configurations.md
-    - TLS: guides/https.md
+    - HTTPS: guides/https.md
     - Custom Domain Name: guides/custom-domain-name.md
     - GRPC: guides/grpc.md
+    - TLS Passthrough: guides/tls-passthrough.md
     - Pod Readiness Gates: guides/pod-readiness-gates.md
     - Configuration: guides/environment.md
   - API Specification: api-reference.md

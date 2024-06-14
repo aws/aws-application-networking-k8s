@@ -58,6 +58,7 @@ And install additional CRDs for the controller:
 
 ```bash
 kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
+kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceimports.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_targetgrouppolicies.yaml

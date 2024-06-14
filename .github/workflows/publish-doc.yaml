@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'release-v*.*.*'
 jobs:
   publish-docs:
     runs-on: ubuntu-latest
@@ -24,10 +25,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install mkdocs-material mike
-      - name: Build
+      - name: Deploy to Mike
         run: |
-          mike deploy 1.0.5 latest --update-aliases --push
-          mike set-default latest --allow-empty --push
-          
-          
-
+          if [[ ${{ github.ref }} == refs/heads/main ]]; then 
+            # Deploy to the mike doc version `dev` and update the `latest` alias for the main branch new git commits
+            mike deploy dev latest --update-aliases --push
+            mike set-default latest
+          elif [[ ${{ github.ref }} == refs/heads/release-v* ]]; then
+            # Deploy to the mike doc version `vx.x.x` for the new git branches `release-vx.x.x`
+            branch_name=${{ github.ref }}
+            version=${branch_name##refs/heads/release-} 
+            mike deploy $version --push
+          fi
