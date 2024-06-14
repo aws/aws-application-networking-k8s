@@ -20,7 +20,7 @@ tlsroutes.gateway.networking.k8s.io   2024-03-07T23:16:22Z
 ### 1. Configure TLS Passthrough Listener on Gateway
 
 ```
-kubectl apply -f files/examples/gateway-tls-passthrough.yaml
+kubectl apply -f files/examples/my-gateway-tls-passthrough.yaml
 ```
 
 ```
@@ -96,16 +96,12 @@ kubectl get deployment nginx-tls
 NAME        READY   UP-TO-DATE   AVAILABLE   AGE
 nginx-tls   2/2     2            2           1d
 
+# Use the specified TLSRoute hostname to send traffic to the beackend nginx service
 kubectl exec deployments/parking  -- curl -kv  https://nginx-test.my-test.com  --resolve nginx-test.my-test.com:443:169.254.171.0
 
 * Trying 169.254.171.0:443...
 * Connected to nginx-test.my-test.com (169.254.171.0) port 443 (#0)
-* ALPN, offering h2
-* ALPN, offering http/1.1
-* Cipher selection: ALL:!EXPORT:!EXPORT40:!EXPORT56:!aNULL:!LOW:!RC4:@STRENGTH
-* successfully set certificate verify locations:
-*  CAfile: /etc/pki/tls/certs/ca-bundle.crt
-*  CApath: none
+....
 * TLSv1.2 (OUT), TLS header, Certificate Status (22):
 * TLSv1.2 (OUT), TLS handshake, Client hello (1):
 * TLSv1.2 (IN), TLS handshake, Server hello (2):
@@ -114,42 +110,11 @@ kubectl exec deployments/parking  -- curl -kv  https://nginx-test.my-test.com  -
 * TLSv1.2 (IN), TLS handshake, Server finished (14):
 * TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
 * TLSv1.2 (OUT), TLS change cipher, Change cipher spec (1):
-* TLSv1.2 (OUT), TLS handshake, Finished (20):
+* TLSv1.2 (OUT), TLS handshake, Finished (20):    
 * TLSv1.2 (IN), TLS change cipher, Change cipher spec (1):
-* TLSv1.2 (IN), TLS handshake, Finished (20):
+* TLSv1.2 (IN), TLS handshake, Finished (20):   <---------- TLS Handshake from client pod to the backend `nginx-tls` pod successfully, no tls termination in the middle
 * SSL connection using TLSv1.2 / ECDHE-RSA-AES256-GCM-SHA384
 * ALPN, server accepted to use h2
-* Server certificate:
-*  subject: C=US; ST=wa; L=seattle; O=aws; OU=lattice; CN=liwen.ssl-test.com; emailAddress=liwenwu@amazon.com
-*  start date: Mar  5 21:26:24 2024 GMT
-# use customer defined name
-curl -k -v https://nginx-test.my-test.com --resolve nginx-test.my-test.com:443:169.254.171.32
-* Added nginx-test.my-test.com:443:169.254.171.32 to DNS cache
-* Hostname nginx-test.my-test.com was found in DNS cache
-*   Trying 169.254.171.0:443...
-* Connected to nginx-test.my-test.com (169.254.171.0) port 443 (#0)
-* ALPN, offering h2
-* ALPN, offering http/1.1
-* Cipher selection: ALL:!EXPORT:!EXPORT40:!EXPORT56:!aNULL:!LOW:!RC4:@STRENGTH
-* successfully set certificate verify locations:
-*  CAfile: /etc/pki/tls/certs/ca-bundle.crt
-*  CApath: none
-* TLSv1.2 (OUT), TLS header, Certificate Status (22):
-* TLSv1.2 (OUT), TLS handshake, Client hello (1):
-* TLSv1.2 (IN), TLS handshake, Server hello (2):
-* TLSv1.2 (IN), TLS handshake, Certificate (11):
-* TLSv1.2 (IN), TLS handshake, Server key exchange (12):
-* TLSv1.2 (IN), TLS handshake, Server finished (14):
-* TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
-* TLSv1.2 (OUT), TLS change cipher, Change cipher spec (1):
-* TLSv1.2 (OUT), TLS handshake, Finished (20):
-* TLSv1.2 (IN), TLS change cipher, Change cipher spec (1):
-* TLSv1.2 (IN), TLS handshake, Finished (20):
-* SSL connection using TLSv1.2 / ECDHE-RSA-AES256-GCM-SHA384
-* ALPN, server accepted to use h2
-* Server certificate:
-*  subject: C=US; ST=wa; L=seattle; O=aws; OU=lattice; CN=liwen.ssl-test.com; emailAddress=liwenwu@amazon.com
-
 ....
 <body>
 <h1>Welcome to nginx!</h1>
@@ -174,7 +139,7 @@ kubectl apply -f files/examples/parking.yaml
 kubectl apply -f files/examples/tls-rate1.yaml
 ```
 
-### 3. Configure ServieExport with TargetGroupPolicy `protocol:TCP` in cluster-2
+### 3. Configure ServiceExport with TargetGroupPolicy `protocol:TCP` in cluster-2
 
 ```
 # Create tls-rate2 Kubernetes Service in cluster-2
@@ -212,7 +177,7 @@ spec:
 kubectl apply -f files/examples/tls-rate2-import.yaml
 ```
 
-### 5. Configure TLSRoute for bluegreen deployment
+### 5. Configure TLSRoute for blue/green deployment
 
 ```
 kubectl apply -f files/examples/rate-tlsroute-bluegreen.yaml

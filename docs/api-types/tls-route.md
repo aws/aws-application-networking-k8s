@@ -7,10 +7,10 @@ This allows you to define and manage end-to-end TLS encrypted traffic routing to
 
 ### Considerations
 
-- `TLSRoute` sectionName must refer to an `TLS` protocol listener with `mode: Passthrough` in the parentRefs `Gateway`.
+- `TLSRoute` sectionName must refer to a `TLS` protocol listener with `mode: Passthrough` in the parentRefs `Gateway`.
 - `TLSRoute` only supports to have one rule.
-- `TLSRoute` doesn't support any rule matching condition.
-- The `hostnames` field with exactly one host name is required. This domain name is used as a vpc lattice's Service Name Indication (SNI) match to route the traffic to the correct backend service.
+- `TLSRoute` does not support any rule matching condition.
+- The `hostnames` field with exactly one host name is required.
 
 
 ## Example Configuration
@@ -47,7 +47,7 @@ In this example:
         mode: Passthrough
 ```
 - The `TLSRoute` is configured to route traffic to a k8s service named `nginx-tls` on port 443.
-- The `hostnames` field is set to `nginx-test.my-test.com`. The customer must use this domain name to send traffic to the nginx service.
+- The `hostnames` field is set to `nginx-test.my-test.com`. The customer must use this hostname to send traffic to the nginx service.
 
 
 For the detailed tls passthrough traffic connectivity setup, please refer the user guide [here](../guides/tls-passthrough.md).
