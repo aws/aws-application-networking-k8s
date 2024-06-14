@@ -181,7 +181,7 @@ You can choose from [Pod Identities](https://docs.aws.amazon.com/eks/latest/user
         # Run helm with either install or upgrade
         helm install gateway-api-controller \
             oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
-            --version=v1.0.5 \
+            --version=v1.0.6 \
             --set=serviceAccount.create=false \
             --namespace aws-application-networking-system \
             --set=log.level=info # use "debug" for debug level logs
@@ -190,7 +190,7 @@ You can choose from [Pod Identities](https://docs.aws.amazon.com/eks/latest/user
     === "Kubectl"
 
         ```bash 
-        kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.0.5.yaml
+        kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.0.6.yaml
         ```
 
 
