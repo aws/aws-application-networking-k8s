@@ -13,4 +13,4 @@ configMapGenerator:
 images:
 - name: controller
   newName: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller
-  newTag: v1.0.5
+  newTag: v1.0.6
