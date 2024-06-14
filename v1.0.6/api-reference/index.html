@@ -1,0 +1,2934 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/v1.0.6/api-reference/">
+      
+      
+        <link rel="prev" href="../guides/environment/">
+      
+      
+        <link rel="next" href="../api-types/access-log-policy/">
+      
+      
+      <link rel="icon" href="../images/controller.png">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.26">
+    
+    
+      
+        <title>API Specification - AWS Gateway API Controller</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.6543a935.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api-specification" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="AWS Gateway API Controller" class="md-header__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+      
+  <img src="../images/controller.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AWS Gateway API Controller
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              API Specification
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="grey"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/aws/aws-application-networking-k8s" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws/aws-application-networking-k8s
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../concepts/concepts/" class="md-tabs__link">
+          
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guides/deploy/" class="md-tabs__link">
+          
+  
+  User Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+    
+  
+  API Specification
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api-types/access-log-policy/" class="md-tabs__link">
+          
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../contributing/developer/" class="md-tabs__link">
+          
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../faq/" class="md-tabs__link">
+        
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="AWS Gateway API Controller" class="md-nav__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+      
+  <img src="../images/controller.png" alt="logo">
+
+    </a>
+    AWS Gateway API Controller
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/aws/aws-application-networking-k8s" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws/aws-application-networking-k8s
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Concepts
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Concepts
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/concepts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Concepts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    User Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            User Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/deploy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Controller Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/getstarted/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/ram-sharing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Cross-Account Sharing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/advanced-configurations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Advanced Configurations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/https/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTPS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/custom-domain-name/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Custom Domain Name
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/grpc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GRPC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/tls-passthrough/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TLS Passthrough
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/pod-readiness-gates/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pod Readiness Gates
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/environment/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    API Specification
+  </span>
+  
+
+      </a>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    API Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/access-log-policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    AccessLogPolicy
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Gateway
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/grpc-route/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GRPCRoute
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/http-route/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTPRoute
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/iam-auth-policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    IAMAuthPolicy
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/service/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/service-export/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ServiceExport
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/service-import/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ServiceImport
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/target-group-policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupPolicy
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-types/vpc-association-policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VpcAssociationPolicy
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Contributing
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/developer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Developer Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/developer-cheat-sheet/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Developer Cheat Sheet
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    FAQ
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="api-specification">API Specification<a class="headerlink" href="#api-specification" title="Permanent link">&para;</a></h1>
+<p>This page contains the API field specification for Gateway API.</p>
+<p>Packages:</p>
+<ul>
+<li>
+<a href="#application-networking.k8s.aws%2fv1alpha1">application-networking.k8s.aws/v1alpha1</a>
+</li>
+</ul>
+<h2 id="application-networking.k8s.aws/v1alpha1">application-networking.k8s.aws/v1alpha1</h2>
+<div>
+</div>
+<p>Resource Types:</p>
+<ul><li>
+<a href="#application-networking.k8s.aws/v1alpha1.AccessLogPolicy">AccessLogPolicy</a>
+</li><li>
+<a href="#application-networking.k8s.aws/v1alpha1.IAMAuthPolicy">IAMAuthPolicy</a>
+</li><li>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceExport">ServiceExport</a>
+</li><li>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceImport">ServiceImport</a>
+</li><li>
+<a href="#application-networking.k8s.aws/v1alpha1.TargetGroupPolicy">TargetGroupPolicy</a>
+</li><li>
+<a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationPolicy">VpcAssociationPolicy</a>
+</li></ul>
+<h3 id="application-networking.k8s.aws/v1alpha1.AccessLogPolicy">AccessLogPolicy
+</h3>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+application-networking.k8s.aws/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>AccessLogPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.AccessLogPolicySpec">
+AccessLogPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>destinationArn</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The Amazon Resource Name (ARN) of the destination that will store access logs.
+Supported values are S3 Bucket, CloudWatch Log Group, and Firehose Delivery Stream ARNs.</p>
+<p>Changes to this value results in replacement of the VPC Lattice Access Log Subscription.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetRef</code><br/>
+<em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
+sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+</a>
+</em>
+</td>
+<td>
+<p>TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.</p>
+<p>This field is following the guidelines of Kubernetes Gateway API policy attachment.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.AccessLogPolicyStatus">
+AccessLogPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<p>Status defines the current state of AccessLogPolicy.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.IAMAuthPolicy">IAMAuthPolicy
+</h3>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+application-networking.k8s.aws/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>IAMAuthPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.IAMAuthPolicySpec">
+IAMAuthPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>policy</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>IAM auth policy content. It is a JSON string that uses the same syntax as AWS IAM policies. Please check the VPC Lattice documentation to get <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html#auth-policies-common-elements">the common elements in an auth policy</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetRef</code><br/>
+<em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
+sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+</a>
+</em>
+</td>
+<td>
+<p>TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.</p>
+<p>This field is following the guidelines of Kubernetes Gateway API policy attachment.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.IAMAuthPolicyStatus">
+IAMAuthPolicyStatus
+</a>
+</em>
+</td>
+<td>
+<p>Status defines the current state of IAMAuthPolicy.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceExport">ServiceExport
+</h3>
+<div>
+<p>ServiceExport declares that the Service with the same name and namespace
+as this export should be consumable from other clusters.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+application-networking.k8s.aws/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ServiceExport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceExportStatus">
+ServiceExportStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>status describes the current state of an exported service.
+Service configuration comes from the Service that had the same
+name and namespace as this ServiceExport.
+Populated by the multi-cluster service implementation&rsquo;s controller.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceImport">ServiceImport
+</h3>
+<div>
+<p>ServiceImport describes a service imported from clusters in a ClusterSet.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+application-networking.k8s.aws/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ServiceImport</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceImportSpec">
+ServiceImportSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>spec defines the behavior of a ServiceImport.</p>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>ports</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServicePort">
+[]ServicePort
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>ips</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ip will be used as the VIP for this service when type is ClusterSetIP.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceImportType">
+ServiceImportType
+</a>
+</em>
+</td>
+<td>
+<p>type defines the type of this service.
+Must be ClusterSetIP or Headless.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sessionAffinity</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#serviceaffinity-v1-core">
+Kubernetes core/v1.ServiceAffinity
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Supports &ldquo;ClientIP&rdquo; and &ldquo;None&rdquo;. Used to maintain session affinity.
+Enable client IP based session affinity.
+Must be ClientIP or None.
+Defaults to None.
+Ignored when type is Headless
+More info: <a href="https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies">https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sessionAffinityConfig</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#sessionaffinityconfig-v1-core">
+Kubernetes core/v1.SessionAffinityConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>sessionAffinityConfig contains session affinity configuration.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceImportStatus">
+ServiceImportStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>status contains information about the exported services that form
+the multi-cluster service referenced by this ServiceImport.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.TargetGroupPolicy">TargetGroupPolicy
+</h3>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+application-networking.k8s.aws/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>TargetGroupPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.TargetGroupPolicySpec">
+TargetGroupPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>protocol</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The protocol to use for routing traffic to the targets. Supported values are HTTP (default) and HTTPS.</p>
+<p>Changes to this value results in a replacement of VPC Lattice target group.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>protocolVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The protocol version to use. Supported values are HTTP1 (default) and HTTP2. When a policy is behind GRPCRoute,
+this field value will be ignored as GRPC is only supported through HTTP/2.</p>
+<p>Changes to this value results in a replacement of VPC Lattice target group.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetRef</code><br/>
+<em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
+sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+</a>
+</em>
+</td>
+<td>
+<p>TargetRef points to the kubernetes Service resource that will have this policy attached.</p>
+<p>This field is following the guidelines of Kubernetes Gateway API policy attachment.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>healthCheck</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.HealthCheckConfig">
+HealthCheckConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The health check configuration.</p>
+<p>Changes to this value will update VPC Lattice resource in place.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.TargetGroupPolicyStatus">
+TargetGroupPolicyStatus
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.VpcAssociationPolicy">VpcAssociationPolicy
+</h3>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+application-networking.k8s.aws/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>VpcAssociationPolicy</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationPolicySpec">
+VpcAssociationPolicySpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>securityGroupIds</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.SecurityGroupId">
+[]SecurityGroupId
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SecurityGroupIds defines the security groups enforced on the VpcServiceNetworkAssociation.
+Security groups does not take effect if AssociateWithVpc is set to false.</p>
+<p>For more details, please check the VPC Lattice documentation <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html">https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>associateWithVpc</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AssociateWithVpc indicates whether the VpcServiceNetworkAssociation should be created for the current VPC of k8s cluster.</p>
+<p>This value will be considered true by default.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetRef</code><br/>
+<em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
+sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+</a>
+</em>
+</td>
+<td>
+<p>TargetRef points to the kubernetes Gateway resource that will have this policy attached.</p>
+<p>This field is following the guidelines of Kubernetes Gateway API policy attachment.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationPolicyStatus">
+VpcAssociationPolicyStatus
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.AccessLogPolicySpec">AccessLogPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.AccessLogPolicy">AccessLogPolicy</a>)
+</p>
+<div>
+<p>AccessLogPolicySpec defines the desired state of AccessLogPolicy.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>destinationArn</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>The Amazon Resource Name (ARN) of the destination that will store access logs.
+Supported values are S3 Bucket, CloudWatch Log Group, and Firehose Delivery Stream ARNs.</p>
+<p>Changes to this value results in replacement of the VPC Lattice Access Log Subscription.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetRef</code><br/>
+<em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
+sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+</a>
+</em>
+</td>
+<td>
+<p>TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.</p>
+<p>This field is following the guidelines of Kubernetes Gateway API policy attachment.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.AccessLogPolicyStatus">AccessLogPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.AccessLogPolicy">AccessLogPolicy</a>)
+</p>
+<div>
+<p>AccessLogPolicyStatus defines the observed state of AccessLogPolicy.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions describe the current conditions of the AccessLogPolicy.</p>
+<p>Implementations should prefer to express Policy conditions
+using the <code>PolicyConditionType</code> and <code>PolicyConditionReason</code>
+constants so that operators and tools can converge on a common
+vocabulary to describe AccessLogPolicy state.</p>
+<p>Known condition types are:</p>
+<ul>
+<li>&ldquo;Accepted&rdquo;</li>
+<li>&ldquo;Ready&rdquo;</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ClusterStatus">ClusterStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceImportStatus">ServiceImportStatus</a>)
+</p>
+<div>
+<p>ClusterStatus contains service configuration mapped to a specific source cluster</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>cluster</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>cluster is the name of the exporting cluster. Must be a valid RFC-1123 DNS
+label.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.HealthCheckConfig">HealthCheckConfig
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.TargetGroupPolicySpec">TargetGroupPolicySpec</a>)
+</p>
+<div>
+<p>HealthCheckConfig defines health check configuration for given VPC Lattice target group.
+For the detailed explanation and supported values, please refer to VPC Lattice documentationon health checks.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Indicates whether health checking is enabled.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>intervalSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The approximate amount of time, in seconds, between health checks of an individual target.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>timeoutSeconds</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The amount of time, in seconds, to wait before reporting a target as unhealthy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>healthyThresholdCount</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The number of consecutive successful health checks required before considering an unhealthy target healthy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>unhealthyThresholdCount</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The number of consecutive failed health checks required before considering a target unhealthy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>statusMatch</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>A regular expression to match HTTP status codes when checking for successful response from a target.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>path</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The destination for health checks on the targets.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>port</code><br/>
+<em>
+int64
+</em>
+</td>
+<td>
+<p>The port used when performing health checks on targets. If not specified, health check defaults to the
+port that a target receives traffic on.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>protocol</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.HealthCheckProtocol">
+HealthCheckProtocol
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The protocol used when performing health checks on targets.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>protocolVersion</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.HealthCheckProtocolVersion">
+HealthCheckProtocolVersion
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The protocol version used when performing health checks on targets. Defaults to HTTP/1.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.HealthCheckProtocol">HealthCheckProtocol
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.HealthCheckConfig">HealthCheckConfig</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;HTTP&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;HTTPS&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.HealthCheckProtocolVersion">HealthCheckProtocolVersion
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.HealthCheckConfig">HealthCheckConfig</a>)
+</p>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;HTTP1&#34;</p></td>
+<td></td>
+</tr><tr><td><p>&#34;HTTP2&#34;</p></td>
+<td></td>
+</tr></tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.IAMAuthPolicySpec">IAMAuthPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.IAMAuthPolicy">IAMAuthPolicy</a>)
+</p>
+<div>
+<p>IAMAuthPolicySpec defines the desired state of IAMAuthPolicy.
+When the controller handles IAMAuthPolicy creation, if the targetRef k8s and VPC Lattice resource exists, the controller will change the auth_type of that VPC Lattice resource to AWS_IAM and attach this policy.
+When the controller handles IAMAuthPolicy deletion, if the targetRef k8s and VPC Lattice resource exists, the controller will change the auth_type of that VPC Lattice resource to NONE and detach this policy.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policy</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>IAM auth policy content. It is a JSON string that uses the same syntax as AWS IAM policies. Please check the VPC Lattice documentation to get <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/auth-policies.html#auth-policies-common-elements">the common elements in an auth policy</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetRef</code><br/>
+<em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
+sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+</a>
+</em>
+</td>
+<td>
+<p>TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.</p>
+<p>This field is following the guidelines of Kubernetes Gateway API policy attachment.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.IAMAuthPolicyStatus">IAMAuthPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.IAMAuthPolicy">IAMAuthPolicy</a>)
+</p>
+<div>
+<p>IAMAuthPolicyStatus defines the observed state of IAMAuthPolicy.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions describe the current conditions of the IAMAuthPolicy.</p>
+<p>Implementations should prefer to express Policy conditions
+using the <code>PolicyConditionType</code> and <code>PolicyConditionReason</code>
+constants so that operators and tools can converge on a common
+vocabulary to describe IAMAuthPolicy state.</p>
+<p>Known condition types are:</p>
+<ul>
+<li>&ldquo;Accepted&rdquo;</li>
+<li>&ldquo;Ready&rdquo;</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.SecurityGroupId">SecurityGroupId
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationPolicySpec">VpcAssociationPolicySpec</a>)
+</p>
+<div>
+</div>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceExportCondition">ServiceExportCondition
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceExportStatus">ServiceExportStatus</a>)
+</p>
+<div>
+<p>ServiceExportCondition contains details for the current condition of this
+service export.</p>
+<p>Once <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-api-machinery/1623-standardize-conditions">KEP-1623</a> is
+implemented, this will be replaced by metav1.Condition.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceExportConditionType">
+ServiceExportConditionType
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#conditionstatus-v1-core">
+Kubernetes core/v1.ConditionStatus
+</a>
+</em>
+</td>
+<td>
+<p>Status is one of {&ldquo;True&rdquo;, &ldquo;False&rdquo;, &ldquo;Unknown&rdquo;}</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastTransitionTime</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>reason</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>message</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceExportConditionType">ServiceExportConditionType
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceExportCondition">ServiceExportCondition</a>)
+</p>
+<div>
+<p>ServiceExportConditionType identifies a specific condition.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;Conflict&#34;</p></td>
+<td><p>ServiceExportConflict means that there is a conflict between two
+exports for the same Service. When &ldquo;True&rdquo;, the condition message
+should contain enough information to diagnose the conflict:
+field(s) under contention, which cluster won, and why.
+Users should not expect detailed per-cluster information in the
+conflict message.</p>
+</td>
+</tr><tr><td><p>&#34;Valid&#34;</p></td>
+<td><p>ServiceExportValid means that the service referenced by this
+service export has been recognized as valid by a controller.
+This will be false if the service is found to be unexportable
+(ExternalName, not found).</p>
+</td>
+</tr></tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceExportStatus">ServiceExportStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceExport">ServiceExport</a>)
+</p>
+<div>
+<p>ServiceExportStatus contains the current status of an export.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceExportCondition">
+[]ServiceExportCondition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceImportSpec">ServiceImportSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceImport">ServiceImport</a>)
+</p>
+<div>
+<p>ServiceImportSpec describes an imported service and the information necessary to consume it.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ports</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServicePort">
+[]ServicePort
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>ips</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ip will be used as the VIP for this service when type is ClusterSetIP.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceImportType">
+ServiceImportType
+</a>
+</em>
+</td>
+<td>
+<p>type defines the type of this service.
+Must be ClusterSetIP or Headless.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sessionAffinity</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#serviceaffinity-v1-core">
+Kubernetes core/v1.ServiceAffinity
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Supports &ldquo;ClientIP&rdquo; and &ldquo;None&rdquo;. Used to maintain session affinity.
+Enable client IP based session affinity.
+Must be ClientIP or None.
+Defaults to None.
+Ignored when type is Headless
+More info: <a href="https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies">https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sessionAffinityConfig</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#sessionaffinityconfig-v1-core">
+Kubernetes core/v1.SessionAffinityConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>sessionAffinityConfig contains session affinity configuration.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceImportStatus">ServiceImportStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceImport">ServiceImport</a>)
+</p>
+<div>
+<p>ServiceImportStatus describes derived state of an imported service.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>clusters</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ClusterStatus">
+[]ClusterStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>clusters is the list of exporting clusters from which this service
+was derived.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceImportType">ServiceImportType
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceImportSpec">ServiceImportSpec</a>)
+</p>
+<div>
+<p>ServiceImportType designates the type of a ServiceImport</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;ClusterSetIP&#34;</p></td>
+<td><p>ClusterSetIP are only accessible via the ClusterSet IP.</p>
+</td>
+</tr><tr><td><p>&#34;Headless&#34;</p></td>
+<td><p>Headless services allow backend pods to be addressed directly.</p>
+</td>
+</tr></tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServicePort">ServicePort
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceImportSpec">ServiceImportSpec</a>)
+</p>
+<div>
+<p>ServicePort represents the port on which the service is exposed</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The name of this port within the service. This must be a DNS_LABEL.
+All ports within a ServiceSpec must have unique names. When considering
+the endpoints for a Service, this must match the &lsquo;name&rsquo; field in the
+EndpointPort.
+Optional if only one ServicePort is defined on this service.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>protocol</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#protocol-v1-core">
+Kubernetes core/v1.Protocol
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The IP protocol for this port. Supports &ldquo;TCP&rdquo;, &ldquo;UDP&rdquo;, and &ldquo;SCTP&rdquo;.
+Default is TCP.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>appProtocol</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The application protocol for this port.
+This field follows standard Kubernetes label syntax.
+Un-prefixed names are reserved for IANA standard service names (as per
+RFC-6335 and <a href="http://www.iana.org/assignments/service-names)">http://www.iana.org/assignments/service-names)</a>.
+Non-standard protocols should use prefixed names such as
+mycompany.com/my-custom-protocol.
+Field can be enabled with ServiceAppProtocol feature gate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>port</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>The port that will be exposed by this service.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.TargetGroupPolicySpec">TargetGroupPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.TargetGroupPolicy">TargetGroupPolicy</a>)
+</p>
+<div>
+<p>TargetGroupPolicySpec defines the desired state of TargetGroupPolicy.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>protocol</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The protocol to use for routing traffic to the targets. Supported values are HTTP (default) and HTTPS.</p>
+<p>Changes to this value results in a replacement of VPC Lattice target group.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>protocolVersion</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The protocol version to use. Supported values are HTTP1 (default) and HTTP2. When a policy is behind GRPCRoute,
+this field value will be ignored as GRPC is only supported through HTTP/2.</p>
+<p>Changes to this value results in a replacement of VPC Lattice target group.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetRef</code><br/>
+<em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
+sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+</a>
+</em>
+</td>
+<td>
+<p>TargetRef points to the kubernetes Service resource that will have this policy attached.</p>
+<p>This field is following the guidelines of Kubernetes Gateway API policy attachment.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>healthCheck</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.HealthCheckConfig">
+HealthCheckConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The health check configuration.</p>
+<p>Changes to this value will update VPC Lattice resource in place.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.TargetGroupPolicyStatus">TargetGroupPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.TargetGroupPolicy">TargetGroupPolicy</a>)
+</p>
+<div>
+<p>TargetGroupPolicyStatus defines the observed state of TargetGroupPolicy.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions describe the current conditions of the AccessLogPolicy.</p>
+<p>Implementations should prefer to express Policy conditions
+using the <code>PolicyConditionType</code> and <code>PolicyConditionReason</code>
+constants so that operators and tools can converge on a common
+vocabulary to describe AccessLogPolicy state.</p>
+<p>Known condition types are:</p>
+<ul>
+<li>&ldquo;Accepted&rdquo;</li>
+<li>&ldquo;Ready&rdquo;</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.VpcAssociationPolicySpec">VpcAssociationPolicySpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationPolicy">VpcAssociationPolicy</a>)
+</p>
+<div>
+<p>VpcAssociationPolicySpec defines the desired state of VpcAssociationPolicy.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>securityGroupIds</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.SecurityGroupId">
+[]SecurityGroupId
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SecurityGroupIds defines the security groups enforced on the VpcServiceNetworkAssociation.
+Security groups does not take effect if AssociateWithVpc is set to false.</p>
+<p>For more details, please check the VPC Lattice documentation <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html">https://docs.aws.amazon.com/vpc-lattice/latest/ug/security-groups.html</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>associateWithVpc</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AssociateWithVpc indicates whether the VpcServiceNetworkAssociation should be created for the current VPC of k8s cluster.</p>
+<p>This value will be considered true by default.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetRef</code><br/>
+<em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
+sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+</a>
+</em>
+</td>
+<td>
+<p>TargetRef points to the kubernetes Gateway resource that will have this policy attached.</p>
+<p>This field is following the guidelines of Kubernetes Gateway API policy attachment.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.VpcAssociationPolicyStatus">VpcAssociationPolicyStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationPolicy">VpcAssociationPolicy</a>)
+</p>
+<div>
+<p>VpcAssociationPolicyStatus defines the observed state of VpcAssociationPolicy.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions describe the current conditions of the VpcAssociationPolicy.</p>
+<p>Implementations should prefer to express Policy conditions
+using the <code>PolicyConditionType</code> and <code>PolicyConditionReason</code>
+constants so that operators and tools can converge on a common
+vocabulary to describe VpcAssociationPolicy state.</p>
+<p>Known condition types are:</p>
+<ul>
+<li>&ldquo;Accepted&rdquo;</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<hr/>
+<p><em>
+Generated with <code>gen-crd-api-reference-docs</code>
+on git commit <code>5de8f32</code>.
+</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../guides/environment/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuration">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Configuration
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../api-types/access-log-policy/" class="md-footer__link md-footer__link--next" aria-label="Next: AccessLogPolicy">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                AccessLogPolicy
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy", "content.code.select", "navigation.path"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.ad660dcc.min.js"></script>
+      
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+      
+    
+  </body>
+</html>

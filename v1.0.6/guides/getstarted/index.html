@@ -1,0 +1,1752 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/v1.0.6/guides/getstarted/">
+      
+      
+        <link rel="prev" href="../deploy/">
+      
+      
+        <link rel="next" href="../ram-sharing/">
+      
+      
+      <link rel="icon" href="../../images/controller.png">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.26">
+    
+    
+      
+        <title>Getting Started - AWS Gateway API Controller</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.6543a935.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#getting-started-with-aws-gateway-api-controller" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="AWS Gateway API Controller" class="md-header__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+      
+  <img src="../../images/controller.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            AWS Gateway API Controller
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Getting Started
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="grey"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/aws/aws-application-networking-k8s" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws/aws-application-networking-k8s
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/concepts/" class="md-tabs__link">
+          
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../deploy/" class="md-tabs__link">
+          
+  
+  User Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../api-reference/" class="md-tabs__link">
+        
+  
+    
+  
+  API Specification
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api-types/access-log-policy/" class="md-tabs__link">
+          
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/developer/" class="md-tabs__link">
+          
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../faq/" class="md-tabs__link">
+        
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="AWS Gateway API Controller" class="md-nav__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+      
+  <img src="../../images/controller.png" alt="logo">
+
+    </a>
+    AWS Gateway API Controller
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/aws/aws-application-networking-k8s" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    aws/aws-application-networking-k8s
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Concepts
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Concepts
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/concepts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Concepts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    User Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            User Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Controller Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-cluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      Single cluster
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-cluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multi-cluster
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cleanup
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ram-sharing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Cross-Account Sharing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced-configurations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Advanced Configurations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../https/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTPS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../custom-domain-name/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Custom Domain Name
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grpc/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GRPC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tls-passthrough/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TLS Passthrough
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pod-readiness-gates/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pod Readiness Gates
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../environment/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    API Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/access-log-policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    AccessLogPolicy
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Gateway
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/grpc-route/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    GRPCRoute
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/http-route/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTPRoute
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/iam-auth-policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    IAMAuthPolicy
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/service/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/service-export/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ServiceExport
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/service-import/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ServiceImport
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/target-group-policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupPolicy
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api-types/vpc-association-policy/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    VpcAssociationPolicy
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Contributing
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/developer/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Developer Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/developer-cheat-sheet/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Developer Cheat Sheet
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    FAQ
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="getting-started-with-aws-gateway-api-controller">Getting Started with AWS Gateway API Controller<a class="headerlink" href="#getting-started-with-aws-gateway-api-controller" title="Permanent link">&para;</a></h1>
+<p>This guide helps you get started using the controller.</p>
+<p>Following this guide, you will:</p>
+<ul>
+<li>Set up service-to-service communications with VPC Lattice on a single cluster.</li>
+<li>Create another service on a second cluster in a different VPC, and route traffic to that service across the two clusters and VPCs.</li>
+</ul>
+<p>Using these examples as a foundation, see the <a href="../../concepts/overview/">Concepts</a> section for ways to further configure service-to-service communications.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>Before proceeding to the next sections, you need to:</p>
+<ul>
+<li>Create a cluster <code>gw-api-controller-demo</code> with the controller following the <a href="../deploy/#deploy-the-controller-on-amazon-eks">AWS Gateway API Controller installation guide on Amazon EKS</a>.</li>
+<li>
+<p>Clone the <a href="https://github.com/aws/aws-application-networking-k8s">AWS Gateway API Controller</a> repository.</p>
+<p><div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span>
+<span class="normal"><a href="#__codelineno-0-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/aws/aws-application-networking-k8s.git
+<a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>aws-application-networking-k8s
+</code></pre></div></td></tr></table></div>
+- Set the AWS Region of your cluster.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>export AWS_REGION=&lt;cluster_region&gt;
+</code></pre></div></p>
+</li>
+</ul>
+<h2 id="single-cluster">Single cluster<a class="headerlink" href="#single-cluster" title="Permanent link">&para;</a></h2>
+<p>This example creates a single cluster in a single VPC, then configures two HTTPRoutes (<code>rates</code> and <code>inventory</code>) and three kubetnetes services (<code>parking</code>, <code>review</code>, and <code>inventory-1</code>). The following figure illustrates this setup:</p>
+<p><img alt="Single cluster/VPC service-to-service communications" src="../../images/example1.png" /></p>
+<p><strong>Setup in-cluster service-to-service communications</strong></p>
+<ol>
+<li>
+<p>AWS Gateway API Controller needs a VPC Lattice service network to operate.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Helm</label><label for="__tabbed_1_2">AWS CLI</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>If you installed the controller with <code>helm</code>, you can update chart configurations by specifying the <code>defaultServiceNetwork</code> variable:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-2-1">1</a></span>
+<span class="normal"><a href="#__codelineno-2-2">2</a></span>
+<span class="normal"><a href="#__codelineno-2-3">3</a></span>
+<span class="normal"><a href="#__codelineno-2-4">4</a></span>
+<span class="normal"><a href="#__codelineno-2-5">5</a></span>
+<span class="normal"><a href="#__codelineno-2-6">6</a></span>
+<span class="normal"><a href="#__codelineno-2-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
+<a id="__codelineno-2-2" name="__codelineno-2-2"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3"></a>oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4"></a>--version<span class="o">=</span>v1.0.5<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5"></a>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6"></a>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7"></a>--set<span class="o">=</span><span class="nv">defaultServiceNetwork</span><span class="o">=</span>my-hotel<span class="w"> </span>
+</code></pre></div></td></tr></table></div>
+</div>
+<div class="tabbed-block">
+<p>You can use AWS CLI to manually create a VPC Lattice service network association to the previously created <code>my-hotel</code> service network:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-3-1">1</a></span>
+<span class="normal"><a href="#__codelineno-3-2">2</a></span>
+<span class="normal"><a href="#__codelineno-3-3">3</a></span>
+<span class="normal"><a href="#__codelineno-3-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>create-service-network<span class="w"> </span>--name<span class="w"> </span>my-hotel
+<a id="__codelineno-3-2" name="__codelineno-3-2"></a><span class="nv">SERVICE_NETWORK_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-networks<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?name==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3"></a><span class="nv">CLUSTER_VPC_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.cluster.resourcesVpcConfig.vpcId<span class="k">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>create-service-network-vpc-association<span class="w"> </span>--service-network-identifier<span class="w"> </span><span class="nv">$SERVICE_NETWORK_ID</span><span class="w"> </span>--vpc-identifier<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span>
+</code></pre></div></td></tr></table></div>
+<p>Ensure the service network created above is ready to accept traffic from the new VPC, by checking if the VPC association status is <code>ACTIVE</code>:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--vpc-id<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="nt">&quot;items&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">        </span><span class="p">{</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">            </span><span class="err">...</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="hll"><span class="w">            </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ACTIVE&quot;</span><span class="p">,</span>
+</span><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">            </span><span class="err">...</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="p">]</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">}</span>
+</code></pre></div></p>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Create the Kubernetes Gateway <code>my-hotel</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/my-hotel-gateway.yaml
+</code></pre></div>
+<p>Verify that <code>my-hotel</code> Gateway is created with <code>PROGRAMMED</code> status equals to <code>True</code>:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>gateway
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>NAME       CLASS                ADDRESS   PROGRAMMED   AGE
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>my-hotel   amazon-vpc-lattice               True      7d12h
+</code></pre></div></p>
+</li>
+<li>
+<p>Create the Kubernetes HTTPRoute <code>rates</code> that can has path matches routing to the <code>parking</code> service and <code>review</code> service:
+   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-9-1">1</a></span>
+<span class="normal"><a href="#__codelineno-9-2">2</a></span>
+<span class="normal"><a href="#__codelineno-9-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/parking.yaml
+<a id="__codelineno-9-2" name="__codelineno-9-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/review.yaml
+<a id="__codelineno-9-3" name="__codelineno-9-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/rate-route-path.yaml
+</code></pre></div></td></tr></table></div></p>
+</li>
+<li>Create another Kubernetes HTTPRoute <code>inventory</code>:
+   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-10-1">1</a></span>
+<span class="normal"><a href="#__codelineno-10-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver1.yaml
+<a id="__codelineno-10-2" name="__codelineno-10-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route.yaml
+</code></pre></div></td></tr></table></div></li>
+<li>
+<p>Find out HTTPRoute's DNS name from HTTPRoute status:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>httproute
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>NAME        HOSTNAMES   AGE
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>inventory               51s
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>rates                   6m11s
+</code></pre></div></p>
+</li>
+<li>
+<p>Check VPC Lattice generated DNS address for HTTPRoute <code>inventory</code> and <code>rates</code> <strong>(this could take up to one minute to populate)</strong>:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>inventory<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>    apiVersion: gateway.networking.k8s.io/v1beta1
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    kind: HTTPRoute
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    metadata:
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>        annotations:
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="hll">        application-networking.k8s.aws/lattice-assigned-domain-name: inventory-default-xxxxxx.xxxxx.vpc-lattice-svcs.us-west-2.on.aws
+</span><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    ...
+</code></pre></div></p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>rates<span class="w"> </span>-o<span class="w"> </span>yaml
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>    apiVersion: gateway.networking.k8s.io/v1beta1
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    kind: HTTPRoute
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    metadata:
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>        annotations:
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>        application-networking.k8s.aws/lattice-assigned-domain-name: rates-default-xxxxxx.xxxxxxxxx.vpc-lattice-svcs.us-west-2.on.aws
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    ...
+</code></pre></div></p>
+</li>
+<li>
+<p>If the previous step returns the expected response, store VPC Lattice assigned DNS names to variables.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-17-1">1</a></span>
+<span class="normal"><a href="#__codelineno-17-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1"></a><span class="nv">ratesFQDN</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>rates<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.metadata.annotations.&quot;application-networking.k8s.aws/lattice-assigned-domain-name&quot;&#39;</span><span class="k">)</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2"></a><span class="nv">inventoryFQDN</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>inventory<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.metadata.annotations.&quot;application-networking.k8s.aws/lattice-assigned-domain-name&quot;&#39;</span><span class="k">)</span>
+</code></pre></div></td></tr></table></div>
+<p>Confirm that the URLs are stored correctly:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$ratesFQDN</span><span class="s2"> \n</span><span class="nv">$inventoryFQDN</span><span class="s2">&quot;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>rates-default-xxxxxx.xxxxxxxxx.vpc-lattice-svcs.us-west-2.on.aws 
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>inventory-default-xxxxxx.xxxxx.vpc-lattice-svcs.us-west-2.on.aws
+</code></pre></div></p>
+</li>
+</ol>
+<p><strong>Verify service-to-service communications</strong></p>
+<ol>
+<li>
+<p>Check connectivity from the <code>inventory-ver1</code> service to <code>parking</code> and <code>review</code> services:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/inventory-ver1<span class="w"> </span>--<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span><span class="nv">$ratesFQDN</span>/parking<span class="w"> </span><span class="nv">$ratesFQDN</span>/review
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>Requsting to Pod(parking-xxxxx): parking handler pod
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>Requsting to Pod(review-xxxxxx): review handler pod
+</code></pre></div>
+</li>
+<li>
+<p>Check connectivity from the <code>parking</code> service to the <code>inventory-ver1</code> service:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/parking<span class="w"> </span>--<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span><span class="nv">$inventoryFQDN</span>
+</code></pre></div>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>Requsting to Pod(inventory-xxx): Inventory-ver1 handler pod
+</code></pre></div>
+   Now you could confirm the service-to-service communications within one cluster is working as expected.</p>
+</li>
+</ol>
+<h2 id="multi-cluster">Multi-cluster<a class="headerlink" href="#multi-cluster" title="Permanent link">&para;</a></h2>
+<p>This section builds on the previous one. We will be migrating the Kubernetes <code>inventory</code> service from a the EKS cluster we previously created to new cluster in a different VPC, located in the same AWS Account.</p>
+<p><img alt="Multiple clusters/VPCs service-to-service communications" src="../../images/example2.png" /></p>
+<p><strong>Set up <code>inventory-ver2</code> service and serviceExport in the second cluster</strong></p>
+<div class="admonition warning aws region">
+<p class="admonition-title">Warning</p>
+<p>VPC Lattice is a regional service, so you will need to create this second cluster in the same AWS Region as <code>gw-api-controller-demo</code>. Keep this in mind when setting <code>AWS_REGION</code> variable in the following steps.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>export AWS_REGION=&lt;clusters_region&gt;
+</code></pre></div></p>
+</div>
+<ol>
+<li>
+<p>Create a second Kubernetes cluster <code>gw-api-controller-demo-2</code> with the Controller installed (using the <a href="../deploy/#deploy-the-controller-on-amazon-eks">same instructions to create and install the controller on Amazon EKS</a> used to create the first). </p>
+</li>
+<li>
+<p>For sake of simplicity, lets set some alias for our clusters in the Kubernetes config file.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-25-1">1</a></span>
+<span class="normal"><a href="#__codelineno-25-2">2</a></span>
+<span class="normal"><a href="#__codelineno-25-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1"></a>aws<span class="w"> </span>eks<span class="w"> </span>update-kubeconfig<span class="w"> </span>--name<span class="w"> </span>gw-api-controller-demo<span class="w"> </span>--region<span class="w"> </span><span class="nv">$AWS_REGION</span><span class="w"> </span>--alias<span class="w"> </span>gw-api-controller-demo
+<a id="__codelineno-25-2" name="__codelineno-25-2"></a>aws<span class="w"> </span>eks<span class="w"> </span>update-kubeconfig<span class="w"> </span>--name<span class="w"> </span>gw-api-controller-demo-2<span class="w"> </span>--region<span class="w"> </span><span class="nv">$AWS_REGION</span><span class="w"> </span>--alias<span class="w"> </span>gw-api-controller-demo-2
+<a id="__codelineno-25-3" name="__codelineno-25-3"></a>kubectl<span class="w"> </span>config<span class="w"> </span>get-contexts
+</code></pre></div></td></tr></table></div>
+</li>
+<li>
+<p>Ensure you're using the second cluster's <code>kubectl</code> context.
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>current-context
+</code></pre></div>
+   If your context is set to the first cluster, switch it to use the second cluster one:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
+</code></pre></div></p>
+</li>
+<li>
+<p>Create the service network association.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Helm</label><label for="__tabbed_2_2">AWS CLI</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>If you installed the controller with <code>helm</code>, you can update chart configurations by specifying the <code>defaultServiceNetwork</code> variable:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-28-1">1</a></span>
+<span class="normal"><a href="#__codelineno-28-2">2</a></span>
+<span class="normal"><a href="#__codelineno-28-3">3</a></span>
+<span class="normal"><a href="#__codelineno-28-4">4</a></span>
+<span class="normal"><a href="#__codelineno-28-5">5</a></span>
+<span class="normal"><a href="#__codelineno-28-6">6</a></span>
+<span class="normal"><a href="#__codelineno-28-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
+<a id="__codelineno-28-2" name="__codelineno-28-2"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3"></a>oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-4" name="__codelineno-28-4"></a>--version<span class="o">=</span>v1.0.5<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5"></a>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6"></a>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-7" name="__codelineno-28-7"></a>--set<span class="o">=</span><span class="nv">defaultServiceNetwork</span><span class="o">=</span>my-hotel<span class="w"> </span>
+</code></pre></div></td></tr></table></div>
+</div>
+<div class="tabbed-block">
+<p>You can use AWS CLI to manually create a VPC Lattice service network association to the previously created <code>my-hotel</code> service network:</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-29-1">1</a></span>
+<span class="normal"><a href="#__codelineno-29-2">2</a></span>
+<span class="normal"><a href="#__codelineno-29-3">3</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1"></a><span class="nv">SERVICE_NETWORK_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-networks<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?name==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2"></a><span class="nv">CLUSTER_VPC_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.cluster.resourcesVpcConfig.vpcId<span class="k">)</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>create-service-network-vpc-association<span class="w"> </span>--service-network-identifier<span class="w"> </span><span class="nv">$SERVICE_NETWORK_ID</span><span class="w"> </span>--vpc-identifier<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span>
+</code></pre></div></td></tr></table></div>
+<p>Ensure the service network created above is ready to accept traffic from the new VPC, by checking if the VPC association status is <code>ACTIVE</code>:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--vpc-id<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="p">{</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="w">    </span><span class="nt">&quot;items&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">        </span><span class="p">{</span>
+<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="w">            </span><span class="err">...</span>
+<a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="hll"><span class="w">            </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ACTIVE&quot;</span><span class="p">,</span>
+</span><a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a><span class="w">            </span><span class="err">...</span>
+<a id="__codelineno-31-7" name="__codelineno-31-7" href="#__codelineno-31-7"></a><span class="w">        </span><span class="p">}</span>
+<a id="__codelineno-31-8" name="__codelineno-31-8" href="#__codelineno-31-8"></a><span class="w">    </span><span class="p">]</span>
+<a id="__codelineno-31-9" name="__codelineno-31-9" href="#__codelineno-31-9"></a><span class="p">}</span>
+</code></pre></div></p>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Create the Kubernetes Gateway <code>my-hotel</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/my-hotel-gateway.yaml
+</code></pre></div>
+<p>Verify that <code>my-hotel</code> Gateway is created with <code>PROGRAMMED</code> status equals to <code>True</code>:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>gateway
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>NAME       CLASS                ADDRESS   PROGRAMMED   AGE
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>my-hotel   amazon-vpc-lattice               True      7d12h
+</code></pre></div></p>
+</li>
+<li>
+<p>Create a Kubernetes inventory-ver2 service in the second cluster:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2.yaml
+</code></pre></div></p>
+</li>
+<li>Export this Kubernetes inventory-ver2 from the second cluster, so that it can be referenced by HTTPRoute in the first cluster:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-export.yaml
+</code></pre></div></li>
+</ol>
+<p><strong>Switch back to the first cluster</strong></p>
+<ol>
+<li>Switch context back to the first cluster
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+</code></pre></div></li>
+<li>Create Kubernetes service import <code>inventory-ver2</code> in the first cluster:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-import.yaml
+</code></pre></div></li>
+<li>Update the HTTPRoute <code>inventory</code> rules to route 10% traffic to the first cluster and 90% traffic to the second cluster:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route-bluegreen.yaml
+</code></pre></div></li>
+<li>
+<p>Check the service-to-service connectivity from <code>parking</code>(in the first cluster) to <code>inventory-ver1</code>(in in the first cluster) and <code>inventory-ver2</code>(in in the second cluster):
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="nv">inventoryFQDN</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>inventory<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.metadata.annotations.&quot;application-networking.k8s.aws/lattice-assigned-domain-name&quot;&#39;</span><span class="k">)</span>
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/parking<span class="w"> </span>--<span class="w"> </span>sh<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;for ((i=1; i&lt;=30; i++)); do curl -s &quot;$0&quot;; done&#39;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$inventoryFQDN</span><span class="s2">&quot;</span>
+</code></pre></div></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod &lt;----&gt; in 2nd cluster
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod &lt;----&gt; in 1st cluster
+<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a>Requesting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
+</code></pre></div>
+<p>You can see that the traffic is distributed between <code>inventory-ver1</code> and <code>inventory-ver2</code> as expected.</p>
+</li>
+</ol>
+<h2 id="cleanup">Cleanup<a class="headerlink" href="#cleanup" title="Permanent link">&para;</a></h2>
+<p>To avoid additional charges, remove the demo infrastructure from your AWS account.</p>
+<p><strong>Multi-cluster</strong></p>
+<p>Delete resources in the Multi-cluster walkthrough.</p>
+<div class="admonition warning set your aws region">
+<p class="admonition-title">Warning</p>
+<p>Remember that you need to have the AWS Region set.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AWS_REGION</span><span class="o">=</span>&lt;cluster_region&gt;
+</code></pre></div></p>
+</div>
+<ol>
+<li>
+<p>Cleanup VPC Lattice service and service import in <code>gw-api-controller-demo</code> cluster:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route-bluegreen.yaml
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-import.yaml
+</code></pre></div></p>
+</li>
+<li>
+<p>Delete service export and applications in <code>gw-api-controller-demo-2</code> cluster:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-export.yaml
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2.yaml
+</code></pre></div></p>
+</li>
+<li>
+<p>Delete the service network association <strong>(this could take up to one minute)</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo-2
+<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a><span class="nv">CLUSTER_VPC_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.cluster.resourcesVpcConfig.vpcId<span class="k">)</span>
+<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a><span class="nv">SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--vpc-id<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span><span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?serviceNetworkName==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-45-4" name="__codelineno-45-4" href="#__codelineno-45-4"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>delete-service-network-vpc-association<span class="w">  </span>--service-network-vpc-association-identifier<span class="w"> </span><span class="nv">$SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span>
+</code></pre></div></p>
+</li>
+</ol>
+<p><strong>Single cluster</strong></p>
+<p>Delete resources in the Single cluster walkthrough.</p>
+<div class="admonition warning set your aws region">
+<p class="admonition-title">Warning</p>
+<p>Remember that you need to have the AWS Region set.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AWS_REGION</span><span class="o">=</span>&lt;cluster_region&gt;
+</code></pre></div></p>
+</div>
+<ol>
+<li>
+<p>Delete VPC Lattice services and applications in <code>gw-api-controller-demo</code> cluster:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+<a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route.yaml
+<a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver1.yaml
+<a id="__codelineno-47-4" name="__codelineno-47-4" href="#__codelineno-47-4"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/rate-route-path.yaml
+<a id="__codelineno-47-5" name="__codelineno-47-5" href="#__codelineno-47-5"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/parking.yaml
+<a id="__codelineno-47-6" name="__codelineno-47-6" href="#__codelineno-47-6"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/review.yaml
+<a id="__codelineno-47-7" name="__codelineno-47-7" href="#__codelineno-47-7"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/my-hotel-gateway.yaml
+</code></pre></div></p>
+</li>
+<li>
+<p>Delete the service network association <strong>(this could take up to one minute)</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo
+<a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a><span class="nv">CLUSTER_VPC_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.cluster.resourcesVpcConfig.vpcId<span class="k">)</span>
+<a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a><span class="nv">SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--vpc-id<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span><span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?serviceNetworkName==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>delete-service-network-vpc-association<span class="w">  </span>--service-network-vpc-association-identifier<span class="w"> </span><span class="nv">$SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span>
+</code></pre></div></p>
+</li>
+</ol>
+<p><strong>Cleanup VPC Lattice Resources</strong></p>
+<ol>
+<li>
+<p>Cleanup controllers in <code>gw-api-controller-demo</code> and <code>gw-api-controller-demo-2</code> clusters:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Helm</label><label for="__tabbed_3_2">Kubectl</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+<a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo
+<a id="__codelineno-49-3" name="__codelineno-49-3" href="#__codelineno-49-3"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
+<a id="__codelineno-49-4" name="__codelineno-49-4" href="#__codelineno-49-4"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>gateway-api-controller<span class="w"> </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span>
+<a id="__codelineno-49-5" name="__codelineno-49-5" href="#__codelineno-49-5"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
+<a id="__codelineno-49-6" name="__codelineno-49-6" href="#__codelineno-49-6"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo-2
+<a id="__codelineno-49-7" name="__codelineno-49-7" href="#__codelineno-49-7"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
+<a id="__codelineno-49-8" name="__codelineno-49-8" href="#__codelineno-49-8"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>gateway-api-controller<span class="w"> </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.0.4.yaml
+<a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
+<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.0.4.yaml
+</code></pre></div>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the service network:</p>
+<ol>
+<li>Ensure the service network associations have been deleted (do not move forward if the deletion is still <code>IN PROGRESS</code>):
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a><span class="nv">SN_IDENTIFIER</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-networks<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?name==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--service-network-identifier<span class="w"> </span><span class="nv">$SN_IDENTIFIER</span>
+</code></pre></div></li>
+<li>Delete <code>my-hotel</code> service network:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>delete-service-network<span class="w"> </span>--service-network-identifier<span class="w"> </span><span class="nv">$SN_IDENTIFIER</span>
+</code></pre></div></li>
+<li>Ensure the service network <code>my-hotel</code> is deleted:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-networks
+</code></pre></div></li>
+</ol>
+</li>
+</ol>
+<p><strong>Cleanup the clusters</strong></p>
+<p>Finally, remember to delete the clusters you created for this walkthrough:</p>
+<ol>
+<li>
+<p>Delete <code>gw-api-controller-demo</code> cluster:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>eksctl<span class="w"> </span>delete<span class="w"> </span>cluster<span class="w"> </span>--name<span class="o">=</span>gw-api-controller-demo
+<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a>k<span class="w"> </span>config<span class="w"> </span>delete-context<span class="w"> </span>gw-api-controller-demo
+</code></pre></div></p>
+</li>
+<li>
+<p>Delete <code>gw-api-controller-demo-2</code> cluster:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>eksctl<span class="w"> </span>delete<span class="w"> </span>cluster<span class="w"> </span>--name<span class="o">=</span>gw-api-controller-demo-2
+<a id="__codelineno-55-2" name="__codelineno-55-2" href="#__codelineno-55-2"></a>k<span class="w"> </span>config<span class="w"> </span>delete-context<span class="w"> </span>gw-api-controller-demo-2
+</code></pre></div></p>
+</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../deploy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Controller Installation">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Controller Installation
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../ram-sharing/" class="md-footer__link md-footer__link--next" aria-label="Next: Cross-Account Sharing">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Cross-Account Sharing
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy", "content.code.select", "navigation.path"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.ad660dcc.min.js"></script>
+      
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+      
+    
+  </body>
+</html>
