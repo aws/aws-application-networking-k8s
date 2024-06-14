@@ -28,6 +28,7 @@ nav:
     - Gateway: api-types/gateway.md
     - GRPCRoute: api-types/grpc-route.md
     - HTTPRoute: api-types/http-route.md
+    - TLSRoute: api-types/tls-route.md
     - IAMAuthPolicy:  api-types/iam-auth-policy.md
     - Service: api-types/service.md
     - ServiceExport: api-types/service-export.md
