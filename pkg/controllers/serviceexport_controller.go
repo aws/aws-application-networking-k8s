@@ -91,7 +91,7 @@ func RegisterServiceExportController(
 		if err != nil {
 			return err
 		}
-		log.Infof("TargetGroupPolicy CRD is not installed, skipping watch")
+		log.Infof(context.TODO(), "TargetGroupPolicy CRD is not installed, skipping watch")
 	}
 
 	return builder.Complete(r)
@@ -102,10 +102,14 @@ func RegisterServiceExportController(
 //+kubebuilder:rbac:groups=application-networking.k8s.aws,resources=serviceexports/finalizers,verbs=update
 
 func (r *serviceExportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow("reconcile", "name", req.Name)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "serviceexport", req.Name, req.Namespace)
+	defer func() {
+		gwlog.EndReconcileTrace(ctx, r.log)
+	}()
+
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
-		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	return lattice_runtime.HandleReconcileError(recErr)
 }
@@ -120,7 +124,7 @@ func (r *serviceExportReconciler) reconcile(ctx context.Context, req ctrl.Reques
 	if srvExport.ObjectMeta.Annotations["application-networking.k8s.aws/federation"] != "amazon-vpc-lattice" {
 		return nil
 	}
-	r.log.Debugf("Found matching service export %s-%s", srvExport.Name, srvExport.Namespace)
+	r.log.Debugf(ctx, "Found matching service export %s-%s", srvExport.Name, srvExport.Namespace)
 
 	if !srvExport.DeletionTimestamp.IsZero() {
 		if err := r.buildAndDeployModel(ctx, srvExport); err != nil {
@@ -128,7 +132,7 @@ func (r *serviceExportReconciler) reconcile(ctx context.Context, req ctrl.Reques
 		}
 		err := r.finalizerManager.RemoveFinalizers(ctx, srvExport, serviceExportFinalizer)
 		if err != nil {
-			r.log.Errorf("Failed to remove finalizers for service export %s-%s due to %s",
+			r.log.Errorf(ctx, "Failed to remove finalizers for service export %s-%s due to %s",
 				srvExport.Name, srvExport.Namespace, err)
 		}
 		return nil
@@ -150,7 +154,7 @@ func (r *serviceExportReconciler) buildAndDeployModel(
 	stack, err := r.modelBuilder.Build(ctx, srvExport)
 
 	if err != nil {
-		r.log.Debugf("Failed to buildAndDeployModel for service export %s-%s due to %s",
+		r.log.Debugf(ctx, "Failed to buildAndDeployModel for service export %s-%s due to %s",
 			srvExport.Name, srvExport.Namespace, err)
 
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,
@@ -162,9 +166,9 @@ func (r *serviceExportReconciler) buildAndDeployModel(
 
 	json, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
-		r.log.Errorf("Error on marshalling model for service export %s-%s", srvExport.Name, srvExport.Namespace)
+		r.log.Errorf(ctx, "Error on marshalling model for service export %s-%s", srvExport.Name, srvExport.Namespace)
 	}
-	r.log.Debugf("stack: %s", json)
+	r.log.Debugf(ctx, "stack: %s", json)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		r.eventRecorder.Event(srvExport, corev1.EventTypeWarning,
@@ -172,6 +176,6 @@ func (r *serviceExportReconciler) buildAndDeployModel(
 		return err
 	}
 
-	r.log.Debugf("Successfully deployed model for service export %s-%s", srvExport.Name, srvExport.Namespace)
+	r.log.Debugf(ctx, "Successfully deployed model for service export %s-%s", srvExport.Name, srvExport.Namespace)
 	return err
 }

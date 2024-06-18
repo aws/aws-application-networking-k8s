@@ -144,7 +144,7 @@ func (r *ruleSynthesizer) adjustPriorities(ctx context.Context, snlStackRules ma
 		for _, rule := range activeRules {
 			if rule.Spec.Priority != rule.Status.Priority {
 				// *any* mismatch in priority prompts a batch update of ALL priorities
-				r.log.Debugf("Found rule priority mismatch, update required")
+				r.log.Debugf(ctx, "Found rule priority mismatch, update required")
 
 				var rulesToUpdate []*model.Rule
 				for _, snlRule := range activeRules {

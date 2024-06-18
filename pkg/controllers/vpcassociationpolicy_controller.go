@@ -55,12 +55,17 @@ func RegisterVpcAssociationPolicyController(log gwlog.Logger, cloud pkg_aws.Clou
 }
 
 func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = gwlog.StartReconcileTrace(ctx, c.log, "vpcassociationpolicy", req.Name, req.Namespace)
+	defer func() {
+		gwlog.EndReconcileTrace(ctx, c.log)
+	}()
+
 	k8sPolicy := &anv1alpha1.VpcAssociationPolicy{}
 	err := c.client.Get(ctx, req.NamespacedName, k8sPolicy)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	c.log.Infow("reconcile", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
+	c.log.Infow(ctx, "reconcile", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
 
 	isDelete := !k8sPolicy.DeletionTimestamp.IsZero()
 	isAssociation := k8sPolicy.Spec.AssociateWithVpc == nil || *k8sPolicy.Spec.AssociateWithVpc
@@ -71,11 +76,11 @@ func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 		err = c.upsert(ctx, k8sPolicy)
 	}
 	if err != nil {
-		c.log.Infof("reconcile error, retry in 30 sec: %s", err)
+		c.log.Infof(ctx, "reconcile error, retry in 30 sec: %s", err)
 		return ctrl.Result{RequeueAfter: time.Second * 30}, nil
 	}
 
-	c.log.Infow("reconciled vpc association policy",
+	c.log.Infow(ctx, "reconciled vpc association policy",
 		"req", req,
 		"targetRef", k8sPolicy.Spec.TargetRef,
 		"isDeleted", isDelete,

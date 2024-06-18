@@ -78,13 +78,18 @@ func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud p
 //
 // Policy Attachment Spec is defined in [GEP-713]: https://gateway-api.sigs.k8s.io/geps/gep-713/.
 func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = gwlog.StartReconcileTrace(ctx, c.log, "iamauthpolicy", req.Name, req.Namespace)
+	defer func() {
+		gwlog.EndReconcileTrace(ctx, c.log)
+	}()
+
 	k8sPolicy := &anv1alpha1.IAMAuthPolicy{}
 	err := c.client.Get(ctx, req.NamespacedName, k8sPolicy)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	c.log.Infow("reconcile IAM policy", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
+	c.log.Infow(ctx, "reconcile IAM policy", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
 	isDelete := !k8sPolicy.DeletionTimestamp.IsZero()
 
 	var res ctrl.Result
@@ -102,7 +107,7 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, err
 	}
 
-	c.log.Infow("reconciled IAM policy",
+	c.log.Infow(ctx, "reconciled IAM policy",
 		"req", req,
 		"targetRef", k8sPolicy.Spec.TargetRef,
 		"isDeleted", isDelete,

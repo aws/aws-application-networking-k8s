@@ -153,7 +153,7 @@ func (gc *TgGc) start() {
 		for {
 			select {
 			case <-gc.ctx.Done():
-				gc.log.Info("stop GC, ctx is done")
+				gc.log.Info(context.TODO(), "stop GC, ctx is done")
 				gc.isDone.Store(true)
 				return
 			case <-ticker.C:
@@ -166,16 +166,16 @@ func (gc *TgGc) start() {
 func (gc *TgGc) cycle() {
 	defer func() {
 		if r := recover(); r != nil {
-			gc.log.Errorf("gc cycle panic: %s", r)
+			gc.log.Errorf(context.TODO(), "gc cycle panic: %s", r)
 		}
 		gc.lock.Unlock()
 	}()
 	gc.lock.Lock()
 	res, err := gc.cycleFn(gc.ctx)
 	if err != nil {
-		gc.log.Debugf("gc cycle error: %s", err)
+		gc.log.Debugf(context.TODO(), "gc cycle error: %s", err)
 	}
-	gc.log.Debugw("gc stats",
+	gc.log.Debugw(context.TODO(), "gc stats",
 		"delete_attempts", res.att,
 		"delete_success", res.succ,
 		"duration", res.duration,

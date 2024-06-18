@@ -105,13 +105,13 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 		return model.TargetGroupStatus{},
 			fmt.Errorf("Failed CreateTargetGroup %s due to %s", latticeTgName, err)
 	}
-	s.log.Infof("Success CreateTargetGroup %s", latticeTgName)
+	s.log.Infof(ctx, "Success CreateTargetGroup %s", latticeTgName)
 
 	latticeTgStatus := aws.StringValue(resp.Status)
 	if latticeTgStatus != vpclattice.TargetGroupStatusActive &&
 		latticeTgStatus != vpclattice.TargetGroupStatusCreateInProgress {
 
-		s.log.Infof("Target group is not in the desired state. State is %s, will retry", latticeTgStatus)
+		s.log.Infof(ctx, "Target group is not in the desired state. State is %s, will retry", latticeTgStatus)
 		return model.TargetGroupStatus{}, errors.New(LATTICE_RETRY)
 	}
 
@@ -127,7 +127,7 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *mod
 	healthCheckConfig := targetGroup.Spec.HealthCheckConfig
 
 	if healthCheckConfig == nil {
-		s.log.Debugf("HealthCheck is empty. Resetting to default settings")
+		s.log.Debugf(ctx, "HealthCheck is empty. Resetting to default settings")
 		healthCheckConfig = &vpclattice.HealthCheckConfig{}
 	}
 	s.fillDefaultHealthCheckConfig(healthCheckConfig, targetGroup.Spec.Protocol, targetGroup.Spec.ProtocolVersion)
@@ -161,7 +161,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 
 		if latticeTgSummary == nil {
 			// nothing to delete
-			s.log.Infof("Target group with name prefix %s does not exist, nothing to delete", model.TgNamePrefix(modelTg.Spec))
+			s.log.Infof(ctx, "Target group with name prefix %s does not exist, nothing to delete", model.TgNamePrefix(modelTg.Spec))
 			return nil
 		}
 
@@ -171,7 +171,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 			Id:   aws.StringValue(latticeTgSummary.Id),
 		}
 	}
-	s.log.Debugf("Deleting target group %s", modelTg.Status.Id)
+	s.log.Debugf(ctx, "Deleting target group %s", modelTg.Status.Id)
 
 	lattice := s.cloud.Lattice()
 
@@ -183,7 +183,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 	listResp, err := lattice.ListTargetsAsList(ctx, &listTargetsInput)
 	if err != nil {
 		if services.IsLatticeAPINotFoundErr(err) {
-			s.log.Debugf("Target group %s was already deleted", modelTg.Status.Id)
+			s.log.Debugf(ctx, "Target group %s was already deleted", modelTg.Status.Id)
 			return nil
 		}
 		return fmt.Errorf("failed ListTargets %s due to %s", modelTg.Status.Id, err)
@@ -223,7 +223,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
 					modelTg.Status.Id, i+1, len(chunks), deregisterResponse.Unsuccessful))
 			}
-			s.log.Debugf("Successfully deregistered targets from VPC Lattice Target Group %s for chunk %d/%d", modelTg.Status.Id, i+1, len(chunks))
+			s.log.Debugf(ctx, "Successfully deregistered targets from VPC Lattice Target Group %s for chunk %d/%d", modelTg.Status.Id, i+1, len(chunks))
 		}
 		if deregisterTargetsError != nil {
 			return deregisterTargetsError
@@ -236,14 +236,14 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 	_, err = lattice.DeleteTargetGroupWithContext(ctx, &deleteTGInput)
 	if err != nil {
 		if services.IsLatticeAPINotFoundErr(err) {
-			s.log.Infof("Target group %s was already deleted", modelTg.Status.Id)
+			s.log.Infof(ctx, "Target group %s was already deleted", modelTg.Status.Id)
 			return nil
 		} else {
 			return fmt.Errorf("failed DeleteTargetGroup %s due to %s", modelTg.Status.Id, err)
 		}
 	}
 
-	s.log.Infof("Success DeleteTargetGroup %s", modelTg.Status.Id)
+	s.log.Infof(ctx, "Success DeleteTargetGroup %s", modelTg.Status.Id)
 	return nil
 }
 
@@ -458,7 +458,7 @@ func (s *defaultTargetGroupManager) findSvcExportTG(ctx context.Context, svcImpo
 // ResolveRuleTgIds populates all target group ids in the rule's actions
 func (s *defaultTargetGroupManager) ResolveRuleTgIds(ctx context.Context, ruleAction *model.RuleAction, stack core.Stack) error {
 	if len(ruleAction.TargetGroups) == 0 {
-		s.log.Debugf("no target groups to resolve for rule")
+		s.log.Debugf(ctx, "no target groups to resolve for rule")
 		return nil
 	}
 	for i, ruleActionTg := range ruleAction.TargetGroups {
@@ -466,16 +466,16 @@ func (s *defaultTargetGroupManager) ResolveRuleTgIds(ctx context.Context, ruleAc
 			return errors.New("rule TG is missing a required target group identifier")
 		}
 		if ruleActionTg.LatticeTgId != "" {
-			s.log.Debugf("Rule TG %d already resolved %s", i, ruleActionTg.LatticeTgId)
+			s.log.Debugf(ctx, "Rule TG %d already resolved %s", i, ruleActionTg.LatticeTgId)
 			continue
 		}
 		if ruleActionTg.StackTargetGroupId != "" {
 			if ruleActionTg.StackTargetGroupId == model.InvalidBackendRefTgId {
-				s.log.Debugf("Rule TG has an invalid backendref, setting TG id to invalid")
+				s.log.Debugf(ctx, "Rule TG has an invalid backendref, setting TG id to invalid")
 				ruleActionTg.LatticeTgId = model.InvalidBackendRefTgId
 				continue
 			}
-			s.log.Debugf("Fetching TG %d from the stack (ID %s)", i, ruleActionTg.StackTargetGroupId)
+			s.log.Debugf(ctx, "Fetching TG %d from the stack (ID %s)", i, ruleActionTg.StackTargetGroupId)
 			stackTg := &model.TargetGroup{}
 			err := stack.GetResource(ruleActionTg.StackTargetGroupId, stackTg)
 			if err != nil {
@@ -487,7 +487,7 @@ func (s *defaultTargetGroupManager) ResolveRuleTgIds(ctx context.Context, ruleAc
 			ruleActionTg.LatticeTgId = stackTg.Status.Id
 		}
 		if ruleActionTg.SvcImportTG != nil {
-			s.log.Debugf("Getting target group for service import %s %s (%s, %s)",
+			s.log.Debugf(ctx, "Getting target group for service import %s %s (%s, %s)",
 				ruleActionTg.SvcImportTG.K8SServiceName, ruleActionTg.SvcImportTG.K8SServiceNamespace,
 				ruleActionTg.SvcImportTG.K8SClusterName, ruleActionTg.SvcImportTG.VpcId)
 			tgId, err := s.findSvcExportTG(ctx, *ruleActionTg.SvcImportTG)

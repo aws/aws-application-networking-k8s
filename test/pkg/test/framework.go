@@ -149,7 +149,7 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 }
 
 func (env *Framework) ExpectToBeClean(ctx context.Context) {
-	env.Log.Info("Expecting the test environment to be clean")
+	env.Log.Info(ctx, "Expecting the test environment to be clean")
 	// Kubernetes API Objects
 	parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
 		defer GinkgoRecover()
@@ -159,14 +159,14 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	tags[model.K8SServiceNamespaceKey] = aws.String(K8sNamespace)
 	Eventually(func(g Gomega) {
 		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeService, tags)
-		env.Log.Infow("Expecting no services created by the controller", "found", arns, "err", err)
+		env.Log.Infow(ctx, "Expecting no services created by the controller", "found", arns, "err", err)
 		g.Expect(err).To(BeNil())
 		g.Expect(arns).To(BeEmpty())
 	}).Should(Succeed())
 
 	Eventually(func(g Gomega) {
 		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeTargetGroup, tags)
-		env.Log.Infow("Expecting no target groups created by the controller", "found", arns, "err", err)
+		env.Log.Infow(ctx, "Expecting no target groups created by the controller", "found", arns, "err", err)
 		g.Expect(err).To(BeNil())
 		g.Expect(arns).To(BeEmpty())
 	}).Should(Succeed())
@@ -183,14 +183,14 @@ func objectsInfo(objs []client.Object) string {
 }
 
 func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Object) {
-	env.Log.Infof("Creating objects: %s", objectsInfo(objects))
+	env.Log.Infof(ctx, "Creating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
 		Expect(env.Create(ctx, obj)).WithOffset(1).To(Succeed())
 	})
 }
 
 func (env *Framework) ExpectUpdated(ctx context.Context, objects ...client.Object) {
-	env.Log.Infof("Updating objects: %s", objectsInfo(objects))
+	env.Log.Infof(ctx, "Updating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
 		Expect(env.Update(ctx, obj)).WithOffset(1).To(Succeed())
 	})
@@ -216,7 +216,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 	}
 
 	if len(routeObjects) > 0 {
-		env.Log.Infof("Found %d route objects", len(routeObjects))
+		env.Log.Infof(ctx, "Found %d route objects", len(routeObjects))
 
 		for _, route := range routeObjects {
 			// for routes, we can speed up deletion by first removing their rules
@@ -231,28 +231,28 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 				http := &gwv1.HTTPRoute{}
 				err := env.Get(ctx, nsName, http)
 				if err != nil {
-					env.Log.Infof("Error getting http route %s", err)
+					env.Log.Infof(ctx, "Error getting http route %s", err)
 					continue
 				}
 
-				env.Log.Infof("Clearing http route rules for %s", http.Name)
+				env.Log.Infof(ctx, "Clearing http route rules for %s", http.Name)
 				http.Spec.Rules = make([]gwv1.HTTPRouteRule, 0)
 				err = env.Update(ctx, http)
 				if err != nil {
-					env.Log.Infof("Error clearing http route rules %s", err)
+					env.Log.Infof(ctx, "Error clearing http route rules %s", err)
 				}
 			} else if grpcRouteType == t {
 				grpc := &gwv1alpha2.GRPCRoute{}
 				err := env.Get(ctx, nsName, grpc)
 				if err != nil {
-					env.Log.Infof("Error getting grpc route %s", err)
+					env.Log.Infof(ctx, "Error getting grpc route %s", err)
 					continue
 				}
-				env.Log.Infof("Clearing grpc route rules for %s", grpc.Name)
+				env.Log.Infof(ctx, "Clearing grpc route rules for %s", grpc.Name)
 				grpc.Spec.Rules = make([]gwv1alpha2.GRPCRouteRule, 0)
 				err = env.Update(ctx, grpc)
 				if err != nil {
-					env.Log.Infof("Error clearing grpc route rules %s", err)
+					env.Log.Infof(ctx, "Error clearing grpc route rules %s", err)
 				}
 			}
 		}
@@ -261,13 +261,13 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 		env.SleepForRouteUpdate()
 	}
 
-	env.Log.Infof("Deleting objects: %s", objectsInfo(objects))
+	env.Log.Infof(ctx, "Deleting objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
 		err := env.Delete(ctx, obj)
 		if err != nil {
 			// not found is probably OK - means it was deleted elsewhere
 			if !errors.IsNotFound(err) {
-				env.Log.Error(err)
+				env.Log.Error(ctx, err.Error())
 				Expect(err).ToNot(HaveOccurred())
 			}
 		}
@@ -279,7 +279,7 @@ func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object clien
 }
 
 func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) {
-	env.Log.Infof("Waiting for NotFound, objects: %s", objectsInfo(objects))
+	env.Log.Infof(ctx, "Waiting for NotFound, objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
 		if obj != nil {
 			Eventually(func(g Gomega) {
@@ -366,7 +366,7 @@ func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *c
 	Eventually(func(g Gomega) {
 		tg, err := env.FindTargetGroupFromSpec(ctx, tgSpec)
 		if err != nil {
-			gwlog.FallbackLogger.Infof("Error getting target group %s, %s due to %s",
+			gwlog.FallbackLogger.Infof(ctx, "Error getting target group %s, %s due to %s",
 				tgSpec.K8SServiceName, tgSpec.K8SServiceNamespace, err)
 		}
 		g.Expect(err).To(BeNil())
@@ -376,7 +376,7 @@ func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *c
 		found = tg
 	}).WithOffset(1).Should(Succeed())
 
-	gwlog.FallbackLogger.Infof("Found target group %s, %s", *found.Name, *found.Id)
+	gwlog.FallbackLogger.Infof(ctx, "Found target group %s, %s", *found.Name, *found.Id)
 	return found
 }
 
@@ -495,13 +495,13 @@ func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpc
 }
 
 func (env *Framework) AreAllLatticeTargetsHealthy(ctx context.Context, tg *vpclattice.TargetGroupSummary) (bool, error) {
-	env.Log.Infof("Checking whether AreAllLatticeTargetsHealthy for targetGroup: %v", tg)
+	env.Log.Infof(ctx, "Checking whether AreAllLatticeTargetsHealthy for targetGroup: %v", tg)
 	targets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: tg.Id})
 	if err != nil {
 		return false, err
 	}
 	for _, target := range targets {
-		env.Log.Infof("Checking target: %v", target)
+		env.Log.Infof(ctx, "Checking target: %v", target)
 		if *target.Status != vpclattice.TargetStatusHealthy {
 			return false, nil
 		}

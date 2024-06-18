@@ -172,9 +172,9 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	mockCloud.EXPECT().DefaultTagsMergedWith(gomock.Any()).Return(mocks.Tags{}).AnyTimes()
 
 	// we expect a fair number of lattice calls
-	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().ListTargetsAsList(gomock.Any(), gomock.Any()).Return(
 		[]*vpclattice.TargetSummary{}, nil)
-	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().ListTargetsAsList(gomock.Any(), gomock.Any()).Return(
 		[]*vpclattice.TargetSummary{
 			{
 				Id:   aws.String("192.0.2.22"),
@@ -185,7 +185,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 				Port: aws.Int64(8090),
 			},
 		}, nil)
-	mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().RegisterTargetsWithContext(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.RegisterTargetsOutput{
 			Successful: []*vpclattice.Target{
 				{
@@ -198,7 +198,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 				},
 			},
 		}, nil)
-	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: vpclattice.ServiceNetworkSummary{
 				Arn:  aws.String("sn-arn"),
@@ -206,22 +206,22 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 				Name: aws.String("sn-name"),
 			},
 		}, nil)
-	mockLattice.EXPECT().FindService(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		nil, mocks.NewNotFoundError("Service", "svc-name")) // will trigger create
-	mockLattice.EXPECT().CreateServiceWithContext(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().CreateServiceWithContext(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.CreateServiceOutput{
 			Arn:    aws.String("svc-arn"),
 			Id:     aws.String("svc-id"),
 			Name:   aws.String("svc-name"),
 			Status: aws.String(vpclattice.ServiceStatusActive),
 		}, nil)
-	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.CreateServiceNetworkServiceAssociationOutput{
 			Arn:    aws.String("sns-assoc-arn"),
 			Id:     aws.String("sns-assoc-id"),
 			Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
 		}, nil)
-	mockLattice.EXPECT().FindService(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ServiceSummary{
 			Arn:    aws.String("svc-arn"),
 			Id:     aws.String("svc-id"),
@@ -233,10 +233,10 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			},
 		}, nil) // will trigger DNS Update
 
-	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
-	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(
+	mockTagging.EXPECT().FindResourcesByTags(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockLattice.EXPECT().ListTargetGroupsAsList(gomock.Any(), gomock.Any()).Return(
 		[]*vpclattice.TargetGroupSummary{}, nil).AnyTimes() // this will cause us to skip "unused delete" step
-	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().CreateTargetGroupWithContext(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.CreateTargetGroupOutput{
 			Arn:    aws.String("tg-arn"),
 			Id:     aws.String("tg-id"),
@@ -244,12 +244,12 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			Status: aws.String(vpclattice.TargetGroupStatusActive),
 		}, nil)
 
-	mockLattice.EXPECT().ListListenersWithContext(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().ListListenersWithContext(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.ListListenersOutput{
 			Items:     []*vpclattice.ListenerSummary{},
 			NextToken: nil,
 		}, nil).AnyTimes()
-	mockLattice.EXPECT().CreateListenerWithContext(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().CreateListenerWithContext(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.CreateListenerOutput{
 			Arn:        aws.String("listener-arn"),
 			Id:         aws.String("listener-id"),
@@ -258,9 +258,9 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			ServiceId:  aws.String("svc-id"),
 		}, nil)
 
-	mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().GetRulesAsList(gomock.Any(), gomock.Any()).Return(
 		[]*vpclattice.GetRuleOutput{}, nil)
-	mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().CreateRuleWithContext(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.CreateRuleOutput{
 			Arn:      aws.String("rule-arn"),
 			Id:       aws.String("rule-id"),
@@ -268,7 +268,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			Priority: aws.Int64(1),
 		}, nil)
 	// List is called after create, so we'll return what we have
-	mockLattice.EXPECT().ListRulesAsList(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().ListRulesAsList(gomock.Any(), gomock.Any()).Return(
 		[]*vpclattice.RuleSummary{
 			{
 				Arn:       aws.String("rule-arn"),

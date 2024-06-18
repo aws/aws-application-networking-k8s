@@ -79,7 +79,7 @@ var _ = Describe("HTTPRoute Update", func() {
 				g.Expect(*tg2.Status).To(Equal(vpclattice.TargetGroupStatusActive))
 			}).WithPolling(15 * time.Second).WithTimeout(2 * time.Minute).Should(Succeed())
 
-			gwlog.FallbackLogger.Infof("Found TG1 %s and TG2 %s", aws.StringValue(tg1.Id), aws.StringValue(tg2.Id))
+			gwlog.FallbackLogger.Infof(ctx, "Found TG1 %s and TG2 %s", aws.StringValue(tg1.Id), aws.StringValue(tg2.Id))
 			Expect(aws.StringValue(tg1.Id) != aws.StringValue(tg2.Id)).To(BeTrue())
 
 			// deletion of one should not affect the other

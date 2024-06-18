@@ -165,16 +165,16 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 			annotationResId:   snId,
 		}
 		testK8sPolicy(policy, wantResults)
-		log.Infof("policy accepted: %+v", wantResults)
+		log.Infof(ctx, "policy accepted: %+v", wantResults)
 
 		// applied
 		testLatticeSnPolicy(snId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
-		log.Infof("policy applied for SN=%s", snId)
+		log.Infof(ctx, "policy applied for SN=%s", snId)
 
 		// removed
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
 		testLatticeSnPolicy(snId, vpclattice.AuthTypeNone, NoPolicy)
-		log.Infof("policy removed from SN=%s", snId)
+		log.Infof(ctx, "policy removed from SN=%s", snId)
 	})
 
 	It("accepted, applied, and removed from HTTPRoute", func() {
@@ -189,16 +189,16 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 			annotationResId:   svcId,
 		}
 		testK8sPolicy(policy, wantResults)
-		log.Infof("policy accepted: %+v", wantResults)
+		log.Infof(ctx, "policy accepted: %+v", wantResults)
 
 		// applied
 		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
-		log.Infof("policy applied for Svc=%s", svcId)
+		log.Infof(ctx, "policy applied for Svc=%s", svcId)
 
 		// removed
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
 		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
-		log.Infof("policy removed from Svc=%s", svcId)
+		log.Infof(ctx, "policy removed from Svc=%s", svcId)
 	})
 })
 

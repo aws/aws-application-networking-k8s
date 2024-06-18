@@ -98,13 +98,13 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 
 	targetRef := policy.GetTargetRef()
 	if targetRef == nil {
-		r.log.Infow("Policy does not have targetRef, skipping",
+		r.log.Infow(ctx, "Policy does not have targetRef, skipping",
 			"policyName", policyNamespacedName)
 		return null
 	}
 	expectedGroup, expectedKind, err := k8sResourceTypeToGroupAndKind(retObj)
 	if err != nil {
-		r.log.Errorw("Failed to get expected GroupKind for targetRefObj",
+		r.log.Errorw(ctx, "Failed to get expected GroupKind for targetRefObj",
 			"policyName", policyNamespacedName,
 			"targetRef", targetRef,
 			"reason", err.Error())
@@ -112,7 +112,7 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 	}
 
 	if targetRef.Group != expectedGroup || targetRef.Kind != expectedKind {
-		r.log.Infow("Detected targetRef GroupKind and expected retObj GroupKind are different, skipping",
+		r.log.Infow(ctx, "Detected targetRef GroupKind and expected retObj GroupKind are different, skipping",
 			"policyName", policyNamespacedName,
 			"targetRef", targetRef,
 			"expectedGroup", expectedGroup,
@@ -120,7 +120,7 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 		return null
 	}
 	if targetRef.Namespace != nil && policyNamespacedName.Namespace != string(*targetRef.Namespace) {
-		r.log.Infow("Detected Policy and TargetRef namespace are different, skipping",
+		r.log.Infow(ctx, "Detected Policy and TargetRef namespace are different, skipping",
 			"policyNamespacedName", policyNamespacedName, "targetRef", targetRef,
 			"targetRef.Namespace", targetRef.Namespace,
 			"policyNamespacedName.Namespace", policyNamespacedName.Namespace)
@@ -133,16 +133,16 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 	}
 	if err := r.client.Get(ctx, key, retObj); err != nil {
 		if errors.IsNotFound(err) {
-			r.log.Debugw("Policy is referring to a non-existent targetRefObj, skipping",
+			r.log.Debugw(ctx, "Policy is referring to a non-existent targetRefObj, skipping",
 				"policyName", policyNamespacedName, "targetRef", targetRef)
 		} else {
 			// Still gracefully skipping the event but errors other than NotFound are bad sign.
-			r.log.Errorw("Failed to query targetRef of TargetGroupPolicy",
+			r.log.Errorw(ctx, "Failed to query targetRef of TargetGroupPolicy",
 				"policyName", policyNamespacedName, "targetRef", targetRef, "reason", err.Error())
 		}
 		return null
 	}
-	r.log.Debugw("Policy change on Service detected",
+	r.log.Debugw(ctx, "Policy change on Service detected",
 		"policyName", policyNamespacedName, "targetRef", targetRef)
 
 	return retObj

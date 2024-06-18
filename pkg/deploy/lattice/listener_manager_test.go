@@ -510,7 +510,7 @@ func Test_defaultListenerManager_getLatticeListenerDefaultAction_HTTP_HTTPS_List
 				log:   gwlog.FallbackLogger,
 				cloud: cloud,
 			}
-			got, err := d.getLatticeListenerDefaultAction(modelListener)
+			got, err := d.getLatticeListenerDefaultAction(context.TODO(), modelListener)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -643,7 +643,7 @@ func Test_ListenerManager_getLatticeListenerDefaultAction_TLS_PASSTHROUGH_Listen
 				log:   gwlog.FallbackLogger,
 				cloud: cloud,
 			}
-			gotDefaultAction, err := d.getLatticeListenerDefaultAction(modelListener)
+			gotDefaultAction, err := d.getLatticeListenerDefaultAction(context.TODO(), modelListener)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
@@ -90,7 +91,7 @@ func RegisterGatewayController(
 			},
 		})
 		if err != nil {
-			log.Infof("Could not setup default service network %s, proceeding without it - %s",
+			log.Infof(context.TODO(), "Could not setup default service network %s, proceeding without it - %s",
 				config.DefaultServiceNetwork, err.Error())
 		}
 	}
@@ -109,7 +110,7 @@ func RegisterGatewayController(
 	if ok {
 		builder.Watches(&anv1alpha1.VpcAssociationPolicy{}, vpcAssociationPolicyEventHandler.MapToGateway())
 	} else {
-		log.Infof("VpcAssociationPolicy CRD is not installed, skipping watch")
+		log.Infof(context.TODO(), "VpcAssociationPolicy CRD is not installed, skipping watch")
 	}
 	return builder.Complete(r)
 }
@@ -119,18 +120,22 @@ func RegisterGatewayController(
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/finalizers,verbs=update
 
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow("reconcile", "name", req.Name)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "gateway", req.Name, req.Namespace)
+	defer func() {
+		gwlog.EndReconcileTrace(ctx, r.log)
+	}()
+
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
-		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
-		r.log.Infow("requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
+		r.log.Infow(ctx, "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
 	} else if res.Requeue {
-		r.log.Infow("requeue request", "name", req.Name)
+		r.log.Infow(ctx, "requeue request", "name", req.Name)
 	} else if retryErr == nil {
-		r.log.Infow("reconciled", "name", req.Name)
+		r.log.Infow(ctx, "reconciled", "name", req.Name)
 	}
 	return res, retryErr
 }
@@ -149,12 +154,12 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	}
 
 	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
-		r.log.Infow("GatewayClass is not found", "name", req.Name, "gwclass", gwClassName)
+		r.log.Infow(ctx, "GatewayClass is not found", "name", req.Name, "gwclass", gwClassName)
 		return client.IgnoreNotFound(err)
 	}
 
 	if gwClass.Spec.ControllerName != config.LatticeGatewayControllerName {
-		r.log.Infow("GatewayClass is not recognized", "name", req.Name, "gwClassControllerName", gwClass.Spec.ControllerName)
+		r.log.Infow(ctx, "GatewayClass is not recognized", "name", req.Name, "gwClassControllerName", gwClass.Spec.ControllerName)
 		return nil
 	}
 
