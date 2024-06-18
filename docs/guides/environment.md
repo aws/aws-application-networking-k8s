@@ -88,3 +88,17 @@ When set as "true", the controller will start the webhook listener responsible f
 successfully without the TLS certificate for the webhook in place. While this can be fixed by running 
 `scripts/gen-webhook-cert.sh`, it requires manual action. The webhook is enabled by default for the Helm install
 as the Helm install will also generate the necessary certificate.
+
+---
+
+#### `DISABLE_TAGGING_SERVICE_API`
+
+**Type:** *string*
+
+**Default:** ""
+
+When set as "true", the controller will not use the [AWS Resource Groups Tagging API](https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/overview.html). 
+
+The Resource Groups Tagging API is only available on the public internet and customers using private clusters will need to enable this feature. When enabled, the controller will use VPC Lattice APIs to lookup tags which are not as performant and requires more API calls.
+
+The Helm chart sets this value to "false" by default.
