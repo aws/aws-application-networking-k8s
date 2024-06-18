@@ -1,8 +1,6 @@
 module github.com/aws/aws-application-networking-k8s/test
 
-go 1.21
-
-toolchain go1.22.1
+go 1.20
 
 replace github.com/aws/aws-application-networking-k8s => ../
 
