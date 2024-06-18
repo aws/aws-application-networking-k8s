@@ -6,15 +6,13 @@ import (
 	"github.com/google/uuid"
 )
 
-const metadataKey string = "metadata_key"
+type key string
+
+const metadataKey key = "metadata_key"
 const traceID string = "trace_id"
 
 type metadata struct {
 	m map[string]string
-}
-
-func (mv *metadata) get(key string) string {
-	return mv.m[key]
 }
 
 func (mv *metadata) set(key, val string) {
