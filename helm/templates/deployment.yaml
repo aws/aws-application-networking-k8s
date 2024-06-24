@@ -95,6 +95,8 @@ spec:
             value: {{ .Values.log.level | quote }}
           - name: WEBHOOK_ENABLED
             value: {{ .Values.webhookEnabled | quote }}
+          - name: DISABLE_TAGGING_SERVICE_API
+            value: {{ .Values.disableTaggingServiceApi | quote }}
       terminationGracePeriodSeconds: 10
       volumes:
         - name: webhook-cert
