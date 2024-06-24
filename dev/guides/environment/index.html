@@ -861,6 +861,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#disable_tagging_service_api" class="md-nav__link">
+    <span class="md-ellipsis">
+      DISABLE_TAGGING_SERVICE_API
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1358,6 +1367,13 @@ The created service network will be also associated with cluster VPC.</p>
 successfully without the TLS certificate for the webhook in place. While this can be fixed by running 
 <code>scripts/gen-webhook-cert.sh</code>, it requires manual action. The webhook is enabled by default for the Helm install
 as the Helm install will also generate the necessary certificate.</p>
+<hr />
+<h4 id="disable_tagging_service_api"><code>DISABLE_TAGGING_SERVICE_API</code><a class="headerlink" href="#disable_tagging_service_api" title="Permanent link">&para;</a></h4>
+<p><strong>Type:</strong> <em>string</em></p>
+<p><strong>Default:</strong> ""</p>
+<p>When set as "true", the controller will not use the <a href="https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/overview.html">AWS Resource Groups Tagging API</a>. </p>
+<p>The Resource Groups Tagging API is only available on the public internet and customers using private clusters will need to enable this feature. When enabled, the controller will use VPC Lattice APIs to lookup tags which are not as performant and requires more API calls.</p>
+<p>The Helm chart sets this value to "false" by default.</p>
 
 
 
