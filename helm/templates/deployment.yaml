@@ -113,3 +113,6 @@ spec:
       {{ if .Values.deployment.priorityClassName -}}
       priorityClassName: {{ .Values.deployment.priorityClassName }}
       {{ end -}}
+      {{ if .Values.deployment.topologySpreadConstraints -}}
+      topologySpreadConstraints: {{ .Values.deployment.topologySpreadConstraints | toYaml | nindent 8 }}
+      {{ end -}}
