@@ -37,7 +37,7 @@ spec:
   parentRefs:
   - name: my-hotel
     sectionName: http 
-  - name: my-hotel      # Specify the parertRefs name
+  - name: my-hotel      # Specify the parentRefs name
     sectionName: https  # Specify all traffic MUST use HTTPs
   rules:
 ...
