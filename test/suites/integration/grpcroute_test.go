@@ -2,6 +2,7 @@ package integration
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
@@ -10,8 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -24,7 +24,7 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		grpcBinService           *v1.Service
 		grpcHelloWorldDeployment *appsv1.Deployment
 		grpcHelloWorldService    *v1.Service
-		grpcRoute                *v1alpha2.GRPCRoute
+		grpcRoute                *gwv1.GRPCRoute
 		latticeService           *vpclattice.ServiceSummary
 	)
 
@@ -36,16 +36,16 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 
 	When("Create a grpcRoute that have one rule with no matches BackendRef to grpcBinService", func() {
 		It("Expect create grpcRoute successfully", func() {
-			grpcRoute = testFramework.NewGRPCRoute(k8snamespace, testGateway, []v1alpha2.GRPCRouteRule{
+			grpcRoute = testFramework.NewGRPCRoute(k8snamespace, testGateway, []gwv1.GRPCRouteRule{
 				{
-					BackendRefs: []v1alpha2.GRPCBackendRef{
+					BackendRefs: []gwv1.GRPCBackendRef{
 						{
-							BackendRef: v1alpha2.BackendRef{
-								BackendObjectReference: v1beta1.BackendObjectReference{
-									Name:      v1alpha2.ObjectName(grpcBinService.Name),
-									Namespace: lo.ToPtr(v1beta1.Namespace(grpcBinService.Namespace)),
-									Kind:      lo.ToPtr(v1beta1.Kind("Service")),
-									Port:      lo.ToPtr(v1beta1.PortNumber(19000)),
+							BackendRef: gwv1.BackendRef{
+								BackendObjectReference: gwv1.BackendObjectReference{
+									Name:      gwv1.ObjectName(grpcBinService.Name),
+									Namespace: lo.ToPtr(gwv1.Namespace(grpcBinService.Namespace)),
+									Kind:      lo.ToPtr(gwv1.Kind("Service")),
+									Port:      lo.ToPtr(gwv1.PortNumber(19000)),
 								},
 							},
 						},
@@ -70,7 +70,7 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 				g.Expect(len(rules)).To(Equal(1))
 				g.Expect(*rules[0].Match.HttpMatch.Method).To(Equal("POST"))
 				g.Expect(*rules[0].Match.HttpMatch.PathMatch.Match.Prefix).To(Equal("/"))
-			}).Should(Succeed())
+			}).Within(30 * time.Second).Should(Succeed())
 		})
 
 		Context("Traffic test: client pod (grpcurl-runner) can send request to all services/methods of grpcBinService", func() {
@@ -132,11 +132,11 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 			Expect(grpcRoute).To(Not(BeNil()))
 			err := testFramework.Get(ctx, client.ObjectKeyFromObject(grpcRoute), grpcRoute)
 			Expect(err).To(BeNil())
-			grpcRoute.Spec.Rules = []v1alpha2.GRPCRouteRule{
+			grpcRoute.Spec.Rules = []gwv1.GRPCRouteRule{
 				{
-					Matches: []v1alpha2.GRPCRouteMatch{
+					Matches: []gwv1.GRPCRouteMatch{
 						{
-							Headers: []v1alpha2.GRPCHeaderMatch{
+							Headers: []gwv1.GRPCHeaderMatch{
 								{
 									Name:  "test-key1",
 									Value: "test-value1",
@@ -150,21 +150,21 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 									Value: "test-value3",
 								},
 							},
-							Method: &v1alpha2.GRPCMethodMatch{
-								Type:    lo.ToPtr(v1alpha2.GRPCMethodMatchExact),
+							Method: &gwv1.GRPCMethodMatch{
+								Type:    lo.ToPtr(gwv1.GRPCMethodMatchExact),
 								Service: lo.ToPtr("grpcbin.GRPCBin"),
 								Method:  lo.ToPtr("HeadersUnary"),
 							},
 						},
 					},
-					BackendRefs: []v1alpha2.GRPCBackendRef{
+					BackendRefs: []gwv1.GRPCBackendRef{
 						{
-							BackendRef: v1alpha2.BackendRef{
-								BackendObjectReference: v1beta1.BackendObjectReference{
-									Name:      v1alpha2.ObjectName(grpcBinService.Name),
-									Namespace: lo.ToPtr(v1beta1.Namespace(grpcBinService.Namespace)),
-									Kind:      lo.ToPtr(v1beta1.Kind("Service")),
-									Port:      lo.ToPtr(v1beta1.PortNumber(19000)),
+							BackendRef: gwv1.BackendRef{
+								BackendObjectReference: gwv1.BackendObjectReference{
+									Name:      gwv1.ObjectName(grpcBinService.Name),
+									Namespace: lo.ToPtr(gwv1.Namespace(grpcBinService.Namespace)),
+									Kind:      lo.ToPtr(gwv1.Kind("Service")),
+									Port:      lo.ToPtr(gwv1.PortNumber(19000)),
 								},
 							},
 						},
@@ -264,38 +264,38 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		It("Expect update GRPCRoute successfully", func() {
 			err := testFramework.Get(ctx, client.ObjectKeyFromObject(grpcRoute), grpcRoute)
 			Expect(err).To(BeNil())
-			grpcRoute.Spec.Rules = []v1alpha2.GRPCRouteRule{
+			grpcRoute.Spec.Rules = []gwv1.GRPCRouteRule{
 				{
-					Matches: []v1alpha2.GRPCRouteMatch{
+					Matches: []gwv1.GRPCRouteMatch{
 						{
-							Method: &v1alpha2.GRPCMethodMatch{
-								Type:    lo.ToPtr(v1alpha2.GRPCMethodMatchExact),
+							Method: &gwv1.GRPCMethodMatch{
+								Type:    lo.ToPtr(gwv1.GRPCMethodMatchExact),
 								Service: lo.ToPtr("addsvc.Add"),
 							},
 						},
 					},
-					BackendRefs: []v1alpha2.GRPCBackendRef{
+					BackendRefs: []gwv1.GRPCBackendRef{
 						{
-							BackendRef: v1alpha2.BackendRef{
-								BackendObjectReference: v1beta1.BackendObjectReference{
-									Name:      v1alpha2.ObjectName(grpcBinService.Name),
-									Namespace: lo.ToPtr(v1beta1.Namespace(grpcBinService.Namespace)),
-									Kind:      lo.ToPtr(v1beta1.Kind("Service")),
-									Port:      lo.ToPtr(v1beta1.PortNumber(19000)),
+							BackendRef: gwv1.BackendRef{
+								BackendObjectReference: gwv1.BackendObjectReference{
+									Name:      gwv1.ObjectName(grpcBinService.Name),
+									Namespace: lo.ToPtr(gwv1.Namespace(grpcBinService.Namespace)),
+									Kind:      lo.ToPtr(gwv1.Kind("Service")),
+									Port:      lo.ToPtr(gwv1.PortNumber(19000)),
 								},
 							},
 						},
 					},
 				},
 				{
-					BackendRefs: []v1alpha2.GRPCBackendRef{
+					BackendRefs: []gwv1.GRPCBackendRef{
 						{
-							BackendRef: v1alpha2.BackendRef{
-								BackendObjectReference: v1beta1.BackendObjectReference{
-									Name:      v1alpha2.ObjectName(grpcHelloWorldService.Name),
-									Namespace: lo.ToPtr(v1beta1.Namespace(grpcHelloWorldService.Namespace)),
-									Kind:      lo.ToPtr(v1beta1.Kind("Service")),
-									Port:      lo.ToPtr(v1beta1.PortNumber(10051)),
+							BackendRef: gwv1.BackendRef{
+								BackendObjectReference: gwv1.BackendObjectReference{
+									Name:      gwv1.ObjectName(grpcHelloWorldService.Name),
+									Namespace: lo.ToPtr(gwv1.Namespace(grpcHelloWorldService.Namespace)),
+									Kind:      lo.ToPtr(gwv1.Kind("Service")),
+									Port:      lo.ToPtr(gwv1.PortNumber(10051)),
 								},
 							},
 						},

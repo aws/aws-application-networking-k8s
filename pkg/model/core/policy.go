@@ -10,7 +10,7 @@ import (
 type Policy interface {
 	client.Object
 	GetNamespacedName() types.NamespacedName
-	GetTargetRef() *gwv1alpha2.PolicyTargetReference
+	GetTargetRef() *gwv1alpha2.NamespacedPolicyTargetReference
 	GetStatusConditions() []apimachineryv1.Condition
 	SetStatusConditions(conditions []apimachineryv1.Condition)
 }

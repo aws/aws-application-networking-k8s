@@ -8,7 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -50,7 +50,7 @@ func RegisterVpcAssociationPolicyController(log gwlog.Logger, cloud pkg_aws.Clou
 
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.VpcAssociationPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}))
-	ph.AddWatchers(b, &gwv1beta1.Gateway{})
+	ph.AddWatchers(b, &gwv1.Gateway{})
 	return b.Complete(controller)
 }
 

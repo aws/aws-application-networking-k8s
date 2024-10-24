@@ -11,7 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
 )
 
@@ -19,7 +19,7 @@ func Test_SynthesizeService(t *testing.T) {
 	now := metav1.Now()
 	tests := []struct {
 		name          string
-		httpRoute     *gwv1beta1.HTTPRoute
+		httpRoute     *gwv1.HTTPRoute
 		serviceARN    string
 		serviceID     string
 		mgrErr        error
@@ -30,13 +30,13 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Add LatticeService",
 
-			httpRoute: &gwv1beta1.HTTPRoute{
+			httpRoute: &gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service1",
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -53,15 +53,15 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Delete LatticeService",
 
-			httpRoute: &gwv1beta1.HTTPRoute{
+			httpRoute: &gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service2",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name: "gateway2",
 							},
@@ -78,13 +78,13 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Add LatticeService, return error need to retry",
 
-			httpRoute: &gwv1beta1.HTTPRoute{
+			httpRoute: &gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service3",
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name: "gateway1",
 							},
@@ -101,15 +101,15 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Delete LatticeService, but need retry",
 
-			httpRoute: &gwv1beta1.HTTPRoute{
+			httpRoute: &gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "service4",
 					Finalizers:        []string{"gateway.k8s.aws/resources"},
 					DeletionTimestamp: &now,
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name: "gateway2",
 							},
@@ -126,13 +126,13 @@ func Test_SynthesizeService(t *testing.T) {
 		{
 			name: "Add LatticeService, getting error registering DNS",
 
-			httpRoute: &gwv1beta1.HTTPRoute{
+			httpRoute: &gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "service3",
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name: "gateway1",
 							},

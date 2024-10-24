@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -95,9 +95,9 @@ func RegisterAccessLogPolicyController(
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.AccessLogPolicy{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&gwv1beta1.Gateway{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&gwv1beta1.HTTPRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&gwv1alpha2.GRPCRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&gwv1.Gateway{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&gwv1.HTTPRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&gwv1.GRPCRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&gwv1alpha2.TLSRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 
 	return builder.Complete(r)
@@ -164,9 +164,9 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
-	if alp.Spec.TargetRef.Group != gwv1beta1.GroupName {
+	if alp.Spec.TargetRef.Group != gwv1.GroupName {
 		message := fmt.Sprintf("The targetRef's Group must be \"%s\" but was \"%s\"",
-			gwv1beta1.GroupName, alp.Spec.TargetRef.Group)
+			gwv1.GroupName, alp.Spec.TargetRef.Group)
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
@@ -238,13 +238,13 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 
 	switch alp.Spec.TargetRef.Kind {
 	case "Gateway":
-		gw := &gwv1beta1.Gateway{}
+		gw := &gwv1.Gateway{}
 		err = r.client.Get(ctx, targetRefNamespacedName, gw)
 	case "HTTPRoute":
-		httpRoute := &gwv1beta1.HTTPRoute{}
+		httpRoute := &gwv1.HTTPRoute{}
 		err = r.client.Get(ctx, targetRefNamespacedName, httpRoute)
 	case "GRPCRoute":
-		grpcRoute := &gwv1alpha2.GRPCRoute{}
+		grpcRoute := &gwv1.GRPCRoute{}
 		err = r.client.Get(ctx, targetRefNamespacedName, grpcRoute)
 	default:
 		return false, fmt.Errorf("Access Log Policy targetRef is for unsupported Kind: %s", alp.Spec.TargetRef.Kind)

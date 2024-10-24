@@ -7,8 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
@@ -18,15 +17,15 @@ const (
 )
 
 type GRPCRoute struct {
-	r gwv1alpha2.GRPCRoute
+	r gwv1.GRPCRoute
 }
 
-func NewGRPCRoute(route gwv1alpha2.GRPCRoute) *GRPCRoute {
+func NewGRPCRoute(route gwv1.GRPCRoute) *GRPCRoute {
 	return &GRPCRoute{r: route}
 }
 
 func GetGRPCRoute(ctx context.Context, client client.Client, routeNamespacedName types.NamespacedName) (Route, error) {
-	grpcRoute := &gwv1alpha2.GRPCRoute{}
+	grpcRoute := &gwv1.GRPCRoute{}
 	err := client.Get(ctx, routeNamespacedName, grpcRoute)
 	if err != nil {
 		return nil, err
@@ -35,7 +34,7 @@ func GetGRPCRoute(ctx context.Context, client client.Client, routeNamespacedName
 }
 
 func ListGRPCRoutes(context context.Context, client client.Client) ([]Route, error) {
-	routeList := &gwv1alpha2.GRPCRouteList{}
+	routeList := &gwv1.GRPCRouteList{}
 	if err := client.List(context, routeList); err != nil {
 		return nil, err
 	}
@@ -75,26 +74,26 @@ func (r *GRPCRoute) K8sObject() client.Object {
 	return &r.r
 }
 
-func (r *GRPCRoute) Inner() *gwv1alpha2.GRPCRoute {
+func (r *GRPCRoute) Inner() *gwv1.GRPCRoute {
 	return &r.r
 }
 
 func (r *GRPCRoute) GroupKind() metav1.GroupKind {
 	return metav1.GroupKind{
-		Group: gwv1beta1.GroupName,
+		Group: gwv1.GroupName,
 		Kind:  "GRPCRoute",
 	}
 }
 
 type GRPCRouteSpec struct {
-	s gwv1alpha2.GRPCRouteSpec
+	s gwv1.GRPCRouteSpec
 }
 
-func (s *GRPCRouteSpec) ParentRefs() []gwv1beta1.ParentReference {
+func (s *GRPCRouteSpec) ParentRefs() []gwv1.ParentReference {
 	return s.s.ParentRefs
 }
 
-func (s *GRPCRouteSpec) Hostnames() []gwv1beta1.Hostname {
+func (s *GRPCRouteSpec) Hostnames() []gwv1.Hostname {
 	return s.s.Hostnames
 }
 
@@ -135,20 +134,20 @@ func (s *GRPCRouteSpec) Equals(routeSpec RouteSpec) bool {
 }
 
 type GRPCRouteStatus struct {
-	s *gwv1alpha2.GRPCRouteStatus
+	s *gwv1.GRPCRouteStatus
 }
 
-func (s *GRPCRouteStatus) Parents() []gwv1beta1.RouteParentStatus {
+func (s *GRPCRouteStatus) Parents() []gwv1.RouteParentStatus {
 	return s.s.Parents
 }
 
-func (s *GRPCRouteStatus) SetParents(parents []gwv1beta1.RouteParentStatus) {
+func (s *GRPCRouteStatus) SetParents(parents []gwv1.RouteParentStatus) {
 	s.s.Parents = parents
 }
 
-func (s *GRPCRouteStatus) UpdateParentRefs(parent gwv1beta1.ParentReference, controllerName gwv1beta1.GatewayController) {
+func (s *GRPCRouteStatus) UpdateParentRefs(parent gwv1.ParentReference, controllerName gwv1.GatewayController) {
 	if len(s.Parents()) == 0 {
-		s.SetParents(make([]gwv1beta1.RouteParentStatus, 1))
+		s.SetParents(make([]gwv1.RouteParentStatus, 1))
 	}
 
 	s.Parents()[0].ParentRef = parent
@@ -160,7 +159,7 @@ func (s *GRPCRouteStatus) UpdateRouteCondition(condition metav1.Condition) {
 }
 
 type GRPCRouteRule struct {
-	r gwv1alpha2.GRPCRouteRule
+	r gwv1.GRPCRouteRule
 }
 
 func (r *GRPCRouteRule) BackendRefs() []BackendRef {
@@ -209,30 +208,30 @@ func (r *GRPCRouteRule) Equals(routeRule RouteRule) bool {
 }
 
 type GRPCBackendRef struct {
-	r gwv1alpha2.GRPCBackendRef
+	r gwv1.GRPCBackendRef
 }
 
 func (r *GRPCBackendRef) Weight() *int32 {
 	return r.r.Weight
 }
 
-func (r *GRPCBackendRef) Group() *gwv1beta1.Group {
+func (r *GRPCBackendRef) Group() *gwv1.Group {
 	return r.r.Group
 }
 
-func (r *GRPCBackendRef) Kind() *gwv1beta1.Kind {
+func (r *GRPCBackendRef) Kind() *gwv1.Kind {
 	return r.r.Kind
 }
 
-func (r *GRPCBackendRef) Name() gwv1beta1.ObjectName {
+func (r *GRPCBackendRef) Name() gwv1.ObjectName {
 	return r.r.Name
 }
 
-func (r *GRPCBackendRef) Namespace() *gwv1beta1.Namespace {
+func (r *GRPCBackendRef) Namespace() *gwv1.Namespace {
 	return r.r.Namespace
 }
 
-func (r *GRPCBackendRef) Port() *gwv1beta1.PortNumber {
+func (r *GRPCBackendRef) Port() *gwv1.PortNumber {
 	return r.r.Port
 }
 
@@ -262,7 +261,7 @@ func (r *GRPCBackendRef) Equals(backendRef BackendRef) bool {
 }
 
 type GRPCRouteMatch struct {
-	m gwv1alpha2.GRPCRouteMatch
+	m gwv1.GRPCRouteMatch
 }
 
 func (m *GRPCRouteMatch) Headers() []HeaderMatch {
@@ -273,7 +272,7 @@ func (m *GRPCRouteMatch) Headers() []HeaderMatch {
 	return headerMatches
 }
 
-func (m *GRPCRouteMatch) Method() *gwv1alpha2.GRPCMethodMatch {
+func (m *GRPCRouteMatch) Method() *gwv1.GRPCMethodMatch {
 	return m.m.Method
 }
 
@@ -297,11 +296,16 @@ func (m *GRPCRouteMatch) Equals(routeMatch RouteMatch) bool {
 }
 
 type GRPCHeaderMatch struct {
-	m gwv1alpha2.GRPCHeaderMatch
+	m gwv1.GRPCHeaderMatch
 }
 
-func (m *GRPCHeaderMatch) Type() *gwv1beta1.HeaderMatchType {
-	return m.m.Type
+func (m *GRPCHeaderMatch) Type() *gwv1.HeaderMatchType {
+	if m.m.Type == nil {
+		return nil
+	}
+	// at some point, these may not match up. For now, Exact and RegularExpression are shared values
+	hmt := gwv1.HeaderMatchType(*m.m.Type)
+	return &hmt
 }
 
 func (m *GRPCHeaderMatch) Name() string {
@@ -317,8 +321,18 @@ func (m *GRPCHeaderMatch) Equals(headerMatch HeaderMatch) bool {
 	if !ok {
 		return false
 	}
+	if m.Name() != other.Name() ||
+		m.Value() != other.Value() {
+		return false
+	}
 
-	return m.Type() == other.Type() &&
-		m.Name() == other.Name() &&
-		m.Value() == other.Value()
+	mType := m.Type()
+	otherType := other.Type()
+	if (mType == nil && otherType != nil) ||
+		(mType != nil && otherType == nil) {
+		return false
+	}
+
+	return (mType == nil && otherType == nil) ||
+		*mType == *otherType
 }
