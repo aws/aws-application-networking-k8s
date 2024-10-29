@@ -81,7 +81,7 @@ func NewLatticeServiceStackDeploy(
 		tgGcSynth := lattice.NewTargetGroupSynthesizer(log, cloud, k8sClient, tgMgr, tgSvcExpBuilder, svcBuilder, nil)
 		tgGcFn := NewTgGcFn(tgGcSynth)
 		tgGc = &TgGc{
-			lock:    sync.Mutex{},
+			lock:    sync.RWMutex{},
 			log:     log.Named("tg-gc"),
 			ctx:     context.TODO(),
 			isDone:  atomic.Bool{},
@@ -130,7 +130,7 @@ func NewTgGcFn(tgSynth *lattice.TargetGroupSynthesizer) TgGcCycleFn {
 }
 
 type TgGc struct {
-	lock    sync.Mutex
+	lock    sync.RWMutex
 	log     gwlog.Logger
 	ctx     context.Context
 	isDone  atomic.Bool
@@ -189,16 +189,10 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	listenerSynthesizer := lattice.NewListenerSynthesizer(d.log, d.listenerManager, d.targetGroupManager, stack)
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.log, d.ruleManager, d.targetGroupManager, stack)
 
-	// We need to block GC when we deploy stack. Stack deployer first creates TG and then
-	// associate TG with Service. If GC will run in between it can delete newly created TG
-	// before association since it's dangling TG. This lock also prevents concurrent
-	// deployments, only one deployment can run at the time.
-	//
-	// TODO: This place can become a contention. May be debug log with lock waiting time?
 	defer func() {
-		tgGc.lock.Unlock()
+		tgGc.lock.RUnlock()
 	}()
-	tgGc.lock.Lock()
+	tgGc.lock.RLock()
 
 	//Handle targetGroups creation request
 	if err := targetGroupSynthesizer.SynthesizeCreate(ctx); err != nil {
@@ -267,9 +261,9 @@ func NewTargetGroupStackDeploy(
 
 func (d *latticeTargetGroupStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	defer func() {
-		tgGc.lock.Unlock()
+		tgGc.lock.RUnlock()
 	}()
-	tgGc.lock.Lock()
+	tgGc.lock.RLock()
 
 	synthesizers := []ResourceSynthesizer{
 		lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sclient, d.targetGroupManager, d.svcExportTgBuilder, d.svcBuilder, stack),

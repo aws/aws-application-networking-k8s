@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"strings"
 
@@ -28,6 +29,7 @@ const (
 	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
 	DEV_MODE                        = "DEV_MODE"
 	WEBHOOK_ENABLED                 = "WEBHOOK_ENABLED"
+	ROUTE_MAX_CONCURRENT_RECONCILES = "ROUTE_MAX_CONCURRENT_RECONCILES"
 )
 
 var VpcID = ""
@@ -40,6 +42,7 @@ var WebhookEnabled = ""
 
 var DisableTaggingServiceAPI = false
 var ServiceNetworkOverrideMode = false
+var RouteMaxConcurrentReconciles = 1
 
 func ConfigInit() error {
 	sess, _ := session.NewSession()
@@ -93,6 +96,15 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 	ClusterName, err = getClusterName(sess)
 	if err != nil {
 		return fmt.Errorf("cannot get cluster name: %s", err)
+	}
+
+	routeMaxConcurrentReconciles := os.Getenv(ROUTE_MAX_CONCURRENT_RECONCILES)
+	if routeMaxConcurrentReconciles != "" {
+		routeMaxConcurrentReconcilesInt, err := strconv.Atoi(routeMaxConcurrentReconciles)
+		if err != nil {
+			return fmt.Errorf("invalid value for ROUTE_MAX_CONCURRENT_RECONCILES: %s", err)
+		}
+		RouteMaxConcurrentReconciles = routeMaxConcurrentReconcilesInt
 	}
 
 	return nil
