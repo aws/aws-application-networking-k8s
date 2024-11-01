@@ -85,6 +85,7 @@ defaultServiceNetwork:
 latticeEndpoint:
 webhookEnabled: true
 disableTaggingServiceApi: false
+routeMaxConcurrentReconciles:
 
 # TLS cert/key for the webhook. If specified, values must be base64 encoded
 webhookTLS:
