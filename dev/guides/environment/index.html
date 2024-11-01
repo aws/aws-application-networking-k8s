@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../images/controller.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.42">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.43">
     
     
       
@@ -870,6 +870,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#route_max_concurrent_reconciles" class="md-nav__link">
+    <span class="md-ellipsis">
+      ROUTE_MAX_CONCURRENT_RECONCILES
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1374,6 +1383,11 @@ as the Helm install will also generate the necessary certificate.</p>
 <p>When set as "true", the controller will not use the <a href="https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/overview.html">AWS Resource Groups Tagging API</a>. </p>
 <p>The Resource Groups Tagging API is only available on the public internet and customers using private clusters will need to enable this feature. When enabled, the controller will use VPC Lattice APIs to lookup tags which are not as performant and requires more API calls.</p>
 <p>The Helm chart sets this value to "false" by default.</p>
+<hr />
+<h4 id="route_max_concurrent_reconciles"><code>ROUTE_MAX_CONCURRENT_RECONCILES</code><a class="headerlink" href="#route_max_concurrent_reconciles" title="Permanent link">&para;</a></h4>
+<p><strong>Type:</strong> <em>int</em></p>
+<p><strong>Default:</strong> 1</p>
+<p>Maximum number of concurrently running reconcile loops per route type (HTTP, GRPC, TLS)</p>
 
 
 

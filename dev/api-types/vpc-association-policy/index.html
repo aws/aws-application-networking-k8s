@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../images/controller.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.42">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.43">
     
     
       
@@ -1309,7 +1309,7 @@ of the ServiceNetworkVpcAssociation between the Gateway's associated VPC Lattice
 <li>The <code>targetRef</code> gateway does not exist.</li>
 <li>The <code>associateWithVpc</code> field is set to false.</li>
 </ul>
-<h3 id="removing-security-groups"><img alt="⚠" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/26a0.svg" title=":warning:" /> Removing Security Groups<a class="headerlink" href="#removing-security-groups" title="Permanent link">&para;</a></h3>
+<h3 id="removing-security-groups"><img alt="⚠" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/26a0.svg" title=":warning:" /> Removing Security Groups<a class="headerlink" href="#removing-security-groups" title="Permanent link">&para;</a></h3>
 <p>The VPC Lattice <code>UpdateServiceNetworkVpcAssociation</code> API cannot be used to remove all security groups.
 If you have a VpcAssociationPolicy attached to a gateway that already has security groups applied, updating the VpcAssociationPolicy with empty security group ids or deleting the VpcAssociationPolicy will NOT remove the security groups from the gateway.</p>
 <p>To remove security groups, instead, you should delete VPC Association and re-create a new VPC Association without security group ids by following steps:
