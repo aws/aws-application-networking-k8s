@@ -65,7 +65,7 @@ func LatticeServiceName(k8sSourceRouteName string, k8sSourceRouteNamespace strin
 }
 
 func TargetRefToLatticeResourceName(
-	targetRef *gwv1alpha2.PolicyTargetReference,
+	targetRef *gwv1alpha2.NamespacedPolicyTargetReference,
 	parentNamespace string,
 ) (string, error) {
 	// For Service Network, the name is just the Gateway's name.

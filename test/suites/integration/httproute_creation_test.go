@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("HTTPRoute Creation", Ordered, func() {
@@ -101,7 +100,7 @@ var _ = Describe("HTTPRoute Creation", Ordered, func() {
 			)
 
 			testFramework.GetTargetGroup(ctx, service)
-			testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
+			testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1.HTTPRoute(*httpRoute)))
 		})
 	})
 

@@ -18,12 +18,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 )
@@ -51,11 +49,11 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 			{
 				BackendRefs: []gwv1.BackendRef{
 					{
-						BackendObjectReference: v1beta1.BackendObjectReference{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Name:      v1alpha2.ObjectName(httpsSvc1.Name),
-							Namespace: lo.ToPtr(v1beta1.Namespace(httpsSvc1.Namespace)),
-							Kind:      lo.ToPtr(v1beta1.Kind("ServiceImport")),
-							Port:      lo.ToPtr(v1beta1.PortNumber(443)),
+							Namespace: lo.ToPtr(gwv1.Namespace(httpsSvc1.Namespace)),
+							Kind:      lo.ToPtr(gwv1.Kind("ServiceImport")),
+							Port:      lo.ToPtr(gwv1.PortNumber(443)),
 						},
 					},
 				},
@@ -142,7 +140,7 @@ func createTCPTargetGroupPolicy(
 			Name:      "tcp-policy",
 		},
 		Spec: anv1alpha1.TargetGroupPolicySpec{
-			TargetRef: &v1alpha2.PolicyTargetReference{
+			TargetRef: &v1alpha2.NamespacedPolicyTargetReference{
 				Group: "application-networking.k8s.aws",
 				Kind:  gwv1.Kind("ServiceExport"),
 				Name:  gwv1.ObjectName(service.Name),

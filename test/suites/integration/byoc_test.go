@@ -27,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
@@ -79,7 +78,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		testFramework.ExpectCreated(context.TODO(), deployment, service, httpRoute)
 
 		// get lattice service dns name for route53 cname
-		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(gwv1beta1.HTTPRoute(*httpRoute)))
+		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(gwv1.HTTPRoute(*httpRoute)))
 		latticeSvcDns = *svc.DnsEntry.DomainName
 		log.Infof(ctx, "depoloyed lattice service, dns name: %s", latticeSvcDns)
 

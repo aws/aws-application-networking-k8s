@@ -1,13 +1,12 @@
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 const (
@@ -53,7 +52,7 @@ type AccessLogPolicySpec struct {
 	// TargetRef points to the Kubernetes Gateway, HTTPRoute, or GRPCRoute resource that will have this policy attached.
 	//
 	// This field is following the guidelines of Kubernetes Gateway API policy attachment.
-	TargetRef *v1alpha2.PolicyTargetReference `json:"targetRef"`
+	TargetRef *gwv1alpha2.NamespacedPolicyTargetReference `json:"targetRef"`
 }
 
 // AccessLogPolicyStatus defines the observed state of AccessLogPolicy.
@@ -78,7 +77,7 @@ type AccessLogPolicyStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-func (p *AccessLogPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
+func (p *AccessLogPolicy) GetTargetRef() *gwv1alpha2.NamespacedPolicyTargetReference {
 	return p.Spec.TargetRef
 }
 

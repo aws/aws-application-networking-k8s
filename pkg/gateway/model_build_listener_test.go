@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -32,18 +31,18 @@ const (
 )
 
 // PortNumberPtr translates an int to a *PortNumber
-func PortNumberPtr(p int) *gwv1beta1.PortNumber {
-	result := gwv1beta1.PortNumber(p)
+func PortNumberPtr(p int) *gwv1.PortNumber {
+	result := gwv1.PortNumber(p)
 	return &result
 }
 
 func Test_ListenerModelBuild(t *testing.T) {
-	var sectionName gwv1beta1.SectionName = "my-gw-listener"
-	var missingSectionName gwv1beta1.SectionName = "miss"
-	var serviceKind gwv1beta1.Kind = "Service"
-	var serviceImportKind gwv1beta1.Kind = "ServiceImport"
-	var backendRef = gwv1beta1.BackendRef{
-		BackendObjectReference: gwv1beta1.BackendObjectReference{
+	var sectionName gwv1.SectionName = "my-gw-listener"
+	var missingSectionName gwv1.SectionName = "miss"
+	var serviceKind gwv1.Kind = "Service"
+	var serviceImportKind gwv1.Kind = "ServiceImport"
+	var backendRef = gwv1.BackendRef{
+		BackendObjectReference: gwv1.BackendObjectReference{
 			Name: "targetgroup1",
 			Kind: &serviceKind,
 		},
@@ -51,7 +50,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 
 	tests := []struct {
 		name                    string
-		gwListenerPort          gwv1beta1.PortNumber
+		gwListenerPort          gwv1.PortNumber
 		route                   core.Route
 		wantErrIsNil            bool
 		k8sGetGatewayCall       bool
@@ -68,23 +67,23 @@ func Test_ListenerModelBuild(t *testing.T) {
 			k8sGetGatewayCall:      true,
 			k8sGatewayReturnOK:     true,
 			k8sGatewayListenerType: HTTP,
-			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name:        "gw1",
 								SectionName: &sectionName,
 							},
 						},
 					},
-					Rules: []gwv1beta1.HTTPRouteRule{
+					Rules: []gwv1.HTTPRouteRule{
 						{
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1.HTTPBackendRef{
 								{
 									BackendRef: backendRef,
 								},
@@ -113,23 +112,23 @@ func Test_ListenerModelBuild(t *testing.T) {
 			k8sGetGatewayCall:      true,
 			k8sGatewayReturnOK:     true,
 			k8sGatewayListenerType: HTTPS,
-			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name:        "gw1",
 								SectionName: &sectionName,
 							},
 						},
 					},
-					Rules: []gwv1beta1.HTTPRouteRule{
+					Rules: []gwv1.HTTPRouteRule{
 						{
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1.HTTPBackendRef{
 								{
 									BackendRef: backendRef,
 								},
@@ -166,8 +165,8 @@ func Test_ListenerModelBuild(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: gwv1alpha2.TLSRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name:        "gw1",
 								SectionName: &sectionName,
@@ -176,23 +175,23 @@ func Test_ListenerModelBuild(t *testing.T) {
 					},
 					Rules: []gwv1alpha2.TLSRouteRule{
 						{
-							BackendRefs: []gwv1alpha2.BackendRef{
+							BackendRefs: []gwv1.BackendRef{
 								{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "k8s-service1",
 										Kind: &serviceKind,
 										// No weight specified, default to 1
 									},
 								},
 								{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "k8s-service2",
 										Kind: &serviceKind,
 									},
 									Weight: aws.Int32(10),
 								},
 								{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "k8s-service3",
 										Kind: &serviceImportKind,
 									},
@@ -250,8 +249,8 @@ func Test_ListenerModelBuild(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: gwv1alpha2.TLSRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name:        "gw1",
 								SectionName: &sectionName,
@@ -260,9 +259,9 @@ func Test_ListenerModelBuild(t *testing.T) {
 					},
 					Rules: []gwv1alpha2.TLSRouteRule{
 						{
-							BackendRefs: []gwv1alpha2.BackendRef{
+							BackendRefs: []gwv1.BackendRef{
 								{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "k8s-service1",
 										Kind: &serviceKind,
 									},
@@ -270,9 +269,9 @@ func Test_ListenerModelBuild(t *testing.T) {
 							},
 						},
 						{
-							BackendRefs: []gwv1alpha2.BackendRef{
+							BackendRefs: []gwv1.BackendRef{
 								{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "k8s-service2",
 										Kind: &serviceKind,
 									},
@@ -316,18 +315,18 @@ func Test_ListenerModelBuild(t *testing.T) {
 			gwListenerPort:    *PortNumberPtr(80),
 			wantErrIsNil:      true,
 			k8sGetGatewayCall: false,
-			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{},
 					},
-					Rules: []gwv1beta1.HTTPRouteRule{
+					Rules: []gwv1.HTTPRouteRule{
 						{
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1.HTTPBackendRef{
 								{
 									BackendRef: backendRef,
 								},
@@ -344,23 +343,23 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       false,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: false,
-			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name:        "gw1",
 								SectionName: &sectionName,
 							},
 						},
 					},
-					Rules: []gwv1beta1.HTTPRouteRule{
+					Rules: []gwv1.HTTPRouteRule{
 						{
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1.HTTPBackendRef{
 								{
 									BackendRef: backendRef,
 								},
@@ -376,23 +375,23 @@ func Test_ListenerModelBuild(t *testing.T) {
 			wantErrIsNil:       false,
 			k8sGetGatewayCall:  true,
 			k8sGatewayReturnOK: true,
-			route: core.NewHTTPRoute(gwv1beta1.HTTPRoute{
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "service1",
 					Namespace: "default",
 				},
-				Spec: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{
 								Name:        "gw1",
 								SectionName: &missingSectionName,
 							},
 						},
 					},
-					Rules: []gwv1beta1.HTTPRouteRule{
+					Rules: []gwv1.HTTPRouteRule{
 						{
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1.HTTPBackendRef{
 								{
 									BackendRef: backendRef,
 								},
@@ -415,36 +414,36 @@ func Test_ListenerModelBuild(t *testing.T) {
 			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 			if tt.k8sGetGatewayCall {
-				mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&gwv1beta1.Gateway{})).DoAndReturn(
-					func(ctx context.Context, gwName types.NamespacedName, gw *gwv1beta1.Gateway, arg3 ...interface{}) error {
+				mockK8sClient.EXPECT().Get(ctx, gomock.Any(), gomock.AssignableToTypeOf(&gwv1.Gateway{})).DoAndReturn(
+					func(ctx context.Context, gwName types.NamespacedName, gw *gwv1.Gateway, arg3 ...interface{}) error {
 						if !tt.k8sGatewayReturnOK {
 							return errors.New("unknown k8s object")
 						}
-						var gwListener gwv1beta1.Listener
+						var gwListener gwv1.Listener
 						switch tt.k8sGatewayListenerType {
 						case HTTP:
-							gwListener = gwv1beta1.Listener{
+							gwListener = gwv1.Listener{
 								Port:     tt.gwListenerPort,
 								Protocol: "HTTP",
 								Name:     sectionName,
 							}
 						case HTTPS:
 							mode := gwv1.TLSModeTerminate
-							gwListener = gwv1beta1.Listener{
+							gwListener = gwv1.Listener{
 								Port:     tt.gwListenerPort,
 								Protocol: "HTTPS",
 								Name:     sectionName,
-								TLS: &gwv1beta1.GatewayTLSConfig{
+								TLS: &gwv1.GatewayTLSConfig{
 									Mode: &mode,
 								},
 							}
 						case TLS_PASSTHROUGH:
 							mode := gwv1.TLSModePassthrough
-							gwListener = gwv1beta1.Listener{
+							gwListener = gwv1.Listener{
 								Port:     tt.gwListenerPort,
 								Protocol: "TLS",
 								Name:     sectionName,
-								TLS: &gwv1beta1.GatewayTLSConfig{
+								TLS: &gwv1.GatewayTLSConfig{
 									Mode: &mode,
 								},
 							}

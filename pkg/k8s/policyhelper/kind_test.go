@@ -6,8 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func TestGroupKind(t *testing.T) {
@@ -17,9 +16,9 @@ func TestGroupKind(t *testing.T) {
 	}
 
 	tests := []Test{
-		{&gwv1beta1.Gateway{}, GroupKind{Group: gwv1beta1.GroupName, Kind: "Gateway"}},
-		{&gwv1beta1.HTTPRoute{}, GroupKind{Group: gwv1beta1.GroupName, Kind: "HTTPRoute"}},
-		{&gwv1alpha2.GRPCRoute{}, GroupKind{Group: gwv1alpha2.GroupName, Kind: "GRPCRoute"}},
+		{&gwv1.Gateway{}, GroupKind{Group: gwv1.GroupName, Kind: "Gateway"}},
+		{&gwv1.HTTPRoute{}, GroupKind{Group: gwv1.GroupName, Kind: "HTTPRoute"}},
+		{&gwv1.GRPCRoute{}, GroupKind{Group: gwv1.GroupName, Kind: "GRPCRoute"}},
 		{&corev1.Service{}, GroupKind{Group: corev1.GroupName, Kind: "Service"}},
 	}
 

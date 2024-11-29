@@ -59,7 +59,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind: gatewayKind,
 						Name: name,
 					},
@@ -86,7 +86,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind:      gatewayKind,
 						Name:      name,
 						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
@@ -114,7 +114,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind: httpRouteKind,
 						Name: name,
 					},
@@ -141,7 +141,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind:      httpRouteKind,
 						Name:      name,
 						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
@@ -169,7 +169,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind: grpcRouteKind,
 						Name: name,
 					},
@@ -196,7 +196,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind:      grpcRouteKind,
 						Name:      name,
 						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
@@ -228,7 +228,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind: gatewayKind,
 						Name: name,
 					},
@@ -258,7 +258,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind: gatewayKind,
 						Name: name,
 					},
@@ -289,7 +289,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
 					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind: "Foo",
 						Name: name,
 					},
@@ -319,7 +319,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 					},
 				},
 				Spec: anv1alpha1.AccessLogPolicySpec{
-					TargetRef: &gwv1alpha2.PolicyTargetReference{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 						Kind: gatewayKind,
 						Name: name,
 					},

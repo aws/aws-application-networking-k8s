@@ -15,12 +15,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 var _ = Describe("TLSRoute test", Ordered, func() {
@@ -36,11 +34,11 @@ var _ = Describe("TLSRoute test", Ordered, func() {
 			{
 				BackendRefs: []gwv1.BackendRef{
 					{
-						BackendObjectReference: v1beta1.BackendObjectReference{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Name:      v1alpha2.ObjectName(httpsSvc1.Name),
-							Namespace: lo.ToPtr(v1beta1.Namespace(httpsSvc1.Namespace)),
-							Kind:      lo.ToPtr(v1beta1.Kind("Service")),
-							Port:      lo.ToPtr(v1beta1.PortNumber(443)),
+							Namespace: lo.ToPtr(gwv1.Namespace(httpsSvc1.Namespace)),
+							Kind:      lo.ToPtr(gwv1.Kind("Service")),
+							Port:      lo.ToPtr(gwv1.PortNumber(443)),
 						},
 					},
 				},

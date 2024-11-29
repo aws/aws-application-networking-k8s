@@ -11,15 +11,13 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"testing"
 )
 
 func Test_ReadinessGateInjection(t *testing.T) {
-	var serviceKind gwv1beta1.Kind = "Service"
-	var gwNamespace = gwv1beta1.Namespace("gw-namespace")
-	var svcNamespace = gwv1beta1.Namespace("test")
+	var serviceKind gwv1.Kind = "Service"
+	var gwNamespace = gwv1.Namespace("gw-namespace")
+	var svcNamespace = gwv1.Namespace("test")
 
 	tests := []struct {
 		name                   string
@@ -27,10 +25,10 @@ func Test_ReadinessGateInjection(t *testing.T) {
 		performUpdate          bool
 		pod                    corev1.Pod
 		services               []corev1.Service
-		httpRoutes             []gwv1beta1.HTTPRoute
+		httpRoutes             []gwv1.HTTPRoute
 		v1HttpRoutes           []gwv1.HTTPRoute
-		grpcRoutes             []gwv1alpha2.GRPCRoute
-		gateways               []gwv1beta1.Gateway
+		grpcRoutes             []gwv1.GRPCRoute
+		gateways               []gwv1.Gateway
 		svcExport              *anv1alpha1.ServiceExport
 		expectedConditionTypes []corev1.PodConditionType
 	}{
@@ -58,20 +56,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -81,13 +79,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -120,20 +118,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			grpcRoutes: []gwv1alpha2.GRPCRoute{
+			grpcRoutes: []gwv1.GRPCRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1alpha2.GRPCRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.GRPCRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1alpha2.GRPCRouteRule{
+						Rules: []gwv1.GRPCRouteRule{
 							{
-								BackendRefs: []gwv1alpha2.GRPCBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.GRPCBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -143,13 +141,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -219,23 +217,23 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "route-namespace",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{
 								Name:      "gw-1",
 								Namespace: &gwNamespace,
 							},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name:      "svc-1",
 										Namespace: &svcNamespace,
 										Kind:      &serviceKind,
@@ -246,13 +244,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: string(gwNamespace),
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -285,22 +283,22 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "route-namespace",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{
 								Name: "gw-1",
 							},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -310,13 +308,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: string(gwNamespace),
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -386,13 +384,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -423,20 +421,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -472,20 +470,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -495,13 +493,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "some-other-gateway-type",
 					},
 				},
@@ -532,20 +530,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			grpcRoutes: []gwv1alpha2.GRPCRoute{
+			grpcRoutes: []gwv1.GRPCRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1alpha2.GRPCRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.GRPCRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1alpha2.GRPCRouteRule{
+						Rules: []gwv1.GRPCRouteRule{
 							{
-								BackendRefs: []gwv1alpha2.GRPCBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.GRPCBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -555,13 +553,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "other-gateway-type",
 					},
 				},
@@ -630,20 +628,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -653,13 +651,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -693,20 +691,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -716,20 +714,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			grpcRoutes: []gwv1alpha2.GRPCRoute{
+			grpcRoutes: []gwv1.GRPCRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1alpha2.GRPCRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.GRPCRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1alpha2.GRPCRouteRule{
+						Rules: []gwv1.GRPCRouteRule{
 							{
-								BackendRefs: []gwv1alpha2.GRPCBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.GRPCBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -739,13 +737,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -789,20 +787,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -812,20 +810,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			grpcRoutes: []gwv1alpha2.GRPCRoute{
+			grpcRoutes: []gwv1.GRPCRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1alpha2.GRPCRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.GRPCRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1alpha2.GRPCRouteRule{
+						Rules: []gwv1.GRPCRouteRule{
 							{
-								BackendRefs: []gwv1alpha2.GRPCBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.GRPCBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-2",
 										Kind: &serviceKind,
 									},
@@ -835,13 +833,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -885,20 +883,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "not-a-real-service",
 										Kind: &serviceKind,
 									},
@@ -908,20 +906,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			grpcRoutes: []gwv1alpha2.GRPCRoute{
+			grpcRoutes: []gwv1.GRPCRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1alpha2.GRPCRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.GRPCRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1alpha2.GRPCRouteRule{
+						Rules: []gwv1.GRPCRouteRule{
 							{
-								BackendRefs: []gwv1alpha2.GRPCBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.GRPCBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "not-a-real-service-2",
 										Kind: &serviceKind,
 									},
@@ -931,13 +929,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -969,20 +967,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -992,13 +990,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -1030,20 +1028,20 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			httpRoutes: []gwv1beta1.HTTPRoute{
+			httpRoutes: []gwv1.HTTPRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "http-route-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.HTTPRouteSpec{
-						CommonRouteSpec: gwv1beta1.CommonRouteSpec{ParentRefs: []gwv1beta1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
 							{Name: "gw-1"},
 						}},
-						Rules: []gwv1beta1.HTTPRouteRule{
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								BackendRefs: []gwv1beta1.HTTPBackendRef{{BackendRef: gwv1beta1.BackendRef{
-									BackendObjectReference: gwv1beta1.BackendObjectReference{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
 										Name: "svc-1",
 										Kind: &serviceKind,
 									},
@@ -1053,13 +1051,13 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
-			gateways: []gwv1beta1.Gateway{
+			gateways: []gwv1.Gateway{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "gw-1",
 						Namespace: "test",
 					},
-					Spec: gwv1beta1.GatewaySpec{
+					Spec: gwv1.GatewaySpec{
 						GatewayClassName: "amazon-vpc-lattice",
 					},
 				},
@@ -1075,18 +1073,17 @@ func Test_ReadinessGateInjection(t *testing.T) {
 			k8sScheme := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sScheme)
 			gwv1.AddToScheme(k8sScheme)
-			gwv1beta1.AddToScheme(k8sScheme)
-			gwv1alpha2.AddToScheme(k8sScheme)
+			gwv1.AddToScheme(k8sScheme)
 			anv1alpha1.AddToScheme(k8sScheme)
 
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
 
-			gwClass := &gwv1beta1.GatewayClass{
+			gwClass := &gwv1.GatewayClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "amazon-vpc-lattice",
 					Namespace: "default",
 				},
-				Spec: gwv1beta1.GatewayClassSpec{
+				Spec: gwv1.GatewayClassSpec{
 					ControllerName: "application-networking.k8s.aws/gateway-api-controller",
 				},
 			}

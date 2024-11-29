@@ -18,8 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
@@ -55,7 +54,7 @@ func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud p
 	b := ctrl.
 		NewControllerManagedBy(mgr).
 		For(&anv1alpha1.IAMAuthPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}))
-	ph.AddWatchers(b, &gwv1beta1.Gateway{}, &gwv1beta1.HTTPRoute{}, &gwv1alpha2.GRPCRoute{})
+	ph.AddWatchers(b, &gwv1.Gateway{}, &gwv1.HTTPRoute{}, &gwv1.GRPCRoute{})
 	err := b.Complete(controller)
 	return err
 }
