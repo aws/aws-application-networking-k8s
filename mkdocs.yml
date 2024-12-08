@@ -109,9 +109,9 @@ markdown_extensions:
   - toc:
       permalink: true
 extra_css:
-  - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css
+  - https://main.d17pcam02ektiz.amplifyapp.com/material-components-web.min.css
 extra_javascript:
-  - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js
+  - https://main.d17pcam02ektiz.amplifyapp.com/material-components-web.min.js
 
 
 extra:
