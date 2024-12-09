@@ -29,7 +29,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type gatewayClassReconciler struct {
@@ -47,7 +46,7 @@ func RegisterGatewayClassController(log gwlog.Logger, mgr ctrl.Manager) error {
 		latticeControllerEnabled: false,
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gwv1beta1.GatewayClass{}).
+		For(&gwv1.GatewayClass{}).
 		Complete(r)
 }
 
@@ -61,7 +60,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		gwlog.EndReconcileTrace(ctx, r.log)
 	}()
 
-	gwClass := &gwv1beta1.GatewayClass{}
+	gwClass := &gwv1.GatewayClass{}
 	if err := r.client.Get(ctx, req.NamespacedName, gwClass); err != nil {
 		r.log.Debugw(ctx, "gateway not found", "name", req.Name)
 		return ctrl.Result{}, nil

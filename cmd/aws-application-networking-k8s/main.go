@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"strings"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/webhook"
@@ -39,14 +40,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/external-dns/endpoint"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
-
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	//+kubebuilder:scaffold:imports
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -65,9 +63,9 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	//+kubebuilder:scaffold:scheme
-	utilruntime.Must(gwv1alpha2.AddToScheme(scheme))
-	utilruntime.Must(gwv1beta1.AddToScheme(scheme))
-	utilruntime.Must(anv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(gwv1alpha2.Install(scheme))
+	utilruntime.Must(gwv1.Install(scheme))
+	utilruntime.Must(anv1alpha1.Install(scheme))
 	utilruntime.Must(discoveryv1.AddToScheme(scheme))
 	addOptionalCRDs(scheme)
 }

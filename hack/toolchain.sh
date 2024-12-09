@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-K8S_VERSION="${K8S_VERSION:="1.22.x"}"
+K8S_VERSION="${K8S_VERSION:="1.31.1"}"
 KUBEBUILDER_ASSETS="${KUBEBUILDER_ASSETS:="${HOME}/.kubebuilder/bin"}"
 
 main() {
@@ -14,7 +14,7 @@ install_golangci_lint() {
     if { [ -z "${CI+x}" ] || [ "${CI}" != "true" ]; } && ! command -v golangci-lint &> /dev/null; then
         echo "golangci-lint is not installed in local machine. Installing..."
         # https://golangci-lint.run/usage/install/#local-installation
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.62.2
     fi
 }
 

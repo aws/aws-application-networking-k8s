@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
@@ -20,7 +19,7 @@ const (
 
 func (t *latticeServiceModelBuildTask) extractListenerInfo(
 	ctx context.Context,
-	parentRef gwv1beta1.ParentReference,
+	parentRef gwv1.ParentReference,
 ) (int64, string, error) {
 	if parentRef.SectionName != nil {
 		t.log.Debugf(ctx, "Listener parentRef SectionName is %s", *parentRef.SectionName)
@@ -59,13 +58,13 @@ func isTLSPassthroughGatewayListener(listener *gwv1.Listener) bool {
 	return listener.Protocol == gwv1.TLSProtocolType && listener.TLS != nil && listener.TLS.Mode != nil && *listener.TLS.Mode == gwv1.TLSModePassthrough
 }
 
-func (t *latticeServiceModelBuildTask) getGateway(ctx context.Context) (*gwv1beta1.Gateway, error) {
+func (t *latticeServiceModelBuildTask) getGateway(ctx context.Context) (*gwv1.Gateway, error) {
 	var gwNamespace = t.route.Namespace()
 	if t.route.Spec().ParentRefs()[0].Namespace != nil {
 		gwNamespace = string(*t.route.Spec().ParentRefs()[0].Namespace)
 	}
 
-	gw := &gwv1beta1.Gateway{}
+	gw := &gwv1.Gateway{}
 	gwName := types.NamespacedName{
 		Namespace: gwNamespace,
 		Name:      string(t.route.Spec().ParentRefs()[0].Name),

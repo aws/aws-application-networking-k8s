@@ -76,11 +76,11 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 				Namespace: k8snamespace,
 			},
 			Spec: v1alpha1.VpcAssociationPolicySpec{
-				TargetRef: &gwv1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Group:     gwv1.GroupName,
 					Kind:      "Gateway",
-					Name:      gwv1alpha2.ObjectName(testGateway.Name),
-					Namespace: lo.ToPtr(gwv1alpha2.Namespace(k8snamespace)),
+					Name:      gwv1.ObjectName(testGateway.Name),
+					Namespace: lo.ToPtr(gwv1.Namespace(k8snamespace)),
 				},
 				SecurityGroupIds: []v1alpha1.SecurityGroupId{sgId},
 			},

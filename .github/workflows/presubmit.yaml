@@ -19,14 +19,14 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.54
+          version: v1.62.2
           args:  --verbose --timeout 30m
 
   presubmit:
     runs-on: ubuntu-latest
     strategy:
         matrix:
-          k8sVersion: ["1.24.x"]
+          k8sVersion: ["1.31.1"]
     env:
       K8S_VERSION: ${{ matrix.k8sVersion }}
     steps:

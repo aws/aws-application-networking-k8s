@@ -7,7 +7,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
@@ -80,7 +80,7 @@ func (in *AccessLogPolicySpec) DeepCopyInto(out *AccessLogPolicySpec) {
 	}
 	if in.TargetRef != nil {
 		in, out := &in.TargetRef, &out.TargetRef
-		*out = new(v1alpha2.PolicyTargetReference)
+		*out = new(v1alpha2.NamespacedPolicyTargetReference)
 		(*in).DeepCopyInto(*out)
 	}
 }
@@ -261,7 +261,7 @@ func (in *IAMAuthPolicySpec) DeepCopyInto(out *IAMAuthPolicySpec) {
 	*out = *in
 	if in.TargetRef != nil {
 		in, out := &in.TargetRef, &out.TargetRef
-		*out = new(v1alpha2.PolicyTargetReference)
+		*out = new(v1alpha2.NamespacedPolicyTargetReference)
 		(*in).DeepCopyInto(*out)
 	}
 }
@@ -612,7 +612,7 @@ func (in *TargetGroupPolicySpec) DeepCopyInto(out *TargetGroupPolicySpec) {
 	}
 	if in.TargetRef != nil {
 		in, out := &in.TargetRef, &out.TargetRef
-		*out = new(v1alpha2.PolicyTargetReference)
+		*out = new(v1alpha2.NamespacedPolicyTargetReference)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.HealthCheck != nil {
@@ -728,7 +728,7 @@ func (in *VpcAssociationPolicySpec) DeepCopyInto(out *VpcAssociationPolicySpec) 
 	}
 	if in.TargetRef != nil {
 		in, out := &in.TargetRef, &out.TargetRef
-		*out = new(v1alpha2.PolicyTargetReference)
+		*out = new(v1alpha2.NamespacedPolicyTargetReference)
 		(*in).DeepCopyInto(*out)
 	}
 }

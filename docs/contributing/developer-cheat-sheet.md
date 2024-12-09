@@ -33,7 +33,7 @@ import (
   "github.com/aws/aws-sdk-go/aws" // no alias
 
   corev1 "k8s.io/api/core/v1"
-  gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+  gwv1 "sigs.k8s.io/gateway-api/apis/v1"
   ctrl "sigs.k8s.io/controller-runtime"
 
   pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"

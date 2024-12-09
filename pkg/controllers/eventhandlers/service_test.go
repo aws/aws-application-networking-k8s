@@ -11,8 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -24,11 +24,11 @@ func TestServiceEventHandler_MapToRoute(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 
-	routes := []gwv1beta1.HTTPRoute{
-		createHTTPRoute("valid-route", "ns1", gwv1beta1.BackendObjectReference{
-			Group:     (*gwv1beta1.Group)(ptr.To("")),
-			Kind:      (*gwv1beta1.Kind)(ptr.To("Service")),
-			Namespace: (*gwv1beta1.Namespace)(ptr.To("ns1")),
+	routes := []gwv1.HTTPRoute{
+		createHTTPRoute("valid-route", "ns1", gwv1.BackendObjectReference{
+			Group:     (*gwv1.Group)(ptr.To("")),
+			Kind:      (*gwv1.Kind)(ptr.To("Service")),
+			Namespace: (*gwv1.Namespace)(ptr.To("ns1")),
 			Name:      "test-service",
 		}),
 	}
@@ -42,7 +42,7 @@ func TestServiceEventHandler_MapToRoute(t *testing.T) {
 		},
 	).AnyTimes()
 	mockClient.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, routeList *gwv1beta1.HTTPRouteList, _ ...interface{}) error {
+		func(ctx context.Context, routeList *gwv1.HTTPRouteList, _ ...interface{}) error {
 			routeList.Items = append(routeList.Items, routes...)
 			return nil
 		},
@@ -55,7 +55,7 @@ func TestServiceEventHandler_MapToRoute(t *testing.T) {
 				Namespace: "ns1",
 			},
 			Spec: anv1alpha1.TargetGroupPolicySpec{
-				TargetRef: &gwv1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Group: "",
 					Kind:  "Service",
 					Name:  "test-service",
@@ -103,7 +103,7 @@ func TestServiceEventHandler_MapToServiceExport(t *testing.T) {
 				Namespace: "ns1",
 			},
 			Spec: anv1alpha1.TargetGroupPolicySpec{
-				TargetRef: &gwv1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Group: "",
 					Kind:  "Service",
 					Name:  "test-service",

@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -171,9 +170,9 @@ func createTargetGroupPolicy(
 			Name:      config.PolicyName,
 		},
 		Spec: anv1alpha1.TargetGroupPolicySpec{
-			TargetRef: &gwv1alpha2.PolicyTargetReference{
-				Kind: gwv1beta1.Kind("Service"),
-				Name: gwv1beta1.ObjectName(service.Name),
+			TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+				Kind: gwv1.Kind("Service"),
+				Name: gwv1.ObjectName(service.Name),
 			},
 			Protocol:        config.Protocol,
 			ProtocolVersion: config.ProtocolVersion,

@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -25,12 +25,12 @@ import (
 )
 
 func Test_Targets(t *testing.T) {
-	namespacePtr := func(ns string) *gwv1beta1.Namespace {
-		p := gwv1beta1.Namespace(ns)
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
 		return &p
 	}
-	kindPtr := func(k string) *gwv1beta1.Kind {
-		p := gwv1beta1.Kind(k)
+	kindPtr := func(k string) *gwv1.Kind {
+		p := gwv1.Kind(k)
 		return &p
 	}
 
@@ -455,7 +455,7 @@ func Test_Targets(t *testing.T) {
 
 			assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
 
-			br := gwv1beta1.HTTPBackendRef{}
+			br := gwv1.HTTPBackendRef{}
 			br.Name = "name"
 			br.Namespace = namespacePtr("ns")
 			br.Kind = kindPtr("Service")

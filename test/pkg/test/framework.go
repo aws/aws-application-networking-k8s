@@ -75,9 +75,9 @@ var (
 func init() {
 	format.MaxLength = 0
 	utilruntime.Must(clientgoscheme.AddToScheme(testScheme))
-	utilruntime.Must(gwv1alpha2.AddToScheme(testScheme))
-	utilruntime.Must(gwv1.AddToScheme(testScheme))
-	utilruntime.Must(anv1alpha1.AddToScheme(testScheme))
+	utilruntime.Must(gwv1alpha2.Install(testScheme))
+	utilruntime.Must(gwv1.Install(testScheme))
+	utilruntime.Must(anv1alpha1.Install(testScheme))
 	addOptionalCRDs(testScheme)
 }
 
@@ -185,6 +185,7 @@ func objectsInfo(objs []client.Object) string {
 func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Object) {
 	env.Log.Infof(ctx, "Creating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		Expect(env.Create(ctx, obj)).WithOffset(1).To(Succeed())
 	})
 }
@@ -192,6 +193,7 @@ func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Objec
 func (env *Framework) ExpectUpdated(ctx context.Context, objects ...client.Object) {
 	env.Log.Infof(ctx, "Updating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		Expect(env.Update(ctx, obj)).WithOffset(1).To(Succeed())
 	})
 }
@@ -203,7 +205,7 @@ func (env *Framework) ExpectDeletedThenNotFound(ctx context.Context, objects ...
 
 func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Object) {
 	httpRouteType := reflect.TypeOf(&gwv1.HTTPRoute{})
-	grpcRouteType := reflect.TypeOf(&gwv1alpha2.GRPCRoute{})
+	grpcRouteType := reflect.TypeOf(&gwv1.GRPCRoute{})
 
 	routeObjects := []client.Object{}
 
@@ -242,14 +244,14 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 					env.Log.Infof(ctx, "Error clearing http route rules %s", err)
 				}
 			} else if grpcRouteType == t {
-				grpc := &gwv1alpha2.GRPCRoute{}
+				grpc := &gwv1.GRPCRoute{}
 				err := env.Get(ctx, nsName, grpc)
 				if err != nil {
 					env.Log.Infof(ctx, "Error getting grpc route %s", err)
 					continue
 				}
 				env.Log.Infof(ctx, "Clearing grpc route rules for %s", grpc.Name)
-				grpc.Spec.Rules = make([]gwv1alpha2.GRPCRouteRule, 0)
+				grpc.Spec.Rules = make([]gwv1.GRPCRouteRule, 0)
 				err = env.Update(ctx, grpc)
 				if err != nil {
 					env.Log.Infof(ctx, "Error clearing grpc route rules %s", err)
@@ -263,6 +265,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 
 	env.Log.Infof(ctx, "Deleting objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		err := env.Delete(ctx, obj)
 		if err != nil {
 			// not found is probably OK - means it was deleted elsewhere
@@ -281,6 +284,7 @@ func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object clien
 func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) {
 	env.Log.Infof(ctx, "Waiting for NotFound, objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		if obj != nil {
 			Eventually(func(g Gomega) {
 				g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(obj), obj))).To(BeTrue())
