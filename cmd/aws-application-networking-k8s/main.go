@@ -63,9 +63,9 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	//+kubebuilder:scaffold:scheme
-	utilruntime.Must(gwv1alpha2.AddToScheme(scheme))
-	utilruntime.Must(gwv1.AddToScheme(scheme))
-	utilruntime.Must(anv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(gwv1alpha2.Install(scheme))
+	utilruntime.Must(gwv1.Install(scheme))
+	utilruntime.Must(anv1alpha1.Install(scheme))
 	utilruntime.Must(discoveryv1.AddToScheme(scheme))
 	addOptionalCRDs(scheme)
 }

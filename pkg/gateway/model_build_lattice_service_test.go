@@ -402,7 +402,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			gwv1.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			assert.NoError(t, k8sClient.Create(ctx, tt.gw.DeepCopy()))

@@ -75,9 +75,9 @@ var (
 func init() {
 	format.MaxLength = 0
 	utilruntime.Must(clientgoscheme.AddToScheme(testScheme))
-	utilruntime.Must(gwv1alpha2.AddToScheme(testScheme))
-	utilruntime.Must(gwv1.AddToScheme(testScheme))
-	utilruntime.Must(anv1alpha1.AddToScheme(testScheme))
+	utilruntime.Must(gwv1alpha2.Install(testScheme))
+	utilruntime.Must(gwv1.Install(testScheme))
+	utilruntime.Must(anv1alpha1.Install(testScheme))
 	addOptionalCRDs(testScheme)
 }
 

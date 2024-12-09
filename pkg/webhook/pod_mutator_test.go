@@ -1072,8 +1072,7 @@ func Test_ReadinessGateInjection(t *testing.T) {
 
 			k8sScheme := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sScheme)
-			gwv1.AddToScheme(k8sScheme)
-			gwv1.AddToScheme(k8sScheme)
+			gwv1.Install(k8sScheme)
 			anv1alpha1.AddToScheme(k8sScheme)
 
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
