@@ -72,9 +72,9 @@ jobs:
              --set=image.repository=$IMAGE_REPOSITORY \
              --set=image.tag=$RELEASE_VERSION \
              --set=log.level=debug
-      - name: Install Gateway API v1 CRDs
+      - name: Install Gateway API v1.2 CRDs
         run: |
-          kubectl apply -f config/crds/bases/k8s-gateway-v1.0.0.yaml
+          kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.0" | kubectl apply -f -
       - name: Create Lattice GatewayClass
         run: |
           kubectl apply -f files/controller-installation/gatewayclass.yaml
