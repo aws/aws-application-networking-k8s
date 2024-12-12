@@ -31,7 +31,7 @@ func TestTLSRouteSpec_Equals(t *testing.T) {
 					Hostnames: []gwv1alpha2.Hostname{"example.com"},
 					Rules: []gwv1alpha2.TLSRouteRule{
 						{
-							BackendRefs: []gwv1alpha2.BackendRef{
+							BackendRefs: []gwv1.BackendRef{
 								{
 									BackendObjectReference: gwv1alpha2.BackendObjectReference{
 										Name: "service1",
@@ -54,7 +54,7 @@ func TestTLSRouteSpec_Equals(t *testing.T) {
 					Hostnames: []gwv1alpha2.Hostname{"example.com"},
 					Rules: []gwv1alpha2.TLSRouteRule{
 						{
-							BackendRefs: []gwv1alpha2.BackendRef{
+							BackendRefs: []gwv1.BackendRef{
 								{
 									BackendObjectReference: gwv1alpha2.BackendObjectReference{
 										Name: "service1",
@@ -105,7 +105,7 @@ func TestTLSRouteSpec_Equals(t *testing.T) {
 				s: gwv1alpha2.TLSRouteSpec{
 					Rules: []gwv1alpha2.TLSRouteRule{
 						{
-							BackendRefs: []gwv1alpha2.BackendRef{
+							BackendRefs: []gwv1.BackendRef{
 								{
 									BackendObjectReference: gwv1alpha2.BackendObjectReference{
 										Name: "service1",
@@ -120,7 +120,7 @@ func TestTLSRouteSpec_Equals(t *testing.T) {
 				s: gwv1alpha2.TLSRouteSpec{
 					Rules: []gwv1alpha2.TLSRouteRule{
 						{
-							BackendRefs: []gwv1alpha2.BackendRef{
+							BackendRefs: []gwv1.BackendRef{
 								{
 									BackendObjectReference: gwv1alpha2.BackendObjectReference{
 										Name: "service2",
@@ -188,7 +188,7 @@ func TestTLSRouteBackendRef_Equals(t *testing.T) {
 		{
 			description: "es are equal",
 			backendRef1: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					Weight: weight1,
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Group:     &group1,
@@ -201,7 +201,7 @@ func TestTLSRouteBackendRef_Equals(t *testing.T) {
 			},
 
 			backendRef2: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					Weight: weight1,
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Group:     &group1,
@@ -237,14 +237,14 @@ func TestTLSRouteBackendRef_Equals(t *testing.T) {
 		{
 			description: "Instances with different groups are not equal",
 			backendRef1: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Group: &group1,
 					},
 				},
 			},
 			backendRef2: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Group: &group2,
 					},
@@ -255,14 +255,14 @@ func TestTLSRouteBackendRef_Equals(t *testing.T) {
 		{
 			description: "Instances with different kinds are not equal",
 			backendRef1: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Kind: &kind1,
 					},
 				},
 			},
 			backendRef2: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Kind: &kind2,
 					},
@@ -273,14 +273,14 @@ func TestTLSRouteBackendRef_Equals(t *testing.T) {
 		{
 			description: "Instance with different Names are not equal",
 			backendRef1: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Name: name1,
 					},
 				},
 			},
 			backendRef2: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Name: name2,
 					},
@@ -291,14 +291,14 @@ func TestTLSRouteBackendRef_Equals(t *testing.T) {
 		{
 			description: "Instance with different Namespaces are not equal",
 			backendRef1: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Name: gwv1.ObjectName(namespace1),
 					},
 				},
 			},
 			backendRef2: &TLSBackendRef{
-				r: gwv1alpha2.BackendRef{
+				r: gwv1.BackendRef{
 					BackendObjectReference: gwv1alpha2.BackendObjectReference{
 						Name: gwv1.ObjectName(namespace2),
 					},

@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
@@ -17,15 +17,15 @@ const (
 )
 
 type HTTPRoute struct {
-	r gwv1beta1.HTTPRoute
+	r gwv1.HTTPRoute
 }
 
-func NewHTTPRoute(route gwv1beta1.HTTPRoute) *HTTPRoute {
+func NewHTTPRoute(route gwv1.HTTPRoute) *HTTPRoute {
 	return &HTTPRoute{r: route}
 }
 
 func GetHTTPRoute(ctx context.Context, client client.Client, routeNamespacedName types.NamespacedName) (Route, error) {
-	httpRoute := &gwv1beta1.HTTPRoute{}
+	httpRoute := &gwv1.HTTPRoute{}
 	err := client.Get(ctx, routeNamespacedName, httpRoute)
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func GetHTTPRoute(ctx context.Context, client client.Client, routeNamespacedName
 }
 
 func ListHTTPRoutes(context context.Context, client client.Client) ([]Route, error) {
-	routeList := &gwv1beta1.HTTPRouteList{}
+	routeList := &gwv1.HTTPRouteList{}
 	if err := client.List(context, routeList); err != nil {
 		return nil, err
 	}
@@ -74,26 +74,26 @@ func (r *HTTPRoute) K8sObject() client.Object {
 	return &r.r
 }
 
-func (r *HTTPRoute) Inner() *gwv1beta1.HTTPRoute {
+func (r *HTTPRoute) Inner() *gwv1.HTTPRoute {
 	return &r.r
 }
 
 func (r *HTTPRoute) GroupKind() metav1.GroupKind {
 	return metav1.GroupKind{
-		Group: gwv1beta1.GroupName,
+		Group: gwv1.GroupName,
 		Kind:  "HTTPRoute",
 	}
 }
 
 type HTTPRouteSpec struct {
-	s gwv1beta1.HTTPRouteSpec
+	s gwv1.HTTPRouteSpec
 }
 
-func (s *HTTPRouteSpec) ParentRefs() []gwv1beta1.ParentReference {
+func (s *HTTPRouteSpec) ParentRefs() []gwv1.ParentReference {
 	return s.s.ParentRefs
 }
 
-func (s *HTTPRouteSpec) Hostnames() []gwv1beta1.Hostname {
+func (s *HTTPRouteSpec) Hostnames() []gwv1.Hostname {
 	return s.s.Hostnames
 }
 
@@ -134,20 +134,20 @@ func (s *HTTPRouteSpec) Equals(routeSpec RouteSpec) bool {
 }
 
 type HTTPRouteStatus struct {
-	s *gwv1beta1.HTTPRouteStatus
+	s *gwv1.HTTPRouteStatus
 }
 
-func (s *HTTPRouteStatus) Parents() []gwv1beta1.RouteParentStatus {
+func (s *HTTPRouteStatus) Parents() []gwv1.RouteParentStatus {
 	return s.s.Parents
 }
 
-func (s *HTTPRouteStatus) SetParents(parents []gwv1beta1.RouteParentStatus) {
+func (s *HTTPRouteStatus) SetParents(parents []gwv1.RouteParentStatus) {
 	s.s.Parents = parents
 }
 
-func (s *HTTPRouteStatus) UpdateParentRefs(parent gwv1beta1.ParentReference, controllerName gwv1beta1.GatewayController) {
+func (s *HTTPRouteStatus) UpdateParentRefs(parent gwv1.ParentReference, controllerName gwv1.GatewayController) {
 	if len(s.Parents()) == 0 {
-		s.SetParents(make([]gwv1beta1.RouteParentStatus, 1))
+		s.SetParents(make([]gwv1.RouteParentStatus, 1))
 	}
 
 	s.Parents()[0].ParentRef = parent
@@ -159,7 +159,7 @@ func (s *HTTPRouteStatus) UpdateRouteCondition(condition metav1.Condition) {
 }
 
 type HTTPRouteRule struct {
-	r gwv1beta1.HTTPRouteRule
+	r gwv1.HTTPRouteRule
 }
 
 func (r *HTTPRouteRule) BackendRefs() []BackendRef {
@@ -208,10 +208,10 @@ func (r *HTTPRouteRule) Equals(routeRule RouteRule) bool {
 }
 
 type HTTPBackendRef struct {
-	r gwv1beta1.HTTPBackendRef
+	r gwv1.HTTPBackendRef
 }
 
-func NewHTTPBackendRef(r gwv1beta1.HTTPBackendRef) HTTPBackendRef {
+func NewHTTPBackendRef(r gwv1.HTTPBackendRef) HTTPBackendRef {
 	return HTTPBackendRef{r: r}
 }
 
@@ -219,23 +219,23 @@ func (r *HTTPBackendRef) Weight() *int32 {
 	return r.r.Weight
 }
 
-func (r *HTTPBackendRef) Group() *gwv1beta1.Group {
+func (r *HTTPBackendRef) Group() *gwv1.Group {
 	return r.r.Group
 }
 
-func (r *HTTPBackendRef) Kind() *gwv1beta1.Kind {
+func (r *HTTPBackendRef) Kind() *gwv1.Kind {
 	return r.r.Kind
 }
 
-func (r *HTTPBackendRef) Name() gwv1beta1.ObjectName {
+func (r *HTTPBackendRef) Name() gwv1.ObjectName {
 	return r.r.Name
 }
 
-func (r *HTTPBackendRef) Namespace() *gwv1beta1.Namespace {
+func (r *HTTPBackendRef) Namespace() *gwv1.Namespace {
 	return r.r.Namespace
 }
 
-func (r *HTTPBackendRef) Port() *gwv1beta1.PortNumber {
+func (r *HTTPBackendRef) Port() *gwv1.PortNumber {
 	return r.r.Port
 }
 
@@ -265,7 +265,7 @@ func (r *HTTPBackendRef) Equals(backendRef BackendRef) bool {
 }
 
 type HTTPRouteMatch struct {
-	m gwv1beta1.HTTPRouteMatch
+	m gwv1.HTTPRouteMatch
 }
 
 func (m *HTTPRouteMatch) Headers() []HeaderMatch {
@@ -276,15 +276,15 @@ func (m *HTTPRouteMatch) Headers() []HeaderMatch {
 	return headerMatches
 }
 
-func (m *HTTPRouteMatch) Path() *gwv1beta1.HTTPPathMatch {
+func (m *HTTPRouteMatch) Path() *gwv1.HTTPPathMatch {
 	return m.m.Path
 }
 
-func (m *HTTPRouteMatch) QueryParams() []gwv1beta1.HTTPQueryParamMatch {
+func (m *HTTPRouteMatch) QueryParams() []gwv1.HTTPQueryParamMatch {
 	return m.m.QueryParams
 }
 
-func (m *HTTPRouteMatch) Method() *gwv1beta1.HTTPMethod {
+func (m *HTTPRouteMatch) Method() *gwv1.HTTPMethod {
 	return m.m.Method
 }
 
@@ -320,10 +320,10 @@ func (m *HTTPRouteMatch) Equals(routeMatch RouteMatch) bool {
 }
 
 type HTTPHeaderMatch struct {
-	m gwv1beta1.HTTPHeaderMatch
+	m gwv1.HTTPHeaderMatch
 }
 
-func (m *HTTPHeaderMatch) Type() *gwv1beta1.HeaderMatchType {
+func (m *HTTPHeaderMatch) Type() *gwv1.HeaderMatchType {
 	return m.m.Type
 }
 

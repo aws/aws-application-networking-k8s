@@ -2,7 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 const (
@@ -55,7 +55,7 @@ type TargetGroupPolicySpec struct {
 	// TargetRef points to the kubernetes Service resource that will have this policy attached.
 	//
 	// This field is following the guidelines of Kubernetes Gateway API policy attachment.
-	TargetRef *v1alpha2.PolicyTargetReference `json:"targetRef"`
+	TargetRef *gwv1alpha2.NamespacedPolicyTargetReference `json:"targetRef"`
 
 	// The health check configuration.
 	//
@@ -156,7 +156,7 @@ const (
 	HealthCheckProtocolVersionHTTP2 HealthCheckProtocolVersion = "HTTP2"
 )
 
-func (p *TargetGroupPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
+func (p *TargetGroupPolicy) GetTargetRef() *gwv1alpha2.NamespacedPolicyTargetReference {
 	return p.Spec.TargetRef
 }
 

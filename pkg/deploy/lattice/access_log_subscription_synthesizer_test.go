@@ -9,7 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	mockclient "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -30,7 +30,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 		input := &anv1alpha1.AccessLogPolicy{
 			Spec: anv1alpha1.AccessLogPolicySpec{
 				DestinationArn: aws.String(s3DestinationArn),
-				TargetRef: &v1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Kind: "Gateway",
 					Name: "TestName",
 				},
@@ -50,7 +50,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 		input := &anv1alpha1.AccessLogPolicy{
 			Spec: anv1alpha1.AccessLogPolicySpec{
 				DestinationArn: aws.String(s3DestinationArn),
-				TargetRef: &v1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Kind: "Gateway",
 					Name: "TestName",
 				},
@@ -75,7 +75,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 			Spec: anv1alpha1.AccessLogPolicySpec{
 				DestinationArn: aws.String(s3DestinationArn),
-				TargetRef: &v1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Kind: "Gateway",
 					Name: "TestName",
 				},
@@ -101,7 +101,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 			Spec: anv1alpha1.AccessLogPolicySpec{
 				DestinationArn: aws.String(s3DestinationArn),
-				TargetRef: &v1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Kind: "Gateway",
 					Name: "TestName",
 				},
@@ -128,7 +128,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 			Spec: anv1alpha1.AccessLogPolicySpec{
 				DestinationArn: aws.String(s3DestinationArn),
-				TargetRef: &v1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Kind: "Gateway",
 					Name: "TestName",
 				},
@@ -152,7 +152,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 			Spec: anv1alpha1.AccessLogPolicySpec{
 				DestinationArn: aws.String(s3DestinationArn),
-				TargetRef: &v1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Kind: "Gateway",
 					Name: "TestName",
 				},
@@ -178,7 +178,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 			Spec: anv1alpha1.AccessLogPolicySpec{
 				DestinationArn: aws.String(s3DestinationArn),
-				TargetRef: &v1alpha2.PolicyTargetReference{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 					Kind: "Gateway",
 					Name: "TestName",
 				},

@@ -14,8 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -155,7 +153,7 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecForGrpcRoute(m *core.GRPCRo
 		return fmt.Errorf("cannot create GRPCRouteMatch for nil service and non-nil method")
 	}
 	switch *method.Type {
-	case gwv1alpha2.GRPCMethodMatchExact:
+	case gwv1.GRPCMethodMatchExact:
 		if method.Service == nil {
 			t.log.Debugf(context.TODO(), "Match all paths due to nil service and nil method")
 			ruleSpec.PathMatchPrefix = true

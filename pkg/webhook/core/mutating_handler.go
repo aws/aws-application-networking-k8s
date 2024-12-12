@@ -12,10 +12,10 @@ import (
 type mutatingHandler struct {
 	log     gwlog.Logger
 	mutator Mutator
-	decoder *admission.Decoder
+	decoder admission.Decoder
 }
 
-func (h *mutatingHandler) SetDecoder(d *admission.Decoder) {
+func (h *mutatingHandler) SetDecoder(d admission.Decoder) {
 	h.decoder = d
 }
 

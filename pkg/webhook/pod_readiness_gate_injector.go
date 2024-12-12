@@ -12,8 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
@@ -103,16 +102,16 @@ func (m *PodReadinessGateInjector) requiresReadinessGate(ctx context.Context, po
 func (m *PodReadinessGateInjector) listAllRoutes(ctx context.Context) []core.Route {
 	// fetch all routes in all namespaces - backendRefs can reference other namespaces
 	var routes []core.Route
-	httpRouteList := &gwv1beta1.HTTPRouteList{}
+	httpRouteList := &gwv1.HTTPRouteList{}
 	err := m.k8sClient.List(ctx, httpRouteList)
 	if err != nil {
-		m.log.Errorf(ctx, "Error fetching beta1 HTTPRoutes: %s", err)
+		m.log.Errorf(ctx, "Error fetching HTTPRoutes: %s", err)
 	}
 	for _, k8sRoute := range httpRouteList.Items {
 		routes = append(routes, core.NewHTTPRoute(k8sRoute))
 	}
 
-	grpcRouteList := &gwv1alpha2.GRPCRouteList{}
+	grpcRouteList := &gwv1.GRPCRouteList{}
 	err = m.k8sClient.List(ctx, grpcRouteList)
 	if err != nil {
 		m.log.Errorf(ctx, "Error fetching GRPCRoutes: %s", err)
@@ -180,7 +179,7 @@ func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, r
 		return false
 	}
 
-	gw := &gwv1beta1.Gateway{}
+	gw := &gwv1.Gateway{}
 	gwNamespace := route.Namespace()
 	if route.Spec().ParentRefs()[0].Namespace != nil {
 		gwNamespace = string(*route.Spec().ParentRefs()[0].Namespace)
@@ -197,7 +196,7 @@ func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, r
 	}
 
 	// make sure gateway is an aws-vpc-lattice
-	gwClass := &gwv1beta1.GatewayClass{}
+	gwClass := &gwv1.GatewayClass{}
 	gwClassName := types.NamespacedName{
 		Namespace: "default",
 		Name:      string(gw.Spec.GatewayClassName),

@@ -4,17 +4,16 @@ import (
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-func (env *Framework) NewGRPCRoute(namespace string, parentRefsGateway *gwv1.Gateway, rules []v1alpha2.GRPCRouteRule) *v1alpha2.GRPCRoute {
-	grpcRoute := New(&v1alpha2.GRPCRoute{
+func (env *Framework) NewGRPCRoute(namespace string, parentRefsGateway *gwv1.Gateway, rules []gwv1.GRPCRouteRule) *gwv1.GRPCRoute {
+	grpcRoute := New(&gwv1.GRPCRoute{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 		},
-		Spec: v1alpha2.GRPCRouteSpec{
-			CommonRouteSpec: v1alpha2.CommonRouteSpec{
+		Spec: gwv1.GRPCRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{{
 					Name:        gwv1.ObjectName(parentRefsGateway.Name),
 					Namespace:   (*gwv1.Namespace)(&parentRefsGateway.Namespace),
