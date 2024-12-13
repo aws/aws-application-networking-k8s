@@ -10,7 +10,7 @@ By adding https to the amazon-vpc-lattice gateway, you can tell the listener to 
 The following modifications to the `files/examples/my-hotel-gateway.yaml` file add HTTPs communications:
 
 ```yaml title="my-hotel-gateway.yaml" hl_lines="11 12 13"
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-hotel
@@ -29,7 +29,7 @@ spec:
 Next, the following modifications to the `files/examples/rate-route-path.yaml` file tell the `rates` HTTPRoute to use HTTPs for communications:
 
 ```yaml title="rate-route-path.yaml" hl_lines="10"
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: rates
@@ -55,7 +55,7 @@ If you want to use a custom domain name along with its own certificate, you can:
 The following shows modifications to `files/examples/my-hotel-gateway.yaml` to add a custom certificate:
 
 ```yaml title="my-hotel-gateway.yaml" hl_lines="16 17 18 19"
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-hotel
@@ -82,7 +82,7 @@ Note that only `Terminate` mode is supported (Passthrough is not supported).
 Next, associate the HTTPRoute to the listener configuration you just configured:
 
 ```yaml title="rate-route-path.yaml" hl_lines="7"
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: rates

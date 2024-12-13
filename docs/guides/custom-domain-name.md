@@ -6,7 +6,7 @@ VPC Lattice generates a unique Fully Qualified Domain Name (FQDN) for you; howev
 If you'd prefer to use a custom domain name for a HTTPRoute, you can specify them in hostname field of HTTPRoute. Here is one example:
 
 ```yaml title="custom-domain-route.yaml" hl_lines="7"
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: review

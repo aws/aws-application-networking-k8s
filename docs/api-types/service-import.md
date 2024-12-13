@@ -39,7 +39,7 @@ spec: {}
 
 The following example HTTPRoute directs traffic to the above ServiceImport.
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: my-route

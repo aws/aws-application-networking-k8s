@@ -13,6 +13,7 @@ nav:
     - Concepts: concepts/overview.md
   - User Guides:
     - Controller Installation: guides/deploy.md
+    - Upgrading Controller from v1.0.x to v1.1.y: guides/upgrading-v1-0-x-to-v1-1-y.md
     - Getting Started: guides/getstarted.md
     - Cross-Account Sharing: guides/ram-sharing.md
     - Advanced Configurations: guides/advanced-configurations.md
