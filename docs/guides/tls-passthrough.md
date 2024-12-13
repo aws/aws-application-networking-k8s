@@ -25,7 +25,7 @@ kubectl apply -f files/examples/my-gateway-tls-passthrough.yaml
 
 ```
 # tls listener config snips:
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-hotel-tls-passthrough

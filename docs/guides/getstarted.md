@@ -120,7 +120,7 @@ This example creates a single cluster in a single VPC, then configures two HTTPR
     kubectl get httproute inventory -o yaml 
     ```
     ``` hl_lines="5"
-        apiVersion: gateway.networking.k8s.io/v1beta1
+        apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
             annotations:
@@ -132,7 +132,7 @@ This example creates a single cluster in a single VPC, then configures two HTTPR
     kubectl get httproute rates -o yaml
     ```
     ``` hl_lines="7"
-        apiVersion: gateway.networking.k8s.io/v1beta1
+        apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
             annotations:

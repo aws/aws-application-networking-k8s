@@ -36,7 +36,7 @@ This allows you to define and manage the routing of gRPC traffic within your Kub
 Here is a sample configuration that demonstrates how to set up a `GRPCRoute` for a HelloWorld gRPC service:
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
 metadata:
   name: greeter-grpc-route
@@ -78,4 +78,4 @@ In this example:
 
 This `GRPCRoute` documentation provides a detailed introduction, feature set, and a basic example of how to configure
 and use the resource within AWS Gateway API Controller project. For in-depth details and specifications, you can refer to the
-official [Gateway API documentation](https://gateway-api.sigs.k8s.io/references/spec/#networking.x-k8s.io/v1alpha2.GRPCRoute).
+official [Gateway API documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.GRPCRoute).

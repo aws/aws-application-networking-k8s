@@ -8,7 +8,7 @@ With `GRPCRoute`, you can ensure that your gRPC traffic is directed to the appro
 Kubernetes environment.
 
 For a detailed reference on `GRPCRoute` from the Gateway API, please check the official
-[Gateway API documentation](https://gateway-api.sigs.k8s.io/references/spec/#networking.x-k8s.io/v1alpha2.GRPCRoute).
+[Gateway API documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.GRPCRoute).
 
 ## Setting up a HelloWorld gRPC Server
 

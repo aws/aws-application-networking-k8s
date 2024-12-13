@@ -40,7 +40,7 @@ are assigned, please refer to our [Getting Started Guide](../guides/getstarted.m
 Here is a sample configuration that demonstrates how to set up a `Gateway`:
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-hotel
