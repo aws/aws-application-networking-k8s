@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/dev/concepts/concepts/">
+        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/dev/guides/upgrading-v1-0-x-to-v1-1-y/">
       
       
-        <link rel="prev" href="../..">
+        <link rel="prev" href="../deploy/">
       
       
-        <link rel="next" href="../overview/">
+        <link rel="next" href="../getstarted/">
       
       
       <link rel="icon" href="../../images/controller.png">
@@ -22,7 +22,7 @@
     
     
       
-        <title>Introduction - AWS Gateway API Controller</title>
+        <title>Upgrading Controller from v1.0.x to v1.1.y - AWS Gateway API Controller</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#aws-gateway-api-controller-user-guide" class="md-skip">
+        <a href="#update-the-aws-gateway-api-controller-from-v10x-to-v11y" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Introduction
+              Upgrading Controller from v1.0.x to v1.1.y
             
           </span>
         </div>
@@ -237,13 +237,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../concepts/concepts/" class="md-tabs__link">
           
   
   Concepts
@@ -257,11 +255,13 @@
         
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../guides/deploy/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../deploy/" class="md-tabs__link">
           
   
   User Guides
@@ -412,30 +412,25 @@
       
   
   
-    
   
   
-  
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -446,7 +441,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             Concepts
@@ -457,19 +452,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../concepts/concepts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -478,7 +464,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -491,7 +476,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../overview/" class="md-nav__link">
+      <a href="../../concepts/overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -516,25 +501,30 @@
       
   
   
+    
   
   
+  
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -545,7 +535,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             User Guides
@@ -559,7 +549,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/deploy/" class="md-nav__link">
+      <a href="../deploy/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -577,10 +567,19 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../guides/upgrading-v1-0-x-to-v1-1-y/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -589,6 +588,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -601,7 +601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/getstarted/" class="md-nav__link">
+      <a href="../getstarted/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -622,7 +622,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/ram-sharing/" class="md-nav__link">
+      <a href="../ram-sharing/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -643,7 +643,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/advanced-configurations/" class="md-nav__link">
+      <a href="../advanced-configurations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -664,7 +664,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/https/" class="md-nav__link">
+      <a href="../https/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -685,7 +685,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/custom-domain-name/" class="md-nav__link">
+      <a href="../custom-domain-name/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -706,7 +706,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/grpc/" class="md-nav__link">
+      <a href="../grpc/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -727,7 +727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/tls-passthrough/" class="md-nav__link">
+      <a href="../tls-passthrough/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -748,7 +748,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/pod-readiness-gates/" class="md-nav__link">
+      <a href="../pod-readiness-gates/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -769,7 +769,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/environment/" class="md-nav__link">
+      <a href="../environment/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1215,23 +1215,27 @@
   
 
 
-<h1 id="aws-gateway-api-controller-user-guide">AWS Gateway API Controller User Guide<a class="headerlink" href="#aws-gateway-api-controller-user-guide" title="Permanent link">&para;</a></h1>
-<p>As part of the VPC Lattice launch, AWS introduced the AWS Gateway API Controller ; an implementation of the Kubernetes Gateway API. Gateway API is an open-source standard interface to enable Kubernetes application networking through expressive, extensible, and role-oriented interfaces. AWS Gateway API controller extends custom resources, defined by Gateway API, which allows you to create VPC Lattice resources using Kubernetes APIs.</p>
-<p>When installed in your cluster, the controller watches for the creation of Gateway API resources such as gateways and routes and provisions corresponding Amazon VPC Lattice objects. This enables users to configure VPC Lattice Services, VPC Lattice service networks and Target Groups using Kubernetes APIs, without needing to write custom code or manage sidecar proxies. The AWS Gateway API Controller is an open-source project and fully supported by Amazon.</p>
-<p>AWS Gateway API Controller integrates with Amazon VPC Lattice and allows you to:</p>
-<ul>
-<li>Handle network connectivity seamlessly between services across VPCs and accounts.</li>
-<li>Discover VPC Lattice services spanning multiple Kubernetes clusters.</li>
-<li>Implement a defense-in-depth strategy to secure communication between those services.</li>
-<li>Observe the request/response traffic across the services.</li>
-</ul>
-<p>This documentation describes how to set up the AWS Gateway API Controller, provides example use cases, development concepts, and API references. AWS Gateway API Controller will provide developers the ability to publish services running on Kubernetes cluster and other compute platforms on AWS such as AWS Lambda or Amazon EC2. Once the AWS Gateway API controller deployed and running, you will be able to manage services for multiple Kubernetes clusters and other compute targets on AWS through the following:</p>
-<ul>
-<li><strong>CLI</strong>: Use <code>aws</code> and <code>eksctl</code> to create clusters and set up AWS policies. Then use <code>kubectl</code> and YAML files to set up Kubernetes objects.</li>
-<li><strong>AWS Console</strong>: View VPC Lattice assets through the VPC area of the AWS console.</li>
-</ul>
-<p>Integrating with the Kubernetes Gateway API provides a kubernetes-native experience for developers to create services, manage network routing and traffic behaviour without the heavy lifting managing the underlying networking infrastrcuture. This lets you work with Kubernetes service-related resources using Kubernetes APIs and custom resource definitions (CRDs) defined by the Kubernetes <a href="https://gateway-api.sigs.k8s.io/references/spec/">networking.k8s.io specification</a>.</p>
-<p>For more information on this technology, see <a href="https://gateway-api.sigs.k8s.io/">Kubernetes Gateway API</a>. </p>
+<h1 id="update-the-aws-gateway-api-controller-from-v10x-to-v11y">Update the AWS Gateway API Controller from v1.0.x to v1.1.y<a class="headerlink" href="#update-the-aws-gateway-api-controller-from-v10x-to-v11y" title="Permanent link">&para;</a></h1>
+<p>Release <code>v1.1.0</code> of the AWS Gateway API Controller is built against <code>v1.2</code> of the Gateway API spec, but the controller is also compatible with the <code>v1.1</code> Gateway API. It is <em>not</em> compatible the <code>v1.0</code> Gateway API.</p>
+<p>Previous <code>v1.0.x</code> builds of the controller were built against <code>v1.0</code> of the Gateway API spec. This guide outlines the controller upgrade process from <code>v1.0.x</code> to <code>v1.1.y</code>.</p>
+<h1 id="basic-upgrade-process">Basic Upgrade Process<a class="headerlink" href="#basic-upgrade-process" title="Permanent link">&para;</a></h1>
+<ol>
+<li>Back up configuration, in particular GRPCRoute objects</li>
+<li>Disable <code>v1.0.x</code> controller (e.g. scale to zero)</li>
+<li>Update Gateway API CRDs to <code>v1.1.0</code></li>
+<li>Deploy and launch <code>v1.1.y</code> controller version</li>
+</ol>
+<p>With the basic upgrade process, previously created GRPCRoutes on <code>v1alpha2</code> will automatically update to <code>v1</code> once they are reconciled by the controller. Alternatively, you can manually update your GRPCRoute versions (for example export to YAML, update version number, and apply updates). Creation of new GRPCRoutes objects using <code>v1alpha2</code> will be rejected.</p>
+<h1 id="upgrading-to-gateway-api-v12">Upgrading to Gateway API <code>v1.2</code><a class="headerlink" href="#upgrading-to-gateway-api-v12" title="Permanent link">&para;</a></h1>
+<p>Moving to GatewayAPI <code>v1.2</code> can require an additional step as <code>v1alpha2</code> GRPCRoute objects have been removed. If GRPCRoute objects are not already on <code>v1</code>, you will need to follow steps outlined in the <code>v1.2.0</code> <a href="https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.2.0">release notes</a>.</p>
+<ol>
+<li>Back up configuration, in particular GRPCRoute objects</li>
+<li>Disable <code>v1.0.x</code> controller (e.g. scale to zero)</li>
+<li>Update Gateway API CRDs to <code>v1.1.0</code></li>
+<li>Deploy and launch <code>v1.1.Y</code> controller version</li>
+<li>Take upgrade steps outlined in <code>v1.2.0</code> <a href="https://github.com/kubernetes-sigs/gateway-api/releases/tag/v1.2.0">Gateway API release notes</a></li>
+<li>Update Gateway API CRDs to <code>v1.2.0</code></li>
+</ol>
 
 
 
@@ -1269,7 +1273,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../.." class="md-footer__link md-footer__link--prev" aria-label="Previous: Home">
+          <a href="../deploy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Controller Installation">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1279,20 +1283,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Home
+                Controller Installation
               </div>
             </div>
           </a>
         
         
           
-          <a href="../overview/" class="md-footer__link md-footer__link--next" aria-label="Next: Concepts">
+          <a href="../getstarted/" class="md-footer__link md-footer__link--next" aria-label="Next: Getting Started">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Concepts
+                Getting Started
               </div>
             </div>
             <div class="md-footer__button md-icon">

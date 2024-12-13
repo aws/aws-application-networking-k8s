@@ -565,6 +565,27 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/upgrading-v1-0-x-to-v1-1-y/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading Controller from v1.0.x to v1.1.y
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/getstarted/" class="md-nav__link">
         
   
@@ -1332,48 +1353,43 @@
 </ol>
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
 <p>Once cluster is ready, we need to apply CRDs for <code>gateway-api</code> resources. First install core <code>gateway-api</code> CRDs:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">v1 CRDs (latest, recommended)</label><label for="__tabbed_1_2">v1beta1 CRDs</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:1"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">v1.2 CRDs</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p>Install the latest <code>v1</code> CRDs:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/k8s-gateway-v1.0.0.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>kustomize<span class="w"> </span><span class="s2">&quot;github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.0&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-
 </code></pre></div></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Note that v1 CRDs are <strong>not included</strong> in <code>deploy-*.yaml</code> and <code>helm</code> chart by default. </p>
+<p>Note that v1 CRDs are <strong>not included</strong> in <code>deploy-*.yaml</code> and <code>helm</code> chart. </p>
 </div>
-</div>
-<div class="tabbed-block">
-<p>Install <code>gateway-api</code> <code>v1beta1</code> CRDs.
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/k8s-gateway-v0.6.1.yaml
-</code></pre></div></p>
 </div>
 </div>
 </div>
 <p>And install additional CRDs for the controller:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_serviceimports.yaml
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_targetgrouppolicies.yaml
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_serviceimports.yaml
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_targetgrouppolicies.yaml
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
 </code></pre></div>
 <p>When e2e tests are terminated during execution, it might break clean-up stage and resources will leak. To delete dangling resources manually use cleanup script:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make<span class="w"> </span>e2e-clean
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>e2e-clean
 </code></pre></div>
 <h2 id="local-development">Local Development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h2>
 <p>A minimal test of changes can be done with <code>make presubmit</code>. This command will also run on PR.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make<span class="w"> </span>presubmit
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make<span class="w"> </span>presubmit
 </code></pre></div>
 <p>Start controller in development mode, that will point to cluster (see setup above).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>//<span class="w"> </span>should<span class="w"> </span>be<span class="w"> </span>region<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>cluster
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">REGION</span><span class="o">=</span>us-west-2<span class="w"> </span>make<span class="w"> </span>run
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>//<span class="w"> </span>should<span class="w"> </span>be<span class="w"> </span>region<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>cluster
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">REGION</span><span class="o">=</span>us-west-2<span class="w"> </span>make<span class="w"> </span>run
 </code></pre></div>
 <p>You can explore a collection of different yaml configurations in the examples folder that can be applied to cluster.</p>
 <p>To run it against specific lattice service endpoint.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">LATTICE_ENDPOINT</span><span class="o">=</span>https://vpc-lattice.us-west-2.amazonaws.com/<span class="w"> </span>make<span class="w"> </span>run
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">LATTICE_ENDPOINT</span><span class="o">=</span>https://vpc-lattice.us-west-2.amazonaws.com/<span class="w"> </span>make<span class="w"> </span>run
 </code></pre></div>
 <p>To easier load environment variables, if you hope to run the controller by GoLand IDE locally, you could run the <code>./scripts/load_env_variables.sh</code>
 And use "EnvFile" GoLand plugin to read the env variables from the generated <code>.env</code> file.</p>
@@ -1381,30 +1397,30 @@ And use "EnvFile" GoLand plugin to read the env variables from the generated <co
 <p>For larger changes it's recommended to run e2e suites on your local cluster.
 E2E tests require a service network named <code>test-gateway</code> with cluster VPC associated to run.
 You can either set up service network manually or use DEFAULT_SERVICE_NETWORK option when running controller locally. (e.g. <code>DEFAULT_SERVICE_NETWORK=test-gateway make run</code>)</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">REGION</span><span class="o">=</span>us-west-2<span class="w"> </span>make<span class="w"> </span>e2e-test
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">REGION</span><span class="o">=</span>us-west-2<span class="w"> </span>make<span class="w"> </span>e2e-test
 </code></pre></div>
 <p>For the <code>RAM Share</code> test suite, which runs cross-account e2e tests, you will need a secondary AWS Account with a role that
 can be assumed by the primary account during test execution.
 You can create an IAM Role, with a Trust Policy allowing the primary account to assume it, via the AWS IAM Console.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">SECONDARY_ACCOUNT_TEST_ROLE_ARN</span><span class="o">=</span>arn:aws:iam::000000000000:role/MyRole
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FOCUS</span><span class="o">=</span><span class="s2">&quot;RAM Share&quot;</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nv">REGION</span><span class="o">=</span>us-west-2<span class="w"> </span>make<span class="w"> </span>e2e-test
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">SECONDARY_ACCOUNT_TEST_ROLE_ARN</span><span class="o">=</span>arn:aws:iam::000000000000:role/MyRole
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FOCUS</span><span class="o">=</span><span class="s2">&quot;RAM Share&quot;</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nv">REGION</span><span class="o">=</span>us-west-2<span class="w"> </span>make<span class="w"> </span>e2e-test
 </code></pre></div>
 <p>You can use the <code>FOCUS</code> environment variable to run some specific test cases based on filter condition.
 You could assign the string in the Describe("xxxxxx") or It("xxxxxx") to the FOCUS environment variable to run the specific test cases.
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">Describe</span><span class="p">(</span><span class="s">&quot;HTTPRoute path matches&quot;</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">    </span><span class="nx">It</span><span class="p">(</span><span class="s">&quot;HTTPRoute should support multiple path matches&quot;</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">        </span><span class="c1">// test case body</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="p">})</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">Describe</span><span class="p">(</span><span class="s">&quot;HTTPRoute path matches&quot;</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="nx">It</span><span class="p">(</span><span class="s">&quot;HTTPRoute should support multiple path matches&quot;</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">        </span><span class="c1">// test case body</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="p">})</span>
 </code></pre></div></p>
 <p>For example, to run the test case "HTTPRoute should support multiple path matches", you could run the following command:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FOCUS</span><span class="o">=</span><span class="s2">&quot;HTTPRoute should support multiple path matches&quot;</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">REGION</span><span class="o">=</span>us-west-2
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>make<span class="w"> </span>e2e-test
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FOCUS</span><span class="o">=</span><span class="s2">&quot;HTTPRoute should support multiple path matches&quot;</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">REGION</span><span class="o">=</span>us-west-2
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>make<span class="w"> </span>e2e-test
 </code></pre></div></p>
 <p>Conversely, you can use the <code>SKIP</code> environment variable to skip specific test cases.</p>
 <p>For example, to skip the same test as above, you would run the following command:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">SKIP</span><span class="o">=</span><span class="s2">&quot;HTTPRoute should support multiple path matches&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">SKIP</span><span class="o">=</span><span class="s2">&quot;HTTPRoute should support multiple path matches&quot;</span>
 </code></pre></div></p>
 <p>For more detail on filter condition for ginkgo
 https://onsi.github.io/ginkgo/#focused-specs
@@ -1413,23 +1429,23 @@ https://onsi.github.io/ginkgo/#description-based-filtering</p>
 <h2 id="documentations">Documentations<a class="headerlink" href="#documentations" title="Permanent link">&para;</a></h2>
 <p>The controller documentation is managed in <code>docs/</code> directory, and built with <a href="https://www.mkdocs.org/">mkdocs</a>. It uses <a href="https://github.com/jimporter/mike">mike</a> to manage versioning.
 To build and verify your changes locally:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>make<span class="w"> </span>docs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>make<span class="w"> </span>docs
 </code></pre></div>
 The website will be located in <code>site/</code> directory. You can also run a local dev-server by running <code>mike serve</code> or <code>mkdocs serve</code>.</p>
 <h2 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">&para;</a></h2>
 <p>Before sending a Pull Request, you should run unit tests:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make<span class="w"> </span>presubmit
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make<span class="w"> </span>presubmit
 </code></pre></div>
 <p>For larger, functional changes, run e2e tests:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make<span class="w"> </span>e2e-test
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make<span class="w"> </span>e2e-test
 </code></pre></div></p>
 <h2 id="make-docker-image">Make Docker Image<a class="headerlink" href="#make-docker-image" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make docker-build
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make docker-build
 </code></pre></div>
 <h2 id="deploy-controller-inside-a-kubernetes-cluster">Deploy Controller inside a Kubernetes Cluster<a class="headerlink" href="#deploy-controller-inside-a-kubernetes-cluster" title="Permanent link">&para;</a></h2>
 <p>Generate <code>deploy.yaml</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>make<span class="w"> </span>build-deploy
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make<span class="w"> </span>build-deploy
 </code></pre></div>
 <p>Then follow <a href="../../guides/deploy/">Deploying the AWS Gateway API Controller</a> to configure and deploy the docker image.</p>
 
