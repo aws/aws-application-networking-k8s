@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../images/controller.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.48">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.49">
     
     
       
@@ -1462,14 +1462,14 @@
 <a id="__codelineno-15-3" name="__codelineno-15-3"></a><span class="c1"># Run helm with either install or upgrade</span>
 <a id="__codelineno-15-4" name="__codelineno-15-4"></a>helm<span class="w"> </span>install<span class="w"> </span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-15-5" name="__codelineno-15-5"></a><span class="w">    </span>oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6"></a><span class="w">    </span>--version<span class="o">=</span>v1.0.7<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6"></a><span class="w">    </span>--version<span class="o">=</span>v1.1.0<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-15-7" name="__codelineno-15-7"></a><span class="w">    </span>--set<span class="o">=</span>serviceAccount.create<span class="o">=</span><span class="nb">false</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-15-8" name="__codelineno-15-8"></a><span class="w">    </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-15-9" name="__codelineno-15-9"></a><span class="w">    </span>--set<span class="o">=</span>log.level<span class="o">=</span>info<span class="w"> </span><span class="c1"># use &quot;debug&quot; for debug level logs</span>
 </code></pre></div></td></tr></table></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.0.7.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.0.yaml
 </code></pre></div>
 </div>
 </div>
@@ -1573,7 +1573,7 @@
     <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy", "content.code.select", "navigation.path"], "search": "../../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.83f73b43.min.js"></script>
+      <script src="../../assets/javascripts/bundle.88dd0f4e.min.js"></script>
       
         <script src="https://main.d17pcam02ektiz.amplifyapp.com/material-components-web.min.js"></script>
       

@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../images/controller.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.48">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.49">
     
     
       
@@ -1324,7 +1324,7 @@
 <span class="normal"><a href="#__codelineno-2-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
 <a id="__codelineno-2-2" name="__codelineno-2-2"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3"></a>oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4"></a>--version<span class="o">=</span>v1.0.6<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4"></a>--version<span class="o">=</span>v1.1.0<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5"></a>--reuse-values<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6"></a>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7"></a>--set<span class="o">=</span><span class="nv">defaultServiceNetwork</span><span class="o">=</span>my-hotel<span class="w"> </span>
@@ -1491,7 +1491,7 @@
 <span class="normal"><a href="#__codelineno-28-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
 <a id="__codelineno-28-2" name="__codelineno-28-2"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-28-3" name="__codelineno-28-3"></a>oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-28-4" name="__codelineno-28-4"></a>--version<span class="o">=</span>v1.0.6<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-4" name="__codelineno-28-4"></a>--version<span class="o">=</span>v1.1.0<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-28-5" name="__codelineno-28-5"></a>--reuse-values<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-28-6" name="__codelineno-28-6"></a>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-28-7" name="__codelineno-28-7"></a>--set<span class="o">=</span><span class="nv">defaultServiceNetwork</span><span class="o">=</span>my-hotel<span class="w"> </span>
@@ -1653,9 +1653,9 @@
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
-<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.0.4.yaml
+<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.0.yaml
 <a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
-<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.0.4.yaml
+<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.0.yaml
 </code></pre></div>
 </div>
 </div>
@@ -1785,7 +1785,7 @@
     <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy", "content.code.select", "navigation.path"], "search": "../../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.83f73b43.min.js"></script>
+      <script src="../../assets/javascripts/bundle.88dd0f4e.min.js"></script>
       
         <script src="https://main.d17pcam02ektiz.amplifyapp.com/material-components-web.min.js"></script>
       
