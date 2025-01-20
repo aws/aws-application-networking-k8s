@@ -20,6 +20,7 @@ Before proceeding to the next sections, you need to:
     git clone https://github.com/aws/aws-application-networking-k8s.git
     cd aws-application-networking-k8s
     ```
+- Install Gateway API CRDs. The latest Gateway API CRDs are available [here](https://gateway-api.sigs.k8s.io/). Please [follow this installation](https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api) process.
 - Set the AWS Region of your cluster.
     ```
     export AWS_REGION=<cluster_region>

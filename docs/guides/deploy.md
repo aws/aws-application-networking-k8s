@@ -22,6 +22,10 @@ Set your AWS Region and Cluster Name as environment variables. See the [Amazon V
    export CLUSTER_NAME=<cluster_name>
    ```
 
+**Install Gateway API CRDs**
+
+The latest Gateway API CRDs are available [here](https://gateway-api.sigs.k8s.io/). Please [follow this installation](https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api) process.
+
 **Create a cluster (optional)**
 
 You can easily create a cluster with `eksctl`, the CLI for Amazon EKS:
