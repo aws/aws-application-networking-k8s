@@ -50,6 +50,9 @@ jobs:
           ~/.kubebuilder/bin
         key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
     - run: go install github.com/golang/mock/mockgen@v1.6.0
+    - run: go install sigs.k8s.io/kustomize/kustomize/v5@v5.6.0
+    - run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220421205612-c162794a9b12
+    - run: go install github.com/mattn/goveralls@b031368
     - run: make manifest
     - run: make vet
     - run: make test
