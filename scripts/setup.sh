@@ -85,19 +85,15 @@ if [[ $install_tools == 'Y' || $install_tools == 'y' ]]; then
     echo "Tools installed/updated successfully."
 fi
 
-read -p "Do you want to install the latest Gateway API CRDs? (Y/N): " install_crds
-if [[ $install_crds == 'Y' || $install_crds == 'y' ]]; then
-    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml --validate=false
-    echo "Gateway API CRDs installed successfully."
-fi
-
 read -p "Do you want to create an EKS cluster? (Y/N): " create_cluster
 if [[ $create_cluster == 'Y' || $create_cluster == 'y' ]]; then
     read -p "Enter Cluster Name: " cluster_name
     read -p "Enter AWS Region: " region
+    read -p "Enter Controller Version: " controller_version
 
     export CLUSTER_NAME=$cluster_name
     export AWS_REGION=$region
+    export CONTROLLER_VERSION=$controller_version
 
     describe_cluster_output=$( aws eks describe-cluster --name "$CLUSTER_NAME" --output text 2>&1 )
     if [[ $describe_cluster_output == *"ResourceNotFoundException"* ]]; then
@@ -108,17 +104,18 @@ if [[ $create_cluster == 'Y' || $create_cluster == 'y' ]]; then
         CLUSTER_SG=$(aws eks describe-cluster --name "$CLUSTER_NAME" --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
 
         PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
-        aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID}}],IpProtocol=-1" 2> /dev/null
+        aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID}}],IpProtocol=-1" --no-cli-pager
+
         PREFIX_LIST_ID_IPV6=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.ipv6.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
-        aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID_IPV6}}],IpProtocol=-1" 2> /dev/null
+        aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID_IPV6}}],IpProtocol=-1" --no-cli-pager
 
         export VPCLatticeControllerIAMPolicyArn=$( aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text 2>&1 )
-        if [[ $VPCLatticeControllerIAMPolicyArn = *"arn"* ]]; then
+        if [[ $VPCLatticeControllerIAMPolicyArn != *"arn"* ]]; then
             echo "Setting up IAM permissions"
             curl https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/recommended-inline-policy.json -o recommended-inline-policy.json
             aws iam create-policy \
                 --policy-name VPCLatticeControllerIAMPolicy \
-                --policy-document file://recommended-inline-policy.json 2> /dev/null
+                --policy-document file://recommended-inline-policy.json --no-cli-pager
             export VPCLatticeControllerIAMPolicyArn=$(aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text)
             rm -f recommended-inline-policy.json
             echo "IAM permissions set up successfully"
@@ -129,12 +126,12 @@ if [[ $create_cluster == 'Y' || $create_cluster == 'y' ]]; then
         kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-namesystem.yaml
 
         echo "Setting up the Pod Identities Agent"
-        aws eks create-addon --cluster-name $CLUSTER_NAME --addon-name eks-pod-identity-agent --addon-version v1.0.0-eksbuild.1 2> /dev/null
+        aws eks create-addon --cluster-name $CLUSTER_NAME --addon-name eks-pod-identity-agent --addon-version v1.0.0-eksbuild.1 --no-cli-pager
         kubectl get pods -n kube-system | grep 'eks-pod-identity-agent'
         echo "Pod Identities Agent set up successfully"
 
         export VPCLatticeControllerIAMRoleArn=$( aws iam list-roles --query 'Roles[?RoleName==`VPCLatticeControllerIAMRole`].Arn' --output text 2>&1 )
-        if [[ $VPCLatticeControllerIAMRoleArn = *"arn"* ]]; then
+        if [[ $VPCLatticeControllerIAMRoleArn != *"arn"* ]]; then
             echo "Assigning a role to the service account"
 
             cat >gateway-api-controller-service-account.yaml <<EOF
@@ -166,8 +163,8 @@ EOF
             }
 EOF
 
-            aws iam create-role --role-name VPCLatticeControllerIAMRole --assume-role-policy-document file://trust-relationship.json --description "IAM Role for AWS Gateway API Controller for VPC Lattice" 2> /dev/null
-            aws iam attach-role-policy --role-name VPCLatticeControllerIAMRole --policy-arn=$VPCLatticeControllerIAMPolicyArn 2> /dev/null
+            aws iam create-role --role-name VPCLatticeControllerIAMRole --assume-role-policy-document file://trust-relationship.json --description "IAM Role for AWS Gateway API Controller for VPC Lattice" --no-cli-pager
+            aws iam attach-role-policy --role-name VPCLatticeControllerIAMRole --policy-arn=$VPCLatticeControllerIAMPolicyArn --no-cli-pager
             export VPCLatticeControllerIAMRoleArn=$(aws iam list-roles --query 'Roles[?RoleName==`VPCLatticeControllerIAMRole`].Arn' --output text)
             rm -f trust-relationship.json
             echo "Role assigned successfully"
@@ -175,16 +172,24 @@ EOF
             echo "Role already exists, skipping creation"
         fi
 
-        aws eks create-pod-identity-association --cluster-name $CLUSTER_NAME --role-arn $VPCLatticeControllerIAMRoleArn --namespace aws-application-networking-system --service-account gateway-api-controller 2> /dev/null
+        aws eks create-pod-identity-association --cluster-name $CLUSTER_NAME --role-arn $VPCLatticeControllerIAMRoleArn --namespace aws-application-networking-system --service-account gateway-api-controller --no-cli-pager
 
         echo "Installing the controller"
-        kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.0.yaml
-        kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/gatewayclass.yaml
+        kubectl apply -f "https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v${CONTROLLER_VERSION}.yaml"
 
         echo "EKS cluster created successfully."
     else
         echo "Cluster: $cluster_name already exists. Skipping creation."
     fi
+fi
+
+read -p "Do you want to install the Gateway API CRDs? (Y/N): " install_crds
+if [[ $install_crds == 'Y' || $install_crds == 'y' ]]; then
+    read -p "Enter Gateway API CRDs Version: " crds_version
+    export CRDS_VERSION=$crds_version
+
+    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/v${CRDS_VERSION}/standard-install.yaml" --validate=false
+    kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/gatewayclass.yaml
 fi
 
 echo "Setup completed successfully."
