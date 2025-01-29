@@ -1,8 +1,10 @@
 # Developer Guide
 
+## Automated Setup
 
+The quickest way to get started is by running `bash ./scripts/setup.sh`, or `make setup` if you already have `make` installed. This script guides you through credential, tool, EKS cluster, and CRD setup.
 
-## Prerequisites
+## Manual Setup
 
 **Tools**
 
