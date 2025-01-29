@@ -75,7 +75,7 @@ lint: ## Run the golangci-lint only in local machine
 		echo "Running golangci-lint"; \
 		golangci-lint run; \
 	else \
-		echo "Error: golangci-lint is not installed. Please run the 'make toolchain'"; \
+		echo "Error: golangci-lint is not installed. Please run the 'make setup'"; \
 		exit 1; \
 	fi \
 
@@ -84,9 +84,9 @@ lint: ## Run the golangci-lint only in local machine
 test: ## Run tests.
 	go test ./pkg/... -coverprofile coverage.out
 
-.PHONY: toolchain
-toolchain: ## Install developer toolchain
-	./hack/toolchain.sh
+.PHONY: setup
+setup:
+	./scripts/setup.sh
 
 ##@ Deployment
 
