@@ -65,12 +65,28 @@ if [[ $install_tools == 'Y' || $install_tools == 'y' ]]; then
        brew install helm
     fi
 
-     if brew list --versions | grep -q "jq"; then
+    if brew list --versions | grep -q "jq"; then
         echo "Updating jq"
         brew upgrade jq
     else
         echo "Installing jq"
         brew install jq
+    fi
+
+    if brew list --versions | grep -q "yq"; then
+        echo "Updating yq"
+        brew upgrade yq
+    else
+        echo "Installing yq"
+        brew install yq
+    fi
+
+    if brew list --versions | grep -q "make"; then
+        echo "Updating make"
+        brew upgrade make
+    else
+        echo "Installing make"
+        brew install make
     fi
 
     if ! command -v golangci-lint &> /dev/null; then
