@@ -49,6 +49,7 @@ jobs:
           ~/go/bin/
           ~/.kubebuilder/bin
         key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
+    - run: go install github.com/golang/mock/mockgen@v1.6.0
     - run: make manifest
     - run: make vet
     - run: make test
