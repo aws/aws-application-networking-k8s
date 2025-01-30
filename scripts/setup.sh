@@ -1,211 +1,194 @@
 #!/usr/bin/env bash
 
-read -p "Do you want to configure AWS credentials? (Y/N): " configure_creds
-if [[ $configure_creds == 'Y' || $configure_creds == 'y' ]]; then
-    read -p "Enter AWS Access Key: " access_key
-    read -p "Enter AWS Secret Access Key: " secret_key
-    read -p "Enter AWS Region: " region
+declare -a DEPENDENCY_LIST=("go" "awscli" "kubernetes-cli" "eksctl" "helm" "jq" "yq" "make")
 
-    aws configure set aws_access_key_id "$access_key"
-    aws configure set aws_secret_access_key "$secret_key"
-    aws configure set default.region "$region"
+main() {
+    printf '\nSetting up your environment... 🚀\n'
+    echo "---------------------------------"
+    credentials
+    echo "---------------------------------"
+    tools
+    echo "---------------------------------"
+    cluster
+    echo "---------------------------------"
+    crds
+    echo "---------------------------------"
 
-    echo "AWS credentials configured successfully."
-fi
+    printf '\nSetup completed successfully! 🎉\n'
+}
 
-read -p "Do you want to install/update tools? (Y/N): " install_tools
-if [[ $install_tools == 'Y' || $install_tools == 'y' ]]; then
-
-    if ! command -v brew &> /dev/null; then
-        echo "Installing Homebrew..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        export PATH=/opt/homebrew/bin:$PATH
+installOrUpdatePackage() {
+    if brew list --versions | grep -q "${1}"; then
+        read -p "${1} is already installed, do you want to update? (Y/N): " update_package
+        if [[ $update_package == 'Y' || $update_package == 'y' ]]; then
+            echo "Updating ${1}"
+            brew upgrade "$1"
+        fi
     else
-        echo "Homebrew is already installed, updating."
-        brew update
+        echo "Installing ${1}"
+        brew install "$1"
     fi
+}
 
-    if brew list --versions | grep -q "go"; then
-        echo "Updating golang"
-        brew upgrade go
-    else
-        echo "Installing golang"
-        brew install go
+credentials() {
+    read -p "Do you want to configure AWS credentials? (Y/N): " configure_creds
+    if [[ $configure_creds == 'Y' || $configure_creds == 'y' ]]; then
+        read -p "Enter AWS Access Key: " access_key
+        read -p "Enter AWS Secret Access Key: " secret_key
+        read -p "Enter AWS Region: " region
+
+        aws configure set aws_access_key_id "$access_key"
+        aws configure set aws_secret_access_key "$secret_key"
+        aws configure set default.region "$region"
+
+        echo "AWS credentials configured successfully."
     fi
+}
 
-    if brew list --versions | grep -q "awscli"; then
-        echo "Updating AWS CLI"
-        brew upgrade awscli
-    else
-        echo "Installing AWS CLI"
-        brew install awscli
-    fi
-
-    if brew list --versions | grep -q "kubectl"; then
-        echo "Updating kubectl"
-        brew upgrade kubectl
-    else
-        echo "Installing kubectl"
-        brew install kubectl
-    fi
-
-    if brew list --versions | grep -q "eksctl"; then
-        echo "Updating eksctl"
-        brew upgrade eksctl
-    else
-        echo "Installing eksctl"
-        brew install eksctl
-    fi
-
-    if brew list --versions | grep -q "helm"; then
-       echo "Updating helm"
-       brew upgrade helm
-    else
-       echo "Installing helm"
-       brew install helm
-    fi
-
-    if brew list --versions | grep -q "jq"; then
-        echo "Updating jq"
-        brew upgrade jq
-    else
-        echo "Installing jq"
-        brew install jq
-    fi
-
-    if brew list --versions | grep -q "yq"; then
-        echo "Updating yq"
-        brew upgrade yq
-    else
-        echo "Installing yq"
-        brew install yq
-    fi
-
-    if brew list --versions | grep -q "make"; then
-        echo "Updating make"
-        brew upgrade make
-    else
-        echo "Installing make"
-        brew install make
-    fi
-
-    if ! command -v golangci-lint &> /dev/null; then
-        echo "Installing golangci-lint"
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.62.2
-    else
-        echo "golangci-lint is already installed."
-    fi
-
-    go install github.com/golang/mock/mockgen@v1.6.0
-
-    echo "Tools installed/updated successfully."
-fi
-
-read -p "Do you want to create an EKS cluster? (Y/N): " create_cluster
-if [[ $create_cluster == 'Y' || $create_cluster == 'y' ]]; then
-    read -p "Enter Cluster Name: " cluster_name
-    read -p "Enter AWS Region: " region
-    read -p "Enter Controller Version: " controller_version
-
-    export CLUSTER_NAME=$cluster_name
-    export AWS_REGION=$region
-    export CONTROLLER_VERSION=$controller_version
-
-    describe_cluster_output=$( aws eks describe-cluster --name "$CLUSTER_NAME" --output text 2>&1 )
-    if [[ $describe_cluster_output == *"ResourceNotFoundException"* ]]; then
-        echo "Creating cluster with name: $cluster_name"
-        eksctl create cluster --name "$CLUSTER_NAME" --region "$AWS_REGION"
-
-        echo "Allowing traffic from VPC Lattice to EKS cluster"
-        CLUSTER_SG=$(aws eks describe-cluster --name "$CLUSTER_NAME" --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
-
-        PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
-        aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID}}],IpProtocol=-1" --no-cli-pager
-
-        PREFIX_LIST_ID_IPV6=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.ipv6.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
-        aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID_IPV6}}],IpProtocol=-1" --no-cli-pager
-
-        export VPCLatticeControllerIAMPolicyArn=$( aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text 2>&1 )
-        if [[ $VPCLatticeControllerIAMPolicyArn != *"arn"* ]]; then
-            echo "Setting up IAM permissions"
-            curl https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/recommended-inline-policy.json -o recommended-inline-policy.json
-            aws iam create-policy \
-                --policy-name VPCLatticeControllerIAMPolicy \
-                --policy-document file://recommended-inline-policy.json --no-cli-pager
-            export VPCLatticeControllerIAMPolicyArn=$(aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text)
-            rm -f recommended-inline-policy.json
-            echo "IAM permissions set up successfully"
+tools() {
+    read -p "Do you want to install/update tools? (Y/N): " install_tools
+    if [[ $install_tools == 'Y' || $install_tools == 'y' ]]; then
+        if ! command -v brew &> /dev/null; then
+            echo "Installing Homebrew..."
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            export PATH=/opt/homebrew/bin:$PATH
         else
-            echo "Policy already exists, skipping creation"
+            read -p "Homebrew is already installed, do you want to update? (Y/N): " update_package
+
+            if [[ $update_package == 'Y' || $update_package == 'y' ]]; then
+                echo "Updating Homebrew"
+                brew update
+            fi
         fi
 
-        kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-namesystem.yaml
+        for i in "${DEPENDENCY_LIST[@]}"; do
+            installOrUpdatePackage "$i"
+        done
 
-        echo "Setting up the Pod Identities Agent"
-        aws eks create-addon --cluster-name $CLUSTER_NAME --addon-name eks-pod-identity-agent --addon-version v1.0.0-eksbuild.1 --no-cli-pager
-        kubectl get pods -n kube-system | grep 'eks-pod-identity-agent'
-        echo "Pod Identities Agent set up successfully"
-
-        export VPCLatticeControllerIAMRoleArn=$( aws iam list-roles --query 'Roles[?RoleName==`VPCLatticeControllerIAMRole`].Arn' --output text 2>&1 )
-        if [[ $VPCLatticeControllerIAMRoleArn != *"arn"* ]]; then
-            echo "Assigning a role to the service account"
-
-            cat >gateway-api-controller-service-account.yaml <<EOF
-            apiVersion: v1
-            kind: ServiceAccount
-            metadata:
-                name: gateway-api-controller
-                namespace: aws-application-networking-system
-EOF
-            kubectl apply -f gateway-api-controller-service-account.yaml
-            rm -f gateway-api-controller-service-account.yaml
-
-            cat >trust-relationship.json <<EOF
-            {
-                "Version": "2012-10-17",
-                "Statement": [
-                    {
-                        "Sid": "AllowEksAuthToAssumeRoleForPodIdentity",
-                        "Effect": "Allow",
-                        "Principal": {
-                            "Service": "pods.eks.amazonaws.com"
-                        },
-                        "Action": [
-                            "sts:AssumeRole",
-                            "sts:TagSession"
-                        ]
-                    }
-                ]
-            }
-EOF
-
-            aws iam create-role --role-name VPCLatticeControllerIAMRole --assume-role-policy-document file://trust-relationship.json --description "IAM Role for AWS Gateway API Controller for VPC Lattice" --no-cli-pager
-            aws iam attach-role-policy --role-name VPCLatticeControllerIAMRole --policy-arn=$VPCLatticeControllerIAMPolicyArn --no-cli-pager
-            export VPCLatticeControllerIAMRoleArn=$(aws iam list-roles --query 'Roles[?RoleName==`VPCLatticeControllerIAMRole`].Arn' --output text)
-            rm -f trust-relationship.json
-            echo "Role assigned successfully"
+        if ! command -v golangci-lint &> /dev/null; then
+            echo "Installing golangci-lint"
+            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.62.2
         else
-            echo "Role already exists, skipping creation"
+            echo "golangci-lint is already installed."
         fi
 
-        aws eks create-pod-identity-association --cluster-name $CLUSTER_NAME --role-arn $VPCLatticeControllerIAMRoleArn --namespace aws-application-networking-system --service-account gateway-api-controller --no-cli-pager
+        go install github.com/golang/mock/mockgen@v1.6.0
 
-        echo "Installing the controller"
-        kubectl apply -f "https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v${CONTROLLER_VERSION}.yaml"
-
-        echo "EKS cluster created successfully."
-    else
-        echo "Cluster: $cluster_name already exists. Skipping creation."
+        echo "Tools installed/updated successfully."
     fi
-fi
+}
 
-read -p "Do you want to install the Gateway API CRDs? (Y/N): " install_crds
-if [[ $install_crds == 'Y' || $install_crds == 'y' ]]; then
-    read -p "Enter Gateway API CRDs Version: " crds_version
-    export CRDS_VERSION=$crds_version
+cluster() {
+    read -p "Do you want to create an EKS cluster? (Y/N): " create_cluster
+    if [[ $create_cluster == 'Y' || $create_cluster == 'y' ]]; then
+        read -p "Enter Cluster Name: " cluster_name
+        read -p "Enter AWS Region: " region
+        read -p "Enter Controller Version: " controller_version
 
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/v${CRDS_VERSION}/standard-install.yaml" --validate=false
-    kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/gatewayclass.yaml
-fi
+        export CLUSTER_NAME=$cluster_name
+        export AWS_REGION=$region
+        export CONTROLLER_VERSION=$controller_version
 
-echo "Setup completed successfully."
+        describe_cluster_output=$( aws eks describe-cluster --name "$CLUSTER_NAME" --output text 2>&1 )
+        if [[ $describe_cluster_output == *"ResourceNotFoundException"* ]]; then
+            echo "Creating cluster with name: $cluster_name"
+            eksctl create cluster --name "$CLUSTER_NAME" --region "$AWS_REGION"
+
+            echo "Allowing traffic from VPC Lattice to EKS cluster"
+            CLUSTER_SG=$(aws eks describe-cluster --name "$CLUSTER_NAME" --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
+
+            PREFIX_LIST_ID=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
+            aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID}}],IpProtocol=-1" --no-cli-pager
+
+            PREFIX_LIST_ID_IPV6=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.ipv6.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
+            aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID_IPV6}}],IpProtocol=-1" --no-cli-pager
+
+            export VPCLatticeControllerIAMPolicyArn=$( aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text 2>&1 )
+            if [[ $VPCLatticeControllerIAMPolicyArn != *"arn"* ]]; then
+                echo "Setting up IAM permissions"
+                curl https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/recommended-inline-policy.json -o recommended-inline-policy.json
+                aws iam create-policy \
+                    --policy-name VPCLatticeControllerIAMPolicy \
+                    --policy-document file://recommended-inline-policy.json --no-cli-pager
+                export VPCLatticeControllerIAMPolicyArn=$(aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text)
+                rm -f recommended-inline-policy.json
+                echo "IAM permissions set up successfully"
+            else
+                echo "Policy already exists, skipping creation"
+            fi
+
+            kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-namesystem.yaml
+
+            echo "Setting up the Pod Identities Agent"
+            aws eks create-addon --cluster-name $CLUSTER_NAME --addon-name eks-pod-identity-agent --addon-version v1.0.0-eksbuild.1 --no-cli-pager
+            kubectl get pods -n kube-system | grep 'eks-pod-identity-agent'
+            echo "Pod Identities Agent set up successfully"
+
+            export VPCLatticeControllerIAMRoleArn=$( aws iam list-roles --query 'Roles[?RoleName==`VPCLatticeControllerIAMRole`].Arn' --output text 2>&1 )
+            if [[ $VPCLatticeControllerIAMRoleArn != *"arn"* ]]; then
+                echo "Assigning a role to the service account"
+
+                cat >gateway-api-controller-service-account.yaml <<EOF
+                apiVersion: v1
+                kind: ServiceAccount
+                metadata:
+                    name: gateway-api-controller
+                    namespace: aws-application-networking-system
+EOF
+                kubectl apply -f gateway-api-controller-service-account.yaml
+                rm -f gateway-api-controller-service-account.yaml
+
+                cat >trust-relationship.json <<EOF
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "AllowEksAuthToAssumeRoleForPodIdentity",
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "pods.eks.amazonaws.com"
+                            },
+                            "Action": [
+                                "sts:AssumeRole",
+                                "sts:TagSession"
+                            ]
+                        }
+                    ]
+                }
+EOF
+
+                aws iam create-role --role-name VPCLatticeControllerIAMRole --assume-role-policy-document file://trust-relationship.json --description "IAM Role for AWS Gateway API Controller for VPC Lattice" --no-cli-pager
+                aws iam attach-role-policy --role-name VPCLatticeControllerIAMRole --policy-arn=$VPCLatticeControllerIAMPolicyArn --no-cli-pager
+                export VPCLatticeControllerIAMRoleArn=$(aws iam list-roles --query 'Roles[?RoleName==`VPCLatticeControllerIAMRole`].Arn' --output text)
+                rm -f trust-relationship.json
+                echo "Role assigned successfully"
+            else
+                echo "Role already exists, skipping creation"
+            fi
+
+            aws eks create-pod-identity-association --cluster-name $CLUSTER_NAME --role-arn $VPCLatticeControllerIAMRoleArn --namespace aws-application-networking-system --service-account gateway-api-controller --no-cli-pager
+
+            echo "Installing the controller"
+            kubectl apply -f "https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v${CONTROLLER_VERSION}.yaml"
+
+            echo "EKS cluster created successfully."
+        else
+            echo "Cluster: $cluster_name already exists. Skipping creation."
+        fi
+    fi
+}
+
+crds() {
+    read -p "Do you want to install the Gateway API CRDs? (Y/N): " install_crds
+    if [[ $install_crds == 'Y' || $install_crds == 'y' ]]; then
+        read -p "Enter Gateway API CRDs Version: " crds_version
+        export CRDS_VERSION=$crds_version
+
+        kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/v${CRDS_VERSION}/standard-install.yaml" --validate=false
+        kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/gatewayclass.yaml
+
+        echo "Gateway API CRDs installed successfully."
+    fi
+}
+
+main "$@"
