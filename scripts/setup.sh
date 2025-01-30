@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
 
 declare -a DEPENDENCY_LIST=("go" "awscli" "kubernetes-cli" "eksctl" "helm" "jq" "yq" "make")
+CURRENT_CONTROLLER_VERSION="1.1.0"
+CURRENT_CRD_VERSION="1.2.0"
+GOLANGCI_LINT_VERSION="1.62.2"
+EKS_POD_IDENTITY_AGENT_VERSION="1.0.0-eksbuild.1"
 
 main() {
     printf '\nSetting up your environment... 🚀\n'
-    echo "---------------------------------"
     credentials
-    echo "---------------------------------"
     tools
-    echo "---------------------------------"
     cluster
-    echo "---------------------------------"
     crds
-    echo "---------------------------------"
-
     printf '\nSetup completed successfully! 🎉\n'
 }
 
@@ -43,6 +41,7 @@ credentials() {
 
         echo "AWS credentials configured successfully."
     fi
+    echo "---------------------------------"
 }
 
 tools() {
@@ -67,7 +66,7 @@ tools() {
 
         if ! command -v golangci-lint &> /dev/null; then
             echo "Installing golangci-lint"
-            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.62.2
+            curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $GOLANGCI_LINT_VERSION
         else
             echo "golangci-lint is already installed."
         fi
@@ -76,6 +75,7 @@ tools() {
 
         echo "Tools installed/updated successfully."
     fi
+    echo "---------------------------------"
 }
 
 cluster() {
@@ -83,7 +83,7 @@ cluster() {
     if [[ $create_cluster == 'Y' || $create_cluster == 'y' ]]; then
         read -p "Enter Cluster Name: " cluster_name
         read -p "Enter AWS Region: " region
-        read -p "Enter Controller Version: " controller_version
+        read -p "Enter Controller Version, the current is $CURRENT_CONTROLLER_VERSION: " controller_version
 
         export CLUSTER_NAME=$cluster_name
         export AWS_REGION=$region
@@ -92,6 +92,7 @@ cluster() {
         describe_cluster_output=$( aws eks describe-cluster --name "$CLUSTER_NAME" --output text 2>&1 )
         if [[ $describe_cluster_output == *"ResourceNotFoundException"* ]]; then
             echo "Creating cluster with name: $cluster_name"
+
             eksctl create cluster --name "$CLUSTER_NAME" --region "$AWS_REGION"
 
             echo "Allowing traffic from VPC Lattice to EKS cluster"
@@ -101,7 +102,7 @@ cluster() {
             aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID}}],IpProtocol=-1" --no-cli-pager
 
             PREFIX_LIST_ID_IPV6=$(aws ec2 describe-managed-prefix-lists --query "PrefixLists[?PrefixListName=="\'com.amazonaws.$AWS_REGION.ipv6.vpc-lattice\'"].PrefixListId" | jq -r '.[]')
-            aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID_IPV6}}],IpProtocol=-1" --no-cli-pager
+            aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions "PrefixListIds=[{PrefixListId=${PREFIX_LIST_ID_IPV6}}],IpProtocol=-1" --no-cli-page
 
             export VPCLatticeControllerIAMPolicyArn=$( aws iam list-policies --query 'Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn' --output text 2>&1 )
             if [[ $VPCLatticeControllerIAMPolicyArn != *"arn"* ]]; then
@@ -120,7 +121,7 @@ cluster() {
             kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-namesystem.yaml
 
             echo "Setting up the Pod Identities Agent"
-            aws eks create-addon --cluster-name $CLUSTER_NAME --addon-name eks-pod-identity-agent --addon-version v1.0.0-eksbuild.1 --no-cli-pager
+            aws eks create-addon --cluster-name $CLUSTER_NAME --addon-name eks-pod-identity-agent --addon-version v$EKS_POD_IDENTITY_AGENT_VERSION --no-cli-pager
             kubectl get pods -n kube-system | grep 'eks-pod-identity-agent'
             echo "Pod Identities Agent set up successfully"
 
@@ -129,32 +130,32 @@ cluster() {
                 echo "Assigning a role to the service account"
 
                 cat >gateway-api-controller-service-account.yaml <<EOF
-                apiVersion: v1
-                kind: ServiceAccount
-                metadata:
-                    name: gateway-api-controller
-                    namespace: aws-application-networking-system
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+    name: gateway-api-controller
+    namespace: aws-application-networking-system
 EOF
                 kubectl apply -f gateway-api-controller-service-account.yaml
                 rm -f gateway-api-controller-service-account.yaml
 
                 cat >trust-relationship.json <<EOF
-                {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Sid": "AllowEksAuthToAssumeRoleForPodIdentity",
-                            "Effect": "Allow",
-                            "Principal": {
-                                "Service": "pods.eks.amazonaws.com"
-                            },
-                            "Action": [
-                                "sts:AssumeRole",
-                                "sts:TagSession"
-                            ]
-                        }
-                    ]
-                }
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowEksAuthToAssumeRoleForPodIdentity",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "pods.eks.amazonaws.com"
+            },
+            "Action": [
+                "sts:AssumeRole",
+                "sts:TagSession"
+            ]
+        }
+    ]
+}
 EOF
 
                 aws iam create-role --role-name VPCLatticeControllerIAMRole --assume-role-policy-document file://trust-relationship.json --description "IAM Role for AWS Gateway API Controller for VPC Lattice" --no-cli-pager
@@ -176,12 +177,13 @@ EOF
             echo "Cluster: $cluster_name already exists. Skipping creation."
         fi
     fi
+    echo "---------------------------------"
 }
 
 crds() {
     read -p "Do you want to install the Gateway API CRDs? (Y/N): " install_crds
     if [[ $install_crds == 'Y' || $install_crds == 'y' ]]; then
-        read -p "Enter Gateway API CRDs Version: " crds_version
+        read -p "Enter Gateway API CRDs Version, the current is $CURRENT_CRD_VERSION: " crds_version
         export CRDS_VERSION=$crds_version
 
         kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/v${CRDS_VERSION}/standard-install.yaml" --validate=false
@@ -189,6 +191,7 @@ crds() {
 
         echo "Gateway API CRDs installed successfully."
     fi
+    echo "---------------------------------"
 }
 
 main "$@"
