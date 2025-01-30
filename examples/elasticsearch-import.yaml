@@ -1,9 +1,0 @@
-apiVersion: application-networking.k8s.aws/v1alpha1
-kind: ServiceImport
-metadata:
-  name: elasticsearch
-spec:
-  type: ClusterSetIP
-  ports:
-  - port: 9200
-    protocol: TCP

@@ -4,7 +4,7 @@
 
 image:
   repository: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller
-  tag: v1.0.4
+  tag: v1.1.0
   pullPolicy: IfNotPresent
   pullSecrets: []
 
@@ -32,10 +32,11 @@ deployment:
   priorityClassName: ""
   # Number of replicas.
   replicas: 2
+  topologySpreadConstraints: []
 
 # If "installScope: cluster" then these labels will be applied to ClusterRole
 role:
- labels: {}
+  labels: {}
 
 metrics:
   service:
@@ -53,6 +54,11 @@ resources:
   limits:
     memory: "128Mi"
     cpu: "100m"
+
+pdb:
+  enabled: false
+  minAvailable:
+  maxUnavailable:
 
 # log level for the controller
 log:
@@ -78,6 +84,8 @@ clusterName:
 defaultServiceNetwork:
 latticeEndpoint:
 webhookEnabled: true
+disableTaggingServiceApi: false
+routeMaxConcurrentReconciles:
 
 # TLS cert/key for the webhook. If specified, values must be base64 encoded
 webhookTLS:

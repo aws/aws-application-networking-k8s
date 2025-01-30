@@ -16,8 +16,8 @@ import (
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
@@ -31,7 +31,7 @@ var (
 )
 
 type (
-	TargetRef       = gwv1alpha2.PolicyTargetReference
+	TargetRef       = gwv1alpha2.NamespacedPolicyTargetReference
 	ConditionType   = gwv1alpha2.PolicyConditionType
 	ConditionReason = gwv1alpha2.PolicyConditionReason
 )
@@ -64,7 +64,7 @@ func NewVpcAssociationPolicyHandler(log gwlog.Logger, c k8sclient.Client) *Polic
 	phcfg := PolicyHandlerConfig{
 		Log:            log,
 		Client:         c,
-		TargetRefKinds: NewGroupKindSet(&gwv1beta1.Gateway{}),
+		TargetRefKinds: NewGroupKindSet(&gwv1.Gateway{}),
 	}
 	return NewPolicyHandler[VAP, VAPL](phcfg)
 }
@@ -73,7 +73,7 @@ func NewTargetGroupPolicyHandler(log gwlog.Logger, c k8sclient.Client) *PolicyHa
 	phcfg := PolicyHandlerConfig{
 		Log:            log,
 		Client:         c,
-		TargetRefKinds: NewGroupKindSet(&corev1.Service{}),
+		TargetRefKinds: NewGroupKindSet(&corev1.Service{}, &anv1alpha1.ServiceExport{}),
 	}
 	return NewPolicyHandler[TGP, TGPL](phcfg)
 }
@@ -82,7 +82,7 @@ func NewIAMAuthPolicyHandler(log gwlog.Logger, c k8sclient.Client) *PolicyHandle
 	phcfg := PolicyHandlerConfig{
 		Log:            log,
 		Client:         c,
-		TargetRefKinds: NewGroupKindSet(&gwv1beta1.Gateway{}, &gwv1beta1.HTTPRoute{}, &gwv1alpha2.GRPCRoute{}),
+		TargetRefKinds: NewGroupKindSet(&gwv1.Gateway{}, &gwv1.HTTPRoute{}, &gwv1.GRPCRoute{}),
 	}
 	return NewPolicyHandler[IAP, IAPL](phcfg)
 }
@@ -249,7 +249,7 @@ func (h *PolicyHandler[P]) ObjResolvedPolicy(ctx context.Context, obj k8sclient.
 
 // Add Watchers for configured Kinds to controller builder
 func (h *PolicyHandler[P]) AddWatchers(b *builder.Builder, objs ...k8sclient.Object) {
-	h.log.Debugf("add watchers for types: %v", NewGroupKindSet(objs...).Items())
+	h.log.Debugf(context.TODO(), "add watchers for types: %v", NewGroupKindSet(objs...).Items())
 	for _, watchObj := range objs {
 		b.Watches(watchObj, handler.EnqueueRequestsFromMapFunc(h.watchMapFn))
 	}
@@ -259,7 +259,7 @@ func (h *PolicyHandler[P]) watchMapFn(ctx context.Context, obj k8sclient.Object)
 	out := []reconcile.Request{}
 	policies, err := h.client.List(ctx, obj.GetNamespace())
 	if err != nil {
-		h.log.Errorf("watch mapfn error: for obj=%s/%s: %w",
+		h.log.Errorf(ctx, "watch mapfn error: for obj=%s/%s: %s",
 			obj.GetName(), obj.GetNamespace(), err)
 		return nil
 	}
@@ -279,7 +279,7 @@ func (h *PolicyHandler[P]) watchMapFn(ctx context.Context, obj k8sclient.Object)
 // Checks if objects matches targetReference, returns true if they match
 // targetRef might not have namespace set, it should be inferred from policy itself.
 // In this case we assume namespace already checked
-func (h *PolicyHandler[P]) targetRefMatch(obj k8sclient.Object, tr *gwv1alpha2.PolicyTargetReference) bool {
+func (h *PolicyHandler[P]) targetRefMatch(obj k8sclient.Object, tr *gwv1alpha2.NamespacedPolicyTargetReference) bool {
 	objGk := ObjToGroupKind(obj)
 	trGk := TargetRefGroupKind(tr)
 	return objGk == trGk && obj.GetName() == string(tr.Name)

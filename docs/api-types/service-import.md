@@ -11,7 +11,6 @@ Just like Services, ServiceImports can be a backend reference of HTTPRoutes. Alo
 Note that ServiceImport is not the implementation of Kubernetes [Multicluster Service APIs](https://multicluster.sigs.k8s.io/concepts/multicluster-services-api/);
 instead AWS Gateway API Controller uses its own version of the resource for the purpose of Gateway API integration.
 
-For more multi-cluster use cases, please refer to [our recommended multi-cluster architecture](../guides/multi-cluster.md).
 
 ### Limitations
 * ServiceImport shares the limitations of [ServiceExport](service-export.md).
@@ -40,7 +39,7 @@ spec: {}
 
 The following example HTTPRoute directs traffic to the above ServiceImport.
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: my-route

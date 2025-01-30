@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
@@ -39,13 +40,12 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
@@ -90,7 +90,7 @@ func RegisterGatewayController(
 			},
 		})
 		if err != nil {
-			log.Infof("Could not setup default service network %s, proceeding without it - %s",
+			log.Infof(context.TODO(), "Could not setup default service network %s, proceeding without it - %s",
 				config.DefaultServiceNetwork, err.Error())
 		}
 	}
@@ -98,8 +98,8 @@ func RegisterGatewayController(
 	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(log, mgrClient)
 	vpcAssociationPolicyEventHandler := eventhandlers.NewVpcAssociationPolicyEventHandler(log, mgrClient)
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&gwv1beta1.Gateway{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
-	builder.Watches(&gwv1beta1.GatewayClass{}, gwClassEventHandler)
+		For(&gwv1.Gateway{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+	builder.Watches(&gwv1.GatewayClass{}, gwClassEventHandler)
 
 	//Watch VpcAssociationPolicy CRD if it is installed
 	ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.VpcAssociationPolicyKind)
@@ -109,7 +109,7 @@ func RegisterGatewayController(
 	if ok {
 		builder.Watches(&anv1alpha1.VpcAssociationPolicy{}, vpcAssociationPolicyEventHandler.MapToGateway())
 	} else {
-		log.Infof("VpcAssociationPolicy CRD is not installed, skipping watch")
+		log.Infof(context.TODO(), "VpcAssociationPolicy CRD is not installed, skipping watch")
 	}
 	return builder.Complete(r)
 }
@@ -119,42 +119,46 @@ func RegisterGatewayController(
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/finalizers,verbs=update
 
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow("reconcile", "name", req.Name)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "gateway", req.Name, req.Namespace)
+	defer func() {
+		gwlog.EndReconcileTrace(ctx, r.log)
+	}()
+
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
-		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
-		r.log.Infow("requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
+		r.log.Infow(ctx, "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
 	} else if res.Requeue {
-		r.log.Infow("requeue request", "name", req.Name)
+		r.log.Infow(ctx, "requeue request", "name", req.Name)
 	} else if retryErr == nil {
-		r.log.Infow("reconciled", "name", req.Name)
+		r.log.Infow(ctx, "reconciled", "name", req.Name)
 	}
 	return res, retryErr
 }
 
 func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 
-	gw := &gwv1beta1.Gateway{}
+	gw := &gwv1.Gateway{}
 	if err := r.client.Get(ctx, req.NamespacedName, gw); err != nil {
 		return client.IgnoreNotFound(err)
 	}
 
-	gwClass := &gwv1beta1.GatewayClass{}
+	gwClass := &gwv1.GatewayClass{}
 	gwClassName := types.NamespacedName{
 		Namespace: defaultNamespace,
 		Name:      string(gw.Spec.GatewayClassName),
 	}
 
 	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
-		r.log.Infow("GatewayClass is not found", "name", req.Name, "gwclass", gwClassName)
+		r.log.Infow(ctx, "GatewayClass is not found", "name", req.Name, "gwclass", gwClassName)
 		return client.IgnoreNotFound(err)
 	}
 
 	if gwClass.Spec.ControllerName != config.LatticeGatewayControllerName {
-		r.log.Infow("GatewayClass is not recognized", "name", req.Name, "gwClassControllerName", gwClass.Spec.ControllerName)
+		r.log.Infow(ctx, "GatewayClass is not recognized", "name", req.Name, "gwClassControllerName", gwClass.Spec.ControllerName)
 		return nil
 	}
 
@@ -165,7 +169,7 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	}
 }
 
-func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1beta1.Gateway) error {
+func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway) error {
 	routes, err := core.ListAllRoutes(ctx, r.client)
 	if err != nil {
 		return err
@@ -184,7 +188,7 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1beta1.G
 			Name:      string(route.Spec().ParentRefs()[0].Name),
 		}
 
-		httpGw := &gwv1beta1.Gateway{}
+		httpGw := &gwv1.Gateway{}
 		if err := r.client.Get(ctx, gwName, httpGw); err != nil {
 			continue
 		}
@@ -203,7 +207,7 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1beta1.G
 	return nil
 }
 
-func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1beta1.Gateway) error {
+func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1.Gateway) error {
 	if err := r.finalizerManager.AddFinalizers(ctx, gw, gatewayFinalizer); err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning,
 			k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("failed add finalizer: %s", err))
@@ -250,7 +254,7 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1beta1.G
 
 func (r *gatewayReconciler) updateGatewayProgrammedStatus(
 	ctx context.Context,
-	gw *gwv1beta1.Gateway,
+	gw *gwv1.Gateway,
 	reason gwv1.GatewayConditionReason,
 	message string,
 ) error {
@@ -280,7 +284,7 @@ func (r *gatewayReconciler) updateGatewayProgrammedStatus(
 	return nil
 }
 
-func (r *gatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *gwv1beta1.Gateway, accepted bool) error {
+func (r *gatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *gwv1.Gateway, accepted bool) error {
 	gwOld := gw.DeepCopy()
 
 	var cond metav1.Condition
@@ -310,7 +314,7 @@ func (r *gatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	return nil
 }
 
-func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gwv1beta1.Gateway) error {
+func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway) error {
 	hasValidListener := false
 
 	gwOld := gw.DeepCopy()
@@ -325,7 +329,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 	// Due to size limit, we cannot put all service addresses here.
 	if len(routes) > 0 {
 		gw.Status.Addresses = []gwv1.GatewayStatusAddress{}
-		addressType := gwv1beta1.HostnameAddressType
+		addressType := gwv1.HostnameAddressType
 		for _, route := range routes {
 			if route.DeletionTimestamp().IsZero() && len(route.K8sObject().GetAnnotations()) > 0 {
 				if domain, exists := route.K8sObject().GetAnnotations()[LatticeAssignedDomainName]; exists {
@@ -347,7 +351,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 
 	// go through each section of gw
 	for _, listener := range gw.Spec.Listeners {
-		listenerStatus := gwv1beta1.ListenerStatus{
+		listenerStatus := gwv1.ListenerStatus{
 			Name: listener.Name,
 		}
 
@@ -384,12 +388,12 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 				}
 
 				for _, parentRef := range route.Spec().ParentRefs() {
-					if parentRef.Name != gwv1beta1.ObjectName(gw.Name) {
+					if parentRef.Name != gwv1.ObjectName(gw.Name) {
 						continue
 					}
 
 					if parentRef.Namespace != nil &&
-						*parentRef.Namespace != gwv1beta1.Namespace(gw.Namespace) {
+						*parentRef.Namespace != gwv1.Namespace(gw.Namespace) {
 						continue
 					}
 
@@ -413,12 +417,12 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 			}
 
 			if listener.Protocol == gwv1.HTTPSProtocolType {
-				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1beta1.RouteGroupKind{
+				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{
 					Kind: "GRPCRoute",
 				})
 			}
 
-			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1beta1.RouteGroupKind{
+			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{
 				Kind: "HTTPRoute",
 			})
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
@@ -450,18 +454,18 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 	}
 }
 
-func listenerRouteGroupKindSupported(listener gwv1beta1.Listener) (bool, []gwv1beta1.RouteGroupKind) {
+func listenerRouteGroupKindSupported(listener gwv1.Listener) (bool, []gwv1.RouteGroupKind) {
 	validRoute := true
-	supportedKinds := make([]gwv1beta1.RouteGroupKind, 0)
+	supportedKinds := make([]gwv1.RouteGroupKind, 0)
 
 	for _, routeGroupKind := range listener.AllowedRoutes.Kinds {
 		if routeGroupKind.Kind == "HTTPRoute" {
-			supportedKinds = append(supportedKinds, gwv1beta1.RouteGroupKind{
+			supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{
 				Kind: "HTTPRoute",
 			})
 		} else if routeGroupKind.Kind == "GRPCRoute" {
 			if listener.Protocol == gwv1.HTTPSProtocolType {
-				supportedKinds = append(supportedKinds, gwv1beta1.RouteGroupKind{
+				supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{
 					Kind: "GRPCRoute",
 				})
 			} else {

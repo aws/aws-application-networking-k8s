@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -95,26 +95,31 @@ func RegisterAccessLogPolicyController(
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&anv1alpha1.AccessLogPolicy{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&gwv1beta1.Gateway{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&gwv1beta1.HTTPRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&gwv1alpha2.GRPCRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+		Watches(&gwv1.Gateway{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&gwv1.HTTPRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&gwv1.GRPCRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&gwv1alpha2.TLSRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 
 	return builder.Complete(r)
 }
 
 func (r *accessLogPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow("reconcile", "name", req.Name)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "accesslogpolicy", req.Name, req.Namespace)
+	defer func() {
+		gwlog.EndReconcileTrace(ctx, r.log)
+	}()
+
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
-		r.log.Infow("reconcile error", "name", req.Name, "message", recErr.Error())
+		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
-		r.log.Infow("requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
+		r.log.Infow(ctx, "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
 	} else if res.Requeue {
-		r.log.Infow("requeue request", "name", req.Name)
+		r.log.Infow(ctx, "requeue request", "name", req.Name)
 	} else if retryErr == nil {
-		r.log.Infow("reconciled", "name", req.Name)
+		r.log.Infow(ctx, "reconciled", "name", req.Name)
 	}
 	return res, retryErr
 }
@@ -159,9 +164,9 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
-	if alp.Spec.TargetRef.Group != gwv1beta1.GroupName {
+	if alp.Spec.TargetRef.Group != gwv1.GroupName {
 		message := fmt.Sprintf("The targetRef's Group must be \"%s\" but was \"%s\"",
-			gwv1beta1.GroupName, alp.Spec.TargetRef.Group)
+			gwv1.GroupName, alp.Spec.TargetRef.Group)
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
@@ -233,13 +238,13 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 
 	switch alp.Spec.TargetRef.Kind {
 	case "Gateway":
-		gw := &gwv1beta1.Gateway{}
+		gw := &gwv1.Gateway{}
 		err = r.client.Get(ctx, targetRefNamespacedName, gw)
 	case "HTTPRoute":
-		httpRoute := &gwv1beta1.HTTPRoute{}
+		httpRoute := &gwv1.HTTPRoute{}
 		err = r.client.Get(ctx, targetRefNamespacedName, httpRoute)
 	case "GRPCRoute":
-		grpcRoute := &gwv1alpha2.GRPCRoute{}
+		grpcRoute := &gwv1.GRPCRoute{}
 		err = r.client.Get(ctx, targetRefNamespacedName, grpcRoute)
 	default:
 		return false, fmt.Errorf("Access Log Policy targetRef is for unsupported Kind: %s", alp.Spec.TargetRef.Kind)
@@ -265,12 +270,12 @@ func (r *accessLogPolicyReconciler) buildAndDeployModel(
 	if err != nil {
 		return nil, err
 	}
-	r.log.Debugw("Successfully built model", "stack", jsonStack)
+	r.log.Debugw(ctx, "Successfully built model", "stack", jsonStack)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		return nil, err
 	}
-	r.log.Debugf("successfully deployed model for stack %s:%s", stack.StackID().Name, stack.StackID().Namespace)
+	r.log.Debugf(ctx, "successfully deployed model for stack %s:%s", stack.StackID().Name, stack.StackID().Namespace)
 
 	return stack, nil
 }
@@ -341,7 +346,7 @@ func (r *accessLogPolicyReconciler) findImpactedAccessLogPolicies(ctx context.Co
 	alps := &anv1alpha1.AccessLogPolicyList{}
 	err := r.client.List(ctx, alps, listOptions)
 	if err != nil {
-		r.log.Errorf("Failed to list all Access Log Policies, %s", err)
+		r.log.Errorf(ctx, "Failed to list all Access Log Policies, %s", err)
 		return []reconcile.Request{}
 	}
 
@@ -357,7 +362,7 @@ func (r *accessLogPolicyReconciler) findImpactedAccessLogPolicies(ctx context.Co
 			continue
 		}
 
-		r.log.Debugf("Adding Access Log Policy %s/%s to queue due to %s event", alp.Namespace, alp.Name, targetRefKind)
+		r.log.Debugf(ctx, "Adding Access Log Policy %s/%s to queue due to %s event", alp.Namespace, alp.Name, targetRefKind)
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: alp.Namespace,

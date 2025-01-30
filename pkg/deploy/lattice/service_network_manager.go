@@ -97,7 +97,7 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 	}
 	if snva != nil {
 		// association is active
-		m.log.Debugf("Disassociating ServiceNetwork %s from VPC", snName)
+		m.log.Debugf(ctx, "Disassociating ServiceNetwork %s from VPC", snName)
 
 		owned, err := m.cloud.IsArnManaged(ctx, *snva.Arn)
 		if err != nil {
@@ -109,12 +109,12 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 			// In a scenario that the vpc association is created by a foreign account,
 			// the owner account's controller cannot read the tags of this ServiceNetworkVpcAssociation,
 			// and AccessDeniedException is expected.
-			m.log.Warnf("skipping delete vpc association, association: %s, error: %s", *snva.Arn, err)
+			m.log.Warnf(ctx, "skipping delete vpc association, association: %s, error: %s", *snva.Arn, err)
 
 			return nil
 		}
 		if !owned {
-			m.log.Infof("Association %s for %s not owned by controller, skipping deletion", *snva.Arn, snName)
+			m.log.Infof(ctx, "Association %s for %s not owned by controller, skipping deletion", *snva.Arn, snName)
 			return nil
 		}
 
@@ -123,7 +123,7 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 		}
 		resp, err := m.cloud.Lattice().DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
 		if err != nil {
-			m.log.Infof("Failed to delete association %s for %s, with response %s and err %s", *snva.Arn, snName, resp, err.Error())
+			m.log.Infof(ctx, "Failed to delete association %s for %s, with response %s and err %s", *snva.Arn, snName, resp, err.Error())
 		}
 		return errors.New(LATTICE_RETRY)
 	}
@@ -150,7 +150,7 @@ func (m *defaultServiceNetworkManager) getActiveVpcAssociation(ctx context.Conte
 	if aws.StringValue(snva.Status) == vpclattice.ServiceNetworkVpcAssociationStatusActive {
 		return snva, nil
 	}
-	m.log.Debugf("snva %s status: %s",
+	m.log.Debugf(ctx, "snva %s status: %s",
 		aws.StringValue(snva.Arn), aws.StringValue(snva.Status))
 	switch aws.StringValue(snva.Status) {
 	case vpclattice.ServiceNetworkVpcAssociationStatusActive,
@@ -180,7 +180,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 	var serviceNetworkArn string
 	vpcLatticeSess := m.cloud.Lattice()
 	if foundSnSummary == nil {
-		m.log.Debugf("Creating ServiceNetwork %s and tagging it with vpcId %s",
+		m.log.Debugf(ctx, "Creating ServiceNetwork %s and tagging it with vpcId %s",
 			serviceNetwork.Spec.Name, config.VpcID)
 
 		serviceNetworkInput := vpclattice.CreateServiceNetworkInput{
@@ -195,7 +195,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		serviceNetworkId = aws.StringValue(resp.Id)
 		serviceNetworkArn = aws.StringValue(resp.Arn)
 	} else {
-		m.log.Debugf("ServiceNetwork %s exists, checking its VPC association", serviceNetwork.Spec.Name)
+		m.log.Debugf(ctx, "ServiceNetwork %s exists, checking its VPC association", serviceNetwork.Spec.Name)
 		serviceNetworkId = aws.StringValue(foundSnSummary.SvcNetwork.Id)
 		serviceNetworkArn = aws.StringValue(foundSnSummary.SvcNetwork.Arn)
 
@@ -204,13 +204,13 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 			return model.ServiceNetworkStatus{}, err
 		}
 		if snva != nil {
-			m.log.Debugf("ServiceNetwork %s already has VPC association %s",
+			m.log.Debugf(ctx, "ServiceNetwork %s already has VPC association %s",
 				serviceNetwork.Spec.Name, aws.StringValue(snva.Arn))
 			return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
 		}
 	}
 
-	m.log.Debugf("Creating association between ServiceNetwork %s and VPC %s", serviceNetworkId, config.VpcID)
+	m.log.Debugf(ctx, "Creating association between ServiceNetwork %s and VPC %s", serviceNetworkId, config.VpcID)
 	createServiceNetworkVpcAssociationInput := vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: &serviceNetworkId,
 		VpcIdentifier:            &config.VpcID,

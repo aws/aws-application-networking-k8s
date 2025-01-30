@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -21,17 +22,19 @@ func Test_mutatingHandler_InjectDecoder(t *testing.T) {
 	h := mutatingHandler{
 		decoder: nil,
 	}
-	decoder := &admission.Decoder{}
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	decoder := admission.NewDecoder(scheme)
 	h.SetDecoder(decoder)
 
 	assert.Equal(t, decoder, h.decoder)
 }
 
 func Test_mutatingHandler_Handle(t *testing.T) {
-	schema := runtime.NewScheme()
-	clientgoscheme.AddToScheme(schema)
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
 	// k8sDecoder knows k8s objects
-	decoder := admission.NewDecoder(schema)
+	decoder := admission.NewDecoder(scheme)
 	patchTypeJSONPatch := admissionv1.PatchTypeJSONPatch
 
 	initialPod := &corev1.Pod{
@@ -67,7 +70,7 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 		mutatorPrototype    func(req admission.Request) (runtime.Object, error)
 		mutatorMutateCreate func(ctx context.Context, obj runtime.Object) (runtime.Object, error)
 		mutatorMutateUpdate func(ctx context.Context, obj runtime.Object, oldObj runtime.Object) (runtime.Object, error)
-		decoder             *admission.Decoder
+		decoder             admission.Decoder
 	}
 	type args struct {
 		req admission.Request
@@ -389,6 +392,7 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 			}
 
 			h := &mutatingHandler{
+				log:     gwlog.FallbackLogger,
 				mutator: mutator,
 				decoder: tt.fields.decoder,
 			}

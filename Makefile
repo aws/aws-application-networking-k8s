@@ -66,7 +66,7 @@ vet: ## Vet the code and dependencies
 		if [ "${CI}" = true ]; then\
 			exit 1;\
 		fi;}
-	cd test && go vet ./...
+	cd test && go mod tidy && go vet ./...
 
 
 .PHONY: lint
@@ -106,9 +106,9 @@ build-deploy: ## Create a deployment file that can be applied with `kubectl appl
 
 .PHONY: manifest
 manifest: ## Generate CRD manifest
-	go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.13.0 object paths=./pkg/apis/...
-	go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.13.0 crd paths=./pkg/apis/... output:crd:artifacts:config=config/crds/bases
-	go run k8s.io/code-generator/cmd/register-gen@v0.28.0 --input-dirs ./pkg/apis/applicationnetworking/v1alpha1 --output-base ./ --go-header-file hack/boilerplate.go.txt
+	go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5 object paths=./pkg/apis/...
+	go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5 crd paths=./pkg/apis/... output:crd:artifacts:config=config/crds/bases
+	go run k8s.io/code-generator/cmd/register-gen@v0.31.1 --logtostderr ./pkg/apis/applicationnetworking/v1alpha1 --go-header-file hack/boilerplate.go.txt
 	cp config/crds/bases/application-networking.k8s.aws* helm/crds
 
 e2e-test-namespace := "e2e-test"
@@ -131,8 +131,8 @@ e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 .PHONY: e2e-clean
 e2e-clean: ## Delete eks resources created in the e2e test namespace
 	@echo -n "Cleaning up e2e tests... "
-	@kubectl delete namespace $(e2e-test-namespace) > /dev/null 2>&1
-	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1
+	-@kubectl delete namespace $(e2e-test-namespace)
+	@kubectl create namespace $(e2e-test-namespace)
 	@echo "Done!"
 
 .PHONY: api-reference
@@ -146,9 +146,12 @@ docs:
 	mkdir -p site
 	mkdocs build
 
+e2e-webhook-namespace := "webhook-e2e-test"
+
 # NB webhook tests can only run if the controller is deployed to the cluster
 .PHONY: webhook-e2e-test
 webhook-e2e-test:
+	@kubectl create namespace $(e2e-webhook-namespace) > /dev/null 2>&1 || true # ignore already exists error
 	LOG_LEVEL=debug
 	cd test && go test \
 		-p 1 \

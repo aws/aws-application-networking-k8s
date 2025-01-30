@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"strings"
 )
 
@@ -95,7 +94,7 @@ var _ = Describe("HTTPRoute Mutation", func() {
 		testFramework.Get(ctx, types.NamespacedName{Name: pathMatchHttpRoute.Name, Namespace: pathMatchHttpRoute.Namespace}, pathMatchHttpRoute)
 
 		fmt.Println("Will update the pathMatchHttpRoute to backendRefs to service1 and service3")
-		pathMatchHttpRoute.Spec.Rules[1].BackendRefs[0].BackendObjectReference.Name = v1beta1.ObjectName(service3.Name)
+		pathMatchHttpRoute.Spec.Rules[1].BackendRefs[0].BackendObjectReference.Name = gwv1.ObjectName(service3.Name)
 		testFramework.Update(ctx, pathMatchHttpRoute)
 
 		// Verify the targetGroup that corresponds to the service2 is deleted

@@ -43,12 +43,12 @@ if git rev-parse --verify release-$RELEASE_VERSION >/dev/null 2>&1; then
     git branch -D release-$RELEASE_VERSION
 fi
 
-if git ls-remote --tags origin | grep -q "refs/tags/$RELEASE_VERSION"; then
+if git ls-remote --tags origin | grep -q "refs/tags/$RELEASE_VERSION$"; then
     echo "Tag '$RELEASE_VERSION' exists in remote, you should manually delete it from github"
     exit 1
 fi
 
-if git ls-remote --heads origin | grep -q "refs/heads/release-$RELEASE_VERSION"; then
+if git ls-remote --heads origin | grep -q "refs/heads/release-$RELEASE_VERSION$"; then
     echo "Branch 'release-$RELEASE_VERSION' exists in remote, you should manually delete it from github"
     exit 1
 fi
@@ -61,14 +61,17 @@ sed_inplace "appVersion: $OLD_VERSION" "appVersion: $RELEASE_VERSION" "$WORKSPAC
 sed_inplace "tag: $OLD_VERSION" "tag: $RELEASE_VERSION" "$WORKSPACE_DIR"/helm/values.yaml
 sed_inplace "deploy-$OLD_VERSION.yaml" "deploy-$RELEASE_VERSION.yaml" "$WORKSPACE_DIR"/docs/guides/deploy.md
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/deploy.md
+sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/getstarted.md
+sed_inplace "mike deploy $OLD_VERSION" "mike deploy $RELEASE_VERSION" "$WORKSPACE_DIR"/.github/workflows/publish-doc.yml
+
 
 # Build the deploy.yaml
 make build-deploy
-cp "deploy.yaml" "examples/deploy-$RELEASE_VERSION.yaml"
+cp "deploy.yaml" "files/controller-installation/deploy-$RELEASE_VERSION.yaml"
 
 #only keep 4 recent versions deploy.yaml, removing the oldest one
 VERSION_TO_REMOVE=$(git tag --sort=v:refname | grep -v 'rc' | tail -n 5 | head -n 1)
-rm -f "$WORKSPACE_DIR/examples/deploy-$VERSION_TO_REMOVE.yaml"
+rm -f "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml"
 
 # Crete a new release branch, tag and push the changes
 git checkout -b release-$RELEASE_VERSION
@@ -76,8 +79,8 @@ git add "$WORKSPACE_DIR/README.md" \
   "$WORKSPACE_DIR/config/manager/kustomization.yaml" \
   "$WORKSPACE_DIR/helm/Chart.yaml" \
   "$WORKSPACE_DIR/helm/values.yaml" \
-  "$WORKSPACE_DIR/examples/deploy-$RELEASE_VERSION.yaml" \
-  "$WORKSPACE_DIR/examples/deploy-$VERSION_TO_REMOVE.yaml" \
+  "$WORKSPACE_DIR/files/controller-installation/deploy-$RELEASE_VERSION.yaml" \
+  "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml" \
   "$WORKSPACE_DIR/docs/guides/deploy.md"
 git commit -m "Release artifacts for release $RELEASE_VERSION"
 git push origin release-$RELEASE_VERSION

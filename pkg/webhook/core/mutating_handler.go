@@ -3,26 +3,25 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	admissionv1 "k8s.io/api/admission/v1"
 	"net/http"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-var mutatingHandlerLog = ctrl.Log.WithName("mutating_handler")
-
 type mutatingHandler struct {
+	log     gwlog.Logger
 	mutator Mutator
-	decoder *admission.Decoder
+	decoder admission.Decoder
 }
 
-func (h *mutatingHandler) SetDecoder(d *admission.Decoder) {
+func (h *mutatingHandler) SetDecoder(d admission.Decoder) {
 	h.decoder = d
 }
 
 // Handle handles admission requests.
 func (h *mutatingHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	mutatingHandlerLog.V(1).Info("mutating webhook request", "request", req)
+	h.log.Debugw(ctx, "mutating webhook request", "operation", req.Operation, "name", req.Name, "namespace", req.Namespace)
 	var resp admission.Response
 	switch req.Operation {
 	case admissionv1.Create:
@@ -32,7 +31,7 @@ func (h *mutatingHandler) Handle(ctx context.Context, req admission.Request) adm
 	default:
 		resp = admission.Allowed("")
 	}
-	mutatingHandlerLog.V(1).Info("mutating webhook response", "response", resp)
+	h.log.Debugw(ctx, "mutating webhook response", "patches", resp.Patches)
 	return resp
 }
 

@@ -29,7 +29,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type gatewayClassReconciler struct {
@@ -47,7 +46,7 @@ func RegisterGatewayClassController(log gwlog.Logger, mgr ctrl.Manager) error {
 		latticeControllerEnabled: false,
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gwv1beta1.GatewayClass{}).
+		For(&gwv1.GatewayClass{}).
 		Complete(r)
 }
 
@@ -56,11 +55,14 @@ func RegisterGatewayClassController(log gwlog.Logger, mgr ctrl.Manager) error {
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses/finalizers,verbs=update
 
 func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log.Infow("reconcile", "name", req.Name)
+	ctx = gwlog.StartReconcileTrace(ctx, r.log, "gatewayclass", req.Name, req.Namespace)
+	defer func() {
+		gwlog.EndReconcileTrace(ctx, r.log)
+	}()
 
-	gwClass := &gwv1beta1.GatewayClass{}
+	gwClass := &gwv1.GatewayClass{}
 	if err := r.client.Get(ctx, req.NamespacedName, gwClass); err != nil {
-		r.log.Debugw("gateway not found", "name", req.Name)
+		r.log.Debugw(ctx, "gateway not found", "name", req.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -69,7 +71,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	if !gwClass.DeletionTimestamp.IsZero() {
 		r.latticeControllerEnabled = false
-		r.log.Infow("deleted", "name", gwClass.Name)
+		r.log.Infow(ctx, "deleted", "name", gwClass.Name)
 		return ctrl.Result{}, nil
 	}
 	r.latticeControllerEnabled = true
@@ -86,6 +88,6 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, errors.Wrapf(err, "failed to update gatewayclass status")
 	}
 
-	r.log.Infow("reconciled", "name", gwClass.Name, "status", gwClass.Status)
+	r.log.Infow(ctx, "reconciled", "name", gwClass.Name, "status", gwClass.Status)
 	return ctrl.Result{}, nil
 }

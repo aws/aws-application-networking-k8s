@@ -18,8 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
@@ -55,7 +54,7 @@ func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud p
 	b := ctrl.
 		NewControllerManagedBy(mgr).
 		For(&anv1alpha1.IAMAuthPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}))
-	ph.AddWatchers(b, &gwv1beta1.Gateway{}, &gwv1beta1.HTTPRoute{}, &gwv1alpha2.GRPCRoute{})
+	ph.AddWatchers(b, &gwv1.Gateway{}, &gwv1.HTTPRoute{}, &gwv1.GRPCRoute{})
 	err := b.Complete(controller)
 	return err
 }
@@ -78,13 +77,18 @@ func RegisterIAMAuthPolicyController(log gwlog.Logger, mgr ctrl.Manager, cloud p
 //
 // Policy Attachment Spec is defined in [GEP-713]: https://gateway-api.sigs.k8s.io/geps/gep-713/.
 func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = gwlog.StartReconcileTrace(ctx, c.log, "iamauthpolicy", req.Name, req.Namespace)
+	defer func() {
+		gwlog.EndReconcileTrace(ctx, c.log)
+	}()
+
 	k8sPolicy := &anv1alpha1.IAMAuthPolicy{}
 	err := c.client.Get(ctx, req.NamespacedName, k8sPolicy)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	c.log.Infow("reconcile IAM policy", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
+	c.log.Infow(ctx, "reconcile IAM policy", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
 	isDelete := !k8sPolicy.DeletionTimestamp.IsZero()
 
 	var res ctrl.Result
@@ -102,7 +106,7 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, err
 	}
 
-	c.log.Infow("reconciled IAM policy",
+	c.log.Infow(ctx, "reconciled IAM policy",
 		"req", req,
 		"targetRef", k8sPolicy.Spec.TargetRef,
 		"isDeleted", isDelete,

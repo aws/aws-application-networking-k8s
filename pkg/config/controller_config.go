@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"strings"
 
@@ -23,10 +24,12 @@ const (
 	CLUSTER_VPC_ID                  = "CLUSTER_VPC_ID"
 	CLUSTER_NAME                    = "CLUSTER_NAME"
 	DEFAULT_SERVICE_NETWORK         = "DEFAULT_SERVICE_NETWORK"
+	DISABLE_TAGGING_SERVICE_API     = "DISABLE_TAGGING_SERVICE_API"
 	ENABLE_SERVICE_NETWORK_OVERRIDE = "ENABLE_SERVICE_NETWORK_OVERRIDE"
 	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
 	DEV_MODE                        = "DEV_MODE"
 	WEBHOOK_ENABLED                 = "WEBHOOK_ENABLED"
+	ROUTE_MAX_CONCURRENT_RECONCILES = "ROUTE_MAX_CONCURRENT_RECONCILES"
 )
 
 var VpcID = ""
@@ -37,7 +40,9 @@ var ClusterName = ""
 var DevMode = ""
 var WebhookEnabled = ""
 
+var DisableTaggingServiceAPI = false
 var ServiceNetworkOverrideMode = false
+var RouteMaxConcurrentReconciles = 1
 
 func ConfigInit() error {
 	sess, _ := session.NewSession()
@@ -82,9 +87,24 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		ServiceNetworkOverrideMode = true
 	}
 
+	disableTaggingAPI := os.Getenv(DISABLE_TAGGING_SERVICE_API)
+
+	if strings.ToLower(disableTaggingAPI) == "true" {
+		DisableTaggingServiceAPI = true
+	}
+
 	ClusterName, err = getClusterName(sess)
 	if err != nil {
 		return fmt.Errorf("cannot get cluster name: %s", err)
+	}
+
+	routeMaxConcurrentReconciles := os.Getenv(ROUTE_MAX_CONCURRENT_RECONCILES)
+	if routeMaxConcurrentReconciles != "" {
+		routeMaxConcurrentReconcilesInt, err := strconv.Atoi(routeMaxConcurrentReconciles)
+		if err != nil {
+			return fmt.Errorf("invalid value for ROUTE_MAX_CONCURRENT_RECONCILES: %s", err)
+		}
+		RouteMaxConcurrentReconciles = routeMaxConcurrentReconcilesInt
 	}
 
 	return nil

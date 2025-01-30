@@ -1,4 +1,4 @@
-# API Reference
+# API Specification
 
 This page contains the API field specification for Gateway API.
 
@@ -99,7 +99,7 @@ Supported values are S3 Bucket, CloudWatch Log Group, and Firehose Delivery Stre
 <code>targetRef</code><br/>
 <em>
 <a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
-sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
 </a>
 </em>
 </td>
@@ -198,7 +198,7 @@ string
 <code>targetRef</code><br/>
 <em>
 <a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
-sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
 </a>
 </em>
 </td>
@@ -529,7 +529,7 @@ this field value will be ignored as GRPC is only supported through HTTP/2.</p>
 <code>targetRef</code><br/>
 <em>
 <a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
-sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
 </a>
 </em>
 </td>
@@ -660,7 +660,7 @@ bool
 <code>targetRef</code><br/>
 <em>
 <a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
-sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
 </a>
 </em>
 </td>
@@ -720,7 +720,7 @@ Supported values are S3 Bucket, CloudWatch Log Group, and Firehose Delivery Stre
 <code>targetRef</code><br/>
 <em>
 <a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
-sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
 </a>
 </em>
 </td>
@@ -1019,7 +1019,7 @@ string
 <code>targetRef</code><br/>
 <em>
 <a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
-sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
 </a>
 </em>
 </td>
@@ -1492,7 +1492,7 @@ this field value will be ignored as GRPC is only supported through HTTP/2.</p>
 <code>targetRef</code><br/>
 <em>
 <a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
-sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
 </a>
 </em>
 </td>
@@ -1609,7 +1609,7 @@ bool
 <code>targetRef</code><br/>
 <em>
 <a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
-sigs.k8s.io/gateway-api/apis/v1alpha2.PolicyTargetReference
+sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
 </a>
 </em>
 </td>

@@ -2,7 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 const (
@@ -38,14 +38,15 @@ type TargetGroupPolicyList struct {
 
 // TargetGroupPolicySpec defines the desired state of TargetGroupPolicy.
 type TargetGroupPolicySpec struct {
-	// The protocol to use for routing traffic to the targets. Supported values are HTTP (default) and HTTPS.
+	// The protocol to use for routing traffic to the targets. Supported values are HTTP (default), HTTPS and TCP.
 	//
 	// Changes to this value results in a replacement of VPC Lattice target group.
 	// +optional
 	Protocol *string `json:"protocol,omitempty"`
 
-	// The protocol version to use. Supported values are HTTP1 (default) and HTTP2. When a policy is behind GRPCRoute,
-	// this field value will be ignored as GRPC is only supported through HTTP/2.
+	// The protocol version to use. Supported values are HTTP1 (default) and HTTP2.
+	// When a policy Protocol is TCP, you should not set this field. Otherwise, the whole TargetGroupPolicy will not take effect.
+	// When a policy is behind GRPCRoute, this field value will be ignored as GRPC is only supported through HTTP/2.
 	//
 	// Changes to this value results in a replacement of VPC Lattice target group.
 	// +optional
@@ -54,7 +55,7 @@ type TargetGroupPolicySpec struct {
 	// TargetRef points to the kubernetes Service resource that will have this policy attached.
 	//
 	// This field is following the guidelines of Kubernetes Gateway API policy attachment.
-	TargetRef *v1alpha2.PolicyTargetReference `json:"targetRef"`
+	TargetRef *gwv1alpha2.NamespacedPolicyTargetReference `json:"targetRef"`
 
 	// The health check configuration.
 	//
@@ -64,7 +65,7 @@ type TargetGroupPolicySpec struct {
 }
 
 // HealthCheckConfig defines health check configuration for given VPC Lattice target group.
-// For the detailed explanation and supported values, please refer to VPC Lattice documentationon health checks.
+// For the detailed explanation and supported values, please refer to [VPC Lattice health checks documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html).
 type HealthCheckConfig struct {
 	// Indicates whether health checking is enabled.
 	// +optional
@@ -112,7 +113,7 @@ type HealthCheckConfig struct {
 	// +optional
 	Protocol *HealthCheckProtocol `json:"protocol,omitempty"`
 
-	// The protocol version used when performing health checks on targets. Defaults to HTTP/1.
+	// The protocol version used when performing health checks on targets.
 	// +optional
 	ProtocolVersion *HealthCheckProtocolVersion `json:"protocolVersion,omitempty"`
 }
@@ -155,7 +156,7 @@ const (
 	HealthCheckProtocolVersionHTTP2 HealthCheckProtocolVersion = "HTTP2"
 )
 
-func (p *TargetGroupPolicy) GetTargetRef() *v1alpha2.PolicyTargetReference {
+func (p *TargetGroupPolicy) GetTargetRef() *gwv1alpha2.NamespacedPolicyTargetReference {
 	return p.Spec.TargetRef
 }
 

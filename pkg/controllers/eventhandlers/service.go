@@ -45,7 +45,7 @@ func (h *serviceEventHandler) mapToServiceExport(ctx context.Context, obj client
 		requests = append(requests, reconcile.Request{
 			NamespacedName: k8s.NamespacedName(svcExport),
 		})
-		h.log.Infow("Service impacting resource change triggered ServiceExport update",
+		h.log.Infow(ctx, "Service impacting resource change triggered ServiceExport update",
 			"serviceName", svc.Namespace+"/"+svc.Name)
 	}
 	return requests
@@ -73,7 +73,7 @@ func (h *serviceEventHandler) mapToRoute(ctx context.Context, obj client.Object,
 	for _, route := range routes {
 		routeName := k8s.NamespacedName(route.K8sObject())
 		requests = append(requests, reconcile.Request{NamespacedName: routeName})
-		h.log.Infow("Service impacting resource change triggered Route update",
+		h.log.Infow(ctx, "Service impacting resource change triggered Route update",
 			"serviceName", svc.Namespace+"/"+svc.Name, "routeName", routeName, "routeType", routeType)
 	}
 	return requests

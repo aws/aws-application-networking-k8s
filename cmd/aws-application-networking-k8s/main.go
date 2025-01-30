@@ -18,12 +18,15 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
+	"strings"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/webhook"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap/zapcore"
-	"os"
 	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
-	"strings"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -38,13 +41,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/external-dns/endpoint"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	//+kubebuilder:scaffold:imports
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -52,6 +53,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var (
@@ -62,9 +65,9 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	//+kubebuilder:scaffold:scheme
-	utilruntime.Must(gwv1alpha2.AddToScheme(scheme))
-	utilruntime.Must(gwv1beta1.AddToScheme(scheme))
-	utilruntime.Must(anv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(gwv1alpha2.Install(scheme))
+	utilruntime.Must(gwv1.Install(scheme))
+	utilruntime.Must(anv1alpha1.Install(scheme))
 	utilruntime.Must(discoveryv1.AddToScheme(scheme))
 	addOptionalCRDs(scheme)
 }
@@ -91,6 +94,51 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 	metav1.AddToGroupVersion(scheme, groupVersion)
 }
 
+func checkRequiredCRDs(mgr ctrl.Manager) error {
+	// Add or update the required CRDs when new CRDs are added to the project
+	requiredCRDs := []schema.GroupVersionKind{
+		{
+			Group:   gwv1.GroupVersion.Group,
+			Version: gwv1.GroupVersion.Version,
+			Kind:    "Gateway",
+		},
+		{
+			Group:   gwv1.GroupVersion.Group,
+			Version: gwv1.GroupVersion.Version,
+			Kind:    "GatewayClass",
+		},
+		{
+			Group:   gwv1.GroupVersion.Group,
+			Version: gwv1.GroupVersion.Version,
+			Kind:    "HTTPRoute",
+		},
+		{
+			Group:   gwv1.GroupVersion.Group,
+			Version: gwv1.GroupVersion.Version,
+			Kind:    "GRPCRoute",
+		},
+		{
+			Group:   gwv1alpha2.GroupVersion.Group,
+			Version: gwv1alpha2.GroupVersion.Version,
+			Kind:    "TLSRoute",
+		},
+	}
+	missingCRDs := make([]string, 0, len(requiredCRDs))
+	for _, crd := range requiredCRDs {
+		ok, err := k8s.IsGVKSupported(mgr, crd.GroupVersion().String(), crd.Kind)
+		if err != nil {
+			return fmt.Errorf("error checking required CRD %s: %w", crd, err)
+		}
+		if !ok {
+			missingCRDs = append(missingCRDs, crd.String())
+		}
+	}
+	if len(missingCRDs) > 0 {
+		return fmt.Errorf("missing required CRDs: %s", strings.Join(missingCRDs, ", "))
+	}
+	return nil
+}
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
@@ -105,9 +153,10 @@ func main() {
 
 	logLevel := logLevel()
 	log := gwlog.NewLogger(logLevel)
-	ctrl.SetLogger(zapr.NewLogger(log.Desugar()).WithName("runtime"))
+	ctrl.SetLogger(zapr.NewLogger(log.InnerLogger.Desugar()).WithName("runtime"))
 
-	setupLog := log.Named("setup")
+	setupLog := log.InnerLogger.Named("setup")
+
 	err := config.ConfigInit()
 	if err != nil {
 		setupLog.Fatalf("init config failed: %s", err)
@@ -119,14 +168,16 @@ func main() {
 		"DefaultServiceNetwork", config.DefaultServiceNetwork,
 		"ClusterName", config.ClusterName,
 		"LogLevel", logLevel,
+		"DisableTaggingServiceAPI", config.DisableTaggingServiceAPI,
 	)
 
 	cloud, err := aws.NewCloud(log.Named("cloud"), aws.CloudConfig{
-		VpcId:       config.VpcID,
-		AccountId:   config.AccountID,
-		Region:      config.Region,
-		ClusterName: config.ClusterName,
-	})
+		VpcId:                     config.VpcID,
+		AccountId:                 config.AccountID,
+		Region:                    config.Region,
+		ClusterName:               config.ClusterName,
+		TaggingServiceAPIDisabled: config.DisableTaggingServiceAPI,
+	}, metrics.Registry)
 	if err != nil {
 		setupLog.Fatal("cloud client setup failed: %s", err)
 	}
@@ -160,12 +211,17 @@ func main() {
 		setupLog.Fatal("manager setup failed:", err)
 	}
 
+	if err := checkRequiredCRDs(mgr); err != nil {
+		setupLog.Fatal("required CRDs check failed:", err)
+	}
+
 	if enableWebhook {
+		logger := log.Named("pod-readiness-gate-injector")
 		readinessGateInjector := webhook.NewPodReadinessGateInjector(
 			mgr.GetClient(),
-			log.Named("pod-readiness-gate-injector"),
+			logger,
 		)
-		webhook.NewPodMutator(scheme, readinessGateInjector).SetupWithManager(mgr)
+		webhook.NewPodMutator(logger, scheme, readinessGateInjector).SetupWithManager(logger, mgr)
 	}
 
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient())

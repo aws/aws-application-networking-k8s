@@ -33,84 +33,6 @@ func NewRuleSynthesizer(
 	}
 }
 
-// populates all target group ids in the rule's actions
-func (r *ruleSynthesizer) resolveRuleTgIds(ctx context.Context, modelRule *model.Rule) error {
-	if len(modelRule.Spec.Action.TargetGroups) == 0 {
-		r.log.Debugf("no target groups to resolve for rule %d", modelRule.Spec.Priority)
-		return nil
-	}
-
-	for i, rtg := range modelRule.Spec.Action.TargetGroups {
-		if rtg.StackTargetGroupId == "" && rtg.SvcImportTG == nil && rtg.LatticeTgId == "" {
-			return errors.New("rule TG is missing a required target group identifier")
-		}
-
-		if rtg.LatticeTgId != "" {
-			r.log.Debugf("Rule TG %d already resolved %s", i, rtg.LatticeTgId)
-			continue
-		}
-
-		if rtg.StackTargetGroupId != "" {
-			if rtg.StackTargetGroupId == model.InvalidBackendRefTgId {
-				r.log.Debugf("Rule TG has an invalid backendref, setting TG id to invalid")
-				rtg.LatticeTgId = model.InvalidBackendRefTgId
-				continue
-			}
-
-			r.log.Debugf("Fetching TG %d from the stack (ID %s)", i, rtg.StackTargetGroupId)
-
-			stackTg := &model.TargetGroup{}
-			err := r.stack.GetResource(rtg.StackTargetGroupId, stackTg)
-			if err != nil {
-				return err
-			}
-
-			if stackTg.Status == nil {
-				return errors.New("stack target group is missing Status field")
-			}
-			rtg.LatticeTgId = stackTg.Status.Id
-		}
-
-		if rtg.SvcImportTG != nil {
-			r.log.Debugf("Getting target group for service import %s %s (%s, %s)",
-				rtg.SvcImportTG.K8SServiceName, rtg.SvcImportTG.K8SServiceNamespace,
-				rtg.SvcImportTG.K8SClusterName, rtg.SvcImportTG.VpcId)
-			tgId, err := r.findSvcExportTG(ctx, *rtg.SvcImportTG)
-
-			if err != nil {
-				return err
-			}
-			rtg.LatticeTgId = tgId
-		}
-	}
-
-	return nil
-}
-
-func (r *ruleSynthesizer) findSvcExportTG(ctx context.Context, svcImportTg model.SvcImportTargetGroup) (string, error) {
-	tgs, err := r.tgManager.List(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	for _, tg := range tgs {
-		tgTags := model.TGTagFieldsFromTags(tg.tags)
-
-		svcMatch := tgTags.IsSourceTypeServiceExport() && (tgTags.K8SServiceName == svcImportTg.K8SServiceName) &&
-			(tgTags.K8SServiceNamespace == svcImportTg.K8SServiceNamespace)
-
-		clusterMatch := (svcImportTg.K8SClusterName == "") || (tgTags.K8SClusterName == svcImportTg.K8SClusterName)
-
-		vpcMatch := (svcImportTg.VpcId == "") || (svcImportTg.VpcId == aws.StringValue(tg.tgSummary.VpcIdentifier))
-
-		if svcMatch && clusterMatch && vpcMatch {
-			return *tg.tgSummary.Id, nil
-		}
-	}
-
-	return "", errors.New("target group for service import could not be found")
-}
-
 // helper types for checking which leftover rules are no longer referenced
 // and need to be deleted
 type ruleIdMap map[string]*model.Rule
@@ -159,11 +81,10 @@ func (r *ruleSynthesizer) createOrUpdateRules(ctx context.Context, rule *model.R
 		return err
 	}
 
-	err = r.resolveRuleTgIds(ctx, rule)
+	err = r.tgManager.ResolveRuleTgIds(ctx, &rule.Spec.Action, r.stack)
 	if err != nil {
 		return err
 	}
-
 	status, err := r.ruleManager.Upsert(ctx, rule, stackListener, stackSvc)
 	if err != nil {
 		return fmt.Errorf("Failed RuleManager.Upsert due to %s", err)
@@ -223,7 +144,7 @@ func (r *ruleSynthesizer) adjustPriorities(ctx context.Context, snlStackRules ma
 		for _, rule := range activeRules {
 			if rule.Spec.Priority != rule.Status.Priority {
 				// *any* mismatch in priority prompts a batch update of ALL priorities
-				r.log.Debugf("Found rule priority mismatch, update required")
+				r.log.Debugf(ctx, "Found rule priority mismatch, update required")
 
 				var rulesToUpdate []*model.Rule
 				for _, snlRule := range activeRules {

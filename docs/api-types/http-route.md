@@ -38,7 +38,7 @@ Here is a sample configuration that demonstrates how to set up an `HTTPRoute` th
 Service and ServiceImport, using rules to determine which backendRef to route traffic to.
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: inventory
@@ -83,7 +83,7 @@ Service and ServiceImport, using weighted rules to route more traffic to one bac
 simplify the process of creating blue/green deployments by shifting rule weight from one backendRef to another.
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: inventory
@@ -120,4 +120,4 @@ In this example:
 
 This `HTTPRoute` documentation provides a detailed introduction, feature set, and a basic example of how to configure
 and use the resource within AWS Gateway API Controller project. For in-depth details and specifications, you can refer to the
-official [Gateway API documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRoute).
+official [Gateway API documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.HTTPRoute).

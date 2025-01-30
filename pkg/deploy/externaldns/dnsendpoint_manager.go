@@ -41,11 +41,11 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 		Name:      service.Spec.RouteName + "-dns",
 	}
 	if service.Spec.CustomerDomainName == "" {
-		s.log.Debugf("Skipping creation of %s: detected no custom domain", namespacedName)
+		s.log.Debugf(ctx, "Skipping creation of %s: detected no custom domain", namespacedName)
 		return nil
 	}
 	if service.Status == nil || service.Status.Dns == "" {
-		s.log.Debugf("Skipping creation of %s: DNS target not ready in svc status", namespacedName)
+		s.log.Debugf(ctx, "Skipping creation of %s: DNS target not ready in svc status", namespacedName)
 		return nil
 	}
 
@@ -59,18 +59,20 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 	}
 	if service.Spec.RouteType == core.GrpcRouteType {
 		route, err = core.GetGRPCRoute(ctx, s.k8sClient, routeNamespacedName)
+	} else if service.Spec.RouteType == core.TlsRouteType {
+		route, err = core.GetTLSRoute(ctx, s.k8sClient, routeNamespacedName)
 	} else {
 		route, err = core.GetHTTPRoute(ctx, s.k8sClient, routeNamespacedName)
 	}
 	if err != nil {
-		s.log.Debugf("Skipping creation of %s: Could not find corresponding route", namespacedName.String())
+		s.log.Debugf(ctx, "Skipping creation of %s: Could not find corresponding route", namespacedName.String())
 		return nil
 	}
 
 	ep := &endpoint.DNSEndpoint{}
 	if err := s.k8sClient.Get(ctx, namespacedName, ep); err != nil {
 		if apierrors.IsNotFound(err) {
-			s.log.Debugf("Attempting creation of DNSEndpoint for %s - %s -> %s",
+			s.log.Debugf(ctx, "Attempting creation of DNSEndpoint for %s - %s -> %s",
 				namespacedName.String(), service.Spec.CustomerDomainName, service.Status.Dns)
 			ep = &endpoint.DNSEndpoint{
 				ObjectMeta: metav1.ObjectMeta{
@@ -95,13 +97,13 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 				return err
 			}
 		} else if meta.IsNoMatchError(err) {
-			s.log.Debugf("DNSEndpoint CRD not supported, skipping")
+			s.log.Debugf(ctx, "DNSEndpoint CRD not supported, skipping")
 			return nil
 		} else {
 			return err
 		}
 	} else {
-		s.log.Debugf("Attempting update of DNSEndpoint for %s - %s -> %s",
+		s.log.Debugf(ctx, "Attempting update of DNSEndpoint for %s - %s -> %s",
 			namespacedName.String(), service.Spec.CustomerDomainName, service.Status.Dns)
 		old := ep.DeepCopy()
 		ep.Spec.Endpoints = []*endpoint.Endpoint{

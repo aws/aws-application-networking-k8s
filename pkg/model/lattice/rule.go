@@ -1,8 +1,9 @@
 package lattice
 
 import (
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
@@ -14,8 +15,9 @@ type Rule struct {
 }
 
 const (
-	MaxRulePriority       = 100
-	InvalidBackendRefTgId = "INVALID"
+	MaxRulePriority                      = 100
+	InvalidBackendRefTgId                = "INVALID"
+	DefaultActionFixedResponseStatusCode = 404
 )
 
 type RuleSpec struct {

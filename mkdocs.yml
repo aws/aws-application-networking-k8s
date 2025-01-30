@@ -3,26 +3,33 @@ repo_name: aws/aws-application-networking-k8s
 repo_url: https://github.com/aws/aws-application-networking-k8s
 edit_uri: edit/main/docs/
 strict: true
+site_url: https://www.gateway-api-controller.eks.aws.dev/
 
 
 nav:
   - Home: index.md
-  - User Guides:
-    - Quick Start: guides/deploy.md
-    - Basic Setup: guides/getstarted.md
-    - Configuration: guides/environment.md
   - Concepts:
-    - Design Overview: concepts/overview.md
-    - TLS: concepts/https.md
-    - Custom Domain Name: concepts/custom-domain-name.md
-    - GRPC: concepts/grpc.md
-    - Cross-Account Sharing: concepts/ram-sharing.md
+    - Introduction: concepts/concepts.md
+    - Concepts: concepts/overview.md
+  - User Guides:
+    - Controller Installation: guides/deploy.md
+    - Upgrading Controller from v1.0.x to v1.1.y: guides/upgrading-v1-0-x-to-v1-1-y.md
+    - Getting Started: guides/getstarted.md
+    - Cross-Account Sharing: guides/ram-sharing.md
+    - Advanced Configurations: guides/advanced-configurations.md
+    - HTTPS: guides/https.md
+    - Custom Domain Name: guides/custom-domain-name.md
+    - GRPC: guides/grpc.md
+    - TLS Passthrough: guides/tls-passthrough.md
+    - Pod Readiness Gates: guides/pod-readiness-gates.md
+    - Configuration: guides/environment.md
   - API Specification: api-reference.md
   - API Reference:
     - AccessLogPolicy: api-types/access-log-policy.md
     - Gateway: api-types/gateway.md
     - GRPCRoute: api-types/grpc-route.md
     - HTTPRoute: api-types/http-route.md
+    - TLSRoute: api-types/tls-route.md
     - IAMAuthPolicy:  api-types/iam-auth-policy.md
     - Service: api-types/service.md
     - ServiceExport: api-types/service-export.md
@@ -36,33 +43,79 @@ nav:
 
 plugins:
   - search
+
 theme:
   name: material
+  custom_dir: docs/overrides
+  logo: images/controller.png
+  favicon: images/controller.png
+  icon:
+    repo: fontawesome/brands/github
   language: en
   palette:
-    primary: indigo
-    accent: indigo
+    # Palette toggle for light mode
+    - scheme: default
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+      primary: deep purple
+      accent: purple
+    # Palette toggle for dark mode
+    - scheme: slate
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to light mode
+      primary: black
+      accent: grey
   font:
     text: Roboto
     code: Roboto Mono
-#  features:
-#    - navigation.tabs
+  features:
+      - navigation.tabs
+      - navigation.sections
+      - toc.integrate
+      - navigation.top
+      - navigation.footer
+      - search.suggest
+      - search.highlight
+      - content.tabs.link
+      - content.code.annotation
+      - content.code.copy
+      - content.code.select
+      - navigation.path
+
 # Extensions
 markdown_extensions:
   - admonition
   - attr_list
   - codehilite
+  - md_in_html
   - pymdownx.inlinehilite
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.superfences
-  - pymdownx.tabbed
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.snippets
+  - pymdownx.arithmatex:
+      generic: true
+  - footnotes
+  - pymdownx.details
+  - pymdownx.mark
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - toc:
       permalink: true
 extra_css:
-  - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css
+  - https://main.d17pcam02ektiz.amplifyapp.com/material-components-web.min.css
 extra_javascript:
-  - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js
+  - https://main.d17pcam02ektiz.amplifyapp.com/material-components-web.min.js
+
+
+extra:
+  generator: false
+  version:
+    provider: mike

@@ -95,6 +95,11 @@ spec:
             value: {{ .Values.log.level | quote }}
           - name: WEBHOOK_ENABLED
             value: {{ .Values.webhookEnabled | quote }}
+          - name: DISABLE_TAGGING_SERVICE_API
+            value: {{ .Values.disableTaggingServiceApi | quote }}
+          - name: ROUTE_MAX_CONCURRENT_RECONCILES
+            value: {{ .Values.routeMaxConcurrentReconciles | quote }}
+
       terminationGracePeriodSeconds: 10
       volumes:
         - name: webhook-cert
@@ -110,4 +115,7 @@ spec:
       {{ end -}}
       {{ if .Values.deployment.priorityClassName -}}
       priorityClassName: {{ .Values.deployment.priorityClassName }}
+      {{ end -}}
+      {{ if .Values.deployment.topologySpreadConstraints -}}
+      topologySpreadConstraints: {{ .Values.deployment.topologySpreadConstraints | toYaml | nindent 8 }}
       {{ end -}}

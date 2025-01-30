@@ -1,0 +1,20 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: rate-tls-passthrough
+spec:
+  hostnames:
+    - tls-rate.my-test.com
+  parentRefs:
+    - name: my-hotel-tls-passthrough
+      sectionName: tls
+  rules:
+    - backendRefs:
+        - name: tls-rate1
+          kind: Service
+          port: 443
+          weight: 10
+        - name: tls-rate2
+          kind: ServiceImport
+          port: 443
+          weight: 90

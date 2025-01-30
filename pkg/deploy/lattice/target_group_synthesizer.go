@@ -78,7 +78,7 @@ func (t *TargetGroupSynthesizer) SynthesizeCreate(ctx context.Context) error {
 		if err == nil {
 			resTargetGroup.Status = &tgStatus
 		} else {
-			t.log.Debugf("Failed TargetGroupManager.Upsert %s due to %s", prefix, err)
+			t.log.Debugf(ctx, "Failed TargetGroupManager.Upsert %s due to %s", prefix, err)
 			returnErr = true
 		}
 	}
@@ -181,7 +181,7 @@ func (t *TargetGroupSynthesizer) calculateTargetGroupsToDelete(ctx context.Conte
 
 		// most importantly, is the tg in use?
 		if len(latticeTg.tgSummary.ServiceArns) > 0 {
-			t.log.Debugf("TargetGroup %s (%s) is referenced by lattice service",
+			t.log.Debugf(ctx, "TargetGroup %s (%s) is referenced by lattice service",
 				*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 			continue
 		}
@@ -207,7 +207,7 @@ func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 		Name:      tagFields.K8SServiceName,
 	}
 
-	t.log.Debugf("TargetGroup %s (%s) is referenced by ServiceExport",
+	t.log.Debugf(ctx, "TargetGroup %s (%s) is referenced by ServiceExport",
 		*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 
 	svcExport := &anv1alpha1.ServiceExport{}
@@ -215,19 +215,19 @@ func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// if the service export does not exist, we can safely delete
-			t.log.Infof("Will delete TargetGroup %s (%s) - ServiceExport is not found",
+			t.log.Infof(ctx, "Will delete TargetGroup %s (%s) - ServiceExport is not found",
 				*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 			return true
 		} else {
 			// skip if we have an unknown error
-			t.log.Infof("Received unexpected API error getting service export %s", err)
+			t.log.Infof(ctx, "Received unexpected API error getting service export %s", err)
 			return false
 		}
 	}
 
 	if !svcExport.DeletionTimestamp.IsZero() {
 		// backing object is deleted, we can delete too
-		t.log.Infof("Will delete TargetGroup %s (%s) - ServiceExport has been deleted",
+		t.log.Infof(ctx, "Will delete TargetGroup %s (%s) - ServiceExport has been deleted",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 		return true
 	}
@@ -237,7 +237,7 @@ func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 	// reconstruct the target group spec from the service export itself, then compare fields
 	modelTg, err := t.svcExportTgBuilder.BuildTargetGroup(ctx, svcExport)
 	if err != nil {
-		t.log.Infof("Received error building svc export target group model %s", err)
+		t.log.Infof(ctx, "Received error building svc export target group model %s", err)
 		return false
 	}
 
@@ -249,12 +249,12 @@ func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 		modelTg.Spec.IpAddressType != aws.StringValue(latticeTg.tgSummary.IpAddressType) {
 
 		// one or more immutable fields differ from the source, so the TG is out of date
-		t.log.Infof("Will delete TargetGroup %s (%s) - fields differ from source service/service export",
+		t.log.Infof(ctx, "Will delete TargetGroup %s (%s) - fields differ from source service/service export",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 		return true
 	}
 
-	t.log.Debugf("ServiceExport TargetGroup %s (%s) is up to date",
+	t.log.Debugf(ctx, "ServiceExport TargetGroup %s (%s) is up to date",
 		*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 
 	return false
@@ -272,6 +272,8 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 	var route core.Route
 	if tagFields.K8SProtocolVersion == vpclattice.TargetGroupProtocolVersionGrpc {
 		route, err = core.GetGRPCRoute(ctx, t.client, routeName)
+	} else if *latticeTg.tgSummary.Protocol == vpclattice.TargetGroupProtocolTcp {
+		route, err = core.GetTLSRoute(ctx, t.client, routeName)
 	} else {
 		route, err = core.GetHTTPRoute(ctx, t.client, routeName)
 	}
@@ -279,18 +281,18 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// if the route does not exist, we can safely delete
-			t.log.Debugf("Will delete TargetGroup %s (%s) - Route is not found",
+			t.log.Debugf(ctx, "Will delete TargetGroup %s (%s) - Route is not found",
 				*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 			return true
 		} else {
 			// skip if we have an unknown error
-			t.log.Infof("Received unexpected API error getting route %s", err)
+			t.log.Infof(ctx, "Received unexpected API error getting route %s", err)
 			return false
 		}
 	}
 
 	if !route.DeletionTimestamp().IsZero() {
-		t.log.Debugf("Will delete TargetGroup %s (%s) - Route is deleted",
+		t.log.Debugf(ctx, "Will delete TargetGroup %s (%s) - Route is deleted",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 		return true
 	}
@@ -298,14 +300,14 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 	// basically rebuild everything for the route and see if one of the TGs matches
 	routeStack, err := t.svcBuilder.Build(ctx, route)
 	if err != nil {
-		t.log.Infof("Received error building route model %s", err)
+		t.log.Infof(ctx, "Received error building route model %s", err)
 		return false
 	}
 
 	var resTargetGroups []*model.TargetGroup
 	err = routeStack.ListResources(&resTargetGroups)
 	if err != nil {
-		t.log.Infof("Error listing stack target groups %s", err)
+		t.log.Infof(ctx, "Error listing stack target groups %s", err)
 		return false
 	}
 
@@ -313,12 +315,12 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 	for _, modelTg := range resTargetGroups {
 		match, err := t.targetGroupManager.IsTargetGroupMatch(ctx, modelTg, latticeTg.tgSummary, &tagFields)
 		if err != nil {
-			t.log.Infof("Received error during tg comparison %s", err)
+			t.log.Infof(ctx, "Received error during tg comparison %s", err)
 			continue
 		}
 
 		if match {
-			t.log.Debugf("Route TargetGroup %s (%s) is up to date",
+			t.log.Debugf(ctx, "Route TargetGroup %s (%s) is up to date",
 				*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 
 			matchFound = true
@@ -327,7 +329,7 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 	}
 
 	if !matchFound {
-		t.log.Debugf("Will delete TargetGroup %s (%s) - TG is not up to date",
+		t.log.Debugf(ctx, "Will delete TargetGroup %s (%s) - TG is not up to date",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 
 		return true // safe to delete
@@ -338,7 +340,7 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 
 func (t *TargetGroupSynthesizer) hasTags(latticeTg tgListOutput) bool {
 	if latticeTg.tags == nil {
-		t.log.Debugf("Ignoring target group %s (%s) because tag fetch was not successful",
+		t.log.Debugf(context.TODO(), "Ignoring target group %s (%s) because tag fetch was not successful",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 		return false
 	}
@@ -347,7 +349,7 @@ func (t *TargetGroupSynthesizer) hasTags(latticeTg tgListOutput) bool {
 
 func (t *TargetGroupSynthesizer) vpcMatchesConfig(latticeTg tgListOutput) bool {
 	if aws.StringValue(latticeTg.tgSummary.VpcIdentifier) != config.VpcID {
-		t.log.Debugf("Ignoring target group %s (%s) because it is not configured for this VPC",
+		t.log.Debugf(context.TODO(), "Ignoring target group %s (%s) because it is not configured for this VPC",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 		return false
 	}
@@ -356,7 +358,7 @@ func (t *TargetGroupSynthesizer) vpcMatchesConfig(latticeTg tgListOutput) bool {
 
 func (t *TargetGroupSynthesizer) hasExpectedTags(latticeTg tgListOutput, tagFields model.TargetGroupTagFields) bool {
 	if tagFields.K8SClusterName != config.ClusterName {
-		t.log.Debugf("Ignoring target group %s (%s) because it is not configured for this Cluster",
+		t.log.Debugf(context.TODO(), "Ignoring target group %s (%s) because it is not configured for this Cluster",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 		return false
 	}
@@ -364,14 +366,14 @@ func (t *TargetGroupSynthesizer) hasExpectedTags(latticeTg tgListOutput, tagFiel
 	if tagFields.K8SSourceType == model.SourceTypeInvalid ||
 		tagFields.K8SServiceName == "" || tagFields.K8SServiceNamespace == "" {
 
-		t.log.Infof("Ignoring target group %s (%s) as one or more required tags are missing",
+		t.log.Infof(context.TODO(), "Ignoring target group %s (%s) as one or more required tags are missing",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 		return false
 	}
 
 	// route-based TGs should have the additional route keys
 	if tagFields.IsSourceTypeRoute() && (tagFields.K8SRouteName == "" || tagFields.K8SRouteNamespace == "") {
-		t.log.Infof("Ignoring route-based target group %s (%s) as one or more required tags are missing",
+		t.log.Infof(context.TODO(), "Ignoring route-based target group %s (%s) as one or more required tags are missing",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 		return false
 	}

@@ -861,6 +861,7 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 	)
 
 	type args struct {
+		targetGroupProtocol        string
 		targetGroupProtocolVersion string
 	}
 
@@ -872,7 +873,27 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 		{
 			name: "HTTP1 default health check config",
 			args: args{
+				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttp,
 				targetGroupProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+			},
+			want: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
+				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
+				HealthyThresholdCount:      defaultHealthyThresholdCount,
+				UnhealthyThresholdCount:    defaultUnhealthyThresholdCount,
+				Matcher:                    defaultMatcher,
+				Path:                       defaultPath,
+				Port:                       nil,
+				Protocol:                   defaultProtocol,
+				ProtocolVersion:            aws.String(vpclattice.HealthCheckProtocolVersionHttp1),
+			},
+		},
+		{
+			name: "HTTPS TargetGroup default health check config",
+			args: args{
+				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttps,
+				targetGroupProtocolVersion: "",
 			},
 			want: &vpclattice.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
@@ -890,6 +911,7 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 		{
 			name: "empty target group protocol version default health check config",
 			args: args{
+				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttp,
 				targetGroupProtocolVersion: "",
 			},
 			want: &vpclattice.HealthCheckConfig{
@@ -908,6 +930,7 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 		{
 			name: "HTTP2 default health check config",
 			args: args{
+				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttp,
 				targetGroupProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp2,
 			},
 			want: &vpclattice.HealthCheckConfig{
@@ -926,6 +949,7 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 		{
 			name: "GRPC default health check config",
 			args: args{
+				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttp,
 				targetGroupProtocolVersion: vpclattice.TargetGroupProtocolVersionGrpc,
 			},
 			want: &vpclattice.HealthCheckConfig{
@@ -941,6 +965,16 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 				ProtocolVersion:            aws.String(vpclattice.HealthCheckProtocolVersionHttp1),
 			},
 		},
+		{
+			name: "TCP TargetGroup default health check config",
+			args: args{
+				targetGroupProtocol:        vpclattice.TargetGroupProtocolTcp,
+				targetGroupProtocolVersion: "",
+			},
+			want: &vpclattice.HealthCheckConfig{
+				Enabled: aws.Bool(false),
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -952,7 +986,7 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 
 			s := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
 
-			if got := s.getDefaultHealthCheckConfig(tt.args.targetGroupProtocolVersion); !reflect.DeepEqual(got, tt.want) {
+			if got := s.getDefaultHealthCheckConfig(tt.args.targetGroupProtocol, tt.args.targetGroupProtocolVersion); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("defaultTargetGroupManager.getDefaultHealthCheckConfig() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1047,4 +1081,75 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 			assert.Equal(t, tt.expectedResult, result)
 		})
 	}
+}
+
+func Test_ResolveRuleTgIds(t *testing.T) {
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	mockCloud := pkg_aws.NewMockCloud(c)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+	mockCloud.EXPECT().Tagging().Return(mockTagging).AnyTimes()
+	mockTagging.EXPECT().GetTagsForArns(ctx, gomock.Any()).Return(
+		map[string]map[string]*string{
+			"svc-export-tg-arn": {
+				model.K8SServiceNameKey:      aws.String("svc-name"),
+				model.K8SServiceNamespaceKey: aws.String("ns"),
+				model.K8SClusterNameKey:      aws.String("cluster-name"),
+				model.K8SSourceTypeKey:       aws.String(string(model.SourceTypeSvcExport)),
+			},
+		}, nil)
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(
+		[]*vpclattice.TargetGroupSummary{
+			{
+				Arn:           aws.String("svc-export-tg-arn"),
+				VpcIdentifier: aws.String("vpc-id"),
+				Id:            aws.String("svc-export-tg-id"),
+				Name:          aws.String("svc-export-tg-name"),
+			},
+		}, nil)
+
+	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
+
+	stackTg := &model.TargetGroup{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "stack-tg-id"),
+		Status:       &model.TargetGroupStatus{Id: "tg-id"},
+	}
+	assert.NoError(t, stack.AddResource(stackTg))
+	stackRule := &model.Rule{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Rule", "rule-id"),
+		Spec: model.RuleSpec{
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{
+						SvcImportTG: &model.SvcImportTargetGroup{
+							K8SClusterName:      "cluster-name",
+							K8SServiceName:      "svc-name",
+							K8SServiceNamespace: "ns",
+							VpcId:               "vpc-id",
+						},
+					},
+					{
+						StackTargetGroupId: "stack-tg-id",
+					},
+					{
+						StackTargetGroupId: model.InvalidBackendRefTgId,
+					},
+				},
+			},
+		},
+	}
+	assert.NoError(t, stack.AddResource(stackRule))
+
+	s := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
+	assert.NoError(t, s.ResolveRuleTgIds(ctx, &stackRule.Spec.Action, stack))
+
+	assert.Equal(t, "svc-export-tg-id", stackRule.Spec.Action.TargetGroups[0].LatticeTgId)
+	assert.Equal(t, "tg-id", stackRule.Spec.Action.TargetGroups[1].LatticeTgId)
+	assert.Equal(t, model.InvalidBackendRefTgId, stackRule.Spec.Action.TargetGroups[2].LatticeTgId)
 }

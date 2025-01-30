@@ -15,17 +15,20 @@ import (
 type listenerSynthesizer struct {
 	log         gwlog.Logger
 	listenerMgr ListenerManager
+	tgManager   TargetGroupManager
 	stack       core.Stack
 }
 
 func NewListenerSynthesizer(
 	log gwlog.Logger,
 	ListenerManager ListenerManager,
+	tgManager TargetGroupManager,
 	stack core.Stack,
 ) *listenerSynthesizer {
 	return &listenerSynthesizer{
 		log:         log,
 		listenerMgr: ListenerManager,
+		tgManager:   tgManager,
 		stack:       stack,
 	}
 }
@@ -44,6 +47,13 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 		err := l.stack.GetResource(listener.Spec.StackServiceId, svc)
 		if err != nil {
 			return err
+		}
+
+		if listener.Spec.DefaultAction.Forward != nil {
+			// Fill the listener forward action target group ids
+			if err := l.tgManager.ResolveRuleTgIds(ctx, listener.Spec.DefaultAction.Forward, l.stack); err != nil {
+				return fmt.Errorf("failed to resolve rule tg ids, err = %v", err)
+			}
 		}
 
 		status, err := l.listenerMgr.Upsert(ctx, listener, svc)
@@ -72,7 +82,7 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 		if l.shouldDelete(latticeListenerAsModel, stackListeners) {
 			err = l.listenerMgr.Delete(ctx, latticeListenerAsModel)
 			if err != nil {
-				l.log.Infof("Failed ListenerManager.Delete %s due to %s", latticeListenerAsModel.Status.Id, err)
+				l.log.Infof(ctx, "Failed ListenerManager.Delete %s due to %s", latticeListenerAsModel.Status.Id, err)
 			}
 		}
 	}
@@ -104,13 +114,13 @@ func (l *listenerSynthesizer) getLatticeListenersAsModels(ctx context.Context) (
 	// get the listeners for each service
 	for _, modelSvc := range modelSvcs {
 		if modelSvc.IsDeleted {
-			l.log.Debugf("Ignoring deleted service %s", modelSvc.LatticeServiceName())
+			l.log.Debugf(ctx, "Ignoring deleted service %s", modelSvc.LatticeServiceName())
 			continue
 		}
 
 		listenerSummaries, err := l.listenerMgr.List(ctx, modelSvc.Status.Id)
 		if err != nil {
-			l.log.Infof("Ignoring error when listing listeners %s", err)
+			l.log.Infof(ctx, "Ignoring error when listing listeners %s", err)
 			continue
 		}
 		for _, latticeListener := range listenerSummaries {

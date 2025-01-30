@@ -12,7 +12,6 @@ for example, using target groups in the VPC Lattice setup outside Kubernetes.
 Note that ServiceExport is not the implementation of Kubernetes [Multicluster Service APIs](https://multicluster.sigs.k8s.io/concepts/multicluster-services-api/);
 instead AWS Gateway API Controller uses its own version of the resource for the purpose of Gateway API integration.
 
-For more multi-cluster use cases and detailed explanation, please refer to [our recommended multi-cluster architecture](../guides/multi-cluster.md).
 
 ### Limitations
 * The exported Service can only be used in HTTPRoutes. GRPCRoute is currently not supported.

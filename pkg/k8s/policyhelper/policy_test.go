@@ -3,12 +3,10 @@ package policyhelper
 import (
 	"testing"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func TestPolicyClient(t *testing.T) {
@@ -31,9 +29,9 @@ func TestPolicyHandler(t *testing.T) {
 }
 
 func TestGroupKindSet(t *testing.T) {
-	objs := []client.Object{&gwv1beta1.Gateway{}, &gwv1beta1.HTTPRoute{}, &gwv1alpha2.GRPCRoute{}}
+	objs := []client.Object{&gwv1.Gateway{}, &gwv1.HTTPRoute{}, &gwv1.GRPCRoute{}}
 	gks := NewGroupKindSet(objs...)
-	assert.True(t, gks.Contains(GroupKind{gwv1beta1.GroupName, "Gateway"}))
-	assert.True(t, gks.Contains(GroupKind{gwv1beta1.GroupName, "HTTPRoute"}))
-	assert.True(t, gks.Contains(GroupKind{gwv1alpha2.GroupName, "GRPCRoute"}))
+	assert.True(t, gks.Contains(GroupKind{gwv1.GroupName, "Gateway"}))
+	assert.True(t, gks.Contains(GroupKind{gwv1.GroupName, "HTTPRoute"}))
+	assert.True(t, gks.Contains(GroupKind{gwv1.GroupName, "GRPCRoute"}))
 }

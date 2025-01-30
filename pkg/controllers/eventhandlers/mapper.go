@@ -3,20 +3,17 @@ package eventhandlers
 import (
 	"context"
 	"fmt"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	gateway_api_v1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gateway_api "sigs.k8s.io/gateway-api/apis/v1beta1"
-
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	k8sutils "github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type resourceMapper struct {
@@ -85,8 +82,8 @@ func (r *resourceMapper) TargetGroupPolicyToService(ctx context.Context, tgp *an
 	return policyToTargetRefObj(r, ctx, tgp, &corev1.Service{})
 }
 
-func (r *resourceMapper) VpcAssociationPolicyToGateway(ctx context.Context, vap *anv1alpha1.VpcAssociationPolicy) *gateway_api.Gateway {
-	return policyToTargetRefObj(r, ctx, vap, &gateway_api.Gateway{})
+func (r *resourceMapper) VpcAssociationPolicyToGateway(ctx context.Context, vap *anv1alpha1.VpcAssociationPolicy) *gwv1.Gateway {
+	return policyToTargetRefObj(r, ctx, vap, &gwv1.Gateway{})
 }
 
 func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Context, policy policyhelper.Policy, retObj T) T {
@@ -98,13 +95,13 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 
 	targetRef := policy.GetTargetRef()
 	if targetRef == nil {
-		r.log.Infow("Policy does not have targetRef, skipping",
+		r.log.Infow(ctx, "Policy does not have targetRef, skipping",
 			"policyName", policyNamespacedName)
 		return null
 	}
 	expectedGroup, expectedKind, err := k8sResourceTypeToGroupAndKind(retObj)
 	if err != nil {
-		r.log.Errorw("Failed to get expected GroupKind for targetRefObj",
+		r.log.Errorw(ctx, "Failed to get expected GroupKind for targetRefObj",
 			"policyName", policyNamespacedName,
 			"targetRef", targetRef,
 			"reason", err.Error())
@@ -112,7 +109,7 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 	}
 
 	if targetRef.Group != expectedGroup || targetRef.Kind != expectedKind {
-		r.log.Infow("Detected targetRef GroupKind and expected retObj GroupKind are different, skipping",
+		r.log.Infow(ctx, "Detected targetRef GroupKind and expected retObj GroupKind are different, skipping",
 			"policyName", policyNamespacedName,
 			"targetRef", targetRef,
 			"expectedGroup", expectedGroup,
@@ -120,7 +117,7 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 		return null
 	}
 	if targetRef.Namespace != nil && policyNamespacedName.Namespace != string(*targetRef.Namespace) {
-		r.log.Infow("Detected Policy and TargetRef namespace are different, skipping",
+		r.log.Infow(ctx, "Detected Policy and TargetRef namespace are different, skipping",
 			"policyNamespacedName", policyNamespacedName, "targetRef", targetRef,
 			"targetRef.Namespace", targetRef.Namespace,
 			"policyNamespacedName.Namespace", policyNamespacedName.Namespace)
@@ -133,27 +130,27 @@ func policyToTargetRefObj[T client.Object](r *resourceMapper, ctx context.Contex
 	}
 	if err := r.client.Get(ctx, key, retObj); err != nil {
 		if errors.IsNotFound(err) {
-			r.log.Debugw("Policy is referring to a non-existent targetRefObj, skipping",
+			r.log.Debugw(ctx, "Policy is referring to a non-existent targetRefObj, skipping",
 				"policyName", policyNamespacedName, "targetRef", targetRef)
 		} else {
 			// Still gracefully skipping the event but errors other than NotFound are bad sign.
-			r.log.Errorw("Failed to query targetRef of TargetGroupPolicy",
+			r.log.Errorw(ctx, "Failed to query targetRef of TargetGroupPolicy",
 				"policyName", policyNamespacedName, "targetRef", targetRef, "reason", err.Error())
 		}
 		return null
 	}
-	r.log.Debugw("Policy change on Service detected",
+	r.log.Debugw(ctx, "Policy change on Service detected",
 		"policyName", policyNamespacedName, "targetRef", targetRef)
 
 	return retObj
 }
 
-func k8sResourceTypeToGroupAndKind(obj client.Object) (gateway_api.Group, gateway_api.Kind, error) {
+func k8sResourceTypeToGroupAndKind(obj client.Object) (gwv1.Group, gwv1.Kind, error) {
 	switch obj.(type) {
 	case *corev1.Service:
 		return corev1.GroupName, serviceKind, nil
-	case *gateway_api.Gateway:
-		return gateway_api.GroupName, gatewayKind, nil
+	case *gwv1.Gateway:
+		return gwv1.GroupName, gatewayKind, nil
 	default:
 		return "", "", fmt.Errorf("un-registered obj type: %T", obj)
 	}
@@ -166,13 +163,13 @@ func (r *resourceMapper) backendRefToRoutes(ctx context.Context, obj client.Obje
 	var routes []core.Route
 	switch routeType {
 	case core.HttpRouteType:
-		routeList := &gateway_api.HTTPRouteList{}
+		routeList := &gwv1.HTTPRouteList{}
 		r.client.List(ctx, routeList)
 		for _, k8sRoute := range routeList.Items {
 			routes = append(routes, core.NewHTTPRoute(k8sRoute))
 		}
 	case core.GrpcRouteType:
-		routeList := &gateway_api_v1alpha2.GRPCRouteList{}
+		routeList := &gwv1.GRPCRouteList{}
 		r.client.List(ctx, routeList)
 		for _, k8sRoute := range routeList.Items {
 			routes = append(routes, core.NewGRPCRoute(k8sRoute))
@@ -193,7 +190,15 @@ func (r *resourceMapper) backendRefToRoutes(ctx context.Context, obj client.Obje
 func (r *resourceMapper) isBackendRefUsedByRoute(route core.Route, obj client.Object, group, kind string) bool {
 	for _, rule := range route.Spec().Rules() {
 		for _, backendRef := range rule.BackendRefs() {
-			isGroupEqual := backendRef.Group() != nil && string(*backendRef.Group()) == group
+			var isGroupEqual bool
+			if group == corev1.GroupName || (group == anv1alpha1.GroupName && kind == serviceImportKind) {
+				// from spec: "When [Group] unspecified or empty string, core API group is inferred."
+				// we deviate from spec slightly that for ServiceImport we have not historically required a Group
+				isGroupEqual = backendRef.Group() == nil || string(*backendRef.Group()) == group
+			} else {
+				// otherwise, make sure the group matches
+				isGroupEqual = backendRef.Group() != nil && string(*backendRef.Group()) == group
+			}
 			isKindEqual := backendRef.Kind() != nil && string(*backendRef.Kind()) == kind
 			isNameEqual := string(backendRef.Name()) == obj.GetName()
 

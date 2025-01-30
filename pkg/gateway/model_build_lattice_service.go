@@ -3,16 +3,19 @@ package gateway
 import (
 	"context"
 	"fmt"
+
+	"github.com/aws/aws-sdk-go/service/vpclattice"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 //go:generate mockgen -destination model_build_lattice_service_mock.go -package gateway github.com/aws/aws-application-networking-k8s/pkg/gateway LatticeServiceBuilder
@@ -81,8 +84,13 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	t.log.Debugf("Building rules for %d listeners", len(modelListeners))
+	t.log.Debugf(ctx, "Building rules for %d listeners", len(modelListeners))
 	for _, modelListener := range modelListeners {
+		if modelListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+			t.log.Debugf(ctx, "Skip building rules for TLS_PASSTHROUGH listener %s, since lattice TLS_PASSTHROUGH listener can only have listener defaultAction and without any other rule", modelListener.ID())
+			continue
+		}
+
 		// building rules will also build target groups and targets as needed
 		// even on delete we try to build everything we may then need to remove
 		err = t.buildRules(ctx, modelListener.ID())
@@ -95,9 +103,16 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 }
 
 func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) (*model.Service, error) {
-	routeType := core.HttpRouteType
-	if _, ok := t.route.(*core.GRPCRoute); ok {
+	var routeType core.RouteType
+	switch t.route.(type) {
+	case *core.HTTPRoute:
+		routeType = core.HttpRouteType
+	case *core.GRPCRoute:
 		routeType = core.GrpcRouteType
+	case *core.TLSRoute:
+		routeType = core.TlsRouteType
+	default:
+		return nil, fmt.Errorf("unsupported route type: %T", t.route)
 	}
 
 	spec := model.ServiceSpec{
@@ -119,10 +134,10 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		// The 1st hostname will be used as lattice customer-domain-name
 		spec.CustomerDomainName = string(t.route.Spec().Hostnames()[0])
 
-		t.log.Infof("Setting customer-domain-name: %s for route %s-%s",
+		t.log.Infof(ctx, "Setting customer-domain-name: %s for route %s-%s",
 			spec.CustomerDomainName, t.route.Name(), t.route.Namespace())
 	} else {
-		t.log.Infof("No custom-domain-name for route %s-%s",
+		t.log.Infof(ctx, "No custom-domain-name for route %s-%s",
 			t.route.Name(), t.route.Namespace())
 		spec.CustomerDomainName = ""
 	}
@@ -138,7 +153,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		return nil, err
 	}
 
-	t.log.Debugf("Added service %s to the stack (ID %s)", svc.Spec.LatticeServiceName(), svc.ID())
+	t.log.Debugf(ctx, "Added service %s to the stack (ID %s)", svc.Spec.LatticeServiceName(), svc.ID())
 	svc.IsDeleted = !t.route.DeletionTimestamp().IsZero()
 	return svc, nil
 }
@@ -157,7 +172,7 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
 			// when a service is associate to multiple service network(s), all listener config MUST be same
 			// so here we are only using the 1st gateway
-			t.log.Debugf("Ignore ParentRef of different gateway %s-%s", parentRef.Name, parentRef.Namespace)
+			t.log.Debugf(ctx, "Ignore ParentRef of different gateway %s-%s", parentRef.Name, *parentRef.Namespace)
 			continue
 		}
 
@@ -170,7 +185,7 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 				if section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModeTerminate {
 					curCertARN, ok := section.TLS.Options[awsCustomCertARN]
 					if ok {
-						t.log.Debugf("Found certification %s under section %s", curCertARN, section.Name)
+						t.log.Debugf(ctx, "Found certification %s under section %s", curCertARN, section.Name)
 						return string(curCertARN), nil
 					}
 				}

@@ -6,12 +6,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/ptr"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 func TestHTTPRouteSpec_Equals(t *testing.T) {
-	name1 := gwv1beta1.ObjectName("name1")
-	name2 := gwv1beta1.ObjectName("name2")
+	name1 := gwv1.ObjectName("name1")
+	name2 := gwv1.ObjectName("name2")
 
 	tests := []struct {
 		routeSpec1  *HTTPRouteSpec
@@ -27,27 +26,27 @@ func TestHTTPRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				s: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{},
 						},
 					},
-					Hostnames: []gwv1beta1.Hostname{"example.com"},
-					Rules: []gwv1beta1.HTTPRouteRule{
+					Hostnames: []gwv1.Hostname{"example.com"},
+					Rules: []gwv1.HTTPRouteRule{
 						{},
 					},
 				},
 			},
 			routeSpec2: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{
+				s: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
 							{},
 						},
 					},
-					Hostnames: []gwv1beta1.Hostname{"example.com"},
-					Rules: []gwv1beta1.HTTPRouteRule{
+					Hostnames: []gwv1.Hostname{"example.com"},
+					Rules: []gwv1.HTTPRouteRule{
 						{},
 					},
 				},
@@ -63,16 +62,16 @@ func TestHTTPRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{{Name: "parent1"}},
+				s: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{{Name: "parent1"}},
 					},
 				},
 			},
 			routeSpec2: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1beta1.CommonRouteSpec{
-						ParentRefs: []gwv1beta1.ParentReference{{Name: "parent2"}},
+				s: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{{Name: "parent2"}},
 					},
 				},
 			},
@@ -81,13 +80,13 @@ func TestHTTPRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					Hostnames: []gwv1beta1.Hostname{"example1.com"},
+				s: gwv1.HTTPRouteSpec{
+					Hostnames: []gwv1.Hostname{"example1.com"},
 				},
 			},
 			routeSpec2: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					Hostnames: []gwv1beta1.Hostname{"example2.com"},
+				s: gwv1.HTTPRouteSpec{
+					Hostnames: []gwv1.Hostname{"example2.com"},
 				},
 			},
 			expectEqual: false,
@@ -95,16 +94,16 @@ func TestHTTPRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					Rules: []gwv1beta1.HTTPRouteRule{
+				s: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
 						{},
 						{},
 					},
 				},
 			},
 			routeSpec2: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					Rules: []gwv1beta1.HTTPRouteRule{
+				s: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
 						{},
 					},
 				},
@@ -114,13 +113,13 @@ func TestHTTPRouteSpec_Equals(t *testing.T) {
 		},
 		{
 			routeSpec1: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					Rules: []gwv1beta1.HTTPRouteRule{
+				s: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
 						{
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1.HTTPBackendRef{
 								{
-									BackendRef: gwv1beta1.BackendRef{
-										BackendObjectReference: gwv1beta1.BackendObjectReference{
+									BackendRef: gwv1.BackendRef{
+										BackendObjectReference: gwv1.BackendObjectReference{
 											Name: name1,
 										},
 									},
@@ -131,13 +130,13 @@ func TestHTTPRouteSpec_Equals(t *testing.T) {
 				},
 			},
 			routeSpec2: &HTTPRouteSpec{
-				s: gwv1beta1.HTTPRouteSpec{
-					Rules: []gwv1beta1.HTTPRouteRule{
+				s: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
 						{
-							BackendRefs: []gwv1beta1.HTTPBackendRef{
+							BackendRefs: []gwv1.HTTPBackendRef{
 								{
-									BackendRef: gwv1beta1.BackendRef{
-										BackendObjectReference: gwv1beta1.BackendObjectReference{
+									BackendRef: gwv1.BackendRef{
+										BackendObjectReference: gwv1.BackendObjectReference{
 											Name: name2,
 										},
 									},
@@ -183,21 +182,21 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					BackendRefs: []gwv1beta1.HTTPBackendRef{
+				r: gwv1.HTTPRouteRule{
+					BackendRefs: []gwv1.HTTPBackendRef{
 						{},
 					},
-					Matches: []gwv1beta1.HTTPRouteMatch{
+					Matches: []gwv1.HTTPRouteMatch{
 						{},
 					},
 				},
 			},
 			routeRule2: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					BackendRefs: []gwv1beta1.HTTPBackendRef{
+				r: gwv1.HTTPRouteRule{
+					BackendRefs: []gwv1.HTTPBackendRef{
 						{},
 					},
-					Matches: []gwv1beta1.HTTPRouteMatch{
+					Matches: []gwv1.HTTPRouteMatch{
 						{},
 					},
 				},
@@ -213,16 +212,16 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					BackendRefs: []gwv1beta1.HTTPBackendRef{
+				r: gwv1.HTTPRouteRule{
+					BackendRefs: []gwv1.HTTPBackendRef{
 						{},
 						{},
 					},
 				},
 			},
 			routeRule2: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					BackendRefs: []gwv1beta1.HTTPBackendRef{
+				r: gwv1.HTTPRouteRule{
+					BackendRefs: []gwv1.HTTPBackendRef{
 						{},
 					},
 				},
@@ -232,10 +231,10 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					BackendRefs: []gwv1beta1.HTTPBackendRef{
+				r: gwv1.HTTPRouteRule{
+					BackendRefs: []gwv1.HTTPBackendRef{
 						{
-							BackendRef: gwv1beta1.BackendRef{
+							BackendRef: gwv1.BackendRef{
 								Weight: ptr.To(int32(1)),
 							},
 						},
@@ -243,10 +242,10 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 				},
 			},
 			routeRule2: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					BackendRefs: []gwv1beta1.HTTPBackendRef{
+				r: gwv1.HTTPRouteRule{
+					BackendRefs: []gwv1.HTTPBackendRef{
 						{
-							BackendRef: gwv1beta1.BackendRef{
+							BackendRef: gwv1.BackendRef{
 								Weight: ptr.To(int32(2)),
 							},
 						},
@@ -258,16 +257,16 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					Matches: []gwv1beta1.HTTPRouteMatch{
+				r: gwv1.HTTPRouteRule{
+					Matches: []gwv1.HTTPRouteMatch{
 						{},
 						{},
 					},
 				},
 			},
 			routeRule2: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					Matches: []gwv1beta1.HTTPRouteMatch{
+				r: gwv1.HTTPRouteRule{
+					Matches: []gwv1.HTTPRouteMatch{
 						{},
 					},
 				},
@@ -277,8 +276,8 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 		},
 		{
 			routeRule1: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					Matches: []gwv1beta1.HTTPRouteMatch{
+				r: gwv1.HTTPRouteRule{
+					Matches: []gwv1.HTTPRouteMatch{
 						{
 							Method: &httpMethod1,
 						},
@@ -286,8 +285,8 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 				},
 			},
 			routeRule2: &HTTPRouteRule{
-				r: gwv1beta1.HTTPRouteRule{
-					Matches: []gwv1beta1.HTTPRouteMatch{
+				r: gwv1.HTTPRouteRule{
+					Matches: []gwv1.HTTPRouteMatch{
 						{
 							Method: &httpMethod2,
 						},
@@ -315,16 +314,16 @@ func TestHTTPRouteRule_Equals(t *testing.T) {
 func TestHTTPBackendRef_Equals(t *testing.T) {
 	weight1 := ptr.To(int32(1))
 	weight2 := ptr.To(int32(2))
-	group1 := gwv1beta1.Group("group1")
-	group2 := gwv1beta1.Group("group2")
-	kind1 := gwv1beta1.Kind("kind1")
-	kind2 := gwv1beta1.Kind("kind2")
-	name1 := gwv1beta1.ObjectName("name1")
-	name2 := gwv1beta1.ObjectName("name2")
-	namespace1 := gwv1beta1.Namespace("namespace1")
-	namespace2 := gwv1beta1.Namespace("namespace2")
-	port1 := gwv1beta1.PortNumber(1)
-	port2 := gwv1beta1.PortNumber(2)
+	group1 := gwv1.Group("group1")
+	group2 := gwv1.Group("group2")
+	kind1 := gwv1.Kind("kind1")
+	kind2 := gwv1.Kind("kind2")
+	name1 := gwv1.ObjectName("name1")
+	name2 := gwv1.ObjectName("name2")
+	namespace1 := gwv1.Namespace("namespace1")
+	namespace2 := gwv1.Namespace("namespace2")
+	port1 := gwv1.PortNumber(1)
+	port2 := gwv1.PortNumber(2)
 
 	tests := []struct {
 		backendRef1 *HTTPBackendRef
@@ -340,10 +339,10 @@ func TestHTTPBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
 						Weight: weight1,
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Group:     &group1,
 							Kind:      &kind1,
 							Name:      name1,
@@ -354,10 +353,10 @@ func TestHTTPBackendRef_Equals(t *testing.T) {
 				},
 			},
 			backendRef2: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
 						Weight: weight1,
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Group:     &group1,
 							Kind:      &kind1,
 							Name:      name1,
@@ -378,15 +377,15 @@ func TestHTTPBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
 						Weight: weight1,
 					},
 				},
 			},
 			backendRef2: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
 						Weight: weight2,
 					},
 				},
@@ -396,18 +395,18 @@ func TestHTTPBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Group: &group1,
 						},
 					},
 				},
 			},
 			backendRef2: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Group: &group2,
 						},
 					},
@@ -418,18 +417,18 @@ func TestHTTPBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Kind: &kind1,
 						},
 					},
 				},
 			},
 			backendRef2: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Kind: &kind2,
 						},
 					},
@@ -440,18 +439,18 @@ func TestHTTPBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Name: name1,
 						},
 					},
 				},
 			},
 			backendRef2: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Name: name2,
 						},
 					},
@@ -462,18 +461,18 @@ func TestHTTPBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Namespace: &namespace1,
 						},
 					},
 				},
 			},
 			backendRef2: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Namespace: &namespace2,
 						},
 					},
@@ -484,18 +483,18 @@ func TestHTTPBackendRef_Equals(t *testing.T) {
 		},
 		{
 			backendRef1: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Port: &port1,
 						},
 					},
 				},
 			},
 			backendRef2: &HTTPBackendRef{
-				r: gwv1beta1.HTTPBackendRef{
-					BackendRef: gwv1beta1.BackendRef{
-						BackendObjectReference: gwv1beta1.BackendObjectReference{
+				r: gwv1.HTTPBackendRef{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
 							Port: &port2,
 						},
 					},
@@ -541,14 +540,14 @@ func TestHTTPHeaderMatch_Equals(t *testing.T) {
 		},
 		{
 			headerMatch1: &HTTPHeaderMatch{
-				m: gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPHeaderMatch{
 					Type:  &headerMatchType1,
 					Name:  name1,
 					Value: value1,
 				},
 			},
 			headerMatch2: &HTTPHeaderMatch{
-				m: gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPHeaderMatch{
 					Type:  &headerMatchType1,
 					Name:  name1,
 					Value: value1,
@@ -565,12 +564,12 @@ func TestHTTPHeaderMatch_Equals(t *testing.T) {
 		},
 		{
 			headerMatch1: &HTTPHeaderMatch{
-				m: gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPHeaderMatch{
 					Type: &headerMatchType1,
 				},
 			},
 			headerMatch2: &HTTPHeaderMatch{
-				m: gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPHeaderMatch{
 					Type: &headerMatchType2,
 				},
 			},
@@ -579,12 +578,12 @@ func TestHTTPHeaderMatch_Equals(t *testing.T) {
 		},
 		{
 			headerMatch1: &HTTPHeaderMatch{
-				m: gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPHeaderMatch{
 					Name: name1,
 				},
 			},
 			headerMatch2: &HTTPHeaderMatch{
-				m: gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPHeaderMatch{
 					Name: name2,
 				},
 			},
@@ -593,12 +592,12 @@ func TestHTTPHeaderMatch_Equals(t *testing.T) {
 		},
 		{
 			headerMatch1: &HTTPHeaderMatch{
-				m: gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPHeaderMatch{
 					Value: value1,
 				},
 			},
 			headerMatch2: &HTTPHeaderMatch{
-				m: gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPHeaderMatch{
 					Value: value2,
 				},
 			},
@@ -644,24 +643,24 @@ func TestHTTPRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					Path: &gwv1beta1.HTTPPathMatch{},
-					Headers: []gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPRouteMatch{
+					Path: &gwv1.HTTPPathMatch{},
+					Headers: []gwv1.HTTPHeaderMatch{
 						{},
 					},
-					QueryParams: []gwv1beta1.HTTPQueryParamMatch{
+					QueryParams: []gwv1.HTTPQueryParamMatch{
 						{},
 					},
 					Method: &httpMethod1,
 				},
 			},
 			routeMatch2: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					Path: &gwv1beta1.HTTPPathMatch{},
-					Headers: []gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPRouteMatch{
+					Path: &gwv1.HTTPPathMatch{},
+					Headers: []gwv1.HTTPHeaderMatch{
 						{},
 					},
-					QueryParams: []gwv1beta1.HTTPQueryParamMatch{
+					QueryParams: []gwv1.HTTPQueryParamMatch{
 						{},
 					},
 					Method: &httpMethod1,
@@ -678,15 +677,15 @@ func TestHTTPRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					Path: &gwv1beta1.HTTPPathMatch{
+				m: gwv1.HTTPRouteMatch{
+					Path: &gwv1.HTTPPathMatch{
 						Type: &pathMatchType1,
 					},
 				},
 			},
 			routeMatch2: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					Path: &gwv1beta1.HTTPPathMatch{
+				m: gwv1.HTTPRouteMatch{
+					Path: &gwv1.HTTPPathMatch{
 						Type: &pathMatchType2,
 					},
 				},
@@ -696,16 +695,16 @@ func TestHTTPRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					Headers: []gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPRouteMatch{
+					Headers: []gwv1.HTTPHeaderMatch{
 						{},
 						{},
 					},
 				},
 			},
 			routeMatch2: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					Headers: []gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPRouteMatch{
+					Headers: []gwv1.HTTPHeaderMatch{
 						{},
 					},
 				},
@@ -715,8 +714,8 @@ func TestHTTPRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					Headers: []gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPRouteMatch{
+					Headers: []gwv1.HTTPHeaderMatch{
 						{
 							Type: &headerMatchType1,
 						},
@@ -724,8 +723,8 @@ func TestHTTPRouteMatch_Equals(t *testing.T) {
 				},
 			},
 			routeMatch2: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					Headers: []gwv1beta1.HTTPHeaderMatch{
+				m: gwv1.HTTPRouteMatch{
+					Headers: []gwv1.HTTPHeaderMatch{
 						{
 							Type: &headerMatchType2,
 						},
@@ -737,16 +736,16 @@ func TestHTTPRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					QueryParams: []gwv1beta1.HTTPQueryParamMatch{
+				m: gwv1.HTTPRouteMatch{
+					QueryParams: []gwv1.HTTPQueryParamMatch{
 						{},
 						{},
 					},
 				},
 			},
 			routeMatch2: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					QueryParams: []gwv1beta1.HTTPQueryParamMatch{
+				m: gwv1.HTTPRouteMatch{
+					QueryParams: []gwv1.HTTPQueryParamMatch{
 						{},
 					},
 				},
@@ -756,8 +755,8 @@ func TestHTTPRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					QueryParams: []gwv1beta1.HTTPQueryParamMatch{
+				m: gwv1.HTTPRouteMatch{
+					QueryParams: []gwv1.HTTPQueryParamMatch{
 						{
 							Type: &queryParamMatchType1,
 						},
@@ -765,8 +764,8 @@ func TestHTTPRouteMatch_Equals(t *testing.T) {
 				},
 			},
 			routeMatch2: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
-					QueryParams: []gwv1beta1.HTTPQueryParamMatch{
+				m: gwv1.HTTPRouteMatch{
+					QueryParams: []gwv1.HTTPQueryParamMatch{
 						{
 							Type: &queryParamMatchType2,
 						},
@@ -778,12 +777,12 @@ func TestHTTPRouteMatch_Equals(t *testing.T) {
 		},
 		{
 			routeMatch1: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
+				m: gwv1.HTTPRouteMatch{
 					Method: &httpMethod1,
 				},
 			},
 			routeMatch2: &HTTPRouteMatch{
-				m: gwv1beta1.HTTPRouteMatch{
+				m: gwv1.HTTPRouteMatch{
 					Method: &httpMethod2,
 				},
 			},

@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/vpclattice"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-application-networking-k8s/pkg/webhook"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -51,7 +52,7 @@ func (t *targetsSynthesizer) Synthesize(ctx context.Context) error {
 	var resTargets []*model.Targets
 	err := t.stack.ListResources(&resTargets)
 	if err != nil {
-		t.log.Errorf("Failed to list targets due to %s", err)
+		t.log.Errorf(ctx, "Failed to list targets due to %s", err)
 	}
 
 	for _, targets := range resTargets {
@@ -77,7 +78,7 @@ func (t *targetsSynthesizer) PostSynthesize(ctx context.Context) error {
 	var resTargets []*model.Targets
 	err := t.stack.ListResources(&resTargets)
 	if err != nil {
-		t.log.Errorf("Failed to list targets due to %s", err)
+		t.log.Errorf(ctx, "Failed to list targets due to %s", err)
 	}
 
 	requeueNeeded := false

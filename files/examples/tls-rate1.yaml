@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tls-rate1
+  labels:
+    app: tls-rate1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tls-rate1
+  template:
+    metadata:
+      labels:
+        app: tls-rate1
+    spec:
+      containers:
+        - name: tls-rate1
+          image: public.ecr.aws/x2j8p8w7/https-server:latest
+          env:
+            - name: PodName
+              value: "tls-rate1 handler pod"
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tls-rate1
+spec:
+  selector:
+    app: tls-rate1
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: 443

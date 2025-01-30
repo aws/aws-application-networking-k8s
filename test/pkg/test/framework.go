@@ -75,9 +75,9 @@ var (
 func init() {
 	format.MaxLength = 0
 	utilruntime.Must(clientgoscheme.AddToScheme(testScheme))
-	utilruntime.Must(gwv1alpha2.AddToScheme(testScheme))
-	utilruntime.Must(gwv1.AddToScheme(testScheme))
-	utilruntime.Must(anv1alpha1.AddToScheme(testScheme))
+	utilruntime.Must(gwv1alpha2.Install(testScheme))
+	utilruntime.Must(gwv1.Install(testScheme))
+	utilruntime.Must(anv1alpha1.Install(testScheme))
 	addOptionalCRDs(testScheme)
 }
 
@@ -149,7 +149,7 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 }
 
 func (env *Framework) ExpectToBeClean(ctx context.Context) {
-	env.Log.Info("Expecting the test environment to be clean")
+	env.Log.Info(ctx, "Expecting the test environment to be clean")
 	// Kubernetes API Objects
 	parallel.ForEach(TestObjects, func(testObject TestObject, _ int) {
 		defer GinkgoRecover()
@@ -159,14 +159,14 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 	tags[model.K8SServiceNamespaceKey] = aws.String(K8sNamespace)
 	Eventually(func(g Gomega) {
 		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeService, tags)
-		env.Log.Infow("Expecting no services created by the controller", "found", arns, "err", err)
+		env.Log.Infow(ctx, "Expecting no services created by the controller", "found", arns, "err", err)
 		g.Expect(err).To(BeNil())
 		g.Expect(arns).To(BeEmpty())
 	}).Should(Succeed())
 
 	Eventually(func(g Gomega) {
 		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeTargetGroup, tags)
-		env.Log.Infow("Expecting no target groups created by the controller", "found", arns, "err", err)
+		env.Log.Infow(ctx, "Expecting no target groups created by the controller", "found", arns, "err", err)
 		g.Expect(err).To(BeNil())
 		g.Expect(arns).To(BeEmpty())
 	}).Should(Succeed())
@@ -183,15 +183,17 @@ func objectsInfo(objs []client.Object) string {
 }
 
 func (env *Framework) ExpectCreated(ctx context.Context, objects ...client.Object) {
-	env.Log.Infof("Creating objects: %s", objectsInfo(objects))
+	env.Log.Infof(ctx, "Creating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		Expect(env.Create(ctx, obj)).WithOffset(1).To(Succeed())
 	})
 }
 
 func (env *Framework) ExpectUpdated(ctx context.Context, objects ...client.Object) {
-	env.Log.Infof("Updating objects: %s", objectsInfo(objects))
+	env.Log.Infof(ctx, "Updating objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		Expect(env.Update(ctx, obj)).WithOffset(1).To(Succeed())
 	})
 }
@@ -203,7 +205,7 @@ func (env *Framework) ExpectDeletedThenNotFound(ctx context.Context, objects ...
 
 func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Object) {
 	httpRouteType := reflect.TypeOf(&gwv1.HTTPRoute{})
-	grpcRouteType := reflect.TypeOf(&gwv1alpha2.GRPCRoute{})
+	grpcRouteType := reflect.TypeOf(&gwv1.GRPCRoute{})
 
 	routeObjects := []client.Object{}
 
@@ -216,7 +218,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 	}
 
 	if len(routeObjects) > 0 {
-		env.Log.Infof("Found %d route objects", len(routeObjects))
+		env.Log.Infof(ctx, "Found %d route objects", len(routeObjects))
 
 		for _, route := range routeObjects {
 			// for routes, we can speed up deletion by first removing their rules
@@ -231,28 +233,28 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 				http := &gwv1.HTTPRoute{}
 				err := env.Get(ctx, nsName, http)
 				if err != nil {
-					env.Log.Infof("Error getting http route %s", err)
+					env.Log.Infof(ctx, "Error getting http route %s", err)
 					continue
 				}
 
-				env.Log.Infof("Clearing http route rules for %s", http.Name)
+				env.Log.Infof(ctx, "Clearing http route rules for %s", http.Name)
 				http.Spec.Rules = make([]gwv1.HTTPRouteRule, 0)
 				err = env.Update(ctx, http)
 				if err != nil {
-					env.Log.Infof("Error clearing http route rules %s", err)
+					env.Log.Infof(ctx, "Error clearing http route rules %s", err)
 				}
 			} else if grpcRouteType == t {
-				grpc := &gwv1alpha2.GRPCRoute{}
+				grpc := &gwv1.GRPCRoute{}
 				err := env.Get(ctx, nsName, grpc)
 				if err != nil {
-					env.Log.Infof("Error getting grpc route %s", err)
+					env.Log.Infof(ctx, "Error getting grpc route %s", err)
 					continue
 				}
-				env.Log.Infof("Clearing grpc route rules for %s", grpc.Name)
-				grpc.Spec.Rules = make([]gwv1alpha2.GRPCRouteRule, 0)
+				env.Log.Infof(ctx, "Clearing grpc route rules for %s", grpc.Name)
+				grpc.Spec.Rules = make([]gwv1.GRPCRouteRule, 0)
 				err = env.Update(ctx, grpc)
 				if err != nil {
-					env.Log.Infof("Error clearing grpc route rules %s", err)
+					env.Log.Infof(ctx, "Error clearing grpc route rules %s", err)
 				}
 			}
 		}
@@ -261,13 +263,14 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 		env.SleepForRouteUpdate()
 	}
 
-	env.Log.Infof("Deleting objects: %s", objectsInfo(objects))
+	env.Log.Infof(ctx, "Deleting objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		err := env.Delete(ctx, obj)
 		if err != nil {
 			// not found is probably OK - means it was deleted elsewhere
 			if !errors.IsNotFound(err) {
-				env.Log.Error(err)
+				env.Log.Error(ctx, err.Error())
 				Expect(err).ToNot(HaveOccurred())
 			}
 		}
@@ -279,8 +282,9 @@ func (env *Framework) ExpectDeleteAllToSucceed(ctx context.Context, object clien
 }
 
 func (env *Framework) EventuallyExpectNotFound(ctx context.Context, objects ...client.Object) {
-	env.Log.Infof("Waiting for NotFound, objects: %s", objectsInfo(objects))
+	env.Log.Infof(ctx, "Waiting for NotFound, objects: %s", objectsInfo(objects))
 	parallel.ForEach(objects, func(obj client.Object, _ int) {
+		defer GinkgoRecover()
 		if obj != nil {
 			Eventually(func(g Gomega) {
 				g.Expect(errors.IsNotFound(env.Get(ctx, client.ObjectKeyFromObject(obj), obj))).To(BeTrue())
@@ -348,6 +352,10 @@ func (env *Framework) GetTargetGroup(ctx context.Context, service *corev1.Servic
 	return env.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttp, vpclattice.TargetGroupProtocolVersionHttp1)
 }
 
+func (env *Framework) GetTCPTargetGroup(ctx context.Context, service *corev1.Service) *vpclattice.TargetGroupSummary {
+	return env.GetTargetGroupWithProtocol(ctx, service, "TCP", "")
+}
+
 func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *corev1.Service, protocol, protocolVersion string) *vpclattice.TargetGroupSummary {
 	tgSpec := model.TargetGroupSpec{
 		TargetGroupTagFields: model.TargetGroupTagFields{
@@ -362,7 +370,7 @@ func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *c
 	Eventually(func(g Gomega) {
 		tg, err := env.FindTargetGroupFromSpec(ctx, tgSpec)
 		if err != nil {
-			gwlog.FallbackLogger.Infof("Error getting target group %s, %s due to %s",
+			gwlog.FallbackLogger.Infof(ctx, "Error getting target group %s, %s due to %s",
 				tgSpec.K8SServiceName, tgSpec.K8SServiceNamespace, err)
 		}
 		g.Expect(err).To(BeNil())
@@ -372,7 +380,7 @@ func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *c
 		found = tg
 	}).WithOffset(1).Should(Succeed())
 
-	gwlog.FallbackLogger.Infof("Found target group %s, %s", *found.Name, *found.Id)
+	gwlog.FallbackLogger.Infof(ctx, "Found target group %s, %s", *found.Name, *found.Id)
 	return found
 }
 
@@ -423,7 +431,8 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 		targetIps := lo.Filter(retrievedTargets, func(target *vpclattice.TargetSummary, _ int) bool {
 			return lo.Contains(podIps, *target.Id) &&
 				(*target.Status == vpclattice.TargetStatusInitial ||
-					*target.Status == vpclattice.TargetStatusHealthy)
+					*target.Status == vpclattice.TargetStatusHealthy ||
+					*target.Status == vpclattice.TargetStatusUnavailable)
 		})
 
 		g.Expect(targetIps).Should(HaveLen(len(podIps)))
@@ -490,13 +499,13 @@ func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpc
 }
 
 func (env *Framework) AreAllLatticeTargetsHealthy(ctx context.Context, tg *vpclattice.TargetGroupSummary) (bool, error) {
-	env.Log.Infof("Checking whether AreAllLatticeTargetsHealthy for targetGroup: %v", tg)
+	env.Log.Infof(ctx, "Checking whether AreAllLatticeTargetsHealthy for targetGroup: %v", tg)
 	targets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: tg.Id})
 	if err != nil {
 		return false, err
 	}
 	for _, target := range targets {
-		env.Log.Infof("Checking target: %v", target)
+		env.Log.Infof(ctx, "Checking target: %v", target)
 		if *target.Status != vpclattice.TargetStatusHealthy {
 			return false, nil
 		}
@@ -561,6 +570,19 @@ func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNam
 		env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
 		g.Expect(httproute.Annotations).To(HaveKey(controllers.LatticeAssignedDomainName))
 		vpcLatticeServiceDns = httproute.Annotations[controllers.LatticeAssignedDomainName]
+	}).Should(Succeed())
+
+	return vpcLatticeServiceDns
+}
+
+func (env *Framework) GetVpcLatticeServiceTLSDns(tlsRouteName string, tlsRouteNamespace string) string {
+	env.Log.Infoln("GetVpcLatticeServiceTLSDns: ", tlsRouteName, tlsRouteNamespace)
+	vpcLatticeServiceDns := ""
+	Eventually(func(g Gomega) {
+		tlsroute := gwv1alpha2.TLSRoute{}
+		env.Get(env.ctx, types.NamespacedName{Name: tlsRouteName, Namespace: tlsRouteNamespace}, &tlsroute)
+		g.Expect(tlsroute.Annotations).To(HaveKey(controllers.LatticeAssignedDomainName))
+		vpcLatticeServiceDns = tlsroute.Annotations[controllers.LatticeAssignedDomainName]
 	}).Should(Succeed())
 
 	return vpcLatticeServiceDns
