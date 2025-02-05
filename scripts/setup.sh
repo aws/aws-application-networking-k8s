@@ -84,7 +84,7 @@ cluster() {
         read -p "Enter a Cluster Name. The name must satisfy the regular expression pattern [a-zA-Z][-a-zA-Z0-9]: " cluster_name
         read -p "Enter AWS Region: " region
         read -p "Enter Controller Version. Entering no version will default to $CURRENT_CONTROLLER_VERSION: " controller_version
-        if [[ $crds_version == null || $crds_version == '' ]]; then
+        if [[ $controller_version == null || $controller_version == '' ]]; then
             echo "Defaulting to $CURRENT_CONTROLLER_VERSION."
             export CONTROLLER_VERSION=$CURRENT_CONTROLLER_VERSION
         else
@@ -98,11 +98,13 @@ cluster() {
         if [[ $describe_cluster_output == *"ResourceNotFoundException"* ]]; then
             echo "Creating cluster with name: $cluster_name"
 
-            create_cluster_output=$(eksctl create cluster --name "$CLUSTER_NAME" --region "$AWS_REGION" --output text 2>&1 )
-            if [[ $create_cluster_output == *"error"* ]]; then
-                echo "Error creating cluster: $create_cluster_output"
+            eksctl create cluster --name "$CLUSTER_NAME" --region "$AWS_REGION"
+
+            describe_cluster_output=$( aws eks describe-cluster --name "$CLUSTER_NAME" --output text 2>&1 )
+            if [[ $describe_cluster_output == *"ResourceNotFoundException"* ]]; then
+                echo "Cluster creation failed, please try again."
                 echo "---------------------------------"
-                return 1
+                exit 1
             fi
 
             echo "Allowing traffic from VPC Lattice to EKS cluster"
