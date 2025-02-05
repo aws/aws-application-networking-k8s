@@ -2,6 +2,7 @@ package integration
 
 import (
 	"fmt"
+	awsClient "github.com/aws/aws-sdk-go/aws/client"
 	"os"
 	"strings"
 	"time"
@@ -22,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/retry"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
@@ -51,9 +51,17 @@ var _ = Describe("RAM Share", Ordered, func() {
 	BeforeAll(func() {
 		secondaryTestRoleArn = os.Getenv("SECONDARY_ACCOUNT_TEST_ROLE_ARN")
 
+		retryer := awsClient.DefaultRetryer{
+			MinThrottleDelay: 1 * time.Second,
+			MinRetryDelay:    1 * time.Second,
+			MaxThrottleDelay: 5 * time.Second,
+			MaxRetryDelay:    5 * time.Second,
+			NumMaxRetries:    3,
+		}
+
 		primarySess := session.Must(session.NewSession(&aws.Config{
 			Region:  aws.String(config.Region),
-			Retryer: retry.WithMaxRetries(3),
+			Retryer: retryer,
 		}))
 
 		stsClient := sts.New(primarySess)
@@ -69,7 +77,7 @@ var _ = Describe("RAM Share", Ordered, func() {
 
 		secondarySess := session.Must(session.NewSession(&aws.Config{
 			Region:  aws.String(config.Region),
-			Retryer: retry.WithMaxRetries(3),
+			Retryer: retryer,
 			Credentials: credentials.NewStaticCredentials(
 				*creds.AccessKeyId,
 				*creds.SecretAccessKey,
