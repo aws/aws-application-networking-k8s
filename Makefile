@@ -13,7 +13,7 @@ VERSION ?= $(if $(RELEASE_VERSION),$(RELEASE_VERSION),$(shell git tag --sort=v:r
 ECRIMAGES ?=public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:${VERSION}
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.22
+ENVTEST_K8S_VERSION = 1.32
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -75,7 +75,7 @@ lint: ## Run the golangci-lint only in local machine
 		echo "Running golangci-lint"; \
 		golangci-lint run; \
 	else \
-		echo "Error: golangci-lint is not installed. Please run the 'make toolchain'"; \
+		echo "Error: golangci-lint is not installed. Please run the 'make setup'"; \
 		exit 1; \
 	fi \
 
@@ -84,9 +84,9 @@ lint: ## Run the golangci-lint only in local machine
 test: ## Run tests.
 	go test ./pkg/... -coverprofile coverage.out
 
-.PHONY: toolchain
-toolchain: ## Install developer toolchain
-	./hack/toolchain.sh
+.PHONY: setup
+setup:
+	./scripts/setup.sh
 
 ##@ Deployment
 

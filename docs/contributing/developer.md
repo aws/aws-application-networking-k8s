@@ -1,8 +1,10 @@
 # Developer Guide
 
+## Automated Setup
 
+The quickest way to get started is by running `bash ./scripts/setup.sh`, or `make setup` if you already have `make` installed. This script guides you through credential, tool, EKS cluster, and CRD setup.
 
-## Prerequisites
+## Manual Setup
 
 **Tools**
 
@@ -31,9 +33,9 @@ Before proceeding to the next sections, you need to:
     git clone git@github.com:aws/aws-application-networking-k8s.git
     cd aws-application-networking-k8s
     ```
-1. Install dependencies with `toolchain.sh` script:
+1. Install dependencies with `setup.sh` script:
     ```bash
-    make toolchain
+    make setup
     ```
 
 
