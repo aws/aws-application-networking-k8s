@@ -104,7 +104,7 @@ cluster() {
             if [[ $describe_cluster_output == *"ResourceNotFoundException"* ]]; then
                 echo "Cluster creation failed, please try again."
                 echo "---------------------------------"
-                exit 1
+                return 1
             fi
 
             echo "Allowing traffic from VPC Lattice to EKS cluster"
