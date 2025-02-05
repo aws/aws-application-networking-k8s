@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/retry"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
@@ -50,7 +51,11 @@ var _ = Describe("RAM Share", Ordered, func() {
 	BeforeAll(func() {
 		secondaryTestRoleArn = os.Getenv("SECONDARY_ACCOUNT_TEST_ROLE_ARN")
 
-		primarySess := session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)}))
+		primarySess := session.Must(session.NewSession(&aws.Config{
+			Region:  aws.String(config.Region),
+			Retryer: retry.WithMaxRetries(3),
+		}))
+
 		stsClient := sts.New(primarySess)
 		assumeRoleInput := &sts.AssumeRoleInput{
 			RoleArn:         aws.String(secondaryTestRoleArn),
@@ -63,7 +68,8 @@ var _ = Describe("RAM Share", Ordered, func() {
 		creds := assumeRoleResult.Credentials
 
 		secondarySess := session.Must(session.NewSession(&aws.Config{
-			Region: aws.String(config.Region),
+			Region:  aws.String(config.Region),
+			Retryer: retry.WithMaxRetries(3),
 			Credentials: credentials.NewStaticCredentials(
 				*creds.AccessKeyId,
 				*creds.SecretAccessKey,
