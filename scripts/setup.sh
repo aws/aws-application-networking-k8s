@@ -81,19 +81,29 @@ tools() {
 cluster() {
     read -p "Do you want to create an EKS cluster? (Y/N): " create_cluster
     if [[ $create_cluster == 'Y' || $create_cluster == 'y' ]]; then
-        read -p "Enter Cluster Name: " cluster_name
+        read -p "Enter a Cluster Name. The name must satisfy the regular expression pattern [a-zA-Z][-a-zA-Z0-9]: " cluster_name
         read -p "Enter AWS Region: " region
-        read -p "Enter Controller Version, the current is $CURRENT_CONTROLLER_VERSION: " controller_version
+        read -p "Enter Controller Version. Entering no version will default to $CURRENT_CONTROLLER_VERSION: " controller_version
+        if [[ $crds_version == null || $crds_version == '' ]]; then
+            echo "Defaulting to $CURRENT_CONTROLLER_VERSION."
+            export CONTROLLER_VERSION=$CURRENT_CONTROLLER_VERSION
+        else
+            export CONTROLLER_VERSION=$controller_version
+        fi
 
         export CLUSTER_NAME=$cluster_name
         export AWS_REGION=$region
-        export CONTROLLER_VERSION=$controller_version
 
         describe_cluster_output=$( aws eks describe-cluster --name "$CLUSTER_NAME" --output text 2>&1 )
         if [[ $describe_cluster_output == *"ResourceNotFoundException"* ]]; then
             echo "Creating cluster with name: $cluster_name"
 
-            eksctl create cluster --name "$CLUSTER_NAME" --region "$AWS_REGION"
+            create_cluster_output=$(eksctl create cluster --name "$CLUSTER_NAME" --region "$AWS_REGION" --output text 2>&1 )
+            if [[ $create_cluster_output == *"error"* ]]; then
+                echo "Error creating cluster: $create_cluster_output"
+                echo "---------------------------------"
+                return 1
+            fi
 
             echo "Allowing traffic from VPC Lattice to EKS cluster"
             CLUSTER_SG=$(aws eks describe-cluster --name "$CLUSTER_NAME" --output json| jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
@@ -167,12 +177,16 @@ EOF
                 echo "Role already exists, skipping creation"
             fi
 
-            aws eks create-pod-identity-association --cluster-name $CLUSTER_NAME --role-arn $VPCLatticeControllerIAMRoleArn --namespace aws-application-networking-system --service-account gateway-api-controller --no-cli-pager
+            eksctl create podidentityassociation --cluster $CLUSTER_NAME --namespace aws-application-networking-system --service-account-name gateway-api-controller --role-arn $VPCLatticeControllerIAMRoleArn
 
             echo "Installing the controller"
             kubectl apply -f "https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v${CONTROLLER_VERSION}.yaml"
 
             echo "EKS cluster created successfully."
+        elif [[ $describe_cluster_output == *"error"* ]]; then
+             echo "Error describing cluster: $describe_cluster_output"
+             echo "---------------------------------"
+             return 1
         else
             echo "Cluster: $cluster_name already exists. Skipping creation."
         fi
@@ -183,8 +197,13 @@ EOF
 crds() {
     read -p "Do you want to install the Gateway API CRDs? (Y/N): " install_crds
     if [[ $install_crds == 'Y' || $install_crds == 'y' ]]; then
-        read -p "Enter Gateway API CRDs Version, the current is $CURRENT_CRD_VERSION: " crds_version
-        export CRDS_VERSION=$crds_version
+        read -p "Enter Gateway API CRDs Version. Entering no version will default to $CURRENT_CRD_VERSION: " crds_version
+        if [[ $crds_version == null || $crds_version == '' ]]; then
+            echo "Defaulting to $CURRENT_CRD_VERSION."
+            export CRDS_VERSION=$CURRENT_CRD_VERSION
+        else
+            export CRDS_VERSION=$crds_version
+        fi
 
         kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/v${CRDS_VERSION}/standard-install.yaml" --validate=false
         kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/gatewayclass.yaml
