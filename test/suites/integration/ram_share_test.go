@@ -2,6 +2,7 @@ package integration
 
 import (
 	"fmt"
+	awsClient "github.com/aws/aws-sdk-go/aws/client"
 	"os"
 	"strings"
 	"time"
@@ -50,7 +51,18 @@ var _ = Describe("RAM Share", Ordered, func() {
 	BeforeAll(func() {
 		secondaryTestRoleArn = os.Getenv("SECONDARY_ACCOUNT_TEST_ROLE_ARN")
 
-		primarySess := session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)}))
+		retryer := awsClient.DefaultRetryer{
+			MinThrottleDelay: 1 * time.Second,
+			MinRetryDelay:    1 * time.Second,
+			MaxThrottleDelay: 5 * time.Second,
+			MaxRetryDelay:    5 * time.Second,
+		}
+
+		primarySess := session.Must(session.NewSession(&aws.Config{
+			Region:  aws.String(config.Region),
+			Retryer: retryer,
+		}))
+
 		stsClient := sts.New(primarySess)
 		assumeRoleInput := &sts.AssumeRoleInput{
 			RoleArn:         aws.String(secondaryTestRoleArn),
@@ -63,7 +75,8 @@ var _ = Describe("RAM Share", Ordered, func() {
 		creds := assumeRoleResult.Credentials
 
 		secondarySess := session.Must(session.NewSession(&aws.Config{
-			Region: aws.String(config.Region),
+			Region:  aws.String(config.Region),
+			Retryer: retryer,
 			Credentials: credentials.NewStaticCredentials(
 				*creds.AccessKeyId,
 				*creds.SecretAccessKey,

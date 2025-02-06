@@ -70,7 +70,7 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 				g.Expect(len(rules)).To(Equal(1))
 				g.Expect(*rules[0].Match.HttpMatch.Method).To(Equal("POST"))
 				g.Expect(*rules[0].Match.HttpMatch.PathMatch.Match.Prefix).To(Equal("/"))
-			}).Within(30 * time.Second).Should(Succeed())
+			}).Within(1 * time.Minute).Should(Succeed())
 		})
 
 		Context("Traffic test: client pod (grpcurl-runner) can send request to all services/methods of grpcBinService", func() {
