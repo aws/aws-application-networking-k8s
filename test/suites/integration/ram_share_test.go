@@ -56,7 +56,6 @@ var _ = Describe("RAM Share", Ordered, func() {
 			MinRetryDelay:    1 * time.Second,
 			MaxThrottleDelay: 5 * time.Second,
 			MaxRetryDelay:    5 * time.Second,
-			NumMaxRetries:    3,
 		}
 
 		primarySess := session.Must(session.NewSession(&aws.Config{
