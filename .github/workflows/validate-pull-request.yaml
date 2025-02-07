@@ -1,0 +1,13 @@
+name: Validate pull request with presubmit before putting into queue
+on:
+  pull_request:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: presubmit
+        uses: actions/checkout@v3
+        with:
+          workflow: presubmit.yaml
+          repo: aws/aws-application-networking-k8s
+          ref: main

@@ -1,0 +1,17 @@
+name: Validate code in the merge queue with e2e-test
+permissions:
+  id-token: write
+  contents: read
+on:
+  merge_group:
+    branches: [ "main" ]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: e2e-test
+        uses: actions/checkout@v3
+        with:
+          workflow: e2e-test.yaml
+          repo: aws/aws-application-networking-k8s
+          ref: main
