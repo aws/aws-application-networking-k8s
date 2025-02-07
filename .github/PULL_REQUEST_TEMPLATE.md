@@ -56,4 +56,12 @@ from users switching to the new release, include the string "action required".
 
 ```
 
+**Do all end-to-end tests successfully pass when running `make e2e-test`?**:
+<!--
+Please provide a snippet of a successful `make e2e-test` run to confirm.
+-->
+```
+
+```
+
 By submitting this pull request, I confirm that my contribution is made under the terms of the Apache 2.0 license.
