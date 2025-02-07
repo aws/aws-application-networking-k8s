@@ -3,9 +3,11 @@ permissions:
   id-token: write
   contents: read
 on:
-  merge_group:
-    branches: [ "main" ]
+  push:
+    branches:
+      - main
   workflow_dispatch:
+  workflow_call:
 jobs:
   e2e-test:
     runs-on: ubuntu-latest
