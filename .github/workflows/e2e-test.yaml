@@ -3,10 +3,8 @@ permissions:
   id-token: write
   contents: read
 on:
-  # TODO: Find a secure enough way to run e2e tests from PR on-demand.
-  push:
-    branches:
-      - main
+  merge_group:
+    branches: [ "main" ]
   workflow_dispatch:
 jobs:
   e2e-test:

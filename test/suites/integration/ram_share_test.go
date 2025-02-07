@@ -52,10 +52,11 @@ var _ = Describe("RAM Share", Ordered, func() {
 		secondaryTestRoleArn = os.Getenv("SECONDARY_ACCOUNT_TEST_ROLE_ARN")
 
 		retryer := awsClient.DefaultRetryer{
-			MinThrottleDelay: 1 * time.Second,
-			MinRetryDelay:    1 * time.Second,
+			MinThrottleDelay: 500 * time.Millisecond,
+			MinRetryDelay:    500 * time.Millisecond,
 			MaxThrottleDelay: 5 * time.Second,
 			MaxRetryDelay:    5 * time.Second,
+			NumMaxRetries:    5,
 		}
 
 		primarySess := session.Must(session.NewSession(&aws.Config{
