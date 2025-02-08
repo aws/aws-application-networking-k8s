@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/pkg/errors"
@@ -50,7 +51,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	k8sutils "github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -85,6 +85,7 @@ func RegisterAllRouteControllers(
 	mgr ctrl.Manager,
 ) error {
 	mgrClient := mgr.GetClient()
+
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(log, mgrClient)
 	svcEventHandler := eventhandlers.NewServiceEventHandler(log, mgrClient)
 
@@ -92,9 +93,24 @@ func RegisterAllRouteControllers(
 		routeType      core.RouteType
 		gatewayApiType client.Object
 	}{
-		{core.HttpRouteType, &gwv1.HTTPRoute{}},
-		{core.GrpcRouteType, &gwv1.GRPCRoute{}},
-		{core.TlsRouteType, &gwv1alpha2.TLSRoute{}},
+		{core.HttpRouteType, &gwv1.HTTPRoute{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: gwv1.GroupVersion.String(),
+				Kind:       "HTTPRoute",
+			},
+		}},
+		{core.GrpcRouteType, &gwv1.GRPCRoute{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: gwv1.GroupVersion.String(),
+				Kind:       "GRPCRoute",
+			},
+		}},
+		{core.TlsRouteType, &gwv1alpha2.TLSRoute{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: gwv1.GroupVersion.String(),
+				Kind:       "TLSRoute",
+			},
+		}},
 	}
 
 	for _, routeInfo := range routeInfos {
@@ -169,7 +185,6 @@ func (r *routeReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 	if err != nil {
 		return client.IgnoreNotFound(err)
 	}
-
 	if err = r.client.Get(ctx, req.NamespacedName, route.K8sObject()); err != nil {
 		return client.IgnoreNotFound(err)
 	}
@@ -261,8 +276,7 @@ func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	// make sure gateway is an aws-vpc-lattice
 	gwClass := &gwv1.GatewayClass{}
 	gwClassName := types.NamespacedName{
-		Namespace: defaultNamespace,
-		Name:      string(gw.Spec.GatewayClassName),
+		Name: string(gw.Spec.GatewayClassName),
 	}
 
 	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
@@ -573,7 +587,7 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 }
 
 // set of valid Kinds for Route Backend References
-var validBackendKinds = utils.NewSet("Service", "ServiceImport")
+var validBackendKinds = k8sutils.NewSet("Service", "ServiceImport")
 
 // validate route's backed references, will return non-accepted
 // condition if at least one backendRef not in a valid state
