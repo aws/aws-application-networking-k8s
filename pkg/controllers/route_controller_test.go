@@ -79,6 +79,25 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			},
 		},
 	}
+
+	notVpcLattice := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "not-vpc-lattice",
+			Namespace: "ns1",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "not-amazon-vpc-lattice",
+			Listeners: []gwv1.Listener{
+				{
+					Name:     "http",
+					Protocol: "HTTP",
+					Port:     80,
+				},
+			},
+		},
+	}
+
+	k8sClient.Create(ctx, notVpcLattice.DeepCopy())
 	k8sClient.Create(ctx, gw.DeepCopy())
 
 	svc := &corev1.Service{
@@ -131,6 +150,10 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 		Spec: gwv1.HTTPRouteSpec{
 			CommonRouteSpec: gwv1.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{
+					// if route has multiple parents, we'll only use the managed vpc lattice gateway
+					{
+						Name: "not-vpc-lattice",
+					},
 					{
 						Name: "my-gateway",
 					},

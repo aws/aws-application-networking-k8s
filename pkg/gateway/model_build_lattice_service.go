@@ -186,7 +186,7 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		if string(parentRef.Name) != gw.Name {
-			t.log.Debugf(ctx, "Ignore ParentRef of different gateway %s-%s", parentRef.Name, *parentRef.Namespace)
+			t.log.Debugf(ctx, "Ignore ParentRef of different gateway %s", parentRef.Name)
 			continue
 		}
 
