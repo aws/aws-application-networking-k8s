@@ -85,7 +85,6 @@ func RegisterAllRouteControllers(
 	mgr ctrl.Manager,
 ) error {
 	mgrClient := mgr.GetClient()
-
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(log, mgrClient)
 	svcEventHandler := eventhandlers.NewServiceEventHandler(log, mgrClient)
 
@@ -93,24 +92,9 @@ func RegisterAllRouteControllers(
 		routeType      core.RouteType
 		gatewayApiType client.Object
 	}{
-		{core.HttpRouteType, &gwv1.HTTPRoute{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: gwv1.GroupVersion.String(),
-				Kind:       "HTTPRoute",
-			},
-		}},
-		{core.GrpcRouteType, &gwv1.GRPCRoute{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: gwv1.GroupVersion.String(),
-				Kind:       "GRPCRoute",
-			},
-		}},
-		{core.TlsRouteType, &gwv1alpha2.TLSRoute{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: gwv1.GroupVersion.String(),
-				Kind:       "TLSRoute",
-			},
-		}},
+		{core.HttpRouteType, &gwv1.HTTPRoute{}},
+		{core.GrpcRouteType, &gwv1.GRPCRoute{}},
+		{core.TlsRouteType, &gwv1alpha2.TLSRoute{}},
 	}
 
 	for _, routeInfo := range routeInfos {
@@ -185,6 +169,7 @@ func (r *routeReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 	if err != nil {
 		return client.IgnoreNotFound(err)
 	}
+
 	if err = r.client.Get(ctx, req.NamespacedName, route.K8sObject()); err != nil {
 		return client.IgnoreNotFound(err)
 	}

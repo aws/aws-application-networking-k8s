@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"testing"
+
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	aws2 "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -27,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/external-dns/endpoint"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func TestRouteReconciler_ReconcileCreates(t *testing.T) {
@@ -52,8 +53,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 
 	gwClass := &gwv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "amazon-vpc-lattice",
-			Namespace: defaultNamespace,
+			Name: "amazon-vpc-lattice",
 		},
 		Spec: gwv1.GatewayClassSpec{
 			ControllerName: config.LatticeGatewayControllerName,
