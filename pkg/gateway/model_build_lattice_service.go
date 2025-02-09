@@ -124,6 +124,29 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	}
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
+		gw := &gwv1.Gateway{}
+		parentNamespace := t.route.Namespace()
+		if parentRef.Namespace != nil {
+			parentNamespace = string(*parentRef.Namespace)
+		}
+		err := t.client.Get(ctx, client.ObjectKey{Name: string(parentRef.Name), Namespace: parentNamespace}, gw)
+		if err != nil {
+			//TODO: error message
+			t.log.Infof(ctx, "Ignore %s route because failed to get gateway %s: %v", t.route.Name(), parentRef.Name, err)
+			continue
+		}
+		gwClass := &gwv1.GatewayClass{}
+		// GatewayClass is cluster-scoped resource, so we don't need to specify namespace
+		err = t.client.Get(ctx, client.ObjectKey{Name: string(gw.Spec.GatewayClassName)}, gwClass)
+		if err != nil {
+			//TODO: error message
+			t.log.Infof(ctx, "Ignore %s route because failed to get gateway class %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
+			continue
+		}
+		if gwClass.Spec.ControllerName != config.LatticeGatewayControllerName {
+			t.log.Infof(ctx, "Ignore %s route because gateway class %s is not for lattice gateway", t.route.Name(), gw.Spec.GatewayClassName)
+			continue
+		}
 		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
 	}
 	if config.ServiceNetworkOverrideMode {

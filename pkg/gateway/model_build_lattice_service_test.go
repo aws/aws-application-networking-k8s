@@ -182,27 +182,12 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			},
 		},
 		{
-			// TODO:
 			name:          "Delete LatticeService",
 			wantIsDeleted: true,
 			wantErrIsNil:  true,
 			gwClass:       vpcLatticeGatewayClass,
 			gws: []gwv1.Gateway{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "gateway2",
-						Namespace: "ns1",
-					},
-					Spec: gwv1.GatewaySpec{
-						Listeners: []gwv1.Listener{
-							{
-								Name:     httpSectionName,
-								Port:     80,
-								Protocol: "HTTP",
-							},
-						},
-					},
-				},
+				vpcLatticeGateway,
 			},
 			route: core.NewHTTPRoute(gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -215,7 +200,8 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
-								Name:        "gateway2",
+								Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+								Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
 								SectionName: &httpSectionName,
 							},
 						},
@@ -240,7 +226,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 					RouteNamespace: "ns1",
 					RouteType:      core.HttpRouteType,
 				},
-				ServiceNetworkNames: []string{"gateway2"},
+				ServiceNetworkNames: []string{vpcLatticeGateway.Name},
 			},
 		},
 		{
@@ -252,6 +238,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				{
 					ObjectMeta: vpcLatticeGateway.ObjectMeta,
 					Spec: gwv1.GatewaySpec{
+						GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
 						Listeners: []gwv1.Listener{
 							{
 								Name:     "tls",
@@ -329,6 +316,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				{
 					ObjectMeta: vpcLatticeGateway.ObjectMeta,
 					Spec: gwv1.GatewaySpec{
+						GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
 						Listeners: []gwv1.Listener{
 							{
 								Name:     "tls",
@@ -376,6 +364,15 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gwClass:       vpcLatticeGatewayClass,
 			gws: []gwv1.Gateway{
 				vpcLatticeGateway,
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gateway2",
+						Namespace: "ns2",
+					},
+					Spec: gwv1.GatewaySpec{
+						GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
+					},
+				},
 			},
 			route: core.NewHTTPRoute(gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
@@ -406,45 +403,55 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				ServiceNetworkNames: []string{vpcLatticeGateway.Name, "gateway2"},
 			},
 		},
-		//{
-		//	name:          "Multiple service networks with one different controller",
-		//	wantIsDeleted: false,
-		//	wantErrIsNil:  true,
-		//	gw: gwv1.Gateway{
-		//		ObjectMeta: metav1.ObjectMeta{
-		//			Name:      "gateway1",
-		//			Namespace: "default",
-		//		},
-		//	},
-		//	route: core.NewHTTPRoute(gwv1.HTTPRoute{
-		//		ObjectMeta: metav1.ObjectMeta{
-		//			Name:      "service1",
-		//			Namespace: "default",
-		//		},
-		//		Spec: gwv1.HTTPRouteSpec{
-		//			CommonRouteSpec: gwv1.CommonRouteSpec{
-		//				ParentRefs: []gwv1.ParentReference{
-		//					{
-		//						Name:      "gateway1",
-		//						Namespace: namespacePtr("default"),
-		//					},
-		//					{
-		//						Name:      "not-lattice",
-		//						Namespace: namespacePtr("ns2"),
-		//					},
-		//				},
-		//			},
-		//		},
-		//	}),
-		//	expected: model.ServiceSpec{
-		//		ServiceTagFields: model.ServiceTagFields{
-		//			RouteName:      "service1",
-		//			RouteNamespace: "default",
-		//			RouteType:      core.HttpRouteType,
-		//		},
-		//		ServiceNetworkNames: []string{"gateway1"},
-		//	},
-		//},
+		{
+			name:          "Multiple service networks with one different controller",
+			wantIsDeleted: false,
+			wantErrIsNil:  true,
+			gwClass:       vpcLatticeGatewayClass,
+			gws: []gwv1.Gateway{
+				vpcLatticeGateway,
+				// managed by different controller gateway
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "not-lattice",
+						Namespace: "ns2",
+					},
+					Spec: gwv1.GatewaySpec{
+						GatewayClassName: gwv1.ObjectName("not-lattice-gwClass"),
+					},
+				},
+			},
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						// has two parent refs and one is not managed by lattice
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+							},
+							{
+								Name:      "not-lattice",
+								Namespace: namespacePtr("ns2"),
+							},
+						},
+					},
+				},
+			}),
+			expected: model.ServiceSpec{
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "service1",
+					RouteNamespace: "default",
+					RouteType:      core.HttpRouteType,
+				},
+				// only the lattice gateway is added
+				ServiceNetworkNames: []string{vpcLatticeGateway.Name},
+			},
+		},
 	}
 
 	for _, tt := range tests {
