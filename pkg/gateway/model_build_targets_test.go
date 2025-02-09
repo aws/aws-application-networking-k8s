@@ -24,6 +24,12 @@ import (
 	discoveryv1 "k8s.io/api/discovery/v1"
 )
 
+// PortNumberPtr translates an int to a *PortNumber
+func PortNumberPtr(p int) *gwv1.PortNumber {
+	result := gwv1.PortNumber(p)
+	return &result
+}
+
 func Test_Targets(t *testing.T) {
 	namespacePtr := func(ns string) *gwv1.Namespace {
 		p := gwv1.Namespace(ns)

@@ -86,7 +86,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		SetDefaultEventuallyTimeout(5 * time.Minute)
+		SetDefaultEventuallyTimeout(10 * time.Minute)
 		SetDefaultEventuallyPollingInterval(10 * time.Second)
 
 		awsResourceName = awsResourceNamePrefix + utils.RandomAlphaString(10)

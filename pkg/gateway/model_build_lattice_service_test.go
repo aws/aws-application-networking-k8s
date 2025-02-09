@@ -465,7 +465,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gwv1.Install(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
-			assert.NoError(t, k8sClient.Create(ctx, &tt.gwClass))
+			assert.NoError(t, k8sClient.Create(ctx, tt.gwClass.DeepCopy()))
 			for _, gw := range tt.gws {
 				assert.NoError(t, k8sClient.Create(ctx, gw.DeepCopy()))
 			}

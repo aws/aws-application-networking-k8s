@@ -134,18 +134,11 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 			t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
 			continue
 		}
-		gwClass := &gwv1.GatewayClass{}
-		// GatewayClass is cluster-scoped resource, so we don't need to specify namespace
-		err = t.client.Get(ctx, client.ObjectKey{Name: string(gw.Spec.GatewayClassName)}, gwClass)
-		if err != nil {
-			t.log.Infof(ctx, "Ignoring route %s because failed to get gateway class %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
-			continue
+		if k8s.IsManagedGateway(ctx, t.client, gw) {
+			spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
+		} else {
+			t.log.Infof(ctx, "Ignoring route %s because gateway %s is not managed by lattice gateway controller", t.route.Name(), gw.Name)
 		}
-		if gwClass.Spec.ControllerName != config.LatticeGatewayControllerName {
-			t.log.Infof(ctx, "Ignoring route %s because gateway class %s is not for a VPCLattice", t.route.Name(), gw.Spec.GatewayClassName)
-			continue
-		}
-		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
 	}
 	if config.ServiceNetworkOverrideMode {
 		spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
@@ -181,7 +174,9 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 
 // returns empty string if not found
 func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (string, error) {
-	gw, err := t.getGateway(ctx)
+	// when a service is associate to multiple service network(s), all listener config MUST be same
+	// so here we are only using the 1st gateway
+	gw, err := t.getFirstGateway(ctx)
 	if err != nil {
 		if apierrors.IsNotFound(err) && !t.route.DeletionTimestamp().IsZero() {
 			return "", nil // ok if we're deleting the route
@@ -190,9 +185,7 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 	}
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
-		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
-			// when a service is associate to multiple service network(s), all listener config MUST be same
-			// so here we are only using the 1st gateway
+		if string(parentRef.Name) != gw.Name {
 			t.log.Debugf(ctx, "Ignore ParentRef of different gateway %s-%s", parentRef.Name, *parentRef.Namespace)
 			continue
 		}
