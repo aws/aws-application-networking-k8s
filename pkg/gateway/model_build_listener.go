@@ -56,7 +56,7 @@ func isTLSPassthroughGatewayListener(listener *gwv1.Listener) bool {
 	return listener.Protocol == gwv1.TLSProtocolType && listener.TLS != nil && listener.TLS.Mode != nil && *listener.TLS.Mode == gwv1.TLSModePassthrough
 }
 
-func (t *latticeServiceModelBuildTask) getFirstGateway(ctx context.Context) (*gwv1.Gateway, error) {
+func (t *latticeServiceModelBuildTask) findGateway(ctx context.Context) (*gwv1.Gateway, error) {
 	gw := &gwv1.Gateway{}
 	gwNamespace := t.route.Namespace()
 	fails := []string{}
@@ -72,7 +72,7 @@ func (t *latticeServiceModelBuildTask) getFirstGateway(ctx context.Context) (*gw
 			t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), parentRef.Name, err)
 			continue
 		}
-		if k8s.IsManagedGateway(ctx, t.client, gw) {
+		if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
 			return gw, nil
 		}
 		fails = append(fails, gwName.String())
@@ -93,7 +93,7 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 
 	// when a service is associate to multiple service network(s), all listener config MUST be same
 	// so here we are only using the 1st gateway
-	gw, err := t.getFirstGateway(ctx)
+	gw, err := t.findGateway(ctx)
 	if err != nil {
 		return err
 	}

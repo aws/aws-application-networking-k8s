@@ -57,7 +57,7 @@ func IsGVKSupported(mgr ctrl.Manager, groupVersion string, kind string) (bool, e
 }
 
 // validate if the gateway is managed by the lattice gateway controller
-func IsManagedGateway(ctx context.Context, c client.Client, gw *gwv1.Gateway) bool {
+func IsControlledByLatticeGatewayController(ctx context.Context, c client.Client, gw *gwv1.Gateway) bool {
 	gwClass := &gwv1.GatewayClass{}
 	// GatewayClass is cluster-scoped resource, so we don't need to specify namespace
 	err := c.Get(ctx, client.ObjectKey{Name: string(gw.Spec.GatewayClassName)}, gwClass)

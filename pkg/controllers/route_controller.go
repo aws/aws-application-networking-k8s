@@ -216,11 +216,14 @@ func (r *routeReconciler) getRoute(ctx context.Context, req ctrl.Request) (core.
 }
 
 func updateRouteListenerStatus(ctx context.Context, k8sClient client.Client, route core.Route) error {
-	gw, err := findFirstParentGw(ctx, k8sClient, route)
-	if err != nil {
+	gws, err := findControlledParents(ctx, k8sClient, route)
+	if len(gws) <= 0 {
 		return fmt.Errorf("failed to get gateway for route %s: %w", route.Name(), err)
 	}
+	// TODO assume one parent for now and point to service network
+	gw := gws[0]
 	return UpdateGWListenerStatus(ctx, k8sClient, gw)
+
 }
 
 func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route) bool {
@@ -228,21 +231,23 @@ func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 		r.log.Infof(ctx, "Ignore Route which has no ParentRefs gateway %s ", route.Name())
 		return false
 	}
-	// if route has gateway parentRef that is managed by lattice gateway controller,
+	// if route has gateway parentRef that is controlled by lattice gateway controller,
 	// then it is relevant
-	gw, err := findFirstParentGw(ctx, r.client, route)
-	return gw != nil && err == nil
+	gws, _ := findControlledParents(ctx, r.client, route)
+	return len(gws) > 0
 }
 
-func findFirstParentGw(
+// findControlledParents returns parent gateways that are controlled by lattice gateway controller
+func findControlledParents(
 	ctx context.Context,
 	client client.Client,
 	route core.Route,
-) (*gwv1.Gateway, error) {
-	gw := &gwv1.Gateway{}
+) ([]*gwv1.Gateway, error) {
+	var result []*gwv1.Gateway
 	gwNamespace := route.Namespace()
-	fails := []string{}
+	misses := []string{}
 	for _, parentRef := range route.Spec().ParentRefs() {
+		gw := &gwv1.Gateway{}
 		if parentRef.Namespace != nil {
 			gwNamespace = string(*parentRef.Namespace)
 		}
@@ -251,14 +256,18 @@ func findFirstParentGw(
 			Name:      string(parentRef.Name),
 		}
 		if err := client.Get(ctx, gwName, gw); err != nil {
+			misses = append(misses, gwName.String())
 			continue
 		}
-		if k8s.IsManagedGateway(ctx, client, gw) {
-			return gw, nil
+		if k8s.IsControlledByLatticeGatewayController(ctx, client, gw) {
+			result = append(result, gw)
 		}
-		fails = append(fails, gwName.String())
 	}
-	return nil, fmt.Errorf("failed to get gateway, name %s", fails)
+	var err error
+	if len(misses) > 0 {
+		err = fmt.Errorf("failed to get gateway, name %s", misses)
+	}
+	return result, err
 }
 
 func (r *routeReconciler) buildAndDeployModel(
@@ -298,11 +307,13 @@ func (r *routeReconciler) buildAndDeployModel(
 	return stack, err
 }
 
-func (r *routeReconciler) findFirstParentRef(ctx context.Context, route core.Route) (gwv1.ParentReference, error) {
-	gw, err := findFirstParentGw(ctx, r.client, route)
-	if err != nil {
-		return gwv1.ParentReference{}, err
+func (r *routeReconciler) findControlledParentRef(ctx context.Context, route core.Route) (gwv1.ParentReference, error) {
+	gws, err := findControlledParents(ctx, r.client, route)
+	if len(gws) <= 0 {
+		return gwv1.ParentReference{}, fmt.Errorf("failed to get gateway for route %s: %w", route.Name(), err)
 	}
+	// TODO assume one parent for now and point to service network
+	gw := gws[0]
 	for _, parentRef := range route.Spec().ParentRefs() {
 		if string(parentRef.Name) == gw.Name {
 			return parentRef, nil
@@ -332,7 +343,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 
 	if backendRefIPFamiliesErr != nil {
 		httpRouteOld := route.DeepCopy()
-		parentRef, err := r.findFirstParentRef(ctx, route)
+		parentRef, err := r.findControlledParentRef(ctx, route)
 		if err != nil {
 			return err
 		}
@@ -356,7 +367,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 	if _, err := r.buildAndDeployModel(ctx, route); err != nil {
 		if services.IsConflictError(err) {
 			// Stop reconciliation of this route if the route cannot be owned / has conflict
-			parentRef, parentRefErr := r.findFirstParentRef(ctx, route)
+			parentRef, parentRefErr := r.findControlledParentRef(ctx, route)
 			if parentRefErr != nil {
 				// if parentRef not found, we cannot update route status
 				return parentRefErr
@@ -502,24 +513,6 @@ func (r *routeReconciler) hasNotAcceptedCondition(route core.Route) bool {
 	return false
 }
 
-// find Gateway by Route and parentRef, returns nil if not found
-func (r *routeReconciler) findRouteParentGw(ctx context.Context, route core.Route, parentRef gwv1.ParentReference) (*gwv1.Gateway, error) {
-	ns := route.Namespace()
-	if parentRef.Namespace != nil && *parentRef.Namespace != "" {
-		ns = string(*parentRef.Namespace)
-	}
-	gwName := types.NamespacedName{
-		Namespace: ns,
-		Name:      string(parentRef.Name),
-	}
-	gw := &gwv1.Gateway{}
-	err := r.client.Get(ctx, gwName, gw)
-	if err != nil {
-		return nil, client.IgnoreNotFound(err)
-	}
-	return gw, nil
-}
-
 // Validation rules for route parentRefs
 //
 // Will ignore status update when:
@@ -535,15 +528,13 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 	}
 
 	parentStatuses := []gwv1.RouteParentStatus{}
+	gws, err := findControlledParents(ctx, r.client, route)
+	if len(gws) <= 0 {
+		return nil, fmt.Errorf("failed to get gateway for route %s: %w", route.Name(), err)
+	}
+	// TODO assume one parent for now and point to service network
+	gw := gws[0]
 	for _, parentRef := range route.Spec().ParentRefs() {
-		gw, err := r.findRouteParentGw(ctx, route, parentRef)
-		if err != nil {
-			return nil, err
-		}
-		if gw == nil {
-			continue // ignore status update if gw not found
-		}
-
 		noMatchingParent := true
 		for _, listener := range gw.Spec.Listeners {
 			if parentRef.Port != nil && *parentRef.Port != listener.Port {

@@ -134,7 +134,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 			t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
 			continue
 		}
-		if k8s.IsManagedGateway(ctx, t.client, gw) {
+		if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
 			spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
 		} else {
 			t.log.Infof(ctx, "Ignoring route %s because gateway %s is not managed by lattice gateway controller", t.route.Name(), gw.Name)
@@ -176,7 +176,7 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (string, error) {
 	// when a service is associate to multiple service network(s), all listener config MUST be same
 	// so here we are only using the 1st gateway
-	gw, err := t.getFirstGateway(ctx)
+	gw, err := t.findGateway(ctx)
 	if err != nil {
 		if apierrors.IsNotFound(err) && !t.route.DeletionTimestamp().IsZero() {
 			return "", nil // ok if we're deleting the route
