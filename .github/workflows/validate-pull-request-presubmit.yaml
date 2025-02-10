@@ -4,9 +4,6 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        k8sVersion: ["1.31.1"]
     env:
       K8S_VERSION: ${{ matrix.k8sVersion }}
     steps:
