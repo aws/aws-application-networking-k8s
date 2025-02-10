@@ -1,10 +1,6 @@
 name: Validate code in the merge queue with e2e-test
-permissions:
-  id-token: write
-  contents: read
 on:
   merge_group:
-    branches: [ "main" ]
 jobs:
   validate:
     uses: ./.github/workflows/e2e-test.yaml
