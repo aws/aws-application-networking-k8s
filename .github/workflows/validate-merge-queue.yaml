@@ -1,6 +1,0 @@
-name: Validate code in the merge queue with e2e-test
-on:
-  merge_group:
-jobs:
-  validate:
-    uses: ./.github/workflows/e2e-test.yaml

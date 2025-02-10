@@ -1,6 +1,0 @@
-name: Validate pull request with presubmit before putting into queue
-on:
-  pull_request:
-jobs:
-  validate:
-    uses: ./.github/workflows/presubmit.yaml
