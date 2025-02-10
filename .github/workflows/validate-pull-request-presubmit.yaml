@@ -1,0 +1,40 @@
+name: Validate pull request with presubmit before putting into queue
+on:
+  pull_request:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      K8S_VERSION: ${{ matrix.k8sVersion }}
+    steps:
+      - uses: actions/checkout@v3
+      - run: sed -En 's/^go[[:space:]]+([[:digit:].]+)$/GO_VERSION=\1/p' go.mod >> $GITHUB_ENV
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/go/bin/
+            ~/.kubebuilder/bin
+          key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.sum') }}
+      - run: go install github.com/golang/mock/mockgen@v1.6.0
+      - run: go install sigs.k8s.io/kustomize/kustomize/v5@v5.6.0
+      - run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220421205612-c162794a9b12
+      - run: go install github.com/mattn/goveralls@b031368
+      - run: make manifest
+      - run: make vet
+      - run: make test
+      - run: make docs
+      - name: Send coverage
+        env:
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: goveralls -coverprofile=coverage.out -service=github
