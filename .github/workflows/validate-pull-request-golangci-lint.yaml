@@ -1,4 +1,4 @@
-name: Validate pull request with presubmit before putting into queue
+name: Validate pull request with golangci-lint before putting into queue
 permissions:
   id-token: write
   contents: read
