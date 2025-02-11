@@ -124,7 +124,21 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	}
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
-		spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
+		gw := &gwv1.Gateway{}
+		parentNamespace := t.route.Namespace()
+		if parentRef.Namespace != nil {
+			parentNamespace = string(*parentRef.Namespace)
+		}
+		err := t.client.Get(ctx, client.ObjectKey{Name: string(parentRef.Name), Namespace: parentNamespace}, gw)
+		if err != nil {
+			t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
+			continue
+		}
+		if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
+			spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
+		} else {
+			t.log.Infof(ctx, "Ignoring route %s because gateway %s is not managed by lattice gateway controller", t.route.Name(), gw.Name)
+		}
 	}
 	if config.ServiceNetworkOverrideMode {
 		spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
@@ -160,7 +174,9 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 
 // returns empty string if not found
 func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (string, error) {
-	gw, err := t.getGateway(ctx)
+	// when a service is associate to multiple service network(s), all listener config MUST be same
+	// so here we are only using the 1st gateway
+	gw, err := t.findGateway(ctx)
 	if err != nil {
 		if apierrors.IsNotFound(err) && !t.route.DeletionTimestamp().IsZero() {
 			return "", nil // ok if we're deleting the route
@@ -169,10 +185,8 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 	}
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
-		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
-			// when a service is associate to multiple service network(s), all listener config MUST be same
-			// so here we are only using the 1st gateway
-			t.log.Debugf(ctx, "Ignore ParentRef of different gateway %s-%s", parentRef.Name, *parentRef.Namespace)
+		if string(parentRef.Name) != gw.Name {
+			t.log.Debugf(ctx, "Ignore ParentRef of different gateway %s", parentRef.Name)
 			continue
 		}
 

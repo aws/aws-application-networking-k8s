@@ -2,12 +2,13 @@ package integration
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	anaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	arn2 "github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
-	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"

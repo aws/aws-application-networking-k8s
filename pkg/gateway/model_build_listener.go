@@ -7,9 +7,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
@@ -20,16 +21,13 @@ const (
 func (t *latticeServiceModelBuildTask) extractListenerInfo(
 	ctx context.Context,
 	parentRef gwv1.ParentReference,
+	gw *gwv1.Gateway,
 ) (int64, string, error) {
 	if parentRef.SectionName != nil {
 		t.log.Debugf(ctx, "Listener parentRef SectionName is %s", *parentRef.SectionName)
 	}
 
 	t.log.Debugf(ctx, "Building Listener for Route %s-%s", t.route.Name(), t.route.Namespace())
-	gw, err := t.getGateway(ctx)
-	if err != nil {
-		return 0, "", err
-	}
 	// If no SectionName is specified, use the first listener port
 	if parentRef.SectionName == nil {
 		if len(gw.Spec.Listeners) == 0 {
@@ -58,42 +56,54 @@ func isTLSPassthroughGatewayListener(listener *gwv1.Listener) bool {
 	return listener.Protocol == gwv1.TLSProtocolType && listener.TLS != nil && listener.TLS.Mode != nil && *listener.TLS.Mode == gwv1.TLSModePassthrough
 }
 
-func (t *latticeServiceModelBuildTask) getGateway(ctx context.Context) (*gwv1.Gateway, error) {
-	var gwNamespace = t.route.Namespace()
-	if t.route.Spec().ParentRefs()[0].Namespace != nil {
-		gwNamespace = string(*t.route.Spec().ParentRefs()[0].Namespace)
-	}
-
+func (t *latticeServiceModelBuildTask) findGateway(ctx context.Context) (*gwv1.Gateway, error) {
 	gw := &gwv1.Gateway{}
-	gwName := types.NamespacedName{
-		Namespace: gwNamespace,
-		Name:      string(t.route.Spec().ParentRefs()[0].Name),
-	}
+	gwNamespace := t.route.Namespace()
+	fails := []string{}
+	for _, parentRef := range t.route.Spec().ParentRefs() {
+		if parentRef.Namespace != nil {
+			gwNamespace = string(*parentRef.Namespace)
+		}
+		gwName := client.ObjectKey{
+			Namespace: gwNamespace,
+			Name:      string(parentRef.Name),
+		}
+		if err := t.client.Get(ctx, gwName, gw); err != nil {
+			t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), parentRef.Name, err)
+			continue
+		}
+		if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
+			return gw, nil
+		}
+		fails = append(fails, gwName.String())
 
-	if err := t.client.Get(ctx, gwName, gw); err != nil {
-		return nil, fmt.Errorf("failed to get gateway, name %s, err %w", gwName, err)
 	}
-	return gw, nil
+	return nil, fmt.Errorf("failed to get gateway, name %s", fails)
 }
 
 func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stackSvcId string) error {
-	if len(t.route.Spec().ParentRefs()) == 0 {
-		t.log.Debugf(ctx, "No ParentRefs on route %s-%s, nothing to do", t.route.Name(), t.route.Namespace())
-	}
 	if !t.route.DeletionTimestamp().IsZero() {
 		t.log.Debugf(ctx, "Route %s-%s is deleted, skipping listener build", t.route.Name(), t.route.Namespace())
 		return nil
 	}
+	if len(t.route.Spec().ParentRefs()) == 0 {
+		t.log.Debugf(ctx, "No ParentRefs on route %s-%s, nothing to do", t.route.Name(), t.route.Namespace())
+		return nil
+	}
+
+	// when a service is associate to multiple service network(s), all listener config MUST be same
+	// so here we are only using the 1st gateway
+	gw, err := t.findGateway(ctx)
+	if err != nil {
+		return err
+	}
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
-		if parentRef.Name != t.route.Spec().ParentRefs()[0].Name {
-			// when a service is associate to multiple service network(s), all listener config MUST be same
-			// so here we are only using the 1st gateway
-			t.log.Debugf(ctx, "Ignore parentref of different gateway %s-%s", parentRef.Name, *parentRef.Namespace)
+		if string(parentRef.Name) != gw.Name {
 			continue
 		}
 
-		port, protocol, err := t.extractListenerInfo(ctx, parentRef)
+		port, protocol, err := t.extractListenerInfo(ctx, parentRef, gw)
 		if err != nil {
 			return err
 		}
