@@ -349,7 +349,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		}
 
 		route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
-		route.Status().UpdateRouteCondition(metav1.Condition{
+		route.Status().UpdateRouteCondition(parentRef, metav1.Condition{
 			Type:               string(gwv1.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: route.K8sObject().GetGeneration(),
@@ -373,7 +373,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 				return parentRefErr
 			}
 			route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
-			route.Status().UpdateRouteCondition(metav1.Condition{
+			route.Status().UpdateRouteCondition(parentRef, metav1.Condition{
 				Type:               string(gwv1.RouteConditionAccepted),
 				Status:             metav1.ConditionFalse,
 				ObservedGeneration: route.K8sObject().GetGeneration(),

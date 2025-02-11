@@ -69,7 +69,7 @@ type RouteStatus interface {
 	Parents() []gwv1.RouteParentStatus
 	SetParents(parents []gwv1.RouteParentStatus)
 	UpdateParentRefs(parent gwv1.ParentReference, controllerName gwv1.GatewayController)
-	UpdateRouteCondition(condition metav1.Condition)
+	UpdateRouteCondition(parent gwv1.ParentReference, condition metav1.Condition)
 }
 
 type RouteRule interface {
