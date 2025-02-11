@@ -389,6 +389,7 @@ func (env *Framework) FindTargetGroupFromSpec(ctx context.Context, tgSpec model.
 	if err != nil {
 		return nil, err
 	}
+	var candidate *vpclattice.TargetGroupSummary
 
 	for _, targetGroup := range targetGroups {
 		if aws.StringValue(targetGroup.Protocol) != tgSpec.Protocol {
@@ -416,10 +417,13 @@ func (env *Framework) FindTargetGroupFromSpec(ctx context.Context, tgSpec model.
 			continue
 		}
 
-		// close enough :D
-		return targetGroup, nil
+		// Select the most recently created target group.
+		// This handles cases where previous test cleanups were incomplete.
+		if candidate == nil || candidate.CreatedAt.Before(*targetGroup.CreatedAt) {
+			candidate = targetGroup
+		}
 	}
-	return nil, nil
+	return candidate, nil
 }
 
 // TODO: Create a new function that only verifying deployment len(podList.Items)==*deployment.Spec.Replicas, and don't do lattice.ListTargets() api call
