@@ -146,16 +146,26 @@ func (s *HTTPRouteStatus) SetParents(parents []gwv1.RouteParentStatus) {
 }
 
 func (s *HTTPRouteStatus) UpdateParentRefs(parent gwv1.ParentReference, controllerName gwv1.GatewayController) {
-	if len(s.Parents()) == 0 {
-		s.SetParents(make([]gwv1.RouteParentStatus, 1))
+	for i, p := range s.Parents() {
+		if p.ParentRef.Name == parent.Name {
+			s.Parents()[i].ParentRef = parent
+			s.Parents()[i].ControllerName = controllerName
+			return
+		}
 	}
-
-	s.Parents()[0].ParentRef = parent
-	s.Parents()[0].ControllerName = controllerName
+	s.SetParents(append(s.Parents(), gwv1.RouteParentStatus{
+		ParentRef:      parent,
+		ControllerName: controllerName,
+	}))
 }
 
-func (s *HTTPRouteStatus) UpdateRouteCondition(condition metav1.Condition) {
-	s.Parents()[0].Conditions = utils.GetNewConditions(s.Parents()[0].Conditions, condition)
+func (s *HTTPRouteStatus) UpdateRouteCondition(parent gwv1.ParentReference, condition metav1.Condition) {
+	for i, p := range s.Parents() {
+		if p.ParentRef.Name == parent.Name {
+			s.Parents()[i].Conditions = utils.GetNewConditions(p.Conditions, condition)
+			return
+		}
+	}
 }
 
 type HTTPRouteRule struct {
