@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
@@ -17,8 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 )
 
 type enqueueRequestsForGatewayEvent struct {
@@ -74,41 +73,11 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(ctx context.Conte
 	}
 
 	for _, route := range routes {
-		if len(route.Spec().ParentRefs()) <= 0 {
-			h.log.Debugf(ctx, "Ignoring Route with no parentRef %s-%s", route.Name(), route.Namespace())
-			continue
-		}
-
-		// find the parent gw object
-		var gwNamespace = route.Namespace()
-		if route.Spec().ParentRefs()[0].Namespace != nil {
-			gwNamespace = string(*route.Spec().ParentRefs()[0].Namespace)
-		}
-
-		gwName := types.NamespacedName{
-			Namespace: gwNamespace,
-			Name:      string(route.Spec().ParentRefs()[0].Name),
-		}
-
-		gw := &gwv1.Gateway{}
-		if err := h.client.Get(ctx, gwName, gw); err != nil {
-			h.log.Debugf(ctx, "Ignoring Route with unknown parentRef %s-%s", route.Name(), route.Namespace())
-			continue
-		}
-
-		// find the parent gateway class name
-		gwClass := &gwv1.GatewayClass{}
-		gwClassName := types.NamespacedName{
-			Namespace: "default",
-			Name:      string(gw.Spec.GatewayClassName),
-		}
-
-		if err := h.client.Get(ctx, gwClassName, gwClass); err != nil {
-			h.log.Debugf(ctx, "Ignoring Route with unknown Gateway %s-%s", route.Name(), route.Namespace())
-			continue
-		}
-
-		if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
+		parents, err := k8s.FindControlledParents(ctx, h.client, route)
+		// If there is one or more parents, even if an error occurs,
+		// it is not an error related to the parent controlled by the Lattice Controller, so enqueue the route
+		if len(parents) > 0 {
+			// parents are controlled by lattice gateway controller, so enqueue the route
 			h.log.Debugf(ctx, "Adding Route %s-%s to queue due to Gateway event", route.Name(), route.Namespace())
 			queue.Add(reconcile.Request{
 				NamespacedName: types.NamespacedName{
@@ -116,6 +85,12 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedRoutes(ctx context.Conte
 					Name:      route.Name(),
 				},
 			})
+			continue
 		}
+		if err != nil {
+			h.log.Debugf(ctx, "Ignoring Route with unknown parentRef %s-%s", route.Name(), route.Namespace())
+			continue
+		}
+		h.log.Debugf(ctx, "Ignoring Route %s-%s with no controlled parent", route.Name(), route.Namespace())
 	}
 }

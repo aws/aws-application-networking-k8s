@@ -2,8 +2,10 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -65,6 +67,35 @@ func IsControlledByLatticeGatewayController(ctx context.Context, c client.Client
 		return false
 	}
 	return gwClass.Spec.ControllerName == config.LatticeGatewayControllerName
+}
+
+// FindControlledParents returns parent gateways that are controlled by lattice gateway controller
+func FindControlledParents(ctx context.Context, client client.Client, route core.Route) ([]*gwv1.Gateway, error) {
+	var result []*gwv1.Gateway
+	gwNamespace := route.Namespace()
+	misses := []string{}
+	for _, parentRef := range route.Spec().ParentRefs() {
+		gw := &gwv1.Gateway{}
+		if parentRef.Namespace != nil {
+			gwNamespace = string(*parentRef.Namespace)
+		}
+		gwName := types.NamespacedName{
+			Namespace: gwNamespace,
+			Name:      string(parentRef.Name),
+		}
+		if err := client.Get(ctx, gwName, gw); err != nil {
+			misses = append(misses, gwName.String())
+			continue
+		}
+		if IsControlledByLatticeGatewayController(ctx, client, gw) {
+			result = append(result, gw)
+		}
+	}
+	var err error
+	if len(misses) > 0 {
+		err = fmt.Errorf("failed to get gateways, %s", misses)
+	}
+	return result, err
 }
 
 func ObjExists(ctx context.Context, c client.Client, key types.NamespacedName, obj client.Object) (bool, error) {

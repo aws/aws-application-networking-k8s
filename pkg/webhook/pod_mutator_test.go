@@ -2,6 +2,8 @@ package webhook
 
 import (
 	"context"
+	"testing"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/stretchr/testify/assert"
@@ -11,7 +13,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_ReadinessGateInjection(t *testing.T) {
@@ -1079,8 +1080,7 @@ func Test_ReadinessGateInjection(t *testing.T) {
 
 			gwClass := &gwv1.GatewayClass{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "amazon-vpc-lattice",
-					Namespace: "default",
+					Name: "amazon-vpc-lattice",
 				},
 				Spec: gwv1.GatewayClassSpec{
 					ControllerName: "application-networking.k8s.aws/gateway-api-controller",
