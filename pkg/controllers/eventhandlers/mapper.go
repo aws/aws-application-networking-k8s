@@ -3,6 +3,7 @@ package eventhandlers
 import (
 	"context"
 	"fmt"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	k8sutils "github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type resourceMapper struct {
@@ -173,6 +175,12 @@ func (r *resourceMapper) backendRefToRoutes(ctx context.Context, obj client.Obje
 		r.client.List(ctx, routeList)
 		for _, k8sRoute := range routeList.Items {
 			routes = append(routes, core.NewGRPCRoute(k8sRoute))
+		}
+	case core.TlsRouteType:
+		routeList := &gwv1alpha2.TLSRouteList{}
+		r.client.List(ctx, routeList)
+		for _, k8sRoute := range routeList.Items {
+			routes = append(routes, core.NewTLSRoute(k8sRoute))
 		}
 	default:
 		return nil
