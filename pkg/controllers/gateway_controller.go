@@ -146,7 +146,7 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	}
 
 	if !k8s.IsControlledByLatticeGatewayController(ctx, r.client, gw) {
-		r.log.Infow(ctx, "Gateway is not controlled by Lattice Gateway Controller", "name", req.Name)
+		r.log.Infow(ctx, "Gateway is not controlled by AWS Gateway API Controller", "name", req.Name)
 		return nil
 	}
 

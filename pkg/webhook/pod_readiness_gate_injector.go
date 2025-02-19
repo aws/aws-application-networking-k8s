@@ -179,16 +179,16 @@ func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, r
 	}
 	parents, err := k8sutils.FindControlledParents(ctx, m.k8sClient, route)
 	// If there is at least one parent element and an error exists,
-	// it is not an error related to the parent controlled by the Lattice Controller, so return true
+	// it is not an error related to the parent controlled by the AWS Gateway API Controller, so return true
 	if len(parents) > 0 {
 		gw := parents[0]
-		m.log.Debugf(ctx, "Gateway %s/%s is a lattice gateway", gw.Namespace, gw.Name)
+		m.log.Debugf(ctx, "Gateway %s/%s is a AWS Gateway API Controller", gw.Namespace, gw.Name)
 		return true
 	}
 	if err != nil {
 		m.log.Debugf(ctx, "Unable to retrieve controlled parents for route %s/%s, %s", route.Namespace(), route.Name(), err)
 		return false
 	}
-	m.log.Debugf(ctx, "Route %s/%s has no controlled lattice gateway", route.Namespace(), route.Name())
+	m.log.Debugf(ctx, "Route %s/%s has no controlled AWS Gateway API Controller", route.Namespace(), route.Name())
 	return false
 }
