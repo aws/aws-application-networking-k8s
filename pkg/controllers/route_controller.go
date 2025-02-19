@@ -216,7 +216,7 @@ func (r *routeReconciler) getRoute(ctx context.Context, req ctrl.Request) (core.
 }
 
 func updateRouteListenerStatus(ctx context.Context, k8sClient client.Client, route core.Route) error {
-	gws, err := findControlledParents(ctx, k8sClient, route)
+	gws, err := k8s.FindControlledParents(ctx, k8sClient, route)
 	if len(gws) <= 0 {
 		return fmt.Errorf("failed to get gateway for route %s: %w", route.Name(), err)
 	}
@@ -233,41 +233,8 @@ func (r *routeReconciler) isRouteRelevant(ctx context.Context, route core.Route)
 	}
 	// if route has gateway parentRef that is controlled by lattice gateway controller,
 	// then it is relevant
-	gws, _ := findControlledParents(ctx, r.client, route)
+	gws, _ := k8s.FindControlledParents(ctx, r.client, route)
 	return len(gws) > 0
-}
-
-// findControlledParents returns parent gateways that are controlled by lattice gateway controller
-func findControlledParents(
-	ctx context.Context,
-	client client.Client,
-	route core.Route,
-) ([]*gwv1.Gateway, error) {
-	var result []*gwv1.Gateway
-	gwNamespace := route.Namespace()
-	misses := []string{}
-	for _, parentRef := range route.Spec().ParentRefs() {
-		gw := &gwv1.Gateway{}
-		if parentRef.Namespace != nil {
-			gwNamespace = string(*parentRef.Namespace)
-		}
-		gwName := types.NamespacedName{
-			Namespace: gwNamespace,
-			Name:      string(parentRef.Name),
-		}
-		if err := client.Get(ctx, gwName, gw); err != nil {
-			misses = append(misses, gwName.String())
-			continue
-		}
-		if k8s.IsControlledByLatticeGatewayController(ctx, client, gw) {
-			result = append(result, gw)
-		}
-	}
-	var err error
-	if len(misses) > 0 {
-		err = fmt.Errorf("failed to get gateway, name %s", misses)
-	}
-	return result, err
 }
 
 func (r *routeReconciler) buildAndDeployModel(
@@ -308,7 +275,7 @@ func (r *routeReconciler) buildAndDeployModel(
 }
 
 func (r *routeReconciler) findControlledParentRef(ctx context.Context, route core.Route) (gwv1.ParentReference, error) {
-	gws, err := findControlledParents(ctx, r.client, route)
+	gws, err := k8s.FindControlledParents(ctx, r.client, route)
 	if len(gws) <= 0 {
 		return gwv1.ParentReference{}, fmt.Errorf("failed to get gateway for route %s: %w", route.Name(), err)
 	}
@@ -528,7 +495,7 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 	}
 
 	parentStatuses := []gwv1.RouteParentStatus{}
-	gws, err := findControlledParents(ctx, r.client, route)
+	gws, err := k8s.FindControlledParents(ctx, r.client, route)
 	if len(gws) <= 0 {
 		return nil, fmt.Errorf("failed to get gateway for route %s: %w", route.Name(), err)
 	}

@@ -36,7 +36,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -146,19 +145,8 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		return client.IgnoreNotFound(err)
 	}
 
-	gwClass := &gwv1.GatewayClass{}
-	gwClassName := types.NamespacedName{
-		Namespace: defaultNamespace,
-		Name:      string(gw.Spec.GatewayClassName),
-	}
-
-	if err := r.client.Get(ctx, gwClassName, gwClass); err != nil {
-		r.log.Infow(ctx, "GatewayClass is not found", "name", req.Name, "gwclass", gwClassName)
-		return client.IgnoreNotFound(err)
-	}
-
-	if gwClass.Spec.ControllerName != config.LatticeGatewayControllerName {
-		r.log.Infow(ctx, "GatewayClass is not recognized", "name", req.Name, "gwClassControllerName", gwClass.Spec.ControllerName)
+	if !k8s.IsControlledByLatticeGatewayController(ctx, r.client, gw) {
+		r.log.Infow(ctx, "Gateway is not controlled by AWS Gateway API Controller", "name", req.Name)
 		return nil
 	}
 
@@ -176,26 +164,14 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 	}
 
 	for _, route := range routes {
-		if len(route.Spec().ParentRefs()) <= 0 {
-			continue
-		}
-		gwNamespace := route.Namespace()
-		if route.Spec().ParentRefs()[0].Namespace != nil {
-			gwNamespace = string(*route.Spec().ParentRefs()[0].Namespace)
-		}
-		gwName := types.NamespacedName{
-			Namespace: gwNamespace,
-			Name:      string(route.Spec().ParentRefs()[0].Name),
-		}
-
-		httpGw := &gwv1.Gateway{}
-		if err := r.client.Get(ctx, gwName, httpGw); err != nil {
-			continue
-		}
-
-		if httpGw.Name == gw.Name && httpGw.Namespace == gw.Namespace {
+		parents, err := k8s.FindControlledParents(ctx, r.client, route)
+		if len(parents) > 0 {
+			gw := parents[0]
 			return fmt.Errorf("cannot delete gateway %s/%s - found referencing route %s/%s",
 				gw.Namespace, gw.Name, route.Namespace(), route.Name())
+		}
+		if err != nil {
+			continue
 		}
 	}
 

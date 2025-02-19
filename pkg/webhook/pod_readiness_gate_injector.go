@@ -2,15 +2,14 @@ package webhook
 
 import (
 	"context"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	k8sutils "github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -178,41 +177,18 @@ func (m *PodReadinessGateInjector) routeHasLatticeGateway(ctx context.Context, r
 		m.log.Debugf(ctx, "Route %s/%s has no parentRefs", route.Namespace(), route.Name())
 		return false
 	}
-
-	gw := &gwv1.Gateway{}
-	gwNamespace := route.Namespace()
-	if route.Spec().ParentRefs()[0].Namespace != nil {
-		gwNamespace = string(*route.Spec().ParentRefs()[0].Namespace)
-	}
-	gwName := types.NamespacedName{
-		Namespace: gwNamespace,
-		Name:      string(route.Spec().ParentRefs()[0].Name),
-	}
-
-	if err := m.k8sClient.Get(ctx, gwName, gw); err != nil {
-		m.log.Debugf(ctx, "Unable to retrieve gateway %s/%s for route %s/%s, %s",
-			gwName.Namespace, gwName.Name, route.Namespace(), route.Name(), err)
-		return false
-	}
-
-	// make sure gateway is an aws-vpc-lattice
-	gwClass := &gwv1.GatewayClass{}
-	gwClassName := types.NamespacedName{
-		Namespace: "default",
-		Name:      string(gw.Spec.GatewayClassName),
-	}
-
-	if err := m.k8sClient.Get(ctx, gwClassName, gwClass); err != nil {
-		m.log.Debugf(ctx, "Unable to retrieve gateway class %s/%s for gateway %s/%s, %s",
-			gwClassName.Namespace, gwClass.Name, gwName.Namespace, gwName.Name, err)
-		return false
-	}
-
-	if gwClass.Spec.ControllerName == config.LatticeGatewayControllerName {
-		m.log.Debugf(ctx, "Gateway %s/%s is a lattice gateway", gwName.Namespace, gwName.Name)
+	parents, err := k8sutils.FindControlledParents(ctx, m.k8sClient, route)
+	// If there is at least one parent element and an error exists,
+	// it is not an error related to the parent controlled by the AWS Gateway API Controller, so return true
+	if len(parents) > 0 {
+		gw := parents[0]
+		m.log.Debugf(ctx, "Gateway %s/%s is a AWS Gateway API Controller", gw.Namespace, gw.Name)
 		return true
 	}
-
-	m.log.Debugf(ctx, "Gateway %s/%s is not a lattice gateway", gwName.Namespace, gwName.Name)
+	if err != nil {
+		m.log.Debugf(ctx, "Unable to retrieve controlled parents for route %s/%s, %s", route.Namespace(), route.Name(), err)
+		return false
+	}
+	m.log.Debugf(ctx, "Route %s/%s has no controlled AWS Gateway API Controller", route.Namespace(), route.Name())
 	return false
 }
