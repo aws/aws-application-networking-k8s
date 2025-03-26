@@ -65,6 +65,14 @@ With VPC Lattice you can also avoid some of these common problems:
 - **Sidecar management**: Changes to sidecars might require those sidecars to be reconfigured or rebooted.
   While this might not be a big issue for a handful of sidecars, it can be disruptive if you have thousands of pods, each with its own sidecar.
 
+## Limitations
+
+For those already familiar with the reference implementation of [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/), the API generally serves two purposes: enabling routing for both North-South (Ingress) and also East-West (Mesh) traffic.  
+
+The AWS Gateway API Controller is currently focused only on East-West (Mesh) traffic through VPC Lattice.
+
+Many users will expect North-South (Ingress) ALB/NLB-type features. This is available (still using the v1 Ingress spec) from the [AWS Load Balancer Controller](https://github.com/kubernetes-sigs/aws-load-balancer-controller)
+
 ## Relationship between VPC Lattice and Kubernetes
 
 As a Kubernetes user, you can have a very Kubernetes-native experience using the VPC Lattice APIs.
