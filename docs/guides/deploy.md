@@ -19,8 +19,8 @@ Install these tools before proceeding:
 Set your AWS Region and Cluster Name as environment variables. See the [Amazon VPC Lattice FAQs](https://aws.amazon.com/vpc/lattice/faqs/) for a list of supported regions.
 
 ```bash
-export AWS_REGION=<cluster_region>
-export CLUSTER_NAME=<cluster_name>
+export AWS_REGION=<eks_cluster_region>
+export EKS_CLUSTER_NAME=<EKS_CLUSTER_NAME>
 ```
 
 **Install Gateway API CRDs**
@@ -32,7 +32,7 @@ The latest Gateway API CRDs are available [here](https://gateway-api.sigs.k8s.io
 You can easily create a cluster with `eksctl`, the CLI for Amazon EKS:
 
 ```bash
-eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION
+eksctl create cluster --name ${EKS_CLUSTER_NAME} --region $AWS_REGION
 ```
 
 **Allow traffic from Amazon VPC Lattice**
@@ -46,10 +46,10 @@ CLUSTER_SG=<your_node_security_group>
 ```
 
 !!!Note
-    If you have created the cluster with the `eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION` command, you can use the following command to export the Security Group ID:
+    If you have created the cluster with the `eksctl create cluster --name ${EKS_CLUSTER_NAME} --region $AWS_REGION` command, you can use the following command to export the Security Group ID:
 
 ```bash
-CLUSTER_SG=$(aws eks describe-cluster --name $CLUSTER_NAME --output json | jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
+CLUSTER_SG=$(aws eks describe-cluster --name ${EKS_CLUSTER_NAME} --output json | jq -r '.cluster.resourcesVpcConfig.clusterSecurityGroupId')
 ```
 
 ```bash
@@ -78,6 +78,7 @@ export VPCLatticeControllerIAMPolicyArn=$(aws iam list-policies --query 'Policie
 2. Create the `aws-application-networking-system` namespace:
 
 ```bash
+curl -o aws-application-networking-system.yaml https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-namesystem.yaml
 kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-namesystem.yaml
 ```
 
@@ -95,7 +96,7 @@ To use Pod Identities, set up the [Pod Identity Agent](https://docs.aws.amazon.c
 1. Run the following AWS CLI command to create the Pod Identity addon:
 
 ```bash
-aws eks create-addon --cluster-name $CLUSTER_NAME --addon-name eks-pod-identity-agent --addon-version v1.0.0-eksbuild.1
+aws eks create-addon --cluster-name ${EKS_CLUSTER_NAME} --addon-name eks-pod-identity-agent --addon-version v1.0.0-eksbuild.1
 ```
 
 ```bash
@@ -120,7 +121,7 @@ kubectl apply -f gateway-api-controller-service-account.yaml
 2. Create a trust policy file for the IAM role:
 
 ```bash
-cat >trust-relationship.json <<EOF
+cat > eks-pod-identity-trust-relationship.json <<EOF
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -143,7 +144,7 @@ EOF
 3. Create the role:
 
 ```bash
-aws iam create-role --role-name VPCLatticeControllerIAMRole --assume-role-policy-document file://trust-relationship.json --description "IAM Role for AWS Gateway API Controller for VPC Lattice"
+aws iam create-role --role-name VPCLatticeControllerIAMRole --assume-role-policy-document file://teks-pod-identity-trust-relationship.json --description "IAM Role for AWS Gateway API Controller for VPC Lattice"
 aws iam attach-role-policy --role-name VPCLatticeControllerIAMRole --policy-arn=$VPCLatticeControllerIAMPolicyArn
 export VPCLatticeControllerIAMRoleArn=$(aws iam list-roles --query 'Roles[?RoleName==`VPCLatticeControllerIAMRole`].Arn' --output text)
 ```
@@ -151,7 +152,7 @@ export VPCLatticeControllerIAMRoleArn=$(aws iam list-roles --query 'Roles[?RoleN
 4. Create the association:
 
 ```bash
-aws eks create-pod-identity-association --cluster-name $CLUSTER_NAME --role-arn $VPCLatticeControllerIAMRoleArn --namespace aws-application-networking-system --service-account gateway-api-controller
+aws eks create-pod-identity-association --cluster-name ${EKS_CLUSTER_NAME} --role-arn ${VPCLatticeControllerIAMRoleArn} --namespace aws-application-networking-system --service-account gateway-api-controller
 ```
 
 === "IRSA"
@@ -161,14 +162,14 @@ You can use AWS IAM Roles for Service Accounts (IRSA) to assign the controller n
 1. Create an IAM OIDC provider. See [Creating an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html) for details.
 
 ```bash
-eksctl utils associate-iam-oidc-provider --cluster $CLUSTER_NAME --approve --region $AWS_REGION
+eksctl utils associate-iam-oidc-provider --cluster ${EKS_CLUSTER_NAME} --approve --region $AWS_REGION
 ```
 
 2. Create an IAM service account for pod-level permission:
 
 ```bash
 eksctl create iamserviceaccount \
-    --cluster=$CLUSTER_NAME \
+    --cluster=${EKS_CLUSTER_NAME} \
     --namespace=aws-application-networking-system \
     --name=gateway-api-controller \
     --attach-policy-arn=$VPCLatticeControllerIAMPolicyArn \
@@ -207,4 +208,3 @@ kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networkin
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/gatewayclass.yaml
 ```
-
