@@ -68,7 +68,13 @@ tools() {
             echo "Installing golangci-lint"
             curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$GOLANGCI_LINT_VERSION
         else
-            echo "golangci-lint is already installed."
+
+            read -p "golangci-lint is already installed, do you want to update? (Y/N): " update_package
+
+            if [[ $update_package == 'Y' || $update_package == 'y' ]]; then
+                echo "Updating golangci-lint"
+                curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v$GOLANGCI_LINT_VERSION
+            fi
         fi
 
         go install github.com/golang/mock/mockgen@v1.6.0
