@@ -240,16 +240,16 @@ func Test_DoNotDeleteCases(t *testing.T) {
 		},
 	}
 	svcExportModelTg := baseModelTg
-	svcExportModelTg.Spec.TargetGroupTagFields.K8SSourceType = model.SourceTypeSvcExport
+	svcExportModelTg.Spec.K8SSourceType = model.SourceTypeSvcExport
 
 	mockSvcExportTgBuilder.EXPECT().BuildTargetGroup(ctx, gomock.Any()).Return(&svcExportModelTg, nil)
 
 	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
 	svcModelTg := baseModelTg
 	svcModelTg.ResourceMeta = core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "tg-id")
-	svcModelTg.Spec.TargetGroupTagFields.K8SSourceType = model.SourceTypeHTTPRoute
-	svcModelTg.Spec.TargetGroupTagFields.K8SRouteName = "route"
-	svcModelTg.Spec.TargetGroupTagFields.K8SRouteNamespace = "route-ns"
+	svcModelTg.Spec.K8SSourceType = model.SourceTypeHTTPRoute
+	svcModelTg.Spec.K8SRouteName = "route"
+	svcModelTg.Spec.K8SRouteNamespace = "route-ns"
 	stack.AddResource(&svcModelTg)
 
 	mockTGManager.EXPECT().IsTargetGroupMatch(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)

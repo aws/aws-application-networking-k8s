@@ -13,6 +13,16 @@ linters:
       - third_party$
       - builtin$
       - examples$
+    rules:
+      - linters:
+          - staticcheck
+        text: "ST1012:"
+      - linters:
+          - staticcheck
+        text: "QF1003:"
+      - linters:
+          - staticcheck
+        text: "QF1001:"
 formatters:
   exclusions:
     generated: lax

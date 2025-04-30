@@ -109,7 +109,7 @@ func (d *defaultListenerManager) create(ctx context.Context, latticeSvcId string
 	resp, err := d.cloud.Lattice().CreateListenerWithContext(ctx, &listenerInput)
 	if err != nil {
 		return model.ListenerStatus{},
-			fmt.Errorf("Failed CreateListener %s due to %s", aws.StringValue(listenerInput.Name), err)
+			fmt.Errorf("failed CreateListener %s due to %s", aws.StringValue(listenerInput.Name), err)
 	}
 	d.log.Infof(ctx, "Success CreateListener %s, %s", aws.StringValue(resp.Name), aws.StringValue(resp.Id))
 
@@ -280,7 +280,7 @@ func (d *defaultListenerManager) Delete(ctx context.Context, modelListener *mode
 			d.log.Debugf(ctx, "Listener already deleted")
 			return nil
 		}
-		return fmt.Errorf("Failed DeleteListener %s, %s due to %s", modelListener.Status.Id, modelListener.Status.ServiceId, err)
+		return fmt.Errorf("failed DeleteListener %s, %s due to %s", modelListener.Status.Id, modelListener.Status.ServiceId, err)
 	}
 
 	d.log.Infof(ctx, "Success DeleteListener %s, %s", modelListener.Status.Id, modelListener.Status.ServiceId)

@@ -423,7 +423,7 @@ func buildTargetGroupIpAddressType(svc *corev1.Service) (string, error) {
 	ipFamilies := svc.Spec.IPFamilies
 
 	if len(ipFamilies) != 1 {
-		return "", errors.New("Lattice Target Group only supports single stack IP addresses")
+		return "", errors.New("lattice Target Group only supports single stack IP addresses")
 	}
 
 	// IpFamilies will always have at least 1 element
