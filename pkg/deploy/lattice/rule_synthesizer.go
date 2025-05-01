@@ -87,7 +87,7 @@ func (r *ruleSynthesizer) createOrUpdateRules(ctx context.Context, rule *model.R
 	}
 	status, err := r.ruleManager.Upsert(ctx, rule, stackListener, stackSvc)
 	if err != nil {
-		return fmt.Errorf("Failed RuleManager.Upsert due to %s", err)
+		return fmt.Errorf("failed RuleManager.Upsert due to %s", err)
 	}
 	rule.Status = &status
 
