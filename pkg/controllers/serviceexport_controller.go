@@ -121,7 +121,7 @@ func (r *serviceExportReconciler) reconcile(ctx context.Context, req ctrl.Reques
 		return client.IgnoreNotFound(err)
 	}
 
-	if srvExport.ObjectMeta.Annotations["application-networking.k8s.aws/federation"] != "amazon-vpc-lattice" {
+	if srvExport.Annotations["application-networking.k8s.aws/federation"] != "amazon-vpc-lattice" {
 		return nil
 	}
 	r.log.Debugf(ctx, "Found matching service export %s-%s", srvExport.Name, srvExport.Namespace)

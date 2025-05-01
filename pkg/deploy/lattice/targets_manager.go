@@ -119,10 +119,10 @@ func (s *defaultTargetsManager) registerTargets(
 		}
 		resp, err := s.cloud.Lattice().RegisterTargetsWithContext(ctx, &registerTargetsInput)
 		if err != nil {
-			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("Failed to register targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
+			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("failed to register targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
 		}
 		if len(resp.Unsuccessful) > 0 {
-			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("Failed to register targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
+			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("failed to register targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
 				modelTg.Status.Id, i+1, len(chunks), resp.Unsuccessful))
 		}
 		s.log.Debugf(ctx, "Successfully registered %d targets from VPC Lattice Target Group %s for chunk %d/%d",
@@ -152,10 +152,10 @@ func (s *defaultTargetsManager) deregisterTargets(
 		}
 		resp, err := s.cloud.Lattice().DeregisterTargetsWithContext(ctx, &deregisterTargetsInput)
 		if err != nil {
-			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("Failed to deregister targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
+			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
 		}
 		if len(resp.Unsuccessful) > 0 {
-			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("Failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
+			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
 				modelTg.Status.Id, i+1, len(chunks), resp.Unsuccessful))
 		}
 		s.log.Debugf(ctx, "Successfully deregistered %d targets from VPC Lattice Target Group %s for chunk %d/%d", len(resp.Successful), modelTg.Status.Id, i+1, len(chunks))
