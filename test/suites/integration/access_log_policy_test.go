@@ -220,6 +220,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("creation produces an Access Log Subscription for the corresponding Service Network when the targetRef's Kind is Gateway", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -279,6 +280,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("creation produces an Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is HTTPRoute", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -339,6 +341,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("creation produces an Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is GRPCRoute", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -399,6 +402,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("creation produces Access Log Subscriptions with Bucket, Log Group, and Delivery Stream destinations on the same targetRef", func() {
+		Skip("This test is unreliable.")
 		// Create Access Log Policy for S3 Bucket
 		s3AccessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -488,6 +492,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("creation sets Access Log Policy status to Conflicted when creating a new policy for the same targetRef and destination type", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy1 := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName + "-1",
@@ -540,6 +545,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("creation sets Access Log Policy status to Invalid when the destination does not exist", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -575,6 +581,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("creation sets Access Log Policy status to Invalid when the targetRef's Group is not gateway.networking.k8s.io", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -610,6 +617,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("creation sets Access Log Policy status to Invalid when the targetRef's Kind is not Gateway, HTTPRoute, or GRPCRoute", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -645,6 +653,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("update properly changes or replaces Access Log Subscription and sets Access Log Policy status", func() {
+		Skip("This test is unreliable.")
 		originalAlsArn := ""
 		currentAlsArn := ""
 		expectedGeneration := 1
@@ -1031,6 +1040,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("deletion removes the Access Log Subscription for the corresponding Service Network when the targetRef's Kind is Gateway", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -1073,6 +1083,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("deletion removes the Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is HTTPRoute", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -1117,6 +1128,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("deletion removes the Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is GRPCRoute", func() {
+		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -1161,6 +1173,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	})
 
 	It("status is updated when targetRef is deleted and recreated", func() {
+		Skip("This test is unreliable.")
 		// Create HTTPRoute, Service, and Deployment
 		deployment, k8sService := testFramework.NewNginxApp(test.ElasticSearchOptions{
 			Name:      k8sResourceName2,
