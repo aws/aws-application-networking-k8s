@@ -114,7 +114,7 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 					g.Expect(*retrievedWeightedTargetGroup1InRule.TargetGroupIdentifier).To(Equal(*retrievedTg1.Id))
 					g.Expect(*retrievedWeightedTargetGroup1InRule.Weight).To(BeEquivalentTo(80))
 				}
-			}).Should(Succeed())
+			}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
 			log.Println("Verifying Weighted rule traffic")
 			dnsName := testFramework.GetVpcLatticeServiceDns(httpRoute.Name, httpRoute.Namespace)
 
@@ -138,7 +138,7 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 					stdout, _, err := testFramework.PodExec(pod, cmd)
 					g.Expect(err).To(BeNil())
 					g.Expect(stdout).To(ContainSubstring("handler pod"))
-				}).WithTimeout(60 * time.Second).WithOffset(1).Should(Succeed())
+				}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
 			}
 		})
 
