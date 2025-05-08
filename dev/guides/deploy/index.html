@@ -1363,100 +1363,88 @@
 
 
 <h1 id="deploy-the-aws-gateway-api-controller-on-amazon-eks">Deploy the AWS Gateway API Controller on Amazon EKS<a class="headerlink" href="#deploy-the-aws-gateway-api-controller-on-amazon-eks" title="Permanent link">&para;</a></h1>
-<p>This Deployment Guide provides an end-to-end procedure to install the AWS Gateway API Controller with <a href="https://aws.amazon.com/eks/">Amazon Elastic Kubernetes Service</a>. </p>
-<p>Amazon EKS is a simple, recommended way of preparing a cluster for running services with AWS Gateway API Controller, however the AWS Gateway API Controller can be used on any Kubernetes cluster on AWS. Check out the <a href="../advanced-configurations/">Advanced Configurations</a> section below for instructions on how to install and run the controller on self-hosted Kubernetes clusters on AWS.</p>
+<p>This Deployment Guide provides an end-to-end procedure to install the AWS Gateway API Controller with <a href="https://aws.amazon.com/eks/">Amazon Elastic Kubernetes Service</a>.</p>
+<p>Amazon EKS is a simple, recommended way of preparing a cluster for running services with the AWS Gateway API Controller. However, the AWS Gateway API Controller can be used on any Kubernetes cluster on AWS. Check out the <a href="../advanced-configurations/">Advanced Configurations</a> section below for instructions on how to install and run the controller on self-hosted Kubernetes clusters on AWS.</p>
 <h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
 <p>Install these tools before proceeding:</p>
 <ol>
 <li><a href="https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html">AWS CLI</a>,</li>
-<li><code>kubectl</code> - <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">the Kubernetes CLI</a>,</li>
-<li><code>helm</code> - <a href="https://helm.sh/docs/intro/install/">the package manager for Kubernetes</a>,</li>
-<li><code>eksctl</code>- <a href="https://docs.aws.amazon.com/eks/latest/userguide/setting-up.html">the CLI for Amazon EKS</a>,</li>
-<li><code>jq</code> - <a href="https://jqlang.github.io/jq/">CLI to manipulate json files</a>.</li>
+<li><code>kubectl</code> – <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">the Kubernetes CLI</a>,</li>
+<li><code>helm</code> – <a href="https://helm.sh/docs/intro/install/">the package manager for Kubernetes</a>,</li>
+<li><code>eksctl</code> – <a href="https://docs.aws.amazon.com/eks/latest/userguide/setting-up.html">the CLI for Amazon EKS</a>,</li>
+<li><code>jq</code> – <a href="https://jqlang.github.io/jq/">CLI to manipulate JSON files</a>.</li>
 </ol>
 <h3 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h3>
-<p>Set your AWS Region and Cluster Name as environment variables. See the <a href="https://aws.amazon.com/vpc/lattice/faqs/">Amazon VPC Lattice FAQs</a> for a list of supported regions.
-   <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span>
-<span class="normal"><a href="#__codelineno-0-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AWS_REGION</span><span class="o">=</span>&lt;cluster_region&gt;
-<a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">CLUSTER_NAME</span><span class="o">=</span>&lt;cluster_name&gt;
-</code></pre></div></td></tr></table></div></p>
+<p>Set your AWS Region and Cluster Name as environment variables. See the <a href="https://aws.amazon.com/vpc/lattice/faqs/">Amazon VPC Lattice FAQs</a> for a list of supported regions.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AWS_REGION</span><span class="o">=</span>&lt;eks_cluster_region&gt;
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">EKS_CLUSTER_NAME</span><span class="o">=</span>&lt;EKS_CLUSTER_NAME&gt;
+</code></pre></div>
 <p><strong>Install Gateway API CRDs</strong></p>
 <p>The latest Gateway API CRDs are available <a href="https://gateway-api.sigs.k8s.io/">here</a>. Please <a href="https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api">follow this installation</a> process.</p>
 <p><strong>Create a cluster (optional)</strong></p>
-<p>You can easily create a cluster with <code>eksctl</code>, the CLI for Amazon EKS:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>eksctl<span class="w"> </span>create<span class="w"> </span>cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span>--region<span class="w"> </span><span class="nv">$AWS_REGION</span>
-</code></pre></div></p>
+<p>You can easily create a cluster with <code>eksctl</code>, the CLI for Amazon EKS:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>eksctl<span class="w"> </span>create<span class="w"> </span>cluster<span class="w"> </span>--name<span class="w"> </span><span class="si">${</span><span class="nv">EKS_CLUSTER_NAME</span><span class="si">}</span><span class="w"> </span>--region<span class="w"> </span><span class="nv">$AWS_REGION</span>
+</code></pre></div>
 <p><strong>Allow traffic from Amazon VPC Lattice</strong></p>
-<p>You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic from the VPC Lattice managed prefix lists.  See <a href="https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html">Control traffic to resources using security groups</a> for details. Lattice has both an IPv4 and IPv6 prefix lists available.</p>
+<p>You must set up security groups so that they allow all Pods communicating with VPC Lattice to allow traffic from the VPC Lattice managed prefix lists. See <a href="https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html">Control traffic to resources using security groups</a> for details. Lattice has both IPv4 and IPv6 prefix lists available.</p>
 <ol>
-<li>
-<p>Configure the EKS nodes' security group to receive traffic from the VPC Lattice network. </p>
+<li>Configure the EKS nodes' security group to receive traffic from the VPC Lattice network.</li>
+</ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">CLUSTER_SG</span><span class="o">=</span>&lt;your_node_security_group&gt;
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you have created the cluster with <code>eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION</code> command, you can use this command to export the Security Group ID:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">CLUSTER_SG</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span>--output<span class="w"> </span>json<span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.cluster.resourcesVpcConfig.clusterSecurityGroupId&#39;</span><span class="k">)</span>
-</code></pre></div>
+<p>If you have created the cluster with the <code>eksctl create cluster --name ${EKS_CLUSTER_NAME} --region $AWS_REGION</code> command, you can use the following command to export the Security Group ID:</p>
 </div>
-<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-4-1">1</a></span>
-<span class="normal"><a href="#__codelineno-4-2">2</a></span>
-<span class="normal"><a href="#__codelineno-4-3">3</a></span>
-<span class="normal"><a href="#__codelineno-4-4">4</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="nv">PREFIX_LIST_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>ec2<span class="w"> </span>describe-managed-prefix-lists<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;PrefixLists[?PrefixListName==&quot;</span><span class="se">\&#39;</span>com.amazonaws.<span class="nv">$AWS_REGION</span>.vpc-lattice<span class="se">\&#39;</span><span class="s2">&quot;].PrefixListId&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2"></a>aws<span class="w"> </span>ec2<span class="w"> </span>authorize-security-group-ingress<span class="w"> </span>--group-id<span class="w"> </span><span class="nv">$CLUSTER_SG</span><span class="w"> </span>--ip-permissions<span class="w"> </span><span class="s2">&quot;PrefixListIds=[{PrefixListId=</span><span class="si">${</span><span class="nv">PREFIX_LIST_ID</span><span class="si">}</span><span class="s2">}],IpProtocol=-1&quot;</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3"></a><span class="nv">PREFIX_LIST_ID_IPV6</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>ec2<span class="w"> </span>describe-managed-prefix-lists<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;PrefixLists[?PrefixListName==&quot;</span><span class="se">\&#39;</span>com.amazonaws.<span class="nv">$AWS_REGION</span>.ipv6.vpc-lattice<span class="se">\&#39;</span><span class="s2">&quot;].PrefixListId&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4"></a>aws<span class="w"> </span>ec2<span class="w"> </span>authorize-security-group-ingress<span class="w"> </span>--group-id<span class="w"> </span><span class="nv">$CLUSTER_SG</span><span class="w"> </span>--ip-permissions<span class="w"> </span><span class="s2">&quot;PrefixListIds=[{PrefixListId=</span><span class="si">${</span><span class="nv">PREFIX_LIST_ID_IPV6</span><span class="si">}</span><span class="s2">}],IpProtocol=-1&quot;</span>
-</code></pre></div></td></tr></table></div>
-</li>
-</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">CLUSTER_SG</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="si">${</span><span class="nv">EKS_CLUSTER_NAME</span><span class="si">}</span><span class="w"> </span>--output<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.cluster.resourcesVpcConfig.clusterSecurityGroupId&#39;</span><span class="k">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">PREFIX_LIST_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>ec2<span class="w"> </span>describe-managed-prefix-lists<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;PrefixLists[?PrefixListName==&#39;com.amazonaws.</span><span class="nv">$AWS_REGION</span><span class="s2">.vpc-lattice&#39;].PrefixListId&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>aws<span class="w"> </span>ec2<span class="w"> </span>authorize-security-group-ingress<span class="w"> </span>--group-id<span class="w"> </span><span class="nv">$CLUSTER_SG</span><span class="w"> </span>--ip-permissions<span class="w"> </span><span class="s2">&quot;PrefixListIds=[{PrefixListId=</span><span class="si">${</span><span class="nv">PREFIX_LIST_ID</span><span class="si">}</span><span class="s2">}],IpProtocol=-1&quot;</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">PREFIX_LIST_ID_IPV6</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>ec2<span class="w"> </span>describe-managed-prefix-lists<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;PrefixLists[?PrefixListName==&#39;com.amazonaws.</span><span class="nv">$AWS_REGION</span><span class="s2">.ipv6.vpc-lattice&#39;].PrefixListId&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>aws<span class="w"> </span>ec2<span class="w"> </span>authorize-security-group-ingress<span class="w"> </span>--group-id<span class="w"> </span><span class="nv">$CLUSTER_SG</span><span class="w"> </span>--ip-permissions<span class="w"> </span><span class="s2">&quot;PrefixListIds=[{PrefixListId=</span><span class="si">${</span><span class="nv">PREFIX_LIST_ID_IPV6</span><span class="si">}</span><span class="s2">}],IpProtocol=-1&quot;</span>
+</code></pre></div>
 <p><strong>Set up IAM permissions</strong></p>
-<p>The AWS Gateway API Controller needs to have necessary permissions to operate.</p>
+<p>The AWS Gateway API Controller needs to have the necessary permissions to operate.</p>
 <ol>
-<li>
-<p>Create a policy (<code>recommended-inline-policy.json</code>) in IAM with the following content that can invoke the Gateway API and copy the policy arn for later use:</p>
-<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-5-1">1</a></span>
-<span class="normal"><a href="#__codelineno-5-2">2</a></span>
-<span class="normal"><a href="#__codelineno-5-3">3</a></span>
-<span class="normal"><a href="#__codelineno-5-4">4</a></span>
-<span class="normal"><a href="#__codelineno-5-5">5</a></span>
-<span class="normal"><a href="#__codelineno-5-6">6</a></span>
-<span class="normal"><a href="#__codelineno-5-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1"></a>curl<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/recommended-inline-policy.json<span class="w">  </span>-o<span class="w"> </span>recommended-inline-policy.json
-<a id="__codelineno-5-2" name="__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3"></a>aws<span class="w"> </span>iam<span class="w"> </span>create-policy<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4"></a><span class="w">    </span>--policy-name<span class="w"> </span>VPCLatticeControllerIAMPolicy<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5"></a><span class="w">    </span>--policy-document<span class="w"> </span>file://recommended-inline-policy.json
-<a id="__codelineno-5-6" name="__codelineno-5-6"></a>
-<a id="__codelineno-5-7" name="__codelineno-5-7"></a><span class="nb">export</span><span class="w"> </span><span class="nv">VPCLatticeControllerIAMPolicyArn</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>iam<span class="w"> </span>list-policies<span class="w"> </span>--query<span class="w"> </span><span class="s1">&#39;Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn&#39;</span><span class="w"> </span>--output<span class="w"> </span>text<span class="k">)</span>
-</code></pre></div></td></tr></table></div>
-</li>
-<li>
-<p>Create the <code>aws-application-networking-system</code> namespace:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-namesystem.yaml
-</code></pre></div></p>
-</li>
+<li>Create a policy (<code>recommended-inline-policy.json</code>) in IAM with the following content that can invoke the Gateway API and copy the policy ARN for later use:</li>
 </ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/recommended-inline-policy.json<span class="w"> </span>-o<span class="w"> </span>recommended-inline-policy.json
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>aws<span class="w"> </span>iam<span class="w"> </span>create-policy<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span>--policy-name<span class="w"> </span>VPCLatticeControllerIAMPolicy<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span>--policy-document<span class="w"> </span>file://recommended-inline-policy.json
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="nb">export</span><span class="w"> </span><span class="nv">VPCLatticeControllerIAMPolicyArn</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>iam<span class="w"> </span>list-policies<span class="w"> </span>--query<span class="w"> </span><span class="s1">&#39;Policies[?PolicyName==`VPCLatticeControllerIAMPolicy`].Arn&#39;</span><span class="w"> </span>--output<span class="w"> </span>text<span class="k">)</span>
+</code></pre></div>
+<ol>
+<li>Create the <code>aws-application-networking-system</code> namespace:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>curl<span class="w"> </span>-o<span class="w"> </span>aws-application-networking-system.yaml<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-namesystem.yaml
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-namesystem.yaml
+</code></pre></div>
 <p>You can choose from <a href="https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html">Pod Identities</a> (recommended) and <a href="https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html">IAM Roles For Service Accounts</a> to set up controller permissions.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Pod Identities (recommended)</label><label for="__tabbed_1_2">IRSA</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:1"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Pod Identities (recommended)</label></div>
 <div class="tabbed-content">
-<div class="tabbed-block">
+<div class="tabbed-block"></div>
+</div>
+</div>
 <p><strong>Set up the Pod Identities Agent</strong></p>
-<p>To use Pod Identities, we need to <a href="https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html">set up the Agent</a> and to configure the controller's Kubernetes Service Account to assume necessary permissions with EKS Pod Identity.</p>
+<p>To use Pod Identities, set up the <a href="https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html">Pod Identity Agent</a> and configure the controller's Kubernetes Service Account to assume necessary permissions with EKS Pod Identity.</p>
 <div class="admonition note">
 <p class="admonition-title">Read if you are using a custom node role</p>
-<p>The node role needs to have permissions for the Pod Identity Agent to do the <code>AssumeRoleForPodIdentity</code> action in the EKS Auth API. Follow <a href="https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html">the documentation</a> if you are not using the AWS managed policy <a href="https://docs.aws.amazon.com/eks/latest/userguide/security-iam-awsmanpol.html#security-iam-awsmanpol-AmazonEKSWorkerNodePolicy">AmazonEKSWorkerNodePolicy</a>.</p>
+<p>The node role needs to have permissions for the Pod Identity Agent to perform the <code>AssumeRoleForPodIdentity</code> action in the EKS Auth API. Follow <a href="https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html">the documentation</a> if you are not using the AWS managed policy <a href="https://docs.aws.amazon.com/eks/latest/userguide/security-iam-awsmanpol.html#security-iam-awsmanpol-AmazonEKSWorkerNodePolicy">AmazonEKSWorkerNodePolicy</a>.</p>
 </div>
 <ol>
-<li>Run the following AWS CLI command to create the Pod Identity addon.
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>aws<span class="w"> </span>eks<span class="w"> </span>create-addon<span class="w"> </span>--cluster-name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span>--addon-name<span class="w"> </span>eks-pod-identity-agent<span class="w"> </span>--addon-version<span class="w"> </span>v1.0.0-eksbuild.1
+<li>Run the following AWS CLI command to create the Pod Identity addon:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>aws<span class="w"> </span>eks<span class="w"> </span>create-addon<span class="w"> </span>--cluster-name<span class="w"> </span><span class="si">${</span><span class="nv">EKS_CLUSTER_NAME</span><span class="si">}</span><span class="w"> </span>--addon-name<span class="w"> </span>eks-pod-identity-agent<span class="w"> </span>--addon-version<span class="w"> </span>v1.0.0-eksbuild.1
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>kube-system<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">&#39;eks-pod-identity-agent&#39;</span>
-</code></pre></div></li>
-</ol>
+</code></pre></div>
 <p><strong>Assign role to Service Account</strong></p>
-<p>Create an IAM role and associate it with a Kubernetes service account.</p>
 <ol>
-<li>
-<p>Create a Service Account.</p>
+<li>Create a Service Account:</li>
+</ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>cat<span class="w"> </span>&gt;gateway-api-controller-service-account.yaml<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="s">apiVersion: v1</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="s">kind: ServiceAccount</span>
@@ -1466,10 +1454,10 @@
 <a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="s">EOF</span>
 <a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>gateway-api-controller-service-account.yaml
 </code></pre></div>
-</li>
-<li>
-<p>Create a trust policy file for the IAM role.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>cat<span class="w"> </span>&gt;trust-relationship.json<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<ol>
+<li>Create a trust policy file for the IAM role:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>cat<span class="w"> </span>&gt;<span class="w"> </span>eks-pod-identity-trust-relationship.json<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="s">{</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="s">    &quot;Version&quot;: &quot;2012-10-17&quot;,</span>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="s">    &quot;Statement&quot;: [</span>
@@ -1488,91 +1476,71 @@
 <a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="s">}</span>
 <a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="s">EOF</span>
 </code></pre></div>
-</li>
-<li>
-<p>Create the role.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>aws<span class="w"> </span>iam<span class="w"> </span>create-role<span class="w"> </span>--role-name<span class="w"> </span>VPCLatticeControllerIAMRole<span class="w"> </span>--assume-role-policy-document<span class="w"> </span>file://trust-relationship.json<span class="w"> </span>--description<span class="w"> </span><span class="s2">&quot;IAM Role for AWS Gateway API Controller for VPC Lattice&quot;</span>
+<ol>
+<li>Create the role:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>aws<span class="w"> </span>iam<span class="w"> </span>create-role<span class="w"> </span>--role-name<span class="w"> </span>VPCLatticeControllerIAMRole<span class="w"> </span>--assume-role-policy-document<span class="w"> </span>file://teks-pod-identity-trust-relationship.json<span class="w"> </span>--description<span class="w"> </span><span class="s2">&quot;IAM Role for AWS Gateway API Controller for VPC Lattice&quot;</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>aws<span class="w"> </span>iam<span class="w"> </span>attach-role-policy<span class="w"> </span>--role-name<span class="w"> </span>VPCLatticeControllerIAMRole<span class="w"> </span>--policy-arn<span class="o">=</span><span class="nv">$VPCLatticeControllerIAMPolicyArn</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">VPCLatticeControllerIAMRoleArn</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>iam<span class="w"> </span>list-roles<span class="w"> </span>--query<span class="w"> </span><span class="s1">&#39;Roles[?RoleName==`VPCLatticeControllerIAMRole`].Arn&#39;</span><span class="w"> </span>--output<span class="w"> </span>text<span class="k">)</span>
 </code></pre></div>
-</li>
-<li>
-<p>Create the association</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>aws<span class="w"> </span>eks<span class="w"> </span>create-pod-identity-association<span class="w"> </span>--cluster-name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span>--role-arn<span class="w"> </span><span class="nv">$VPCLatticeControllerIAMRoleArn</span><span class="w"> </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span>--service-account<span class="w"> </span>gateway-api-controller
+<ol>
+<li>Create the association:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>aws<span class="w"> </span>eks<span class="w"> </span>create-pod-identity-association<span class="w"> </span>--cluster-name<span class="w"> </span><span class="si">${</span><span class="nv">EKS_CLUSTER_NAME</span><span class="si">}</span><span class="w"> </span>--role-arn<span class="w"> </span><span class="si">${</span><span class="nv">VPCLatticeControllerIAMRoleArn</span><span class="si">}</span><span class="w"> </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span>--service-account<span class="w"> </span>gateway-api-controller
 </code></pre></div>
-</li>
-</ol>
-</div>
-<div class="tabbed-block">
-<p>You can use AWS IAM Roles for Service Accounts (IRSA) to assign the Controller necessary permissions via a ServiceAccount.</p>
-<ol>
-<li>
-<p>Create an IAM OIDC provider: See <a href="https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html">Creating an IAM OIDC provider for your cluster</a> for details.
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>eksctl<span class="w"> </span>utils<span class="w"> </span>associate-iam-oidc-provider<span class="w"> </span>--cluster<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span>--approve<span class="w"> </span>--region<span class="w"> </span><span class="nv">$AWS_REGION</span>
-</code></pre></div></p>
-</li>
-<li>
-<p>Create an iamserviceaccount for pod level permission:</p>
-<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-14-1">1</a></span>
-<span class="normal"><a href="#__codelineno-14-2">2</a></span>
-<span class="normal"><a href="#__codelineno-14-3">3</a></span>
-<span class="normal"><a href="#__codelineno-14-4">4</a></span>
-<span class="normal"><a href="#__codelineno-14-5">5</a></span>
-<span class="normal"><a href="#__codelineno-14-6">6</a></span>
-<span class="normal"><a href="#__codelineno-14-7">7</a></span>
-<span class="normal"><a href="#__codelineno-14-8">8</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1"></a>eksctl<span class="w"> </span>create<span class="w"> </span>iamserviceaccount<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2"></a><span class="w">    </span>--cluster<span class="o">=</span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3"></a><span class="w">    </span>--namespace<span class="o">=</span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4"></a><span class="w">    </span>--name<span class="o">=</span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5"></a><span class="w">    </span>--attach-policy-arn<span class="o">=</span><span class="nv">$VPCLatticeControllerIAMPolicyArn</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6"></a><span class="w">    </span>--override-existing-serviceaccounts<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-7" name="__codelineno-14-7"></a><span class="w">    </span>--region<span class="w"> </span><span class="nv">$AWS_REGION</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-14-8" name="__codelineno-14-8"></a><span class="w">    </span>--approve
-</code></pre></div></td></tr></table></div>
-</li>
-</ol>
-</div>
-</div>
-</div>
-<h3 id="install-the-controller">Install the Controller<a class="headerlink" href="#install-the-controller" title="Permanent link">&para;</a></h3>
-<ol>
-<li>
-<p>Run <strong>either</strong> <code>kubectl</code> or <code>helm</code> to deploy the controller. Check <a href="../environment/">Environment Variables</a> for detailed explanation of each configuration option.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Helm</label><label for="__tabbed_2_2">Kubectl</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:1"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">IRSA</label></div>
 <div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-15-1">1</a></span>
-<span class="normal"><a href="#__codelineno-15-2">2</a></span>
-<span class="normal"><a href="#__codelineno-15-3">3</a></span>
-<span class="normal"><a href="#__codelineno-15-4">4</a></span>
-<span class="normal"><a href="#__codelineno-15-5">5</a></span>
-<span class="normal"><a href="#__codelineno-15-6">6</a></span>
-<span class="normal"><a href="#__codelineno-15-7">7</a></span>
-<span class="normal"><a href="#__codelineno-15-8">8</a></span>
-<span class="normal"><a href="#__codelineno-15-9">9</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1"></a><span class="c1"># login to ECR</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
-<a id="__codelineno-15-3" name="__codelineno-15-3"></a><span class="c1"># Run helm with either install or upgrade</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4"></a>helm<span class="w"> </span>install<span class="w"> </span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5"></a><span class="w">    </span>oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6"></a><span class="w">    </span>--version<span class="o">=</span>v1.1.0<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-7" name="__codelineno-15-7"></a><span class="w">    </span>--set<span class="o">=</span>serviceAccount.create<span class="o">=</span><span class="nb">false</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8"></a><span class="w">    </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-9" name="__codelineno-15-9"></a><span class="w">    </span>--set<span class="o">=</span>log.level<span class="o">=</span>info<span class="w"> </span><span class="c1"># use &quot;debug&quot; for debug level logs</span>
-</code></pre></div></td></tr></table></div>
+<div class="tabbed-block"></div>
 </div>
-<div class="tabbed-block">
+</div>
+<p>You can use AWS IAM Roles for Service Accounts (IRSA) to assign the controller necessary permissions via a ServiceAccount.</p>
+<ol>
+<li>Create an IAM OIDC provider. See <a href="https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html">Creating an IAM OIDC provider for your cluster</a> for details.</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>eksctl<span class="w"> </span>utils<span class="w"> </span>associate-iam-oidc-provider<span class="w"> </span>--cluster<span class="w"> </span><span class="si">${</span><span class="nv">EKS_CLUSTER_NAME</span><span class="si">}</span><span class="w"> </span>--approve<span class="w"> </span>--region<span class="w"> </span><span class="nv">$AWS_REGION</span>
+</code></pre></div>
+<ol>
+<li>Create an IAM service account for pod-level permission:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>eksctl<span class="w"> </span>create<span class="w"> </span>iamserviceaccount<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">    </span>--cluster<span class="o">=</span><span class="si">${</span><span class="nv">EKS_CLUSTER_NAME</span><span class="si">}</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span>--namespace<span class="o">=</span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span>--name<span class="o">=</span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">    </span>--attach-policy-arn<span class="o">=</span><span class="nv">$VPCLatticeControllerIAMPolicyArn</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span>--override-existing-serviceaccounts<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span>--region<span class="w"> </span><span class="nv">$AWS_REGION</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span>--approve
+</code></pre></div>
+<h3 id="install-the-controller">Install the Controller<a class="headerlink" href="#install-the-controller" title="Permanent link">&para;</a></h3>
+<p>Run <strong>either</strong> <code>kubectl</code> or <code>helm</code> to deploy the controller. Check <a href="../environment/">Environment Variables</a> for a detailed explanation of each configuration option.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:1"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Helm</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block"></div>
+</div>
+</div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># login to ECR</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Run helm with either install or upgrade</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>helm<span class="w"> </span>install<span class="w"> </span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span>oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span>--version<span class="o">=</span>v1.1.0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span>--set<span class="o">=</span>serviceAccount.create<span class="o">=</span><span class="nb">false</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">    </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span>--set<span class="o">=</span>log.level<span class="o">=</span>info<span class="w"> </span><span class="c1"># use &quot;debug&quot; for debug level logs</span>
+</code></pre></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:1"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Kubectl</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block"></div>
+</div>
+</div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.0.yaml
 </code></pre></div>
-</div>
-</div>
-</div>
-</li>
-<li>
-<p>Create the <code>amazon-vpc-lattice</code> GatewayClass:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/gatewayclass.yaml
-</code></pre></div></p>
-</li>
+<ol>
+<li>Create the <code>amazon-vpc-lattice</code> GatewayClass:</li>
 </ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/gatewayclass.yaml
+</code></pre></div>
 
 
 
