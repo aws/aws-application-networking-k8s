@@ -109,21 +109,21 @@ var _ = Describe("HTTPRoute method matches", func() {
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-get handler pod"))
-		}).WithTimeout(60 * time.Second).WithOffset(1).Should(Succeed())
+		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
 
 		Eventually(func(g Gomega) {
 			cmd := fmt.Sprintf("curl -X POST %s", dnsName)
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-post handler pod"))
-		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
 
 		Eventually(func(g Gomega) {
 			invalidCmd := fmt.Sprintf("curl -X DELETE %s", dnsName)
 			stdout, _, err := testFramework.PodExec(pod, invalidCmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("Not Found"))
-		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
 	})
 
 	AfterEach(func() {

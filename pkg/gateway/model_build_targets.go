@@ -212,14 +212,14 @@ func (t *latticeTargetsModelBuildTask) getDefinedPorts() map[int32]struct{} {
 
 	isServiceExport := t.serviceExport != nil
 	if isServiceExport {
-		portsAnnotations := strings.Split(t.serviceExport.ObjectMeta.Annotations[portAnnotationsKey], ",")
+		portsAnnotations := strings.Split(t.serviceExport.Annotations[portAnnotationsKey], ",")
 
 		for _, portAnnotation := range portsAnnotations {
 			if portAnnotation != "" {
 				definedPort, err := strconv.ParseInt(portAnnotation, 10, 32)
 				if err != nil {
 					t.log.Infof(context.TODO(), "failed to read Annotations/Port: %s due to %s",
-						t.serviceExport.ObjectMeta.Annotations[portAnnotationsKey], err)
+						t.serviceExport.Annotations[portAnnotationsKey], err)
 				} else {
 					definedPorts[int32(definedPort)] = struct{}{}
 				}

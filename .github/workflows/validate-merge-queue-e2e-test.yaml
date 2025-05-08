@@ -37,6 +37,8 @@ jobs:
           cache-dependency-path: test/go.sum
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          version: latest
       - name: Setup AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -57,6 +59,8 @@ jobs:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env['ACTIONS_CACHE_URL'])
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN'])
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL'])
+            core.exportVariable('ACTIONS_CACHE_SERVICE_V2', process.env['ACTIONS_CACHE_SERVICE_V2'])
       - name: Build and push image
         run: |
           SKIP_BUILD_CHART=true scripts/release-controller.sh
