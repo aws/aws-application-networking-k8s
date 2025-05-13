@@ -1,15 +1,18 @@
 package gateway
 
 import (
+	"container/heap"
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -32,10 +35,33 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 	// note we only build rules for non-deleted routes
 	t.log.Debugf(ctx, "Processing %d rules", len(t.route.Spec().Rules()))
 
+	// Skip if route is being deleted
+	if !t.route.DeletionTimestamp().IsZero() {
+		t.log.Debugf(ctx, "Skipping rule creation since the route is deleted")
+		return nil
+	}
+
+	// Create a priority queue to organize rules
+	pq := make(utils.PriorityQueue, 0, len(t.route.Spec().Rules()))
+
+	// First pass: build all rules and add them to priority queue
 	for i, rule := range t.route.Spec().Rules() {
+		// Default priority is index + 1
+		priority := int64(i + 1)
+
+		// Check for priority annotation in format: application-networking.k8s.aws/rule-{index}-priority
+		if priorityStr, ok := t.route.K8sObject().GetAnnotations()[fmt.Sprintf("application-networking.k8s.aws/rule-%d-priority", i)]; ok {
+			if p, err := strconv.ParseInt(priorityStr, 10, 64); err == nil {
+				priority = p
+				t.log.Debugf(ctx, "Using priority %d from annotation for rule %d", priority, i)
+			} else {
+				t.log.Warnf(ctx, "Invalid priority value in annotation for rule %d: %s", i, priorityStr)
+			}
+		}
+
 		ruleSpec := model.RuleSpec{
 			StackListenerId: stackListenerId,
-			Priority:        int64(i + 1),
+			Priority:        priority,
 		}
 
 		if len(rule.Matches()) > 1 {
@@ -81,17 +107,28 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 			TargetGroups: ruleTgList,
 		}
 
-		// don't bother adding rules on delete, these will be removed automatically with the owning route/lattice service
-		// target groups will still be present and removed as needed
-		if t.route.DeletionTimestamp().IsZero() {
-			stackRule, err := model.NewRule(t.stack, ruleSpec)
-			if err != nil {
-				return err
-			}
-			t.log.Debugf(ctx, "Added rule %d to the stack (ID %s)", stackRule.Spec.Priority, stackRule.ID())
-		} else {
-			t.log.Debugf(ctx, "Skipping adding rule %d to the stack since the route is deleted", ruleSpec.Priority)
+		// Create the rule but don't add to stack yet
+		stackRule, err := model.NewRule(t.stack, ruleSpec)
+		if err != nil {
+			return err
 		}
+
+		// Add to priority queue
+		pq.Push(&utils.Item{
+			Value:    stackRule,
+			Priority: int32(priority),
+		})
+	}
+
+	// Initialize heap
+	heap.Init(&pq)
+
+	// Add rules to stack in priority order
+	for pq.Len() > 0 {
+		item := pq.Pop().(*utils.Item)
+		stackRule := item.Value.(*model.Rule)
+		t.stack.AddResource(stackRule)
+		t.log.Debugf(ctx, "Added rule %d to the stack (ID %s)", stackRule.Spec.Priority, stackRule.ID())
 	}
 
 	return nil
