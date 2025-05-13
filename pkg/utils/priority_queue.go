@@ -1,5 +1,7 @@
 package utils
 
+import "fmt"
+
 // An Item is something we manage in a priority queue.
 type Item struct {
 	Value    any
@@ -15,7 +17,7 @@ func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
 	// We want Pop to give us the highest, not lowest, priority so we use greater than here.
-	return pq[i].Priority > pq[j].Priority
+	return pq[i].Priority < pq[j].Priority
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
@@ -32,12 +34,12 @@ func (pq *PriorityQueue) Push(x any) {
 }
 
 // Peek returns the highest priority item without removing it from the queue.
-// Returns nil if the queue is empty.
-func (pq *PriorityQueue) Peek() *Item {
+// Returns nil and an error if the queue is empty.
+func (pq *PriorityQueue) Peek() (*Item, error) {
 	if len(*pq) == 0 {
-		return nil
+		return nil, fmt.Errorf("priority queue is empty")
 	}
-	return (*pq)[0]
+	return (*pq)[len(*pq)-1], nil
 }
 
 func (pq *PriorityQueue) Pop() any {

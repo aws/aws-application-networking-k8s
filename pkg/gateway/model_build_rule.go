@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"container/heap"
 	"context"
 	"errors"
 	"fmt"
@@ -35,14 +34,9 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 	// note we only build rules for non-deleted routes
 	t.log.Debugf(ctx, "Processing %d rules", len(t.route.Spec().Rules()))
 
-	// Skip if route is being deleted
-	if !t.route.DeletionTimestamp().IsZero() {
-		t.log.Debugf(ctx, "Skipping rule creation since the route is deleted")
-		return nil
-	}
-
-	// Create a priority queue to organize rules
-	pq := make(utils.PriorityQueue, 0, len(t.route.Spec().Rules()))
+	// Track rules with and without priority
+	rulesWithoutPriority := make([]core.RouteRule, 0)
+	priorityQueue := make(utils.PriorityQueue, 0)
 
 	// First pass: build all rules and add them to priority queue
 	for i, rule := range t.route.Spec().Rules() {
@@ -57,11 +51,42 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 			} else {
 				t.log.Warnf(ctx, "Invalid priority value in annotation for rule %d: %s", i, priorityStr)
 			}
-		}
 
+			priorityQueue.Push(&utils.Item{
+				Value:    rule,
+				Priority: int32(priority),
+			})
+
+		} else {
+			rulesWithoutPriority = append(rulesWithoutPriority, rule)
+		}
+	}
+
+	// Assign rules without a manually assigned priority a priority in sequential order following the greatest
+	// manually assigned priority
+	for _, ruleSpec := range rulesWithoutPriority {
+		// No manually assigned priorities
+		topItem, err := priorityQueue.Peek()
+		if err == nil {
+			t.log.Debugf(ctx, "Setting default rule priority set to: %d", topItem.Priority+1)
+			priorityQueue.Push(&utils.Item{
+				Value:    ruleSpec,
+				Priority: topItem.Priority + 1,
+			})
+		} else {
+			t.log.Debugf(ctx, "Setting default rule priority set to: %d", 1)
+			priorityQueue.Push(&utils.Item{
+				Value:    ruleSpec,
+				Priority: 1,
+			})
+		}
+	}
+
+	for _, item := range priorityQueue {
+		rule := item.Value.(core.RouteRule)
 		ruleSpec := model.RuleSpec{
 			StackListenerId: stackListenerId,
-			Priority:        priority,
+			Priority:        int64(item.Priority),
 		}
 
 		if len(rule.Matches()) > 1 {
@@ -88,14 +113,12 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 				return err
 			}
 		} else {
-
 			// Match every traffic on no matches
 			ruleSpec.PathMatchValue = "/"
 			ruleSpec.PathMatchPrefix = true
 			if _, ok := rule.(*core.GRPCRouteRule); ok {
 				ruleSpec.Method = string(gwv1.HTTPMethodPost)
 			}
-
 		}
 
 		ruleTgList, err := t.getTargetGroupsForRuleAction(ctx, rule)
@@ -107,28 +130,17 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 			TargetGroups: ruleTgList,
 		}
 
-		// Create the rule but don't add to stack yet
-		stackRule, err := model.NewRule(t.stack, ruleSpec)
-		if err != nil {
-			return err
+		// don't bother adding rules on delete, these will be removed automatically with the owning route/lattice service
+		// target groups will still be present and removed as needed
+		if t.route.DeletionTimestamp().IsZero() {
+			stackRule, err := model.NewRule(t.stack, ruleSpec)
+			if err != nil {
+				return err
+			}
+			t.log.Debugf(ctx, "Added rule %d to the stack (ID %s)", stackRule.Spec.Priority, stackRule.ID())
+		} else {
+			t.log.Debugf(ctx, "Skipping adding rule %d to the stack since the route is deleted", ruleSpec.Priority)
 		}
-
-		// Add to priority queue
-		pq.Push(&utils.Item{
-			Value:    stackRule,
-			Priority: int32(priority),
-		})
-	}
-
-	// Initialize heap
-	heap.Init(&pq)
-
-	// Add rules to stack in priority order
-	for pq.Len() > 0 {
-		item := pq.Pop().(*utils.Item)
-		stackRule := item.Value.(*model.Rule)
-		t.stack.AddResource(stackRule)
-		t.log.Debugf(ctx, "Added rule %d to the stack (ID %s)", stackRule.Spec.Priority, stackRule.ID())
 	}
 
 	return nil
