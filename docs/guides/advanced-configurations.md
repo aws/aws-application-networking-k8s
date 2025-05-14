@@ -16,6 +16,38 @@ However, the controller utilizes [IMDS](https://docs.aws.amazon.com/AWSEC2/lates
 
 - **If your cluster cannot access to IMDS.** ensure to specify the[configuration variables](environment.md) when installing the controller.
 
+### Rule Priority Configuration
+
+You can manually assign priorities to rules using the custom annotation `application-networking.k8s.aws/rule-{index}-priority`. This annotation allows you to explicitly set the priority for specific rules in your route configurations.
+
+For example, to set priorities for multiple rules in an HTTPRoute:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: example-route
+  annotations:
+    application-networking.k8s.aws/rule-0-priority: "200"  # First rule gets higher priority
+    application-networking.k8s.aws/rule-1-priority: "100"  # Second rule gets lower priority
+spec:
+  rules:
+  - matches:                                               # This is rule[0]
+    - path:
+        type: PathPrefix
+        value: /api/v2
+  - matches:                                               # This is rule[1]
+    - path:
+        type: PathPrefix
+        value: /api
+```
+
+The `{index}` in the annotation corresponds to the zero-based index of the rule in the rules array. In this example:
+- `rule-0-priority: "200"` applies to the first rule matching `/api/v2`
+- `rule-1-priority: "100"` applies to the second rule matching `/api`
+
+Higher priority values indicate higher precedence, so requests to `/api/v2` will be matched by the first rule (priority 200) before the second rule (priority 100) is considered.
+
 ### IPv6 support
 
 IPv6 address type is automatically used for your services and pods if
