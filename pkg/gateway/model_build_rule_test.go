@@ -153,6 +153,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  "/",
+					Priority:        1,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -197,6 +198,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  "/",
+					Priority:        1,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -247,6 +249,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  "/",
+					Priority:        1,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -321,6 +324,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchExact:  true,
 					PathMatchValue:  path1,
+					Priority:        1,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -334,6 +338,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  path2,
+					Priority:        2,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -397,6 +402,7 @@ func Test_RuleModelBuild(t *testing.T) {
 				{
 					StackListenerId: "listener-id",
 					Method:          string(httpGet),
+					Priority:        1,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -409,6 +415,7 @@ func Test_RuleModelBuild(t *testing.T) {
 				{
 					StackListenerId: "listener-id",
 					Method:          string(httpPost),
+					Priority:        2,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -494,6 +501,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchExact:  true,
 					PathMatchValue:  path1,
+					Priority:        1,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -507,6 +515,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchExact:  true,
 					PathMatchValue:  path2,
+					Priority:        2,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -523,6 +532,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchExact:  true,
 					PathMatchValue:  path3,
+					Priority:        3,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -571,6 +581,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					Method:          string(httpPost),
 					PathMatchPrefix: true,
 					PathMatchValue:  "/",
+					Priority:        1,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -659,6 +670,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchExact:  true,
 					PathMatchValue:  "/service/method1",
+					Priority:        1,
 					Method:          string(httpPost),
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
@@ -673,6 +685,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchExact:  true,
 					PathMatchValue:  "/service/method2",
+					Priority:        2,
 					Method:          string(httpPost),
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
@@ -690,6 +703,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchExact:  true,
 					PathMatchValue:  "/service/method3",
+					Priority:        3,
 					Method:          string(httpPost),
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
@@ -747,6 +761,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			expectedSpec: []model.RuleSpec{
 				{
 					StackListenerId: "listener-id",
+					Priority:        1,
 					MatchedHeaders: []vpclattice.HeaderMatch{
 						{
 							Name: &hdr1,
@@ -813,6 +828,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			expectedSpec: []model.RuleSpec{
 				{
 					StackListenerId: "listener-id",
+					Priority:        1,
 					MatchedHeaders: []vpclattice.HeaderMatch{
 						{
 							Name: &hdr1,
@@ -892,6 +908,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchExact:  true,
 					PathMatchValue:  path1,
+					Priority:        1,
 					MatchedHeaders: []vpclattice.HeaderMatch{
 						{
 							Name: &hdr1,
@@ -971,6 +988,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  path1,
+					Priority:        1,
 					MatchedHeaders: []vpclattice.HeaderMatch{
 						{
 							Name: &hdr1,
@@ -1153,6 +1171,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchExact:  true,
 					PathMatchValue:  "/service/method",
+					Priority:        1,
 					Method:          "POST",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
@@ -1206,6 +1225,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  "/service/",
+					Priority:        1,
 					Method:          "POST",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
@@ -1259,6 +1279,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  "/",
+					Priority:        1,
 					Method:          "POST",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
@@ -1339,6 +1360,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  "/service/",
+					Priority:        1,
 					Method:          "POST",
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
@@ -1416,6 +1438,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  "/",
+					Priority:        1,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -1464,6 +1487,7 @@ func Test_RuleModelBuild(t *testing.T) {
 					StackListenerId: "listener-id",
 					PathMatchPrefix: true,
 					PathMatchValue:  "/",
+					Priority:        1,
 					Action: model.RuleAction{
 						TargetGroups: []*model.RuleTargetGroup{
 							{
@@ -1473,6 +1497,196 @@ func Test_RuleModelBuild(t *testing.T) {
 							{
 								StackTargetGroupId: "tg-0",
 								Weight:             int64(*backendRef1.Weight),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "rule priority, default assignment",
+			wantErrIsNil: true,
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:        "gw1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: backendRef2,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
+					Priority:        1,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(weight1),
+							},
+						},
+					},
+				},
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
+					Priority:        2,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendRef2.Name),
+									K8SServiceNamespace: "default",
+								},
+								Weight: int64(weight2),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "rule priority, annotation override",
+			wantErrIsNil: true,
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/rule-0-priority": "100",
+						"application-networking.k8s.aws/rule-1-priority": "50",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:        "gw1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: backendRef2,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
+					Priority:        100,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(weight1),
+							},
+						},
+					},
+				},
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
+					Priority:        50,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								SvcImportTG: &model.SvcImportTargetGroup{
+									K8SServiceName:      string(backendRef2.Name),
+									K8SServiceNamespace: "default",
+								},
+								Weight: int64(weight2),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "rule priority, invalid annotation",
+			wantErrIsNil: true,
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/rule-0-priority": "invalid",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:        "gw1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedSpec: []model.RuleSpec{
+				{
+					StackListenerId: "listener-id",
+					PathMatchPrefix: true,
+					PathMatchValue:  "/",
+					Priority:        1,
+					Action: model.RuleAction{
+						TargetGroups: []*model.RuleTargetGroup{
+							{
+								StackTargetGroupId: "tg-0",
+								Weight:             int64(weight1),
 							},
 						},
 					},
@@ -1537,10 +1751,7 @@ func validateEqual(t *testing.T, expectedRules []model.RuleSpec, actualRules []*
 		assert.Equal(t, expectedSpec.PathMatchPrefix, actualRule.Spec.PathMatchPrefix)
 		assert.Equal(t, expectedSpec.PathMatchExact, actualRule.Spec.PathMatchExact)
 		assert.Equal(t, expectedSpec.Method, actualRule.Spec.Method)
-
-		// priority is not determined by model building, but in synthesis, so we don't
-		// validate priority here
-
+		assert.Equal(t, expectedSpec.Priority, actualRule.Spec.Priority)
 		assert.True(t, reflect.DeepEqual(expectedSpec.MatchedHeaders, actualRule.Spec.MatchedHeaders))
 
 		assert.Equal(t, len(expectedSpec.Action.TargetGroups), len(actualRule.Spec.Action.TargetGroups))
