@@ -103,7 +103,7 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 	resp, err := lattice.CreateTargetGroupWithContext(ctx, &createInput)
 	if err != nil {
 		return model.TargetGroupStatus{},
-			fmt.Errorf("Failed CreateTargetGroup %s due to %s", latticeTgName, err)
+			fmt.Errorf("failed CreateTargetGroup %s due to %s", latticeTgName, err)
 	}
 	s.log.Infof(ctx, "Success CreateTargetGroup %s", latticeTgName)
 

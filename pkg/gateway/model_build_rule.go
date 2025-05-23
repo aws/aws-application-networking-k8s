@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -32,10 +34,59 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 	// note we only build rules for non-deleted routes
 	t.log.Debugf(ctx, "Processing %d rules", len(t.route.Spec().Rules()))
 
+	// Track rules with and without priority
+	rulesWithoutPriority := make([]core.RouteRule, 0)
+	priorityQueue := make(utils.PriorityQueue, 0)
+
+	// First pass: build all rules and add them to priority queue
 	for i, rule := range t.route.Spec().Rules() {
+		// Default priority is index + 1
+		priority := int64(i + 1)
+
+		// Check for priority annotation in format: application-networking.k8s.aws/rule-{index}-priority
+		if priorityStr, ok := t.route.K8sObject().GetAnnotations()[fmt.Sprintf("application-networking.k8s.aws/rule-%d-priority", i)]; ok {
+			if p, err := strconv.ParseInt(priorityStr, 10, 64); err == nil {
+				priority = p
+				t.log.Debugf(ctx, "Using priority %d from annotation for rule %d", priority, i)
+			} else {
+				t.log.Warnf(ctx, "Invalid priority value in annotation for rule %d: %s", i, priorityStr)
+			}
+
+			priorityQueue.Push(&utils.Item{
+				Value:    rule,
+				Priority: int32(priority),
+			})
+
+		} else {
+			rulesWithoutPriority = append(rulesWithoutPriority, rule)
+		}
+	}
+
+	// Assign rules without a manually assigned priority a priority in sequential order following the greatest
+	// manually assigned priority
+	for _, ruleSpec := range rulesWithoutPriority {
+		// No manually assigned priorities
+		topItem, err := priorityQueue.Peek()
+		if err == nil {
+			t.log.Debugf(ctx, "Setting default rule priority set to: %d", topItem.Priority+1)
+			priorityQueue.Push(&utils.Item{
+				Value:    ruleSpec,
+				Priority: topItem.Priority + 1,
+			})
+		} else {
+			t.log.Debugf(ctx, "Setting default rule priority set to: %d", 1)
+			priorityQueue.Push(&utils.Item{
+				Value:    ruleSpec,
+				Priority: 1,
+			})
+		}
+	}
+
+	for _, item := range priorityQueue {
+		rule := item.Value.(core.RouteRule)
 		ruleSpec := model.RuleSpec{
 			StackListenerId: stackListenerId,
-			Priority:        int64(i + 1),
+			Priority:        int64(item.Priority),
 		}
 
 		if len(rule.Matches()) > 1 {
@@ -62,14 +113,12 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 				return err
 			}
 		} else {
-
 			// Match every traffic on no matches
 			ruleSpec.PathMatchValue = "/"
 			ruleSpec.PathMatchPrefix = true
 			if _, ok := rule.(*core.GRPCRouteRule); ok {
 				ruleSpec.Method = string(gwv1.HTTPMethodPost)
 			}
-
 		}
 
 		ruleTgList, err := t.getTargetGroupsForRuleAction(ctx, rule)

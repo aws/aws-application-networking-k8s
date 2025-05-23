@@ -96,7 +96,7 @@ func Test_defaultStack_ListResources(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				for _, want := range tt.wantFakeResources {
-					want.ResourceMeta.stack = s
+					want.stack = s
 				}
 				sort.Slice(gotFakeResources, func(i, j int) bool {
 					return gotFakeResources[i].ID() < gotFakeResources[j].ID()
