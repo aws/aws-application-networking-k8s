@@ -16,6 +16,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func Test_LatticeServiceModelBuild(t *testing.T) {
@@ -404,6 +405,31 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			},
 		},
 		{
+			name:          "TLSRoute without hostname should fail",
+			wantIsDeleted: false,
+			wantErrIsNil:  false,
+			gwClass:       vpcLatticeGatewayClass,
+			gws: []gwv1.Gateway{
+				vpcLatticeGateway,
+			},
+			route: core.NewTLSRoute(gwv1alpha2.TLSRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service1",
+					Namespace: "default",
+				},
+				Spec: gwv1alpha2.TLSRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+							},
+						},
+					},
+				},
+			}),
+		},
+		{
 			name:          "Multiple service networks with one different controller",
 			wantIsDeleted: false,
 			wantErrIsNil:  true,
@@ -463,6 +489,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			gwv1.Install(k8sSchema)
+			gwv1alpha2.Install(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			assert.NoError(t, k8sClient.Create(ctx, tt.gwClass.DeepCopy()))

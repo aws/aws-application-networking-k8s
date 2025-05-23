@@ -111,6 +111,11 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		routeType = core.GrpcRouteType
 	case *core.TLSRoute:
 		routeType = core.TlsRouteType
+		// VPC Lattice requires a custom domain name for TLS listeners
+		if len(t.route.Spec().Hostnames()) == 0 {
+			return nil, fmt.Errorf("TLSRoute %s/%s must specify at least one hostname as VPC Lattice requires a custom domain name",
+				t.route.Namespace(), t.route.Name())
+		}
 	default:
 		return nil, fmt.Errorf("unsupported route type: %T", t.route)
 	}
