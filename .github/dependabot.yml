@@ -4,7 +4,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    # Enable go mod tidy after updates
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
@@ -14,9 +13,6 @@ updates:
     labels:
       - "dependencies"
       - "go"
-    # Add the go mod tidy command
-    gomod:
-      update-tool: "go mod tidy"
 
   - package-ecosystem: "gomod"
     directory: "/test"
@@ -31,5 +27,3 @@ updates:
     labels:
       - "dependencies"
       - "go"
-    gomod:
-      update-tool: "go mod tidy"
