@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - 'release-v*.*.*'
+permissions:
+  contents: write
 jobs:
   publish-docs:
     runs-on: ubuntu-latest

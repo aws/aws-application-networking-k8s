@@ -182,7 +182,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 	targetRefNamespace := k8s.NamespaceOrDefault(alp.Spec.TargetRef.Namespace)
 	if targetRefNamespace != alp.Namespace {
 		message := fmt.Sprintf("The targetRef's namespace, \"%s\", does not match the Access Log Policy's"+
-			" namespace, \"%s\"", string(*alp.Spec.TargetRef.Namespace), alp.Namespace)
+			" namespace, \"%s\"", targetRefNamespace, alp.Namespace)
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}

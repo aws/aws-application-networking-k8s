@@ -144,7 +144,7 @@ EOF
 3. Create the role:
 
 ```bash
-aws iam create-role --role-name VPCLatticeControllerIAMRole --assume-role-policy-document file://teks-pod-identity-trust-relationship.json --description "IAM Role for AWS Gateway API Controller for VPC Lattice"
+aws iam create-role --role-name VPCLatticeControllerIAMRole --assume-role-policy-document file://eks-pod-identity-trust-relationship.json --description "IAM Role for AWS Gateway API Controller for VPC Lattice"
 aws iam attach-role-policy --role-name VPCLatticeControllerIAMRole --policy-arn=$VPCLatticeControllerIAMPolicyArn
 export VPCLatticeControllerIAMRoleArn=$(aws iam list-roles --query 'Roles[?RoleName==`VPCLatticeControllerIAMRole`].Arn' --output text)
 ```
