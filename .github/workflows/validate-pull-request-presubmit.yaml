@@ -1,7 +1,8 @@
 name: Validate pull request with presubmit before putting into queue
+permissions:
+  contents: read
 on:
   pull_request:
-jobs:
   validate:
     runs-on: ubuntu-latest
     env:
