@@ -98,10 +98,40 @@ func (b *SvcExportTargetGroupBuilder) BuildTargetGroup(ctx context.Context, svcE
 		tgp:           policy.NewTargetGroupPolicyHandler(b.log, b.client),
 	}
 
+	// If exportedPorts is defined, we need to handle it differently
+	// For now, we'll just return the first target group for backward compatibility
+	// This is used for reconciliation of existing target groups
+	if len(svcExport.Spec.ExportedPorts) > 0 {
+		return task.buildTargetGroupForExportedPort(ctx, svcExport.Spec.ExportedPorts[0])
+	}
+
 	return task.buildTargetGroup(ctx)
 }
 
 func (t *svcExportTargetGroupModelBuildTask) run(ctx context.Context) error {
+	// Check if we have exportedPorts defined in the spec
+	if len(t.serviceExport.Spec.ExportedPorts) > 0 {
+		// Create target groups for each exported port
+		for _, exportedPort := range t.serviceExport.Spec.ExportedPorts {
+			tg, err := t.buildTargetGroupForExportedPort(ctx, exportedPort)
+			if err != nil {
+				return fmt.Errorf("failed to build target group for service export %s-%s port %d due to %w",
+					t.serviceExport.Name, t.serviceExport.Namespace, exportedPort.Port, err)
+			}
+
+			if !tg.IsDeleted {
+				err = t.buildTargetsForPort(ctx, tg.ID(), exportedPort.Port)
+				if err != nil {
+					t.log.Debugf(ctx, "Failed to build targets for service export %s-%s port %d due to %s",
+						t.serviceExport.Name, t.serviceExport.Namespace, exportedPort.Port, err)
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	// Fall back to legacy behavior if no exportedPorts are defined
 	tg, err := t.buildTargetGroup(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to build target group for service export %s-%s due to %w",
@@ -123,6 +153,106 @@ func (t *svcExportTargetGroupModelBuildTask) run(ctx context.Context) error {
 func (t *svcExportTargetGroupModelBuildTask) buildTargets(ctx context.Context, stackTgId string) error {
 	targetsBuilder := NewTargetsBuilder(t.log, t.client, t.stack)
 	_, err := targetsBuilder.BuildForServiceExport(ctx, t.serviceExport, stackTgId)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx context.Context, exportedPort anv1alpha1.ExportedPort) (*model.TargetGroup, error) {
+	svc := &corev1.Service{}
+	noSvcFoundAndDeleting := false
+	if err := t.client.Get(ctx, k8s.NamespacedName(t.serviceExport), svc); err != nil {
+		if apierrors.IsNotFound(err) && !t.serviceExport.DeletionTimestamp.IsZero() {
+			// if we're deleting, it's OK if the service isn't there
+			noSvcFoundAndDeleting = true
+		} else { // either it's some other error or we aren't deleting
+			return nil, fmt.Errorf("failed to find corresponding k8sService %s, error :%w ",
+				k8s.NamespacedName(t.serviceExport), err)
+		}
+	}
+
+	var ipAddressType string
+	var err error
+	if noSvcFoundAndDeleting {
+		ipAddressType = "IPV4" // just pick a default
+	} else {
+		ipAddressType, err = buildTargetGroupIpAddressType(svc)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	tgp, err := t.tgp.ObjResolvedPolicy(ctx, t.serviceExport)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get health check config from policy
+	_, _, healthCheckConfig, err := parseTargetGroupConfig(tgp)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set protocol and protocolVersion based on routeType
+	var protocol, protocolVersion string
+	switch exportedPort.RouteType {
+	case "HTTP":
+		protocol = vpclattice.TargetGroupProtocolHttp
+		protocolVersion = vpclattice.TargetGroupProtocolVersionHttp1
+	case "GRPC":
+		protocol = vpclattice.TargetGroupProtocolHttp
+		protocolVersion = vpclattice.TargetGroupProtocolVersionGrpc
+	case "TLS":
+		protocol = vpclattice.TargetGroupProtocolTcp
+		protocolVersion = ""
+	default:
+		return nil, fmt.Errorf("unsupported route type: %s", exportedPort.RouteType)
+	}
+
+	spec := model.TargetGroupSpec{
+		Type:              model.TargetGroupTypeIP,
+		Port:              exportedPort.Port,
+		Protocol:          protocol,
+		ProtocolVersion:   protocolVersion,
+		IpAddressType:     ipAddressType,
+		HealthCheckConfig: healthCheckConfig,
+	}
+	spec.VpcId = config.VpcID
+	spec.K8SSourceType = model.SourceTypeSvcExport
+	spec.K8SClusterName = config.ClusterName
+	spec.K8SServiceName = t.serviceExport.Name
+	spec.K8SServiceNamespace = t.serviceExport.Namespace
+	spec.K8SProtocolVersion = protocolVersion
+
+	// Add a tag for the route type to help with identification
+	// This is not used by the controller but can be helpful for debugging
+	if exportedPort.RouteType != "" {
+		spec.K8SProtocolVersion = exportedPort.RouteType
+	}
+
+	stackTG, err := model.NewTargetGroup(t.stack, spec)
+	if err != nil {
+		return nil, err
+	}
+
+	stackTG.IsDeleted = !t.serviceExport.DeletionTimestamp.IsZero()
+	return stackTG, nil
+}
+
+func (t *svcExportTargetGroupModelBuildTask) buildTargetsForPort(ctx context.Context, stackTgId string, port int32) error {
+	// This is similar to buildTargets but filters endpoints by the specified port
+	targetsBuilder := NewTargetsBuilder(t.log, t.client, t.stack)
+
+	// We need to create a modified ServiceExport with the port annotation set to the specific port
+	// This is a bit of a hack, but it allows us to reuse the existing BuildForServiceExport method
+	modifiedServiceExport := t.serviceExport.DeepCopy()
+	if modifiedServiceExport.Annotations == nil {
+		modifiedServiceExport.Annotations = make(map[string]string)
+	}
+	modifiedServiceExport.Annotations[portAnnotationsKey] = fmt.Sprintf("%d", port)
+
+	_, err := targetsBuilder.BuildForServiceExport(ctx, modifiedServiceExport, stackTgId)
 	if err != nil {
 		return err
 	}
