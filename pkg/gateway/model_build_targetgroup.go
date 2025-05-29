@@ -164,9 +164,9 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx
 	noSvcFoundAndDeleting := false
 	if err := t.client.Get(ctx, k8s.NamespacedName(t.serviceExport), svc); err != nil {
 		if apierrors.IsNotFound(err) && !t.serviceExport.DeletionTimestamp.IsZero() {
-			// if we're deleting, it's OK if the service isn't there
+			// If we're deleting, it's OK if the service isn't there
 			noSvcFoundAndDeleting = true
-		} else { // either it's some other error or we aren't deleting
+		} else { // Either it's some other error or we aren't deleting
 			return nil, fmt.Errorf("failed to find corresponding k8sService %s, error :%w ",
 				k8s.NamespacedName(t.serviceExport), err)
 		}
@@ -245,7 +245,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetsForPort(ctx context.Con
 	targetsBuilder := NewTargetsBuilder(t.log, t.client, t.stack)
 
 	// We need to create a modified ServiceExport with the port annotation set to the specific port
-	// This is a bit of a hack, but it allows us to reuse the existing BuildForServiceExport method
+	// This allows us to reuse the existing BuildForServiceExport method
 	modifiedServiceExport := t.serviceExport.DeepCopy()
 	if modifiedServiceExport.Annotations == nil {
 		modifiedServiceExport.Annotations = make(map[string]string)
@@ -264,9 +264,9 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 	noSvcFoundAndDeleting := false
 	if err := t.client.Get(ctx, k8s.NamespacedName(t.serviceExport), svc); err != nil {
 		if apierrors.IsNotFound(err) && !t.serviceExport.DeletionTimestamp.IsZero() {
-			// if we're deleting, it's OK if the service isn't there
+			// If we're deleting, it's OK if the service isn't there
 			noSvcFoundAndDeleting = true
-		} else { // either it's some other error or we aren't deleting
+		} else { // Either it's some other error or we aren't deleting
 			return nil, fmt.Errorf("failed to find corresponding k8sService %s, error :%w ",
 				k8s.NamespacedName(t.serviceExport), err)
 		}
@@ -275,7 +275,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 	var ipAddressType string
 	var err error
 	if noSvcFoundAndDeleting {
-		ipAddressType = "IPV4" // just pick a default
+		ipAddressType = "IPV4" // Pick a default
 	} else {
 		ipAddressType, err = buildTargetGroupIpAddressType(svc)
 		if err != nil {
