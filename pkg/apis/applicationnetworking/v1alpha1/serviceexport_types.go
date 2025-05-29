@@ -30,12 +30,34 @@ type ServiceExport struct {
 	apimachineryv1.TypeMeta `json:",inline"`
 	// +optional
 	apimachineryv1.ObjectMeta `json:"metadata,omitempty"`
+	// spec defines the desired state of ServiceExport
+	// +optional
+	Spec ServiceExportSpec `json:"spec,omitempty"`
 	// status describes the current state of an exported service.
 	// Service configuration comes from the Service that had the same
 	// name and namespace as this ServiceExport.
 	// Populated by the multi-cluster service implementation's controller.
 	// +optional
 	Status ServiceExportStatus `json:"status,omitempty"`
+}
+
+// ServiceExportSpec defines the desired state of ServiceExport
+type ServiceExportSpec struct {
+	// exportedPorts defines which ports of the service should be exported and what route types they should be used with.
+	// If not specified, the controller will use the port from the annotation "application-networking.k8s.aws/port"
+	// and create HTTP target groups for backward compatibility.
+	// +optional
+	ExportedPorts []ExportedPort `json:"exportedPorts,omitempty"`
+}
+
+// ExportedPort defines a port to be exported and the route type it should be used with
+type ExportedPort struct {
+	// port is the port number to export
+	Port int32 `json:"port"`
+	// routeType is the type of route this port should be used with
+	// Valid values are "HTTP", "GRPC", "TLS"
+	// +kubebuilder:validation:Enum=HTTP;GRPC;TLS
+	RouteType string `json:"routeType"`
 }
 
 // ServiceExportStatus contains the current status of an export.

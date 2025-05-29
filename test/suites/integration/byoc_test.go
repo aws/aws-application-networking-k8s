@@ -80,7 +80,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 		// get lattice service dns name for route53 cname
 		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(gwv1.HTTPRoute(*httpRoute)))
 		latticeSvcDns = *svc.DnsEntry.DomainName
-		log.Infof(ctx, "depoloyed lattice service, dns name: %s", latticeSvcDns)
+		log.Infof(ctx, "deployed lattice service, dns name: %s", latticeSvcDns)
 
 		// create route 53 hosted zone and cname
 		hz, err := createHostedZoneIfNotExists(r53Client, hostedZoneName)
