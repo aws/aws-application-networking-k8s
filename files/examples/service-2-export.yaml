@@ -4,3 +4,7 @@ metadata:
   name: service-2
   annotations:
     application-networking.k8s.aws/federation: "amazon-vpc-lattice"
+spec:
+  exportedPorts:
+  - port: 80
+    routeType: HTTP

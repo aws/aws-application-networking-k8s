@@ -125,6 +125,7 @@ e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 		./suites/integration/... \
 		--ginkgo.focus="${FOCUS}" \
 		--ginkgo.skip="${SKIP}" \
+		--ginkgo.timeout=90m \
 		--ginkgo.v
 
 .SILENT:
