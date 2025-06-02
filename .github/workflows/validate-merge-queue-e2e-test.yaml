@@ -72,6 +72,9 @@ jobs:
              --set=image.repository=$IMAGE_REPOSITORY \
              --set=image.tag=$RELEASE_VERSION \
              --set=log.level=debug
+      - name: Install Gateway API v1.2 CRDs
+        run: |
+          kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.0" | kubectl apply -f -
       - name: Install latest custom CRDs
         run: |
           kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
@@ -82,9 +85,6 @@ jobs:
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
-      - name: Install Gateway API v1.2 CRDs
-        run: |
-          kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.0" | kubectl apply -f -
       - name: Create Lattice GatewayClass
         run: |
           kubectl apply -f files/controller-installation/gatewayclass.yaml
