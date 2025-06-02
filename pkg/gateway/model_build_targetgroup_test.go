@@ -628,6 +628,219 @@ func Test_ServiceImportToTGBuildReturnsError(t *testing.T) {
 	}
 }
 
+func Test_TGModelByServiceExportWithExportedPorts(t *testing.T) {
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	tests := []struct {
+		name                 string
+		svcExport            *anv1alpha1.ServiceExport
+		svc                  *corev1.Service
+		wantErrIsNil         bool
+		wantTargetGroupCount int
+		wantPorts            []int32
+		wantRouteTypes       []string
+	}{
+		{
+			name: "ServiceExport with multiple exportedPorts",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multi-protocol",
+					Namespace: "ns1",
+				},
+				Spec: anv1alpha1.ServiceExportSpec{
+					ExportedPorts: []anv1alpha1.ExportedPort{
+						{
+							Port:      80,
+							RouteType: "HTTP",
+						},
+						{
+							Port:      8081,
+							RouteType: "GRPC",
+						},
+						{
+							Port:      443,
+							RouteType: "TLS",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multi-protocol",
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name: "http",
+							Port: 80,
+						},
+						{
+							Name: "grpc",
+							Port: 8081,
+						},
+						{
+							Name: "tls",
+							Port: 443,
+						},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			wantErrIsNil:         true,
+			wantTargetGroupCount: 3,
+			wantPorts:            []int32{80, 8081, 443},
+			wantRouteTypes:       []string{"HTTP", "GRPC", "TLS"},
+		},
+		{
+			name: "ServiceExport with single exportedPort",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "single-port",
+					Namespace: "ns1",
+				},
+				Spec: anv1alpha1.ServiceExportSpec{
+					ExportedPorts: []anv1alpha1.ExportedPort{
+						{
+							Port:      80,
+							RouteType: "HTTP",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "single-port",
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name: "http",
+							Port: 80,
+						},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			wantErrIsNil:         true,
+			wantTargetGroupCount: 1,
+			wantPorts:            []int32{80},
+			wantRouteTypes:       []string{"HTTP"},
+		},
+		{
+			name: "ServiceExport with no exportedPorts (legacy behavior)",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "legacy",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/port": "80",
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "legacy",
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name: "http",
+							Port: 80,
+						},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			wantErrIsNil:         true,
+			wantTargetGroupCount: 1,
+			wantPorts:            []int32{80},
+			wantRouteTypes:       []string{vpclattice.TargetGroupProtocolVersionHttp1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			anv1alpha1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			if tt.svc != nil {
+				assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
+			}
+
+			builder := NewSvcExportTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
+
+			stack, err := builder.Build(ctx, tt.svcExport)
+			if !tt.wantErrIsNil {
+				assert.NotNil(t, err)
+				return
+			}
+			assert.Nil(t, err)
+
+			var targetGroups []*model.TargetGroup
+			err = stack.ListResources(&targetGroups)
+			assert.Nil(t, err)
+			assert.Equal(t, tt.wantTargetGroupCount, len(targetGroups))
+
+			// Create maps to track which ports and route types we've seen
+			seenPorts := make(map[int32]bool)
+			seenRouteTypes := make(map[string]bool)
+
+			for _, tg := range targetGroups {
+				// Check common properties
+				assert.Equal(t, model.TargetGroupTypeIP, tg.Spec.Type)
+				assert.Equal(t, model.SourceTypeSvcExport, tg.Spec.K8SSourceType)
+				assert.Equal(t, config.ClusterName, tg.Spec.K8SClusterName)
+				assert.Equal(t, tt.svcExport.Name, tg.Spec.K8SServiceName)
+				assert.Equal(t, tt.svcExport.Namespace, tg.Spec.K8SServiceNamespace)
+				assert.False(t, tg.IsDeleted)
+
+				// Track the port and route type
+				seenPorts[tg.Spec.Port] = true
+				seenRouteTypes[tg.Spec.K8SProtocolVersion] = true
+
+				// Check protocol and protocolVersion based on route type
+				switch tg.Spec.K8SProtocolVersion {
+				case "HTTP":
+					assert.Equal(t, vpclattice.TargetGroupProtocolHttp, tg.Spec.Protocol)
+					assert.Equal(t, vpclattice.TargetGroupProtocolVersionHttp1, tg.Spec.ProtocolVersion)
+				case "GRPC":
+					assert.Equal(t, vpclattice.TargetGroupProtocolHttp, tg.Spec.Protocol)
+					assert.Equal(t, vpclattice.TargetGroupProtocolVersionGrpc, tg.Spec.ProtocolVersion)
+				case "TLS":
+					assert.Equal(t, vpclattice.TargetGroupProtocolTcp, tg.Spec.Protocol)
+					assert.Equal(t, "", tg.Spec.ProtocolVersion)
+				case vpclattice.TargetGroupProtocolVersionHttp1:
+					// Legacy behavior
+					assert.Equal(t, vpclattice.TargetGroupProtocolHttp, tg.Spec.Protocol)
+				}
+			}
+
+			// Verify that we've seen all expected ports and route types
+			for _, port := range tt.wantPorts {
+				assert.True(t, seenPorts[port], "Expected port %d not found", port)
+			}
+
+			for _, routeType := range tt.wantRouteTypes {
+				assert.True(t, seenRouteTypes[routeType], "Expected route type %s not found", routeType)
+			}
+		})
+	}
+}
+
 func Test_buildTargetGroupIpAddressType(t *testing.T) {
 	type args struct {
 		svc *corev1.Service
