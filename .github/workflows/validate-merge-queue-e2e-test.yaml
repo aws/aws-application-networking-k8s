@@ -72,6 +72,16 @@ jobs:
              --set=image.repository=$IMAGE_REPOSITORY \
              --set=image.tag=$RELEASE_VERSION \
              --set=log.level=debug
+      - name: Install latest custom CRDs
+        run: |
+          kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
+          kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
+          kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
+          kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceimports.yaml
+          kubectl apply -f config/crds/bases/application-networking.k8s.aws_targetgrouppolicies.yaml
+          kubectl apply -f config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
+          kubectl apply -f config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
+          kubectl apply -f config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
       - name: Install Gateway API v1.2 CRDs
         run: |
           kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.0" | kubectl apply -f -
