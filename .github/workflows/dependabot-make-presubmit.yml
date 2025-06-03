@@ -5,6 +5,8 @@ on:
     paths:
       - 'go.mod'
       - 'go.sum'
+      - 'test/go.mod'
+      - 'test/go.sum'
 
 permissions:
   contents: write
@@ -45,6 +47,6 @@ jobs:
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add go.mod go.sum
+          git add go.mod go.sum test/go.mod test/go.sum
           git commit -m "Run make presubmit for Dependabot PR"
           git push
