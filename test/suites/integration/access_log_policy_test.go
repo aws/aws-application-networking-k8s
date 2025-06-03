@@ -73,10 +73,13 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		iamClient         *iam.IAM
 		httpDeployment    *appsv1.Deployment
 		grpcDeployment    *appsv1.Deployment
+		tlsDeployment     *appsv1.Deployment
 		httpK8sService    *corev1.Service
 		grpcK8sService    *corev1.Service
+		tlsK8sService     *corev1.Service
 		httpRoute         *gwv1.HTTPRoute
 		grpcRoute         *gwv1.GRPCRoute
+		tlsRoute          *gwv1alpha2.TLSRoute
 		bucketArn         string
 		logGroupArn       string
 		logGroup2Arn      string
@@ -217,6 +220,47 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}
 		grpcRoute = testFramework.NewGRPCRoute(k8snamespace, testGateway, grpcRouteRules)
 		testFramework.ExpectCreated(ctx, grpcRoute, grpcDeployment, grpcK8sService)
+
+		// Create TLS Route, Service, and Deployment
+		tlsDeployment, tlsK8sService = testFramework.NewNginxApp(test.ElasticSearchOptions{
+			Name:      k8sResourceName + "-tls",
+			Namespace: k8snamespace,
+		})
+		tlsRouteRules := []gwv1alpha2.TLSRouteRule{
+			{
+				BackendRefs: []gwv1alpha2.BackendRef{
+					{
+						BackendObjectReference: gwv1alpha2.BackendObjectReference{
+							Name:      gwv1alpha2.ObjectName(tlsK8sService.Name),
+							Namespace: lo.ToPtr(gwv1alpha2.Namespace(tlsK8sService.Namespace)),
+							Kind:      (*gwv1alpha2.Kind)(lo.ToPtr("Service")),
+							Port:      lo.ToPtr(gwv1alpha2.PortNumber(80)),
+						},
+					},
+				},
+			},
+		}
+		tlsRoute = &gwv1alpha2.TLSRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName + "-tls",
+				Namespace: k8snamespace,
+			},
+			Spec: gwv1alpha2.TLSRouteSpec{
+				CommonRouteSpec: gwv1.CommonRouteSpec{
+					ParentRefs: []gwv1.ParentReference{
+						{
+							Name:      gwv1.ObjectName(testGateway.Name),
+							Namespace: lo.ToPtr(gwv1.Namespace(testGateway.Namespace)),
+						},
+					},
+				},
+				Hostnames: []gwv1alpha2.Hostname{
+					gwv1alpha2.Hostname("example.com"),
+				},
+				Rules: tlsRouteRules,
+			},
+		}
+		testFramework.ExpectCreated(ctx, tlsRoute, tlsDeployment, tlsK8sService)
 	})
 
 	It("creation produces an Access Log Subscription for the corresponding Service Network when the targetRef's Kind is Gateway", func() {
@@ -376,6 +420,67 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 			// VPC Lattice Service should have Access Log Subscription with S3 Bucket destination
 			latticeService := testFramework.GetVpcLatticeService(ctx, core.NewGRPCRoute(*grpcRoute))
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+
+			// Access Log Subscription ARN should be in the Access Log Policy's annotations
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+
+			// Access Log Subscription should have default tags and Access Log Policy tag applied
+			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
+				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+			})
+			listTagsInput := &vpclattice.ListTagsForResourceInput{
+				ResourceArn: listALSOutput.Items[0].Arn,
+			}
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
+		}).Should(Succeed())
+	})
+
+	It("creation produces an Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is TLSRoute", func() {
+		Skip("This test is unreliable.")
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+					Group:     gwv1.GroupName,
+					Kind:      "TLSRoute",
+					Name:      gwv1alpha2.ObjectName(tlsRoute.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		Eventually(func(g Gomega) {
+			// Policy status should be Accepted
+			alpNamespacedName := types.NamespacedName{
+				Name:      accessLogPolicy.Name,
+				Namespace: accessLogPolicy.Namespace,
+			}
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+
+			// VPC Lattice Service should have Access Log Subscription with S3 Bucket destination
+			latticeService := testFramework.GetVpcLatticeService(ctx, core.NewTLSRoute(*tlsRoute))
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			}
@@ -616,7 +721,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
-	It("creation sets Access Log Policy status to Invalid when the targetRef's Kind is not Gateway, HTTPRoute, or GRPCRoute", func() {
+	It("creation sets Access Log Policy status to Invalid when the targetRef's Kind is not Gateway, HTTPRoute, GRPCRoute, or TLSRoute", func() {
 		Skip("This test is unreliable.")
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1172,6 +1277,51 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
+	It("deletion removes the Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is TLSRoute", func() {
+		Skip("This test is unreliable.")
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName,
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+					Group:     gwv1.GroupName,
+					Kind:      "TLSRoute",
+					Name:      gwv1alpha2.ObjectName(tlsRoute.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		latticeService := testFramework.GetVpcLatticeService(ctx, core.NewTLSRoute(*tlsRoute))
+
+		Eventually(func(g Gomega) {
+			// VPC Lattice Service should have an Access Log Subscription
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(output.Items)).To(BeEquivalentTo(1))
+		}).Should(Succeed())
+
+		testFramework.ExpectDeleted(ctx, accessLogPolicy)
+
+		// Wait a moment for eventual consistency
+		time.Sleep(1 * time.Second)
+
+		Eventually(func(g Gomega) {
+			// VPC Lattice Service should no longer have an Access Log Subscription
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: latticeService.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(output.Items)).To(BeEquivalentTo(0))
+		}).Should(Succeed())
+	})
+
 	It("status is updated when targetRef is deleted and recreated", func() {
 		Skip("This test is unreliable.")
 		// Create HTTPRoute, Service, and Deployment
@@ -1316,10 +1466,13 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			httpRoute,
 			grpcRoute,
+			tlsRoute,
 			httpK8sService,
 			grpcK8sService,
+			tlsK8sService,
 			httpDeployment,
 			grpcDeployment,
+			tlsDeployment,
 		)
 
 		// Find all AWS resources created in tests
