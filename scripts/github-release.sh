@@ -96,7 +96,6 @@ git add "$WORKSPACE_DIR/README.md" \
   "$WORKSPACE_DIR/files/controller-installation/deploy-$RELEASE_VERSION.yaml" \
   "$WORKSPACE_DIR/docs/guides/deploy.md" \
   "$WORKSPACE_DIR/docs/guides/getstarted.md" \
-  "$WORKSPACE_DIR/.github/workflows/publish-doc.yaml"
 
 # Add the old deploy file if it exists and was removed
 if [ -f "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml" ]; then
