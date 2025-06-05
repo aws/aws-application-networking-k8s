@@ -2,122 +2,122 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-reference/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/conformance-test/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/faq/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/access-log-policy/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/gateway/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/grpc-route/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/http-route/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/iam-auth-policy/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/service-export/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/service-import/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/service/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/target-group-policy/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/tls-route/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/api-types/vpc-association-policy/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/concepts/concepts/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/concepts/overview/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/contributing/developer-cheat-sheet/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/contributing/developer/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/advanced-configurations/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/custom-domain-name/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/deploy/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/environment/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/getstarted/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/grpc/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/https/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/pod-readiness-gates/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/ram-sharing/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/tls-passthrough/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/v1.1.2/guides/upgrading-v1-0-x-to-v1-1-y/</loc>
-         <lastmod>2025-06-04</lastmod>
+         <lastmod>2025-06-05</lastmod>
     </url>
 </urlset>
