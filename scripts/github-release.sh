@@ -16,6 +16,13 @@ source ./scripts/lib/common.sh
 SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 WORKSPACE_DIR=$(realpath "$SCRIPTS_DIR/..")
 
+# Check if SSH agent is running
+if [ -z "$SSH_AUTH_SOCK" ]; then
+  echo "SSH agent is not running. This script requires SSH agent to avoid multiple passphrase prompts."
+  echo "Please run 'eval \$(ssh-agent -s)' and 'ssh-add' before running this script."
+  exit 1
+fi
+
 if [ -z "$RELEASE_VERSION" ]; then
   echo "Environment variable RELEASE_VERSION is not set. Please set it to run this script."
   exit 1
@@ -62,7 +69,7 @@ sed_inplace "tag: $OLD_VERSION" "tag: $RELEASE_VERSION" "$WORKSPACE_DIR"/helm/va
 sed_inplace "deploy-$OLD_VERSION.yaml" "deploy-$RELEASE_VERSION.yaml" "$WORKSPACE_DIR"/docs/guides/deploy.md
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/deploy.md
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/getstarted.md
-sed_inplace "mike deploy $OLD_VERSION" "mike deploy $RELEASE_VERSION" "$WORKSPACE_DIR"/.github/workflows/publish-doc.yml
+sed_inplace "mike deploy $OLD_VERSION" "mike deploy $RELEASE_VERSION" "$WORKSPACE_DIR"/.github/workflows/publish-doc.yaml
 
 
 # Build the deploy.yaml
@@ -71,25 +78,45 @@ cp "deploy.yaml" "files/controller-installation/deploy-$RELEASE_VERSION.yaml"
 
 #only keep 4 recent versions deploy.yaml, removing the oldest one
 VERSION_TO_REMOVE=$(git tag --sort=v:refname | grep -v 'rc' | tail -n 5 | head -n 1)
-rm -f "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml"
+if [ -f "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml" ]; then
+  echo "Removing old deploy file: deploy-$VERSION_TO_REMOVE.yaml"
+  rm -f "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml"
+else
+  echo "Old deploy file not found: deploy-$VERSION_TO_REMOVE.yaml. Skipping removal."
+fi
 
-# Crete a new release branch, tag and push the changes
+# Create a new release branch, tag and push the changes
 git checkout -b release-$RELEASE_VERSION
+
+# Add all modified files
 git add "$WORKSPACE_DIR/README.md" \
   "$WORKSPACE_DIR/config/manager/kustomization.yaml" \
   "$WORKSPACE_DIR/helm/Chart.yaml" \
   "$WORKSPACE_DIR/helm/values.yaml" \
   "$WORKSPACE_DIR/files/controller-installation/deploy-$RELEASE_VERSION.yaml" \
-  "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml" \
-  "$WORKSPACE_DIR/docs/guides/deploy.md"
+  "$WORKSPACE_DIR/docs/guides/deploy.md" \
+  "$WORKSPACE_DIR/docs/guides/getstarted.md" \
+
+# Add the old deploy file if it exists and was removed
+if [ -f "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml" ]; then
+  git add "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml"
+fi
+
 git commit -m "Release artifacts for release $RELEASE_VERSION"
 git push origin release-$RELEASE_VERSION
-git tag -a  $RELEASE_VERSION -m "Release artifacts for release $RELEASE_VERSION"
+git tag -a $RELEASE_VERSION -m "Release artifacts for release $RELEASE_VERSION"
 git push origin $RELEASE_VERSION
 
+# Check if GitHub CLI is authenticated and has necessary permissions
+if ! gh auth status &>/dev/null; then
+  echo "GitHub CLI is not authenticated. Please run 'gh auth login' before running this script."
+  exit 1
+fi
+
 # Create a PR
+echo "Creating a PR for release $RELEASE_VERSION..."
 gh pr create --title "Release artifacts for $RELEASE_VERSION" --body "Release artifacts for $RELEASE_VERSION" \
  --base aws:main --head aws:release-$RELEASE_VERSION \
   --repo aws/aws-application-networking-k8s --web
 
-
+echo "Release process completed successfully!"
