@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/imdario/mergo v0.3.16
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.36.3
+	github.com/onsi/gomega v1.37.0
 	github.com/samber/lo v1.50.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa
