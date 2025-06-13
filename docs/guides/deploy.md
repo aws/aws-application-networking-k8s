@@ -200,7 +200,7 @@ helm install gateway-api-controller \
 === "Kubectl"
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.0.yaml
+kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.2.yaml
 ```
 
 1. Create the `amazon-vpc-lattice` GatewayClass:

@@ -402,9 +402,9 @@ aws vpc-lattice delete-service-network-vpc-association  --service-network-vpc-as
     === "Kubectl"
         ```bash 
         kubectl config use-context gw-api-controller-demo
-        kubectl delete -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.0.yaml
+        kubectl delete -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.2.yaml
         kubectl config use-context gw-api-controller-demo-2
-        kubectl delete -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.0.yaml
+        kubectl delete -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.2.yaml
         ```
 
 1. Delete the service network:
