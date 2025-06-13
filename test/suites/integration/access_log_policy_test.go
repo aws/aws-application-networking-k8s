@@ -447,6 +447,19 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 	It("creation produces an Access Log Subscription for the corresponding VPC Lattice Service when the targetRef's Kind is TLSRoute", func() {
 		Skip("This test is unreliable.")
+		var alsArn *string
+
+		// Ensure cleanup of AWS resources even if test fails
+		DeferCleanup(func() {
+			if alsArn != nil {
+				// Delete the Access Log Subscription if it exists
+				_, err := testFramework.LatticeClient.DeleteAccessLogSubscriptionWithContext(ctx, &vpclattice.DeleteAccessLogSubscriptionInput{
+					AccessLogSubscriptionIdentifier: alsArn,
+				})
+				Expect(err).To(BeNil())
+			}
+		})
+
 		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      k8sResourceName,
@@ -492,6 +505,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 			// Access Log Subscription ARN should be in the Access Log Policy's annotations
 			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+			alsArn = listALSOutput.Items[0].Arn
 
 			// Access Log Subscription should have default tags and Access Log Policy tag applied
 			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
