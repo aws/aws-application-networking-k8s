@@ -178,16 +178,26 @@ func (t *latticeTargetsModelBuildTask) getTargetListFromEndpoints(ctx context.Co
 		return nil, err
 	}
 
+	t.log.Debugf(ctx, "Found %d EndpointSlices for service %s/%s", len(epSlices.Items), t.service.Namespace, t.service.Name)
+
 	var targetList []model.Target
 	for _, epSlice := range epSlices.Items {
+		t.log.Debugf(ctx, "Processing EndpointSlice %s with %d endpoints", epSlice.Name, len(epSlice.Endpoints))
 		for _, port := range epSlice.Ports {
 			// Note that the Endpoint's port name is from ServicePort, but the actual registered port
 			// is from Pods(targets).
 			if _, ok := servicePortNames[aws.StringValue(port.Name)]; ok || skipMatch {
 				for _, ep := range epSlice.Endpoints {
+					// Log endpoint conditions for debugging
+					t.log.Debugf(ctx, "Endpoint conditions - Ready: %v, Serving: %v, Terminating: %v",
+						aws.BoolValue(ep.Conditions.Ready),
+						aws.BoolValue(ep.Conditions.Serving),
+						aws.BoolValue(ep.Conditions.Terminating))
+
 					for _, address := range ep.Addresses {
 						// Do not model terminating endpoints so that they can deregister.
 						if aws.BoolValue(ep.Conditions.Terminating) {
+							t.log.Debugf(ctx, "Skipping terminating endpoint %s", address)
 							continue
 						}
 						target := model.Target{
@@ -197,6 +207,9 @@ func (t *latticeTargetsModelBuildTask) getTargetListFromEndpoints(ctx context.Co
 						}
 						if ep.TargetRef != nil && ep.TargetRef.Kind == "Pod" {
 							target.TargetRef = types.NamespacedName{Namespace: ep.TargetRef.Namespace, Name: ep.TargetRef.Name}
+							t.log.Debugf(ctx, "Adding target %s:%d for pod %s/%s", address, aws.Int32Value(port.Port), ep.TargetRef.Namespace, ep.TargetRef.Name)
+						} else {
+							t.log.Debugf(ctx, "Adding target %s:%d (no pod reference)", address, aws.Int32Value(port.Port))
 						}
 						targetList = append(targetList, target)
 					}
@@ -204,6 +217,7 @@ func (t *latticeTargetsModelBuildTask) getTargetListFromEndpoints(ctx context.Co
 			}
 		}
 	}
+	t.log.Debugf(ctx, "Built %d targets from EndpointSlices for service %s/%s", len(targetList), t.service.Namespace, t.service.Name)
 	return targetList, nil
 }
 
