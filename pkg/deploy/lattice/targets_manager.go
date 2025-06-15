@@ -59,13 +59,21 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 			modelTg.ID(), modelTargets.Spec.StackTargetGroupId)
 	}
 
-	s.log.Debugf(ctx, "Creating targets for target group %s", modelTg.Status.Id)
+	s.log.Debugf(ctx, "Updating targets for target group %s with %d desired targets", modelTg.Status.Id, len(modelTargets.Spec.TargetList))
 
 	latticeTargets, err := s.List(ctx, modelTg)
 	if err != nil {
 		return err
 	}
+	s.log.Debugf(ctx, "Found %d existing targets in VPC Lattice for target group %s", len(latticeTargets), modelTg.Status.Id)
+
 	staleTargets := s.findStaleTargets(modelTargets, latticeTargets)
+	if len(staleTargets) > 0 {
+		s.log.Infof(ctx, "Found %d stale targets to deregister from target group %s", len(staleTargets), modelTg.Status.Id)
+		for _, target := range staleTargets {
+			s.log.Debugf(ctx, "Stale target: %s:%d", target.TargetIP, target.Port)
+		}
+	}
 
 	err1 := s.deregisterTargets(ctx, modelTg, staleTargets)
 	err2 := s.registerTargets(ctx, modelTg, modelTargets.Spec.TargetList)
@@ -92,6 +100,8 @@ func (s *defaultTargetsManager) findStaleTargets(
 			TargetIP: aws.StringValue(target.Id),
 			Port:     aws.Int64Value(target.Port),
 		}
+		// Consider targets stale if they are not in the current model set and not already draining
+		// This ensures that when pods are recreated with new IPs, old IPs are properly deregistered
 		if aws.StringValue(target.Status) != vpclattice.TargetStatusDraining && !modelSet.Contains(ipPort) {
 			staleTargets = append(staleTargets, ipPort)
 		}
