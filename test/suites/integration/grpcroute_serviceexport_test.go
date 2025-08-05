@@ -29,6 +29,11 @@ var _ = Describe("GRPCRoute Service Export/Import Test", Ordered, func() {
 		serviceImport  *anv1alpha1.ServiceImport
 	)
 
+	BeforeAll(func() {
+		SetDefaultEventuallyTimeout(5 * time.Minute)
+		SetDefaultEventuallyPollingInterval(10 * time.Second)
+	})
+
 	It("Create k8s resource", func() {
 		// Create a gRPC service and deployment
 		grpcDeployment, grpcSvc = testFramework.NewGrpcHelloWorld(test.GrpcAppOptions{AppName: "my-grpc-exportedports", Namespace: k8snamespace})
