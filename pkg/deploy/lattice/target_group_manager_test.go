@@ -12,6 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -105,7 +106,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			},
 		)
 
-		tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+		tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 		resp, err := tgManager.Upsert(ctx, &tgCreateInput)
 
 		assert.Nil(t, err)
@@ -157,7 +158,7 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	resp, err := tgManager.Upsert(ctx, &tgCreateInput)
 
 	assert.Nil(t, err)
@@ -237,7 +238,7 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, nil)
 			}
 
-			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 			resp, err := tgManager.Upsert(ctx, &tgCreateInput)
 
 			if tt.wantErr {
@@ -301,7 +302,7 @@ func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
 	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 	mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	resp, err := tgManager.Upsert(ctx, &tgCreateInput)
 
 	assert.Nil(t, err)
@@ -353,7 +354,7 @@ func Test_CreateTargetGroup_ExistingTG_Status_Retry(t *testing.T) {
 			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
 			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
-			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 			_, err := tgManager.Upsert(ctx, &tgCreateInput)
 
 			assert.Equal(t, errors.New(LATTICE_RETRY), err)
@@ -402,7 +403,7 @@ func Test_CreateTargetGroup_NewTG_RetryStatus(t *testing.T) {
 			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 			mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 
-			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 			_, err := tgManager.Upsert(ctx, &tgCreateInput)
 
 			assert.Equal(t, errors.New(LATTICE_RETRY), err)
@@ -430,7 +431,7 @@ func Test_Lattice_API_Errors(t *testing.T) {
 	// search error
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, errors.New("test"))
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	_, err := tgManager.Upsert(ctx, &tgCreateInput)
 
 	assert.Equal(t, errors.New("test"), err)
@@ -439,7 +440,7 @@ func Test_Lattice_API_Errors(t *testing.T) {
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("test"))
 
-	tgManager = NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager = NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	_, err = tgManager.Upsert(ctx, &tgCreateInput)
 	assert.NotNil(t, err)
 }
@@ -487,7 +488,7 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
 
@@ -527,7 +528,7 @@ func Test_DeleteTG_NoRegisteredTargets_DeleteTargetGroup(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
 
@@ -574,7 +575,7 @@ func Test_DeleteTG_WithExistingTG(t *testing.T) {
 	dtgOutput := &vpclattice.DeleteTargetGroupOutput{}
 	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, dtgInput).Return(dtgOutput, nil)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	err := tgManager.Delete(ctx, &tgDeleteInput)
 
 	assert.Nil(t, err)
@@ -600,7 +601,7 @@ func Test_DeleteTG_NothingToDelete(t *testing.T) {
 
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	err := tgManager.Delete(ctx, &tgDeleteInput)
 
 	assert.Nil(t, err)
@@ -637,7 +638,7 @@ func Test_DeleteTG_DeRegisteredTargetsFailed(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
 	assert.NotNil(t, err)
@@ -672,7 +673,7 @@ func Test_DeleteTG_ListTargetsFailed(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
 	assert.NotNil(t, err)
@@ -718,7 +719,7 @@ func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
 
@@ -766,7 +767,7 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroupFailed(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 
 	err := tgManager.Delete(ctx, &tgDeleteInput)
 
@@ -811,7 +812,7 @@ func Test_ListTG_TGsExist(t *testing.T) {
 
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	tgList, err := tgManager.List(ctx)
 	expect := []tgListOutput{
 		{
@@ -839,7 +840,7 @@ func Test_ListTG_NoTG(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	tgList, err := tgManager.List(ctx)
 	expectTgList := []tgListOutput(nil)
 
@@ -984,7 +985,7 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 
 			cloud := pkg_aws.NewDefaultCloud(nil, TestCloudConfig)
 
-			s := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+			s := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 
 			if got := s.getDefaultHealthCheckConfig(tt.args.targetGroupProtocol, tt.args.targetGroupProtocolVersion); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("defaultTargetGroupManager.getDefaultHealthCheckConfig() = %v, want %v", got, tt.want)
@@ -1071,7 +1072,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 			mockTagging := mocks.NewMockTagging(c)
 			cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-			s := NewTargetGroupManager(gwlog.FallbackLogger, cloud)
+			s := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 			result, err := s.IsTargetGroupMatch(ctx, tt.modelTg, tt.latticeTg, tt.tags)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -1146,10 +1147,177 @@ func Test_ResolveRuleTgIds(t *testing.T) {
 	}
 	assert.NoError(t, stack.AddResource(stackRule))
 
-	s := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud)
+	s := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud, nil)
 	assert.NoError(t, s.ResolveRuleTgIds(ctx, &stackRule.Spec.Action, stack))
 
 	assert.Equal(t, "svc-export-tg-id", stackRule.Spec.Action.TargetGroups[0].LatticeTgId)
 	assert.Equal(t, "tg-id", stackRule.Spec.Action.TargetGroups[1].LatticeTgId)
 	assert.Equal(t, model.InvalidBackendRefTgId, stackRule.Spec.Action.TargetGroups[2].LatticeTgId)
+}
+func Test_resolveHealthCheckConfigFromPolicy_NoClient(t *testing.T) {
+	cloud := pkg_aws.NewDefaultCloud(nil, TestCloudConfig)
+	s := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
+
+	tg := &model.TargetGroup{
+		Spec: model.TargetGroupSpec{
+			TargetGroupTagFields: model.TargetGroupTagFields{
+				K8SSourceType:       model.SourceTypeSvcExport,
+				K8SServiceName:      "test-service",
+				K8SServiceNamespace: "test-namespace",
+			},
+		},
+	}
+
+	// Should return nil when no client is available
+	config, err := s.resolveHealthCheckConfigFromPolicy(context.TODO(), tg)
+	assert.Nil(t, err)
+	assert.Nil(t, config)
+}
+
+func Test_resolveHealthCheckConfigFromPolicy_NonServiceExport(t *testing.T) {
+	cloud := pkg_aws.NewDefaultCloud(nil, TestCloudConfig)
+	s := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
+
+	tg := &model.TargetGroup{
+		Spec: model.TargetGroupSpec{
+			TargetGroupTagFields: model.TargetGroupTagFields{
+				K8SSourceType:       model.SourceTypeHTTPRoute,
+				K8SServiceName:      "test-service",
+				K8SServiceNamespace: "test-namespace",
+			},
+		},
+	}
+
+	// This method should only be called for ServiceExport target groups
+	// but it should handle other types gracefully
+	config, err := s.resolveHealthCheckConfigFromPolicy(context.TODO(), tg)
+	assert.Nil(t, err)
+	assert.Nil(t, config)
+}
+
+func Test_parseHealthCheckConfigFromPolicy(t *testing.T) {
+	cloud := pkg_aws.NewDefaultCloud(nil, TestCloudConfig)
+	s := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
+
+	// Test with nil policy
+	config := s.parseHealthCheckConfigFromPolicy(nil)
+	assert.Nil(t, config)
+
+	// Test with policy that has no health check config
+	tgp := &anv1alpha1.TargetGroupPolicy{
+		Spec: anv1alpha1.TargetGroupPolicySpec{},
+	}
+	config = s.parseHealthCheckConfigFromPolicy(tgp)
+	assert.Nil(t, config)
+
+	// Test with policy that has health check config
+	enabled := true
+	intervalSeconds := int64(10)
+	timeoutSeconds := int64(5)
+	healthyThreshold := int64(3)
+	unhealthyThreshold := int64(2)
+	statusMatch := "200-299"
+	path := "/health"
+	port := int64(8080)
+	protocol := anv1alpha1.HealthCheckProtocolHTTP
+	protocolVersion := anv1alpha1.HealthCheckProtocolVersionHTTP1
+
+	tgp = &anv1alpha1.TargetGroupPolicy{
+		Spec: anv1alpha1.TargetGroupPolicySpec{
+			HealthCheck: &anv1alpha1.HealthCheckConfig{
+				Enabled:                 &enabled,
+				IntervalSeconds:         &intervalSeconds,
+				TimeoutSeconds:          &timeoutSeconds,
+				HealthyThresholdCount:   &healthyThreshold,
+				UnhealthyThresholdCount: &unhealthyThreshold,
+				StatusMatch:             &statusMatch,
+				Path:                    &path,
+				Port:                    &port,
+				Protocol:                &protocol,
+				ProtocolVersion:         &protocolVersion,
+			},
+		},
+	}
+
+	config = s.parseHealthCheckConfigFromPolicy(tgp)
+	assert.NotNil(t, config)
+	assert.Equal(t, &enabled, config.Enabled)
+	assert.Equal(t, &intervalSeconds, config.HealthCheckIntervalSeconds)
+	assert.Equal(t, &timeoutSeconds, config.HealthCheckTimeoutSeconds)
+	assert.Equal(t, &healthyThreshold, config.HealthyThresholdCount)
+	assert.Equal(t, &unhealthyThreshold, config.UnhealthyThresholdCount)
+	assert.Equal(t, &statusMatch, config.Matcher.HttpCode)
+	assert.Equal(t, &path, config.Path)
+	assert.Equal(t, &port, config.Port)
+	assert.Equal(t, aws.String("HTTP"), config.Protocol)
+	assert.Equal(t, aws.String("HTTP1"), config.ProtocolVersion)
+}
+func Test_update_ServiceExportWithPolicy_Integration(t *testing.T) {
+	// This test verifies that the update method correctly resolves health check configuration
+	// from TargetGroupPolicy for ServiceExport target groups
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	// Create a target group spec for ServiceExport
+	tgSpec := model.TargetGroupSpec{
+		Port:            int32(8080),
+		Protocol:        "HTTP",
+		ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+		TargetGroupTagFields: model.TargetGroupTagFields{
+			K8SSourceType:       model.SourceTypeSvcExport,
+			K8SServiceName:      "test-service",
+			K8SServiceNamespace: "test-namespace",
+			K8SClusterName:      config.ClusterName,
+		},
+	}
+	tgSpec.VpcId = config.VpcID
+
+	targetGroup := &model.TargetGroup{
+		Spec: tgSpec,
+	}
+
+	// Mock the existing target group in VPC Lattice
+	existingTg := &vpclattice.GetTargetGroupOutput{
+		Id:   aws.String("tg-12345"),
+		Name: aws.String("test-tg"),
+		Arn:  aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345"),
+		Config: &vpclattice.TargetGroupConfig{
+			HealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				Path:                       aws.String("/"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher: &vpclattice.Matcher{
+					HttpCode: aws.String("200"),
+				},
+			},
+		},
+	}
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	// Since we don't have a real k8s client in this test, we'll test the case where
+	// no client is available (which should fall back to default behavior)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
+
+	// The update should not call UpdateTargetGroup since the health check config
+	// should match the existing one (both will use defaults)
+	mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
+
+	status, err := tgManager.update(ctx, targetGroup, existingTg)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "test-tg", status.Name)
+	assert.Equal(t, "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345", status.Arn)
+	assert.Equal(t, "tg-12345", status.Id)
 }

@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -95,7 +94,6 @@ var _ = Describe("GRPCRoute Service Export/Import Test", Ordered, func() {
 	It("Verify lattice resource & traffic", func() {
 		route, _ := core.NewRoute(grpcRoute)
 		vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
-		fmt.Printf("vpcLatticeService: %v \n", vpcLatticeService)
 
 		// Get the target group and verify it's configured for gRPC
 		tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, grpcSvc, "http", "grpc")

@@ -7,8 +7,14 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
@@ -31,14 +37,16 @@ type TargetGroupManager interface {
 }
 
 type defaultTargetGroupManager struct {
-	log   gwlog.Logger
-	cloud pkg_aws.Cloud
+	log    gwlog.Logger
+	cloud  pkg_aws.Cloud
+	client client.Client
 }
 
-func NewTargetGroupManager(log gwlog.Logger, cloud pkg_aws.Cloud) *defaultTargetGroupManager {
+func NewTargetGroupManager(log gwlog.Logger, cloud pkg_aws.Cloud, client client.Client) *defaultTargetGroupManager {
 	return &defaultTargetGroupManager{
-		log:   log,
-		cloud: cloud,
+		log:    log,
+		cloud:  cloud,
+		client: client,
 	}
 }
 
@@ -130,6 +138,19 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *mod
 		s.log.Debugf(ctx, "HealthCheck is empty. Resetting to default settings")
 		healthCheckConfig = &vpclattice.HealthCheckConfig{}
 	}
+
+	// For ServiceExport target groups, try to resolve health check configuration from TargetGroupPolicy
+	if targetGroup.Spec.K8SSourceType == model.SourceTypeSvcExport {
+		policyHealthCheckConfig, err := s.resolveHealthCheckConfigFromPolicy(ctx, targetGroup)
+		if err != nil {
+			s.log.Debugf(ctx, "Failed to resolve health check config from policy for ServiceExport target group: %v", err)
+			// Continue with existing behavior - use provided config or defaults
+		} else if policyHealthCheckConfig != nil {
+			s.log.Debugf(ctx, "Using health check configuration from TargetGroupPolicy for ServiceExport target group")
+			healthCheckConfig = policyHealthCheckConfig
+		}
+	}
+
 	s.fillDefaultHealthCheckConfig(healthCheckConfig, targetGroup.Spec.Protocol, targetGroup.Spec.ProtocolVersion)
 
 	if !reflect.DeepEqual(healthCheckConfig, latticeTg.Config.HealthCheck) {
@@ -403,6 +424,77 @@ func (s *defaultTargetGroupManager) getDefaultHealthCheckConfig(targetGroupProto
 		UnhealthyThresholdCount:    &defaultUnhealthyThresholdCount,
 		HealthCheckTimeoutSeconds:  &defaultHealthCheckTimeoutSeconds,
 		HealthCheckIntervalSeconds: &defaultHealthCheckIntervalSeconds,
+	}
+}
+
+// resolveHealthCheckConfigFromPolicy attempts to resolve health check configuration from TargetGroupPolicy
+// for ServiceExport target groups. Returns nil if no applicable policy is found or if resolution fails.
+func (s *defaultTargetGroupManager) resolveHealthCheckConfigFromPolicy(ctx context.Context, targetGroup *model.TargetGroup) (*vpclattice.HealthCheckConfig, error) {
+	if s.client == nil {
+		return nil, nil // No client available, skip policy resolution
+	}
+
+	// Create policy handler for TargetGroupPolicy
+	tgpHandler := policyhelper.NewTargetGroupPolicyHandler(s.log, s.client)
+
+	// Try to find the service associated with this target group
+	serviceName := types.NamespacedName{
+		Name:      targetGroup.Spec.K8SServiceName,
+		Namespace: targetGroup.Spec.K8SServiceNamespace,
+	}
+
+	service := &corev1.Service{}
+	err := s.client.Get(ctx, serviceName, service)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			s.log.Debugf(ctx, "Service %s not found for ServiceExport target group, cannot resolve policy", serviceName)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get service %s: %w", serviceName, err)
+	}
+
+	// Try to resolve TargetGroupPolicy for the service
+	tgp, err := tgpHandler.ObjResolvedPolicy(ctx, service)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve TargetGroupPolicy for service %s: %w", serviceName, err)
+	}
+
+	if tgp == nil {
+		s.log.Debugf(ctx, "No TargetGroupPolicy found for service %s", serviceName)
+		return nil, nil
+	}
+
+	// Parse health check configuration from the policy
+	return s.parseHealthCheckConfigFromPolicy(tgp), nil
+}
+
+// parseHealthCheckConfigFromPolicy converts TargetGroupPolicy health check spec to VPC Lattice health check config
+func (s *defaultTargetGroupManager) parseHealthCheckConfigFromPolicy(tgp *anv1alpha1.TargetGroupPolicy) *vpclattice.HealthCheckConfig {
+	if tgp == nil {
+		return nil
+	}
+
+	hc := tgp.Spec.HealthCheck
+	if hc == nil {
+		return nil
+	}
+
+	var matcher *vpclattice.Matcher
+	if hc.StatusMatch != nil {
+		matcher = &vpclattice.Matcher{HttpCode: hc.StatusMatch}
+	}
+
+	return &vpclattice.HealthCheckConfig{
+		Enabled:                    hc.Enabled,
+		HealthCheckIntervalSeconds: hc.IntervalSeconds,
+		HealthCheckTimeoutSeconds:  hc.TimeoutSeconds,
+		HealthyThresholdCount:      hc.HealthyThresholdCount,
+		UnhealthyThresholdCount:    hc.UnhealthyThresholdCount,
+		Matcher:                    matcher,
+		Path:                       hc.Path,
+		Port:                       hc.Port,
+		Protocol:                   (*string)(hc.Protocol),
+		ProtocolVersion:            (*string)(hc.ProtocolVersion),
 	}
 }
 

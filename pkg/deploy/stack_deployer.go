@@ -70,7 +70,7 @@ func NewLatticeServiceStackDeploy(
 ) *latticeServiceStackDeployer {
 	brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(log, k8sClient)
 
-	tgMgr := lattice.NewTargetGroupManager(log, cloud)
+	tgMgr := lattice.NewTargetGroupManager(log, cloud, k8sClient)
 	tgSvcExpBuilder := gateway.NewSvcExportTargetGroupBuilder(log, k8sClient)
 	svcBuilder := gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder)
 
@@ -253,7 +253,7 @@ func NewTargetGroupStackDeploy(
 		log:                log,
 		cloud:              cloud,
 		k8sclient:          k8sClient,
-		targetGroupManager: lattice.NewTargetGroupManager(log, cloud),
+		targetGroupManager: lattice.NewTargetGroupManager(log, cloud, k8sClient),
 		svcExportTgBuilder: gateway.NewSvcExportTargetGroupBuilder(log, k8sClient),
 		svcBuilder:         gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder),
 	}
