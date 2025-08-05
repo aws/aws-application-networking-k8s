@@ -7,9 +7,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -437,30 +434,17 @@ func (s *defaultTargetGroupManager) resolveHealthCheckConfigFromPolicy(ctx conte
 	// Create policy handler for TargetGroupPolicy
 	tgpHandler := policyhelper.NewTargetGroupPolicyHandler(s.log, s.client)
 
-	// Try to find the service associated with this target group
-	serviceName := types.NamespacedName{
-		Name:      targetGroup.Spec.K8SServiceName,
-		Namespace: targetGroup.Spec.K8SServiceNamespace,
-	}
-
-	service := &corev1.Service{}
-	err := s.client.Get(ctx, serviceName, service)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			s.log.Debugf(ctx, "Service %s not found for ServiceExport target group, cannot resolve policy", serviceName)
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get service %s: %w", serviceName, err)
-	}
-
 	// Try to resolve TargetGroupPolicy for the service
-	tgp, err := tgpHandler.ObjResolvedPolicy(ctx, service)
+	// This will check both direct Service targets and ServiceExport targets with the same name/namespace
+	tgp, err := tgpHandler.FindPolicyForService(ctx, targetGroup.Spec.K8SServiceName, targetGroup.Spec.K8SServiceNamespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve TargetGroupPolicy for service %s: %w", serviceName, err)
+		return nil, fmt.Errorf("failed to resolve TargetGroupPolicy for service %s/%s: %w",
+			targetGroup.Spec.K8SServiceNamespace, targetGroup.Spec.K8SServiceName, err)
 	}
 
 	if tgp == nil {
-		s.log.Debugf(ctx, "No TargetGroupPolicy found for service %s", serviceName)
+		s.log.Debugf(ctx, "No TargetGroupPolicy found for service %s/%s",
+			targetGroup.Spec.K8SServiceNamespace, targetGroup.Spec.K8SServiceName)
 		return nil, nil
 	}
 
