@@ -11,7 +11,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -1222,4 +1229,504 @@ func Test_update_ServiceExportWithPolicy_Integration(t *testing.T) {
 	assert.Equal(t, "test-tg", status.Name)
 	assert.Equal(t, "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345", status.Arn)
 	assert.Equal(t, "tg-12345", status.Id)
+}
+
+// Test_update_ServiceExportWithPolicyResolution tests the enhanced target group manager
+// policy resolution functionality for ServiceExport target groups
+func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
+	tests := []struct {
+		name                   string
+		targetGroup            *model.TargetGroup
+		existingHealthCheck    *vpclattice.HealthCheckConfig
+		policy                 *anv1alpha1.TargetGroupPolicy
+		expectedHealthCheck    *vpclattice.HealthCheckConfig
+		expectUpdate           bool
+		expectPolicyResolution bool
+		policyResolutionError  error
+	}{
+		{
+			name: "ServiceExport target group with applicable policy",
+			targetGroup: &model.TargetGroup{
+				Spec: model.TargetGroupSpec{
+					TargetGroupTagFields: model.TargetGroupTagFields{
+						K8SSourceType:       model.SourceTypeSvcExport,
+						K8SServiceName:      "test-service",
+						K8SServiceNamespace: "test-namespace",
+					},
+					Protocol:        "HTTP",
+					ProtocolVersion: "HTTP1",
+				},
+			},
+			existingHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			policy: &anv1alpha1.TargetGroupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-policy",
+					Namespace: "test-namespace",
+				},
+				Spec: anv1alpha1.TargetGroupPolicySpec{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Group: corev1.GroupName,
+						Kind:  "Service",
+						Name:  "test-service",
+					},
+					HealthCheck: &anv1alpha1.HealthCheckConfig{
+						Enabled:                 aws.Bool(true),
+						Path:                    aws.String("/api/health"),
+						IntervalSeconds:         aws.Int64(15),
+						TimeoutSeconds:          aws.Int64(10),
+						HealthyThresholdCount:   aws.Int64(3),
+						UnhealthyThresholdCount: aws.Int64(2),
+						StatusMatch:             aws.String("200-299"),
+						Protocol:                (*anv1alpha1.HealthCheckProtocol)(aws.String("HTTP")),
+						ProtocolVersion:         (*anv1alpha1.HealthCheckProtocolVersion)(aws.String("HTTP1")),
+					},
+				},
+				Status: anv1alpha1.TargetGroupPolicyStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   string(gwv1alpha2.PolicyConditionAccepted),
+							Status: metav1.ConditionTrue,
+							Reason: string(gwv1alpha2.PolicyReasonAccepted),
+						},
+					},
+				},
+			},
+			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/api/health"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(15),
+				HealthCheckTimeoutSeconds:  aws.Int64(10),
+				HealthyThresholdCount:      aws.Int64(3),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200-299")},
+			},
+			expectUpdate:           true,
+			expectPolicyResolution: true,
+		},
+		{
+			name: "ServiceExport target group with no applicable policy - fallback to defaults",
+			targetGroup: &model.TargetGroup{
+				Spec: model.TargetGroupSpec{
+					TargetGroupTagFields: model.TargetGroupTagFields{
+						K8SSourceType:       model.SourceTypeSvcExport,
+						K8SServiceName:      "test-service",
+						K8SServiceNamespace: "test-namespace",
+					},
+					Protocol:        "HTTP",
+					ProtocolVersion: "HTTP1",
+				},
+			},
+			existingHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/custom"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(60),
+				HealthCheckTimeoutSeconds:  aws.Int64(10),
+				HealthyThresholdCount:      aws.Int64(3),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			policy: nil, // No policy found
+			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			expectUpdate:           true,
+			expectPolicyResolution: true,
+		},
+		{
+			name: "HTTPRoute target group should skip policy resolution",
+			targetGroup: &model.TargetGroup{
+				Spec: model.TargetGroupSpec{
+					TargetGroupTagFields: model.TargetGroupTagFields{
+						K8SSourceType:       model.SourceTypeHTTPRoute,
+						K8SServiceName:      "test-service",
+						K8SServiceNamespace: "test-namespace",
+					},
+					Protocol:        "HTTP",
+					ProtocolVersion: "HTTP1",
+				},
+			},
+			existingHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			policy: nil, // Policy resolution should be skipped
+			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			expectUpdate:           false, // Same config, no update needed
+			expectPolicyResolution: false, // Should skip policy resolution
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.Background()
+
+			mockLattice := mocks.NewMockLattice(c)
+			mockTagging := mocks.NewMockTagging(c)
+			cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+			// Create scheme and add required types
+			scheme := runtime.NewScheme()
+			_ = anv1alpha1.AddToScheme(scheme)
+			_ = corev1.AddToScheme(scheme)
+			_ = gwv1alpha2.AddToScheme(scheme)
+
+			// Create fake client with policy if provided
+			clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
+			if tt.policy != nil {
+				clientBuilder = clientBuilder.WithObjects(tt.policy)
+			}
+			k8sClient := clientBuilder.Build()
+
+			// Create existing target group
+			existingTg := &vpclattice.GetTargetGroupOutput{
+				Arn:    aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345"),
+				Id:     aws.String("tg-12345"),
+				Name:   aws.String("test-tg"),
+				Status: aws.String(vpclattice.TargetGroupStatusActive),
+				Config: &vpclattice.TargetGroupConfig{
+					Port:            aws.Int64(80),
+					Protocol:        aws.String("HTTP"),
+					ProtocolVersion: aws.String("HTTP1"),
+					HealthCheck:     tt.existingHealthCheck,
+				},
+			}
+
+			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, k8sClient)
+
+			if tt.expectUpdate {
+				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateTargetGroupOutput{}, nil)
+			} else {
+				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
+			}
+
+			status, err := tgManager.update(ctx, tt.targetGroup, existingTg)
+
+			assert.NoError(t, err)
+			assert.Equal(t, "test-tg", status.Name)
+			assert.Equal(t, "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345", status.Arn)
+			assert.Equal(t, "tg-12345", status.Id)
+		})
+	}
+}
+
+// Test_update_BackwardsCompatibility tests that existing behavior is preserved
+// when no policies are present or when the client is nil
+func Test_update_BackwardsCompatibility(t *testing.T) {
+	tests := []struct {
+		name                string
+		client              bool // whether to provide a k8s client
+		targetGroup         *model.TargetGroup
+		existingHealthCheck *vpclattice.HealthCheckConfig
+		expectedHealthCheck *vpclattice.HealthCheckConfig
+		expectUpdate        bool
+	}{
+		{
+			name:   "No client provided - should use default behavior",
+			client: false,
+			targetGroup: &model.TargetGroup{
+				Spec: model.TargetGroupSpec{
+					TargetGroupTagFields: model.TargetGroupTagFields{
+						K8SSourceType:       model.SourceTypeSvcExport,
+						K8SServiceName:      "test-service",
+						K8SServiceNamespace: "test-namespace",
+					},
+					Protocol:        "HTTP",
+					ProtocolVersion: "HTTP1",
+				},
+			},
+			existingHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/custom"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(60),
+				HealthCheckTimeoutSeconds:  aws.Int64(10),
+				HealthyThresholdCount:      aws.Int64(3),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			expectUpdate: true,
+		},
+		{
+			name:   "Client provided but no policies exist - should use default behavior",
+			client: true,
+			targetGroup: &model.TargetGroup{
+				Spec: model.TargetGroupSpec{
+					TargetGroupTagFields: model.TargetGroupTagFields{
+						K8SSourceType:       model.SourceTypeSvcExport,
+						K8SServiceName:      "test-service",
+						K8SServiceNamespace: "test-namespace",
+					},
+					Protocol:        "HTTP",
+					ProtocolVersion: "HTTP1",
+				},
+			},
+			existingHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			expectUpdate: false, // Same config, no update needed
+		},
+		{
+			name:   "HTTPRoute target group with client - should skip policy resolution",
+			client: true,
+			targetGroup: &model.TargetGroup{
+				Spec: model.TargetGroupSpec{
+					TargetGroupTagFields: model.TargetGroupTagFields{
+						K8SSourceType:       model.SourceTypeHTTPRoute,
+						K8SServiceName:      "test-service",
+						K8SServiceNamespace: "test-namespace",
+					},
+					Protocol:        "HTTP",
+					ProtocolVersion: "HTTP1",
+					HealthCheckConfig: &vpclattice.HealthCheckConfig{
+						Enabled: aws.Bool(false),
+						Path:    aws.String("/custom-route-health"),
+					},
+				},
+			},
+			existingHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(false),
+				Path:                       aws.String("/custom-route-health"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+			expectUpdate: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.Background()
+
+			mockLattice := mocks.NewMockLattice(c)
+			mockTagging := mocks.NewMockTagging(c)
+			cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+			var k8sClient client.Client
+			if tt.client {
+				// Create scheme and add required types
+				scheme := runtime.NewScheme()
+				_ = anv1alpha1.AddToScheme(scheme)
+				_ = corev1.AddToScheme(scheme)
+				k8sClient = fake.NewClientBuilder().WithScheme(scheme).Build()
+			}
+
+			// Create existing target group
+			existingTg := &vpclattice.GetTargetGroupOutput{
+				Arn:    aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345"),
+				Id:     aws.String("tg-12345"),
+				Name:   aws.String("test-tg"),
+				Status: aws.String(vpclattice.TargetGroupStatusActive),
+				Config: &vpclattice.TargetGroupConfig{
+					Port:            aws.Int64(80),
+					Protocol:        aws.String("HTTP"),
+					ProtocolVersion: aws.String("HTTP1"),
+					HealthCheck:     tt.existingHealthCheck,
+				},
+			}
+
+			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, k8sClient)
+
+			if tt.expectUpdate {
+				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateTargetGroupOutput{}, nil)
+			} else {
+				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
+			}
+
+			status, err := tgManager.update(ctx, tt.targetGroup, existingTg)
+
+			assert.NoError(t, err)
+			assert.Equal(t, "test-tg", status.Name)
+			assert.Equal(t, "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345", status.Arn)
+			assert.Equal(t, "tg-12345", status.Id)
+		})
+	}
+}
+
+// Test_fillDefaultHealthCheckConfig_PolicyIntegration tests that the fillDefaultHealthCheckConfig
+// method works correctly with policy-derived health check configurations
+func Test_fillDefaultHealthCheckConfig_PolicyIntegration(t *testing.T) {
+	tests := []struct {
+		name                string
+		inputConfig         *vpclattice.HealthCheckConfig
+		targetGroupProtocol string
+		protocolVersion     string
+		expectedConfig      *vpclattice.HealthCheckConfig
+	}{
+		{
+			name: "Policy config with some fields missing - should fill defaults",
+			inputConfig: &vpclattice.HealthCheckConfig{
+				Enabled: aws.Bool(true),
+				Path:    aws.String("/api/health"),
+				// Missing other fields - should be filled with defaults
+			},
+			targetGroupProtocol: "HTTP",
+			protocolVersion:     "HTTP1",
+			expectedConfig: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/api/health"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+		},
+		{
+			name: "Policy config with all fields - should preserve policy values",
+			inputConfig: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(false),
+				Path:                       aws.String("/custom/health"),
+				Protocol:                   aws.String("HTTPS"),
+				ProtocolVersion:            aws.String("HTTP2"),
+				HealthCheckIntervalSeconds: aws.Int64(15),
+				HealthCheckTimeoutSeconds:  aws.Int64(10),
+				HealthyThresholdCount:      aws.Int64(3),
+				UnhealthyThresholdCount:    aws.Int64(4),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200-299")},
+			},
+			targetGroupProtocol: "HTTP",
+			protocolVersion:     "HTTP1",
+			expectedConfig: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(false),
+				Path:                       aws.String("/custom/health"),
+				Protocol:                   aws.String("HTTPS"),
+				ProtocolVersion:            aws.String("HTTP2"),
+				HealthCheckIntervalSeconds: aws.Int64(15),
+				HealthCheckTimeoutSeconds:  aws.Int64(10),
+				HealthyThresholdCount:      aws.Int64(3),
+				UnhealthyThresholdCount:    aws.Int64(4),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200-299")},
+			},
+		},
+		{
+			name:        "Empty config - should fill all defaults",
+			inputConfig: &vpclattice.HealthCheckConfig{
+				// All fields nil
+			},
+			targetGroupProtocol: "HTTPS",
+			protocolVersion:     "HTTP2",
+			expectedConfig: &vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(false), // HTTP2 defaults to disabled
+				Path:                       aws.String("/"),
+				Protocol:                   aws.String("HTTP"),
+				ProtocolVersion:            aws.String("HTTP2"), // Preserves HTTP2
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+
+			mockLattice := mocks.NewMockLattice(c)
+			mockTagging := mocks.NewMockTagging(c)
+			cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
+
+			// Call the method under test
+			tgManager.fillDefaultHealthCheckConfig(tt.inputConfig, tt.targetGroupProtocol, tt.protocolVersion)
+
+			// Verify the result
+			assert.Equal(t, tt.expectedConfig, tt.inputConfig)
+		})
+	}
 }
