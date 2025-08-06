@@ -39,6 +39,14 @@ func (h *serviceEventHandler) MapToServiceExport() handler.EventHandler {
 func (h *serviceEventHandler) mapToServiceExport(ctx context.Context, obj client.Object) []reconcile.Request {
 	var requests []reconcile.Request
 
+	// Handle TargetGroupPolicy changes more directly for ServiceExport
+	if tgp, ok := obj.(*v1alpha1.TargetGroupPolicy); ok {
+		requests = h.mapTargetGroupPolicyToServiceExport(ctx, tgp)
+		if len(requests) > 0 {
+			return requests
+		}
+	}
+
 	svc := h.mapToService(ctx, obj)
 	svcExport := h.mapper.ServiceToServiceExport(ctx, svc)
 	if svcExport != nil {
@@ -63,6 +71,53 @@ func (h *serviceEventHandler) mapToService(ctx context.Context, obj client.Objec
 		return h.mapper.EndpointSliceToService(ctx, typed)
 	}
 	return nil
+}
+
+func (h *serviceEventHandler) mapTargetGroupPolicyToServiceExport(ctx context.Context, tgp *v1alpha1.TargetGroupPolicy) []reconcile.Request {
+	var requests []reconcile.Request
+
+	targetRef := tgp.GetTargetRef()
+	if targetRef == nil {
+		return requests
+	}
+
+	// Check if the policy directly targets a ServiceExport
+	if targetRef.Kind == "ServiceExport" && (targetRef.Group == "" || targetRef.Group == v1alpha1.GroupName) {
+		svcExport := &v1alpha1.ServiceExport{}
+		key := client.ObjectKey{
+			Name:      string(targetRef.Name),
+			Namespace: tgp.Namespace,
+		}
+		if err := h.client.Get(ctx, key, svcExport); err == nil {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: k8s.NamespacedName(svcExport),
+			})
+			h.log.Infow(ctx, "TargetGroupPolicy change triggered ServiceExport update",
+				"policyName", tgp.Namespace+"/"+tgp.Name,
+				"serviceExportName", svcExport.Namespace+"/"+svcExport.Name)
+		}
+		return requests
+	}
+
+	// Check if the policy targets a Service that has a corresponding ServiceExport
+	if targetRef.Kind == "Service" && (targetRef.Group == "" || targetRef.Group == corev1.GroupName) {
+		svcExport := &v1alpha1.ServiceExport{}
+		key := client.ObjectKey{
+			Name:      string(targetRef.Name),
+			Namespace: tgp.Namespace,
+		}
+		if err := h.client.Get(ctx, key, svcExport); err == nil {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: k8s.NamespacedName(svcExport),
+			})
+			h.log.Infow(ctx, "TargetGroupPolicy change for Service triggered ServiceExport update",
+				"policyName", tgp.Namespace+"/"+tgp.Name,
+				"serviceName", string(targetRef.Name),
+				"serviceExportName", svcExport.Namespace+"/"+svcExport.Name)
+		}
+	}
+
+	return requests
 }
 
 func (h *serviceEventHandler) mapToRoute(ctx context.Context, obj client.Object, routeType core.RouteType) []reconcile.Request {
