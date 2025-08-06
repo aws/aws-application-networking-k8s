@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -214,9 +215,6 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 
 			testFramework.ExpectCreated(ctx, policy1)
 
-			// Wait a moment to ensure different creation timestamps
-			time.Sleep(2 * time.Second)
-
 			// Create second policy (should lose due to later creation timestamp)
 			policy2 = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "serviceexport-conflict-policy-2",
@@ -289,9 +287,6 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 
 			testFramework.ExpectCreated(ctx, policy1)
 
-			// Wait to ensure different creation timestamps
-			time.Sleep(2 * time.Second)
-
 			policy2 = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "z-serviceexport-zulu-policy",
 				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
@@ -310,54 +305,6 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/alpha"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(12))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
-		})
-
-		It("should demonstrate policy succession when winning policy is deleted", func() {
-			// This test demonstrates the expected behavior but may not work due to
-			// current implementation limitations in policy change propagation
-			Skip("Skipping policy succession test due to implementation timing issues")
-
-			// Create first policy
-			policy1 = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
-				PolicyName: "serviceexport-succession-policy-1",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
-				HealthCheck: &anv1alpha1.HealthCheckConfig{
-					Path:            aws.String("/first"),
-					IntervalSeconds: aws.Int64(20),
-				},
-			})
-
-			testFramework.ExpectCreated(ctx, policy1)
-			time.Sleep(2 * time.Second)
-
-			// Create second policy
-			policy2 = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
-				PolicyName: "serviceexport-succession-policy-2",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
-				HealthCheck: &anv1alpha1.HealthCheckConfig{
-					Path:            aws.String("/second"),
-					IntervalSeconds: aws.Int64(25),
-				},
-			})
-
-			testFramework.ExpectCreated(ctx, policy2)
-
-			// Verify first policy wins
-			Eventually(func(g Gomega) {
-				tgSummary := testFramework.GetTargetGroup(ctx, service)
-				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
-				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/first"))
-			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
-
-			// Delete first policy and verify second takes over
-			testFramework.ExpectDeletedThenNotFound(ctx, policy1)
-			policy1 = nil
-
-			Eventually(func(g Gomega) {
-				tgSummary := testFramework.GetTargetGroup(ctx, service)
-				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
-				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/second"))
-			}).Within(120 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 		})
 	})
 
@@ -535,6 +482,461 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(30))
 				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+		})
+	})
+
+	Context("End-to-End Health Check Configuration Tests", func() {
+		AfterEach(func() {
+			if policy != nil {
+				testFramework.ExpectDeleted(ctx, policy)
+				policy = nil
+			}
+
+			// Wait for target group to return to default state after policy cleanup
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				// Should eventually reach default configuration
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(30))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(5))
+				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(5))
+				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(2))
+				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200"))
+			}).Within(120 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+		})
+
+		It("should apply custom health check paths and protocols correctly", func() {
+			// Test custom health check configuration with HTTP protocol
+			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
+				PolicyName: "e2e-http-custom-path",
+				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Path:                    aws.String("/api/health"),
+					IntervalSeconds:         aws.Int64(20),
+					TimeoutSeconds:          aws.Int64(8),
+					StatusMatch:             aws.String("200,202"),
+					HealthyThresholdCount:   aws.Int64(2),
+					UnhealthyThresholdCount: aws.Int64(3),
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Wait for policy to be accepted
+			Eventually(func(g Gomega) {
+				err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
+				g.Expect(err).Should(BeNil())
+
+				conditions := policy.Status.Conditions
+				g.Expect(conditions).ToNot(BeEmpty())
+
+				var acceptedCondition *metav1.Condition
+				for i := range conditions {
+					if conditions[i].Type == "Accepted" {
+						acceptedCondition = &conditions[i]
+						break
+					}
+				}
+				g.Expect(acceptedCondition).ToNot(BeNil())
+				g.Expect(acceptedCondition.Status).To(Equal(metav1.ConditionTrue))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+
+			// Verify all custom health check parameters are applied correctly
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				// Verify protocol configuration (ServiceExport target groups use HTTP protocol)
+				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+
+				// Verify health check configuration from policy is applied
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/api/health"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(20))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(8))
+				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,202"))
+				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(2))
+				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(3))
+			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+		})
+
+		It("should handle gRPC-style health check path configuration", func() {
+			// Test gRPC-style health check path with custom configuration
+			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
+				PolicyName: "e2e-grpc-health-check",
+				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Path:                    aws.String("/grpc.health.v1.Health/Check"),
+					IntervalSeconds:         aws.Int64(25),
+					TimeoutSeconds:          aws.Int64(12),
+					StatusMatch:             aws.String("200"),
+					HealthyThresholdCount:   aws.Int64(3),
+					UnhealthyThresholdCount: aws.Int64(2),
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Wait for policy to be accepted
+			Eventually(func(g Gomega) {
+				err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
+				g.Expect(err).Should(BeNil())
+
+				conditions := policy.Status.Conditions
+				g.Expect(conditions).ToNot(BeEmpty())
+
+				var acceptedCondition *metav1.Condition
+				for i := range conditions {
+					if conditions[i].Type == "Accepted" {
+						acceptedCondition = &conditions[i]
+						break
+					}
+				}
+				g.Expect(acceptedCondition).ToNot(BeNil())
+				g.Expect(acceptedCondition.Status).To(Equal(metav1.ConditionTrue))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+
+			// Verify gRPC-style health check configuration is applied
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/grpc.health.v1.Health/Check"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(25))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(12))
+				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200"))
+				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(3))
+				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(2))
+			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+		})
+
+		It("should demonstrate policy configuration takes precedence over defaults", func() {
+			// First verify default configuration without policy
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				// Verify we have default configuration
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(30))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(5))
+				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200"))
+			}).Within(30 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+
+			// Apply policy with different configuration
+			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
+				PolicyName: "e2e-precedence-test",
+				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Path:            aws.String("/custom/health"),
+					IntervalSeconds: aws.Int64(45),
+					TimeoutSeconds:  aws.Int64(15),
+					StatusMatch:     aws.String("200,201,202"),
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Wait for policy to be accepted
+			Eventually(func(g Gomega) {
+				err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
+				g.Expect(err).Should(BeNil())
+
+				conditions := policy.Status.Conditions
+				g.Expect(conditions).ToNot(BeEmpty())
+
+				var acceptedCondition *metav1.Condition
+				for i := range conditions {
+					if conditions[i].Type == "Accepted" {
+						acceptedCondition = &conditions[i]
+						break
+					}
+				}
+				g.Expect(acceptedCondition).ToNot(BeNil())
+				g.Expect(acceptedCondition.Status).To(Equal(metav1.ConditionTrue))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+
+			// Verify policy configuration overrides defaults
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				// All values should be different from defaults
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/custom/health"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(45))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(15))
+				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,201,202"))
+			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+		})
+
+		It("should handle rapid policy configuration changes", func() {
+			// Create initial policy
+			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
+				PolicyName: "e2e-rapid-changes-initial",
+				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Path:            aws.String("/initial"),
+					IntervalSeconds: aws.Int64(10),
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Verify initial configuration
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/initial"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(10))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+
+			// Perform multiple rapid updates
+			for i := 1; i <= 3; i++ {
+				err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
+				Expect(err).Should(BeNil())
+
+				policy.Spec.HealthCheck.Path = aws.String(fmt.Sprintf("/update-%d", i))
+				policy.Spec.HealthCheck.IntervalSeconds = aws.Int64(int64(10 + i*5))
+				err = testFramework.Client.Update(ctx, policy)
+				Expect(err).Should(BeNil())
+
+				// Verify each update is applied
+				Eventually(func(g Gomega) {
+					tgSummary := testFramework.GetTargetGroup(ctx, service)
+					tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+					g.Expect(*tg.Config.HealthCheck.Path).To(Equal(fmt.Sprintf("/update-%d", i)))
+					g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(int64(10 + i*5)))
+				}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+			}
+		})
+
+		It("should maintain configuration consistency across target group recreations", func() {
+			// Create policy with specific configuration
+			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
+				PolicyName: "e2e-consistency-test",
+				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Path:                    aws.String("/consistent"),
+					IntervalSeconds:         aws.Int64(35),
+					TimeoutSeconds:          aws.Int64(7),
+					StatusMatch:             aws.String("200,204"),
+					HealthyThresholdCount:   aws.Int64(4),
+					UnhealthyThresholdCount: aws.Int64(3),
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Verify initial configuration
+			var originalTgId string
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+				originalTgId = *tg.Id
+
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/consistent"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(35))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(7))
+				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,204"))
+				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(4))
+				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(3))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+
+			// Force target group recreation by deleting and recreating ServiceExport
+			testFramework.ExpectDeleted(ctx, serviceExport)
+
+			// Wait for target group to be cleaned up
+			Eventually(func(g Gomega) {
+				_, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+					TargetGroupIdentifier: aws.String(originalTgId),
+				})
+				g.Expect(err).Should(HaveOccurred())
+			}).Within(120 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+
+			// Recreate ServiceExport
+			serviceExport = testFramework.CreateServiceExport(service)
+			testFramework.ExpectCreated(ctx, serviceExport)
+
+			// Verify that the new target group has the same policy configuration
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				// Should be a different target group ID
+				g.Expect(*tg.Id).ToNot(Equal(originalTgId))
+
+				// But should have the same policy configuration
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/consistent"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(35))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(7))
+				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,204"))
+				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(4))
+				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(3))
+			}).Within(120 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+		})
+
+		It("should demonstrate backwards compatibility with existing deployments", func() {
+			// This test verifies that existing behavior is preserved when no policies are present
+
+			// Ensure no policies are applied
+			Expect(policy).To(BeNil())
+
+			// Clean up any leftover policies that might be targeting this service
+			policyList := &anv1alpha1.TargetGroupPolicyList{}
+			err := testFramework.Client.List(ctx, policyList, client.InNamespace(k8snamespace))
+			Expect(err).Should(BeNil())
+
+			for _, existingPolicy := range policyList.Items {
+				if existingPolicy.Spec.TargetRef != nil &&
+					string(existingPolicy.Spec.TargetRef.Name) == service.Name {
+					testFramework.ExpectDeleted(ctx, &existingPolicy)
+				}
+			}
+
+			// Wait for target group to reach default state (in case previous tests left policies)
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				// Should eventually reach default configuration
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(30))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(5))
+				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(5))
+				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(2))
+				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200"))
+			}).Within(120 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+
+			// Verify exact default configuration that existed before the enhancement
+			expectedDefaults := vpclattice.HealthCheckConfig{
+				Enabled:                    aws.Bool(true),
+				Path:                       aws.String("/"),
+				HealthCheckIntervalSeconds: aws.Int64(30),
+				HealthCheckTimeoutSeconds:  aws.Int64(5),
+				HealthyThresholdCount:      aws.Int64(5),
+				UnhealthyThresholdCount:    aws.Int64(2),
+				Protocol:                   aws.String(vpclattice.TargetGroupProtocolHttp),
+				ProtocolVersion:            aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+				Port:                       nil,
+				Matcher: &vpclattice.Matcher{
+					HttpCode: aws.String("200"),
+				},
+			}
+
+			// Get current target group configuration (should be defaults now)
+			tgSummary := testFramework.GetTargetGroup(ctx, service)
+			tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+			Expect(*tg.Config.HealthCheck).To(Equal(expectedDefaults))
+
+			// Create a policy and then delete it to verify fallback behavior
+			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
+				PolicyName: "e2e-backwards-compat-temp",
+				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Path: aws.String("/temp"),
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Verify policy is applied
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/temp"))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+
+			// Delete policy and verify fallback to exact same defaults
+			testFramework.ExpectDeletedThenNotFound(ctx, policy)
+			policy = nil
+
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+				g.Expect(*tg.Config.HealthCheck).To(Equal(expectedDefaults))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+		})
+
+		It("should handle complex health check parameter combinations", func() {
+			// Test edge case parameter combinations that might cause issues
+			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
+				PolicyName: "e2e-complex-params",
+				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Path:                    aws.String("/api/v1/health/check?detailed=true"),
+					IntervalSeconds:         aws.Int64(5),                      // Minimum allowed
+					TimeoutSeconds:          aws.Int64(2),                      // Minimum allowed
+					StatusMatch:             aws.String("200,201,202,204,206"), // Multiple status codes
+					HealthyThresholdCount:   aws.Int64(10),                     // High threshold
+					UnhealthyThresholdCount: aws.Int64(10),                     // High threshold
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Verify all complex parameters are applied correctly
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/api/v1/health/check?detailed=true"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(5))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(2))
+				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,201,202,204,206"))
+				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(10))
+				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(10))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+		})
+
+		It("should verify policy status reflects target group application", func() {
+			// Create policy and verify it gets applied to target group
+			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
+				PolicyName: "e2e-status-verification",
+				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Path:            aws.String("/status-test"),
+					IntervalSeconds: aws.Int64(40),
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Verify policy status shows it's accepted and applied
+			Eventually(func(g Gomega) {
+				err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
+				g.Expect(err).Should(BeNil())
+
+				conditions := policy.Status.Conditions
+				g.Expect(conditions).ToNot(BeEmpty())
+
+				var acceptedCondition *metav1.Condition
+				for i := range conditions {
+					if conditions[i].Type == "Accepted" {
+						acceptedCondition = &conditions[i]
+						break
+					}
+				}
+				g.Expect(acceptedCondition).ToNot(BeNil())
+				g.Expect(acceptedCondition.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(acceptedCondition.Reason).To(Equal("Accepted"))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+
+			// Verify the configuration is actually applied to the target group and stays applied
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/status-test"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(40))
+			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+
+			// Verify configuration remains stable over multiple checks
+			Consistently(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/status-test"))
+				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(40))
+			}).Within(30 * time.Second).WithPolling(5 * time.Second).Should(Succeed())
 		})
 	})
 })
