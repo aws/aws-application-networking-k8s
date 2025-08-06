@@ -11,7 +11,6 @@ import (
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
-	"github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -75,14 +74,16 @@ func (t *TargetGroupSynthesizer) SynthesizeCreate(ctx context.Context) error {
 
 		prefix := model.TgNamePrefix(resTargetGroup.Spec)
 
-		// For ServiceExport target groups, resolve health check configuration from TargetGroupPolicy
+		// Resolve health check configuration from TargetGroupPolicy using centralized resolver
 		// before calling the target group manager
-		if resTargetGroup.Spec.K8SSourceType == model.SourceTypeSvcExport {
-			err := t.populateHealthCheckConfigFromPolicy(ctx, resTargetGroup)
-			if err != nil {
-				t.log.Debugf(ctx, "Failed to populate health check config from policy for %s: %v", prefix, err)
-				// Continue with existing behavior - policy resolution failure should not block target group creation
-			}
+		resolver := NewHealthCheckConfigResolver(t.log, t.client)
+		policyHealthCheckConfig, err := resolver.ResolveHealthCheckConfig(ctx, resTargetGroup)
+		if err != nil {
+			t.log.Debugf(ctx, "Failed to resolve health check config from policy for %s: %v", prefix, err)
+			// Continue with existing behavior - policy resolution failure should not block target group creation
+		} else if policyHealthCheckConfig != nil {
+			t.log.Debugf(ctx, "Applying health check configuration from TargetGroupPolicy to target group %s", prefix)
+			resTargetGroup.Spec.HealthCheckConfig = policyHealthCheckConfig
 		}
 
 		tgStatus, err := t.targetGroupManager.Upsert(ctx, resTargetGroup)
@@ -99,74 +100,6 @@ func (t *TargetGroupSynthesizer) SynthesizeCreate(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// populateHealthCheckConfigFromPolicy resolves TargetGroupPolicy health check configuration
-// for ServiceExport target groups and populates the target group spec with the resolved configuration.
-// This ensures that health check configurations from applicable policies are applied before
-// calling the target group manager, maintaining backwards compatibility when no policies are present.
-func (t *TargetGroupSynthesizer) populateHealthCheckConfigFromPolicy(ctx context.Context, resTargetGroup *model.TargetGroup) error {
-	if t.client == nil {
-		t.log.Debugf(ctx, "No client available for policy resolution, skipping")
-		return nil
-	}
-
-	// Create policy handler for TargetGroupPolicy
-	tgpHandler := policyhelper.NewTargetGroupPolicyHandler(t.log, t.client)
-
-	// Try to resolve TargetGroupPolicy for the service
-	// This will check both direct Service targets and ServiceExport targets with the same name/namespace
-	tgp, err := tgpHandler.FindPolicyForService(ctx, resTargetGroup.Spec.K8SServiceName, resTargetGroup.Spec.K8SServiceNamespace)
-	if err != nil {
-		return fmt.Errorf("failed to resolve TargetGroupPolicy for service %s/%s: %w",
-			resTargetGroup.Spec.K8SServiceNamespace, resTargetGroup.Spec.K8SServiceName, err)
-	}
-
-	if tgp == nil {
-		t.log.Debugf(ctx, "No TargetGroupPolicy found for service %s/%s, using existing health check configuration",
-			resTargetGroup.Spec.K8SServiceNamespace, resTargetGroup.Spec.K8SServiceName)
-		return nil
-	}
-
-	// Parse health check configuration from the policy
-	policyHealthCheckConfig := t.parseHealthCheckConfigFromPolicy(tgp)
-	if policyHealthCheckConfig != nil {
-		t.log.Debugf(ctx, "Applying health check configuration from TargetGroupPolicy %s/%s to target group %s",
-			tgp.Namespace, tgp.Name, model.TgNamePrefix(resTargetGroup.Spec))
-		resTargetGroup.Spec.HealthCheckConfig = policyHealthCheckConfig
-	}
-
-	return nil
-}
-
-// parseHealthCheckConfigFromPolicy converts TargetGroupPolicy health check spec to VPC Lattice health check config
-func (t *TargetGroupSynthesizer) parseHealthCheckConfigFromPolicy(tgp *anv1alpha1.TargetGroupPolicy) *vpclattice.HealthCheckConfig {
-	if tgp == nil {
-		return nil
-	}
-
-	hc := tgp.Spec.HealthCheck
-	if hc == nil {
-		return nil
-	}
-
-	var matcher *vpclattice.Matcher
-	if hc.StatusMatch != nil {
-		matcher = &vpclattice.Matcher{HttpCode: hc.StatusMatch}
-	}
-
-	return &vpclattice.HealthCheckConfig{
-		Enabled:                    hc.Enabled,
-		HealthCheckIntervalSeconds: hc.IntervalSeconds,
-		HealthCheckTimeoutSeconds:  hc.TimeoutSeconds,
-		HealthyThresholdCount:      hc.HealthyThresholdCount,
-		UnhealthyThresholdCount:    hc.UnhealthyThresholdCount,
-		Matcher:                    matcher,
-		Path:                       hc.Path,
-		Port:                       hc.Port,
-		Protocol:                   (*string)(hc.Protocol),
-		ProtocolVersion:            (*string)(hc.ProtocolVersion),
-	}
 }
 
 func (t *TargetGroupSynthesizer) SynthesizeDelete(ctx context.Context) error {

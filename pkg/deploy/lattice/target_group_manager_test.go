@@ -12,7 +12,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -1154,104 +1153,7 @@ func Test_ResolveRuleTgIds(t *testing.T) {
 	assert.Equal(t, "tg-id", stackRule.Spec.Action.TargetGroups[1].LatticeTgId)
 	assert.Equal(t, model.InvalidBackendRefTgId, stackRule.Spec.Action.TargetGroups[2].LatticeTgId)
 }
-func Test_resolveHealthCheckConfigFromPolicy_NoClient(t *testing.T) {
-	cloud := pkg_aws.NewDefaultCloud(nil, TestCloudConfig)
-	s := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 
-	tg := &model.TargetGroup{
-		Spec: model.TargetGroupSpec{
-			TargetGroupTagFields: model.TargetGroupTagFields{
-				K8SSourceType:       model.SourceTypeSvcExport,
-				K8SServiceName:      "test-service",
-				K8SServiceNamespace: "test-namespace",
-			},
-		},
-	}
-
-	// Should return nil when no client is available
-	config, err := s.resolveHealthCheckConfigFromPolicy(context.TODO(), tg)
-	assert.Nil(t, err)
-	assert.Nil(t, config)
-}
-
-func Test_resolveHealthCheckConfigFromPolicy_NonServiceExport(t *testing.T) {
-	cloud := pkg_aws.NewDefaultCloud(nil, TestCloudConfig)
-	s := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
-
-	tg := &model.TargetGroup{
-		Spec: model.TargetGroupSpec{
-			TargetGroupTagFields: model.TargetGroupTagFields{
-				K8SSourceType:       model.SourceTypeHTTPRoute,
-				K8SServiceName:      "test-service",
-				K8SServiceNamespace: "test-namespace",
-			},
-		},
-	}
-
-	// This method should only be called for ServiceExport target groups
-	// but it should handle other types gracefully
-	config, err := s.resolveHealthCheckConfigFromPolicy(context.TODO(), tg)
-	assert.Nil(t, err)
-	assert.Nil(t, config)
-}
-
-func Test_parseHealthCheckConfigFromPolicy(t *testing.T) {
-	cloud := pkg_aws.NewDefaultCloud(nil, TestCloudConfig)
-	s := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
-
-	// Test with nil policy
-	config := s.parseHealthCheckConfigFromPolicy(nil)
-	assert.Nil(t, config)
-
-	// Test with policy that has no health check config
-	tgp := &anv1alpha1.TargetGroupPolicy{
-		Spec: anv1alpha1.TargetGroupPolicySpec{},
-	}
-	config = s.parseHealthCheckConfigFromPolicy(tgp)
-	assert.Nil(t, config)
-
-	// Test with policy that has health check config
-	enabled := true
-	intervalSeconds := int64(10)
-	timeoutSeconds := int64(5)
-	healthyThreshold := int64(3)
-	unhealthyThreshold := int64(2)
-	statusMatch := "200-299"
-	path := "/health"
-	port := int64(8080)
-	protocol := anv1alpha1.HealthCheckProtocolHTTP
-	protocolVersion := anv1alpha1.HealthCheckProtocolVersionHTTP1
-
-	tgp = &anv1alpha1.TargetGroupPolicy{
-		Spec: anv1alpha1.TargetGroupPolicySpec{
-			HealthCheck: &anv1alpha1.HealthCheckConfig{
-				Enabled:                 &enabled,
-				IntervalSeconds:         &intervalSeconds,
-				TimeoutSeconds:          &timeoutSeconds,
-				HealthyThresholdCount:   &healthyThreshold,
-				UnhealthyThresholdCount: &unhealthyThreshold,
-				StatusMatch:             &statusMatch,
-				Path:                    &path,
-				Port:                    &port,
-				Protocol:                &protocol,
-				ProtocolVersion:         &protocolVersion,
-			},
-		},
-	}
-
-	config = s.parseHealthCheckConfigFromPolicy(tgp)
-	assert.NotNil(t, config)
-	assert.Equal(t, &enabled, config.Enabled)
-	assert.Equal(t, &intervalSeconds, config.HealthCheckIntervalSeconds)
-	assert.Equal(t, &timeoutSeconds, config.HealthCheckTimeoutSeconds)
-	assert.Equal(t, &healthyThreshold, config.HealthyThresholdCount)
-	assert.Equal(t, &unhealthyThreshold, config.UnhealthyThresholdCount)
-	assert.Equal(t, &statusMatch, config.Matcher.HttpCode)
-	assert.Equal(t, &path, config.Path)
-	assert.Equal(t, &port, config.Port)
-	assert.Equal(t, aws.String("HTTP"), config.Protocol)
-	assert.Equal(t, aws.String("HTTP1"), config.ProtocolVersion)
-}
 func Test_update_ServiceExportWithPolicy_Integration(t *testing.T) {
 	// This test verifies that the update method correctly resolves health check configuration
 	// from TargetGroupPolicy for ServiceExport target groups
