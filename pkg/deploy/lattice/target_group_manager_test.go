@@ -1407,9 +1407,9 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 
 			// Create scheme and add required types
 			scheme := runtime.NewScheme()
-			_ = anv1alpha1.AddToScheme(scheme)
+			_ = anv1alpha1.Install(scheme)
 			_ = corev1.AddToScheme(scheme)
-			_ = gwv1alpha2.AddToScheme(scheme)
+			_ = gwv1alpha2.Install(scheme)
 
 			// Create fake client with policy if provided
 			clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
@@ -1595,7 +1595,7 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 			if tt.client {
 				// Create scheme and add required types
 				scheme := runtime.NewScheme()
-				_ = anv1alpha1.AddToScheme(scheme)
+				_ = anv1alpha1.Install(scheme)
 				_ = corev1.AddToScheme(scheme)
 				k8sClient = fake.NewClientBuilder().WithScheme(scheme).Build()
 			}

@@ -2,10 +2,6 @@ package integration
 
 import (
 	"fmt"
-	"log"
-	"regexp"
-	"time"
-
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,6 +9,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"log"
+	"regexp"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -88,7 +86,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-v3 handler pod"))
-		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 
 		// check incorrect headers
 		Eventually(func(g Gomega) {
@@ -96,7 +94,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 			stdout, _, err := testFramework.PodExec(pod, invalidCmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("Not Found"))
-		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	AfterEach(func() {

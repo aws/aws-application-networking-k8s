@@ -32,9 +32,6 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		grpcBinDeployment, grpcBinService = testFramework.NewGrpcBin(test.GrpcAppOptions{AppName: "my-grpcbin-1", Namespace: k8snamespace})
 		grpcHelloWorldDeployment, grpcHelloWorldService = testFramework.NewGrpcHelloWorld(test.GrpcAppOptions{AppName: "my-grpc-hello-world-1", Namespace: k8snamespace})
 		testFramework.ExpectCreated(ctx, grpcBinDeployment, grpcBinService, grpcHelloWorldDeployment, grpcHelloWorldService)
-
-		SetDefaultEventuallyTimeout(5 * time.Minute)
-		SetDefaultEventuallyPollingInterval(10 * time.Second)
 	})
 
 	When("Create a grpcRoute that have one rule with no matches BackendRef to grpcBinService", func() {

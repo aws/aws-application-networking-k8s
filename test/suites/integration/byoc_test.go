@@ -103,7 +103,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("byoc-app handler pod"))
 			g.Expect(stderr).To(ContainSubstring("issuer: O=byoc-e2e-test"))
-		}).WithTimeout(30 * time.Second).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	AfterAll(func() {

@@ -75,7 +75,7 @@ func TestHealthCheckConfigResolver_ResolveHealthCheckConfig(t *testing.T) {
 
 			// Create scheme and add required types
 			scheme := runtime.NewScheme()
-			_ = anv1alpha1.AddToScheme(scheme)
+			_ = anv1alpha1.Install(scheme)
 			_ = corev1.AddToScheme(scheme)
 
 			// Create fake client with no objects
@@ -434,9 +434,9 @@ func Test_ResolveHealthCheckConfig_WithPolicies(t *testing.T) {
 
 			// Create scheme and add required types
 			scheme := runtime.NewScheme()
-			_ = anv1alpha1.AddToScheme(scheme)
+			_ = anv1alpha1.Install(scheme)
 			_ = corev1.AddToScheme(scheme)
-			_ = gwv1alpha2.AddToScheme(scheme)
+			_ = gwv1alpha2.Install(scheme)
 
 			// Convert policies to client.Object slice
 			objects := make([]client.Object, len(tt.policies))

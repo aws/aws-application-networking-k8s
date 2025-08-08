@@ -1,10 +1,6 @@
 package integration
 
 import (
-	"log"
-	"os"
-	"time"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/aws"
@@ -15,6 +11,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"log"
+	"os"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -28,11 +26,6 @@ var _ = Describe("GRPCRoute Service Export/Import Test", Ordered, func() {
 		serviceExport  *anv1alpha1.ServiceExport
 		serviceImport  *anv1alpha1.ServiceImport
 	)
-
-	BeforeAll(func() {
-		SetDefaultEventuallyTimeout(5 * time.Minute)
-		SetDefaultEventuallyPollingInterval(10 * time.Second)
-	})
 
 	It("Create k8s resource", func() {
 		// Create a gRPC service and deployment
@@ -119,7 +112,7 @@ var _ = Describe("GRPCRoute Service Export/Import Test", Ordered, func() {
 			for _, target := range targets {
 				g.Expect(*target.Port).To(BeEquivalentTo(grpcSvc.Spec.Ports[0].TargetPort.IntVal))
 			}
-		}).WithTimeout(3 * time.Minute).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 
 		log.Println("Verifying traffic")
 		grpcurlCmdOptions := test.RunGrpcurlCmdOptions{

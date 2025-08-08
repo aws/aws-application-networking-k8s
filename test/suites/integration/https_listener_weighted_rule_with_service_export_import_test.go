@@ -2,10 +2,6 @@ package integration
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"time"
-
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -15,10 +11,12 @@ import (
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"log"
+	"os"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-var _ = Describe("Test 2 listeners with weighted httproute rules and service export import", func() {
+var _ = Describe("Test 2 listeners with weighted httproute rules and service export import", Ordered, func() {
 	var (
 		deployment0    *appsv1.Deployment
 		deployment1    *appsv1.Deployment
@@ -114,7 +112,7 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 					g.Expect(*retrievedWeightedTargetGroup1InRule.TargetGroupIdentifier).To(Equal(*retrievedTg1.Id))
 					g.Expect(*retrievedWeightedTargetGroup1InRule.Weight).To(BeEquivalentTo(80))
 				}
-			}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
+			}).Should(Succeed())
 			log.Println("Verifying Weighted rule traffic")
 			dnsName := testFramework.GetVpcLatticeServiceDns(httpRoute.Name, httpRoute.Namespace)
 
@@ -138,7 +136,7 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 					stdout, _, err := testFramework.PodExec(pod, cmd)
 					g.Expect(err).To(BeNil())
 					g.Expect(stdout).To(ContainSubstring("handler pod"))
-				}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
+				}).Should(Succeed())
 			}
 		})
 
