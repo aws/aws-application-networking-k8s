@@ -693,7 +693,7 @@ func Test_TGModelByServiceExportWithExportedPorts(t *testing.T) {
 			wantErrIsNil:         true,
 			wantTargetGroupCount: 3,
 			wantPorts:            []int32{80, 8081, 443},
-			wantRouteTypes:       []string{"HTTP", "GRPC", "TLS"},
+			wantRouteTypes:       []string{vpclattice.TargetGroupProtocolVersionHttp1, vpclattice.TargetGroupProtocolVersionGrpc, ""},
 		},
 		{
 			name: "ServiceExport with single exportedPort",
@@ -731,7 +731,7 @@ func Test_TGModelByServiceExportWithExportedPorts(t *testing.T) {
 			wantErrIsNil:         true,
 			wantTargetGroupCount: 1,
 			wantPorts:            []int32{80},
-			wantRouteTypes:       []string{"HTTP"},
+			wantRouteTypes:       []string{vpclattice.TargetGroupProtocolVersionHttp1},
 		},
 		{
 			name: "ServiceExport with no exportedPorts (legacy behavior)",
@@ -812,20 +812,18 @@ func Test_TGModelByServiceExportWithExportedPorts(t *testing.T) {
 				seenPorts[tg.Spec.Port] = true
 				seenRouteTypes[tg.Spec.K8SProtocolVersion] = true
 
-				// Check protocol and protocolVersion based on route type
+				// Check protocol and protocolVersion based on K8SProtocolVersion
 				switch tg.Spec.K8SProtocolVersion {
-				case "HTTP":
+				case vpclattice.TargetGroupProtocolVersionHttp1:
 					assert.Equal(t, vpclattice.TargetGroupProtocolHttp, tg.Spec.Protocol)
 					assert.Equal(t, vpclattice.TargetGroupProtocolVersionHttp1, tg.Spec.ProtocolVersion)
-				case "GRPC":
+				case vpclattice.TargetGroupProtocolVersionGrpc:
 					assert.Equal(t, vpclattice.TargetGroupProtocolHttp, tg.Spec.Protocol)
 					assert.Equal(t, vpclattice.TargetGroupProtocolVersionGrpc, tg.Spec.ProtocolVersion)
-				case "TLS":
+				case "":
+					// TLS case - no protocol version for TCP
 					assert.Equal(t, vpclattice.TargetGroupProtocolTcp, tg.Spec.Protocol)
 					assert.Equal(t, "", tg.Spec.ProtocolVersion)
-				case vpclattice.TargetGroupProtocolVersionHttp1:
-					// Legacy behavior
-					assert.Equal(t, vpclattice.TargetGroupProtocolHttp, tg.Spec.Protocol)
 				}
 			}
 
