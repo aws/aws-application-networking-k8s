@@ -698,6 +698,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Multi-cluster">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuring-health-checks-for-multi-cluster-services-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuring Health Checks for Multi-Cluster Services (Optional)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1633,31 +1648,80 @@
     <div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-export.yaml
 </code></pre></div></li>
 </ol>
+<h3 id="configuring-health-checks-for-multi-cluster-services-optional">Configuring Health Checks for Multi-Cluster Services (Optional)<a class="headerlink" href="#configuring-health-checks-for-multi-cluster-services-optional" title="Permanent link">&para;</a></h3>
+<p>When deploying services across multiple clusters, you can ensure consistent health check configuration by applying a TargetGroupPolicy to your ServiceExport. This ensures that all target groups created for the service across different clusters use the same health check settings.</p>
+<p>For example, to configure custom health checks for the inventory-ver2 service:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupPolicy</span>
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inventory-health-policy</span>
+<a id="__codelineno-37-5" name="__codelineno-37-5" href="#__codelineno-37-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-37-6" name="__codelineno-37-6" href="#__codelineno-37-6"></a><span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<a id="__codelineno-37-7" name="__codelineno-37-7" href="#__codelineno-37-7"></a><span class="w">    </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;application-networking.k8s.aws&quot;</span>
+<a id="__codelineno-37-8" name="__codelineno-37-8" href="#__codelineno-37-8"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceExport</span>
+<a id="__codelineno-37-9" name="__codelineno-37-9" href="#__codelineno-37-9"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inventory-ver2</span>
+<a id="__codelineno-37-10" name="__codelineno-37-10" href="#__codelineno-37-10"></a><span class="w">  </span><span class="nt">healthCheck</span><span class="p">:</span>
+<a id="__codelineno-37-11" name="__codelineno-37-11" href="#__codelineno-37-11"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-37-12" name="__codelineno-37-12" href="#__codelineno-37-12"></a><span class="w">    </span><span class="nt">intervalSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<a id="__codelineno-37-13" name="__codelineno-37-13" href="#__codelineno-37-13"></a><span class="w">    </span><span class="nt">timeoutSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<a id="__codelineno-37-14" name="__codelineno-37-14" href="#__codelineno-37-14"></a><span class="w">    </span><span class="nt">healthyThresholdCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<a id="__codelineno-37-15" name="__codelineno-37-15" href="#__codelineno-37-15"></a><span class="w">    </span><span class="nt">unhealthyThresholdCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-37-16" name="__codelineno-37-16" href="#__codelineno-37-16"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/health&quot;</span>
+<a id="__codelineno-37-17" name="__codelineno-37-17" href="#__codelineno-37-17"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<a id="__codelineno-37-18" name="__codelineno-37-18" href="#__codelineno-37-18"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
+<a id="__codelineno-37-19" name="__codelineno-37-19" href="#__codelineno-37-19"></a><span class="w">    </span><span class="nt">protocolVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP1</span>
+<a id="__codelineno-37-20" name="__codelineno-37-20" href="#__codelineno-37-20"></a><span class="w">    </span><span class="nt">statusMatch</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200-299&quot;</span>
+</code></pre></div>
+<p>Apply this policy in the same cluster where the ServiceExport is created:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a><span class="s">apiVersion: application-networking.k8s.aws/v1alpha1</span>
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a><span class="s">kind: TargetGroupPolicy</span>
+<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a><span class="s">metadata:</span>
+<a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a><span class="s">  name: inventory-health-policy</span>
+<a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a><span class="s">spec:</span>
+<a id="__codelineno-38-7" name="__codelineno-38-7" href="#__codelineno-38-7"></a><span class="s">  targetRef:</span>
+<a id="__codelineno-38-8" name="__codelineno-38-8" href="#__codelineno-38-8"></a><span class="s">    group: &quot;application-networking.k8s.aws&quot;</span>
+<a id="__codelineno-38-9" name="__codelineno-38-9" href="#__codelineno-38-9"></a><span class="s">    kind: ServiceExport</span>
+<a id="__codelineno-38-10" name="__codelineno-38-10" href="#__codelineno-38-10"></a><span class="s">    name: inventory-ver2</span>
+<a id="__codelineno-38-11" name="__codelineno-38-11" href="#__codelineno-38-11"></a><span class="s">  healthCheck:</span>
+<a id="__codelineno-38-12" name="__codelineno-38-12" href="#__codelineno-38-12"></a><span class="s">    enabled: true</span>
+<a id="__codelineno-38-13" name="__codelineno-38-13" href="#__codelineno-38-13"></a><span class="s">    intervalSeconds: 10</span>
+<a id="__codelineno-38-14" name="__codelineno-38-14" href="#__codelineno-38-14"></a><span class="s">    timeoutSeconds: 5</span>
+<a id="__codelineno-38-15" name="__codelineno-38-15" href="#__codelineno-38-15"></a><span class="s">    healthyThresholdCount: 2</span>
+<a id="__codelineno-38-16" name="__codelineno-38-16" href="#__codelineno-38-16"></a><span class="s">    unhealthyThresholdCount: 3</span>
+<a id="__codelineno-38-17" name="__codelineno-38-17" href="#__codelineno-38-17"></a><span class="s">    path: &quot;/health&quot;</span>
+<a id="__codelineno-38-18" name="__codelineno-38-18" href="#__codelineno-38-18"></a><span class="s">    port: 80</span>
+<a id="__codelineno-38-19" name="__codelineno-38-19" href="#__codelineno-38-19"></a><span class="s">    protocol: HTTP</span>
+<a id="__codelineno-38-20" name="__codelineno-38-20" href="#__codelineno-38-20"></a><span class="s">    protocolVersion: HTTP1</span>
+<a id="__codelineno-38-21" name="__codelineno-38-21" href="#__codelineno-38-21"></a><span class="s">    statusMatch: &quot;200-299&quot;</span>
+<a id="__codelineno-38-22" name="__codelineno-38-22" href="#__codelineno-38-22"></a><span class="s">EOF</span>
+</code></pre></div>
+<p>This configuration will be automatically applied to all target groups for the inventory-ver2 service across all clusters in your multi-cluster deployment.</p>
 <p><strong>Switch back to the first cluster</strong></p>
 <ol>
 <li>Switch context back to the first cluster
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
 </code></pre></div></li>
 <li>Create Kubernetes service import <code>inventory-ver2</code> in the first cluster:
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-import.yaml
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-import.yaml
 </code></pre></div></li>
 <li>Update the HTTPRoute <code>inventory</code> rules to route 10% traffic to the first cluster and 90% traffic to the second cluster:
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route-bluegreen.yaml
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route-bluegreen.yaml
 </code></pre></div></li>
 <li>
 <p>Check the service-to-service connectivity from <code>parking</code>(in the first cluster) to <code>inventory-ver1</code>(in in the first cluster) and <code>inventory-ver2</code>(in in the second cluster):
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="nv">inventoryFQDN</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>inventory<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.metadata.annotations.&quot;application-networking.k8s.aws/lattice-assigned-domain-name&quot;&#39;</span><span class="k">)</span>
-<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/parking<span class="w"> </span>--<span class="w"> </span>sh<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;for ((i=1; i&lt;=30; i++)); do curl -s &quot;$0&quot;; done&#39;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$inventoryFQDN</span><span class="s2">&quot;</span>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="nv">inventoryFQDN</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>inventory<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.metadata.annotations.&quot;application-networking.k8s.aws/lattice-assigned-domain-name&quot;&#39;</span><span class="k">)</span>
+<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/parking<span class="w"> </span>--<span class="w"> </span>sh<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;for ((i=1; i&lt;=30; i++)); do curl -s &quot;$0&quot;; done&#39;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$inventoryFQDN</span><span class="s2">&quot;</span>
 </code></pre></div></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod &lt;----&gt; in 2nd cluster
-<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod &lt;----&gt; in 1st cluster
-<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
-<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
-<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a>Requesting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod &lt;----&gt; in 2nd cluster
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+<a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver1 handler pod &lt;----&gt; in 1st cluster
+<a id="__codelineno-43-6" name="__codelineno-43-6" href="#__codelineno-43-6"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-rlnlt): Inventory-ver2 handler pod
+<a id="__codelineno-43-7" name="__codelineno-43-7" href="#__codelineno-43-7"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+<a id="__codelineno-43-8" name="__codelineno-43-8" href="#__codelineno-43-8"></a>Requesting to Pod(inventory-ver2-6dc74b45d8-95rsr): Inventory-ver2 handler pod
+<a id="__codelineno-43-9" name="__codelineno-43-9" href="#__codelineno-43-9"></a>Requesting to Pod(inventory-ver1-74fc59977-wg8br): Inventory-ver1 handler pod....
 </code></pre></div>
 <p>You can see that the traffic is distributed between <code>inventory-ver1</code> and <code>inventory-ver2</code> as expected.</p>
 </li>
@@ -1669,30 +1733,30 @@
 <div class="admonition warning set your aws region">
 <p class="admonition-title">Warning</p>
 <p>Remember that you need to have the AWS Region set.
-<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AWS_REGION</span><span class="o">=</span>&lt;cluster_region&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AWS_REGION</span><span class="o">=</span>&lt;cluster_region&gt;
 </code></pre></div></p>
 </div>
 <ol>
 <li>
 <p>Cleanup VPC Lattice service and service import in <code>gw-api-controller-demo</code> cluster:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
-<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route-bluegreen.yaml
-<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-import.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route-bluegreen.yaml
+<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-import.yaml
 </code></pre></div></p>
 </li>
 <li>
 <p>Delete service export and applications in <code>gw-api-controller-demo-2</code> cluster:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
-<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-export.yaml
-<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
+<a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2-export.yaml
+<a id="__codelineno-46-3" name="__codelineno-46-3" href="#__codelineno-46-3"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver2.yaml
 </code></pre></div></p>
 </li>
 <li>
 <p>Delete the service network association <strong>(this could take up to one minute)</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo-2
-<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a><span class="nv">CLUSTER_VPC_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.cluster.resourcesVpcConfig.vpcId<span class="k">)</span>
-<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a><span class="nv">SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--vpc-id<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span><span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?serviceNetworkName==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
-<a id="__codelineno-45-4" name="__codelineno-45-4" href="#__codelineno-45-4"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>delete-service-network-vpc-association<span class="w">  </span>--service-network-vpc-association-identifier<span class="w"> </span><span class="nv">$SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo-2
+<a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a><span class="nv">CLUSTER_VPC_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.cluster.resourcesVpcConfig.vpcId<span class="k">)</span>
+<a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a><span class="nv">SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--vpc-id<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span><span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?serviceNetworkName==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-47-4" name="__codelineno-47-4" href="#__codelineno-47-4"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>delete-service-network-vpc-association<span class="w">  </span>--service-network-vpc-association-identifier<span class="w"> </span><span class="nv">$SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span>
 </code></pre></div></p>
 </li>
 </ol>
@@ -1701,27 +1765,27 @@
 <div class="admonition warning set your aws region">
 <p class="admonition-title">Warning</p>
 <p>Remember that you need to have the AWS Region set.
-<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AWS_REGION</span><span class="o">=</span>&lt;cluster_region&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AWS_REGION</span><span class="o">=</span>&lt;cluster_region&gt;
 </code></pre></div></p>
 </div>
 <ol>
 <li>
 <p>Delete VPC Lattice services and applications in <code>gw-api-controller-demo</code> cluster:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
-<a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route.yaml
-<a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver1.yaml
-<a id="__codelineno-47-4" name="__codelineno-47-4" href="#__codelineno-47-4"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/rate-route-path.yaml
-<a id="__codelineno-47-5" name="__codelineno-47-5" href="#__codelineno-47-5"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/parking.yaml
-<a id="__codelineno-47-6" name="__codelineno-47-6" href="#__codelineno-47-6"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/review.yaml
-<a id="__codelineno-47-7" name="__codelineno-47-7" href="#__codelineno-47-7"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/my-hotel-gateway.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+<a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-route.yaml
+<a id="__codelineno-49-3" name="__codelineno-49-3" href="#__codelineno-49-3"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/inventory-ver1.yaml
+<a id="__codelineno-49-4" name="__codelineno-49-4" href="#__codelineno-49-4"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/rate-route-path.yaml
+<a id="__codelineno-49-5" name="__codelineno-49-5" href="#__codelineno-49-5"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/parking.yaml
+<a id="__codelineno-49-6" name="__codelineno-49-6" href="#__codelineno-49-6"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/review.yaml
+<a id="__codelineno-49-7" name="__codelineno-49-7" href="#__codelineno-49-7"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>files/examples/my-hotel-gateway.yaml
 </code></pre></div></p>
 </li>
 <li>
 <p>Delete the service network association <strong>(this could take up to one minute)</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo
-<a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a><span class="nv">CLUSTER_VPC_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.cluster.resourcesVpcConfig.vpcId<span class="k">)</span>
-<a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a><span class="nv">SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--vpc-id<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span><span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?serviceNetworkName==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
-<a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>delete-service-network-vpc-association<span class="w">  </span>--service-network-vpc-association-identifier<span class="w"> </span><span class="nv">$SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo
+<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a><span class="nv">CLUSTER_VPC_ID</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span><span class="nv">$CLUSTER_NAME</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span>.cluster.resourcesVpcConfig.vpcId<span class="k">)</span>
+<a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a><span class="nv">SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--vpc-id<span class="w"> </span><span class="nv">$CLUSTER_VPC_ID</span><span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?serviceNetworkName==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>delete-service-network-vpc-association<span class="w">  </span>--service-network-vpc-association-identifier<span class="w"> </span><span class="nv">$SERVICE_NETWORK_ASSOCIATION_IDENTIFIER</span>
 </code></pre></div></p>
 </li>
 </ol>
@@ -1732,21 +1796,21 @@
 <div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Helm</label><label for="__tabbed_3_2">Kubectl</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
-<a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo
-<a id="__codelineno-49-3" name="__codelineno-49-3" href="#__codelineno-49-3"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
-<a id="__codelineno-49-4" name="__codelineno-49-4" href="#__codelineno-49-4"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>gateway-api-controller<span class="w"> </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span>
-<a id="__codelineno-49-5" name="__codelineno-49-5" href="#__codelineno-49-5"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
-<a id="__codelineno-49-6" name="__codelineno-49-6" href="#__codelineno-49-6"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo-2
-<a id="__codelineno-49-7" name="__codelineno-49-7" href="#__codelineno-49-7"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
-<a id="__codelineno-49-8" name="__codelineno-49-8" href="#__codelineno-49-8"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>gateway-api-controller<span class="w"> </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo
+<a id="__codelineno-51-3" name="__codelineno-51-3" href="#__codelineno-51-3"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
+<a id="__codelineno-51-4" name="__codelineno-51-4" href="#__codelineno-51-4"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>gateway-api-controller<span class="w"> </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span>
+<a id="__codelineno-51-5" name="__codelineno-51-5" href="#__codelineno-51-5"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
+<a id="__codelineno-51-6" name="__codelineno-51-6" href="#__codelineno-51-6"></a><span class="nv">CLUSTER_NAME</span><span class="o">=</span>gw-api-controller-demo-2
+<a id="__codelineno-51-7" name="__codelineno-51-7" href="#__codelineno-51-7"></a>aws<span class="w"> </span>ecr-public<span class="w"> </span>get-login-password<span class="w"> </span>--region<span class="w"> </span>us-east-1<span class="w"> </span><span class="p">|</span><span class="w"> </span>helm<span class="w"> </span>registry<span class="w"> </span>login<span class="w"> </span>--username<span class="w"> </span>AWS<span class="w"> </span>--password-stdin<span class="w"> </span>public.ecr.aws
+<a id="__codelineno-51-8" name="__codelineno-51-8" href="#__codelineno-51-8"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>gateway-api-controller<span class="w"> </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
-<a id="__codelineno-50-2" name="__codelineno-50-2" href="#__codelineno-50-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.3.yaml
-<a id="__codelineno-50-3" name="__codelineno-50-3" href="#__codelineno-50-3"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
-<a id="__codelineno-50-4" name="__codelineno-50-4" href="#__codelineno-50-4"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.3.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo
+<a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.3.yaml
+<a id="__codelineno-52-3" name="__codelineno-52-3" href="#__codelineno-52-3"></a>kubectl<span class="w"> </span>config<span class="w"> </span>use-context<span class="w"> </span>gw-api-controller-demo-2
+<a id="__codelineno-52-4" name="__codelineno-52-4" href="#__codelineno-52-4"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.3.yaml
 </code></pre></div>
 </div>
 </div>
@@ -1756,14 +1820,14 @@
 <p>Delete the service network:</p>
 <ol>
 <li>Ensure the service network associations have been deleted (do not move forward if the deletion is still <code>IN PROGRESS</code>):
-<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a><span class="nv">SN_IDENTIFIER</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-networks<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?name==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
-<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--service-network-identifier<span class="w"> </span><span class="nv">$SN_IDENTIFIER</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a><span class="nv">SN_IDENTIFIER</span><span class="o">=</span><span class="k">$(</span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-networks<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;items[?name==&quot;</span><span class="se">\&#39;</span>my-hotel<span class="se">\&#39;</span><span class="s2">&quot;].id&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[]&#39;</span><span class="k">)</span>
+<a id="__codelineno-53-2" name="__codelineno-53-2" href="#__codelineno-53-2"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-network-vpc-associations<span class="w"> </span>--service-network-identifier<span class="w"> </span><span class="nv">$SN_IDENTIFIER</span>
 </code></pre></div></li>
 <li>Delete <code>my-hotel</code> service network:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>delete-service-network<span class="w"> </span>--service-network-identifier<span class="w"> </span><span class="nv">$SN_IDENTIFIER</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>delete-service-network<span class="w"> </span>--service-network-identifier<span class="w"> </span><span class="nv">$SN_IDENTIFIER</span>
 </code></pre></div></li>
 <li>Ensure the service network <code>my-hotel</code> is deleted:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-networks
+<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-service-networks
 </code></pre></div></li>
 </ol>
 </li>
@@ -1773,14 +1837,14 @@
 <ol>
 <li>
 <p>Delete <code>gw-api-controller-demo</code> cluster:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>eksctl<span class="w"> </span>delete<span class="w"> </span>cluster<span class="w"> </span>--name<span class="o">=</span>gw-api-controller-demo
-<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a>k<span class="w"> </span>config<span class="w"> </span>delete-context<span class="w"> </span>gw-api-controller-demo
+<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a>eksctl<span class="w"> </span>delete<span class="w"> </span>cluster<span class="w"> </span>--name<span class="o">=</span>gw-api-controller-demo
+<a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a>k<span class="w"> </span>config<span class="w"> </span>delete-context<span class="w"> </span>gw-api-controller-demo
 </code></pre></div></p>
 </li>
 <li>
 <p>Delete <code>gw-api-controller-demo-2</code> cluster:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>eksctl<span class="w"> </span>delete<span class="w"> </span>cluster<span class="w"> </span>--name<span class="o">=</span>gw-api-controller-demo-2
-<a id="__codelineno-55-2" name="__codelineno-55-2" href="#__codelineno-55-2"></a>k<span class="w"> </span>config<span class="w"> </span>delete-context<span class="w"> </span>gw-api-controller-demo-2
+<div class="highlight"><pre><span></span><code><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a>eksctl<span class="w"> </span>delete<span class="w"> </span>cluster<span class="w"> </span>--name<span class="o">=</span>gw-api-controller-demo-2
+<a id="__codelineno-57-2" name="__codelineno-57-2" href="#__codelineno-57-2"></a>k<span class="w"> </span>config<span class="w"> </span>delete-context<span class="w"> </span>gw-api-controller-demo-2
 </code></pre></div></p>
 </li>
 </ol>

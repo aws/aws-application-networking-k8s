@@ -1411,11 +1411,12 @@ Fine-grained authorization policies that can be used to define access to service
 <li><strong>Kubernetes multi-cluster connectivity</strong>: Architecting multiple clusters across multiple VPCs.
   After configuring your services with the AWS Gateway API Controller, you can facilitate advanced traffic management and application layer routing between services on those clusters without dealing with the underlying infrastructure.
   VPC Lattice handles a lot of the details for you without needing things like sidecars.</li>
-<li><strong>Cross-platform access</strong>: VPC Lattice allows access to serverless and Amazon EC2 features, as well as Kubernetes cluster features.
-  This gives you a way to have a consistent interface to multiple types of platforms.</li>
-<li><strong>Implement a defense-in-depth strategy</strong>: Secure communication between services and networks.</li>
-<li><strong>Observe the request/response traffic</strong> across the services.</li>
 </ul>
+<p><strong>Multi-cluster health check consistency</strong>: When using TargetGroupPolicy with ServiceExport resources, health check configurations are automatically propagated across all clusters participating in the service mesh. This ensures consistent health monitoring behavior regardless of which cluster contains the route resource, eliminating configuration drift and improving reliability in multi-cluster deployments.
+- <strong>Cross-platform access</strong>: VPC Lattice allows access to serverless and Amazon EC2 features, as well as Kubernetes cluster features.
+  This gives you a way to have a consistent interface to multiple types of platforms.
+- <strong>Implement a defense-in-depth strategy</strong>: Secure communication between services and networks.
+- <strong>Observe the request/response traffic</strong> across the services.</p>
 <p>With VPC Lattice you can also avoid some of these common problems:</p>
 <ul>
 <li><strong>Overlapping IP addresses</strong>: Even with well-managed IP addresses, overlapping address use can occur by mistake or when organizations or companies merge together.

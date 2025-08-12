@@ -1305,6 +1305,8 @@
 <p>Your AWS VPC CNI must be v1.8.0 or later to work with VPC Lattice.</p>
 <p><strong>Which versions of Gateway API are supported?</strong></p>
 <p>AWS Gateway API Controller supports Gateway API CRD bundle versions <code>v1.1</code> or greater. Not all features of Gateway API are supported - for detailed features and limitation, please refer to individual API references. Please note that users are required to install Gateway API CRDs themselves as these are no longer bundled as of release <code>v1.1.0</code>. The latest Gateway API CRDs are available <a href="https://gateway-api.sigs.k8s.io/">here</a>. Please <a href="https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api">follow this installation</a> process.</p>
+<p><strong>How do health checks work in multi-cluster deployments?</strong></p>
+<p>In multi-cluster deployments, when you apply a TargetGroupPolicy to a ServiceExport, the health check configuration is automatically propagated to all target groups across all clusters that participate in the service mesh. This ensures consistent health monitoring behavior regardless of which cluster contains the route resource.</p>
 
 
 
