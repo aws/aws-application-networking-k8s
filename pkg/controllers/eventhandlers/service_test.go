@@ -129,3 +129,143 @@ func TestServiceEventHandler_MapToServiceExport(t *testing.T) {
 		assert.Equal(t, "test-service", reqs[0].Name)
 	}
 }
+
+func TestServiceEventHandler_MapTargetGroupPolicyToServiceExport(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockClient := mock_client.NewMockClient(c)
+	h := NewServiceEventHandler(gwlog.FallbackLogger, mockClient)
+
+	tests := []struct {
+		name              string
+		policy            *anv1alpha1.TargetGroupPolicy
+		mockSetup         func()
+		expectedReqs      int
+		expectedName      string
+		expectedNamespace string
+	}{
+		{
+			name: "TargetGroupPolicy targeting ServiceExport directly",
+			policy: &anv1alpha1.TargetGroupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-policy",
+					Namespace: "ns1",
+				},
+				Spec: anv1alpha1.TargetGroupPolicySpec{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Group: anv1alpha1.GroupName,
+						Kind:  "ServiceExport",
+						Name:  "test-service",
+					},
+				},
+			},
+			mockSetup: func() {
+				mockClient.EXPECT().Get(gomock.Any(), client.ObjectKey{Name: "test-service", Namespace: "ns1"}, gomock.Any()).DoAndReturn(
+					func(ctx context.Context, key client.ObjectKey, svcExport *anv1alpha1.ServiceExport, _ ...interface{}) error {
+						svcExport.SetName("test-service")
+						svcExport.SetNamespace("ns1")
+						return nil
+					},
+				)
+			},
+			expectedReqs:      1,
+			expectedName:      "test-service",
+			expectedNamespace: "ns1",
+		},
+		{
+			name: "TargetGroupPolicy targeting Service with corresponding ServiceExport",
+			policy: &anv1alpha1.TargetGroupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-policy",
+					Namespace: "ns1",
+				},
+				Spec: anv1alpha1.TargetGroupPolicySpec{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Group: "",
+						Kind:  "Service",
+						Name:  "test-service",
+					},
+				},
+			},
+			mockSetup: func() {
+				mockClient.EXPECT().Get(gomock.Any(), client.ObjectKey{Name: "test-service", Namespace: "ns1"}, gomock.Any()).DoAndReturn(
+					func(ctx context.Context, key client.ObjectKey, svcExport *anv1alpha1.ServiceExport, _ ...interface{}) error {
+						svcExport.SetName("test-service")
+						svcExport.SetNamespace("ns1")
+						return nil
+					},
+				)
+			},
+			expectedReqs:      1,
+			expectedName:      "test-service",
+			expectedNamespace: "ns1",
+		},
+		{
+			name: "TargetGroupPolicy targeting Service without ServiceExport",
+			policy: &anv1alpha1.TargetGroupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-policy",
+					Namespace: "ns1",
+				},
+				Spec: anv1alpha1.TargetGroupPolicySpec{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Group: "",
+						Kind:  "Service",
+						Name:  "test-service",
+					},
+				},
+			},
+			mockSetup: func() {
+				mockClient.EXPECT().Get(gomock.Any(), client.ObjectKey{Name: "test-service", Namespace: "ns1"}, gomock.Any()).Return(
+					assert.AnError,
+				)
+			},
+			expectedReqs: 0,
+		},
+		{
+			name: "TargetGroupPolicy with no targetRef",
+			policy: &anv1alpha1.TargetGroupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-policy",
+					Namespace: "ns1",
+				},
+				Spec: anv1alpha1.TargetGroupPolicySpec{
+					TargetRef: nil,
+				},
+			},
+			mockSetup:    func() {},
+			expectedReqs: 0,
+		},
+		{
+			name: "TargetGroupPolicy targeting unsupported kind",
+			policy: &anv1alpha1.TargetGroupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-policy",
+					Namespace: "ns1",
+				},
+				Spec: anv1alpha1.TargetGroupPolicySpec{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Group: "",
+						Kind:  "Pod",
+						Name:  "test-pod",
+					},
+				},
+			},
+			mockSetup:    func() {},
+			expectedReqs: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			reqs := h.mapTargetGroupPolicyToServiceExport(context.Background(), tt.policy)
+			assert.Len(t, reqs, tt.expectedReqs)
+			if tt.expectedReqs > 0 {
+				assert.Equal(t, tt.expectedName, reqs[0].Name)
+				assert.Equal(t, tt.expectedNamespace, reqs[0].Namespace)
+			}
+		})
+	}
+}

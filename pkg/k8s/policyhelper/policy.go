@@ -247,6 +247,48 @@ func (h *PolicyHandler[P]) ObjResolvedPolicy(ctx context.Context, obj k8sclient.
 	return objPolicies[0], nil
 }
 
+// FindPolicyForService locates applicable TargetGroupPolicy resources for a given service name and namespace.
+// This method looks for policies that target either:
+// - The Service directly (if the policy targets Service objects)
+// - The ServiceExport with the same name and namespace (if the policy targets ServiceExport objects)
+// Returns the resolved policy with conflict resolution and Accepted status, or nil if no applicable policy is found.
+func (h *PolicyHandler[P]) FindPolicyForService(ctx context.Context, serviceName, serviceNamespace string) (P, error) {
+	var empty P
+
+	// First, try to find policies that directly target the Service
+	service := &corev1.Service{}
+	service.SetName(serviceName)
+	service.SetNamespace(serviceNamespace)
+
+	policy, err := h.ObjResolvedPolicy(ctx, service)
+	if err != nil {
+		return empty, err
+	}
+	// Check if policy is not the zero value (equivalent to nil check)
+	if !isZeroValue(policy) {
+		return policy, nil
+	}
+
+	// If no policy targets the Service directly, try to find policies that target the ServiceExport
+	// with the same name and namespace (ServiceExport has the same name and namespace as the Service it exports)
+	serviceExport := &anv1alpha1.ServiceExport{}
+	serviceExport.SetName(serviceName)
+	serviceExport.SetNamespace(serviceNamespace)
+
+	policy, err = h.ObjResolvedPolicy(ctx, serviceExport)
+	if err != nil {
+		return empty, err
+	}
+
+	return policy, nil
+}
+
+// isZeroValue checks if a generic value is the zero value (equivalent to nil for pointer types)
+func isZeroValue[T any](v T) bool {
+	var zero T
+	return fmt.Sprintf("%v", v) == fmt.Sprintf("%v", zero)
+}
+
 // Add Watchers for configured Kinds to controller builder
 func (h *PolicyHandler[P]) AddWatchers(b *builder.Builder, objs ...k8sclient.Object) {
 	h.log.Debugf(context.TODO(), "add watchers for types: %v", NewGroupKindSet(objs...).Items())

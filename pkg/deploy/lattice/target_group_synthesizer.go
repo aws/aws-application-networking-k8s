@@ -74,6 +74,18 @@ func (t *TargetGroupSynthesizer) SynthesizeCreate(ctx context.Context) error {
 
 		prefix := model.TgNamePrefix(resTargetGroup.Spec)
 
+		// Resolve health check configuration from TargetGroupPolicy using centralized resolver
+		// before calling the target group manager
+		resolver := NewHealthCheckConfigResolver(t.log, t.client)
+		policyHealthCheckConfig, err := resolver.ResolveHealthCheckConfig(ctx, resTargetGroup)
+		if err != nil {
+			t.log.Debugf(ctx, "Failed to resolve health check config from policy for %s: %v", prefix, err)
+			// Continue with existing behavior - policy resolution failure should not block target group creation
+		} else if policyHealthCheckConfig != nil {
+			t.log.Debugf(ctx, "Applying health check configuration from TargetGroupPolicy to target group %s", prefix)
+			resTargetGroup.Spec.HealthCheckConfig = policyHealthCheckConfig
+		}
+
 		tgStatus, err := t.targetGroupManager.Upsert(ctx, resTargetGroup)
 		if err == nil {
 			resTargetGroup.Status = &tgStatus
@@ -89,6 +101,7 @@ func (t *TargetGroupSynthesizer) SynthesizeCreate(ctx context.Context) error {
 
 	return nil
 }
+
 func (t *TargetGroupSynthesizer) SynthesizeDelete(ctx context.Context) error {
 	var resTargetGroups []*model.TargetGroup
 

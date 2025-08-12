@@ -12,6 +12,10 @@ When attaching a policy to a resource, the following restrictions apply:
 - A policy can be attached to `ServiceExport`.
 - The attached resource should exist in the same namespace as the policy resource.
 
+### Multi-Cluster Health Check Configuration
+
+In multi-cluster deployments, TargetGroupPolicy health check configurations are automatically propagated across all clusters that participate in the service mesh. When a TargetGroupPolicy is applied to a ServiceExport, all target groups created for that service across different clusters will use the same health check configuration, ensuring consistent health monitoring regardless of which cluster contains the route resource.
+
 The policy will not take effect if:
 - The resource does not exist
 - The resource is not referenced by any route
@@ -32,12 +36,15 @@ However, the policy will not take effect unless the target is valid.
   of VPC Lattice TargetGroup resource, except for health check updates.
 - Attaching TargetGroupPolicy to an existing ServiceExport will result in a replacement of VPC Lattice TargetGroup resource, except for health check updates.
 - Removing TargetGroupPolicy of a resource will roll back protocol configuration to default setting. (HTTP1/HTTP plaintext)
+- In multi-cluster deployments, TargetGroupPolicy changes will automatically propagate to all clusters participating in the service mesh, ensuring consistent configuration across the deployment.
 
-## Example Configuration
+## Example Configurations
+
+### Single Cluster Configuration
 
 This will enable HTTPS traffic between the gateway and Kubernetes service, with customized health check configuration.
 
-```
+```yaml
 apiVersion: application-networking.k8s.aws/v1alpha1
 kind: TargetGroupPolicy
 metadata:
@@ -61,3 +68,38 @@ spec:
         protocolVersion: HTTP1
         statusMatch: "200"
 ```
+
+### Multi-Cluster Configuration
+
+This example shows how to configure health checks for a ServiceExport in a multi-cluster deployment. The health check configuration will be automatically applied to all target groups across all clusters that participate in the service mesh.
+
+```yaml
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: TargetGroupPolicy
+metadata:
+    name: multi-cluster-policy
+spec:
+    targetRef:
+        group: "application-networking.k8s.aws"
+        kind: ServiceExport
+        name: inventory-service
+    protocol: HTTP
+    protocolVersion: HTTP2
+    healthCheck:
+        enabled: true
+        intervalSeconds: 10
+        timeoutSeconds: 5
+        healthyThresholdCount: 2
+        unhealthyThresholdCount: 3
+        path: "/health"
+        port: 8080
+        protocol: HTTP
+        protocolVersion: HTTP2
+        statusMatch: "200-299"
+```
+
+In this multi-cluster example:
+- The policy targets a `ServiceExport` named `inventory-service`
+- All clusters with target groups for this service will use HTTP/2 for traffic and the specified health check configuration
+- Health checks will use HTTP/1 on port 8080 with the `/health` endpoint
+- The configuration ensures consistent health monitoring across all participating clusters

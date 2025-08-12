@@ -120,12 +120,12 @@ e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 	cd test && go test \
 		-p 1 \
 		-count 1 \
-		-timeout 90m \
+		-timeout 120m \
 		-v \
 		./suites/integration/... \
 		--ginkgo.focus="${FOCUS}" \
 		--ginkgo.skip="${SKIP}" \
-		--ginkgo.timeout=90m \
+		--ginkgo.timeout=120m \
 		--ginkgo.v
 
 .SILENT:

@@ -48,6 +48,33 @@ The `{index}` in the annotation corresponds to the zero-based index of the rule 
 
 Higher priority values indicate higher precedence, so requests to `/api/v2` will be matched by the first rule (priority 200) before the second rule (priority 100) is considered.
 
+#### Configuring Health Checks for ServiceExport
+
+When you apply a TargetGroupPolicy to a ServiceExport, the health check configuration is automatically propagated to all target groups across all clusters that participate in the service mesh:
+
+```yaml
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: TargetGroupPolicy
+metadata:
+  name: multi-cluster-health-policy
+spec:
+  targetRef:
+    group: "application-networking.k8s.aws"
+    kind: ServiceExport
+    name: my-service
+  healthCheck:
+    enabled: true
+    intervalSeconds: 10
+    timeoutSeconds: 5
+    healthyThresholdCount: 2
+    unhealthyThresholdCount: 3
+    path: "/health"
+    port: 8080
+    protocol: HTTP
+    protocolVersion: HTTP1
+    statusMatch: "200-299"
+```
+
 ### IPv6 support
 
 IPv6 address type is automatically used for your services and pods if

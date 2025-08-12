@@ -480,3 +480,91 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 }
 
 // TODO: Error cases should not delete
+
+func Test_SynthesizeCreate_WithServiceExportTargetGroup(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	// Create a mock target group manager
+	mockTGManager := NewMockTargetGroupManager(c)
+
+	// Create a stack with a ServiceExport target group
+	stack := core.NewDefaultStack(core.StackID{Name: "test", Namespace: "default"})
+	tgSpec := model.TargetGroupSpec{
+		Protocol:          "HTTP",
+		ProtocolVersion:   "HTTP1",
+		Port:              80,
+		VpcId:             "vpc-123",
+		Type:              model.TargetGroupTypeIP,
+		IpAddressType:     "IPV4",
+		HealthCheckConfig: nil,
+		TargetGroupTagFields: model.TargetGroupTagFields{
+			K8SSourceType:       model.SourceTypeSvcExport,
+			K8SServiceName:      "test-service",
+			K8SServiceNamespace: "default",
+			K8SClusterName:      "test-cluster",
+		},
+	}
+
+	tg, err := model.NewTargetGroup(stack, tgSpec)
+	assert.NoError(t, err)
+	tg.IsDeleted = false
+
+	// Mock the target group manager to expect the Upsert call
+	mockTGManager.EXPECT().Upsert(ctx, gomock.Any()).Return(
+		model.TargetGroupStatus{Name: "test-tg", Arn: "arn:test", Id: "tg-123"}, nil)
+
+	// Create the synthesizer with nil k8sClient to test graceful handling when no k8sClient is available
+	synthesizer := NewTargetGroupSynthesizer(
+		gwlog.FallbackLogger, nil, nil, mockTGManager, nil, nil, stack)
+
+	// Execute SynthesizeCreate - should not fail even when k8sClient is nil
+	err = synthesizer.SynthesizeCreate(ctx)
+	assert.NoError(t, err)
+}
+
+func Test_SynthesizeCreate_WithNonServiceExportTargetGroup(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	// Create a mock target group manager
+	mockTGManager := NewMockTargetGroupManager(c)
+
+	// Create a stack with a non-ServiceExport target group (HTTPRoute)
+	stack := core.NewDefaultStack(core.StackID{Name: "test", Namespace: "default"})
+	tgSpec := model.TargetGroupSpec{
+		Protocol:          "HTTP",
+		ProtocolVersion:   "HTTP1",
+		Port:              80,
+		VpcId:             "vpc-123",
+		Type:              model.TargetGroupTypeIP,
+		IpAddressType:     "IPV4",
+		HealthCheckConfig: nil,
+		TargetGroupTagFields: model.TargetGroupTagFields{
+			K8SSourceType:       model.SourceTypeHTTPRoute, // Not ServiceExport
+			K8SServiceName:      "test-service",
+			K8SServiceNamespace: "default",
+			K8SRouteName:        "test-route",
+			K8SRouteNamespace:   "default",
+			K8SClusterName:      "test-cluster",
+		},
+	}
+
+	tg, err := model.NewTargetGroup(stack, tgSpec)
+	assert.NoError(t, err)
+	tg.IsDeleted = false
+
+	// Mock the target group manager - should not attempt policy resolution for non-ServiceExport target groups
+	mockTGManager.EXPECT().Upsert(ctx, gomock.Any()).Return(
+		model.TargetGroupStatus{Name: "test-tg", Arn: "arn:test", Id: "tg-123"}, nil)
+
+	// Create the synthesizer
+	synthesizer := NewTargetGroupSynthesizer(
+		gwlog.FallbackLogger, nil, nil, mockTGManager, nil, nil, stack)
+
+	// Execute SynthesizeCreate - should work normally for non-ServiceExport target groups
+	err = synthesizer.SynthesizeCreate(ctx)
+	assert.NoError(t, err)
+}

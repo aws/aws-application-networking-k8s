@@ -2,10 +2,6 @@ package integration
 
 import (
 	"fmt"
-	"net"
-	"os"
-	"time"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
@@ -14,6 +10,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"net"
+	"os"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -88,7 +86,7 @@ var _ = Describe("TLSRoute test", Ordered, func() {
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("my-https-1 handler pod"))
-		}).WithTimeout(3 * time.Minute).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	AfterAll(func() {

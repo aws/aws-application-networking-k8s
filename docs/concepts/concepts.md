@@ -10,6 +10,7 @@ AWS Gateway API Controller integrates with Amazon VPC Lattice and allows you to:
 * Discover VPC Lattice services spanning multiple Kubernetes clusters.
 * Implement a defense-in-depth strategy to secure communication between those services.
 * Observe the request/response traffic across the services.
+* Ensure consistent health check configuration across multi-cluster deployments through automatic policy propagation.
 
 This documentation describes how to set up the AWS Gateway API Controller, provides example use cases, development concepts, and API references. AWS Gateway API Controller will provide developers the ability to publish services running on Kubernetes cluster and other compute platforms on AWS such as AWS Lambda or Amazon EC2. Once the AWS Gateway API controller deployed and running, you will be able to manage services for multiple Kubernetes clusters and other compute targets on AWS through the following:
 

@@ -12,6 +12,10 @@ for example, using target groups in the VPC Lattice setup outside Kubernetes.
 Note that ServiceExport is not the implementation of Kubernetes [Multicluster Service APIs](https://multicluster.sigs.k8s.io/concepts/multicluster-services-api/);
 instead AWS Gateway API Controller uses its own version of the resource for the purpose of Gateway API integration.
 
+### TargetGroupPolicy Integration
+
+ServiceExport resources can be targeted by [`TargetGroupPolicy`](target-group-policy.md) to configure protocol, protocol version, and health check settings. When a TargetGroupPolicy is applied to a ServiceExport, the configuration is automatically propagated to all target groups across all clusters that participate in the multi-cluster service mesh, ensuring consistent behavior regardless of which cluster contains the route resource.
+
 ### Annotations (Legacy Method)
 
 * `application-networking.k8s.aws/port`  
@@ -69,3 +73,45 @@ spec:
 This configuration will:
 1. Export port 80 to be used with HTTP routes
 2. Export port 8081 to be used with gRPC routes
+
+### ServiceExport with TargetGroupPolicy
+
+The following example shows how to combine ServiceExport with TargetGroupPolicy for consistent multi-cluster health check configuration:
+
+```yaml
+# ServiceExport
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceExport
+metadata:
+  name: inventory-service
+spec:
+  exportedPorts:
+  - port: 8080
+    routeType: HTTP
+---
+# TargetGroupPolicy for the ServiceExport
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: TargetGroupPolicy
+metadata:
+  name: inventory-health-policy
+spec:
+  targetRef:
+    group: "application-networking.k8s.aws"
+    kind: ServiceExport
+    name: inventory-service
+  protocol: HTTP
+  protocolVersion: HTTP2
+  healthCheck:
+    enabled: true
+    intervalSeconds: 10
+    timeoutSeconds: 5
+    healthyThresholdCount: 2
+    unhealthyThresholdCount: 3
+    path: "/health"
+    port: 8080
+    protocol: HTTP
+    protocolVersion: HTTP1
+    statusMatch: "200-299"
+```
+
+This configuration ensures that all target groups created for the `inventory-service` across all clusters will use the same health check configuration, providing consistent health monitoring in multi-cluster deployments.

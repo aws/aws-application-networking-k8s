@@ -2,10 +2,6 @@ package integration
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"time"
-
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,6 +9,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"log"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -137,14 +135,14 @@ var _ = Describe("HTTPRoute path matches", func() {
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-v1 handler pod"))
-		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 
 		Eventually(func(g Gomega) {
 			cmd := fmt.Sprintf("curl %s/pathmatch1", dnsName)
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-v2 handler pod"))
-		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	AfterEach(func() {

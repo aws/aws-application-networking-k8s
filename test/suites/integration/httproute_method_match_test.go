@@ -2,9 +2,6 @@ package integration
 
 import (
 	"fmt"
-	"log"
-	"time"
-
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -14,10 +11,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"log"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-var _ = Describe("HTTPRoute method matches", func() {
+var _ = Describe("HTTPRoute method matches", Ordered, func() {
 
 	var (
 		methodMatchHttpRoute *gwv1.HTTPRoute
@@ -109,21 +107,21 @@ var _ = Describe("HTTPRoute method matches", func() {
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-get handler pod"))
-		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 
 		Eventually(func(g Gomega) {
 			cmd := fmt.Sprintf("curl -X POST %s", dnsName)
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("test-post handler pod"))
-		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 
 		Eventually(func(g Gomega) {
 			invalidCmd := fmt.Sprintf("curl -X DELETE %s", dnsName)
 			stdout, _, err := testFramework.PodExec(pod, invalidCmd)
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("Not Found"))
-		}).WithTimeout(2 * time.Minute).WithOffset(1).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	AfterEach(func() {

@@ -280,6 +280,64 @@ This section builds on the previous one. We will be migrating the Kubernetes `in
     kubectl apply -f files/examples/inventory-ver2-export.yaml
     ```
 
+### Configuring Health Checks for Multi-Cluster Services (Optional)
+
+When deploying services across multiple clusters, you can ensure consistent health check configuration by applying a TargetGroupPolicy to your ServiceExport. This ensures that all target groups created for the service across different clusters use the same health check settings.
+
+For example, to configure custom health checks for the inventory-ver2 service:
+
+```yaml
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: TargetGroupPolicy
+metadata:
+  name: inventory-health-policy
+spec:
+  targetRef:
+    group: "application-networking.k8s.aws"
+    kind: ServiceExport
+    name: inventory-ver2
+  healthCheck:
+    enabled: true
+    intervalSeconds: 10
+    timeoutSeconds: 5
+    healthyThresholdCount: 2
+    unhealthyThresholdCount: 3
+    path: "/health"
+    port: 80
+    protocol: HTTP
+    protocolVersion: HTTP1
+    statusMatch: "200-299"
+```
+
+Apply this policy in the same cluster where the ServiceExport is created:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: TargetGroupPolicy
+metadata:
+  name: inventory-health-policy
+spec:
+  targetRef:
+    group: "application-networking.k8s.aws"
+    kind: ServiceExport
+    name: inventory-ver2
+  healthCheck:
+    enabled: true
+    intervalSeconds: 10
+    timeoutSeconds: 5
+    healthyThresholdCount: 2
+    unhealthyThresholdCount: 3
+    path: "/health"
+    port: 80
+    protocol: HTTP
+    protocolVersion: HTTP1
+    statusMatch: "200-299"
+EOF
+```
+
+This configuration will be automatically applied to all target groups for the inventory-ver2 service across all clusters in your multi-cluster deployment.
+
    **Switch back to the first cluster**
 
 1. Switch context back to the first cluster
