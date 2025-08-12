@@ -225,12 +225,6 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx
 	spec.K8SServiceNamespace = t.serviceExport.Namespace
 	spec.K8SProtocolVersion = protocolVersion
 
-	// Add a tag for the route type to help with identification
-	// This is not used by the controller but can be helpful for debugging
-	if exportedPort.RouteType != "" {
-		spec.K8SProtocolVersion = exportedPort.RouteType
-	}
-
 	stackTG, err := model.NewTargetGroup(t.stack, spec)
 	if err != nil {
 		return nil, err
