@@ -1215,8 +1215,8 @@ func Test_update_ServiceExportWithPolicy_Integration(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	// Since we don't have a real k8s client in this test, we'll test the case where
-	// no client is available (which should fall back to default behavior)
+	// Since we don't have a real k8s k8sClient in this test, we'll test the case where
+	// no k8sClient is available (which should fall back to default behavior)
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 
 	// The update should not call UpdateTargetGroup since the health check config
@@ -1411,7 +1411,7 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 			_ = corev1.AddToScheme(scheme)
 			_ = gwv1alpha2.Install(scheme)
 
-			// Create fake client with policy if provided
+			// Create fake k8sClient with policy if provided
 			clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
 			if tt.policy != nil {
 				clientBuilder = clientBuilder.WithObjects(tt.policy)
@@ -1451,18 +1451,18 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 }
 
 // Test_update_BackwardsCompatibility tests that existing behavior is preserved
-// when no policies are present or when the client is nil
+// when no policies are present or when the k8sClient is nil
 func Test_update_BackwardsCompatibility(t *testing.T) {
 	tests := []struct {
 		name                string
-		client              bool // whether to provide a k8s client
+		client              bool // whether to provide a k8s k8sClient
 		targetGroup         *model.TargetGroup
 		existingHealthCheck *vpclattice.HealthCheckConfig
 		expectedHealthCheck *vpclattice.HealthCheckConfig
 		expectUpdate        bool
 	}{
 		{
-			name:   "No client provided - should use default behavior",
+			name:   "No k8sClient provided - should use default behavior",
 			client: false,
 			targetGroup: &model.TargetGroup{
 				Spec: model.TargetGroupSpec{
@@ -1538,7 +1538,7 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 			expectUpdate: false, // Same config, no update needed
 		},
 		{
-			name:   "HTTPRoute target group with client - should skip policy resolution",
+			name:   "HTTPRoute target group with k8sClient - should skip policy resolution",
 			client: true,
 			targetGroup: &model.TargetGroup{
 				Spec: model.TargetGroupSpec{

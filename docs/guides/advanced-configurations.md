@@ -48,10 +48,6 @@ The `{index}` in the annotation corresponds to the zero-based index of the rule 
 
 Higher priority values indicate higher precedence, so requests to `/api/v2` will be matched by the first rule (priority 200) before the second rule (priority 100) is considered.
 
-### Multi-Cluster Health Check Configuration
-
-In multi-cluster deployments, you can ensure consistent health check configuration across all clusters by applying TargetGroupPolicy to ServiceExport resources. This eliminates the previous limitation where only the cluster containing the route resource would receive the correct health check configuration.
-
 #### Configuring Health Checks for ServiceExport
 
 When you apply a TargetGroupPolicy to a ServiceExport, the health check configuration is automatically propagated to all target groups across all clusters that participate in the service mesh:

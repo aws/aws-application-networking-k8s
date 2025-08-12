@@ -515,11 +515,11 @@ func Test_SynthesizeCreate_WithServiceExportTargetGroup(t *testing.T) {
 	mockTGManager.EXPECT().Upsert(ctx, gomock.Any()).Return(
 		model.TargetGroupStatus{Name: "test-tg", Arn: "arn:test", Id: "tg-123"}, nil)
 
-	// Create the synthesizer with nil client to test graceful handling when no client is available
+	// Create the synthesizer with nil k8sClient to test graceful handling when no k8sClient is available
 	synthesizer := NewTargetGroupSynthesizer(
 		gwlog.FallbackLogger, nil, nil, mockTGManager, nil, nil, stack)
 
-	// Execute SynthesizeCreate - should not fail even when client is nil
+	// Execute SynthesizeCreate - should not fail even when k8sClient is nil
 	err = synthesizer.SynthesizeCreate(ctx)
 	assert.NoError(t, err)
 }

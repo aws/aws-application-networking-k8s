@@ -94,7 +94,7 @@ spec:
         path: "/health"
         port: 8080
         protocol: HTTP
-        protocolVersion: HTTP1
+        protocolVersion: HTTP2
         statusMatch: "200-299"
 ```
 

@@ -78,7 +78,7 @@ func TestHealthCheckConfigResolver_ResolveHealthCheckConfig(t *testing.T) {
 			_ = anv1alpha1.Install(scheme)
 			_ = corev1.AddToScheme(scheme)
 
-			// Create fake client with no objects
+			// Create fake k8sClient with no objects
 			k8sClient := fake.NewClientBuilder().
 				WithScheme(scheme).
 				Build()
@@ -438,14 +438,14 @@ func Test_ResolveHealthCheckConfig_WithPolicies(t *testing.T) {
 			_ = corev1.AddToScheme(scheme)
 			_ = gwv1alpha2.Install(scheme)
 
-			// Convert policies to client.Object slice
+			// Convert policies to k8sClient.Object slice
 			objects := make([]client.Object, len(tt.policies))
 			for i, policy := range tt.policies {
 				policyCopy := policy
 				objects[i] = &policyCopy
 			}
 
-			// Create fake client with policies
+			// Create fake k8sClient with policies
 			k8sClient := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(objects...).
@@ -492,7 +492,7 @@ func Test_ResolveHealthCheckConfig_ErrorHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			// Create a mock controller and client that returns an error
+			// Create a mock controller and k8sClient that returns an error
 			c := gomock.NewController(t)
 			defer c.Finish()
 

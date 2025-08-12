@@ -32,16 +32,16 @@ type TargetGroupManager interface {
 }
 
 type defaultTargetGroupManager struct {
-	log    gwlog.Logger
-	cloud  pkg_aws.Cloud
-	client client.Client
+	log       gwlog.Logger
+	awsCloud  pkg_aws.Cloud
+	k8sClient client.Client
 }
 
-func NewTargetGroupManager(log gwlog.Logger, cloud pkg_aws.Cloud, client client.Client) *defaultTargetGroupManager {
+func NewTargetGroupManager(log gwlog.Logger, awsCloud pkg_aws.Cloud, k8sClient client.Client) *defaultTargetGroupManager {
 	return &defaultTargetGroupManager{
-		log:    log,
-		cloud:  cloud,
-		client: client,
+		log:       log,
+		awsCloud:  awsCloud,
+		k8sClient: k8sClient,
 	}
 }
 
@@ -89,7 +89,7 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 		Config: latticeTgCfg,
 		Name:   &latticeTgName,
 		Type:   &latticeTgType,
-		Tags:   s.cloud.DefaultTags(),
+		Tags:   s.awsCloud.DefaultTags(),
 	}
 	createInput.Tags[model.K8SClusterNameKey] = &modelTg.Spec.K8SClusterName
 	createInput.Tags[model.K8SServiceNameKey] = &modelTg.Spec.K8SServiceName
@@ -102,7 +102,7 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 		createInput.Tags[model.K8SRouteNamespaceKey] = &modelTg.Spec.K8SRouteNamespace
 	}
 
-	lattice := s.cloud.Lattice()
+	lattice := s.awsCloud.Lattice()
 	resp, err := lattice.CreateTargetGroupWithContext(ctx, &createInput)
 	if err != nil {
 		return model.TargetGroupStatus{},
@@ -135,7 +135,7 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *mod
 	}
 
 	// Try to resolve health check configuration from TargetGroupPolicy using centralized resolver
-	resolver := NewHealthCheckConfigResolver(s.log, s.client)
+	resolver := NewHealthCheckConfigResolver(s.log, s.k8sClient)
 	policyHealthCheckConfig, err := resolver.ResolveHealthCheckConfig(ctx, targetGroup)
 	if err != nil {
 		s.log.Debugf(ctx, "Failed to resolve health check config from policy: %v", err)
@@ -148,7 +148,7 @@ func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *mod
 	s.fillDefaultHealthCheckConfig(healthCheckConfig, targetGroup.Spec.Protocol, targetGroup.Spec.ProtocolVersion)
 
 	if !reflect.DeepEqual(healthCheckConfig, latticeTg.Config.HealthCheck) {
-		_, err := s.cloud.Lattice().UpdateTargetGroupWithContext(ctx, &vpclattice.UpdateTargetGroupInput{
+		_, err := s.awsCloud.Lattice().UpdateTargetGroupWithContext(ctx, &vpclattice.UpdateTargetGroupInput{
 			HealthCheck:           healthCheckConfig,
 			TargetGroupIdentifier: latticeTg.Id,
 		})
@@ -188,7 +188,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 	}
 	s.log.Debugf(ctx, "Deleting target group %s", modelTg.Status.Id)
 
-	lattice := s.cloud.Lattice()
+	lattice := s.awsCloud.Lattice()
 
 	// de-register all targets first
 	listTargetsInput := vpclattice.ListTargetsInput{
@@ -269,7 +269,7 @@ type tgListOutput struct {
 
 // Retrieve all TGs in the account, including tags. If individual tags fetch fails, tags will be nil for that tg
 func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, error) {
-	lattice := s.cloud.Lattice()
+	lattice := s.awsCloud.Lattice()
 	var tgList []tgListOutput
 	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
 	resp, err := lattice.ListTargetGroupsAsList(ctx, &targetGroupListInput)
@@ -282,7 +282,7 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, e
 	tgArns := utils.SliceMap(resp, func(tg *vpclattice.TargetGroupSummary) string {
 		return aws.StringValue(tg.Arn)
 	})
-	tgArnToTagsMap, err := s.cloud.Tagging().GetTagsForArns(ctx, tgArns)
+	tgArnToTagsMap, err := s.awsCloud.Tagging().GetTagsForArns(ctx, tgArns)
 
 	if err != nil {
 		return nil, err
@@ -300,7 +300,7 @@ func (s *defaultTargetGroupManager) findTargetGroup(
 	ctx context.Context,
 	modelTargetGroup *model.TargetGroup,
 ) (*vpclattice.GetTargetGroupOutput, error) {
-	arns, err := s.cloud.Tagging().FindResourcesByTags(ctx, services.ResourceTypeTargetGroup,
+	arns, err := s.awsCloud.Tagging().FindResourcesByTags(ctx, services.ResourceTypeTargetGroup,
 		model.TagsFromTGTagFields(modelTargetGroup.Spec.TargetGroupTagFields))
 	if err != nil {
 		return nil, err
@@ -310,7 +310,7 @@ func (s *defaultTargetGroupManager) findTargetGroup(
 	}
 
 	for _, arn := range arns {
-		latticeTg, err := s.cloud.Lattice().GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
+		latticeTg, err := s.awsCloud.Lattice().GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: &arn,
 		})
 		if err != nil {

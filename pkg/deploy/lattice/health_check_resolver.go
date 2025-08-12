@@ -41,7 +41,7 @@ func NewHealthCheckConfigResolver(log gwlog.Logger, client client.Client) *Healt
 // 5. Preserves existing behavior when no policies are applicable
 func (r *HealthCheckConfigResolver) ResolveHealthCheckConfig(ctx context.Context, targetGroup *model.TargetGroup) (*vpclattice.HealthCheckConfig, error) {
 	if r.client == nil {
-		r.log.Debugf(ctx, "No client available for policy resolution, skipping health check config resolution")
+		r.log.Debugf(ctx, "No k8sClient available for policy resolution, skipping health check config resolution")
 		return nil, nil
 	}
 
