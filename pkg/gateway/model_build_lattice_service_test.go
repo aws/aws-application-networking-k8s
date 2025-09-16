@@ -1017,6 +1017,197 @@ func Test_latticeServiceModelBuildTask_isStandaloneMode(t *testing.T) {
 			wantStandalone: true,
 			wantErr:        false,
 		},
+		{
+			name: "route with empty annotation value",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false, // Empty value treated as false
+			wantErr:        false,
+		},
+		{
+			name: "route with whitespace annotation value",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "   ",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false, // Whitespace-only value treated as false
+			wantErr:        false,
+		},
+		{
+			name: "route with true annotation with whitespace",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "  true  ",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: true, // Whitespace around valid value is handled
+			wantErr:        false,
+		},
+		{
+			name: "gateway with invalid annotation value",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "invalid",
+					},
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false, // Invalid gateway annotation treated as false
+			wantErr:        false,
+		},
+		{
+			name: "route being deleted with missing gateway",
+			route: func() core.Route {
+				now := metav1.Now()
+				return core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "test-route",
+						Namespace:         "default",
+						DeletionTimestamp: &now,
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name: "nonexistent-gateway",
+								},
+							},
+						},
+					},
+				})
+			}(),
+			gateway:        nil, // Gateway not created
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false, // Should handle gracefully during deletion
+			wantErr:        false,
+		},
+		{
+			name: "numeric annotation value",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "1",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false, // Numeric value treated as false
+			wantErr:        false,
+		},
 	}
 
 	for _, tt := range tests {

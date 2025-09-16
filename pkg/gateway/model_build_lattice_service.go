@@ -242,17 +242,28 @@ type latticeServiceModelBuildTask struct {
 }
 
 // isStandaloneMode determines if standalone mode should be enabled for the route.
-// It uses the helper function from the k8s package to implement hierarchical 
-// annotation checking where route-level annotations override gateway-level annotations.
+// It uses enhanced validation and error handling to gracefully handle annotation
+// parsing errors and gateway lookup failures.
 func (t *latticeServiceModelBuildTask) isStandaloneMode(ctx context.Context) (bool, error) {
-	standalone, err := k8s.GetStandaloneModeForRoute(ctx, t.client, t.route)
-	if err != nil {
-		t.log.Debugf(ctx, "Failed to determine standalone mode for route %s-%s: %v", 
-			t.route.Name(), t.route.Namespace(), err)
-		return false, err
+	// Use the enhanced validation function for better error reporting
+	standalone, warnings, err := k8s.GetStandaloneModeForRouteWithValidation(ctx, t.client, t.route)
+	
+	// Log any validation warnings
+	for _, warning := range warnings {
+		t.log.Warnf(ctx, "Standalone mode validation warning for route %s/%s: %s", 
+			t.route.Namespace(), t.route.Name(), warning)
 	}
 	
-	t.log.Debugf(ctx, "Standalone mode for route %s-%s: %t", 
-		t.route.Name(), t.route.Namespace(), standalone)
+	if err != nil {
+		// Log the error but check if we can continue with a safe default
+		t.log.Errorf(ctx, "Failed to determine standalone mode for route %s/%s: %v", 
+			t.route.Namespace(), t.route.Name(), err)
+		
+		// For critical errors, we should fail the operation
+		return false, fmt.Errorf("standalone mode determination failed: %w", err)
+	}
+	
+	t.log.Debugf(ctx, "Standalone mode for route %s/%s: %t", 
+		t.route.Namespace(), t.route.Name(), standalone)
 	return standalone, nil
 }
