@@ -128,25 +128,42 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		},
 	}
 
-	for _, parentRef := range t.route.Spec().ParentRefs() {
-		gw := &gwv1.Gateway{}
-		parentNamespace := t.route.Namespace()
-		if parentRef.Namespace != nil {
-			parentNamespace = string(*parentRef.Namespace)
-		}
-		err := t.client.Get(ctx, client.ObjectKey{Name: string(parentRef.Name), Namespace: parentNamespace}, gw)
-		if err != nil {
-			t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
-			continue
-		}
-		if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
-			spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
-		} else {
-			t.log.Infof(ctx, "Ignoring route %s because gateway %s is not managed by lattice gateway controller", t.route.Name(), gw.Name)
-		}
+	// Check if standalone mode is enabled for this route
+	standalone, err := t.isStandaloneMode(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine standalone mode: %w", err)
 	}
-	if config.ServiceNetworkOverrideMode {
-		spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
+
+	if !standalone {
+		// Standard mode: populate ServiceNetworkNames from parent references
+		for _, parentRef := range t.route.Spec().ParentRefs() {
+			gw := &gwv1.Gateway{}
+			parentNamespace := t.route.Namespace()
+			if parentRef.Namespace != nil {
+				parentNamespace = string(*parentRef.Namespace)
+			}
+			err := t.client.Get(ctx, client.ObjectKey{Name: string(parentRef.Name), Namespace: parentNamespace}, gw)
+			if err != nil {
+				t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
+				continue
+			}
+			if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
+				spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
+			} else {
+				t.log.Infof(ctx, "Ignoring route %s because gateway %s is not managed by lattice gateway controller", t.route.Name(), gw.Name)
+			}
+		}
+		if config.ServiceNetworkOverrideMode {
+			spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
+		}
+		
+		t.log.Infof(ctx, "Creating service with service network association for route %s-%s (networks: %v)", 
+			t.route.Name(), t.route.Namespace(), spec.ServiceNetworkNames)
+	} else {
+		// Standalone mode: empty ServiceNetworkNames (no service network association)
+		spec.ServiceNetworkNames = []string{}
+		t.log.Infof(ctx, "Creating standalone service for route %s-%s (no service network association)", 
+			t.route.Name(), t.route.Namespace())
 	}
 
 	if len(t.route.Spec().Hostnames()) > 0 {
@@ -225,36 +242,17 @@ type latticeServiceModelBuildTask struct {
 }
 
 // isStandaloneMode determines if standalone mode should be enabled for the route.
-// It implements hierarchical annotation checking where route-level annotations
-// override gateway-level annotations.
+// It uses the helper function from the k8s package to implement hierarchical 
+// annotation checking where route-level annotations override gateway-level annotations.
 func (t *latticeServiceModelBuildTask) isStandaloneMode(ctx context.Context) (bool, error) {
-	// Check route-level annotation first (highest precedence)
-	routeAnnotations := t.route.K8sObject().GetAnnotations()
-	if routeAnnotations != nil {
-		if value, exists := routeAnnotations[k8s.StandaloneAnnotation]; exists {
-			// Route-level annotation takes precedence regardless of value
-			standalone := k8s.ParseBoolAnnotation(value)
-			t.log.Debugf(ctx, "Route %s-%s has standalone annotation set to %s (parsed as %t)", 
-				t.route.Name(), t.route.Namespace(), value, standalone)
-			return standalone, nil
-		}
-	}
-	
-	// Check gateway-level annotation
-	gw, err := t.findGateway(ctx)
+	standalone, err := k8s.GetStandaloneModeForRoute(ctx, t.client, t.route)
 	if err != nil {
-		t.log.Debugf(ctx, "Failed to find gateway for route %s-%s: %v", 
+		t.log.Debugf(ctx, "Failed to determine standalone mode for route %s-%s: %v", 
 			t.route.Name(), t.route.Namespace(), err)
-		return false, fmt.Errorf("failed to find gateway for standalone mode check: %w", err)
+		return false, err
 	}
 	
-	if k8s.IsStandaloneAnnotationEnabled(gw) {
-		t.log.Debugf(ctx, "Gateway %s has standalone annotation enabled for route %s-%s", 
-			gw.Name, t.route.Name(), t.route.Namespace())
-		return true, nil
-	}
-	
-	t.log.Debugf(ctx, "No standalone annotation found for route %s-%s", 
-		t.route.Name(), t.route.Namespace())
-	return false, nil
+	t.log.Debugf(ctx, "Standalone mode for route %s-%s: %t", 
+		t.route.Name(), t.route.Namespace(), standalone)
+	return standalone, nil
 }
