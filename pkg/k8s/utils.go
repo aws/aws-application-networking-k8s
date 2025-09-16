@@ -16,7 +16,13 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-const AnnotationPrefix = "application-networking.k8s.aws/"
+const (
+	AnnotationPrefix = "application-networking.k8s.aws/"
+	
+	// Standalone annotation controls whether VPC Lattice services are created
+	// without automatic service network association
+	StandaloneAnnotation = AnnotationPrefix + "standalone"
+)
 
 // NamespacedName returns the namespaced name for k8s objects
 func NamespacedName(obj client.Object) types.NamespacedName {
@@ -107,4 +113,70 @@ func ObjExists(ctx context.Context, c client.Client, key types.NamespacedName, o
 		return false, err
 	}
 	return true, nil
+}
+
+// IsStandaloneAnnotationEnabled checks if the standalone annotation is set to "true"
+// on the given object. It returns false for any other value or if the annotation is missing.
+func IsStandaloneAnnotationEnabled(obj client.Object) bool {
+	if obj == nil {
+		return false
+	}
+	
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	
+	value, exists := annotations[StandaloneAnnotation]
+	if !exists {
+		return false
+	}
+	
+	return ParseBoolAnnotation(value)
+}
+
+// ParseBoolAnnotation parses a string annotation value as a boolean.
+// It returns true only if the value is "true" (case-insensitive).
+// All other values, including empty string, return false.
+func ParseBoolAnnotation(value string) bool {
+	if value == "" {
+		return false
+	}
+	
+	// Convert to lowercase for case-insensitive comparison
+	switch value {
+	case "true", "True", "TRUE":
+		return true
+	default:
+		return false
+	}
+}
+
+// GetStandaloneModeForRoute determines if standalone mode should be enabled for a route.
+// It checks the route-level annotation first (highest precedence), then falls back to
+// the gateway-level annotation. Returns false if neither annotation is present or set to "true".
+func GetStandaloneModeForRoute(ctx context.Context, c client.Client, route core.Route) (bool, error) {
+	// Check route-level annotation first (highest precedence)
+	routeAnnotations := route.K8sObject().GetAnnotations()
+	if routeAnnotations != nil {
+		if value, exists := routeAnnotations[StandaloneAnnotation]; exists {
+			// Route-level annotation takes precedence regardless of value
+			return ParseBoolAnnotation(value), nil
+		}
+	}
+	
+	// Check gateway-level annotation
+	gateways, err := FindControlledParents(ctx, c, route)
+	if err != nil {
+		return false, fmt.Errorf("failed to find controlled parent gateways: %w", err)
+	}
+	
+	// Check all parent gateways for standalone annotation
+	for _, gw := range gateways {
+		if IsStandaloneAnnotationEnabled(gw) {
+			return true, nil
+		}
+	}
+	
+	return false, nil
 }
