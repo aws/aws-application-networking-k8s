@@ -406,23 +406,7 @@ func (r *routeReconciler) updateRouteStatusWithServiceInfo(ctx context.Context, 
 	return nil
 }
 
-// Deprecated: Use updateRouteStatusWithServiceInfo instead
-func (r *routeReconciler) updateRouteAnnotation(ctx context.Context, dns string, route core.Route) error {
-	r.log.Debugf(ctx, "Updating route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
-	routeOld := route.DeepCopy()
 
-	if len(route.K8sObject().GetAnnotations()) == 0 {
-		route.K8sObject().SetAnnotations(make(map[string]string))
-	}
-
-	route.K8sObject().GetAnnotations()[LatticeAssignedDomainName] = dns
-	if err := r.client.Patch(ctx, route.K8sObject(), client.MergeFrom(routeOld.K8sObject())); err != nil {
-		return fmt.Errorf("failed to update route status due to err %w", err)
-	}
-
-	r.log.Debugf(ctx, "Successfully updated route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
-	return nil
-}
 
 func (r *routeReconciler) validateBackendRefsIpFamilies(ctx context.Context, route core.Route) error {
 	rules := route.Spec().Rules()
