@@ -223,3 +223,38 @@ type latticeServiceModelBuildTask struct {
 	stack       core.Stack
 	brTgBuilder BackendRefTargetGroupModelBuilder
 }
+
+// isStandaloneMode determines if standalone mode should be enabled for the route.
+// It implements hierarchical annotation checking where route-level annotations
+// override gateway-level annotations.
+func (t *latticeServiceModelBuildTask) isStandaloneMode(ctx context.Context) (bool, error) {
+	// Check route-level annotation first (highest precedence)
+	routeAnnotations := t.route.K8sObject().GetAnnotations()
+	if routeAnnotations != nil {
+		if value, exists := routeAnnotations[k8s.StandaloneAnnotation]; exists {
+			// Route-level annotation takes precedence regardless of value
+			standalone := k8s.ParseBoolAnnotation(value)
+			t.log.Debugf(ctx, "Route %s-%s has standalone annotation set to %s (parsed as %t)", 
+				t.route.Name(), t.route.Namespace(), value, standalone)
+			return standalone, nil
+		}
+	}
+	
+	// Check gateway-level annotation
+	gw, err := t.findGateway(ctx)
+	if err != nil {
+		t.log.Debugf(ctx, "Failed to find gateway for route %s-%s: %v", 
+			t.route.Name(), t.route.Namespace(), err)
+		return false, fmt.Errorf("failed to find gateway for standalone mode check: %w", err)
+	}
+	
+	if k8s.IsStandaloneAnnotationEnabled(gw) {
+		t.log.Debugf(ctx, "Gateway %s has standalone annotation enabled for route %s-%s", 
+			gw.Name, t.route.Name(), t.route.Namespace())
+		return true, nil
+	}
+	
+	t.log.Debugf(ctx, "No standalone annotation found for route %s-%s", 
+		t.route.Name(), t.route.Namespace())
+	return false, nil
+}

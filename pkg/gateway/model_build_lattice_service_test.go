@@ -523,3 +523,318 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 		})
 	}
 }
+
+func Test_latticeServiceModelBuildTask_isStandaloneMode(t *testing.T) {
+	vpcLatticeGatewayClass := gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gwClass",
+		},
+		Spec: gwv1.GatewayClassSpec{
+			ControllerName: config.LatticeGatewayControllerName,
+		},
+	}
+
+	tests := []struct {
+		name           string
+		route          core.Route
+		gateway        *gwv1.Gateway
+		gatewayClass   *gwv1.GatewayClass
+		wantStandalone bool
+		wantErr        bool
+		errContains    string
+	}{
+		{
+			name: "route with standalone annotation true",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "true",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: true,
+			wantErr:        false,
+		},
+		{
+			name: "route with standalone annotation false",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "false",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false,
+			wantErr:        false,
+		},
+		{
+			name: "route with invalid standalone annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "invalid",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false,
+			wantErr:        false,
+		},
+		{
+			name: "gateway with standalone annotation true, route without annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "true",
+					},
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: true,
+			wantErr:        false,
+		},
+		{
+			name: "route annotation overrides gateway annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "false",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "true",
+					},
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false, // Route annotation takes precedence
+			wantErr:        false,
+		},
+		{
+			name: "no annotations anywhere",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false,
+			wantErr:        false,
+		},
+		{
+			name: "gateway not found error",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "nonexistent-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway:        nil, // Gateway not created
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: false,
+			wantErr:        true,
+			errContains:    "failed to find gateway",
+		},
+		{
+			name: "case insensitive true annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "True",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name: "test-gateway",
+							},
+						},
+					},
+				},
+			}),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "gwClass",
+				},
+			},
+			gatewayClass:   &vpcLatticeGatewayClass,
+			wantStandalone: true,
+			wantErr:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			// Create gateway class
+			assert.NoError(t, k8sClient.Create(ctx, tt.gatewayClass.DeepCopy()))
+
+			// Create gateway if provided
+			if tt.gateway != nil {
+				assert.NoError(t, k8sClient.Create(ctx, tt.gateway.DeepCopy()))
+			}
+
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
+			task := &latticeServiceModelBuildTask{
+				log:    gwlog.FallbackLogger,
+				route:  tt.route,
+				stack:  stack,
+				client: k8sClient,
+			}
+
+			standalone, err := task.isStandaloneMode(ctx)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantStandalone, standalone)
+			}
+		})
+	}
+}
