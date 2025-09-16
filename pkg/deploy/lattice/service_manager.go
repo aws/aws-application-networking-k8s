@@ -58,12 +58,19 @@ func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, s
 	m.log.Infof(ctx, "Success CreateService %s %s",
 		aws.StringValue(createSvcResp.Name), aws.StringValue(createSvcResp.Id))
 
-	for _, snName := range svc.Spec.ServiceNetworkNames {
-		err = m.createAssociation(ctx, createSvcResp.Id, snName)
-		if err != nil {
-			return ServiceInfo{}, err
+	// Only create associations if service networks are specified (not standalone)
+	if len(svc.Spec.ServiceNetworkNames) > 0 {
+		for _, snName := range svc.Spec.ServiceNetworkNames {
+			err = m.createAssociation(ctx, createSvcResp.Id, snName)
+			if err != nil {
+				return ServiceInfo{}, err
+			}
 		}
+	} else {
+		m.log.Infof(ctx, "Skipping service network association for standalone service %s", 
+			aws.StringValue(createSvcResp.Name))
 	}
+	
 	svcInfo := svcStatusFromCreateSvcResp(createSvcResp)
 	return svcInfo, nil
 }
