@@ -134,6 +134,9 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		return nil, fmt.Errorf("failed to determine standalone mode: %w", err)
 	}
 
+	t.log.Infof(ctx, "Standalone mode determination for route %s/%s: %t",
+		t.route.Namespace(), t.route.Name(), standalone)
+
 	if !standalone {
 		// Standard mode: populate ServiceNetworkNames from parent references
 		for _, parentRef := range t.route.Spec().ParentRefs() {
@@ -253,6 +256,10 @@ func (t *latticeServiceModelBuildTask) isStandaloneMode(ctx context.Context) (bo
 		t.log.Warnf(ctx, "Standalone mode validation warning for route %s/%s: %s",
 			t.route.Namespace(), t.route.Name(), warning)
 	}
+
+	// Add debug logging for gateway lookup
+	t.log.Debugf(ctx, "Checking standalone mode for route %s/%s with %d parent refs",
+		t.route.Namespace(), t.route.Name(), len(t.route.Spec().ParentRefs()))
 
 	if err != nil {
 		// Log the error but check if we can continue with a safe default

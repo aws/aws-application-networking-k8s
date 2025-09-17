@@ -236,7 +236,15 @@ func GetStandaloneModeForRouteWithValidation(ctx context.Context, c client.Clien
 				if standalone {
 					return true, warnings, nil
 				}
+			} else {
+				// Debug: log when gateway doesn't have the annotation
+				warnings = append(warnings, fmt.Sprintf("gateway %s/%s does not have standalone annotation",
+					gw.GetNamespace(), gw.GetName()))
 			}
+		} else {
+			// Debug: log when gateway has no annotations
+			warnings = append(warnings, fmt.Sprintf("gateway %s/%s has no annotations",
+				gw.GetNamespace(), gw.GetName()))
 		}
 	}
 
