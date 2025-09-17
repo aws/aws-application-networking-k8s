@@ -344,7 +344,7 @@ func TestRouteReconciler_UpdateRouteStatusWithServiceInfo(t *testing.T) {
 
 	t.Run("updates route with service ARN and DNS when both available", func(t *testing.T) {
 		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
-		
+
 		route := &gwv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-route-1",
@@ -385,7 +385,7 @@ func TestRouteReconciler_UpdateRouteStatusWithServiceInfo(t *testing.T) {
 
 	t.Run("updates route with only DNS when ARN not available", func(t *testing.T) {
 		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
-		
+
 		route := &gwv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-route-2",
@@ -426,7 +426,7 @@ func TestRouteReconciler_UpdateRouteStatusWithServiceInfo(t *testing.T) {
 
 	t.Run("updates route with only ARN when DNS not available", func(t *testing.T) {
 		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
-		
+
 		route := &gwv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-route-3",
@@ -465,7 +465,7 @@ func TestRouteReconciler_UpdateRouteStatusWithServiceInfo(t *testing.T) {
 
 	t.Run("handles service not found gracefully", func(t *testing.T) {
 		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
-		
+
 		route := &gwv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-route-4",
@@ -499,7 +499,7 @@ func TestRouteReconciler_UpdateRouteStatusWithServiceInfo(t *testing.T) {
 
 	t.Run("handles service lookup error", func(t *testing.T) {
 		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
-		
+
 		route := &gwv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-route-5",
@@ -528,7 +528,7 @@ func TestRouteReconciler_UpdateRouteStatusWithServiceInfo(t *testing.T) {
 
 	t.Run("handles nil service gracefully", func(t *testing.T) {
 		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
-		
+
 		route := &gwv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-route-6",

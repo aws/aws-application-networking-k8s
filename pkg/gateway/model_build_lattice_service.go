@@ -156,13 +156,13 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		if config.ServiceNetworkOverrideMode {
 			spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
 		}
-		
-		t.log.Infof(ctx, "Creating service with service network association for route %s-%s (networks: %v)", 
+
+		t.log.Infof(ctx, "Creating service with service network association for route %s-%s (networks: %v)",
 			t.route.Name(), t.route.Namespace(), spec.ServiceNetworkNames)
 	} else {
 		// Standalone mode: empty ServiceNetworkNames (no service network association)
 		spec.ServiceNetworkNames = []string{}
-		t.log.Infof(ctx, "Creating standalone service for route %s-%s (no service network association)", 
+		t.log.Infof(ctx, "Creating standalone service for route %s-%s (no service network association)",
 			t.route.Name(), t.route.Namespace())
 	}
 
@@ -247,23 +247,23 @@ type latticeServiceModelBuildTask struct {
 func (t *latticeServiceModelBuildTask) isStandaloneMode(ctx context.Context) (bool, error) {
 	// Use the enhanced validation function for better error reporting
 	standalone, warnings, err := k8s.GetStandaloneModeForRouteWithValidation(ctx, t.client, t.route)
-	
+
 	// Log any validation warnings
 	for _, warning := range warnings {
-		t.log.Warnf(ctx, "Standalone mode validation warning for route %s/%s: %s", 
+		t.log.Warnf(ctx, "Standalone mode validation warning for route %s/%s: %s",
 			t.route.Namespace(), t.route.Name(), warning)
 	}
-	
+
 	if err != nil {
 		// Log the error but check if we can continue with a safe default
-		t.log.Errorf(ctx, "Failed to determine standalone mode for route %s/%s: %v", 
+		t.log.Errorf(ctx, "Failed to determine standalone mode for route %s/%s: %v",
 			t.route.Namespace(), t.route.Name(), err)
-		
+
 		// For critical errors, we should fail the operation
 		return false, fmt.Errorf("standalone mode determination failed: %w", err)
 	}
-	
-	t.log.Debugf(ctx, "Standalone mode for route %s/%s: %t", 
+
+	t.log.Debugf(ctx, "Standalone mode for route %s/%s: %t",
 		t.route.Namespace(), t.route.Name(), standalone)
 	return standalone, nil
 }

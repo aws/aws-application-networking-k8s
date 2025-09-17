@@ -67,10 +67,10 @@ func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, s
 			}
 		}
 	} else {
-		m.log.Infof(ctx, "Skipping service network association for standalone service %s", 
+		m.log.Infof(ctx, "Skipping service network association for standalone service %s",
 			aws.StringValue(createSvcResp.Name))
 	}
-	
+
 	svcInfo := svcStatusFromCreateSvcResp(createSvcResp)
 	return svcInfo, nil
 }

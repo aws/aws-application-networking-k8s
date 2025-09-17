@@ -380,18 +380,18 @@ func (r *routeReconciler) updateRouteStatusWithServiceInfo(ctx context.Context, 
 	}
 
 	routeOld := route.DeepCopy()
-	
+
 	// Initialize annotations map if it doesn't exist
 	if len(route.K8sObject().GetAnnotations()) == 0 {
 		route.K8sObject().SetAnnotations(make(map[string]string))
 	}
-	
+
 	// Add service ARN annotation if available
 	if svc.Arn != nil {
 		route.K8sObject().GetAnnotations()[LatticeServiceArn] = *svc.Arn
 		r.log.Debugf(ctx, "Updated route %s-%s with service ARN %s", route.Name(), route.Namespace(), *svc.Arn)
 	}
-	
+
 	// Add DNS annotation if available (existing logic)
 	if svc.DnsEntry != nil && svc.DnsEntry.DomainName != nil {
 		route.K8sObject().GetAnnotations()[LatticeAssignedDomainName] = *svc.DnsEntry.DomainName
@@ -405,8 +405,6 @@ func (r *routeReconciler) updateRouteStatusWithServiceInfo(ctx context.Context, 
 	r.log.Debugf(ctx, "Successfully updated route %s-%s with service information", route.Name(), route.Namespace())
 	return nil
 }
-
-
 
 func (r *routeReconciler) validateBackendRefsIpFamilies(ctx context.Context, route core.Route) error {
 	rules := route.Spec().Rules()

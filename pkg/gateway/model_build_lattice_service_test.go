@@ -694,11 +694,11 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				// Save original config values
 				originalOverrideMode := config.ServiceNetworkOverrideMode
 				originalDefaultServiceNetwork := config.DefaultServiceNetwork
-				
+
 				// Set override mode for this test
 				config.ServiceNetworkOverrideMode = true
 				config.DefaultServiceNetwork = "default-service-network"
-				
+
 				// Restore original values after test
 				defer func() {
 					config.ServiceNetworkOverrideMode = originalOverrideMode

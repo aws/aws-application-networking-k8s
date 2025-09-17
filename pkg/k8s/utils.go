@@ -19,7 +19,7 @@ import (
 
 const (
 	AnnotationPrefix = "application-networking.k8s.aws/"
-	
+
 	// Standalone annotation controls whether VPC Lattice services are created
 	// without automatic service network association
 	StandaloneAnnotation = AnnotationPrefix + "standalone"
@@ -124,17 +124,17 @@ func IsStandaloneAnnotationEnabled(obj client.Object) bool {
 	if obj == nil {
 		return false
 	}
-	
+
 	annotations := obj.GetAnnotations()
 	if annotations == nil {
 		return false
 	}
-	
+
 	value, exists := annotations[StandaloneAnnotation]
 	if !exists {
 		return false
 	}
-	
+
 	return ParseBoolAnnotation(value)
 }
 
@@ -145,29 +145,29 @@ func ValidateStandaloneAnnotation(obj client.Object) (bool, error) {
 	if obj == nil {
 		return false, fmt.Errorf("object cannot be nil")
 	}
-	
+
 	annotations := obj.GetAnnotations()
 	if annotations == nil {
 		// No annotations is valid - defaults to false
 		return false, nil
 	}
-	
+
 	value, exists := annotations[StandaloneAnnotation]
 	if !exists {
 		// Missing annotation is valid - defaults to false
 		return false, nil
 	}
-	
+
 	// Validate the annotation value
 	if value == "" {
 		return false, fmt.Errorf("standalone annotation cannot be empty")
 	}
-	
+
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return false, fmt.Errorf("standalone annotation cannot be whitespace only")
 	}
-	
+
 	// Check for valid values
 	switch strings.ToLower(trimmed) {
 	case "true":
@@ -185,7 +185,7 @@ func ValidateStandaloneAnnotation(obj client.Object) (bool, error) {
 // It returns the standalone mode, validation warnings, and any critical errors.
 func GetStandaloneModeForRouteWithValidation(ctx context.Context, c client.Client, route core.Route) (bool, []string, error) {
 	var warnings []string
-	
+
 	// Validate input parameters
 	if route == nil {
 		return false, nil, fmt.Errorf("route cannot be nil")
@@ -193,7 +193,7 @@ func GetStandaloneModeForRouteWithValidation(ctx context.Context, c client.Clien
 	if route.K8sObject() == nil {
 		return false, nil, fmt.Errorf("route K8s object cannot be nil")
 	}
-	
+
 	// Check route-level annotation first (highest precedence)
 	routeAnnotations := route.K8sObject().GetAnnotations()
 	if routeAnnotations != nil {
@@ -207,7 +207,7 @@ func GetStandaloneModeForRouteWithValidation(ctx context.Context, c client.Clien
 			return standalone, warnings, nil
 		}
 	}
-	
+
 	// Check gateway-level annotation with enhanced error handling
 	gateways, err := FindControlledParents(ctx, c, route)
 	if err != nil {
@@ -217,19 +217,19 @@ func GetStandaloneModeForRouteWithValidation(ctx context.Context, c client.Clien
 			warnings = append(warnings, fmt.Sprintf("gateway lookup failed during deletion: %v", err))
 			return false, warnings, nil
 		}
-		
+
 		// For non-deletion scenarios, gateway lookup failures should be reported
-		return false, warnings, fmt.Errorf("failed to find controlled parent gateways for route %s/%s: %w", 
+		return false, warnings, fmt.Errorf("failed to find controlled parent gateways for route %s/%s: %w",
 			route.Namespace(), route.Name(), err)
 	}
-	
+
 	// Check all parent gateways for standalone annotation with validation
 	for _, gw := range gateways {
 		if gw.GetAnnotations() != nil {
 			if _, exists := gw.GetAnnotations()[StandaloneAnnotation]; exists {
 				standalone, err := ValidateStandaloneAnnotation(gw)
 				if err != nil {
-					warnings = append(warnings, fmt.Sprintf("gateway %s/%s annotation validation: %v, treating as false", 
+					warnings = append(warnings, fmt.Sprintf("gateway %s/%s annotation validation: %v, treating as false",
 						gw.GetNamespace(), gw.GetName(), err))
 					continue
 				}
@@ -239,7 +239,7 @@ func GetStandaloneModeForRouteWithValidation(ctx context.Context, c client.Clien
 			}
 		}
 	}
-	
+
 	return false, warnings, nil
 }
 
@@ -252,13 +252,13 @@ func ParseBoolAnnotation(value string) bool {
 	if value == "" {
 		return false
 	}
-	
+
 	// Trim whitespace to be more forgiving of user input
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return false
 	}
-	
+
 	// Convert to lowercase for case-insensitive comparison
 	switch strings.ToLower(trimmed) {
 	case "true":
@@ -283,7 +283,7 @@ func GetStandaloneModeForRoute(ctx context.Context, c client.Client, route core.
 	if route.K8sObject() == nil {
 		return false, fmt.Errorf("route K8s object cannot be nil")
 	}
-	
+
 	// Check route-level annotation first (highest precedence)
 	routeAnnotations := route.K8sObject().GetAnnotations()
 	if routeAnnotations != nil {
@@ -294,7 +294,7 @@ func GetStandaloneModeForRoute(ctx context.Context, c client.Client, route core.
 			return standalone, nil
 		}
 	}
-	
+
 	// Check gateway-level annotation with enhanced error handling
 	gateways, err := FindControlledParents(ctx, c, route)
 	if err != nil {
@@ -304,19 +304,19 @@ func GetStandaloneModeForRoute(ctx context.Context, c client.Client, route core.
 			// Return false (non-standalone) as a safe default
 			return false, nil
 		}
-		
+
 		// For non-deletion scenarios, gateway lookup failures should be reported
 		// but we still return a safe default to allow processing to continue
-		return false, fmt.Errorf("failed to find controlled parent gateways for route %s/%s: %w", 
+		return false, fmt.Errorf("failed to find controlled parent gateways for route %s/%s: %w",
 			route.Namespace(), route.Name(), err)
 	}
-	
+
 	// Check all parent gateways for standalone annotation
 	for _, gw := range gateways {
 		if IsStandaloneAnnotationEnabled(gw) {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }

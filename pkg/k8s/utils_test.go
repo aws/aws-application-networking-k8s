@@ -239,7 +239,7 @@ func TestIsStandaloneAnnotationEnabled(t *testing.T) {
 func TestGetStandaloneModeForRoute(t *testing.T) {
 	// Create a scheme for the fake client
 	scheme := runtime.NewScheme()
-	require.NoError(t, gwv1.AddToScheme(scheme))
+	require.NoError(t, gwv1.Install(scheme))
 
 	tests := []struct {
 		name        string
@@ -708,24 +708,24 @@ func TestValidateStandaloneAnnotation(t *testing.T) {
 func TestGetStandaloneModeForRouteWithValidation(t *testing.T) {
 	// Create a scheme for the fake client
 	scheme := runtime.NewScheme()
-	require.NoError(t, gwv1.AddToScheme(scheme))
+	require.NoError(t, gwv1.Install(scheme))
 
 	tests := []struct {
-		name            string
-		route           core.Route
-		gateways        []client.Object
-		expected        bool
+		name             string
+		route            core.Route
+		gateways         []client.Object
+		expected         bool
 		expectedWarnings int
-		expectError     bool
-		description     string
+		expectError      bool
+		description      string
 	}{
 		{
-			name:  "nil route",
-			route: nil,
-			expected: false,
+			name:             "nil route",
+			route:            nil,
+			expected:         false,
 			expectedWarnings: 0,
-			expectError: true,
-			description: "should return error for nil route",
+			expectError:      true,
+			description:      "should return error for nil route",
 		},
 		{
 			name: "route with invalid annotation value",
@@ -957,7 +957,7 @@ func TestGetStandaloneModeForRouteWithValidation(t *testing.T) {
 			} else {
 				assert.NoError(t, err, tt.description)
 			}
-			
+
 			assert.Equal(t, tt.expected, result, tt.description)
 			assert.Len(t, warnings, tt.expectedWarnings, "Expected %d warnings, got %d: %v", tt.expectedWarnings, len(warnings), warnings)
 		})
