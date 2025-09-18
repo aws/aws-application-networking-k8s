@@ -86,5 +86,5 @@ func (env *Framework) getRestClientForPod(namespace string, name string) (rest.I
 	if err != nil {
 		return nil, err
 	}
-	return apiutil.RESTClientForGVK(gkv, false, env.controllerRuntimeConfig, serializer.NewCodecFactory(env.k8sScheme), http.DefaultClient)
+	return apiutil.RESTClientForGVK(gkv, false, false, env.controllerRuntimeConfig, serializer.NewCodecFactory(env.k8sScheme), http.DefaultClient)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -62,10 +63,13 @@ func TestServiceEventHandler_MapToRoute(t *testing.T) {
 				},
 			},
 		},
-		&corev1.Endpoints{
+		&discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-service",
 				Namespace: "ns1",
+				Labels: map[string]string{
+					discoveryv1.LabelServiceName: "test-service",
+				},
 			},
 		},
 		&corev1.Service{
@@ -110,10 +114,13 @@ func TestServiceEventHandler_MapToServiceExport(t *testing.T) {
 				},
 			},
 		},
-		&corev1.Endpoints{
+		&discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-service",
 				Namespace: "ns1",
+				Labels: map[string]string{
+					discoveryv1.LabelServiceName: "test-service",
+				},
 			},
 		},
 		&corev1.Service{

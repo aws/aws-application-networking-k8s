@@ -65,8 +65,6 @@ func (h *serviceEventHandler) mapToService(ctx context.Context, obj client.Objec
 		return typed
 	case *v1alpha1.TargetGroupPolicy:
 		return h.mapper.TargetGroupPolicyToService(ctx, typed)
-	case *corev1.Endpoints:
-		return h.mapper.EndpointsToService(ctx, typed)
 	case *discoveryv1.EndpointSlice:
 		return h.mapper.EndpointSliceToService(ctx, typed)
 	}

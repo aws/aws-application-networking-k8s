@@ -54,17 +54,6 @@ func (r *resourceMapper) ServiceToServiceExport(ctx context.Context, svc *corev1
 	return svcExport
 }
 
-func (r *resourceMapper) EndpointsToService(ctx context.Context, ep *corev1.Endpoints) *corev1.Service {
-	if ep == nil {
-		return nil
-	}
-	svc := &corev1.Service{}
-	if err := r.client.Get(ctx, k8sutils.NamespacedName(ep), svc); err != nil {
-		return nil
-	}
-	return svc
-}
-
 func (r *resourceMapper) EndpointSliceToService(ctx context.Context, epSlice *discoveryv1.EndpointSlice) *corev1.Service {
 	if epSlice == nil {
 		return nil

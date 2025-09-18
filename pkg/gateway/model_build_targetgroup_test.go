@@ -19,6 +19,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -37,7 +38,7 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 		name                string
 		svcExport           *anv1alpha1.ServiceExport
 		svc                 *corev1.Service
-		endPoints           []corev1.Endpoints
+		endPoints           []discoveryv1.EndpointSlice
 		wantErrIsNil        bool
 		wantIsDeleted       bool
 		wantIPv6TargetGroup bool
@@ -64,11 +65,14 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 					},
 				},
 			},
-			endPoints: []corev1.Endpoints{
+			endPoints: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export1",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "export1",
+						},
 					},
 				},
 			},
@@ -126,11 +130,14 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 					},
 				},
 			},
-			endPoints: []corev1.Endpoints{
+			endPoints: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export4",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "export4",
+						},
 					},
 				},
 			},
@@ -159,11 +166,14 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 					},
 				},
 			},
-			endPoints: []corev1.Endpoints{
+			endPoints: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export5",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "export5",
+						},
 					},
 				},
 			},
@@ -192,11 +202,14 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 					},
 				},
 			},
-			endPoints: []corev1.Endpoints{
+			endPoints: []discoveryv1.EndpointSlice{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ns1",
 						Name:      "export6",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "export6",
+						},
 					},
 				},
 			},
