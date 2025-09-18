@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"testing"
+	"time"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -325,7 +326,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 	routeName := k8s.NamespacedName(&route)
 	result, err := rc.Reconcile(ctx, reconcile.Request{NamespacedName: routeName})
 	assert.Nil(t, err)
-	assert.False(t, result.Requeue)
+	assert.Equal(t, time.Duration(0), result.RequeueAfter)
 
 }
 
