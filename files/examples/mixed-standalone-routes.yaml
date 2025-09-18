@@ -1,0 +1,49 @@
+# Gateway with standalone annotation - affects all routes by default
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: mixed-gateway
+  annotations:
+    application-networking.k8s.aws/standalone: "true"
+spec:
+  gatewayClassName: amazon-vpc-lattice
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+---
+# Route that inherits gateway setting (standalone)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: inherited-standalone-route
+spec:
+  parentRefs:
+  - name: mixed-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /standalone
+    backendRefs:
+    - name: standalone-service
+      port: 80
+---
+# Route that overrides gateway setting (service network associated)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: networked-override-route
+  annotations:
+    application-networking.k8s.aws/standalone: "false"
+spec:
+  parentRefs:
+  - name: mixed-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /networked
+    backendRefs:
+    - name: networked-service
+      port: 80
