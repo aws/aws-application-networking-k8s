@@ -1307,6 +1307,8 @@
 <p>AWS Gateway API Controller supports Gateway API CRD bundle versions <code>v1.1</code> or greater. Not all features of Gateway API are supported - for detailed features and limitation, please refer to individual API references. Please note that users are required to install Gateway API CRDs themselves as these are no longer bundled as of release <code>v1.1.0</code>. The latest Gateway API CRDs are available <a href="https://gateway-api.sigs.k8s.io/">here</a>. Please <a href="https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api">follow this installation</a> process.</p>
 <p><strong>How do health checks work in multi-cluster deployments?</strong></p>
 <p>In multi-cluster deployments, when you apply a TargetGroupPolicy to a ServiceExport, the health check configuration is automatically propagated to all target groups across all clusters that participate in the service mesh. This ensures consistent health monitoring behavior regardless of which cluster contains the route resource.</p>
+<p><strong>How do I prevent 503 errors during deployments?</strong></p>
+<p>When using AWS Gateway API Controller with EKS, customers may experience 503 errors during deployments due to a timing gap between pod termination and VPC Lattice configuration propagation, which affects the time controller takes to deregister a terminating pod. We recommend setting <code>terminationGracePeriod</code> to at least 150 seconds and implementing a preStop hook that has a sleep of 60 seconds (but no more than the <code>terminationGracePeriod</code>). For optimal performance, also consider setting <code>ROUTE_MAX_CONCURRENT_RECONCILES</code> to 10 which further accelerates the pod deregistration process, regardless of the number of targets.</p>
 
 
 
