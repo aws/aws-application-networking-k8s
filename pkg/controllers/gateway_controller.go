@@ -130,7 +130,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
 		r.log.Infow(ctx, "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
-	} else if res.Requeue {
+	} else if res.RequeueAfter == 0 && retryErr != nil {
 		r.log.Infow(ctx, "requeue request", "name", req.Name)
 	} else if retryErr == nil {
 		r.log.Infow(ctx, "reconciled", "name", req.Name)
