@@ -1,0 +1,16 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GRPCRoute
+metadata:
+  name: standalone-grpc-service
+  annotations:
+    application-networking.k8s.aws/standalone: "true"
+spec:
+  parentRefs:
+  - name: my-gateway
+  rules:
+  - matches:
+    - method:
+        service: greeter.Greeter
+    backendRefs:
+    - name: greeter-service
+      port: 9090

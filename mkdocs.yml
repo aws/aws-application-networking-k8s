@@ -15,6 +15,7 @@ nav:
     - Controller Installation: guides/deploy.md
     - Upgrading Controller from v1.0.x to v1.1.y: guides/upgrading-v1-0-x-to-v1-1-y.md
     - Getting Started: guides/getstarted.md
+    - Standalone VPC Lattice Services: guides/standalone-services.md
     - Cross-Account Sharing: guides/ram-sharing.md
     - Advanced Configurations: guides/advanced-configurations.md
     - HTTPS: guides/https.md

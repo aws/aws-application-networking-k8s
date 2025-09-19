@@ -33,7 +33,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/external-dns/endpoint"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -45,6 +44,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
+	"github.com/aws/aws-application-networking-k8s/pkg/controllers/predicates"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
@@ -76,6 +76,7 @@ type routeReconciler struct {
 
 const (
 	LatticeAssignedDomainName = "application-networking.k8s.aws/lattice-assigned-domain-name"
+	LatticeServiceArn         = "application-networking.k8s.aws/lattice-service-arn"
 )
 
 func RegisterAllRouteControllers(
@@ -115,7 +116,7 @@ func RegisterAllRouteControllers(
 		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
-			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			For(routeInfo.gatewayApiType, builder.WithPredicates(predicates.NewRouteChangedPredicate())).
 			Watches(&gwv1.Gateway{}, gwEventHandler).
 			Watches(&corev1.Service{}, svcEventHandler.MapToRoute(routeInfo.routeType)).
 			Watches(&anv1alpha1.ServiceImport{}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
@@ -358,18 +359,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 		k8s.RouteEventReasonDeploySucceed, "Adding/Updating reconcile Done!")
 
-	svcName := k8sutils.LatticeServiceName(route.Name(), route.Namespace())
-	svc, err := r.cloud.Lattice().FindService(ctx, svcName)
-	if err != nil && !services.IsNotFoundError(err) {
-		return err
-	}
-
-	if svc == nil || svc.DnsEntry == nil || svc.DnsEntry.DomainName == nil {
-		r.log.Infof(ctx, "Either service, dns entry, or domain name is not available. Will Retry")
-		return errors.New(lattice.LATTICE_RETRY)
-	}
-
-	if err := r.updateRouteAnnotation(ctx, *svc.DnsEntry.DomainName, route); err != nil {
+	if err := r.updateRouteStatusWithServiceInfo(ctx, route); err != nil {
 		return err
 	}
 
@@ -377,20 +367,42 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 	return nil
 }
 
-func (r *routeReconciler) updateRouteAnnotation(ctx context.Context, dns string, route core.Route) error {
-	r.log.Debugf(ctx, "Updating route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
+func (r *routeReconciler) updateRouteStatusWithServiceInfo(ctx context.Context, route core.Route) error {
+	svcName := k8sutils.LatticeServiceName(route.Name(), route.Namespace())
+	svc, err := r.cloud.Lattice().FindService(ctx, svcName)
+	if err != nil && !services.IsNotFoundError(err) {
+		return err
+	}
+
+	if svc == nil {
+		r.log.Infof(ctx, "Service not found for route %s-%s", route.Name(), route.Namespace())
+		return nil
+	}
+
 	routeOld := route.DeepCopy()
 
+	// Initialize annotations map if it doesn't exist
 	if len(route.K8sObject().GetAnnotations()) == 0 {
 		route.K8sObject().SetAnnotations(make(map[string]string))
 	}
 
-	route.K8sObject().GetAnnotations()[LatticeAssignedDomainName] = dns
-	if err := r.client.Patch(ctx, route.K8sObject(), client.MergeFrom(routeOld.K8sObject())); err != nil {
-		return fmt.Errorf("failed to update route status due to err %w", err)
+	// Add service ARN annotation if available
+	if svc.Arn != nil {
+		route.K8sObject().GetAnnotations()[LatticeServiceArn] = *svc.Arn
+		r.log.Debugf(ctx, "Updated route %s-%s with service ARN %s", route.Name(), route.Namespace(), *svc.Arn)
 	}
 
-	r.log.Debugf(ctx, "Successfully updated route %s-%s with DNS %s", route.Name(), route.Namespace(), dns)
+	// Add DNS annotation if available (existing logic)
+	if svc.DnsEntry != nil && svc.DnsEntry.DomainName != nil {
+		route.K8sObject().GetAnnotations()[LatticeAssignedDomainName] = *svc.DnsEntry.DomainName
+		r.log.Debugf(ctx, "Updated route %s-%s with DNS %s", route.Name(), route.Namespace(), *svc.DnsEntry.DomainName)
+	}
+
+	if err := r.client.Patch(ctx, route.K8sObject(), client.MergeFrom(routeOld.K8sObject())); err != nil {
+		return fmt.Errorf("failed to update route annotations due to err %w", err)
+	}
+
+	r.log.Debugf(ctx, "Successfully updated route %s-%s with service information", route.Name(), route.Namespace())
 	return nil
 }
 

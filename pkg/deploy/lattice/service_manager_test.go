@@ -267,6 +267,116 @@ func TestServiceManagerInteg(t *testing.T) {
 		assert.Equal(t, "svc-arn", status.Arn)
 	})
 
+	// Test for standalone service creation (no service network associations)
+	t.Run("create standalone service without associations", func(t *testing.T) {
+		svc := &Service{
+			Spec: model.ServiceSpec{
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "standalone-svc",
+					RouteNamespace: "ns",
+					RouteType:      core.HttpRouteType,
+				},
+				ServiceNetworkNames: []string{}, // Empty for standalone mode
+				CustomerDomainName:  "standalone-dns",
+				CustomerCertARN:     "standalone-cert-arn",
+			},
+		}
+
+		// service does not exist in lattice
+		mockLattice.EXPECT().
+			FindService(gomock.Any(), gomock.Any()).
+			Return(nil, mocks.NewNotFoundError("", "")).
+			Times(1)
+
+		// assert that we call create service
+		mockLattice.EXPECT().
+			CreateServiceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(
+				func(_ context.Context, req *CreateSvcReq, _ ...interface{}) (*CreateSvcResp, error) {
+					assert.Equal(t, svc.LatticeServiceName(), *req.Name)
+					return &CreateSvcResp{
+						Arn:      aws.String("standalone-arn"),
+						DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("standalone-dns")},
+						Id:       aws.String("standalone-svc-id"),
+					}, nil
+				}).
+			Times(1)
+
+		// assert that we do NOT call create association for standalone services
+		mockLattice.EXPECT().
+			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			Times(0)
+
+		// assert that we do NOT call find service network for standalone services
+		mockLattice.EXPECT().
+			FindServiceNetwork(gomock.Any(), gomock.Any()).
+			Times(0)
+
+		status, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "standalone-arn", status.Arn)
+		assert.Equal(t, "standalone-svc-id", status.Id)
+		assert.Equal(t, "standalone-dns", status.Dns)
+	})
+
+	// Test for updating standalone service (should not create/delete associations)
+	t.Run("update standalone service without associations", func(t *testing.T) {
+		svc := &Service{
+			Spec: model.ServiceSpec{
+				ServiceTagFields: model.ServiceTagFields{
+					RouteName:      "standalone-svc",
+					RouteNamespace: "ns",
+					RouteType:      core.HttpRouteType,
+				},
+				ServiceNetworkNames: []string{}, // Empty for standalone mode
+			},
+		}
+
+		// service exists in lattice
+		mockLattice.EXPECT().
+			FindService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.ServiceSummary{
+				Arn:  aws.String("standalone-svc-arn"),
+				Id:   aws.String("standalone-svc-id"),
+				Name: aws.String(svc.LatticeServiceName()),
+			}, nil).
+			Times(1)
+
+		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+				return &vpclattice.ListTagsForResourceOutput{
+					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+				}, nil
+			}).
+			Times(1) // for service only
+
+		// no associations exist for standalone service
+		mockLattice.EXPECT().
+			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]*SnSvcAssocSummary, error) {
+				return []*SnSvcAssocSummary{}, nil
+			}).
+			Times(1)
+
+		// assert that we do NOT call create or delete association for standalone services
+		mockLattice.EXPECT().
+			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			Times(0)
+
+		mockLattice.EXPECT().
+			DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+			Times(0)
+
+		// assert that we do NOT call find service network for standalone services
+		mockLattice.EXPECT().
+			FindServiceNetwork(gomock.Any(), gomock.Any()).
+			Times(0)
+
+		status, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+		assert.Equal(t, "standalone-svc-arn", status.Arn)
+	})
+
 	t.Run("delete service and association", func(t *testing.T) {
 		svc := &Service{
 			Spec: model.ServiceSpec{

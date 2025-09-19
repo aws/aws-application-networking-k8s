@@ -75,6 +75,40 @@ spec:
     statusMatch: "200-299"
 ```
 
+### Standalone VPC Lattice Services
+
+You can create VPC Lattice services without automatic service network association using the `application-networking.k8s.aws/standalone` annotation. This provides more flexibility for independent service management scenarios.
+
+For detailed information about standalone services, see the [Standalone VPC Lattice Services](standalone-services.md) guide.
+
+#### Quick Example
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: standalone-api
+  annotations:
+    application-networking.k8s.aws/standalone: "true"
+spec:
+  parentRefs:
+  - name: my-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api
+    backendRefs:
+    - name: api-service
+      port: 8080
+```
+
+The service ARN will be available in the route annotations for integration with external systems:
+
+```bash
+kubectl get httproute standalone-api -o jsonpath='{.metadata.annotations.application-networking\.k8s\.aws/lattice-service-arn}'
+```
+
 ### IPv6 support
 
 IPv6 address type is automatically used for your services and pods if
