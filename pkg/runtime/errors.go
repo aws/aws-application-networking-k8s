@@ -1,25 +1,20 @@
 package runtime
 
 import (
-	"errors"
 	"fmt"
 	"time"
-
-	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 )
 
-type RetryError error
+const (
+	LATTICE_RETRY = "LATTICE_RETRY"
+)
 
-func NewRetryError() RetryError {
-	return RetryError(errors.New(lattice.LATTICE_RETRY))
-}
-
-// NewRequeueNeeded constructs new RequeueError to
-// instruct controller-runtime to requeue the processing item without been logged as error.
-func NewRequeueNeeded(reason string) *RequeueNeeded {
-	return &RequeueNeeded{
-		reason: reason,
-	}
+// Retry errors caused by Lattice APIs which need high requeuAfter seconds
+func NewRetryError() *RequeueNeededAfter {
+	return NewRequeueNeededAfter(
+		LATTICE_RETRY,
+		time.Second*10,
+	)
 }
 
 // NewRequeueNeededAfter constructs new RequeueNeededAfter to
@@ -29,23 +24,6 @@ func NewRequeueNeededAfter(reason string, duration time.Duration) *RequeueNeeded
 		reason:   reason,
 		duration: duration,
 	}
-}
-
-var _ error = &RequeueNeeded{}
-
-// An error to instruct controller-runtime to requeue the processing item without been logged as error.
-// This should be used when a "error condition" occurrence is sort of expected and can be resolved by retry.
-// e.g. a dependency haven't been fulfilled yet.
-type RequeueNeeded struct {
-	reason string
-}
-
-func (e *RequeueNeeded) Reason() string {
-	return e.reason
-}
-
-func (e *RequeueNeeded) Error() string {
-	return fmt.Sprintf("requeue needed: %v", e.reason)
 }
 
 var _ error = &RequeueNeededAfter{}

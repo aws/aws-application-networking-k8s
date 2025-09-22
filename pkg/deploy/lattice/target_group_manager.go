@@ -17,6 +17,7 @@ import (
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -115,7 +116,7 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 		latticeTgStatus != vpclattice.TargetGroupStatusCreateInProgress {
 
 		s.log.Infof(ctx, "Target group is not in the desired state. State is %s, will retry", latticeTgStatus)
-		return model.TargetGroupStatus{}, errors.New(LATTICE_RETRY)
+		return model.TargetGroupStatus{}, lattice_runtime.NewRetryError()
 	}
 
 	// create-in-progress is considered success
@@ -341,7 +342,7 @@ func (s *defaultTargetGroupManager) findTargetGroup(
 		if match {
 			switch status {
 			case vpclattice.TargetGroupStatusCreateInProgress, vpclattice.TargetGroupStatusDeleteInProgress:
-				return nil, errors.New(LATTICE_RETRY)
+				return nil, lattice_runtime.NewRetryError()
 			case vpclattice.TargetGroupStatusDeleteFailed, vpclattice.TargetGroupStatusActive:
 				return latticeTg, nil
 			}
