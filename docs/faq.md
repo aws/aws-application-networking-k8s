@@ -106,13 +106,7 @@ The service ARN annotation is populated after the VPC Lattice service is success
 
 **Can standalone services communicate across VPCs?**
 
-Standalone services require explicit configuration for cross-VPC communication:
-
-1. **AWS RAM sharing** to share the service with other accounts/VPCs
-2. **VPC peering or Transit Gateway** for network connectivity
-3. **Manual service network association** in target VPCs
-
-Service network associated services automatically handle cross-VPC communication within the same service network.
+Standalone services require explicit configuration for cross-VPC communication through **AWS RAM sharing** to share the service with other accounts/VPCs. Service network associated services automatically handle cross-VPC communication within the same service network.
 
 **How do I prevent 503 errors during deployments?**
 

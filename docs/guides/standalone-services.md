@@ -202,6 +202,213 @@ aws vpc-lattice create-service-network-service-association \
   --service-identifier "$SERVICE_ID"
 ```
 
+## Manual Service Network Associations
+
+### Important: Protecting Manual Associations
+
+⚠️ **Critical**: If you manually create service network associations outside of the controller (using AWS CLI, Terraform, etc.), you **must** update your Kubernetes manifests to mark the service/route as **not standalone** to prevent the controller from removing your manual associations.
+
+When a service is marked as standalone (`application-networking.k8s.aws/standalone: "true"`), the controller will actively remove any service network associations it finds, including those created manually outside of Kubernetes.
+
+#### Protecting Manual Associations
+
+If you have manually associated a service with a service network:
+
+1. **Remove or set the standalone annotation to false**:
+   ```bash
+   # Remove the annotation entirely
+   kubectl annotate httproute my-route application-networking.k8s.aws/standalone-
+   
+   # OR set it to false explicitly
+   kubectl annotate httproute my-route application-networking.k8s.aws/standalone=false
+   ```
+
+2. **Update your YAML manifests** to ensure the annotation is not set to "true":
+   ```yaml
+   apiVersion: gateway.networking.k8s.io/v1
+   kind: HTTPRoute
+   metadata:
+     name: my-route
+     annotations:
+       # Either remove the standalone annotation entirely, or set it to false
+       application-networking.k8s.aws/standalone: "false"
+   spec:
+     # ... rest of configuration
+   ```
+
+### Manual RAM Sharing Workflow
+
+Follow these steps to manually share a VPC Lattice service using AWS RAM:
+
+#### Step 1: Create Standalone Service
+
+Create a standalone gateway and route that will be shared:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: shared-gateway
+  annotations:
+    application-networking.k8s.aws/standalone: "true"
+spec:
+  gatewayClassName: amazon-vpc-lattice
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: shared-service
+  annotations:
+    application-networking.k8s.aws/standalone: "true"
+spec:
+  parentRefs:
+  - name: shared-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /shared
+    backendRefs:
+    - name: shared-backend
+      port: 8080
+```
+
+#### Step 2: Extract Service ARN and Create RAM Share
+
+Wait for the controller to create the service and populate the ARN annotation:
+
+```bash
+# Wait for service ARN to be populated
+kubectl wait --for=condition=Ready httproute/shared-service --timeout=300s
+
+# Extract the service ARN
+SERVICE_ARN=$(kubectl get httproute shared-service -o jsonpath='{.metadata.annotations.application-networking\.k8s\.aws/lattice-service-arn}')
+
+echo "Service ARN: $SERVICE_ARN"
+
+# Create RAM resource share
+aws ram create-resource-share \
+  --name "shared-lattice-service" \
+  --resource-arns "$SERVICE_ARN" \
+  --principals "123456789012,987654321098"  # Target AWS account IDs
+
+# Get the resource share ARN for acceptance
+SHARE_ARN=$(aws ram get-resource-shares --resource-owner SELF --name "shared-lattice-service" --query 'resourceShares[0].resourceShareArn' --output text)
+
+echo "Resource Share ARN: $SHARE_ARN"
+```
+
+#### Step 3: Accept RAM Share (in target account)
+
+In the target AWS account, accept the resource share:
+
+```bash
+# List pending invitations
+aws ram get-resource-share-invitations --query 'resourceShareInvitations[?status==`PENDING`]'
+
+# Accept the invitation
+aws ram accept-resource-share-invitation --resource-share-invitation-arn "arn:aws:ram:us-west-2:123456789012:invitation/12345678-1234-1234-1234-123456789012"
+```
+
+#### Step 4: Create Service Network Association (in target account)
+
+In the target account, manually associate the shared service with your service network:
+
+```bash
+# Extract service ID from ARN
+SERVICE_ID=$(echo "$SERVICE_ARN" | cut -d'/' -f2)
+
+# Associate with your service network
+aws vpc-lattice create-service-network-service-association \
+  --service-network-identifier "sn-your-service-network-id" \
+  --service-identifier "$SERVICE_ID" \
+  --tags Key=ManagedBy,Value=Manual Key=SharedFrom,Value=SourceAccount
+
+# Verify the association
+aws vpc-lattice list-service-network-service-associations \
+  --service-identifier "$SERVICE_ID"
+```
+
+#### Step 5: Update Manifest to Protect Manual Association
+
+**Critical Step**: Update your Kubernetes manifest to mark the service as **not standalone** to prevent the controller from removing your manual association:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: shared-service
+  annotations:
+    # IMPORTANT: Set to false to protect manual associations
+    application-networking.k8s.aws/standalone: "false"
+    # Document the manual association for team awareness
+    manual-association: "true"
+    shared-accounts: "123456789012,987654321098"
+spec:
+  parentRefs:
+  - name: shared-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /shared
+    backendRefs:
+    - name: shared-backend
+      port: 8080
+```
+
+Apply the updated manifest:
+
+```bash
+kubectl apply -f shared-service.yaml
+```
+
+#### Step 6: Verify Protection
+
+Verify that the controller respects the manual association:
+
+```bash
+# Check that the service is no longer marked as standalone
+kubectl get httproute shared-service -o jsonpath='{.metadata.annotations.application-networking\.k8s\.aws/standalone}'
+
+# Verify manual associations are preserved
+SERVICE_ARN=$(kubectl get httproute shared-service -o jsonpath='{.metadata.annotations.application-networking\.k8s\.aws/lattice-service-arn}')
+SERVICE_ID=$(echo "$SERVICE_ARN" | cut -d'/' -f2)
+
+aws vpc-lattice list-service-network-service-associations \
+  --service-identifier "$SERVICE_ID"
+```
+
+### Best Practices for Manual Associations
+
+1. **Always document manual associations** in annotations or comments
+2. **Use consistent tagging** on manual associations for tracking
+3. **Monitor for drift** between Kubernetes manifests and actual AWS resources
+4. **Implement alerts** for unexpected association changes
+5. **Test transitions** in non-production environments first
+
+### Troubleshooting Manual Associations
+
+If your manual associations are being removed:
+
+1. **Check the standalone annotation**:
+   ```bash
+   kubectl get httproute my-route -o jsonpath='{.metadata.annotations.application-networking\.k8s\.aws/standalone}'
+   ```
+
+2. **Review controller logs** for association removal events:
+   ```bash
+   kubectl logs -n aws-application-networking-system deployment/aws-gateway-controller-manager
+   ```
+
+3. **Verify annotation precedence** (route-level overrides gateway-level)
+
+4. **Check for conflicting Gateway annotations** that might be inherited
+
 ## Transition Between Modes
 
 ### From Service Network to Standalone
@@ -253,6 +460,6 @@ Standalone services maintain full compatibility with Gateway API specifications:
 
 ## Limitations
 
-- Standalone services are not discoverable through service network DNS resolution
-- Service network policies do not apply to standalone services
-- Cross-VPC communication requires explicit service sharing or alternative connectivity
+- Standalone services are not discoverable through service network DNS resolution from the service networks they are disconnected from. Explicit service sharing through RAM and/or association with service networks is required for discoverability.
+- Service network policies do not apply to standalone services **only for the specific service networks they are not associated with**. If the same service is manually associated with other service networks (either through different Gateways or manual associations), the policies from those connected service networks will still apply
+- Cross-VPC communication requires explicit association with service networks
