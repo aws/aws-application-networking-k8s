@@ -253,13 +253,9 @@ func GetStandaloneModeForRouteWithValidation(ctx context.Context, c client.Clien
 // This function is designed to be forgiving - any invalid or unexpected
 // values are treated as false to ensure graceful degradation.
 func ParseBoolAnnotation(value string) bool {
-	if value == "" {
-		return false
-	}
-
 	// Trim whitespace to be more forgiving of user input
 	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
+	if value == "" || trimmed == "" {
 		return false
 	}
 
