@@ -159,13 +159,9 @@ func ValidateStandaloneAnnotation(obj client.Object) (bool, error) {
 	}
 
 	// Validate the annotation value
-	if value == "" {
-		return false, fmt.Errorf("standalone annotation cannot be empty")
-	}
-
 	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return false, fmt.Errorf("standalone annotation cannot be whitespace only")
+	if value == "" || trimmed == "" {
+		return false, fmt.Errorf("standalone annotation cannot be empty or whitespace only")
 	}
 
 	// Check for valid values
@@ -267,15 +263,8 @@ func ParseBoolAnnotation(value string) bool {
 		return false
 	}
 
-	// Convert to lowercase for case-insensitive comparison
-	switch strings.ToLower(trimmed) {
-	case "true":
-		return true
-	default:
-		// All other values (false, invalid, etc.) are treated as false
-		// This provides graceful degradation for invalid annotation values
-		return false
-	}
+	// Convert to lowercase for case-insensitive comparison and return true only for "true"
+	return strings.ToLower(trimmed) == "true"
 }
 
 // GetStandaloneModeForRoute determines if standalone mode should be enabled for a route.
