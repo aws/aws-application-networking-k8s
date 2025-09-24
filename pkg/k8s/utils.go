@@ -171,7 +171,7 @@ func ValidateStandaloneAnnotation(obj client.Object) (bool, error) {
 	} else if lowerValue == "false" {
 		return false, nil
 	}
-	
+
 	// Invalid values are treated as false but we report the validation error
 	return false, fmt.Errorf("invalid standalone annotation value '%s', expected 'true' or 'false'", trimmed)
 }
