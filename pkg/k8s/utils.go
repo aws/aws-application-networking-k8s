@@ -165,15 +165,15 @@ func ValidateStandaloneAnnotation(obj client.Object) (bool, error) {
 	}
 
 	// Check for valid values
-	switch strings.ToLower(trimmed) {
-	case "true":
+	lowerValue := strings.ToLower(trimmed)
+	if lowerValue == "true" {
 		return true, nil
-	case "false":
+	} else if lowerValue == "false" {
 		return false, nil
-	default:
-		// Invalid values are treated as false but we report the validation error
-		return false, fmt.Errorf("invalid standalone annotation value '%s', expected 'true' or 'false'", trimmed)
 	}
+	
+	// Invalid values are treated as false but we report the validation error
+	return false, fmt.Errorf("invalid standalone annotation value '%s', expected 'true' or 'false'", trimmed)
 }
 
 // GetStandaloneModeForRouteWithValidation determines standalone mode with detailed validation.
