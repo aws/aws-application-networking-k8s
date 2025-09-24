@@ -9,7 +9,7 @@ const (
 	LATTICE_RETRY = "LATTICE_RETRY"
 )
 
-// Retry errors caused by Lattice APIs which need high requeuAfter seconds
+// Retry errors caused by Lattice APIs which need high requeueAfter seconds
 func NewRetryError() *RequeueNeededAfter {
 	return NewRequeueNeededAfter(
 		LATTICE_RETRY,
