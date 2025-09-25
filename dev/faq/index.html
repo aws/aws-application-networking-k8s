@@ -640,6 +640,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../guides/standalone-services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Standalone VPC Lattice Services
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../guides/ram-sharing/" class="md-nav__link">
         
   
@@ -1261,6 +1284,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    FAQ
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1272,6 +1308,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#standalone-vpc-lattice-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      Standalone VPC Lattice Services
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1307,6 +1371,69 @@
 <p>AWS Gateway API Controller supports Gateway API CRD bundle versions <code>v1.1</code> or greater. Not all features of Gateway API are supported - for detailed features and limitation, please refer to individual API references. Please note that users are required to install Gateway API CRDs themselves as these are no longer bundled as of release <code>v1.1.0</code>. The latest Gateway API CRDs are available <a href="https://gateway-api.sigs.k8s.io/">here</a>. Please <a href="https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api">follow this installation</a> process.</p>
 <p><strong>How do health checks work in multi-cluster deployments?</strong></p>
 <p>In multi-cluster deployments, when you apply a TargetGroupPolicy to a ServiceExport, the health check configuration is automatically propagated to all target groups across all clusters that participate in the service mesh. This ensures consistent health monitoring behavior regardless of which cluster contains the route resource.</p>
+<h2 id="standalone-vpc-lattice-services">Standalone VPC Lattice Services<a class="headerlink" href="#standalone-vpc-lattice-services" title="Permanent link">&para;</a></h2>
+<p><strong>What are standalone VPC Lattice services?</strong></p>
+<p>Standalone VPC Lattice services are services created without automatic service network association. They provide more flexibility for independent service management, selective service network membership, and integration with external systems. Use the <code>application-networking.k8s.aws/standalone: "true"</code> annotation on Gateway or Route resources to enable this mode.</p>
+<p><strong>Why is my standalone service not accessible from other services?</strong></p>
+<p>Standalone services are not automatically discoverable through service network DNS resolution. To enable communication:</p>
+<ol>
+<li>
+<p><strong>Use the VPC Lattice assigned DNS name</strong> from the route annotation:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>my-route<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.metadata.annotations.application-networking\.k8s\.aws/lattice-assigned-domain-name}&#39;</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Manually associate the service with a service network</strong> using AWS CLI:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">SERVICE_ARN</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>my-route<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.metadata.annotations.application-networking\.k8s\.aws/lattice-service-arn}&#39;</span><span class="k">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">SERVICE_ID</span><span class="o">=</span><span class="k">$(</span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SERVICE_ARN</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>cut<span class="w"> </span>-d<span class="s1">&#39;/&#39;</span><span class="w"> </span>-f2<span class="k">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>create-service-network-service-association<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--service-network-identifier<span class="w"> </span><span class="s2">&quot;sn-12345678901234567&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--service-identifier<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SERVICE_ID</span><span class="s2">&quot;</span>
+</code></pre></div></p>
+</li>
+</ol>
+<p><strong>How do I transition between standalone and service network modes?</strong></p>
+<p>To transition from service network to standalone mode:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>annotate<span class="w"> </span>httproute<span class="w"> </span>my-route<span class="w"> </span>application-networking.k8s.aws/standalone<span class="o">=</span><span class="nb">true</span>
+</code></pre></div></p>
+<p>To transition from standalone to service network mode:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>annotate<span class="w"> </span>httproute<span class="w"> </span>my-route<span class="w"> </span>application-networking.k8s.aws/standalone-
+</code></pre></div></p>
+<p>The controller handles transitions gracefully without service disruption.</p>
+<p><strong>Why isn't my route-level annotation working?</strong></p>
+<p>Check the annotation precedence:</p>
+<ol>
+<li><strong>Route-level annotations</strong> override Gateway-level annotations</li>
+<li><strong>Gateway-level annotations</strong> apply to all routes referencing that gateway</li>
+<li><strong>Invalid annotation values</strong> (anything other than "true" or "false") are treated as "false"</li>
+</ol>
+<p>Verify your annotation syntax:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>my-route<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-A5<span class="w"> </span>-B5<span class="w"> </span>standalone
+</code></pre></div></p>
+<p><strong>How do I access the VPC Lattice service ARN for AWS RAM sharing?</strong></p>
+<p>The service ARN is automatically populated in the route annotations:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Get service ARN</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">SERVICE_ARN</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>httproute<span class="w"> </span>my-route<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.metadata.annotations.application-networking\.k8s\.aws/lattice-service-arn}&#39;</span><span class="k">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Use for RAM sharing</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>aws<span class="w"> </span>ram<span class="w"> </span>create-resource-share<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>--name<span class="w"> </span><span class="s2">&quot;shared-lattice-service&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span>--resource-arns<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SERVICE_ARN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--principals<span class="w"> </span><span class="s2">&quot;123456789012&quot;</span>
+</code></pre></div>
+<p><strong>Can I use standalone services with existing policies?</strong></p>
+<p>Yes, all existing policies (IAMAuthPolicy, TargetGroupPolicy, AccessLogPolicy, VpcAssociationPolicy) work normally with standalone services. The only difference is the lack of automatic service network association.</p>
+<p><strong>What happens if I have conflicting annotations on Gateway and Route?</strong></p>
+<p>Route-level annotations always take precedence over Gateway-level annotations. For example:</p>
+<ul>
+<li>Gateway has <code>standalone: "true"</code></li>
+<li>Route has <code>standalone: "false"</code></li>
+<li>Result: The route creates a service network associated service</li>
+</ul>
+<p><strong>Why don't I see the service ARN annotation immediately?</strong></p>
+<p>The service ARN annotation is populated after the VPC Lattice service is successfully created. This typically takes 30-60 seconds. Check the route status and controller logs if the annotation doesn't appear within a few minutes.</p>
+<p><strong>Can standalone services communicate across VPCs?</strong></p>
+<p>Standalone services require explicit configuration for cross-VPC communication through <strong>AWS RAM sharing</strong> to share the service with other accounts/VPCs. Service network associated services automatically handle cross-VPC communication within the same service network.</p>
 <p><strong>How do I prevent 503 errors during deployments?</strong></p>
 <p>When using AWS Gateway API Controller with EKS, customers may experience 503 errors during deployments due to a timing gap between pod termination and VPC Lattice configuration propagation, which affects the time controller takes to deregister a terminating pod. We recommend setting <code>terminationGracePeriod</code> to at least 150 seconds and implementing a preStop hook that has a sleep of 60 seconds (but no more than the <code>terminationGracePeriod</code>). For optimal performance, also consider setting <code>ROUTE_MAX_CONCURRENT_RECONCILES</code> to 10 which further accelerates the pod deregistration process, regardless of the number of targets.</p>
 
