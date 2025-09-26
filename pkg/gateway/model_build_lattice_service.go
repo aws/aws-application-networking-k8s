@@ -128,25 +128,45 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		},
 	}
 
-	for _, parentRef := range t.route.Spec().ParentRefs() {
-		gw := &gwv1.Gateway{}
-		parentNamespace := t.route.Namespace()
-		if parentRef.Namespace != nil {
-			parentNamespace = string(*parentRef.Namespace)
-		}
-		err := t.client.Get(ctx, client.ObjectKey{Name: string(parentRef.Name), Namespace: parentNamespace}, gw)
-		if err != nil {
-			t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
-			continue
-		}
-		if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
-			spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
-		} else {
-			t.log.Infof(ctx, "Ignoring route %s because gateway %s is not managed by lattice gateway controller", t.route.Name(), gw.Name)
-		}
+	// Check if standalone mode is enabled for this route
+	standalone, err := t.isStandaloneMode(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine standalone mode: %w", err)
 	}
-	if config.ServiceNetworkOverrideMode {
-		spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
+
+	t.log.Infof(ctx, "Standalone mode determination for route %s/%s: %t",
+		t.route.Namespace(), t.route.Name(), standalone)
+
+	if !standalone {
+		// Standard mode: populate ServiceNetworkNames from parent references
+		for _, parentRef := range t.route.Spec().ParentRefs() {
+			gw := &gwv1.Gateway{}
+			parentNamespace := t.route.Namespace()
+			if parentRef.Namespace != nil {
+				parentNamespace = string(*parentRef.Namespace)
+			}
+			err := t.client.Get(ctx, client.ObjectKey{Name: string(parentRef.Name), Namespace: parentNamespace}, gw)
+			if err != nil {
+				t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
+				continue
+			}
+			if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
+				spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
+			} else {
+				t.log.Infof(ctx, "Ignoring route %s because gateway %s is not managed by lattice gateway controller", t.route.Name(), gw.Name)
+			}
+		}
+		if config.ServiceNetworkOverrideMode {
+			spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
+		}
+
+		t.log.Infof(ctx, "Creating service with service network association for route %s-%s (networks: %v)",
+			t.route.Name(), t.route.Namespace(), spec.ServiceNetworkNames)
+	} else {
+		// Standalone mode: empty ServiceNetworkNames (no service network association)
+		spec.ServiceNetworkNames = []string{}
+		t.log.Infof(ctx, "Creating standalone service for route %s-%s (no service network association)",
+			t.route.Name(), t.route.Namespace())
 	}
 
 	if len(t.route.Spec().Hostnames()) > 0 {
@@ -222,4 +242,35 @@ type latticeServiceModelBuildTask struct {
 	client      client.Client
 	stack       core.Stack
 	brTgBuilder BackendRefTargetGroupModelBuilder
+}
+
+// isStandaloneMode determines if standalone mode should be enabled for the route.
+// It uses enhanced validation and error handling to gracefully handle annotation
+// parsing errors and gateway lookup failures.
+func (t *latticeServiceModelBuildTask) isStandaloneMode(ctx context.Context) (bool, error) {
+	// Use the enhanced validation function for better error reporting
+	standalone, warnings, err := k8s.GetStandaloneModeForRouteWithValidation(ctx, t.client, t.route)
+
+	// Log any validation warnings
+	for _, warning := range warnings {
+		t.log.Warnf(ctx, "Standalone mode validation warning for route %s/%s: %s",
+			t.route.Namespace(), t.route.Name(), warning)
+	}
+
+	// Add debug logging for gateway lookup
+	t.log.Debugf(ctx, "Checking standalone mode for route %s/%s with %d parent refs",
+		t.route.Namespace(), t.route.Name(), len(t.route.Spec().ParentRefs()))
+
+	if err != nil {
+		// Log the error but check if we can continue with a safe default
+		t.log.Errorf(ctx, "Failed to determine standalone mode for route %s/%s: %v",
+			t.route.Namespace(), t.route.Name(), err)
+
+		// For critical errors, we should fail the operation
+		return false, fmt.Errorf("standalone mode determination failed: %w", err)
+	}
+
+	t.log.Debugf(ctx, "Standalone mode for route %s/%s: %t",
+		t.route.Namespace(), t.route.Name(), standalone)
+	return standalone, nil
 }
