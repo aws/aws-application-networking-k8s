@@ -22,6 +22,92 @@ AWS Gateway API Controller supports Gateway API CRD bundle versions `v1.1` or gr
 
 In multi-cluster deployments, when you apply a TargetGroupPolicy to a ServiceExport, the health check configuration is automatically propagated to all target groups across all clusters that participate in the service mesh. This ensures consistent health monitoring behavior regardless of which cluster contains the route resource.
 
+## Standalone VPC Lattice Services
+
+**What are standalone VPC Lattice services?**
+
+Standalone VPC Lattice services are services created without automatic service network association. They provide more flexibility for independent service management, selective service network membership, and integration with external systems. Use the `application-networking.k8s.aws/standalone: "true"` annotation on Gateway or Route resources to enable this mode.
+
+**Why is my standalone service not accessible from other services?**
+
+Standalone services are not automatically discoverable through service network DNS resolution. To enable communication:
+
+1. **Use the VPC Lattice assigned DNS name** from the route annotation:
+   ```bash
+   kubectl get httproute my-route -o jsonpath='{.metadata.annotations.application-networking\.k8s\.aws/lattice-assigned-domain-name}'
+   ```
+
+2. **Manually associate the service with a service network** using AWS CLI:
+   ```bash
+   SERVICE_ARN=$(kubectl get httproute my-route -o jsonpath='{.metadata.annotations.application-networking\.k8s\.aws/lattice-service-arn}')
+   SERVICE_ID=$(echo "$SERVICE_ARN" | cut -d'/' -f2)
+   aws vpc-lattice create-service-network-service-association \
+     --service-network-identifier "sn-12345678901234567" \
+     --service-identifier "$SERVICE_ID"
+   ```
+
+**How do I transition between standalone and service network modes?**
+
+To transition from service network to standalone mode:
+```bash
+kubectl annotate httproute my-route application-networking.k8s.aws/standalone=true
+```
+
+To transition from standalone to service network mode:
+```bash
+kubectl annotate httproute my-route application-networking.k8s.aws/standalone-
+```
+
+The controller handles transitions gracefully without service disruption.
+
+**Why isn't my route-level annotation working?**
+
+Check the annotation precedence:
+
+1. **Route-level annotations** override Gateway-level annotations
+2. **Gateway-level annotations** apply to all routes referencing that gateway
+3. **Invalid annotation values** (anything other than "true" or "false") are treated as "false"
+
+Verify your annotation syntax:
+```bash
+kubectl get httproute my-route -o yaml | grep -A5 -B5 standalone
+```
+
+**How do I access the VPC Lattice service ARN for AWS RAM sharing?**
+
+The service ARN is automatically populated in the route annotations:
+
+```bash
+# Get service ARN
+SERVICE_ARN=$(kubectl get httproute my-route -o jsonpath='{.metadata.annotations.application-networking\.k8s\.aws/lattice-service-arn}')
+
+# Use for RAM sharing
+aws ram create-resource-share \
+  --name "shared-lattice-service" \
+  --resource-arns "$SERVICE_ARN" \
+  --principals "123456789012"
+```
+
+**Can I use standalone services with existing policies?**
+
+Yes, all existing policies (IAMAuthPolicy, TargetGroupPolicy, AccessLogPolicy, VpcAssociationPolicy) work normally with standalone services. The only difference is the lack of automatic service network association.
+
+**What happens if I have conflicting annotations on Gateway and Route?**
+
+Route-level annotations always take precedence over Gateway-level annotations. For example:
+
+- Gateway has `standalone: "true"`
+- Route has `standalone: "false"`
+- Result: The route creates a service network associated service
+
+**Why don't I see the service ARN annotation immediately?**
+
+The service ARN annotation is populated after the VPC Lattice service is successfully created. This typically takes 30-60 seconds. Check the route status and controller logs if the annotation doesn't appear within a few minutes.
+
+**Can standalone services communicate across VPCs?**
+
+Standalone services require explicit configuration for cross-VPC communication through **AWS RAM sharing** to share the service with other accounts/VPCs. Service network associated services automatically handle cross-VPC communication within the same service network.
+
 **How do I prevent 503 errors during deployments?**
 
 When using AWS Gateway API Controller with EKS, customers may experience 503 errors during deployments due to a timing gap between pod termination and VPC Lattice configuration propagation, which affects the time controller takes to deregister a terminating pod. We recommend setting `terminationGracePeriod` to at least 150 seconds and implementing a preStop hook that has a sleep of 60 seconds (but no more than the `terminationGracePeriod`). For optimal performance, also consider setting `ROUTE_MAX_CONCURRENT_RECONCILES` to 10 which further accelerates the pod deregistration process, regardless of the number of targets.

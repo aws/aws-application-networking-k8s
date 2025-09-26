@@ -330,6 +330,237 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 
 }
 
+func TestRouteReconciler_UpdateRouteStatusWithServiceInfo(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+
+	mockCloud := aws2.NewMockCloud(c)
+	mockLattice := mocks.NewMockLattice(c)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	t.Run("updates route with service ARN and DNS when both available", func(t *testing.T) {
+		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
+
+		route := &gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-route-1",
+				Namespace: "test-ns",
+			},
+			Spec: gwv1.HTTPRouteSpec{},
+		}
+		k8sClient.Create(ctx, route)
+
+		rc := routeReconciler{
+			routeType: core.HttpRouteType,
+			log:       gwlog.FallbackLogger,
+			client:    k8sClient,
+			cloud:     mockCloud,
+		}
+
+		// Mock service with both ARN and DNS
+		mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+			&vpclattice.ServiceSummary{
+				Arn:  aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:service/svc-12345"),
+				Name: aws.String("test-service"),
+				DnsEntry: &vpclattice.DnsEntry{
+					DomainName: aws.String("test-service.lattice.amazonaws.com"),
+				},
+			}, nil)
+
+		coreRoute, _ := core.GetHTTPRoute(ctx, k8sClient, k8s.NamespacedName(route))
+		err := rc.updateRouteStatusWithServiceInfo(ctx, coreRoute)
+		assert.Nil(t, err)
+
+		// Verify annotations were set
+		updatedRoute := &gwv1.HTTPRoute{}
+		k8sClient.Get(ctx, k8s.NamespacedName(route), updatedRoute)
+		annotations := updatedRoute.GetAnnotations()
+		assert.Equal(t, "arn:aws:vpc-lattice:us-west-2:123456789012:service/svc-12345", annotations[LatticeServiceArn])
+		assert.Equal(t, "test-service.lattice.amazonaws.com", annotations[LatticeAssignedDomainName])
+	})
+
+	t.Run("updates route with only DNS when ARN not available", func(t *testing.T) {
+		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
+
+		route := &gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-route-2",
+				Namespace: "test-ns",
+			},
+			Spec: gwv1.HTTPRouteSpec{},
+		}
+		k8sClient.Create(ctx, route)
+
+		rc := routeReconciler{
+			routeType: core.HttpRouteType,
+			log:       gwlog.FallbackLogger,
+			client:    k8sClient,
+			cloud:     mockCloud,
+		}
+
+		// Mock service with only DNS
+		mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+			&vpclattice.ServiceSummary{
+				Name: aws.String("test-service"),
+				DnsEntry: &vpclattice.DnsEntry{
+					DomainName: aws.String("test-service.lattice.amazonaws.com"),
+				},
+			}, nil)
+
+		coreRoute, _ := core.GetHTTPRoute(ctx, k8sClient, k8s.NamespacedName(route))
+		err := rc.updateRouteStatusWithServiceInfo(ctx, coreRoute)
+		assert.Nil(t, err)
+
+		// Verify only DNS annotation was set
+		updatedRoute := &gwv1.HTTPRoute{}
+		k8sClient.Get(ctx, k8s.NamespacedName(route), updatedRoute)
+		annotations := updatedRoute.GetAnnotations()
+		_, arnExists := annotations[LatticeServiceArn]
+		assert.False(t, arnExists, "ARN annotation should not exist when ARN is not available")
+		assert.Equal(t, "test-service.lattice.amazonaws.com", annotations[LatticeAssignedDomainName])
+	})
+
+	t.Run("updates route with only ARN when DNS not available", func(t *testing.T) {
+		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
+
+		route := &gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-route-3",
+				Namespace: "test-ns",
+			},
+			Spec: gwv1.HTTPRouteSpec{},
+		}
+		k8sClient.Create(ctx, route)
+
+		rc := routeReconciler{
+			routeType: core.HttpRouteType,
+			log:       gwlog.FallbackLogger,
+			client:    k8sClient,
+			cloud:     mockCloud,
+		}
+
+		// Mock service with only ARN
+		mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+			&vpclattice.ServiceSummary{
+				Arn:  aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:service/svc-12345"),
+				Name: aws.String("test-service"),
+			}, nil)
+
+		coreRoute, _ := core.GetHTTPRoute(ctx, k8sClient, k8s.NamespacedName(route))
+		err := rc.updateRouteStatusWithServiceInfo(ctx, coreRoute)
+		assert.Nil(t, err)
+
+		// Verify only ARN annotation was set
+		updatedRoute := &gwv1.HTTPRoute{}
+		k8sClient.Get(ctx, k8s.NamespacedName(route), updatedRoute)
+		annotations := updatedRoute.GetAnnotations()
+		assert.Equal(t, "arn:aws:vpc-lattice:us-west-2:123456789012:service/svc-12345", annotations[LatticeServiceArn])
+		_, dnsExists := annotations[LatticeAssignedDomainName]
+		assert.False(t, dnsExists, "DNS annotation should not exist when DNS is not available")
+	})
+
+	t.Run("handles service not found gracefully", func(t *testing.T) {
+		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
+
+		route := &gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-route-4",
+				Namespace: "test-ns",
+			},
+			Spec: gwv1.HTTPRouteSpec{},
+		}
+		k8sClient.Create(ctx, route)
+
+		rc := routeReconciler{
+			routeType: core.HttpRouteType,
+			log:       gwlog.FallbackLogger,
+			client:    k8sClient,
+			cloud:     mockCloud,
+		}
+
+		// Mock service not found
+		mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+			nil, mocks.NewNotFoundError("Service", "test-service"))
+
+		coreRoute, _ := core.GetHTTPRoute(ctx, k8sClient, k8s.NamespacedName(route))
+		err := rc.updateRouteStatusWithServiceInfo(ctx, coreRoute)
+		assert.Nil(t, err)
+
+		// Verify no annotations were set
+		updatedRoute := &gwv1.HTTPRoute{}
+		k8sClient.Get(ctx, k8s.NamespacedName(route), updatedRoute)
+		annotations := updatedRoute.GetAnnotations()
+		assert.Nil(t, annotations)
+	})
+
+	t.Run("handles service lookup error", func(t *testing.T) {
+		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
+
+		route := &gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-route-5",
+				Namespace: "test-ns",
+			},
+			Spec: gwv1.HTTPRouteSpec{},
+		}
+		k8sClient.Create(ctx, route)
+
+		rc := routeReconciler{
+			routeType: core.HttpRouteType,
+			log:       gwlog.FallbackLogger,
+			client:    k8sClient,
+			cloud:     mockCloud,
+		}
+
+		// Mock service lookup error
+		mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+			nil, assert.AnError)
+
+		coreRoute, _ := core.GetHTTPRoute(ctx, k8sClient, k8s.NamespacedName(route))
+		err := rc.updateRouteStatusWithServiceInfo(ctx, coreRoute)
+		assert.NotNil(t, err)
+		assert.Equal(t, assert.AnError, err)
+	})
+
+	t.Run("handles nil service gracefully", func(t *testing.T) {
+		k8sClient := testclient.NewClientBuilder().WithScheme(k8sScheme).Build()
+
+		route := &gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-route-6",
+				Namespace: "test-ns",
+			},
+			Spec: gwv1.HTTPRouteSpec{},
+		}
+		k8sClient.Create(ctx, route)
+
+		rc := routeReconciler{
+			routeType: core.HttpRouteType,
+			log:       gwlog.FallbackLogger,
+			client:    k8sClient,
+			cloud:     mockCloud,
+		}
+
+		// Mock nil service
+		mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(nil, nil)
+
+		coreRoute, _ := core.GetHTTPRoute(ctx, k8sClient, k8s.NamespacedName(route))
+		err := rc.updateRouteStatusWithServiceInfo(ctx, coreRoute)
+		assert.Nil(t, err)
+
+		// Verify no annotations were set
+		updatedRoute := &gwv1.HTTPRoute{}
+		k8sClient.Get(ctx, k8s.NamespacedName(route), updatedRoute)
+		annotations := updatedRoute.GetAnnotations()
+		assert.Nil(t, annotations)
+	})
+}
+
 func addOptionalCRDs(scheme *runtime.Scheme) {
 	dnsEndpoint := schema.GroupVersion{
 		Group:   "externaldns.k8s.io",

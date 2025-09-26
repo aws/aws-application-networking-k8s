@@ -1,0 +1,176 @@
+# Gateway with standalone annotation - affects all routes by default
+# Supports both HTTP and HTTPS listeners
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: mixed-gateway
+  annotations:
+    application-networking.k8s.aws/standalone: "true"
+spec:
+  gatewayClassName: amazon-vpc-lattice
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+  - name: https
+    protocol: HTTPS
+    port: 443
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: example-com-tls
+        kind: Secret
+  - name: tls
+    protocol: TLS
+    port: 8443
+    tls:
+      mode: Passthrough
+---
+# Route that inherits gateway setting (standalone)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: inherited-standalone-route
+spec:
+  parentRefs:
+  - name: mixed-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /standalone
+    backendRefs:
+    - name: standalone-service
+      port: 80
+---
+# Route that overrides gateway setting (service network associated)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: networked-override-route
+  annotations:
+    application-networking.k8s.aws/standalone: "false"
+spec:
+  parentRefs:
+  - name: mixed-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /networked
+    backendRefs:
+    - name: networked-service
+      port: 80
+---
+# TLS Certificate Secret for HTTPS routes
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-com-tls
+type: kubernetes.io/tls
+data:
+  # Base64 encoded certificate and private key
+  # In practice, use cert-manager or import your actual certificates
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t...
+---
+# HTTPS Route that inherits standalone setting from gateway
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: https-standalone-route
+  # Inherits standalone: "true" from gateway
+spec:
+  parentRefs:
+  - name: mixed-gateway
+    sectionName: https  # References the HTTPS listener
+  hostnames:
+  - "api.example.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1
+    backendRefs:
+    - name: api-service
+      port: 8080
+---
+# HTTPS Route that overrides gateway setting (service network associated)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: https-networked-route
+  annotations:
+    application-networking.k8s.aws/standalone: "false"  # Override gateway setting
+spec:
+  parentRefs:
+  - name: mixed-gateway
+    sectionName: https  # References the HTTPS listener
+  hostnames:
+  - "secure.example.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /secure
+    backendRefs:
+    - name: secure-service
+      port: 443
+---
+# TLS Route for TCP traffic (inherits standalone setting)
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: tls-standalone-route
+  # Inherits standalone: "true" from gateway
+spec:
+  parentRefs:
+  - name: mixed-gateway
+    sectionName: tls  # References the TLS listener
+  hostnames:
+  - "database.example.com"
+  rules:
+  - backendRefs:
+    - name: database-service
+      port: 5432
+---
+# TLS Route that overrides gateway setting (service network associated)
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: tls-networked-route
+  annotations:
+    application-networking.k8s.aws/standalone: "false"  # Override gateway setting
+spec:
+  parentRefs:
+  - name: mixed-gateway
+    sectionName: tls  # References the TLS listener
+  hostnames:
+  - "cache.example.com"
+  rules:
+  - backendRefs:
+    - name: redis-service
+      port: 6379
+---
+# Example services referenced by the routes
+apiVersion: v1
+kind: Service
+metadata:
+  name: standalone-service
+spec:
+  selector:
+    app: standalone-app
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: secure-service
+spec:
+  selector:
+    app: secure-app
+  ports:
+  - port: 443
+    targetPort: 8443
