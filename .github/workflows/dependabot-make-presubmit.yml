@@ -32,6 +32,7 @@ jobs:
           go install sigs.k8s.io/kustomize/kustomize/v5@v5.6.0
           go install sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20220421205612-c162794a9b12
           go install github.com/mattn/goveralls@b031368
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.4.0
           
       - name: Run make presubmit
         run: |
