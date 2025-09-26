@@ -2,126 +2,126 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-reference/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/conformance-test/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/faq/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/access-log-policy/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/gateway/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/grpc-route/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/http-route/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/iam-auth-policy/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/service-export/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/service-import/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/service/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/target-group-policy/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/tls-route/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/api-types/vpc-association-policy/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/concepts/concepts/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/concepts/overview/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/contributing/developer-cheat-sheet/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/contributing/developer/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/advanced-configurations/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/custom-domain-name/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/deploy/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/environment/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/getstarted/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/grpc/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/https/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/pod-readiness-gates/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/ram-sharing/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/standalone-services/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/tls-passthrough/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
     <url>
          <loc>https://www.gateway-api-controller.eks.aws.dev/dev/guides/upgrading-v1-0-x-to-v1-1-y/</loc>
-         <lastmod>2025-09-25</lastmod>
+         <lastmod>2025-09-26</lastmod>
     </url>
 </urlset>
