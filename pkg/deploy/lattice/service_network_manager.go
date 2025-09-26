@@ -2,12 +2,12 @@ package lattice
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"golang.org/x/exp/slices"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -80,7 +80,7 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 		case vpclattice.ServiceNetworkVpcAssociationStatusActive:
 			return *resp.Arn, nil
 		default:
-			return *resp.Arn, fmt.Errorf("%w, vpc association status in %s", RetryErr, status)
+			return *resp.Arn, fmt.Errorf("%w, vpc association status in %s", lattice_runtime.NewRetryError(), status)
 		}
 	}
 }
@@ -125,7 +125,7 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 		if err != nil {
 			m.log.Infof(ctx, "Failed to delete association %s for %s, with response %s and err %s", *snva.Arn, snName, resp, err.Error())
 		}
-		return errors.New(LATTICE_RETRY)
+		return lattice_runtime.NewRetryError()
 	}
 	return nil
 }
@@ -163,7 +163,7 @@ func (m *defaultServiceNetworkManager) getActiveVpcAssociation(ctx context.Conte
 		return nil, nil
 	default:
 		// a mutation is in progress, try later
-		return nil, errors.New(LATTICE_RETRY)
+		return nil, lattice_runtime.NewRetryError()
 	}
 }
 
@@ -253,7 +253,7 @@ func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx co
 			SnvaSecurityGroupIds: updateSnvaResp.SecurityGroupIds,
 		}, nil
 	} else {
-		return model.ServiceNetworkStatus{}, fmt.Errorf("%w, update snva status: %s", RetryErr, *updateSnvaResp.Status)
+		return model.ServiceNetworkStatus{}, fmt.Errorf("%w, update snva status: %s", lattice_runtime.NewRetryError(), *updateSnvaResp.Status)
 	}
 }
 

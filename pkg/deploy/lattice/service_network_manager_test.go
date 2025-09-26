@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -147,7 +148,8 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.NotNil(t, err)
-	assert.Equal(t, err, errors.New(LATTICE_RETRY))
+	var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+	assert.True(t, errors.As(err, &requeueNeededAfter))
 	assert.Equal(t, resp.ServiceNetworkARN, "")
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
@@ -199,7 +201,8 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
 
 	assert.NotNil(t, err)
-	assert.Equal(t, err, errors.New(LATTICE_RETRY))
+	var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+	assert.True(t, errors.As(err, &requeueNeededAfter))
 	assert.Equal(t, resp.ServiceNetworkARN, "")
 	assert.Equal(t, resp.ServiceNetworkID, "")
 }
@@ -629,7 +632,8 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgr
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	_, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds)
 
-	assert.Equal(t, err, errors.New(LATTICE_RETRY))
+	var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+	assert.True(t, errors.As(err, &requeueNeededAfter))
 }
 
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_CannotUpdateSecurityGroupsFromNonemptyToEmpty(t *testing.T) {

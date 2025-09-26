@@ -2,8 +2,12 @@ package lattice
 
 import (
 	"context"
+	"errors"
+	"testing"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,7 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 func Test_SynthesizeTargets(t *testing.T) {
@@ -249,7 +252,8 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 			err := synthesizer.PostSynthesize(ctx)
 
 			if tt.requeue {
-				assert.ErrorAs(t, err, &RetryErr)
+				var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+				assert.True(t, errors.As(err, &requeueNeededAfter))
 			} else {
 				assert.Nil(t, err)
 			}

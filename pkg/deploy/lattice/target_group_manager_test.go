@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -363,7 +364,8 @@ func Test_CreateTargetGroup_ExistingTG_Status_Retry(t *testing.T) {
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 			_, err := tgManager.Upsert(ctx, &tgCreateInput)
 
-			assert.Equal(t, errors.New(LATTICE_RETRY), err)
+			var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+			assert.True(t, errors.As(err, &requeueNeededAfter))
 		})
 	}
 }
@@ -412,7 +414,8 @@ func Test_CreateTargetGroup_NewTG_RetryStatus(t *testing.T) {
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 			_, err := tgManager.Upsert(ctx, &tgCreateInput)
 
-			assert.Equal(t, errors.New(LATTICE_RETRY), err)
+			var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+			assert.True(t, errors.As(err, &requeueNeededAfter))
 		})
 	}
 }

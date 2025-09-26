@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -32,13 +33,14 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
@@ -130,8 +132,8 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
 		r.log.Infow(ctx, "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
-	} else if res.RequeueAfter == 0 && retryErr != nil {
-		r.log.Infow(ctx, "requeue request", "name", req.Name)
+	} else if retryErr != nil && !errors.Is(retryErr, reconcile.TerminalError(nil)) {
+		r.log.Infow(ctx, "requeue request using exponential backoff", "name", req.Name)
 	} else if retryErr == nil {
 		r.log.Infow(ctx, "reconciled", "name", req.Name)
 	}
@@ -194,7 +196,7 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1.Gatewa
 	if err != nil {
 		err2 := r.updateGatewayAcceptStatus(ctx, gw, false)
 		if err2 != nil {
-			return errors.Wrap(err2, err.Error())
+			return pkgerrors.Wrap(err2, err.Error())
 		}
 	}
 
@@ -420,7 +422,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 	}
 
 	if err := k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-		return errors.Wrapf(err, "listener update failed")
+		return pkgerrors.Wrapf(err, "listener update failed")
 	}
 
 	if hasValidListener {

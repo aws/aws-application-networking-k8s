@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-application-networking-k8s/pkg/webhook"
@@ -107,7 +108,7 @@ func (t *targetsSynthesizer) PostSynthesize(ctx context.Context) error {
 	}
 
 	if requeueNeeded {
-		return fmt.Errorf("%w: target status still in pending", RetryErr)
+		return fmt.Errorf("%w: target status still in pending", lattice_runtime.NewRetryError())
 	}
 	return nil
 }
