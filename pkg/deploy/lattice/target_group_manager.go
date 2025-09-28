@@ -220,7 +220,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 
 	if drainCount > 0 {
 		// no point in trying to deregister may as well wait
-		return fmt.Errorf("cannot deregister targets for %s as %d targets are DRAINING", modelTg.Status.Id, drainCount)
+		return fmt.Errorf("%w: cannot deregister targets for %s as %d targets are DRAINING", lattice_runtime.NewRetryError(), modelTg.Status.Id, drainCount)
 	}
 
 	if len(targetsToDeregister) > 0 {

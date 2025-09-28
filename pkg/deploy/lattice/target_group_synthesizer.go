@@ -121,7 +121,7 @@ func (t *TargetGroupSynthesizer) SynthesizeDelete(ctx context.Context) error {
 		err := t.targetGroupManager.Delete(ctx, resTargetGroup)
 		if err != nil {
 			prefix := model.TgNamePrefix(resTargetGroup.Spec)
-			retErr = errors.Join(retErr, fmt.Errorf("failed TargetGroupManager.Delete %s due to %s", prefix, err))
+			retErr = errors.Join(retErr, fmt.Errorf("failed TargetGroupManager.Delete %s due to %w", prefix, err))
 		}
 	}
 
