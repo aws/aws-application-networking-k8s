@@ -60,7 +60,7 @@ func (t *TargetGroupSynthesizer) Synthesize(ctx context.Context) error {
 }
 func (t *TargetGroupSynthesizer) SynthesizeCreate(ctx context.Context) error {
 	var resTargetGroups []*model.TargetGroup
-	var returnErr = false
+	var firstError error
 
 	err := t.stack.ListResources(&resTargetGroups)
 	if err != nil {
@@ -91,12 +91,14 @@ func (t *TargetGroupSynthesizer) SynthesizeCreate(ctx context.Context) error {
 			resTargetGroup.Status = &tgStatus
 		} else {
 			t.log.Debugf(ctx, "Failed TargetGroupManager.Upsert %s due to %s", prefix, err)
-			returnErr = true
+			if firstError == nil {
+				firstError = err
+			}
 		}
 	}
 
-	if returnErr {
-		return fmt.Errorf("error during target group synthesis, will retry")
+	if firstError != nil {
+		return fmt.Errorf("error during target group synthesis, will retry: %w", firstError)
 	}
 
 	return nil
@@ -119,7 +121,7 @@ func (t *TargetGroupSynthesizer) SynthesizeDelete(ctx context.Context) error {
 		err := t.targetGroupManager.Delete(ctx, resTargetGroup)
 		if err != nil {
 			prefix := model.TgNamePrefix(resTargetGroup.Spec)
-			retErr = errors.Join(retErr, fmt.Errorf("failed TargetGroupManager.Delete %s due to %s", prefix, err))
+			retErr = errors.Join(retErr, fmt.Errorf("failed TargetGroupManager.Delete %s due to %w", prefix, err))
 		}
 	}
 

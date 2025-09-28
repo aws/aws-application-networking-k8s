@@ -18,12 +18,13 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -116,8 +117,8 @@ func (r *accessLogPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
 		r.log.Infow(ctx, "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
-	} else if res.RequeueAfter == 0 && retryErr != nil {
-		r.log.Infow(ctx, "requeue request", "name", req.Name)
+	} else if retryErr != nil && !errors.Is(retryErr, reconcile.TerminalError(nil)) {
+		r.log.Infow(ctx, "requeue request using exponential backoff", "name", req.Name)
 	} else if retryErr == nil {
 		r.log.Infow(ctx, "reconciled", "name", req.Name)
 	}
@@ -250,7 +251,7 @@ func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *an
 		return false, fmt.Errorf("access Log Policy targetRef is for unsupported Kind: %s", alp.Spec.TargetRef.Kind)
 	}
 
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	}
 

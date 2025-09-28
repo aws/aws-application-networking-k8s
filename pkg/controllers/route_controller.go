@@ -46,7 +46,6 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/predicates"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
-	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -262,7 +261,8 @@ func (r *routeReconciler) buildAndDeployModel(
 	r.log.Debugf(ctx, "stack: %s", json)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
-		if errors.As(err, &lattice.RetryErr) {
+		var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+		if errors.As(err, &requeueNeededAfter) {
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 				k8s.RouteEventReasonRetryReconcile, "retry reconcile...")
 		} else {

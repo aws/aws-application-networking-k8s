@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -111,7 +112,16 @@ func (r *serviceExportReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if recErr != nil {
 		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
-	return lattice_runtime.HandleReconcileError(recErr)
+
+	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
+	if res.RequeueAfter != 0 {
+		r.log.Infow(ctx, "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
+	} else if retryErr != nil && !errors.Is(retryErr, reconcile.TerminalError(nil)) {
+		r.log.Infow(ctx, "requeue request using exponential backoff", "name", req.Name)
+	} else if retryErr == nil {
+		r.log.Infow(ctx, "reconciled", "name", req.Name)
+	}
+	return res, retryErr
 }
 
 func (r *serviceExportReconciler) reconcile(ctx context.Context, req ctrl.Request) error {

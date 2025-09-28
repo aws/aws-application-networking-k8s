@@ -9,6 +9,7 @@ import (
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -508,7 +509,8 @@ func TestHandleSnSvcAssocResp(t *testing.T) {
 			Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress),
 		}
 		err := handleCreateAssociationResp(resp)
-		assert.True(t, errors.Is(err, RetryErr))
+		var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+		assert.True(t, errors.As(err, &requeueNeededAfter))
 	})
 
 }
@@ -569,7 +571,8 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 			Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress),
 		}}
 		_, _, err := associationsDiff(svc, assocs)
-		assert.True(t, errors.Is(err, RetryErr))
+		var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+		assert.True(t, errors.As(err, &requeueNeededAfter))
 	})
 
 }

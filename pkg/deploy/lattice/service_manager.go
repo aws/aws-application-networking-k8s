@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -251,12 +252,12 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 	return nil
 }
 
-// returns RetryErr on all non-active Sn-Svc association responses
+// returns RetryError on all non-active Sn-Svc association responses
 func handleCreateAssociationResp(resp *CreateSnSvcAssocResp) error {
 	status := aws.StringValue(resp.Status)
 	if status != vpclattice.ServiceNetworkServiceAssociationStatusActive {
 		return fmt.Errorf("%w: sn-service-association-id: %s, non-active status: %s",
-			RetryErr, aws.StringValue(resp.Id), status)
+			lattice_runtime.NewRetryError(), aws.StringValue(resp.Id), status)
 	}
 	return nil
 }
@@ -288,7 +289,7 @@ func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, [
 		// TODO: we should have something more lightweight, retrying full reconciliation looks to heavy
 		if aws.StringValue(oldSn.Status) == vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress {
 			return nil, nil, fmt.Errorf("%w: want to associate sn: %s to svc: %s, but status is: %s",
-				RetryErr, newSn, svc.LatticeServiceName(), *oldSn.Status)
+				lattice_runtime.NewRetryError(), newSn, svc.LatticeServiceName(), *oldSn.Status)
 		}
 		// TODO: if assoc in failed state, may be we should try to re-create?
 	}
