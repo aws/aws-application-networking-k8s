@@ -440,6 +440,37 @@ spec:
             type: string
           metadata:
             type: object
+          spec:
+            description: spec defines the desired state of ServiceExport
+            properties:
+              exportedPorts:
+                description: |-
+                  exportedPorts defines which ports of the service should be exported and what route types they should be used with.
+                  If not specified, the controller will use the port from the annotation "application-networking.k8s.aws/port"
+                  and create HTTP target groups for backward compatibility.
+                items:
+                  description: ExportedPort defines a port to be exported and the
+                    route type it should be used with
+                  properties:
+                    port:
+                      description: port is the port number to export
+                      format: int32
+                      type: integer
+                    routeType:
+                      description: |-
+                        routeType is the type of route this port should be used with
+                        Valid values are "HTTP", "GRPC", "TLS"
+                      enum:
+                      - HTTP
+                      - GRPC
+                      - TLS
+                      type: string
+                  required:
+                  - port
+                  - routeType
+                  type: object
+                type: array
+            type: object
           status:
             description: |-
               status describes the current state of an exported service.
@@ -2584,7 +2615,7 @@ spec:
         env:
         - name: WEBHOOK_ENABLED
           value: ""
-        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v1.1.0
+        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v1.1.5
         livenessProbe:
           httpGet:
             path: /healthz
