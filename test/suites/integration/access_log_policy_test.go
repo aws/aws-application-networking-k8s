@@ -29,6 +29,7 @@ import (
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -1272,6 +1273,91 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			// Changing destination type should have resulted in ALS replacement
 			newALSArn = alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
 			g.Expect(newALSArn).ToNot(BeEquivalentTo(originalALSArn))
+		}).Should(Succeed())
+	})
+
+	It("AccessLogPolicy with additional tags creates Access Log Subscription with additional tags", func() {
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      k8sResourceName + "-additional-tags",
+				Namespace: k8snamespace,
+				Annotations: map[string]string{
+					"application-networking.k8s.aws/tags": "Environment=Dev,Project=MyApp,Team=Platform,CostCenter=12345",
+				},
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+					Group:     gwv1.GroupName,
+					Kind:      "Gateway",
+					Name:      gwv1alpha2.ObjectName(testGateway.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		Eventually(func(g Gomega) {
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: testServiceNetwork.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeNumerically(">", 0))
+
+			var targetALS *vpclattice.AccessLogSubscriptionSummary
+			for _, als := range listALSOutput.Items {
+				if *als.DestinationArn == bucketArn {
+					targetALS = als
+					break
+				}
+			}
+			g.Expect(targetALS).ToNot(BeNil())
+
+			alsTags, err := testFramework.Cloud.Tagging().GetTagsForArns(ctx, []string{*targetALS.Arn})
+			g.Expect(err).To(BeNil())
+			alsTagsMap := alsTags[*targetALS.Arn]
+
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Environment", aws.String("Dev")))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("CostCenter", aws.String("12345")))
+		}).Should(Succeed())
+
+		err := testFramework.Get(ctx, client.ObjectKeyFromObject(accessLogPolicy), accessLogPolicy)
+		Expect(err).To(BeNil())
+
+		accessLogPolicy.Annotations["application-networking.k8s.aws/tags"] = "Environment=Prod,Project=MyApp,Team=Platform,application-networking.k8s.aws/ManagedBy=test-override"
+
+		testFramework.ExpectUpdated(ctx, accessLogPolicy)
+
+		Eventually(func(g Gomega) {
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: testServiceNetwork.Arn,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeNumerically(">", 0))
+
+			// Find the access log subscription for our policy
+			var targetALS *vpclattice.AccessLogSubscriptionSummary
+			for _, als := range listALSOutput.Items {
+				if *als.DestinationArn == bucketArn {
+					targetALS = als
+					break
+				}
+			}
+			g.Expect(targetALS).ToNot(BeNil())
+
+			alsTags, err := testFramework.Cloud.Tagging().GetTagsForArns(ctx, []string{*targetALS.Arn})
+			g.Expect(err).To(BeNil())
+			alsTagsMap := alsTags[*targetALS.Arn]
+
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Environment", aws.String("Prod")))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
+			g.Expect(alsTagsMap).ToNot(HaveKey("CostCenter"))
+
+			g.Expect(alsTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String("test-override")))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
 		}).Should(Succeed())
 	})
 

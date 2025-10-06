@@ -225,6 +225,8 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx
 	spec.K8SServiceNamespace = t.serviceExport.Namespace
 	spec.K8SProtocolVersion = protocolVersion
 
+	spec.AdditionalTags = k8s.GetAdditionalTagsFromAnnotations(ctx, t.serviceExport)
+
 	stackTG, err := model.NewTargetGroup(t.stack, spec)
 	if err != nil {
 		return nil, err
@@ -301,6 +303,8 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 	spec.K8SServiceName = t.serviceExport.Name
 	spec.K8SServiceNamespace = t.serviceExport.Namespace
 	spec.K8SProtocolVersion = protocolVersion
+
+	spec.AdditionalTags = k8s.GetAdditionalTagsFromAnnotations(ctx, t.serviceExport)
 
 	stackTG, err := model.NewTargetGroup(t.stack, spec)
 	if err != nil {
@@ -478,6 +482,8 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	spec.K8SRouteName = t.route.Name()
 	spec.K8SRouteNamespace = t.route.Namespace()
 	spec.K8SProtocolVersion = protocolVersion
+
+	spec.AdditionalTags = k8s.GetAdditionalTagsFromAnnotations(ctx, t.route.K8sObject())
 
 	return spec, nil
 }

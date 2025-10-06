@@ -51,6 +51,8 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 		lattice.AccessLogPolicyTagKey: aws.String(accessLogSubscription.Spec.ALPNamespacedName.String()),
 	})
 
+	tags = m.cloud.MergeTags(tags, accessLogSubscription.Spec.AdditionalTags)
+
 	createALSInput := &vpclattice.CreateAccessLogSubscriptionInput{
 		ResourceIdentifier: sourceArn,
 		DestinationArn:     &accessLogSubscription.Spec.DestinationArn,
@@ -148,6 +150,11 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 	}
 	updateALSOutput, err := vpcLatticeSess.UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput)
 	if err == nil {
+		err = m.cloud.Tagging().UpdateTags(ctx, *updateALSOutput.Arn, accessLogSubscription.Spec.AdditionalTags)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update tags for access log subscription %s: %w", *updateALSOutput.Arn, err)
+		}
+
 		return &lattice.AccessLogSubscriptionStatus{
 			Arn: *updateALSOutput.Arn,
 		}, nil

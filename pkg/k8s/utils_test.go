@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -960,6 +961,396 @@ func TestGetStandaloneModeForRouteWithValidation(t *testing.T) {
 
 			assert.Equal(t, tt.expected, result, tt.description)
 			assert.Len(t, warnings, tt.expectedWarnings, "Expected %d warnings, got %d: %v", tt.expectedWarnings, len(warnings), warnings)
+		})
+	}
+}
+
+func TestParseTagsFromAnnotation(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotation  string
+		expected    Tags
+		description string
+	}{
+		{
+			name:        "empty annotation",
+			annotation:  "",
+			expected:    Tags{},
+			description: "should return empty map for empty annotation",
+		},
+		{
+			name:        "multiple tags",
+			annotation:  "Environment=Dev,Project=MyApp,Team=Platform",
+			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("MyApp"), "Team": aws.String("Platform")},
+			description: "should parse multiple tags correctly",
+		},
+		{
+			name:        "tags with spaces",
+			annotation:  "Environment = Dev , Project = MyApp",
+			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("MyApp")},
+			description: "should handle spaces around keys and values",
+		},
+		{
+			name:        "invalid tag format",
+			annotation:  "Environment,Project=MyApp",
+			expected:    Tags{"Project": aws.String("MyApp")},
+			description: "should skip invalid tag format and parse valid ones",
+		},
+		{
+			name:        "empty key or value",
+			annotation:  "=Dev,Project=,Team=Platform",
+			expected:    Tags{"Team": aws.String("Platform")},
+			description: "should skip tags with empty keys or values",
+		},
+		{
+			name:        "trailing comma",
+			annotation:  "Environment=Dev,Project=MyApp,",
+			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("MyApp")},
+			description: "should handle trailing comma gracefully",
+		},
+		{
+			name:        "whitespace only pairs",
+			annotation:  "Environment=Dev,   ,Project=MyApp",
+			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("MyApp")},
+			description: "should skip whitespace-only pairs",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseTagsFromAnnotation(tt.annotation)
+			assert.Equal(t, tt.expected, result, tt.description)
+		})
+	}
+}
+
+func TestGetNonAWSManagedTags(t *testing.T) {
+	tests := []struct {
+		name        string
+		tags        Tags
+		expected    Tags
+		description string
+	}{
+		{
+			name:        "nil tags",
+			tags:        nil,
+			expected:    Tags{},
+			description: "should return empty map for nil input",
+		},
+		{
+			name:        "empty tags",
+			tags:        Tags{},
+			expected:    Tags{},
+			description: "should return empty map for empty input",
+		},
+		{
+			name: "only additional tags",
+			tags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			expected: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			description: "should return all tags when no AWS managed tags present",
+		},
+		{
+			name: "only AWS managed tags",
+			tags: Tags{
+				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+				"application-networking.k8s.aws/RouteType": aws.String("http"),
+				"application-networking.k8s.aws/RouteName": aws.String("test-route"),
+			},
+			expected:    Tags{},
+			description: "should return empty map when only AWS managed tags present",
+		},
+		{
+			name: "mixed tags",
+			tags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+				"application-networking.k8s.aws/RouteType": aws.String("http"),
+				"Team": aws.String("Platform"),
+			},
+			expected: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+				"Team":        aws.String("Platform"),
+			},
+			description: "should filter out AWS managed tags and keep additional tags",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetNonAWSManagedTags(tt.tags)
+			assert.Equal(t, tt.expected, result, tt.description)
+		})
+	}
+}
+
+func TestCalculateTagDifference(t *testing.T) {
+	tests := []struct {
+		name             string
+		currentTags      Tags
+		desiredTags      Tags
+		expectedToAdd    Tags
+		expectedToRemove []string
+		description      string
+	}{
+		{
+			name:             "both nil",
+			currentTags:      nil,
+			desiredTags:      nil,
+			expectedToAdd:    Tags{},
+			expectedToRemove: []string{},
+			description:      "should handle nil inputs gracefully",
+		},
+		{
+			name:        "current nil, desired has tags",
+			currentTags: nil,
+			desiredTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			expectedToAdd: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			expectedToRemove: []string{},
+			description:      "should add all desired tags when current is nil",
+		},
+		{
+			name: "current has tags, desired nil",
+			currentTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			desiredTags:      nil,
+			expectedToAdd:    Tags{},
+			expectedToRemove: []string{"Environment", "Project"},
+			description:      "should remove all current tags when desired is nil",
+		},
+		{
+			name: "no changes needed",
+			currentTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			desiredTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			expectedToAdd:    Tags{},
+			expectedToRemove: []string{},
+			description:      "should return empty when tags are identical",
+		},
+		{
+			name: "add new tags",
+			currentTags: Tags{
+				"Environment": aws.String("Dev"),
+			},
+			desiredTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+				"Team":        aws.String("Platform"),
+			},
+			expectedToAdd: Tags{
+				"Project": aws.String("MyApp"),
+				"Team":    aws.String("Platform"),
+			},
+			expectedToRemove: []string{},
+			description:      "should add new tags",
+		},
+		{
+			name: "remove tags",
+			currentTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+				"Team":        aws.String("Platform"),
+			},
+			desiredTags: Tags{
+				"Environment": aws.String("Dev"),
+			},
+			expectedToAdd:    Tags{},
+			expectedToRemove: []string{"Project", "Team"},
+			description:      "should remove unwanted tags",
+		},
+		{
+			name: "update tag values",
+			currentTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("OldApp"),
+			},
+			desiredTags: Tags{
+				"Environment": aws.String("Prod"),
+				"Project":     aws.String("NewApp"),
+			},
+			expectedToAdd: Tags{
+				"Environment": aws.String("Prod"),
+				"Project":     aws.String("NewApp"),
+			},
+			expectedToRemove: []string{},
+			description:      "should update changed tag values",
+		},
+		{
+			name: "mixed operations",
+			currentTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("OldApp"),
+				"OldTag":      aws.String("OldValue"),
+			},
+			desiredTags: Tags{
+				"Environment": aws.String("Prod"),
+				"Project":     aws.String("OldApp"),
+				"NewTag":      aws.String("NewValue"),
+			},
+			expectedToAdd: Tags{
+				"Environment": aws.String("Prod"),
+				"NewTag":      aws.String("NewValue"),
+			},
+			expectedToRemove: []string{"OldTag"},
+			description:      "should handle add, update, and remove operations",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tagsToAdd, tagsToRemove := CalculateTagDifference(tt.currentTags, tt.desiredTags)
+
+			assert.Equal(t, tt.expectedToAdd, tagsToAdd, tt.description)
+
+			removeStrings := make([]string, len(tagsToRemove))
+			for i, tag := range tagsToRemove {
+				if tag != nil {
+					removeStrings[i] = *tag
+				}
+			}
+			assert.ElementsMatch(t, tt.expectedToRemove, removeStrings, tt.description)
+		})
+	}
+}
+
+func TestGetAdditionalTagsFromAnnotations(t *testing.T) {
+	tests := []struct {
+		name        string
+		obj         client.Object
+		expected    Tags
+		description string
+	}{
+		{
+			name:        "nil object",
+			obj:         nil,
+			expected:    nil,
+			description: "should return nil for nil object",
+		},
+		{
+			name: "object with no annotations",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+				},
+			},
+			expected:    nil,
+			description: "should return nil when annotations map is nil",
+		},
+		{
+			name: "object with empty annotations",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-route",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+				},
+			},
+			expected:    nil,
+			description: "should return nil when annotations map is empty",
+		},
+		{
+			name: "object without tags annotation",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"other-annotation": "value",
+					},
+				},
+			},
+			expected:    nil,
+			description: "should return nil when tags annotation is not present",
+		},
+		{
+			name: "object with empty tags annotation",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						TagsAnnotationKey: "",
+					},
+				},
+			},
+			expected:    nil,
+			description: "should return nil when tags annotation is empty",
+		},
+		{
+			name: "object with valid tags annotation",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						TagsAnnotationKey: "Environment=Dev,Project=MyApp",
+					},
+				},
+			},
+			expected: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			description: "should parse and return valid tags",
+		},
+		{
+			name: "object with tags containing AWS managed tags",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						TagsAnnotationKey: "Environment=Dev,application-networking.k8s.aws/ManagedBy=test-override,Project=MyApp",
+					},
+				},
+			},
+			expected: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			description: "should filter out AWS managed tags and return only additional tags",
+		},
+		{
+			name: "object with only AWS managed tags",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						TagsAnnotationKey: "application-networking.k8s.aws/ManagedBy=test-override,application-networking.k8s.aws/RouteType=http",
+					},
+				},
+			},
+			expected:    nil,
+			description: "should return nil when only AWS managed tags are present",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := GetAdditionalTagsFromAnnotations(context.Background(), tt.obj)
+			assert.Equal(t, tt.expected, result, tt.description)
 		})
 	}
 }

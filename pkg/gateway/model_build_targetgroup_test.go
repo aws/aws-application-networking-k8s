@@ -924,3 +924,353 @@ func Test_buildTargetGroupIpAddressType(t *testing.T) {
 		})
 	}
 }
+
+func Test_TGModelByServiceExportBuild_AdditionalTags(t *testing.T) {
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	tests := []struct {
+		name                   string
+		svcExport              *anv1alpha1.ServiceExport
+		svc                    *corev1.Service
+		expectedAdditionalTags k8s.Tags
+		description            string
+	}{
+		{
+			name: "ServiceExport with additional tags annotation",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-with-tags",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						k8s.TagsAnnotationKey: "Environment=Dev,Project=MyApp,Team=Platform",
+					},
+				},
+				Spec: anv1alpha1.ServiceExportSpec{
+					ExportedPorts: []anv1alpha1.ExportedPort{
+						{
+							Port:      80,
+							RouteType: "HTTP",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-with-tags",
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Port: 80},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			expectedAdditionalTags: k8s.Tags{
+				"Environment": &[]string{"Dev"}[0],
+				"Project":     &[]string{"MyApp"}[0],
+				"Team":        &[]string{"Platform"}[0],
+			},
+			description: "should set additional tags from ServiceExport annotations",
+		},
+		{
+			name: "ServiceExport without additional tags annotation",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-no-tags",
+					Namespace: "ns1",
+				},
+				Spec: anv1alpha1.ServiceExportSpec{
+					ExportedPorts: []anv1alpha1.ExportedPort{
+						{
+							Port:      80,
+							RouteType: "HTTP",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-no-tags",
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Port: 80},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			expectedAdditionalTags: nil,
+			description:            "should have nil additional tags when no annotation present",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			anv1alpha1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
+
+			builder := NewSvcExportTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
+
+			stack, err := builder.Build(ctx, tt.svcExport)
+			assert.Nil(t, err, tt.description)
+
+			var resTargetGroups []*model.TargetGroup
+			err = stack.ListResources(&resTargetGroups)
+			assert.Nil(t, err)
+			assert.Equal(t, 1, len(resTargetGroups))
+
+			stackTg := resTargetGroups[0]
+			assert.Equal(t, tt.expectedAdditionalTags, stackTg.Spec.AdditionalTags, tt.description)
+		})
+	}
+}
+
+func Test_TGModelByServiceExportBuildLegacy_AdditionalTags(t *testing.T) {
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	tests := []struct {
+		name                   string
+		svcExport              *anv1alpha1.ServiceExport
+		svc                    *corev1.Service
+		expectedAdditionalTags k8s.Tags
+		description            string
+	}{
+		{
+			name: "ServiceExport with additional tags annotation",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "legacy-with-tags",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/port": "80",
+						k8s.TagsAnnotationKey:                 "Environment=Legacy,Project=TestApp",
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "legacy-with-tags",
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Port: 80},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			expectedAdditionalTags: k8s.Tags{
+				"Environment": &[]string{"Legacy"}[0],
+				"Project":     &[]string{"TestApp"}[0],
+			},
+			description: "should set additional tags from ServiceExport annotations in legacy mode",
+		},
+		{
+			name: "ServiceExport without additional tags annotation",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "legacy-no-tags",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/port": "80",
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "legacy-no-tags",
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Port: 80},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			expectedAdditionalTags: nil,
+			description:            "should have nil additional tags in legacy mode when no tags annotation",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			anv1alpha1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
+
+			builder := NewSvcExportTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
+
+			stack, err := builder.Build(ctx, tt.svcExport)
+			assert.Nil(t, err, tt.description)
+
+			var resTargetGroups []*model.TargetGroup
+			err = stack.ListResources(&resTargetGroups)
+			assert.Nil(t, err)
+			assert.Equal(t, 1, len(resTargetGroups))
+
+			stackTg := resTargetGroups[0]
+			assert.Equal(t, tt.expectedAdditionalTags, stackTg.Spec.AdditionalTags, tt.description)
+		})
+	}
+}
+
+func Test_TGModelByHTTPRouteBuild_AdditionalTags(t *testing.T) {
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
+		return &p
+	}
+
+	kindPtr := func(k string) *gwv1.Kind {
+		p := gwv1.Kind(k)
+		return &p
+	}
+
+	tests := []struct {
+		name                   string
+		route                  core.Route
+		expectedAdditionalTags k8s.Tags
+		description            string
+	}{
+		{
+			name: "HTTPRoute with additional tags annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-with-tags",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						k8s.TagsAnnotationKey: "Environment=Prod,Project=TestApp,Team=Backend",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "gateway1",
+								Namespace: namespacePtr("ns1"),
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: gwv1.BackendRef{
+										BackendObjectReference: gwv1.BackendObjectReference{
+											Name:      "service1",
+											Namespace: namespacePtr("ns1"),
+											Kind:      kindPtr("Service"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedAdditionalTags: k8s.Tags{
+				"Environment": &[]string{"Prod"}[0],
+				"Project":     &[]string{"TestApp"}[0],
+				"Team":        &[]string{"Backend"}[0],
+			},
+			description: "should set additional tags from HTTPRoute annotations",
+		},
+		{
+			name: "HTTPRoute without additional tags annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-no-tags",
+					Namespace: "ns1",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "gateway1",
+								Namespace: namespacePtr("ns1"),
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: gwv1.BackendRef{
+										BackendObjectReference: gwv1.BackendObjectReference{
+											Name:      "service2",
+											Namespace: namespacePtr("ns1"),
+											Kind:      kindPtr("Service"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedAdditionalTags: nil,
+			description:            "should have nil additional tags when no annotation present",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			anv1alpha1.Install(k8sSchema)
+			gwv1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
+
+			rule := tt.route.Spec().Rules()[0]
+			httpBackendRef := rule.BackendRefs()[0]
+
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      string(httpBackendRef.Name()),
+					Namespace: string(*httpBackendRef.Namespace()),
+				},
+				Spec: corev1.ServiceSpec{
+					IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				},
+			}
+			assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
+
+			builder := NewBackendRefTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
+
+			_, stackTg, err := builder.Build(ctx, tt.route, httpBackendRef, stack)
+			assert.Nil(t, err, tt.description)
+
+			assert.Equal(t, tt.expectedAdditionalTags, stackTg.Spec.AdditionalTags, tt.description)
+		})
+	}
+}

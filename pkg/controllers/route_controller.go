@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -115,7 +116,7 @@ func RegisterAllRouteControllers(
 		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
-			For(routeInfo.gatewayApiType, builder.WithPredicates(predicates.NewRouteChangedPredicate())).
+			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.Or(predicates.NewRouteChangedPredicate(), predicates.AdditionalTagsAnnotationChangedPredicate))).
 			Watches(&gwv1.Gateway{}, gwEventHandler).
 			Watches(&corev1.Service{}, svcEventHandler.MapToRoute(routeInfo.routeType)).
 			Watches(&anv1alpha1.ServiceImport{}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).

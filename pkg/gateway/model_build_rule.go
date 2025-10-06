@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
@@ -129,6 +130,8 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 		ruleSpec.Action = model.RuleAction{
 			TargetGroups: ruleTgList,
 		}
+
+		ruleSpec.AdditionalTags = k8s.GetAdditionalTagsFromAnnotations(ctx, t.route.K8sObject())
 
 		// don't bother adding rules on delete, these will be removed automatically with the owning route/lattice service
 		// target groups will still be present and removed as needed

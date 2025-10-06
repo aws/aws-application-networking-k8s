@@ -103,6 +103,8 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 		createInput.Tags[model.K8SRouteNamespaceKey] = &modelTg.Spec.K8SRouteNamespace
 	}
 
+	createInput.Tags = s.awsCloud.MergeTags(createInput.Tags, modelTg.Spec.AdditionalTags)
+
 	lattice := s.awsCloud.Lattice()
 	resp, err := lattice.CreateTargetGroupWithContext(ctx, &createInput)
 	if err != nil {
@@ -129,6 +131,11 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 
 func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *model.TargetGroup, latticeTg *vpclattice.GetTargetGroupOutput) (model.TargetGroupStatus, error) {
 	healthCheckConfig := targetGroup.Spec.HealthCheckConfig
+
+	err := s.awsCloud.Tagging().UpdateTags(ctx, aws.StringValue(latticeTg.Arn), targetGroup.Spec.AdditionalTags)
+	if err != nil {
+		return model.TargetGroupStatus{}, fmt.Errorf("failed to update tags for target group %s: %w", aws.StringValue(latticeTg.Id), err)
+	}
 
 	if healthCheckConfig == nil {
 		s.log.Debugf(ctx, "HealthCheck is empty. Resetting to default settings")

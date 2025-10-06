@@ -49,7 +49,8 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := services.NewMockLattice(c)
-	cloud := an_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := services.NewMockTagging(c)
+	cloud := an_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 	expectedTags := cloud.DefaultTagsMergedWith(services.Tags{
 		lattice.AccessLogPolicyTagKey: aws.String(accessLogPolicyNamespacedName.String()),
 	})
@@ -325,6 +326,8 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
 
+		mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, gomock.Any()).Return(nil)
+
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
 		assert.Nil(t, err)
@@ -526,4 +529,116 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		err := mgr.Delete(ctx, accessLogSubscriptionArn)
 		assert.Nil(t, err)
 	})
+}
+
+func Test_AccessLogSubscriptionManager_WithAdditionalTags_Create(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := services.NewMockLattice(c)
+	mockTagging := services.NewMockTagging(c)
+	cloud := an_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:        lattice.ServiceNetworkSourceType,
+			SourceName:        sourceName,
+			DestinationArn:    s3DestinationArn,
+			ALPNamespacedName: accessLogPolicyNamespacedName,
+			EventType:         core.CreateEvent,
+			AdditionalTags: services.Tags{
+				"Environment": &[]string{"Test"}[0],
+				"Project":     &[]string{"ALSManager"}[0],
+			},
+		},
+	}
+
+	serviceNetworkInfo := &services.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{
+			Arn:  aws.String(serviceNetworkArn),
+			Name: aws.String(sourceName),
+		},
+	}
+
+	baseTags := cloud.DefaultTagsMergedWith(services.Tags{
+		lattice.AccessLogPolicyTagKey: aws.String(accessLogPolicyNamespacedName.String()),
+	})
+	expectedTags := cloud.MergeTags(baseTags, accessLogSubscription.Spec.AdditionalTags)
+
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
+	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, gomock.Any()).DoAndReturn(
+		func(ctx context.Context, input *vpclattice.CreateAccessLogSubscriptionInput, opts ...interface{}) (*vpclattice.CreateAccessLogSubscriptionOutput, error) {
+			assert.Equal(t, expectedTags, input.Tags, "ALS tags should include additional tags")
+			assert.Equal(t, serviceNetworkArn, *input.ResourceIdentifier)
+			assert.Equal(t, s3DestinationArn, *input.DestinationArn)
+
+			return &vpclattice.CreateAccessLogSubscriptionOutput{
+				Arn: aws.String(accessLogSubscriptionArn),
+			}, nil
+		})
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+	resp, err := mgr.Create(ctx, accessLogSubscription)
+	assert.Nil(t, err)
+	assert.Equal(t, accessLogSubscriptionArn, resp.Arn)
+}
+
+func Test_AccessLogSubscriptionManager_WithAdditionalTags_Update(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := services.NewMockLattice(c)
+	mockTagging := services.NewMockTagging(c)
+	cloud := an_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:        lattice.ServiceNetworkSourceType,
+			SourceName:        sourceName,
+			DestinationArn:    s3DestinationArn,
+			ALPNamespacedName: accessLogPolicyNamespacedName,
+			EventType:         core.UpdateEvent,
+			AdditionalTags: services.Tags{
+				"Environment": &[]string{"Prod"}[0],
+				"Project":     &[]string{"ALSUpdate"}[0],
+			},
+		},
+		Status: &lattice.AccessLogSubscriptionStatus{
+			Arn: accessLogSubscriptionArn,
+		},
+	}
+
+	serviceNetworkInfo := &services.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{
+			Arn:  aws.String(serviceNetworkArn),
+			Name: aws.String(sourceName),
+		},
+	}
+
+	getALSInput := &vpclattice.GetAccessLogSubscriptionInput{
+		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+	}
+	getALSOutput := &vpclattice.GetAccessLogSubscriptionOutput{
+		Arn:            aws.String(accessLogSubscriptionArn),
+		ResourceArn:    aws.String(serviceNetworkArn),
+		DestinationArn: aws.String(s3DestinationArn),
+	}
+	updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
+		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+		DestinationArn:                  aws.String(s3DestinationArn),
+	}
+	updateALSOutput := &vpclattice.UpdateAccessLogSubscriptionOutput{
+		Arn: aws.String(accessLogSubscriptionArn),
+	}
+
+	mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
+	mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
+
+	mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, accessLogSubscription.Spec.AdditionalTags).Return(nil)
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+	resp, err := mgr.Update(ctx, accessLogSubscription)
+	assert.Nil(t, err)
+	assert.Equal(t, accessLogSubscriptionArn, resp.Arn)
 }

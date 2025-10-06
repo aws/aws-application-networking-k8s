@@ -141,7 +141,7 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 		namespace:               testNamespace,
 		controllerRuntimeConfig: controllerRuntimeConfig,
 	}
-	framework.Cloud = anaws.NewDefaultCloud(framework.LatticeClient, cloudConfig)
+	framework.Cloud = anaws.NewDefaultCloudWithTagging(framework.LatticeClient, framework.TaggingClient, cloudConfig)
 	framework.DefaultTags = framework.Cloud.DefaultTags()
 	SetDefaultEventuallyTimeout(5 * time.Minute)
 	SetDefaultEventuallyPollingInterval(10 * time.Second)

@@ -48,6 +48,10 @@ type Cloud interface {
 	// check ownership and acquire if it is not owned by anyone.
 	TryOwn(ctx context.Context, arn string) (bool, error)
 	TryOwnFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error)
+
+	// MergeTags creates a new tag map by merging baseTags and additionalTags.
+	// BaseTags will override additionalTags for any duplicate keys.
+	MergeTags(baseTags services.Tags, additionalTags services.Tags) services.Tags
 }
 
 // NewCloud constructs new Cloud implementation.
@@ -142,6 +146,17 @@ func (c *defaultCloud) DefaultTagsMergedWith(tags services.Tags) services.Tags {
 	newTags := c.DefaultTags()
 	maps.Copy(newTags, tags)
 	return newTags
+}
+
+func (c *defaultCloud) MergeTags(baseTags services.Tags, additionalTags services.Tags) services.Tags {
+	result := make(services.Tags)
+	if additionalTags != nil {
+		maps.Copy(result, additionalTags)
+	}
+	if baseTags != nil {
+		maps.Copy(result, baseTags)
+	}
+	return result
 }
 
 func (c *defaultCloud) getTags(ctx context.Context, arn string) (services.Tags, error) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
@@ -30,6 +31,7 @@ type RuleSpec struct {
 	Priority        int64                    `json:"priority"`
 	Action          RuleAction               `json:"action"`
 	CreateTime      time.Time                `json:"createtime"`
+	AdditionalTags  services.Tags            `json:"additionaltags,omitempty"`
 }
 
 type RuleAction struct {

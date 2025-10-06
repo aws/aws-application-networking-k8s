@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -34,6 +35,9 @@ type Tagging interface {
 
 	// Finds one resource that matches the given set of tags.
 	FindResourcesByTags(ctx context.Context, resourceType ResourceType, tags Tags) ([]string, error)
+
+	// Updates tags for a given resource ARN
+	UpdateTags(ctx context.Context, resourceArn string, newTags Tags) error
 }
 
 type defaultTagging struct {
@@ -164,4 +168,73 @@ func convertTagsToFilter(tags Tags) []*taggingapi.TagFilter {
 		})
 	}
 	return filters
+}
+
+func (t *defaultTagging) UpdateTags(ctx context.Context, resourceArn string, newTags Tags) error {
+	existingTags, err := t.GetTagsForArns(ctx, []string{resourceArn})
+	if err != nil {
+		return fmt.Errorf("failed to get existing tags: %w", err)
+	}
+
+	currentTags := k8s.GetNonAWSManagedTags(existingTags[resourceArn])
+	filteredNewTags := k8s.GetNonAWSManagedTags(newTags)
+
+	tagsToAdd, tagsToRemove := k8s.CalculateTagDifference(currentTags, filteredNewTags)
+
+	if len(tagsToRemove) > 0 {
+		_, err := t.UntagResourcesWithContext(ctx, &taggingapi.UntagResourcesInput{
+			ResourceARNList: []*string{aws.String(resourceArn)},
+			TagKeys:         tagsToRemove,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to remove tags: %w", err)
+		}
+	}
+
+	if len(tagsToAdd) > 0 {
+		_, err := t.TagResourcesWithContext(ctx, &taggingapi.TagResourcesInput{
+			ResourceARNList: []*string{aws.String(resourceArn)},
+			Tags:            tagsToAdd,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to add/update tags: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (t *latticeTagging) UpdateTags(ctx context.Context, resourceArn string, newTags Tags) error {
+	existingTags, err := t.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
+		ResourceArn: aws.String(resourceArn),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get existing tags: %w", err)
+	}
+
+	currentTags := k8s.GetNonAWSManagedTags(existingTags.Tags)
+	filteredNewTags := k8s.GetNonAWSManagedTags(newTags)
+
+	tagsToAdd, tagsToRemove := k8s.CalculateTagDifference(currentTags, filteredNewTags)
+
+	if len(tagsToRemove) > 0 {
+		_, err := t.UntagResourceWithContext(ctx, &vpclattice.UntagResourceInput{
+			ResourceArn: aws.String(resourceArn),
+			TagKeys:     tagsToRemove,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to remove tags: %w", err)
+		}
+	}
+
+	if len(tagsToAdd) > 0 {
+		_, err := t.TagResourceWithContext(ctx, &vpclattice.TagResourceInput{
+			ResourceArn: aws.String(resourceArn),
+			Tags:        tagsToAdd,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to add/update tags: %w", err)
+		}
+	}
+	return nil
 }

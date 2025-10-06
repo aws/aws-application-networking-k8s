@@ -103,6 +103,9 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 		ALPNamespacedName: t.accessLogPolicy.GetNamespacedName(),
 		EventType:         eventType,
 	}
+
+	alsSpec.AdditionalTags = k8s.GetAdditionalTagsFromAnnotations(ctx, t.accessLogPolicy)
+
 	t.accessLogSubscription = model.NewAccessLogSubscription(t.stack, alsSpec, status)
 	err = t.stack.AddResource(t.accessLogSubscription)
 	if err != nil {

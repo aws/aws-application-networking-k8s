@@ -106,6 +106,20 @@ func (mr *MockCloudMockRecorder) Lattice() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lattice", reflect.TypeOf((*MockCloud)(nil).Lattice))
 }
 
+// MergeTags mocks base method.
+func (m *MockCloud) MergeTags(arg0, arg1 map[string]*string) map[string]*string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MergeTags", arg0, arg1)
+	ret0, _ := ret[0].(map[string]*string)
+	return ret0
+}
+
+// MergeTags indicates an expected call of MergeTags.
+func (mr *MockCloudMockRecorder) MergeTags(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeTags", reflect.TypeOf((*MockCloud)(nil).MergeTags), arg0, arg1)
+}
+
 // Tagging mocks base method.
 func (m *MockCloud) Tagging() services.Tagging {
 	m.ctrl.T.Helper()

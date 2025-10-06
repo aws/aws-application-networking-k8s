@@ -429,3 +429,126 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 		})
 	}
 }
+
+func TestLatticeTagging_UpdateTags(t *testing.T) {
+	ctx := context.TODO()
+	tests := []struct {
+		name               string
+		resourceArn        string
+		existingTags       Tags
+		newTags            Tags
+		expectedTagCalls   int
+		expectedUntagCalls int
+		expectError        bool
+		description        string
+	}{
+		{
+			name:        "nil new tags removes all existing additional tags",
+			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
+			existingTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+			},
+			newTags:            nil,
+			expectedTagCalls:   0,
+			expectedUntagCalls: 1,
+			expectError:        false,
+			description:        "should remove all additional tags when newTags is nil",
+		},
+		{
+			name:        "add new tags when no existing additional tags",
+			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
+			existingTags: Tags{
+				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+			},
+			newTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			expectedTagCalls:   1,
+			expectedUntagCalls: 0,
+			expectError:        false,
+			description:        "should add new tags when no existing additional tags",
+		},
+		{
+			name:        "update existing additional tags",
+			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
+			existingTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("OldApp"),
+				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+			},
+			newTags: Tags{
+				"Environment": aws.String("Prod"),
+				"Project":     aws.String("NewApp"),
+			},
+			expectedTagCalls:   1,
+			expectedUntagCalls: 0,
+			expectError:        false,
+			description:        "should update changed additional tag values",
+		},
+		{
+			name:        "no changes needed",
+			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
+			existingTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+			},
+			newTags: Tags{
+				"Environment": aws.String("Dev"),
+				"Project":     aws.String("MyApp"),
+			},
+			expectedTagCalls:   0,
+			expectedUntagCalls: 0,
+			expectError:        false,
+			description:        "should not make API calls when no changes needed",
+		},
+		{
+			name:         "filters out AWS managed tags from new tags",
+			resourceArn:  "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
+			existingTags: Tags{},
+			newTags: Tags{
+				"application-networking.k8s.aws/ManagedBy": aws.String("test-override"),
+				"application-networking.k8s.aws/RouteType": aws.String("http"),
+			},
+			expectedTagCalls:   0,
+			expectedUntagCalls: 0,
+			expectError:        false,
+			description:        "should filter out AWS managed tags from new tags, resulting in no API calls",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			mockLattice := NewMockLattice(c)
+
+			lt := &latticeTagging{
+				Lattice: mockLattice,
+			}
+
+			mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).
+				Return(&vpclattice.ListTagsForResourceOutput{Tags: tt.existingTags}, nil).Times(1)
+
+			if tt.expectedUntagCalls > 0 {
+				mockLattice.EXPECT().UntagResourceWithContext(ctx, gomock.Any()).
+					Return(nil, nil).Times(tt.expectedUntagCalls)
+			}
+
+			if tt.expectedTagCalls > 0 {
+				mockLattice.EXPECT().TagResourceWithContext(ctx, gomock.Any()).
+					Return(nil, nil).Times(tt.expectedTagCalls)
+			}
+
+			err := lt.UpdateTags(ctx, tt.resourceArn, tt.newTags)
+
+			if tt.expectError {
+				assert.Error(t, err, tt.description)
+			} else {
+				assert.NoError(t, err, tt.description)
+			}
+		})
+	}
+}

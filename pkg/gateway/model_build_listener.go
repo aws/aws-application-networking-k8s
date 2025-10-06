@@ -121,6 +121,8 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 			DefaultAction:     defaultAction,
 		}
 
+		spec.AdditionalTags = k8s.GetAdditionalTagsFromAnnotations(ctx, t.route.K8sObject())
+
 		modelListener, err := model.NewListener(t.stack, spec)
 		if err != nil {
 			return err

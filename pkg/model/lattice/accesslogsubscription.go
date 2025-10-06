@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
@@ -30,6 +31,7 @@ type AccessLogSubscriptionSpec struct {
 	DestinationArn    string
 	ALPNamespacedName types.NamespacedName
 	EventType         core.EventType
+	AdditionalTags    services.Tags `json:"additionaltags,omitempty"`
 }
 
 type AccessLogSubscriptionStatus struct {

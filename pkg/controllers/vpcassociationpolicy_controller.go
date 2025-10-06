@@ -13,6 +13,7 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/controllers/predicates"
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	policy "github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
@@ -49,7 +50,7 @@ func RegisterVpcAssociationPolicyController(log gwlog.Logger, cloud pkg_aws.Clou
 	}
 
 	b := ctrl.NewControllerManagedBy(mgr).
-		For(&anv1alpha1.VpcAssociationPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+		For(&anv1alpha1.VpcAssociationPolicy{}, builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, predicates.AdditionalTagsAnnotationChangedPredicate)))
 	ph.AddWatchers(b, &gwv1.Gateway{})
 	return b.Complete(controller)
 }
@@ -106,7 +107,10 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 		str := string(sg)
 		return &str
 	})
-	snva, err := c.manager.UpsertVpcAssociation(ctx, snName, sgIds)
+
+	additionalTags := k8s.GetAdditionalTagsFromAnnotations(ctx, k8sPolicy)
+
+	snva, err := c.manager.UpsertVpcAssociation(ctx, snName, sgIds, additionalTags)
 	if err != nil {
 		return err
 	}

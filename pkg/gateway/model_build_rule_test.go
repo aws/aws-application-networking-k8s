@@ -1739,6 +1739,136 @@ func Test_RuleModelBuild(t *testing.T) {
 	}
 }
 
+func Test_RuleModelBuild_WithAndWithoutAdditionalTagsAnnotation(t *testing.T) {
+	var httpSectionName gwv1.SectionName = "http"
+	var serviceKind gwv1.Kind = "Service"
+	var weight1 = int32(10)
+
+	var backendRef1 = gwv1.BackendRef{
+		BackendObjectReference: gwv1.BackendObjectReference{
+			Name: "targetgroup1",
+			Kind: &serviceKind,
+		},
+		Weight: &weight1,
+	}
+
+	tests := []struct {
+		name                   string
+		route                  core.Route
+		expectedAdditionalTags k8s.Tags
+		description            string
+	}{
+		{
+			name: "HTTPRoute with additional tags annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:      "route-with-tags",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.TagsAnnotationKey: "Environment=Prod,Project=RuleTest,Team=Backend",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:        "gw1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedAdditionalTags: k8s.Tags{
+				"Environment": &[]string{"Prod"}[0],
+				"Project":     &[]string{"RuleTest"}[0],
+				"Team":        &[]string{"Backend"}[0],
+			},
+			description: "should set additional tags from HTTPRoute annotations in rule spec",
+		},
+		{
+			name: "HTTPRoute without additional tags annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:      "route-no-tags",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:        "gw1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: backendRef1,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedAdditionalTags: nil,
+			description:            "should have nil additional tags when no annotation present in rule spec",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceImport{})
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			svc := corev1.Service{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:      string(backendRef1.Name),
+					Namespace: "default",
+				},
+				Status: corev1.ServiceStatus{},
+			}
+			assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
+
+			task := &latticeServiceModelBuildTask{
+				log:         gwlog.FallbackLogger,
+				route:       tt.route,
+				stack:       stack,
+				client:      k8sClient,
+				brTgBuilder: &dummyTgBuilder{},
+			}
+
+			err := task.buildRules(ctx, "listener-id")
+			assert.NoError(t, err, tt.description)
+
+			var resRules []*model.Rule
+			stack.ListResources(&resRules)
+			assert.Equal(t, 1, len(resRules), "Expected exactly one rule")
+
+			actualRule := resRules[0]
+			assert.Equal(t, tt.expectedAdditionalTags, actualRule.Spec.AdditionalTags, tt.description)
+		})
+	}
+}
+
 func validateEqual(t *testing.T, expectedRules []model.RuleSpec, actualRules []*model.Rule) {
 	assert.Equal(t, len(expectedRules), len(actualRules))
 	assert.Equal(t, len(expectedRules), len(actualRules))
