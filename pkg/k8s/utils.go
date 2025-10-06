@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -25,8 +26,20 @@ const (
 	// without automatic service network association
 	StandaloneAnnotation = AnnotationPrefix + "standalone"
 
+	// AWS reserved prefix that cannot be used in tag keys
+	AWSReservedPrefix = "aws:"
+
 	// Additional tags
 	TagsAnnotationKey = AnnotationPrefix + "tags"
+
+	// AWS tag validation limits
+	maxTagKeyLength   = 128
+	maxTagValueLength = 256
+	maxTagCount       = 50
+)
+
+var (
+	tagPattern = regexp.MustCompile(`^([\p{L}\p{Z}\p{N}_.:\/=+\-@]*)$`)
 )
 
 type Tags = map[string]*string
@@ -359,9 +372,24 @@ func ParseTagsFromAnnotation(annotationValue string) Tags {
 
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
-		if key != "" && value != "" {
-			tags[key] = aws.String(value)
+
+		if key == "" || value == "" ||
+			len(key) > maxTagKeyLength ||
+			len(value) > maxTagValueLength ||
+			!tagPattern.MatchString(key) ||
+			!tagPattern.MatchString(value) {
+			continue
 		}
+
+		if _, exists := tags[key]; exists {
+			continue
+		}
+
+		if len(tags) >= maxTagCount {
+			break
+		}
+
+		tags[key] = aws.String(value)
 	}
 	return tags
 }
@@ -388,9 +416,10 @@ func CalculateTagDifference(currentTags Tags, desiredTags Tags) (tagsToAdd Tags,
 func GetNonAWSManagedTags(tags Tags) Tags {
 	nonAWSManagedTags := make(Tags)
 	for key, value := range tags {
-		if !strings.HasPrefix(key, AnnotationPrefix) {
-			nonAWSManagedTags[key] = value
+		if strings.HasPrefix(key, AnnotationPrefix) || strings.HasPrefix(strings.ToLower(key), AWSReservedPrefix) {
+			continue
 		}
+		nonAWSManagedTags[key] = value
 	}
 	return nonAWSManagedTags
 }

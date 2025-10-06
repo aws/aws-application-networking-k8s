@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -1014,6 +1015,56 @@ func TestParseTagsFromAnnotation(t *testing.T) {
 			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("MyApp")},
 			description: "should skip whitespace-only pairs",
 		},
+		{
+			name:        "tag key too long",
+			annotation:  strings.Repeat("a", 129) + "=value,Project=MyApp",
+			expected:    Tags{"Project": aws.String("MyApp")},
+			description: "should skip tags with keys longer than 128 characters",
+		},
+		{
+			name:        "tag value too long",
+			annotation:  "Environment=Dev,key=" + strings.Repeat("v", 257),
+			expected:    Tags{"Environment": aws.String("Dev")},
+			description: "should skip tags with values longer than 256 characters",
+		},
+		{
+			name:        "duplicate keys",
+			annotation:  "Environment=Dev,Project=App1,Environment=Prod,Team=Platform",
+			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("App1"), "Team": aws.String("Platform")},
+			description: "should keep first occurrence of duplicate keys",
+		},
+		{
+			name:        "invalid characters in key",
+			annotation:  "Env#ironment=Dev,Project=MyApp",
+			expected:    Tags{"Project": aws.String("MyApp")},
+			description: "should skip tags with invalid characters in key",
+		},
+		{
+			name:        "invalid characters in value",
+			annotation:  "Environment=Dev,Project=My$App",
+			expected:    Tags{"Environment": aws.String("Dev")},
+			description: "should skip tags with invalid characters in value",
+		},
+		{
+			name: "more than 50 tags should keep 50 tags",
+			annotation: func() string {
+				var pairs []string
+				for i := 1; i <= 60; i++ {
+					pairs = append(pairs, "key"+string(rune(i/10+48))+string(rune(i%10+48))+"=value"+string(rune(i/10+48))+string(rune(i%10+48)))
+				}
+				return strings.Join(pairs, ",")
+			}(),
+			expected: func() Tags {
+				tags := make(Tags)
+				for i := 1; i <= 50; i++ {
+					key := "key" + string(rune(i/10+48)) + string(rune(i%10+48))
+					value := "value" + string(rune(i/10+48)) + string(rune(i%10+48))
+					tags[key] = aws.String(value)
+				}
+				return tags
+			}(),
+			description: "should limit to 50 tags maximum",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1080,6 +1131,56 @@ func TestGetNonAWSManagedTags(t *testing.T) {
 				"Team":        aws.String("Platform"),
 			},
 			description: "should filter out AWS managed tags and keep additional tags",
+		},
+		{
+			name: "AWS reserved tags lowercase",
+			tags: Tags{
+				"aws:cloudformation:stack-name": aws.String("my-stack"),
+				"aws:region":                    aws.String("us-west-2"),
+				"Environment":                   aws.String("Dev"),
+			},
+			expected: Tags{
+				"Environment": aws.String("Dev"),
+			},
+			description: "should filter out lowercase aws: prefixed tags",
+		},
+		{
+			name: "AWS reserved tags uppercase",
+			tags: Tags{
+				"AWS:CloudFormation:StackName": aws.String("my-stack"),
+				"AWS:Region":                   aws.String("us-west-2"),
+				"Environment":                  aws.String("Dev"),
+			},
+			expected: Tags{
+				"Environment": aws.String("Dev"),
+			},
+			description: "should filter out uppercase AWS: prefixed tags",
+		},
+		{
+			name: "AWS reserved tags mixed case",
+			tags: Tags{
+				"Aws:Service":  aws.String("ec2"),
+				"aWs:Resource": aws.String("instance"),
+				"Environment":  aws.String("Dev"),
+			},
+			expected: Tags{
+				"Environment": aws.String("Dev"),
+			},
+			description: "should filter out mixed case aws: prefixed tags",
+		},
+		{
+			name: "tags that start with aws but not aws:",
+			tags: Tags{
+				"awesome":     aws.String("value"),
+				"aws-region":  aws.String("us-west-2"),
+				"Environment": aws.String("Dev"),
+			},
+			expected: Tags{
+				"awesome":     aws.String("value"),
+				"aws-region":  aws.String("us-west-2"),
+				"Environment": aws.String("Dev"),
+			},
+			description: "should keep tags that start with 'aws' but not 'aws:'",
 		},
 	}
 
