@@ -76,6 +76,12 @@ func (d *defaultListenerManager) Upsert(
 		Id:          aws.StringValue(latticeListenerSummary.Id),
 		ServiceId:   latticeSvcId,
 	}
+
+	err = d.cloud.Tagging().UpdateTags(ctx, aws.StringValue(latticeListenerSummary.Arn), modelListener.Spec.AdditionalTags)
+	if err != nil {
+		return model.ListenerStatus{}, fmt.Errorf("failed to update tags for listener %s due to %s", aws.StringValue(latticeListenerSummary.Id), err)
+	}
+
 	if modelListener.Spec.Protocol != vpclattice.ListenerProtocolTlsPassthrough {
 		// The only mutable field for lattice listener is defaultAction, for non-TLS_PASSTHROUGH listener, the defaultAction is always the FixedResponse 404. Don't need to update.
 		return existingListenerStatus, nil
@@ -96,6 +102,8 @@ func (d *defaultListenerManager) Upsert(
 
 func (d *defaultListenerManager) create(ctx context.Context, latticeSvcId string, modelListener *model.Listener, defaultAction *vpclattice.RuleAction) (
 	model.ListenerStatus, error) {
+	tags := d.cloud.MergeTags(d.cloud.DefaultTags(), modelListener.Spec.AdditionalTags)
+
 	listenerInput := vpclattice.CreateListenerInput{
 		ClientToken:       nil,
 		DefaultAction:     defaultAction,
@@ -103,7 +111,7 @@ func (d *defaultListenerManager) create(ctx context.Context, latticeSvcId string
 		Port:              aws.Int64(modelListener.Spec.Port),
 		Protocol:          aws.String(modelListener.Spec.Protocol),
 		ServiceIdentifier: aws.String(latticeSvcId),
-		Tags:              d.cloud.DefaultTags(),
+		Tags:              tags,
 	}
 
 	resp, err := d.cloud.Lattice().CreateListenerWithContext(ctx, &listenerInput)

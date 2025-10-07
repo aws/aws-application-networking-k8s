@@ -74,6 +74,12 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			tgSpec.K8SRouteNamespace = "default"
 			tgSpec.Type = model.TargetGroupTypeIP
 		}
+
+		tgSpec.AdditionalTags = map[string]*string{
+			"Environment": &[]string{"Test"}[0],
+			"Project":     &[]string{"TGManager"}[0],
+		}
+
 		tgCreateInput := model.TargetGroup{
 			ResourceMeta: core.ResourceMeta{},
 			Spec:         tgSpec,
@@ -94,6 +100,9 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			expectedTags[model.K8SRouteNameKey] = &tgSpec.K8SRouteName
 			expectedTags[model.K8SRouteNamespaceKey] = &tgSpec.K8SRouteNamespace
 		}
+
+		expectedTags["Environment"] = &[]string{"Test"}[0]
+		expectedTags["Project"] = &[]string{"TGManager"}[0]
 
 		mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
 		mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).DoAndReturn(
@@ -217,6 +226,10 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 				Protocol:          vpclattice.TargetGroupProtocolHttps,
 				ProtocolVersion:   vpclattice.TargetGroupProtocolVersionHttp1,
 				HealthCheckConfig: tt.healthCheckConfig,
+				AdditionalTags: map[string]*string{
+					"Environment": &[]string{"Test"}[0],
+					"Project":     &[]string{"UpdateTest"}[0],
+				},
 			}
 
 			tgCreateInput := model.TargetGroup{
@@ -238,6 +251,8 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 
 			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
 			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+
+			mockTagging.EXPECT().UpdateTags(ctx, arn, tgSpec.AdditionalTags).Return(nil)
 
 			if tt.wantErr {
 				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("error"))
@@ -307,6 +322,9 @@ func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
 
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{"arn"}, nil)
 	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+
+	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+
 	mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
@@ -1218,6 +1236,8 @@ func Test_update_ServiceExportWithPolicy_Integration(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
+	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+
 	// Since we don't have a real k8s k8sClient in this test, we'll test the case where
 	// no k8sClient is available (which should fall back to default behavior)
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
@@ -1435,6 +1455,8 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 				},
 			}
 
+			mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, k8sClient)
 
 			if tt.expectUpdate {
@@ -1616,6 +1638,8 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 					HealthCheck:     tt.existingHealthCheck,
 				},
 			}
+
+			mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, k8sClient)
 

@@ -350,3 +350,71 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 		assert.Equal(t, tt.expectedError, err, tt.description)
 	}
 }
+
+func Test_BuildAccessLogSubscription_WithAndWithoutAdditionalTagsAnnotation(t *testing.T) {
+	ctx := context.TODO()
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	client := testclient.NewClientBuilder().WithScheme(scheme).Build()
+	modelBuilder := NewAccessLogSubscriptionModelBuilder(gwlog.FallbackLogger, client)
+
+	tests := []struct {
+		name                   string
+		input                  *anv1alpha1.AccessLogPolicy
+		expectedAdditionalTags map[string]*string
+		description            string
+	}{
+		{
+			name: "AccessLogPolicy with additional tags annotation",
+			input: &anv1alpha1.AccessLogPolicy{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Namespace: namespace,
+					Name:      name,
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/tags": "Environment=Prod,Project=AccessLogTest,Team=Platform",
+					},
+				},
+				Spec: anv1alpha1.AccessLogPolicySpec{
+					DestinationArn: aws.String(s3DestinationArn),
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Kind: gatewayKind,
+						Name: name,
+					},
+				},
+			},
+			expectedAdditionalTags: map[string]*string{
+				"Environment": &[]string{"Prod"}[0],
+				"Project":     &[]string{"AccessLogTest"}[0],
+				"Team":        &[]string{"Platform"}[0],
+			},
+			description: "should set additional tags from AccessLogPolicy annotations in access log subscription spec",
+		},
+		{
+			name: "AccessLogPolicy without additional tags annotation",
+			input: &anv1alpha1.AccessLogPolicy{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Namespace: namespace,
+					Name:      name,
+				},
+				Spec: anv1alpha1.AccessLogPolicySpec{
+					DestinationArn: aws.String(s3DestinationArn),
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Kind: gatewayKind,
+						Name: name,
+					},
+				},
+			},
+			expectedAdditionalTags: nil,
+			description:            "should have nil additional tags when no annotation present in access log subscription spec",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, als, err := modelBuilder.Build(ctx, tt.input)
+			assert.NoError(t, err, tt.description)
+
+			assert.Equal(t, tt.expectedAdditionalTags, als.Spec.AdditionalTags, tt.description)
+		})
+	}
+}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
@@ -27,6 +28,7 @@ type ListenerSpec struct {
 	Port              int64          `json:"port"`
 	Protocol          string         `json:"protocol"`
 	DefaultAction     *DefaultAction `json:"defaultaction"`
+	AdditionalTags    services.Tags  `json:"additionaltags,omitempty"`
 }
 
 type DefaultAction struct {

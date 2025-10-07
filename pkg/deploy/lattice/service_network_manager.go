@@ -22,7 +22,7 @@ import (
 //go:generate mockgen -destination service_network_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ServiceNetworkManager
 
 type ServiceNetworkManager interface {
-	UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string) (string, error)
+	UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string, additionalTags services.Tags) (string, error)
 	DeleteVpcAssociation(ctx context.Context, snName string) error
 
 	CreateOrUpdate(ctx context.Context, serviceNetwork *model.ServiceNetwork) (model.ServiceNetworkStatus, error)
@@ -40,7 +40,7 @@ type defaultServiceNetworkManager struct {
 	cloud pkg_aws.Cloud
 }
 
-func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string) (string, error) {
+func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string, additionalTags services.Tags) (string, error) {
 	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName)
 	if err != nil {
 		return "", err
@@ -60,17 +60,19 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 			return "", services.NewConflictError("snva", snName,
 				fmt.Sprintf("Found existing vpc association not owned by controller: %s", *snva.Arn))
 		}
-		_, err = m.updateServiceNetworkVpcAssociation(ctx, &sn.SvcNetwork, sgIds, snva.Id)
+		_, err = m.updateServiceNetworkVpcAssociation(ctx, &sn.SvcNetwork, sgIds, snva.Id, additionalTags)
 		if err != nil {
 			return "", err
 		}
 		return *snva.Arn, nil
 	} else {
+		tags := m.cloud.MergeTags(m.cloud.DefaultTags(), additionalTags)
+
 		req := vpclattice.CreateServiceNetworkVpcAssociationInput{
 			ServiceNetworkIdentifier: sn.SvcNetwork.Id,
 			VpcIdentifier:            &config.VpcID,
 			SecurityGroupIds:         sgIds,
-			Tags:                     m.cloud.DefaultTags(),
+			Tags:                     tags,
 		}
 		resp, err := m.cloud.Lattice().CreateServiceNetworkVpcAssociationWithContext(ctx, &req)
 		if err != nil {
@@ -223,13 +225,19 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 	return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
 }
 
-func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx context.Context, existingSN *vpclattice.ServiceNetworkSummary, sgIds []*string, existingSnvaId *string) (model.ServiceNetworkStatus, error) {
+func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx context.Context, existingSN *vpclattice.ServiceNetworkSummary, sgIds []*string, existingSnvaId *string, additionalTags services.Tags) (model.ServiceNetworkStatus, error) {
 	snva, err := m.cloud.Lattice().GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
 	})
 	if err != nil {
 		return model.ServiceNetworkStatus{}, err
 	}
+
+	err = m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(snva.Arn), additionalTags)
+	if err != nil {
+		return model.ServiceNetworkStatus{}, fmt.Errorf("failed to update tags for service network vpc association %s: %w", aws.StringValue(snva.Id), err)
+	}
+
 	sgIdsEqual := securityGroupIdsEqual(sgIds, snva.SecurityGroupIds)
 	if sgIdsEqual {
 		// desiredSN's security group ids are same with snva's security group ids, don't need to update

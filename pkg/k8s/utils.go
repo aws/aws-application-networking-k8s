@@ -3,10 +3,12 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	"github.com/aws/aws-sdk-go/aws"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,7 +25,24 @@ const (
 	// Standalone annotation controls whether VPC Lattice services are created
 	// without automatic service network association
 	StandaloneAnnotation = AnnotationPrefix + "standalone"
+
+	// AWS reserved prefix that cannot be used in tag keys
+	AWSReservedPrefix = "aws:"
+
+	// Additional tags
+	TagsAnnotationKey = AnnotationPrefix + "tags"
+
+	// AWS tag validation limits
+	maxTagKeyLength   = 128
+	maxTagValueLength = 256
+	maxTagCount       = 50
 )
+
+var (
+	tagPattern = regexp.MustCompile(`^([\p{L}\p{Z}\p{N}_.:\/=+\-@]*)$`)
+)
+
+type Tags = map[string]*string
 
 // NamespacedName returns the namespaced name for k8s objects
 func NamespacedName(obj client.Object) types.NamespacedName {
@@ -312,4 +331,95 @@ func GetStandaloneModeForRoute(ctx context.Context, c client.Client, route core.
 	}
 
 	return false, nil
+}
+
+func GetAdditionalTagsFromAnnotations(ctx context.Context, obj client.Object) Tags {
+	if obj == nil || obj.GetAnnotations() == nil {
+		return nil
+	}
+
+	annotations := obj.GetAnnotations()
+	tagValue, exists := annotations[TagsAnnotationKey]
+	if !exists || tagValue == "" {
+		return nil
+	}
+
+	additionalTags := ParseTagsFromAnnotation(tagValue)
+	filteredTags := GetNonAWSManagedTags(additionalTags)
+
+	if len(filteredTags) == 0 {
+		return nil
+	}
+	return filteredTags
+}
+
+func ParseTagsFromAnnotation(annotationValue string) Tags {
+	tags := make(Tags)
+	if annotationValue == "" {
+		return tags
+	}
+
+	for pair := range strings.SplitSeq(annotationValue, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		if key == "" || value == "" ||
+			len(key) > maxTagKeyLength ||
+			len(value) > maxTagValueLength ||
+			!tagPattern.MatchString(key) ||
+			!tagPattern.MatchString(value) {
+			continue
+		}
+
+		if _, exists := tags[key]; exists {
+			continue
+		}
+
+		if len(tags) >= maxTagCount {
+			break
+		}
+
+		tags[key] = aws.String(value)
+	}
+	return tags
+}
+
+func CalculateTagDifference(currentTags Tags, desiredTags Tags) (tagsToAdd Tags, tagsToRemove []*string) {
+	tagsToAdd = make(Tags)
+	tagsToRemove = make([]*string, 0)
+
+	for key := range currentTags {
+		if _, exists := desiredTags[key]; !exists {
+			tagsToRemove = append(tagsToRemove, aws.String(key))
+		}
+	}
+
+	for key, value := range desiredTags {
+		if currentValue, exists := currentTags[key]; !exists || *currentValue != *value {
+			tagsToAdd[key] = value
+		}
+	}
+
+	return tagsToAdd, tagsToRemove
+}
+
+func GetNonAWSManagedTags(tags Tags) Tags {
+	nonAWSManagedTags := make(Tags)
+	for key, value := range tags {
+		if strings.HasPrefix(key, AnnotationPrefix) || strings.HasPrefix(strings.ToLower(key), AWSReservedPrefix) {
+			continue
+		}
+		nonAWSManagedTags[key] = value
+	}
+	return nonAWSManagedTags
 }

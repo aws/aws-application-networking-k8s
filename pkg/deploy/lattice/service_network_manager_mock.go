@@ -65,16 +65,16 @@ func (mr *MockServiceNetworkManagerMockRecorder) DeleteVpcAssociation(arg0, arg1
 }
 
 // UpsertVpcAssociation mocks base method.
-func (m *MockServiceNetworkManager) UpsertVpcAssociation(arg0 context.Context, arg1 string, arg2 []*string) (string, error) {
+func (m *MockServiceNetworkManager) UpsertVpcAssociation(arg0 context.Context, arg1 string, arg2 []*string, arg3 map[string]*string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertVpcAssociation", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpsertVpcAssociation", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpsertVpcAssociation indicates an expected call of UpsertVpcAssociation.
-func (mr *MockServiceNetworkManagerMockRecorder) UpsertVpcAssociation(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockServiceNetworkManagerMockRecorder) UpsertVpcAssociation(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertVpcAssociation", reflect.TypeOf((*MockServiceNetworkManager)(nil).UpsertVpcAssociation), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertVpcAssociation", reflect.TypeOf((*MockServiceNetworkManager)(nil).UpsertVpcAssociation), arg0, arg1, arg2, arg3)
 }

@@ -15,9 +15,10 @@ type Service struct {
 
 type ServiceSpec struct {
 	ServiceTagFields
-	ServiceNetworkNames []string `json:"servicenetworkhnames"`
-	CustomerDomainName  string   `json:"customerdomainname"`
-	CustomerCertARN     string   `json:"customercertarn"`
+	ServiceNetworkNames []string      `json:"servicenetworkhnames"`
+	CustomerDomainName  string        `json:"customerdomainname"`
+	CustomerCertARN     string        `json:"customercertarn"`
+	AdditionalTags      services.Tags `json:"additionaltags,omitempty"`
 }
 
 type ServiceStatus struct {

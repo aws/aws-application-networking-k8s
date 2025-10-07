@@ -1249,3 +1249,115 @@ func Test_latticeServiceModelBuildTask_isStandaloneMode(t *testing.T) {
 		})
 	}
 }
+
+func Test_LatticeServiceModelBuild_HTTPRouteWithAndWithoutAdditionalTagsAnnotation(t *testing.T) {
+	vpcLatticeGatewayClass := gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gwClass",
+		},
+		Spec: gwv1.GatewayClassSpec{
+			ControllerName: config.LatticeGatewayControllerName,
+		},
+	}
+
+	vpcLatticeGateway := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway1",
+			Namespace: "default",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
+		},
+	}
+
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
+		return &p
+	}
+
+	tests := []struct {
+		name                   string
+		route                  core.Route
+		expectedAdditionalTags k8s.Tags
+		description            string
+	}{
+		{
+			name: "HTTPRoute with additional tags annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service-with-tags",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.TagsAnnotationKey: "Environment=Prod,Project=ServiceTest,Team=Platform",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+							},
+						},
+					},
+				},
+			}),
+			expectedAdditionalTags: k8s.Tags{
+				"Environment": &[]string{"Prod"}[0],
+				"Project":     &[]string{"ServiceTest"}[0],
+				"Team":        &[]string{"Platform"}[0],
+			},
+			description: "should set additional tags from HTTPRoute annotations in service spec",
+		},
+		{
+			name: "HTTPRoute without additional tags annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "service-no-tags",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+							},
+						},
+					},
+				},
+			}),
+			expectedAdditionalTags: nil,
+			description:            "should have nil additional tags when no annotation present in service spec",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
+			gwv1alpha2.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGatewayClass.DeepCopy()))
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGateway.DeepCopy()))
+
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
+
+			task := &latticeServiceModelBuildTask{
+				log:    gwlog.FallbackLogger,
+				route:  tt.route,
+				stack:  stack,
+				client: k8sClient,
+			}
+
+			svc, err := task.buildLatticeService(ctx)
+			assert.NoError(t, err, tt.description)
+
+			assert.Equal(t, tt.expectedAdditionalTags, svc.Spec.AdditionalTags, tt.description)
+		})
+	}
+}

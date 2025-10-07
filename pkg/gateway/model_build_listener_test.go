@@ -562,3 +562,153 @@ func Test_ListenerModelBuild(t *testing.T) {
 		})
 	}
 }
+
+func Test_ListenerModelBuild_HTTPRouteWithAndWithoutAdditionalTagsAnnotation(t *testing.T) {
+	var sectionName gwv1.SectionName = "my-gw-listener"
+	var serviceKind gwv1.Kind = "Service"
+	var backendRef = gwv1.BackendRef{
+		BackendObjectReference: gwv1.BackendObjectReference{
+			Name: "targetgroup1",
+			Kind: &serviceKind,
+		},
+	}
+
+	vpcLatticeGatewayClass := gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gwClass",
+		},
+		Spec: gwv1.GatewayClassSpec{
+			ControllerName: config.LatticeGatewayControllerName,
+		},
+	}
+
+	vpcLatticeGateway := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway1",
+			Namespace: "default",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
+			Listeners: []gwv1.Listener{
+				{
+					Port:     80,
+					Protocol: "HTTP",
+					Name:     sectionName,
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name                   string
+		route                  core.Route
+		expectedAdditionalTags k8s.Tags
+		description            string
+	}{
+		{
+			name: "HTTPRoute with additional tags annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-with-tags",
+					Namespace: "default",
+					Annotations: map[string]string{
+						k8s.TagsAnnotationKey: "Environment=Prod,Project=ListenerTest,Team=Platform",
+					},
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+								SectionName: &sectionName,
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: backendRef,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedAdditionalTags: k8s.Tags{
+				"Environment": &[]string{"Prod"}[0],
+				"Project":     &[]string{"ListenerTest"}[0],
+				"Team":        &[]string{"Platform"}[0],
+			},
+			description: "should set additional tags from HTTPRoute annotations in listener spec",
+		},
+		{
+			name: "HTTPRoute without additional tags annotation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route-no-tags",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+								SectionName: &sectionName,
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: backendRef,
+								},
+							},
+						},
+					},
+				},
+			}),
+			expectedAdditionalTags: nil,
+			description:            "should have nil additional tags when no annotation present in listener spec",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
+			anv1alpha1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGatewayClass.DeepCopy()))
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGateway.DeepCopy()))
+
+			mockBrTgBuilder := NewMockBackendRefTargetGroupModelBuilder(c)
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
+
+			task := &latticeServiceModelBuildTask{
+				log:         gwlog.FallbackLogger,
+				route:       tt.route,
+				client:      k8sClient,
+				stack:       stack,
+				brTgBuilder: mockBrTgBuilder,
+			}
+
+			err := task.buildListeners(ctx, "svc-id")
+			assert.NoError(t, err, tt.description)
+
+			var resListener []*model.Listener
+			stack.ListResources(&resListener)
+			assert.Equal(t, 1, len(resListener), "Expected exactly one listener")
+
+			actualListener := resListener[0]
+			assert.Equal(t, tt.expectedAdditionalTags, actualListener.Spec.AdditionalTags, tt.description)
+		})
+	}
+}

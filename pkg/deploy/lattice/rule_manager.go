@@ -192,9 +192,9 @@ func (r *defaultRuleManager) Upsert(
 	}
 
 	if matchingRule == nil {
-		return r.create(ctx, currentLatticeRules, latticeRuleFromModel, latticeServiceId, latticeListenerId)
+		return r.create(ctx, currentLatticeRules, latticeRuleFromModel, latticeServiceId, latticeListenerId, modelRule)
 	} else {
-		return r.updateIfNeeded(ctx, latticeRuleFromModel, matchingRule, latticeServiceId, latticeListenerId)
+		return r.updateIfNeeded(ctx, latticeRuleFromModel, matchingRule, latticeServiceId, latticeListenerId, modelRule)
 	}
 }
 
@@ -204,6 +204,7 @@ func (r *defaultRuleManager) updateIfNeeded(
 	matchingRule *vpclattice.GetRuleOutput,
 	latticeSvcId string,
 	latticeListenerId string,
+	modelRule *model.Rule,
 ) (model.RuleStatus, error) {
 	updatedRuleStatus := model.RuleStatus{
 		Name:       aws.StringValue(matchingRule.Name),
@@ -212,6 +213,11 @@ func (r *defaultRuleManager) updateIfNeeded(
 		ListenerId: latticeListenerId,
 		ServiceId:  latticeSvcId,
 		Priority:   aws.Int64Value(matchingRule.Priority),
+	}
+
+	err := r.cloud.Tagging().UpdateTags(ctx, aws.StringValue(matchingRule.Arn), modelRule.Spec.AdditionalTags)
+	if err != nil {
+		return model.RuleStatus{}, fmt.Errorf("failed to update tags for rule %s: %w", aws.StringValue(matchingRule.Id), err)
 	}
 
 	// we already validated Match, if Action is also the same then no updates required
@@ -234,7 +240,7 @@ func (r *defaultRuleManager) updateIfNeeded(
 		Priority:           ruleToUpdate.Priority,
 	}
 
-	_, err := r.cloud.Lattice().UpdateRuleWithContext(ctx, &uri)
+	_, err = r.cloud.Lattice().UpdateRuleWithContext(ctx, &uri)
 	if err != nil {
 		return model.RuleStatus{}, fmt.Errorf("failed UpdateRule %d for %s, %s due to %s",
 			ruleToUpdate.Priority, latticeListenerId, latticeSvcId, err)
@@ -250,6 +256,7 @@ func (r *defaultRuleManager) create(
 	ruleToCreate *vpclattice.GetRuleOutput,
 	latticeSvcId string,
 	latticeListenerId string,
+	modelRule *model.Rule,
 ) (model.RuleStatus, error) {
 	// when we create a rule, we just pick an available priority so we can
 	// successfully create the rule. After all rules are created, we update
@@ -261,6 +268,8 @@ func (r *defaultRuleManager) create(
 	}
 	ruleToCreate.Priority = aws.Int64(priority)
 
+	tags := r.cloud.MergeTags(r.cloud.DefaultTags(), modelRule.Spec.AdditionalTags)
+
 	cri := vpclattice.CreateRuleInput{
 		Action:             ruleToCreate.Action,
 		ServiceIdentifier:  aws.String(latticeSvcId),
@@ -268,7 +277,7 @@ func (r *defaultRuleManager) create(
 		Match:              ruleToCreate.Match,
 		Name:               ruleToCreate.Name,
 		Priority:           ruleToCreate.Priority,
-		Tags:               r.cloud.DefaultTags(),
+		Tags:               tags,
 	}
 
 	res, err := r.cloud.Lattice().CreateRuleWithContext(ctx, &cri)

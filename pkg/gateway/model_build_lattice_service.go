@@ -128,6 +128,8 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		},
 	}
 
+	spec.AdditionalTags = k8s.GetAdditionalTagsFromAnnotations(ctx, t.route.K8sObject())
+
 	// Check if standalone mode is enabled for this route
 	standalone, err := t.isStandaloneMode(ctx)
 	if err != nil {

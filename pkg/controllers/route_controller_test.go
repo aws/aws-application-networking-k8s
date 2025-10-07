@@ -194,6 +194,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 		}).AnyTimes()
 	mockCloud.EXPECT().DefaultTags().Return(mocks.Tags{}).AnyTimes()
 	mockCloud.EXPECT().DefaultTagsMergedWith(gomock.Any()).Return(mocks.Tags{}).AnyTimes()
+	mockCloud.EXPECT().MergeTags(gomock.Any(), gomock.Any()).Return(mocks.Tags{}).AnyTimes()
 
 	// we expect a fair number of lattice calls
 	mockLattice.EXPECT().ListTargetsAsList(gomock.Any(), gomock.Any()).Return(

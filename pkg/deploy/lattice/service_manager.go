@@ -62,7 +62,7 @@ func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, s
 	// Only create associations if service networks are specified (not standalone)
 	if len(svc.Spec.ServiceNetworkNames) > 0 {
 		for _, snName := range svc.Spec.ServiceNetworkNames {
-			err = m.createAssociation(ctx, createSvcResp.Id, snName)
+			err = m.createAssociation(ctx, createSvcResp.Id, snName, svc)
 			if err != nil {
 				return ServiceInfo{}, err
 			}
@@ -76,16 +76,18 @@ func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, s
 	return svcInfo, nil
 }
 
-func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *string, snName string) error {
+func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *string, snName string, svc *Service) error {
 	snInfo, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName)
 	if err != nil {
 		return err
 	}
 
+	tags := m.cloud.MergeTags(m.cloud.DefaultTags(), svc.Spec.AdditionalTags)
+
 	assocReq := &CreateSnSvcAssocReq{
 		ServiceIdentifier:        svcId,
 		ServiceNetworkIdentifier: snInfo.SvcNetwork.Id,
-		Tags:                     m.cloud.DefaultTags(),
+		Tags:                     tags,
 	}
 	assocResp, err := m.cloud.Lattice().CreateServiceNetworkServiceAssociationWithContext(ctx, assocReq)
 	if err != nil {
@@ -104,9 +106,11 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 
 func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 	svcName := svc.LatticeServiceName()
+	tags := m.cloud.MergeTags(m.cloud.DefaultTagsMergedWith(svc.Spec.ToTags()), svc.Spec.AdditionalTags)
+
 	req := &vpclattice.CreateServiceInput{
 		Name: &svcName,
-		Tags: m.cloud.DefaultTagsMergedWith(svc.Spec.ToTags()),
+		Tags: tags,
 	}
 
 	if svc.Spec.CustomerDomainName != "" {
@@ -170,6 +174,11 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 }
 
 func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceInfo, error) {
+	err := m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(svcSum.Arn), svc.Spec.AdditionalTags)
+	if err != nil {
+		return ServiceInfo{}, fmt.Errorf("failed to update tags for service %s: %w", aws.StringValue(svcSum.Id), err)
+	}
+
 	if svc.Spec.CustomerCertARN != "" {
 		updReq := &UpdateSvcReq{
 			CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
@@ -181,7 +190,7 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 		}
 	}
 
-	err := m.updateAssociations(ctx, svc, svcSum)
+	err = m.updateAssociations(ctx, svc, svcSum)
 	if err != nil {
 		return ServiceInfo{}, err
 	}
@@ -215,14 +224,21 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 		return err
 	}
 
-	toCreate, toDelete, err := associationsDiff(svc, assocs)
+	toCreate, toDelete, toUpdate, err := associationsDiff(svc, assocs)
 	if err != nil {
 		return err
 	}
 	for _, snName := range toCreate {
-		err := m.createAssociation(ctx, svcSum.Id, snName)
+		err := m.createAssociation(ctx, svcSum.Id, snName, svc)
 		if err != nil {
 			return err
+		}
+	}
+
+	for _, assoc := range toUpdate {
+		err := m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(assoc.Arn), svc.Spec.AdditionalTags)
+		if err != nil {
+			return fmt.Errorf("failed to update tags for association %s: %w", aws.StringValue(assoc.Arn), err)
 		}
 	}
 
@@ -265,9 +281,10 @@ func handleCreateAssociationResp(resp *CreateSnSvcAssocResp) error {
 // compare current sn-svc associations with new ones,
 // returns 2 slices: toCreate with SN names and toDelete with current associations
 // if assoc should be created but current state is in deletion we should retry
-func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, []SnSvcAssocSummary, error) {
+func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, []SnSvcAssocSummary, []*SnSvcAssocSummary, error) {
 	toCreate := []string{}
 	toDelete := []SnSvcAssocSummary{}
+	toUpdate := []*SnSvcAssocSummary{}
 
 	// create two Sets and find Difference New-Old->toCreate and Old-New->toDelete
 	newSet := map[string]bool{}
@@ -283,12 +300,14 @@ func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, [
 		oldSn, ok := oldSet[newSn]
 		if !ok {
 			toCreate = append(toCreate, newSn)
+		} else {
+			toUpdate = append(toUpdate, &oldSn)
 		}
 
 		// assoc should exists but in deletion state, will retry later to re-create
 		// TODO: we should have something more lightweight, retrying full reconciliation looks to heavy
 		if aws.StringValue(oldSn.Status) == vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress {
-			return nil, nil, fmt.Errorf("%w: want to associate sn: %s to svc: %s, but status is: %s",
+			return nil, nil, nil, fmt.Errorf("%w: want to associate sn: %s to svc: %s, but status is: %s",
 				lattice_runtime.NewRetryError(), newSn, svc.LatticeServiceName(), *oldSn.Status)
 		}
 		// TODO: if assoc in failed state, may be we should try to re-create?
@@ -301,7 +320,7 @@ func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, [
 		}
 	}
 
-	return toCreate, toDelete, nil
+	return toCreate, toDelete, toUpdate, nil
 }
 
 func (m *defaultServiceManager) deleteAllAssociations(ctx context.Context, svc *SvcSummary) error {
