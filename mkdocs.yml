@@ -24,6 +24,7 @@ nav:
     - TLS Passthrough: guides/tls-passthrough.md
     - Pod Readiness Gates: guides/pod-readiness-gates.md
     - Configuration: guides/environment.md
+    - Additional Tags: guides/additional-tags.md
   - API Specification: api-reference.md
   - API Reference:
     - AccessLogPolicy: api-types/access-log-policy.md
