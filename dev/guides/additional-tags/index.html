@@ -11,6 +11,10 @@
         <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/dev/guides/additional-tags/">
       
       
+        <link rel="prev" href="../environment/">
+      
+      
+        <link rel="next" href="../../api-reference/">
       
       
       <link rel="icon" href="../../images/controller.png">
@@ -259,10 +263,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../deploy/" class="md-tabs__link">
           
   
@@ -521,26 +527,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -553,7 +564,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             User Guides
@@ -831,6 +842,113 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Additional Tags
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Additional Tags
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Usage
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-iam-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Required IAM Permissions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required IAM Permissions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-to-ensure-you-have-these-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      How to Ensure You Have These Permissions
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#supported-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Supported Resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1308,13 +1426,6 @@
 <h1 id="additional-tags">Additional Tags<a class="headerlink" href="#additional-tags" title="Permanent link">&para;</a></h1>
 <p>The AWS Gateway API Controller automatically applies some tags to resources it creates. In addition, you can use annotations to specify additional tags.</p>
 <p>The <code>application-networking.k8s.aws/tags</code> annotation specifies additional tags that will be applied to AWS resources created.</p>
-<h2 id="supported-resources">Supported Resources<a class="headerlink" href="#supported-resources" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong>HTTPRoute</strong> - Tags applied to VPC Lattice Services, Listeners, Rules, Target Groups, and Service Network Service Associations</li>
-<li><strong>ServiceExport</strong> - Tags applied to VPC Lattice Target Groups</li>
-<li><strong>AccessLogPolicy</strong> - Tags applied to VPC Lattice Access Log Subscriptions</li>
-<li><strong>VpcAssociationPolicy</strong> - Tags applied to VPC Lattice Service Network VPC Associations</li>
-</ul>
 <h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
 <p>Add comma separated key=value pairs to the annotation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
@@ -1335,6 +1446,30 @@
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="c1"># ... rest of spec</span>
 </code></pre></div>
+<h2 id="required-iam-permissions">Required IAM Permissions<a class="headerlink" href="#required-iam-permissions" title="Permanent link">&para;</a></h2>
+<p>For the additional tags functionality to work properly, the IAM role linked to the controller's service account must also include these permissions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="nt">&quot;Effect&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Allow&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">&quot;Action&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="s2">&quot;tag:TagResources&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">        </span><span class="s2">&quot;tag:UntagResources&quot;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="p">],</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">&quot;Resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="how-to-ensure-you-have-these-permissions">How to Ensure You Have These Permissions<a class="headerlink" href="#how-to-ensure-you-have-these-permissions" title="Permanent link">&para;</a></h3>
+<p>The <code>config/iam/recommended-inline-policy.json</code> file contains all the required permissions including these tagging permissions.</p>
+<ul>
+<li><strong>If you are setting up for the first time</strong>: The recommended inline policy already includes all the required permissions.</li>
+<li><strong>If you used the setup steps in the <a href="https://www.gateway-api-controller.eks.aws.dev/latest/guides/deploy/#setup">deploy guide</a></strong>: You need to update the existing <code>VPCLatticeControllerIAMPolicy</code> to include the updated permissions.</li>
+</ul>
+<h2 id="supported-resources">Supported Resources<a class="headerlink" href="#supported-resources" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>HTTPRoute</strong> - Tags applied to VPC Lattice Services, Listeners, Rules, Target Groups, and Service Network Service Associations</li>
+<li><strong>ServiceExport</strong> - Tags applied to VPC Lattice Target Groups</li>
+<li><strong>AccessLogPolicy</strong> - Tags applied to VPC Lattice Access Log Subscriptions</li>
+<li><strong>VpcAssociationPolicy</strong> - Tags applied to VPC Lattice Service Network VPC Associations</li>
+</ul>
 
 
 
@@ -1367,6 +1502,44 @@
       
         <footer class="md-footer">
   
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../environment/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuration">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Configuration
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../api-reference/" class="md-footer__link md-footer__link--next" aria-label="Next: API Specification">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                API Specification
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
     
   
   <div class="md-footer-meta md-typeset">
