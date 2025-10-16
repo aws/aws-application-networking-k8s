@@ -4,7 +4,7 @@
 
 image:
   repository: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller
-  tag: v1.1.5
+  tag: v1.1.6
   pullPolicy: IfNotPresent
   pullSecrets: []
 
