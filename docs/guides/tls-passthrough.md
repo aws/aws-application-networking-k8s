@@ -4,7 +4,7 @@
 
 ## Install Gateway API TLSRoute CRD
 
-The TLSRoute CRD is already included in the helm chart and deployment.yaml, if you are using these 2 methods to install the controller no extra steps needed.
+The TLSRoute CRD is already included in the deployment.yaml, if you are using this method to install the controller no extra steps needed.
 If you want to install the TLSRoute CRD manually by yourself:
 ```
 # Install CRD
