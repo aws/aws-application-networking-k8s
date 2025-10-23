@@ -1513,7 +1513,7 @@
 <h1 id="tls-passthrough-support">TLS Passthrough Support<a class="headerlink" href="#tls-passthrough-support" title="Permanent link">&para;</a></h1>
 <p><a href="https://gateway-api.sigs.k8s.io/guides/tls/">Kubernetes Gateway API</a> lays out the general guidelines on how to configure TLS passthrough. Here are examples on how to use them against AWS Gateway Api controller and VPC Lattice.</p>
 <h2 id="install-gateway-api-tlsroute-crd">Install Gateway API TLSRoute CRD<a class="headerlink" href="#install-gateway-api-tlsroute-crd" title="Permanent link">&para;</a></h2>
-<p>The TLSRoute CRD is already included in the helm chart and deployment.yaml, if you are using these 2 methods to install the controller no extra steps needed.
+<p>The TLSRoute CRD is already included in the deployment.yaml, if you are using this method to install the controller no extra steps needed.
 If you want to install the TLSRoute CRD manually by yourself:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a># Install CRD
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
