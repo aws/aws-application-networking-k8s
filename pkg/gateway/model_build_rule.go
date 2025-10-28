@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"math"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,17 +48,19 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 		// Check for priority annotation in format: application-networking.k8s.aws/rule-{index}-priority
 		if priorityStr, ok := t.route.K8sObject().GetAnnotations()[fmt.Sprintf("application-networking.k8s.aws/rule-%d-priority", i)]; ok {
 			if p, err := strconv.ParseInt(priorityStr, 10, 64); err == nil {
-				priority = p
-				t.log.Debugf(ctx, "Using priority %d from annotation for rule %d", priority, i)
+				if p < math.MinInt32 || p > math.MaxInt32 {
+					t.log.Warnf(ctx, "Priority value out of int32 range in annotation for rule %d: %s", i, priorityStr)
+				} else {
+					priority = p
+					t.log.Debugf(ctx, "Using priority %d from annotation for rule %d", priority, i)
+					priorityQueue.Push(&utils.Item{
+						Value:    rule,
+						Priority: int32(priority),
+					})
+				}
 			} else {
 				t.log.Warnf(ctx, "Invalid priority value in annotation for rule %d: %s", i, priorityStr)
 			}
-
-			priorityQueue.Push(&utils.Item{
-				Value:    rule,
-				Priority: int32(priority),
-			})
-
 		} else {
 			rulesWithoutPriority = append(rulesWithoutPriority, rule)
 		}
