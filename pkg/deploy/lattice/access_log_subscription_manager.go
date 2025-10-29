@@ -150,7 +150,7 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 	}
 	updateALSOutput, err := vpcLatticeSess.UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput)
 	if err == nil {
-		err = m.cloud.Tagging().UpdateTags(ctx, *updateALSOutput.Arn, accessLogSubscription.Spec.AdditionalTags)
+		err = m.cloud.Tagging().UpdateTags(ctx, *updateALSOutput.Arn, accessLogSubscription.Spec.AdditionalTags, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update tags for access log subscription %s: %w", *updateALSOutput.Arn, err)
 		}

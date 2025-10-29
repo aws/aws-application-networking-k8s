@@ -142,7 +142,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			}).
 			Times(1) // for service only
 
-		mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", gomock.Any()).Return(nil)
+		mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", gomock.Any(), gomock.Any()).Return(nil)
 
 		// 3 associations exist in lattice: keep, delete, and foreign
 		mockLattice.EXPECT().
@@ -161,7 +161,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			}).
 			Times(1)
 
-		mockTagging.EXPECT().UpdateTags(ctx, "sn-keep-arn", gomock.Any()).Return(nil)
+		mockTagging.EXPECT().UpdateTags(ctx, "sn-keep-arn", gomock.Any(), gomock.Any()).Return(nil)
 
 		// return managed by gateway controller tags for all associations except for foreign and foreign ram
 		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
@@ -259,7 +259,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			Tags:        svc.Spec.ToTags(),
 		})).Times(1)
 
-		mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", gomock.Any()).Return(nil)
+		mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", gomock.Any(), gomock.Any()).Return(nil)
 
 		mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).Times(1)
 		mockLattice.EXPECT().
@@ -358,7 +358,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			}).
 			Times(1) // for service only
 
-		mockTagging.EXPECT().UpdateTags(ctx, "standalone-svc-arn", gomock.Any()).Return(nil)
+		mockTagging.EXPECT().UpdateTags(ctx, "standalone-svc-arn", gomock.Any(), gomock.Any()).Return(nil)
 
 		// no associations exist for standalone service
 		mockLattice.EXPECT().
@@ -710,7 +710,7 @@ func Test_ServiceManager_WithAdditionalTags_UpdateService(t *testing.T) {
 		}).
 		Times(1)
 
-	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
 
 	mockLattice.EXPECT().
 		ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
@@ -726,7 +726,7 @@ func Test_ServiceManager_WithAdditionalTags_UpdateService(t *testing.T) {
 		}).
 		Times(1)
 
-	mockTagging.EXPECT().UpdateTags(ctx, "assoc-arn", svc.Spec.AdditionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "assoc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
 
 	status, err := m.Upsert(ctx, svc)
 	assert.Nil(t, err)
@@ -776,7 +776,7 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 		}).
 		Times(1)
 
-	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
 
 	mockLattice.EXPECT().
 		ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
@@ -798,7 +798,7 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 		}).
 		Times(1)
 
-	mockTagging.EXPECT().UpdateTags(ctx, "sn-keep-arn", svc.Spec.AdditionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "sn-keep-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
 
 	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
@@ -848,4 +848,129 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 	status, err := m.Upsert(ctx, svc)
 	assert.Nil(t, err)
 	assert.Equal(t, "svc-arn", status.Arn)
+}
+
+func Test_ServiceManager_ServiceTakeover(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id", ClusterName: "cluster"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := &Service{
+		Spec: model.ServiceSpec{
+			ServiceTagFields: model.ServiceTagFields{
+				RouteName:      "takeover-svc",
+				RouteNamespace: "ns",
+				RouteType:      core.HttpRouteType,
+			},
+			ServiceNetworkNames: []string{"sn"},
+			AllowTakeoverFrom:   "other-account/other-cluster/other-vpc",
+		},
+	}
+
+	mockLattice.EXPECT().
+		FindService(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ServiceSummary{
+			Arn:  aws.String("svc-arn"),
+			Id:   aws.String("svc-id"),
+			Name: aws.String(svc.LatticeServiceName()),
+		}, nil).
+		Times(1)
+
+	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+			return &vpclattice.ListTagsForResourceOutput{
+				Tags: map[string]*string{
+					pkg_aws.TagManagedBy: aws.String("other-account/other-cluster/other-vpc"),
+				},
+			}, nil
+		}).
+		Times(1)
+
+	mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Eq(&vpclattice.TagResourceInput{
+		ResourceArn: aws.String("svc-arn"),
+		Tags: map[string]*string{
+			pkg_aws.TagManagedBy: cl.DefaultTags()[pkg_aws.TagManagedBy],
+		},
+	})).Times(1)
+
+	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
+
+	mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
+		Return([]*SnSvcAssocSummary{
+			{
+				Arn:                aws.String("assoc-arn"),
+				Id:                 aws.String("assoc-id"),
+				ServiceNetworkName: aws.String("sn"),
+				Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+			},
+		}, nil).Times(1)
+
+	expectedAwsManagedTags := mocks.Tags{
+		pkg_aws.TagManagedBy: cl.DefaultTags()[pkg_aws.TagManagedBy],
+	}
+	mockTagging.EXPECT().UpdateTags(ctx, "assoc-arn", svc.Spec.AdditionalTags, expectedAwsManagedTags).Return(nil)
+
+	status, err := m.Upsert(ctx, svc)
+	assert.Nil(t, err)
+	assert.Equal(t, "svc-arn", status.Arn)
+}
+
+func Test_ServiceManager_ServiceTakeover_NotAllowed(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id", ClusterName: "cluster"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := &Service{
+		Spec: model.ServiceSpec{
+			ServiceTagFields: model.ServiceTagFields{
+				RouteName:      "conflict-svc",
+				RouteNamespace: "ns",
+				RouteType:      core.HttpRouteType,
+			},
+			ServiceNetworkNames: []string{"sn"},
+			AllowTakeoverFrom:   "expected-owner/expected-cluster/expected-vpc",
+		},
+	}
+
+	mockLattice.EXPECT().
+		FindService(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ServiceSummary{
+			Arn:  aws.String("svc-arn"),
+			Id:   aws.String("svc-id"),
+			Name: aws.String(svc.LatticeServiceName()),
+		}, nil).
+		Times(1)
+
+	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+			return &vpclattice.ListTagsForResourceOutput{
+				Tags: map[string]*string{
+					pkg_aws.TagManagedBy: aws.String("different-owner/different-cluster/different-vpc"),
+				},
+			}, nil
+		}).
+		Times(1)
+
+	mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Any()).Times(0)
+
+	mockTagging.EXPECT().UpdateTags(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	status, err := m.Upsert(ctx, svc)
+	assert.NotNil(t, err)
+	assert.True(t, mocks.IsConflictError(err))
+	assert.Contains(t, err.Error(), "Found existing resource not owned by controller")
+	assert.Contains(t, err.Error(), "svc-arn")
+	assert.Equal(t, "", status.Arn)
 }

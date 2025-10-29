@@ -116,7 +116,7 @@ func RegisterAllRouteControllers(
 		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
-			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.Or(predicates.NewRouteChangedPredicate(), predicates.AdditionalTagsAnnotationChangedPredicate))).
+			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.Or(predicates.NewRouteChangedPredicate(), predicates.AdditionalTagsAnnotationChangedPredicate, predicates.AllowTakeoverFromAnnotationChangedPredicate))).
 			Watches(&gwv1.Gateway{}, gwEventHandler).
 			Watches(&corev1.Service{}, svcEventHandler.MapToRoute(routeInfo.routeType)).
 			Watches(&anv1alpha1.ServiceImport{}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).

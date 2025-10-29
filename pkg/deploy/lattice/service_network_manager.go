@@ -233,7 +233,7 @@ func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx co
 		return model.ServiceNetworkStatus{}, err
 	}
 
-	err = m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(snva.Arn), additionalTags)
+	err = m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(snva.Arn), additionalTags, nil)
 	if err != nil {
 		return model.ServiceNetworkStatus{}, fmt.Errorf("failed to update tags for service network vpc association %s: %w", aws.StringValue(snva.Id), err)
 	}

@@ -149,10 +149,21 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 		return err
 	}
 	if !owned {
-		return services.NewConflictError("service", svc.Spec.RouteNamespace+"/"+svc.Spec.RouteName,
-			fmt.Sprintf("Found existing resource not owned by controller: %s", *svcSum.Arn))
+		canTakeover := m.canTakeoverService(svc, tagsResp.Tags)
+		if canTakeover {
+			currentOwner := m.cloud.GetManagedByFromTags(tagsResp.Tags)
+			newOwner := m.cloud.DefaultTags()[pkg_aws.TagManagedBy]
+			err = m.transferServiceOwnership(ctx, svcSum.Arn, newOwner)
+			if err != nil {
+				return fmt.Errorf("failed to takeover service %s from %s to %s: %w", svc.LatticeServiceName(), currentOwner, *newOwner, err)
+			}
+			m.log.Infof(ctx, "Successfully took over service %s from %s to %s", svc.LatticeServiceName(), currentOwner, *newOwner)
+			return nil
+		} else {
+			return services.NewConflictError("service", svc.Spec.RouteNamespace+"/"+svc.Spec.RouteName,
+				fmt.Sprintf("Found existing resource not owned by controller: %s", *svcSum.Arn))
+		}
 	}
-
 	tagFields := model.ServiceTagFieldsFromTags(tagsResp.Tags)
 	switch {
 	case tagFields.RouteName == "" && tagFields.RouteNamespace == "":
@@ -174,7 +185,7 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 }
 
 func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceInfo, error) {
-	err := m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(svcSum.Arn), svc.Spec.AdditionalTags)
+	err := m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(svcSum.Arn), svc.Spec.AdditionalTags, nil)
 	if err != nil {
 		return ServiceInfo{}, fmt.Errorf("failed to update tags for service %s: %w", aws.StringValue(svcSum.Id), err)
 	}
@@ -235,8 +246,15 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 		}
 	}
 
+	var awsManagedTags services.Tags
+	if svc.Spec.AllowTakeoverFrom != "" {
+		awsManagedTags = services.Tags{
+			pkg_aws.TagManagedBy: m.cloud.DefaultTags()[pkg_aws.TagManagedBy],
+		}
+	}
+
 	for _, assoc := range toUpdate {
-		err := m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(assoc.Arn), svc.Spec.AdditionalTags)
+		err := m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(assoc.Arn), svc.Spec.AdditionalTags, awsManagedTags)
 		if err != nil {
 			return fmt.Errorf("failed to update tags for association %s: %w", aws.StringValue(assoc.Arn), err)
 		}
@@ -436,4 +454,25 @@ func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error 
 		return err
 	}
 	return nil
+}
+
+func (m *defaultServiceManager) canTakeoverService(svc *Service, serviceTags services.Tags) bool {
+	takeoverFrom := svc.Spec.AllowTakeoverFrom
+	if takeoverFrom == "" {
+		return false
+	}
+
+	currentOwner := m.cloud.GetManagedByFromTags(serviceTags)
+
+	return currentOwner == takeoverFrom
+}
+
+func (m *defaultServiceManager) transferServiceOwnership(ctx context.Context, serviceArn *string, newOwner *string) error {
+	_, err := m.cloud.Lattice().TagResourceWithContext(ctx, &vpclattice.TagResourceInput{
+		ResourceArn: serviceArn,
+		Tags: map[string]*string{
+			pkg_aws.TagManagedBy: newOwner,
+		},
+	})
+	return err
 }

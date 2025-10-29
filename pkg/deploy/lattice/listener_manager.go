@@ -77,7 +77,14 @@ func (d *defaultListenerManager) Upsert(
 		ServiceId:   latticeSvcId,
 	}
 
-	err = d.cloud.Tagging().UpdateTags(ctx, aws.StringValue(latticeListenerSummary.Arn), modelListener.Spec.AdditionalTags)
+	var awsManagedTags services.Tags
+	if modelSvc.Spec.AllowTakeoverFrom != "" {
+		awsManagedTags = services.Tags{
+			pkg_aws.TagManagedBy: d.cloud.DefaultTags()[pkg_aws.TagManagedBy],
+		}
+	}
+
+	err = d.cloud.Tagging().UpdateTags(ctx, aws.StringValue(latticeListenerSummary.Arn), modelListener.Spec.AdditionalTags, awsManagedTags)
 	if err != nil {
 		return model.ListenerStatus{}, fmt.Errorf("failed to update tags for listener %s due to %s", aws.StringValue(latticeListenerSummary.Id), err)
 	}

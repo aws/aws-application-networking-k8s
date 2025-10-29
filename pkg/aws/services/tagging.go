@@ -37,7 +37,7 @@ type Tagging interface {
 	FindResourcesByTags(ctx context.Context, resourceType ResourceType, tags Tags) ([]string, error)
 
 	// Updates tags for a given resource ARN
-	UpdateTags(ctx context.Context, resourceArn string, newTags Tags) error
+	UpdateTags(ctx context.Context, resourceArn string, additionalTags Tags, awsManagedTags Tags) error
 }
 
 type defaultTagging struct {
@@ -170,14 +170,21 @@ func convertTagsToFilter(tags Tags) []*taggingapi.TagFilter {
 	return filters
 }
 
-func (t *defaultTagging) UpdateTags(ctx context.Context, resourceArn string, newTags Tags) error {
+func (t *defaultTagging) UpdateTags(ctx context.Context, resourceArn string, additionalTags Tags, awsManagedTags Tags) error {
 	existingTags, err := t.GetTagsForArns(ctx, []string{resourceArn})
 	if err != nil {
 		return fmt.Errorf("failed to get existing tags: %w", err)
 	}
 
 	currentTags := k8s.GetNonAWSManagedTags(existingTags[resourceArn])
-	filteredNewTags := k8s.GetNonAWSManagedTags(newTags)
+	filteredNewTags := k8s.GetNonAWSManagedTags(additionalTags)
+
+	for key, value := range awsManagedTags {
+		if existingValue, exists := existingTags[resourceArn][key]; exists {
+			currentTags[key] = existingValue
+		}
+		filteredNewTags[key] = value
+	}
 
 	tagsToAdd, tagsToRemove := k8s.CalculateTagDifference(currentTags, filteredNewTags)
 
@@ -204,7 +211,7 @@ func (t *defaultTagging) UpdateTags(ctx context.Context, resourceArn string, new
 	return nil
 }
 
-func (t *latticeTagging) UpdateTags(ctx context.Context, resourceArn string, newTags Tags) error {
+func (t *latticeTagging) UpdateTags(ctx context.Context, resourceArn string, additionalTags Tags, awsManagedTags Tags) error {
 	existingTags, err := t.ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
 		ResourceArn: aws.String(resourceArn),
 	})
@@ -213,7 +220,14 @@ func (t *latticeTagging) UpdateTags(ctx context.Context, resourceArn string, new
 	}
 
 	currentTags := k8s.GetNonAWSManagedTags(existingTags.Tags)
-	filteredNewTags := k8s.GetNonAWSManagedTags(newTags)
+	filteredNewTags := k8s.GetNonAWSManagedTags(additionalTags)
+
+	for key, value := range awsManagedTags {
+		if existingValue, exists := existingTags.Tags[key]; exists {
+			currentTags[key] = existingValue
+		}
+		filteredNewTags[key] = value
+	}
 
 	tagsToAdd, tagsToRemove := k8s.CalculateTagDifference(currentTags, filteredNewTags)
 

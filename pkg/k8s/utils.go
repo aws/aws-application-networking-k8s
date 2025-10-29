@@ -32,6 +32,9 @@ const (
 	// Additional tags
 	TagsAnnotationKey = AnnotationPrefix + "tags"
 
+	// HttpRoute takeover annotation
+	AllowTakeoverFromAnnotation = AnnotationPrefix + "allow-takeover-from"
+
 	// AWS tag validation limits
 	maxTagKeyLength   = 128
 	maxTagValueLength = 256

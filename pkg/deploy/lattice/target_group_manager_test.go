@@ -252,7 +252,7 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
 			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
-			mockTagging.EXPECT().UpdateTags(ctx, arn, tgSpec.AdditionalTags).Return(nil)
+			mockTagging.EXPECT().UpdateTags(ctx, arn, tgSpec.AdditionalTags, nil).Return(nil)
 
 			if tt.wantErr {
 				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("error"))
@@ -323,7 +323,7 @@ func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{"arn"}, nil)
 	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
 
-	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "arn", gomock.Any(), nil).Return(nil)
 
 	mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
 
@@ -1236,7 +1236,7 @@ func Test_update_ServiceExportWithPolicy_Integration(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345", gomock.Any(), nil).Return(nil)
 
 	// Since we don't have a real k8s k8sClient in this test, we'll test the case where
 	// no k8sClient is available (which should fall back to default behavior)
@@ -1455,7 +1455,7 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 				},
 			}
 
-			mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+			mockTagging.EXPECT().UpdateTags(ctx, "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345", gomock.Any(), nil).Return(nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, k8sClient)
 
@@ -1639,7 +1639,7 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 				},
 			}
 
-			mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+			mockTagging.EXPECT().UpdateTags(ctx, "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345", gomock.Any(), nil).Return(nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, k8sClient)
 

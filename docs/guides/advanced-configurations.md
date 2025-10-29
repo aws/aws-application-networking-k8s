@@ -132,3 +132,42 @@ spec:
       port: 80
       targetPort: 8090
 ```
+
+### Blue/Green Multi-Cluster Migration with Service Takeover
+
+For blue/green cluster migrations, the controller supports automated takeover of VPC Lattice services using the `allow-takeover-from` annotation. This eliminates the need for manual ManagedBy tag changes during cluster migrations.
+
+#### Migration Workflow
+
+1. Blue cluster creates HTTPRoute
+2. Blue cluster exports service using ServiceExport (creates standalone target group for cross-cluster access)
+3. Green cluster imports blue service using ServiceImport (references the exported target group from blue cluster)
+4. Green cluster creates HTTPRoute with takeover annotation to claim the existing VPC Lattice service:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: inventory-service
+  annotations:
+    application-networking.k8s.aws/allow-takeover-from: "123456789012/blue-cluster/vpc-0abc123def456789"
+spec:
+  parentRefs:
+  - name: my-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /inventory
+    backendRefs:
+    - name: inventory-ver1 
+      kind: ServiceImport
+      weight: 90
+    - name: inventory-ver2
+      kind: Service
+      port: 80
+      weight: 10
+```
+
+5. Controller takes over the VPC Lattice service and updates it to reflect traffic weights in green HTTPRoute
+6. Controller updates ManagedBy tag on service, service network service association, listeners, and rules to transfer ownership

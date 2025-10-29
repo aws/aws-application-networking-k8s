@@ -19,6 +19,7 @@ type ServiceSpec struct {
 	CustomerDomainName  string        `json:"customerdomainname"`
 	CustomerCertARN     string        `json:"customercertarn"`
 	AdditionalTags      services.Tags `json:"additionaltags,omitempty"`
+	AllowTakeoverFrom   string        `json:"allowtakeoverfrom,omitempty"`
 }
 
 type ServiceStatus struct {

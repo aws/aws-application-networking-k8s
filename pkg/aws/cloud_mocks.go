@@ -77,6 +77,20 @@ func (mr *MockCloudMockRecorder) DefaultTagsMergedWith(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultTagsMergedWith", reflect.TypeOf((*MockCloud)(nil).DefaultTagsMergedWith), arg0)
 }
 
+// GetManagedByFromTags mocks base method.
+func (m *MockCloud) GetManagedByFromTags(arg0 map[string]*string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetManagedByFromTags", arg0)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetManagedByFromTags indicates an expected call of GetManagedByFromTags.
+func (mr *MockCloudMockRecorder) GetManagedByFromTags(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetManagedByFromTags", reflect.TypeOf((*MockCloud)(nil).GetManagedByFromTags), arg0)
+}
+
 // IsArnManaged mocks base method.
 func (m *MockCloud) IsArnManaged(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
