@@ -149,8 +149,7 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 		return err
 	}
 	if !owned {
-		canTakeover := m.canTakeoverService(svc, tagsResp.Tags)
-		if canTakeover {
+		if m.canTakeoverService(svc, tagsResp.Tags) {
 			currentOwner := m.cloud.GetManagedByFromTags(tagsResp.Tags)
 			newOwner := m.cloud.DefaultTags()[pkg_aws.TagManagedBy]
 			err = m.transferServiceOwnership(ctx, svcSum.Arn, newOwner)

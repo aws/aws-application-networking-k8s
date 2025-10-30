@@ -135,7 +135,7 @@ spec:
 
 ### Blue/Green Multi-Cluster Migration with Service Takeover
 
-For blue/green cluster migrations, the controller supports automated takeover of VPC Lattice services using the `allow-takeover-from` annotation. This eliminates the need for manual ManagedBy tag changes during cluster migrations.
+For blue/green cluster migrations, the controller supports automated takeover of VPC Lattice services using the `application-networking.k8s.aws/allow-takeover-from` annotation. The annotation value must match the value of the `application-networking.k8s.aws/ManagedBy` tag on the VPC Lattice Service, which has the format `{AWS_ACCOUNT_ID}/{CLUSTER_NAME}/{VPC_ID}` (e.g., "123456789012/blue-cluster/vpc-0abc123def456789"). This eliminates the need for manual ManagedBy tag changes during cluster migrations.
 
 #### Migration Workflow
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/aws"
@@ -59,7 +58,7 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(*getServiceResp.Status).To(Equal("ACTIVE"))
-		}).WithTimeout(2 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 
 		listenerResp, err := testFramework.LatticeClient.CreateListener(&vpclattice.CreateListenerInput{
 			ServiceIdentifier: preCreatedServiceArn,
@@ -99,7 +98,7 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(*getTargetGroupResp.Status).To(Equal("ACTIVE"))
-		}).WithTimeout(2 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 
 		_, err = testFramework.LatticeClient.RegisterTargets(&vpclattice.RegisterTargetsInput{
 			TargetGroupIdentifier: preCreatedTargetGroupArn,
@@ -160,7 +159,7 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(*getAssocResp.Status).To(Equal("ACTIVE"))
-		}).WithTimeout(2 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	It("Creating HTTPRoute without takeover annotation should fail", func() {
@@ -238,7 +237,7 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 				}
 			}
 			g.Expect(found).To(BeTrue())
-		}).WithTimeout(2 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	It("Adding takeover annotation to HttpRoute should allow HttpRoute to takeover the service", func() {
@@ -251,7 +250,7 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 			}
 			err = testFramework.Update(ctx, httpRoute)
 			g.Expect(err).To(BeNil())
-		}).WithTimeout(2 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	It("Verify takeover completed successfully", func() {
@@ -311,7 +310,7 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 			assocManagedByTag := assocTags.Tags["application-networking.k8s.aws/ManagedBy"]
 			g.Expect(*assocManagedByTag).To(Equal(currentManagedBy))
 
-		}).WithTimeout(5 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	AfterAll(func() {
@@ -360,7 +359,7 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 						ServiceNetworkServiceAssociationIdentifier: preCreatedAssociationArn,
 					})
 					g.Expect(err).To(HaveOccurred())
-				}).WithTimeout(2 * time.Minute).Should(Succeed())
+				}).Should(Succeed())
 			}
 		}
 
