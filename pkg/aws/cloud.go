@@ -52,6 +52,9 @@ type Cloud interface {
 	// MergeTags creates a new tag map by merging baseTags and additionalTags.
 	// BaseTags will override additionalTags for any duplicate keys.
 	MergeTags(baseTags services.Tags, additionalTags services.Tags) services.Tags
+
+	// GetManagedByFromTags extracts the ManagedBy tag value from a tags map
+	GetManagedByFromTags(tags services.Tags) string
 }
 
 // NewCloud constructs new Cloud implementation.
@@ -168,7 +171,7 @@ func (c *defaultCloud) getTags(ctx context.Context, arn string) (services.Tags, 
 	return resp.Tags, nil
 }
 
-func (c *defaultCloud) getManagedByFromTags(tags services.Tags) string {
+func (c *defaultCloud) GetManagedByFromTags(tags services.Tags) string {
 	tag, ok := tags[TagManagedBy]
 	if !ok || tag == nil {
 		return ""
@@ -181,7 +184,7 @@ func (c *defaultCloud) IsArnManaged(ctx context.Context, arn string) (bool, erro
 	if err != nil {
 		return false, err
 	}
-	return c.isOwner(c.getManagedByFromTags(tags)), nil
+	return c.isOwner(c.GetManagedByFromTags(tags)), nil
 }
 
 func (c *defaultCloud) TryOwn(ctx context.Context, arn string) (bool, error) {
@@ -195,7 +198,7 @@ func (c *defaultCloud) TryOwn(ctx context.Context, arn string) (bool, error) {
 
 func (c *defaultCloud) TryOwnFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error) {
 	// For resources that need backwards compatibility - not having managedBy is considered as owned by controller.
-	managedBy := c.getManagedByFromTags(tags)
+	managedBy := c.GetManagedByFromTags(tags)
 	if managedBy == "" {
 		err := c.ownResource(ctx, arn)
 		if err != nil {

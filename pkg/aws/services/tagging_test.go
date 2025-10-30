@@ -436,69 +436,96 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 		name               string
 		resourceArn        string
 		existingTags       Tags
-		newTags            Tags
+		additionalTags     Tags
+		awsManagedTags     Tags
 		expectedTagCalls   int
 		expectedUntagCalls int
 		expectError        bool
 		description        string
 	}{
 		{
-			name:        "nil new tags removes all existing additional tags",
+			name:        "nil additional tags removes all existing additional tags",
 			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{
 				"Environment": aws.String("Dev"),
 				"Project":     aws.String("MyApp"),
 				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
 			},
-			newTags:            nil,
+			additionalTags:     nil,
+			awsManagedTags:     nil,
 			expectedTagCalls:   0,
 			expectedUntagCalls: 1,
 			expectError:        false,
-			description:        "should remove all additional tags when newTags is nil",
+			description:        "should remove all additional tags when additionalTags is nil",
 		},
 		{
-			name:        "add new tags when no existing additional tags",
+			name:        "add new additional tags when no existing additional tags",
 			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{
 				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
 			},
-			newTags: Tags{
+			additionalTags: Tags{
 				"Environment": aws.String("Dev"),
 				"Project":     aws.String("MyApp"),
+			},
+			awsManagedTags:     nil,
+			expectedTagCalls:   1,
+			expectedUntagCalls: 0,
+			expectError:        false,
+			description:        "should add new additional tags when no existing additional tags",
+		},
+		{
+			name:        "update AWS managed tags only",
+			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
+			existingTags: Tags{
+				"Environment": aws.String("Dev"),
+				"application-networking.k8s.aws/ManagedBy": aws.String("old-cluster/old-vpc"),
+			},
+			additionalTags: Tags{
+				"Environment": aws.String("Dev"),
+			},
+			awsManagedTags: Tags{
+				"application-networking.k8s.aws/ManagedBy": aws.String("new-cluster/new-vpc"),
 			},
 			expectedTagCalls:   1,
 			expectedUntagCalls: 0,
 			expectError:        false,
-			description:        "should add new tags when no existing additional tags",
+			description:        "should update AWS managed tags when provided",
 		},
 		{
-			name:        "update existing additional tags",
+			name:        "update both additional and AWS managed tags",
 			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{
 				"Environment": aws.String("Dev"),
 				"Project":     aws.String("OldApp"),
-				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+				"application-networking.k8s.aws/ManagedBy": aws.String("old-cluster/old-vpc"),
 			},
-			newTags: Tags{
+			additionalTags: Tags{
 				"Environment": aws.String("Prod"),
 				"Project":     aws.String("NewApp"),
+			},
+			awsManagedTags: Tags{
+				"application-networking.k8s.aws/ManagedBy": aws.String("new-cluster/new-vpc"),
 			},
 			expectedTagCalls:   1,
 			expectedUntagCalls: 0,
 			expectError:        false,
-			description:        "should update changed additional tag values",
+			description:        "should update both additional and AWS managed tags",
 		},
 		{
-			name:        "no changes needed",
+			name:        "no changes needed with AWS managed tags",
 			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{
 				"Environment": aws.String("Dev"),
 				"Project":     aws.String("MyApp"),
 				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
 			},
-			newTags: Tags{
+			additionalTags: Tags{
 				"Environment": aws.String("Dev"),
 				"Project":     aws.String("MyApp"),
+			},
+			awsManagedTags: Tags{
+				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
 			},
 			expectedTagCalls:   0,
 			expectedUntagCalls: 0,
@@ -506,17 +533,21 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 			description:        "should not make API calls when no changes needed",
 		},
 		{
-			name:         "filters out AWS managed tags from new tags",
+			name:         "filters out AWS managed tags from additional tags",
 			resourceArn:  "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{},
-			newTags: Tags{
+			additionalTags: Tags{
 				"application-networking.k8s.aws/ManagedBy": aws.String("test-override"),
 				"application-networking.k8s.aws/RouteType": aws.String("http"),
+				"Environment": aws.String("Dev"),
 			},
-			expectedTagCalls:   0,
+			awsManagedTags: Tags{
+				"application-networking.k8s.aws/ManagedBy": aws.String("correct-value"),
+			},
+			expectedTagCalls:   1,
 			expectedUntagCalls: 0,
 			expectError:        false,
-			description:        "should filter out AWS managed tags from new tags, resulting in no API calls",
+			description:        "should filter out AWS managed tags from additional tags but include them from awsManagedTags",
 		},
 	}
 
@@ -542,7 +573,7 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 					Return(nil, nil).Times(tt.expectedTagCalls)
 			}
 
-			err := lt.UpdateTags(ctx, tt.resourceArn, tt.newTags)
+			err := lt.UpdateTags(ctx, tt.resourceArn, tt.additionalTags, tt.awsManagedTags)
 
 			if tt.expectError {
 				assert.Error(t, err, tt.description)

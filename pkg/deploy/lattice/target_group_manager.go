@@ -132,7 +132,7 @@ func (s *defaultTargetGroupManager) create(ctx context.Context, modelTg *model.T
 func (s *defaultTargetGroupManager) update(ctx context.Context, targetGroup *model.TargetGroup, latticeTg *vpclattice.GetTargetGroupOutput) (model.TargetGroupStatus, error) {
 	healthCheckConfig := targetGroup.Spec.HealthCheckConfig
 
-	err := s.awsCloud.Tagging().UpdateTags(ctx, aws.StringValue(latticeTg.Arn), targetGroup.Spec.AdditionalTags)
+	err := s.awsCloud.Tagging().UpdateTags(ctx, aws.StringValue(latticeTg.Arn), targetGroup.Spec.AdditionalTags, nil)
 	if err != nil {
 		return model.TargetGroupStatus{}, fmt.Errorf("failed to update tags for target group %s: %w", aws.StringValue(latticeTg.Id), err)
 	}

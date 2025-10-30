@@ -144,7 +144,7 @@ func Test_UpsertListener_DoNotNeedToUpdateExistingHTTPAndHTTPSListener(t *testin
 					},
 				}}, nil)
 
-			mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any()).Return(nil)
+			mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
 
 			mockLattice.EXPECT().GetListenerWithContext(ctx, gomock.Any()).Times(0)
 			mockLattice.EXPECT().UpdateListenerWithContext(ctx, gomock.Any()).Times(0)
@@ -279,7 +279,7 @@ func Test_UpsertListener_Update_TLS_PASSTHROUGHListener(t *testing.T) {
 					},
 				}}, nil)
 
-			mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any()).Return(nil)
+			mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
 
 			mockLattice.EXPECT().GetListenerWithContext(ctx, &vpclattice.GetListenerInput{
 				ServiceIdentifier:  aws.String("svc-id"),
@@ -748,7 +748,7 @@ func Test_ListenerManager_WithAdditionalTags_UpdateHTTP(t *testing.T) {
 			},
 		}}, nil)
 
-	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", ml.Spec.AdditionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", ml.Spec.AdditionalTags, nil).Return(nil)
 
 	// No UpdateListener call expected for HTTP listeners (only tags are updated)
 	mockLattice.EXPECT().UpdateListenerWithContext(ctx, gomock.Any()).Times(0)
@@ -807,7 +807,7 @@ func Test_ListenerManager_WithAdditionalTags_UpdateTLSPassthrough(t *testing.T) 
 			},
 		}}, nil)
 
-	mockTagging.EXPECT().UpdateTags(ctx, "existing-tls-arn", ml.Spec.AdditionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "existing-tls-arn", ml.Spec.AdditionalTags, nil).Return(nil)
 
 	mockLattice.EXPECT().GetListenerWithContext(ctx, gomock.Any()).Return(
 		&vpclattice.GetListenerOutput{
@@ -834,4 +834,54 @@ func Test_ListenerManager_WithAdditionalTags_UpdateTLSPassthrough(t *testing.T) 
 	assert.Nil(t, err)
 	assert.Equal(t, "existing-tls-arn", status.ListenerArn)
 	assert.Equal(t, "existing-tls-id", status.Id)
+}
+
+func Test_ListenerManager_WithTakeoverAnnotation_UpdateTags(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	ml := &model.Listener{
+		Spec: model.ListenerSpec{
+			Protocol: vpclattice.ListenerProtocolHttp,
+			Port:     8080,
+			DefaultAction: &model.DefaultAction{
+				FixedResponseStatusCode: aws.Int64(404),
+			},
+			AdditionalTags: mocks.Tags{
+				"Environment": &[]string{"Takeover"}[0],
+			},
+		},
+	}
+
+	ms := &model.Service{
+		Spec: model.ServiceSpec{
+			AllowTakeoverFrom: "other-account/other-cluster/other-vpc",
+		},
+		Status: &model.ServiceStatus{Id: "svc-id"},
+	}
+
+	mockLattice.EXPECT().ListListenersWithContext(ctx, gomock.Any()).Return(
+		&vpclattice.ListListenersOutput{Items: []*vpclattice.ListenerSummary{
+			{
+				Arn:  aws.String("existing-arn"),
+				Id:   aws.String("existing-id"),
+				Name: aws.String("existing-name"),
+				Port: aws.Int64(8080),
+			},
+		}}, nil)
+
+	expectedAwsManagedTags := mocks.Tags{
+		pkg_aws.TagManagedBy: cloud.DefaultTags()[pkg_aws.TagManagedBy],
+	}
+	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", ml.Spec.AdditionalTags, expectedAwsManagedTags).Return(nil)
+
+	lm := NewListenerManager(gwlog.FallbackLogger, cloud)
+	status, err := lm.Upsert(ctx, ml, ms)
+	assert.Nil(t, err)
+	assert.Equal(t, "existing-arn", status.ListenerArn)
+	assert.Equal(t, "existing-id", status.Id)
 }

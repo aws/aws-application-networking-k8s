@@ -326,7 +326,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
 
-		mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, gomock.Any()).Return(nil)
+		mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, gomock.Any(), nil).Return(nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
@@ -635,7 +635,7 @@ func Test_AccessLogSubscriptionManager_WithAdditionalTags_Update(t *testing.T) {
 	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 	mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
 
-	mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, accessLogSubscription.Spec.AdditionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, accessLogSubscription.Spec.AdditionalTags, nil).Return(nil)
 
 	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 	resp, err := mgr.Update(ctx, accessLogSubscription)

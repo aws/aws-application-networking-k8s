@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -194,7 +195,7 @@ func (r *defaultRuleManager) Upsert(
 	if matchingRule == nil {
 		return r.create(ctx, currentLatticeRules, latticeRuleFromModel, latticeServiceId, latticeListenerId, modelRule)
 	} else {
-		return r.updateIfNeeded(ctx, latticeRuleFromModel, matchingRule, latticeServiceId, latticeListenerId, modelRule)
+		return r.updateIfNeeded(ctx, latticeRuleFromModel, matchingRule, latticeServiceId, latticeListenerId, modelRule, modelSvc)
 	}
 }
 
@@ -205,6 +206,7 @@ func (r *defaultRuleManager) updateIfNeeded(
 	latticeSvcId string,
 	latticeListenerId string,
 	modelRule *model.Rule,
+	modelSvc *model.Service,
 ) (model.RuleStatus, error) {
 	updatedRuleStatus := model.RuleStatus{
 		Name:       aws.StringValue(matchingRule.Name),
@@ -215,7 +217,14 @@ func (r *defaultRuleManager) updateIfNeeded(
 		Priority:   aws.Int64Value(matchingRule.Priority),
 	}
 
-	err := r.cloud.Tagging().UpdateTags(ctx, aws.StringValue(matchingRule.Arn), modelRule.Spec.AdditionalTags)
+	var awsManagedTags services.Tags
+	if modelSvc.Spec.AllowTakeoverFrom != "" {
+		awsManagedTags = services.Tags{
+			pkg_aws.TagManagedBy: r.cloud.DefaultTags()[pkg_aws.TagManagedBy],
+		}
+	}
+
+	err := r.cloud.Tagging().UpdateTags(ctx, aws.StringValue(matchingRule.Arn), modelRule.Spec.AdditionalTags, awsManagedTags)
 	if err != nil {
 		return model.RuleStatus{}, fmt.Errorf("failed to update tags for rule %s: %w", aws.StringValue(matchingRule.Id), err)
 	}

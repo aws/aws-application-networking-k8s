@@ -166,7 +166,7 @@ func Test_Create(t *testing.T) {
 				},
 			}, nil)
 
-		mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any()).Return(nil)
+		mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
 
 		mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Return(
 			&vpclattice.UpdateRuleOutput{
@@ -209,7 +209,7 @@ func Test_Create(t *testing.T) {
 				},
 			}, nil)
 
-		mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any()).Return(nil)
+		mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
 
 		mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Return(
 			&vpclattice.UpdateRuleOutput{
@@ -253,7 +253,7 @@ func Test_Create(t *testing.T) {
 				},
 			}, nil) // <-- should be an exact match, no update required
 
-		mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any()).Return(nil)
+		mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
 
 		rm := NewRuleManager(gwlog.FallbackLogger, cloudWithTagging)
 		ruleStatus, err := rm.Upsert(ctx, r, l, svc)
@@ -533,7 +533,7 @@ func Test_RuleManager_WithAdditionalTags_Update(t *testing.T) {
 			},
 		}, nil)
 
-	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", r.Spec.AdditionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", r.Spec.AdditionalTags, nil).Return(nil)
 
 	mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Return(
 		&vpclattice.UpdateRuleOutput{
@@ -615,9 +615,88 @@ func Test_RuleManager_WithAdditionalTags_UpdateNoActionChange(t *testing.T) {
 		}, nil)
 
 	// Mock UpdateTags call for additional tags (should still be called even if no action update)
-	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", r.Spec.AdditionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", r.Spec.AdditionalTags, nil).Return(nil)
 
 	// No UpdateRule call expected since action matches
+	mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Times(0)
+
+	rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+	ruleStatus, err := rm.Upsert(ctx, r, l, svc)
+	assert.Nil(t, err)
+	assert.Equal(t, "existing-arn", ruleStatus.Arn)
+}
+
+func Test_RuleManager_WithTakeoverAnnotation_UpdateTags(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	svc := &model.Service{
+		Spec: model.ServiceSpec{
+			AllowTakeoverFrom: "other-account/other-cluster/other-vpc",
+		},
+		Status: &model.ServiceStatus{Id: "svc-id"},
+	}
+
+	l := &model.Listener{
+		Spec: model.ListenerSpec{
+			Port:     80,
+			Protocol: "HTTP",
+		},
+		Status: &model.ListenerStatus{Id: "listener-id"},
+	}
+
+	r := &model.Rule{
+		Spec: model.RuleSpec{
+			Priority: 1,
+			Method:   "POST",
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{
+						LatticeTgId: "tg-id",
+						Weight:      1,
+					},
+				},
+			},
+			AdditionalTags: mocks.Tags{
+				"Environment": &[]string{"Takeover"}[0],
+			},
+		},
+	}
+
+	mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+		[]*vpclattice.GetRuleOutput{
+			{
+				Id:  aws.String("existing-id"),
+				Arn: aws.String("existing-arn"),
+				Match: &vpclattice.RuleMatch{
+					HttpMatch: &vpclattice.HttpMatch{
+						Method: aws.String("POST"),
+					},
+				},
+				Action: &vpclattice.RuleAction{
+					Forward: &vpclattice.ForwardAction{
+						TargetGroups: []*vpclattice.WeightedTargetGroup{
+							{
+								TargetGroupIdentifier: aws.String("tg-id"),
+								Weight:                aws.Int64(1),
+							},
+						},
+					},
+				},
+				Name:     aws.String("existing-name"),
+				Priority: aws.Int64(1),
+			},
+		}, nil)
+
+	expectedAwsManagedTags := mocks.Tags{
+		pkg_aws.TagManagedBy: cloud.DefaultTags()[pkg_aws.TagManagedBy],
+	}
+	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", r.Spec.AdditionalTags, expectedAwsManagedTags).Return(nil)
+
 	mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Times(0)
 
 	rm := NewRuleManager(gwlog.FallbackLogger, cloud)

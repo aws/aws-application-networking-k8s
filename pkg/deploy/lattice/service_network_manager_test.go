@@ -525,7 +525,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Update
 		Tags: cloud.DefaultTags(),
 	}, nil)
 
-	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any(), nil).Return(nil)
 
 	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).MaxTimes(0)
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{
@@ -591,7 +591,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Securi
 		Tags: cloud.DefaultTags(),
 	}, nil)
 
-	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, snvaArn, nil, nil).Return(nil)
 
 	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
@@ -695,7 +695,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Cannot
 		Tags: cloud.DefaultTags(),
 	}, nil)
 
-	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any()).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, snvaArn, gomock.Any(), nil).Return(nil)
 
 	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
 	updateSNVAError := errors.New("InvalidParameterException SecurityGroupIds cannot be empty")
@@ -762,7 +762,7 @@ func Test_UpsertVpcAssociation_WithAdditionalTags_ExistingAssociation(t *testing
 		"Project":     &[]string{"SNManager"}[0],
 	}
 
-	mockTagging.EXPECT().UpdateTags(ctx, snvaArn, additionalTags).Return(nil)
+	mockTagging.EXPECT().UpdateTags(ctx, snvaArn, additionalTags, nil).Return(nil)
 
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
 

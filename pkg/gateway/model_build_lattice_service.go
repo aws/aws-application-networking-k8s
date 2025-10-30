@@ -189,6 +189,12 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	}
 	spec.CustomerCertARN = certArn
 
+	allowTakeoverFrom, err := t.getAllowTakeoverFrom(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get takeover annotation: %w", err)
+	}
+	spec.AllowTakeoverFrom = allowTakeoverFrom
+
 	svc, err := model.NewLatticeService(t.stack, spec)
 	if err != nil {
 		return nil, err
@@ -275,4 +281,21 @@ func (t *latticeServiceModelBuildTask) isStandaloneMode(ctx context.Context) (bo
 	t.log.Debugf(ctx, "Standalone mode for route %s/%s: %t",
 		t.route.Namespace(), t.route.Name(), standalone)
 	return standalone, nil
+}
+
+func (t *latticeServiceModelBuildTask) getAllowTakeoverFrom(ctx context.Context) (string, error) {
+	annotations := t.route.K8sObject().GetAnnotations()
+	if annotations == nil {
+		return "", nil
+	}
+
+	takeoverFrom := annotations[k8s.AllowTakeoverFromAnnotation]
+	if takeoverFrom == "" {
+		return "", nil
+	}
+
+	t.log.Debugf(ctx, "Found allow-takeover-from annotation: %s for route %s/%s",
+		takeoverFrom, t.route.Namespace(), t.route.Name())
+
+	return takeoverFrom, nil
 }
