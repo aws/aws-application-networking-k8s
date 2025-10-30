@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-application-networking-k8s v0.3.0
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/imdario/mergo v0.3.16
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.1
 	github.com/onsi/gomega v1.38.2
 	github.com/samber/lo v1.52.0
 	go.uber.org/zap v1.27.0

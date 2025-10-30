@@ -39,7 +39,8 @@ For the additional tags functionality to work properly, the IAM role linked to t
     "Effect": "Allow",
     "Action": [
         "tag:TagResources",
-        "tag:UntagResources"
+        "tag:UntagResources",
+        "tag:GetResources"
     ],
     "Resource": "*"
 }
