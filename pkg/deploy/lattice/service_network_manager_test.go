@@ -479,9 +479,9 @@ func Test_CreateSn_SnNotExist_SnCreateFailed(t *testing.T) {
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_UpdateSNVASecurityGroups(t *testing.T) {
 	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
 
-	snId := "12345678912345678912"
-	snArn := "12345678912345678912"
-	snvaArn := "12345678912345678912"
+	snId := "sn-12345678912345678"
+	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
+	snvaArn := "arn:aws:vpc-lattice:region:account-id:servicenetworkvpcassociation/snva-12345678912345678"
 	name := "test"
 	vpcId := config.VpcID
 	item := vpclattice.ServiceNetworkSummary{
@@ -539,14 +539,14 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Update
 	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, nil)
 
 	assert.Equal(t, err, nil)
-	assert.Equal(t, resp, snArn)
+	assert.Equal(t, resp, snvaArn)
 }
 
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_SecurityGroupsDoNotNeedToBeUpdated(t *testing.T) {
 	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
-	snId := "12345678912345678912"
-	snArn := "12345678912345678912"
-	snvaArn := "12345678912345678912"
+	snId := "sn-12345678912345678"
+	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
+	snvaArn := "arn:aws:vpc-lattice:region:account-id:servicenetworkvpcassociation/snva-12345678912345678"
 	name := "test"
 	vpcId := config.VpcID
 	item := vpclattice.ServiceNetworkSummary{
@@ -600,7 +600,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Securi
 	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, nil)
 
 	assert.Equal(t, err, nil)
-	assert.Equal(t, resp, snArn)
+	assert.Equal(t, resp, snvaArn)
 }
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgress_WillNotInvokeLatticeUpdateSNVA(t *testing.T) {
 	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
@@ -649,9 +649,9 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgr
 
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_CannotUpdateSecurityGroupsFromNonemptyToEmpty(t *testing.T) {
 	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
-	snId := "12345678912345678912"
-	snArn := "12345678912345678912"
-	snvaArn := "12345678912345678912"
+	snId := "sn-12345678912345678"
+	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
+	snvaArn := "arn:aws:vpc-lattice:region:account-id:servicenetworkvpcassociation/snva-12345678912345678"
 	name := "test"
 	item := vpclattice.ServiceNetworkSummary{
 		Arn:  &snArn,
@@ -709,9 +709,9 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Cannot
 
 func Test_UpsertVpcAssociation_WithAdditionalTags_ExistingAssociation(t *testing.T) {
 	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
-	snId := "12345678912345678912"
-	snArn := "12345678912345678912"
-	snvaArn := "12345678912345678912"
+	snId := "sn-12345678912345678"
+	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
+	snvaArn := "arn:aws:vpc-lattice:region:account-id:servicenetworkvpcassociation/snva-12345678912345678"
 	name := "test"
 	vpcId := config.VpcID
 	item := vpclattice.ServiceNetworkSummary{
