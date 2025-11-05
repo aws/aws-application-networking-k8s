@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -52,18 +53,35 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 	}
 	if snva != nil {
 		// association is active
-		owned, err := m.cloud.TryOwn(ctx, *snva.Arn)
+		// Check if this is a RAM-shared network by examining the service network ARN
+		isLocal, err := m.isLocalServiceNetwork(sn.SvcNetwork.Arn)
 		if err != nil {
 			return "", err
 		}
-		if !owned {
-			return "", services.NewConflictError("snva", snName,
-				fmt.Sprintf("Found existing vpc association not owned by controller: %s", *snva.Arn))
+
+		if isLocal {
+			// For local networks, check ownership as before
+			owned, err := m.cloud.TryOwn(ctx, *snva.Arn)
+			if err != nil {
+				return "", err
+			}
+			if !owned {
+				return "", services.NewConflictError("snva", snName,
+					fmt.Sprintf("Found existing vpc association not owned by controller: %s", *snva.Arn))
+			}
+
+			// Update if needed
+			_, err = m.updateServiceNetworkVpcAssociation(ctx, &sn.SvcNetwork, sgIds, snva.Id, additionalTags)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			// For RAM-shared networks, we can't modify the association
+			// Just return the existing ARN and log
+			m.log.Infof(ctx, "Using existing VPC association for RAM-shared service network %s: %s",
+				snName, *snva.Arn)
 		}
-		_, err = m.updateServiceNetworkVpcAssociation(ctx, &sn.SvcNetwork, sgIds, snva.Id, additionalTags)
-		if err != nil {
-			return "", err
-		}
+
 		return *snva.Arn, nil
 	} else {
 		tags := m.cloud.MergeTags(m.cloud.DefaultTags(), additionalTags)
@@ -85,6 +103,28 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 			return *resp.Arn, fmt.Errorf("%w, vpc association status in %s", lattice_runtime.NewRetryError(), status)
 		}
 	}
+}
+
+// isLocalServiceNetwork determines if a service network belongs to the current AWS account
+func (m *defaultServiceNetworkManager) isLocalServiceNetwork(arnStr *string) (bool, error) {
+	if arnStr == nil {
+		return false, fmt.Errorf("service network ARN is nil")
+	}
+
+	parsedArn, err := arn.Parse(*arnStr)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse service network ARN %s: %w", *arnStr, err)
+	}
+
+	// Compare with controller's account
+	controllerAccount := m.cloud.Config().AccountId
+	if controllerAccount == "" {
+		// If controller account is not set, assume it's local (backward compatibility)
+		m.log.Debugf(context.Background(), "Controller account ID not set, assuming service network %s is local", *arnStr)
+		return true, nil
+	}
+
+	return parsedArn.AccountID == controllerAccount, nil
 }
 
 func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context, snName string) error {
