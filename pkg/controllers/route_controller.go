@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -289,6 +290,35 @@ func (r *routeReconciler) findControlledParentRef(ctx context.Context, route cor
 		}
 	}
 	return gwv1.ParentReference{}, fmt.Errorf("parentRef not found for route %s", route.Name())
+}
+
+// --- helper function ---
+func isNamespaceAllowed(ctx context.Context, k8sClient client.Client, routeNamespace string, allowedNamespaces *gwv1.RouteNamespaces) (bool, error) {
+    if allowedNamespaces == nil || allowedNamespaces.From == nil {
+        return false, nil
+    }
+
+    switch *allowedNamespaces.From {
+    case gwv1.NamespacesFromAll:
+        return true, nil
+    case gwv1.NamespacesFromSame:
+        return false, nil // caller should handle same-namespace logic
+    case gwv1.NamespacesFromSelector:
+        selector, err := metav1.LabelSelectorAsSelector(allowedNamespaces.Selector)
+        if err != nil {
+            return false, fmt.Errorf("invalid label selector: %w", err)
+        }
+
+        ns := &corev1.Namespace{}
+        err = k8sClient.Get(ctx, client.ObjectKey{Name: routeNamespace}, ns)
+        if err != nil {
+            return false, fmt.Errorf("failed to get namespace: %w", err)
+        }
+
+        return selector.Matches(labels.Set(ns.Labels)), nil
+    default:
+        return false, nil
+    }
 }
 
 func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request, route core.Route) error {
