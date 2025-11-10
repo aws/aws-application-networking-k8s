@@ -74,6 +74,11 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 		return err
 	}
 
+	if modelSvc == nil {
+		t.log.Debugf(ctx, "Service creation skipped no further processing needed")
+		return nil
+	}
+
 	err = t.buildListeners(ctx, modelSvc.ID())
 	if err != nil {
 		return fmt.Errorf("failed to build listener due to %w", err)
@@ -103,6 +108,11 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 }
 
 func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) (*model.Service, error) {
+	if core.HasAllParentRefsRejected(t.route) {
+		t.log.Debugf(ctx, "Skipping VPC Lattice Service creation all parentRefs rejected")
+		return nil, nil
+	}
+
 	var routeType core.RouteType
 	switch t.route.(type) {
 	case *core.HTTPRoute:
@@ -141,7 +151,15 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 
 	if !standalone {
 		// Standard mode: populate ServiceNetworkNames from parent references
+
+		// For deduping ServiceNetworkNames since 2 parentRefs can point to same ServiceNetwork(Gateway)
+		serviceNetworkSet := make(map[string]struct{})
 		for _, parentRef := range t.route.Spec().ParentRefs() {
+			if !core.IsParentRefAccepted(t.route, parentRef) {
+				t.log.Debugf(ctx, "Skipping service network association for rejected parentRef %s", parentRef.Name)
+				continue
+			}
+
 			gw := &gwv1.Gateway{}
 			parentNamespace := t.route.Namespace()
 			if parentRef.Namespace != nil {
@@ -153,11 +171,16 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 				continue
 			}
 			if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
-				spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, string(parentRef.Name))
+				serviceNetworkSet[string(parentRef.Name)] = struct{}{}
 			} else {
 				t.log.Infof(ctx, "Ignoring route %s because gateway %s is not managed by lattice gateway controller", t.route.Name(), gw.Name)
 			}
 		}
+
+		for serviceNetwork := range serviceNetworkSet {
+			spec.ServiceNetworkNames = append(spec.ServiceNetworkNames, serviceNetwork)
+		}
+
 		if config.ServiceNetworkOverrideMode {
 			spec.ServiceNetworkNames = []string{config.DefaultServiceNetwork}
 		}
