@@ -43,7 +43,7 @@ This example creates a single cluster in a single VPC, then configures two HTTPR
         aws ecr-public get-login-password --region us-east-1 | helm registry login --username AWS --password-stdin public.ecr.aws
         helm upgrade gateway-api-controller \
         oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
-        --version=v1.1.6 \
+        --version=v1.1.7 \
         --reuse-values \
         --namespace aws-application-networking-system \
         --set=defaultServiceNetwork=my-hotel 
@@ -222,7 +222,7 @@ This section builds on the previous one. We will be migrating the Kubernetes `in
         aws ecr-public get-login-password --region us-east-1 | helm registry login --username AWS --password-stdin public.ecr.aws
         helm upgrade gateway-api-controller \
         oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
-        --version=v1.1.6 \
+        --version=v1.1.7 \
         --reuse-values \
         --namespace aws-application-networking-system \
         --set=defaultServiceNetwork=my-hotel 
