@@ -149,11 +149,11 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 	if err != nil {
 		return reconcile.Result{}, services.IgnoreNotFound(err)
 	}
-	c.updateLatticeAnnotaion(k8sPolicy, statusPolicy.ResourceId, modelPolicy.Type)
 	err = c.handleLatticeResourceChange(ctx, k8sPolicy, statusPolicy)
 	if err != nil {
-		return reconcile.Result{}, err
+		return ctrl.Result{}, err
 	}
+	c.updateLatticeAnnotaion(k8sPolicy, statusPolicy.ResourceId, modelPolicy.Type)
 	return ctrl.Result{}, nil
 }
 
@@ -170,6 +170,7 @@ func (c *IAMAuthPolicyController) addFinalizer(k8sPolicy *anv1alpha1.IAMAuthPoli
 }
 
 // cleanup lattice resources after targetRef changes
+// compares old ResourceId from k8s annotation vs new ResourceId from model
 func (c *IAMAuthPolicyController) handleLatticeResourceChange(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy, statusPolicy model.IAMAuthPolicyStatus) error {
 	prevModel, ok := c.getLatticeAnnotation(k8sPolicy)
 	if !ok {

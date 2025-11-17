@@ -198,6 +198,61 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
 		log.Infof(ctx, "policy removed from Svc=%s", svcId)
 	})
+
+	It("removes IAM AuthPolicy from old HTTPRoute when targetRef changes to new HTTPRoute", func() {
+		// Create second HTTPRoute for target change test
+		secondHttpDep, secondHttpSvc := testFramework.NewHttpApp(test.HTTPAppOptions{
+			Name:      SvcName + "-2",
+			Namespace: k8snamespace,
+		})
+		secondHttpRoute := testFramework.NewHttpRoute(testGateway, secondHttpSvc, "Service")
+		secondHttpRoute.Name = SvcName + "-2"
+		testFramework.ExpectCreated(ctx, secondHttpSvc, secondHttpRoute)
+
+		// Get VPC Lattice service IDs for both routes
+		firstSvc := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1.HTTPRoute(*httpRoute)))
+		secondSvc := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(gwv1.HTTPRoute(*secondHttpRoute)))
+		firstSvcId := *firstSvc.Id
+		secondSvcId := *secondSvc.Id
+
+		// Create IAMAuthPolicy targeting first route
+		policy := newPolicy("target-change", "HTTPRoute", SvcName)
+
+		// Verify policy applied to first service
+		wantResults := K8sResults{
+			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			annotationResType: model.ServiceType,
+			annotationResId:   firstSvcId,
+		}
+		testK8sPolicy(policy, wantResults)
+		testLatticeSvcPolicy(firstSvcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		log.Infof(ctx, "policy initially applied for first Svc=%s", firstSvcId)
+
+		// Change targetRef to second route
+		err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
+		Expect(err).ToNot(HaveOccurred())
+		policy.Spec.TargetRef.Name = gwv1.ObjectName(SvcName + "-2")
+		testFramework.Update(ctx, policy)
+
+		wantResults = K8sResults{
+			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			annotationResType: model.ServiceType,
+			annotationResId:   secondSvcId,
+		}
+		testK8sPolicy(policy, wantResults)
+
+		// Verify new service has auth policy
+		testLatticeSvcPolicy(secondSvcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		log.Infof(ctx, "policy moved to second Svc=%s", secondSvcId)
+
+		// Verify auth policy removed from  old service
+		testLatticeSvcPolicy(firstSvcId, vpclattice.AuthTypeNone, NoPolicy)
+		log.Infof(ctx, "old policy cleaned up from first Svc=%s", firstSvcId)
+
+		testFramework.ExpectDeletedThenNotFound(ctx, policy)
+		testLatticeSvcPolicy(secondSvcId, vpclattice.AuthTypeNone, NoPolicy)
+		testFramework.ExpectDeletedThenNotFound(ctx, secondHttpDep, secondHttpSvc, secondHttpRoute)
+	})
 })
 
 type StatusConditionsReader interface {
