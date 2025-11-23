@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
 type IAMAuthPolicy struct {
@@ -18,20 +17,20 @@ type IAMAuthPolicyStatus struct {
 	ResourceId string
 }
 
-func NewIAMAuthPolicy(k8sPolicy *anv1alpha1.IAMAuthPolicy) IAMAuthPolicy {
+func NewIAMAuthPolicy(k8sPolicy *anv1alpha1.IAMAuthPolicy, name string) IAMAuthPolicy {
 	kind := k8sPolicy.Spec.TargetRef.Kind
 	policy := k8sPolicy.Spec.Policy
 	switch kind {
 	case "Gateway":
 		return IAMAuthPolicy{
 			Type:   ServiceNetworkType,
-			Name:   string(k8sPolicy.Spec.TargetRef.Name),
+			Name:   name,
 			Policy: policy,
 		}
 	case "HTTPRoute", "GRPCRoute":
 		return IAMAuthPolicy{
 			Type:   ServiceType,
-			Name:   utils.LatticeServiceName(string(k8sPolicy.Spec.TargetRef.Name), k8sPolicy.Namespace),
+			Name:   name,
 			Policy: policy,
 		}
 	default:

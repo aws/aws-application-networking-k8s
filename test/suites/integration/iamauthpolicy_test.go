@@ -106,9 +106,15 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 	}
 
 	var (
-		httpDep   *appsv1.Deployment
-		httpSvc   *corev1.Service
-		httpRoute *gwv1.HTTPRoute
+		httpDep                                 *appsv1.Deployment
+		httpSvc                                 *corev1.Service
+		httpRoute                               *gwv1.HTTPRoute
+		httpDepWithServiceNameOverride          *appsv1.Deployment
+		httpSvcWithServiceNameOverride          *corev1.Service
+		httpRouteWithServiceNameOverride        *gwv1.HTTPRoute
+		httpDepWithInvalidServiceNameOverride   *appsv1.Deployment
+		httpSvcWithInvalidServiceNameOverride   *corev1.Service
+		httpRouteWithInvalidServiceNameOverride *gwv1.HTTPRoute
 	)
 
 	BeforeAll(func() {
@@ -118,10 +124,33 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		})
 		httpRoute = testFramework.NewHttpRoute(testGateway, httpSvc, "Service")
 		testFramework.ExpectCreated(ctx, httpDep, httpSvc, httpRoute)
+
+		httpDepWithServiceNameOverride, httpSvcWithServiceNameOverride = testFramework.NewHttpApp(test.HTTPAppOptions{
+			Name:      "iam-auth-override",
+			Namespace: k8snamespace,
+		})
+		httpRouteWithServiceNameOverride = testFramework.NewHttpRoute(testGateway, httpSvcWithServiceNameOverride, "Service")
+		httpRouteWithServiceNameOverride.Annotations = map[string]string{
+			"application-networking.k8s.aws/service-name-override": "my-awesome-service",
+		}
+		testFramework.ExpectCreated(ctx, httpDepWithServiceNameOverride, httpSvcWithServiceNameOverride, httpRouteWithServiceNameOverride)
+
+		httpDepWithInvalidServiceNameOverride, httpSvcWithInvalidServiceNameOverride = testFramework.NewHttpApp(test.HTTPAppOptions{
+			Name:      "iam-auth-invalid",
+			Namespace: k8snamespace,
+		})
+		httpRouteWithInvalidServiceNameOverride = testFramework.NewHttpRoute(testGateway, httpSvcWithInvalidServiceNameOverride, "Service")
+		httpRouteWithInvalidServiceNameOverride.Annotations = map[string]string{
+			"application-networking.k8s.aws/service-name-override": "svc-my-awesome-service",
+		}
+		testFramework.ExpectCreated(ctx, httpDepWithInvalidServiceNameOverride, httpSvcWithInvalidServiceNameOverride, httpRouteWithInvalidServiceNameOverride)
 	})
 
 	AfterAll(func() {
-		testFramework.ExpectDeletedThenNotFound(ctx, httpDep, httpSvc, httpRoute)
+		testFramework.ExpectDeletedThenNotFound(ctx,
+			httpDep, httpSvc, httpRoute,
+			httpDepWithServiceNameOverride, httpSvcWithServiceNameOverride, httpRouteWithServiceNameOverride,
+			httpDepWithInvalidServiceNameOverride, httpSvcWithInvalidServiceNameOverride, httpRouteWithInvalidServiceNameOverride)
 		testFramework.ExpectDeleteAllToSucceed(ctx, &anv1alpha1.IAMAuthPolicy{}, k8snamespace)
 	})
 
@@ -252,6 +281,52 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
 		testLatticeSvcPolicy(secondSvcId, vpclattice.AuthTypeNone, NoPolicy)
 		testFramework.ExpectDeletedThenNotFound(ctx, secondHttpDep, secondHttpSvc, secondHttpRoute)
+	})
+
+	It("accepted, applied, and removed from HTTPRoute with service name override", func() {
+		policy := newPolicy("http-override", "HTTPRoute", httpRouteWithServiceNameOverride.Name)
+		svc := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRouteWithServiceNameOverride))
+		svcId := *svc.Id
+
+		Expect(*svc.Name).To(Equal("my-awesome-service"))
+
+		wantResults := K8sResults{
+			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			annotationResType: model.ServiceType,
+			annotationResId:   svcId,
+		}
+		testK8sPolicy(policy, wantResults)
+
+		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+
+		testFramework.ExpectDeletedThenNotFound(ctx, policy)
+		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
+	})
+
+	It("supports targetRef HTTPRoute change from invalid to valid service name override", func() {
+		policy := newPolicy("recovery-test", "HTTPRoute", httpRouteWithInvalidServiceNameOverride.Name)
+
+		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonInvalid})
+
+		err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
+		Expect(err).ToNot(HaveOccurred())
+		policy.Spec.TargetRef.Name = gwv1.ObjectName(httpRouteWithServiceNameOverride.Name)
+		testFramework.Update(ctx, policy)
+
+		svc := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRouteWithServiceNameOverride))
+		svcId := *svc.Id
+		Expect(*svc.Name).To(Equal("my-awesome-service"))
+
+		wantResults := K8sResults{
+			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			annotationResType: model.ServiceType,
+			annotationResId:   svcId,
+		}
+		testK8sPolicy(policy, wantResults)
+		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+
+		testFramework.ExpectDeletedThenNotFound(ctx, policy)
+		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
 	})
 })
 

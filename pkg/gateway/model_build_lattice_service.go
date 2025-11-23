@@ -195,6 +195,12 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	}
 	spec.AllowTakeoverFrom = allowTakeoverFrom
 
+	serviceNameOverride, err := k8s.GetServiceNameOverrideWithValidation(t.route.K8sObject())
+	if err != nil {
+		return nil, err
+	}
+	spec.ServiceNameOverride = serviceNameOverride
+
 	svc, err := model.NewLatticeService(t.stack, spec)
 	if err != nil {
 		return nil, err

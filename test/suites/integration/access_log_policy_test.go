@@ -68,23 +68,29 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	)
 
 	var (
-		s3Client          *s3.S3
-		logsClient        *cloudwatchlogs.CloudWatchLogs
-		firehoseClient    *firehose.Firehose
-		iamClient         *iam.IAM
-		httpDeployment    *appsv1.Deployment
-		grpcDeployment    *appsv1.Deployment
-		httpK8sService    *corev1.Service
-		grpcK8sService    *corev1.Service
-		httpRoute         *gwv1.HTTPRoute
-		grpcRoute         *gwv1.GRPCRoute
-		bucketArn         string
-		logGroupArn       string
-		logGroup2Arn      string
-		deliveryStreamArn string
-		roleArn           string
-		awsResourceName   string
-		sess              = session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)}))
+		s3Client                                     *s3.S3
+		logsClient                                   *cloudwatchlogs.CloudWatchLogs
+		firehoseClient                               *firehose.Firehose
+		iamClient                                    *iam.IAM
+		httpDeployment                               *appsv1.Deployment
+		grpcDeployment                               *appsv1.Deployment
+		httpK8sService                               *corev1.Service
+		grpcK8sService                               *corev1.Service
+		httpRoute                                    *gwv1.HTTPRoute
+		grpcRoute                                    *gwv1.GRPCRoute
+		httpRouteWithInvalidServiceNameOverride      *gwv1.HTTPRoute
+		httpDeploymentWithInvalidServiceNameOverride *appsv1.Deployment
+		httpSvcWithInvalidServiceNameOverride        *corev1.Service
+		httpRouteWithValidServiceNameOverride        *gwv1.HTTPRoute
+		httpDeploymentWithValidServiceNameOverride   *appsv1.Deployment
+		httpSvcWithValidServiceNameOverride          *corev1.Service
+		bucketArn                                    string
+		logGroupArn                                  string
+		logGroup2Arn                                 string
+		deliveryStreamArn                            string
+		roleArn                                      string
+		awsResourceName                              string
+		sess                                         = session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)}))
 	)
 
 	BeforeAll(func() {
@@ -215,6 +221,30 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}
 		grpcRoute = testFramework.NewGRPCRoute(k8snamespace, testGateway, grpcRouteRules)
 		testFramework.ExpectCreated(ctx, grpcRoute, grpcDeployment, grpcK8sService)
+
+		httpDeploymentWithInvalidServiceNameOverride, httpSvcWithInvalidServiceNameOverride = testFramework.NewHttpApp(test.HTTPAppOptions{
+			Name:      "invalid-service-name-override-test",
+			Namespace: k8snamespace,
+		})
+
+		httpRouteWithInvalidServiceNameOverride = testFramework.NewHttpRoute(testGateway, httpSvcWithInvalidServiceNameOverride, "Service")
+		httpRouteWithInvalidServiceNameOverride.Annotations = map[string]string{
+			"application-networking.k8s.aws/service-name-override": "svc-my-awesome-service",
+		}
+
+		httpDeploymentWithValidServiceNameOverride, httpSvcWithValidServiceNameOverride = testFramework.NewHttpApp(test.HTTPAppOptions{
+			Name:      "valid-service-name-override-test",
+			Namespace: k8snamespace,
+		})
+
+		httpRouteWithValidServiceNameOverride = testFramework.NewHttpRoute(testGateway, httpSvcWithValidServiceNameOverride, "Service")
+		httpRouteWithValidServiceNameOverride.Annotations = map[string]string{
+			"application-networking.k8s.aws/service-name-override": "my-awesome-service",
+		}
+
+		testFramework.ExpectCreated(ctx,
+			httpDeploymentWithInvalidServiceNameOverride, httpSvcWithInvalidServiceNameOverride, httpRouteWithInvalidServiceNameOverride,
+			httpDeploymentWithValidServiceNameOverride, httpSvcWithValidServiceNameOverride, httpRouteWithValidServiceNameOverride)
 	})
 
 	It("creation produces an Access Log Subscription for the corresponding Service Network when the targetRef's Kind is Gateway", func() {
@@ -1361,6 +1391,129 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}).Should(Succeed())
 	})
 
+	It("creates Access Log Subscription for HTTPRoute with service name override", func() {
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "access-log-policy-service-name-override",
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+					Group:     gwv1.GroupName,
+					Kind:      "HTTPRoute",
+					Name:      gwv1alpha2.ObjectName(httpRouteWithValidServiceNameOverride.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		Eventually(func(g Gomega) {
+			alpNamespacedName := types.NamespacedName{
+				Name:      accessLogPolicy.Name,
+				Namespace: accessLogPolicy.Namespace,
+			}
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+
+			customLatticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRouteWithValidServiceNameOverride))
+			g.Expect(*customLatticeService.Name).To(Equal("my-awesome-service"))
+
+			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
+				ResourceIdentifier: customLatticeService.Arn,
+			}
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			g.Expect(err).To(BeNil())
+			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
+			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(customLatticeService.Id))
+			g.Expect(*listALSOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
+
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]).To(BeEquivalentTo(*listALSOutput.Items[0].Arn))
+
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionResourceNameAnnotationKey]).To(Equal("my-awesome-service"))
+		}).Should(Succeed())
+	})
+
+	It("supports changing targetRef HTTPRoute with invalid service name override to valid service name override", func() {
+		accessLogPolicy := &anv1alpha1.AccessLogPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "access-log-policy-recovery-test",
+				Namespace: k8snamespace,
+			},
+			Spec: anv1alpha1.AccessLogPolicySpec{
+				DestinationArn: aws.String(bucketArn),
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+					Group:     gwv1.GroupName,
+					Kind:      "HTTPRoute",
+					Name:      gwv1alpha2.ObjectName(httpRouteWithInvalidServiceNameOverride.Name),
+					Namespace: (*gwv1alpha2.Namespace)(aws.String(k8snamespace)),
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, accessLogPolicy)
+
+		Eventually(func(g Gomega) {
+			alpNamespacedName := types.NamespacedName{
+				Name:      accessLogPolicy.Name,
+				Namespace: accessLogPolicy.Namespace,
+			}
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+
+			events := &corev1.EventList{}
+			err = testFramework.List(ctx, events, client.InNamespace(k8snamespace))
+			g.Expect(err).To(BeNil())
+
+			foundValidationError := false
+			for _, event := range events.Items {
+				if event.InvolvedObject.Name == accessLogPolicy.Name &&
+					event.Reason == "FailedReconcile" &&
+					strings.Contains(event.Message, "invalid service name override") {
+					foundValidationError = true
+					break
+				}
+			}
+			g.Expect(foundValidationError).To(BeTrue(), "Expected FailedReconcile event with service name validation error")
+		}).Should(Succeed())
+
+		err := testFramework.Get(ctx, client.ObjectKeyFromObject(accessLogPolicy), accessLogPolicy)
+		Expect(err).To(BeNil())
+		accessLogPolicy.Spec.TargetRef.Name = gwv1alpha2.ObjectName(httpRouteWithValidServiceNameOverride.Name)
+		testFramework.ExpectUpdated(ctx, accessLogPolicy)
+
+		Eventually(func(g Gomega) {
+			alpNamespacedName := types.NamespacedName{
+				Name:      accessLogPolicy.Name,
+				Namespace: accessLogPolicy.Namespace,
+			}
+			alp := &anv1alpha1.AccessLogPolicy{}
+			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
+			g.Expect(err).To(BeNil())
+
+			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+
+			validLatticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRouteWithValidServiceNameOverride))
+			g.Expect(*validLatticeService.Name).To(Equal("my-awesome-service"))
+
+			g.Expect(alp.Annotations[anv1alpha1.AccessLogSubscriptionResourceNameAnnotationKey]).To(Equal("my-awesome-service"))
+		}).Should(Succeed())
+	})
+
 	AfterEach(func() {
 		// Delete Access Log Policies in test namespace
 		alps := &anv1alpha1.AccessLogPolicyList{}
@@ -1376,10 +1529,16 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectDeletedThenNotFound(ctx,
 			httpRoute,
 			grpcRoute,
+			httpRouteWithInvalidServiceNameOverride,
+			httpRouteWithValidServiceNameOverride,
 			httpK8sService,
 			grpcK8sService,
+			httpSvcWithInvalidServiceNameOverride,
+			httpSvcWithValidServiceNameOverride,
 			httpDeployment,
 			grpcDeployment,
+			httpDeploymentWithInvalidServiceNameOverride,
+			httpDeploymentWithValidServiceNameOverride,
 		)
 
 		// Find all AWS resources created in tests
