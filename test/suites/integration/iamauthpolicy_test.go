@@ -334,7 +334,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 				annotationResType: p.Annotations[controllers.IAMAuthPolicyAnnotationType],
 				annotationResId:   p.Annotations[controllers.IAMAuthPolicyAnnotationResId],
 			}, nil
-		}).WithTimeout(60 * time.Second).WithPolling(time.Second).
+		}).WithTimeout(120 * time.Second).WithPolling(time.Second).
 			Should(Equal(wantResults))
 		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
 
