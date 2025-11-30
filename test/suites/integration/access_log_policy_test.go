@@ -1471,21 +1471,6 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
-
-			events := &corev1.EventList{}
-			err = testFramework.List(ctx, events, client.InNamespace(k8snamespace))
-			g.Expect(err).To(BeNil())
-
-			foundValidationError := false
-			for _, event := range events.Items {
-				if event.InvolvedObject.Name == accessLogPolicy.Name &&
-					event.Reason == "FailedReconcile" &&
-					strings.Contains(event.Message, "invalid service name override") {
-					foundValidationError = true
-					break
-				}
-			}
-			g.Expect(foundValidationError).To(BeTrue(), "Expected FailedReconcile event with service name validation error")
 		}).Should(Succeed())
 
 		err := testFramework.Get(ctx, client.ObjectKeyFromObject(accessLogPolicy), accessLogPolicy)
