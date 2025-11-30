@@ -322,7 +322,20 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 			annotationResType: model.ServiceType,
 			annotationResId:   svcId,
 		}
-		testK8sPolicy(policy, wantResults)
+
+		Eventually(func(g Gomega) (K8sResults, error) {
+			p := &anv1alpha1.IAMAuthPolicy{}
+			err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), p)
+			if err != nil {
+				return K8sResults{}, err
+			}
+			return K8sResults{
+				statusReason:      GetPolicyStatusReason(p),
+				annotationResType: p.Annotations[controllers.IAMAuthPolicyAnnotationType],
+				annotationResId:   p.Annotations[controllers.IAMAuthPolicyAnnotationResId],
+			}, nil
+		}).WithTimeout(60 * time.Second).WithPolling(time.Second).
+			Should(Equal(wantResults))
 		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
 
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
