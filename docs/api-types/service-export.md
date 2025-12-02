@@ -16,6 +16,8 @@ instead AWS Gateway API Controller uses its own version of the resource for the 
 
 ServiceExport resources can be targeted by [`TargetGroupPolicy`](target-group-policy.md) to configure protocol, protocol version, and health check settings. When a TargetGroupPolicy is applied to a ServiceExport, the configuration is automatically propagated to all target groups across all clusters that participate in the multi-cluster service mesh, ensuring consistent behavior regardless of which cluster contains the route resource.
 
+**Protocol Override with ExportedPorts**: When using the `exportedPorts` field, TargetGroupPolicy protocol and protocolVersion settings will override the default protocol inferred from the `routeType`. For example, you can specify `routeType: HTTP` in the ServiceExport but use `protocol: HTTPS` in the TargetGroupPolicy to enable secure communication between VPC Lattice and your backend pods.
+
 ### Annotations (Legacy Method)
 
 * `application-networking.k8s.aws/port`  
@@ -115,3 +117,40 @@ spec:
 ```
 
 This configuration ensures that all target groups created for the `inventory-service` across all clusters will use the same health check configuration, providing consistent health monitoring in multi-cluster deployments.
+
+### Protocol Override Example
+
+The following example demonstrates how to use TargetGroupPolicy to override the protocol for a ServiceExport with exportedPorts:
+
+```yaml
+# ServiceExport with HTTP routeType
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceExport
+metadata:
+  name: secure-service
+spec:
+  exportedPorts:
+  - port: 443
+    routeType: HTTP  # Default would be HTTP/1
+---
+# TargetGroupPolicy overriding to HTTPS
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: TargetGroupPolicy
+metadata:
+  name: https-override
+spec:
+  targetRef:
+    group: "application-networking.k8s.aws"
+    kind: ServiceExport
+    name: secure-service
+  protocol: HTTPS        # Overrides HTTP from routeType
+  protocolVersion: HTTP2 # Overrides HTTP1 default
+  healthCheck:
+    enabled: true
+    path: "/health"
+    protocol: HTTPS
+    protocolVersion: HTTP2
+    statusMatch: "200-299"
+```
+
+In this example, even though the ServiceExport specifies `routeType: HTTP`, the TargetGroupPolicy configures the target group to use HTTPS with HTTP/2, enabling secure communication between VPC Lattice and your backend pods.
