@@ -430,3 +430,7 @@ func (h *PolicyHandler[P]) conflictResolutionSort(policies []P) {
 		}
 	})
 }
+
+func (h *PolicyHandler[P]) GetTargetRefObj(ctx context.Context, policy P) (k8sclient.Object, error) {
+	return h.client.TargetRefObj(ctx, policy)
+}

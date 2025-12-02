@@ -11,12 +11,11 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 type AccessLogSubscriptionModelBuilder interface {
-	Build(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) (core.Stack, *model.AccessLogSubscription, error)
+	Build(ctx context.Context, alp *anv1alpha1.AccessLogPolicy, targetRefName string) (core.Stack, *model.AccessLogSubscription, error)
 }
 
 type accessLogSubscriptionModelBuilder struct {
@@ -34,6 +33,7 @@ func NewAccessLogSubscriptionModelBuilder(log gwlog.Logger, client client.Client
 func (b *accessLogSubscriptionModelBuilder) Build(
 	ctx context.Context,
 	accessLogPolicy *anv1alpha1.AccessLogPolicy,
+	targetRefName string,
 ) (core.Stack, *model.AccessLogSubscription, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(accessLogPolicy)))
 
@@ -41,6 +41,7 @@ func (b *accessLogSubscriptionModelBuilder) Build(
 		log:             b.log,
 		stack:           stack,
 		accessLogPolicy: accessLogPolicy,
+		targetRefName:   targetRefName,
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -55,6 +56,7 @@ type accessLogSubscriptionModelBuildTask struct {
 	stack                 core.Stack
 	accessLogPolicy       *anv1alpha1.AccessLogPolicy
 	accessLogSubscription *model.AccessLogSubscription
+	targetRefName         string
 }
 
 func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
@@ -70,10 +72,7 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 		sourceType = model.ServiceNetworkSourceType
 	}
 
-	sourceName, err := utils.TargetRefToLatticeResourceName(t.accessLogPolicy.Spec.TargetRef, t.accessLogPolicy.Namespace)
-	if err != nil && eventType != core.DeleteEvent {
-		return err
-	}
+	sourceName := t.targetRefName
 
 	destinationArn := t.accessLogPolicy.Spec.DestinationArn
 	if destinationArn == nil {
@@ -107,7 +106,7 @@ func (t *accessLogSubscriptionModelBuildTask) run(ctx context.Context) error {
 	alsSpec.AdditionalTags = k8s.GetAdditionalTagsFromAnnotations(ctx, t.accessLogPolicy)
 
 	t.accessLogSubscription = model.NewAccessLogSubscription(t.stack, alsSpec, status)
-	err = t.stack.AddResource(t.accessLogSubscription)
+	err := t.stack.AddResource(t.accessLogSubscription)
 	if err != nil {
 		return err
 	}

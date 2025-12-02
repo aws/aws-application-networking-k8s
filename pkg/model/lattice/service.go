@@ -20,6 +20,7 @@ type ServiceSpec struct {
 	CustomerCertARN     string        `json:"customercertarn"`
 	AdditionalTags      services.Tags `json:"additionaltags,omitempty"`
 	AllowTakeoverFrom   string        `json:"allowtakeoverfrom,omitempty"`
+	ServiceNameOverride string        `json:"servicenameoverride,omitempty"`
 }
 
 type ServiceStatus struct {
@@ -73,5 +74,5 @@ func (s *Service) LatticeServiceName() string {
 }
 
 func (s *ServiceSpec) LatticeServiceName() string {
-	return utils.LatticeServiceName(s.RouteName, s.RouteNamespace)
+	return utils.LatticeServiceName(s.RouteName, s.RouteNamespace, s.ServiceNameOverride)
 }
