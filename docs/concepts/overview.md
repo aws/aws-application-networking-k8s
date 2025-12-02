@@ -53,7 +53,7 @@ In the context of Kubernetes, Amazon VPC Lattice helps to simplify the following
   After configuring your services with the AWS Gateway API Controller, you can facilitate advanced traffic management and application layer routing between services on those clusters without dealing with the underlying infrastructure.
   VPC Lattice handles a lot of the details for you without needing things like sidecars.
   
-  **Multi-cluster health check consistency**: When using TargetGroupPolicy with ServiceExport resources, health check configurations are automatically propagated across all clusters participating in the service mesh. This ensures consistent health monitoring behavior regardless of which cluster contains the route resource, eliminating configuration drift and improving reliability in multi-cluster deployments.
+-  **Multi-cluster health check consistency**: When using TargetGroupPolicy with ServiceExport resources, health check configurations are automatically propagated across all clusters participating in the service mesh. This ensures consistent health monitoring behavior regardless of which cluster contains the route resource, eliminating configuration drift and improving reliability in multi-cluster deployments.
 - **Cross-platform access**: VPC Lattice allows access to serverless and Amazon EC2 features, as well as Kubernetes cluster features.
   This gives you a way to have a consistent interface to multiple types of platforms.
 - **Implement a defense-in-depth strategy**: Secure communication between services and networks.
