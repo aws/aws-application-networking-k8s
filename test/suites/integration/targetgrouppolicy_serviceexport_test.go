@@ -971,3 +971,201 @@ func createServiceTargetGroupPolicy(
 		},
 	}
 }
+
+func createServiceExportTargetGroupPolicy(
+	serviceExport *anv1alpha1.ServiceExport,
+	config *ServiceTargetGroupPolicyConfig,
+) *anv1alpha1.TargetGroupPolicy {
+	return &anv1alpha1.TargetGroupPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "TargetGroupPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: serviceExport.Namespace,
+			Name:      config.PolicyName,
+		},
+		Spec: anv1alpha1.TargetGroupPolicySpec{
+			TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+				Kind:  gwv1.Kind("ServiceExport"),
+				Name:  gwv1.ObjectName(serviceExport.Name),
+				Group: gwv1alpha2.Group("application-networking.k8s.aws"),
+			},
+			Protocol:        config.Protocol,
+			ProtocolVersion: config.ProtocolVersion,
+			HealthCheck:     config.HealthCheck,
+		},
+	}
+}
+
+var _ = Describe("TargetGroupPolicy ServiceExport with ExportedPorts Integration Tests", Ordered, func() {
+	var (
+		deployment    *appsv1.Deployment
+		service       *corev1.Service
+		serviceExport *anv1alpha1.ServiceExport
+		policy        *anv1alpha1.TargetGroupPolicy
+	)
+
+	BeforeAll(func() {
+		deployment, service = testFramework.NewNginxApp(test.ElasticSearchOptions{
+			Name:      "tgp-exportedports-test",
+			Namespace: k8snamespace,
+		})
+
+		// Create ServiceExport with ExportedPorts
+		serviceExport = &anv1alpha1.ServiceExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      service.Name,
+				Namespace: service.Namespace,
+				Annotations: map[string]string{
+					"application-networking.k8s.aws/federation": "amazon-vpc-lattice",
+				},
+			},
+			Spec: anv1alpha1.ServiceExportSpec{
+				ExportedPorts: []anv1alpha1.ExportedPort{
+					{
+						Port:      80,
+						RouteType: "HTTP",
+					},
+				},
+			},
+		}
+
+		testFramework.ExpectCreated(ctx, deployment, service, serviceExport)
+	})
+
+	AfterAll(func() {
+		testFramework.ExpectDeleted(ctx, deployment, service, serviceExport)
+	})
+
+	Context("TargetGroupPolicy protocol override for ServiceExport with ExportedPorts", func() {
+		AfterEach(func() {
+			if policy != nil {
+				testFramework.ExpectDeleted(ctx, policy)
+				policy = nil
+			}
+		})
+
+		It("should apply HTTPS protocol override from TargetGroupPolicy when ServiceExport uses HTTP routeType", func() {
+			// This test verifies the fix for the bug where ServiceExport with ExportedPorts
+			// ignored protocol settings from TargetGroupPolicy
+			policy = createServiceExportTargetGroupPolicy(serviceExport, &ServiceTargetGroupPolicyConfig{
+				PolicyName:      "exportedports-https-override",
+				Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
+				ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp2),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Enabled:         aws.Bool(true),
+					Path:            aws.String("/health"),
+					IntervalSeconds: aws.Int64(10),
+					TimeoutSeconds:  aws.Int64(5),
+					StatusMatch:     aws.String("200-299"),
+					Protocol:        (*anv1alpha1.HealthCheckProtocol)(aws.String("HTTPS")),
+					ProtocolVersion: (*anv1alpha1.HealthCheckProtocolVersion)(aws.String("HTTP2")),
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Verify that the target group uses HTTPS protocol from TargetGroupPolicy
+			// instead of defaulting to HTTP based on routeType
+			Eventually(func(g Gomega) {
+				// Use GetTargetGroupWithProtocol to find the HTTPS target group
+				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttps, vpclattice.TargetGroupProtocolVersionHttp2)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				// Verify protocol override is applied
+				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
+				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp2))
+
+				// Verify health check configuration is also applied
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/health"))
+				g.Expect(*tg.Config.HealthCheck.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
+				g.Expect(*tg.Config.HealthCheck.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp2))
+			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+		})
+
+		It("should use default HTTP protocol when no TargetGroupPolicy is applied", func() {
+			// Verify default behavior without policy
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				// Should use HTTP protocol based on routeType
+				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp1))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+		})
+
+		It("should apply HTTPS with HTTP1 protocol version override", func() {
+			policy = createServiceExportTargetGroupPolicy(serviceExport, &ServiceTargetGroupPolicyConfig{
+				PolicyName:      "exportedports-https-http1",
+				Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
+				ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+				HealthCheck: &anv1alpha1.HealthCheckConfig{
+					Path:            aws.String("/api/health"),
+					IntervalSeconds: aws.Int64(15),
+					Protocol:        (*anv1alpha1.HealthCheckProtocol)(aws.String("HTTPS")),
+					ProtocolVersion: (*anv1alpha1.HealthCheckProtocolVersion)(aws.String("HTTP1")),
+				},
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttps, vpclattice.TargetGroupProtocolVersionHttp1)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+
+				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
+				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp1))
+				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/api/health"))
+				g.Expect(*tg.Config.HealthCheck.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
+			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+		})
+
+		It("should handle protocol updates correctly", func() {
+			// Start with HTTP protocol
+			policy = createServiceExportTargetGroupPolicy(serviceExport, &ServiceTargetGroupPolicyConfig{
+				PolicyName:      "exportedports-protocol-update",
+				Protocol:        aws.String(vpclattice.TargetGroupProtocolHttp),
+				ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Verify initial HTTP configuration
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttp, vpclattice.TargetGroupProtocolVersionHttp1)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp1))
+			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
+
+			// Note: Protocol changes require target group replacement in VPC Lattice
+			// So we delete and recreate the policy with new protocol
+			testFramework.ExpectDeleted(ctx, policy)
+
+			// Wait for target group to return to default
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroup(ctx, service)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+
+			// Create new policy with HTTPS
+			policy = createServiceExportTargetGroupPolicy(serviceExport, &ServiceTargetGroupPolicyConfig{
+				PolicyName:      "exportedports-protocol-update-https",
+				Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
+				ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp2),
+			})
+
+			testFramework.ExpectCreated(ctx, policy)
+
+			// Verify HTTPS configuration
+			Eventually(func(g Gomega) {
+				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttps, vpclattice.TargetGroupProtocolVersionHttp2)
+				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
+				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
+				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp2))
+			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
+		})
+	})
+})
