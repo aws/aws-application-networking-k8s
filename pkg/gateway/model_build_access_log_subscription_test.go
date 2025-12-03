@@ -46,12 +46,14 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 	tests := []struct {
 		description      string
 		input            *anv1alpha1.AccessLogPolicy
+		targetRefName    string
 		expectedOutput   *lattice.AccessLogSubscription
 		onlyCompareSpecs bool
 		expectedError    error
 	}{
 		{
-			description: "Policy on Gateway without namespace maps to ALS on Service Network with Gateway name",
+			description:   "Policy on Gateway uses passed targetRefName as ServiceNetwork SourceName",
+			targetRefName: name,
 			input: &anv1alpha1.AccessLogPolicy{
 				ObjectMeta: apimachineryv1.ObjectMeta{
 					Namespace: namespace,
@@ -78,35 +80,8 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedError:    nil,
 		},
 		{
-			description: "Policy on Gateway with namespace maps to ALS on Service Network with Gateway name",
-			input: &anv1alpha1.AccessLogPolicy{
-				ObjectMeta: apimachineryv1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: anv1alpha1.AccessLogPolicySpec{
-					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
-						Kind:      gatewayKind,
-						Name:      name,
-						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
-					},
-				},
-			},
-			expectedOutput: &lattice.AccessLogSubscription{
-				Spec: lattice.AccessLogSubscriptionSpec{
-					SourceType:        lattice.ServiceNetworkSourceType,
-					SourceName:        name,
-					DestinationArn:    s3DestinationArn,
-					ALPNamespacedName: expectedNamespacedName,
-					EventType:         core.CreateEvent,
-				},
-			},
-			onlyCompareSpecs: true,
-			expectedError:    nil,
-		},
-		{
-			description: "Policy on HTTPRoute without namespace maps to ALS on Service with HTTPRoute name + Policy's namespace",
+			description:   "Policy on HTTPRoute uses passed targetRefName as Service SourceName",
+			targetRefName: name,
 			input: &anv1alpha1.AccessLogPolicy{
 				ObjectMeta: apimachineryv1.ObjectMeta{
 					Namespace: namespace,
@@ -123,7 +98,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedOutput: &lattice.AccessLogSubscription{
 				Spec: lattice.AccessLogSubscriptionSpec{
 					SourceType:        lattice.ServiceSourceType,
-					SourceName:        fmt.Sprintf("%s-%s", name, namespace),
+					SourceName:        name,
 					DestinationArn:    s3DestinationArn,
 					ALPNamespacedName: expectedNamespacedName,
 					EventType:         core.CreateEvent,
@@ -133,35 +108,8 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedError:    nil,
 		},
 		{
-			description: "Policy on HTTPRoute with namespace maps to ALS on Service Network with HTTPRoute name + namespace",
-			input: &anv1alpha1.AccessLogPolicy{
-				ObjectMeta: apimachineryv1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: anv1alpha1.AccessLogPolicySpec{
-					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
-						Kind:      httpRouteKind,
-						Name:      name,
-						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
-					},
-				},
-			},
-			expectedOutput: &lattice.AccessLogSubscription{
-				Spec: lattice.AccessLogSubscriptionSpec{
-					SourceType:        lattice.ServiceSourceType,
-					SourceName:        fmt.Sprintf("%s-%s", name, namespace),
-					DestinationArn:    s3DestinationArn,
-					ALPNamespacedName: expectedNamespacedName,
-					EventType:         core.CreateEvent,
-				},
-			},
-			onlyCompareSpecs: true,
-			expectedError:    nil,
-		},
-		{
-			description: "Policy on GRPCRoute without namespace maps to ALS on Service with GRPCRoute name + Policy's namespace",
+			description:   "Policy on GRPCRoute uses passed targetRefName as Service SourceName",
+			targetRefName: name,
 			input: &anv1alpha1.AccessLogPolicy{
 				ObjectMeta: apimachineryv1.ObjectMeta{
 					Namespace: namespace,
@@ -178,7 +126,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedOutput: &lattice.AccessLogSubscription{
 				Spec: lattice.AccessLogSubscriptionSpec{
 					SourceType:        lattice.ServiceSourceType,
-					SourceName:        fmt.Sprintf("%s-%s", name, namespace),
+					SourceName:        name,
 					DestinationArn:    s3DestinationArn,
 					ALPNamespacedName: expectedNamespacedName,
 					EventType:         core.CreateEvent,
@@ -188,35 +136,8 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedError:    nil,
 		},
 		{
-			description: "Policy on GRPCRoute with namespace maps to ALS on Service Network with GRPCRoute name + namespace",
-			input: &anv1alpha1.AccessLogPolicy{
-				ObjectMeta: apimachineryv1.ObjectMeta{
-					Namespace: namespace,
-					Name:      name,
-				},
-				Spec: anv1alpha1.AccessLogPolicySpec{
-					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
-						Kind:      grpcRouteKind,
-						Name:      name,
-						Namespace: (*gwv1alpha2.Namespace)(aws.String(namespace)),
-					},
-				},
-			},
-			expectedOutput: &lattice.AccessLogSubscription{
-				Spec: lattice.AccessLogSubscriptionSpec{
-					SourceType:        lattice.ServiceSourceType,
-					SourceName:        fmt.Sprintf("%s-%s", name, namespace),
-					DestinationArn:    s3DestinationArn,
-					ALPNamespacedName: expectedNamespacedName,
-					EventType:         core.CreateEvent,
-				},
-			},
-			onlyCompareSpecs: true,
-			expectedError:    nil,
-		},
-		{
-			description: "Policy on Gateway with deletion timestamp is marked as deleted",
+			description:   "Policy on Gateway with deletion timestamp is marked as deleted",
+			targetRefName: name,
 			input: &anv1alpha1.AccessLogPolicy{
 				ObjectMeta: apimachineryv1.ObjectMeta{
 					Namespace:         namespace,
@@ -247,7 +168,8 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedError:    nil,
 		},
 		{
-			description: "Policy on Gateway with Access Log Subscription annotation present is marked as updated",
+			description:   "Policy on Gateway with Access Log Subscription annotation present is marked as updated",
+			targetRefName: name,
 			input: &anv1alpha1.AccessLogPolicy{
 				ObjectMeta: apimachineryv1.ObjectMeta{
 					Namespace: namespace,
@@ -277,38 +199,8 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 			expectedError:    nil,
 		},
 		{
-			description: "Delete event skips targetRef validation",
-			input: &anv1alpha1.AccessLogPolicy{
-				ObjectMeta: apimachineryv1.ObjectMeta{
-					Namespace:         namespace,
-					Name:              name,
-					DeletionTimestamp: &apimachineryv1.Time{},
-					Annotations: map[string]string{
-						anv1alpha1.AccessLogSubscriptionAnnotationKey: "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567",
-					},
-				},
-				Spec: anv1alpha1.AccessLogPolicySpec{
-					DestinationArn: aws.String(s3DestinationArn),
-					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
-						Kind: "Foo",
-						Name: name,
-					},
-				},
-			},
-			expectedOutput: &lattice.AccessLogSubscription{
-				Spec: lattice.AccessLogSubscriptionSpec{
-					SourceType:        lattice.ServiceSourceType,
-					SourceName:        "",
-					DestinationArn:    s3DestinationArn,
-					ALPNamespacedName: expectedNamespacedName,
-					EventType:         core.DeleteEvent,
-				},
-			},
-			onlyCompareSpecs: true,
-			expectedError:    nil,
-		},
-		{
-			description: "Delete event skips destinationArn validation",
+			description:   "Delete event skips destinationArn validation",
+			targetRefName: name,
 			input: &anv1alpha1.AccessLogPolicy{
 				ObjectMeta: apimachineryv1.ObjectMeta{
 					Namespace:         namespace,
@@ -341,7 +233,7 @@ func Test_BuildAccessLogSubscription(t *testing.T) {
 
 	for _, tt := range tests {
 		fmt.Printf("Testing: %s\n", tt.description)
-		_, als, err := modelBuilder.Build(ctx, tt.input)
+		_, als, err := modelBuilder.Build(ctx, tt.input, tt.targetRefName)
 		if tt.onlyCompareSpecs {
 			assert.Equal(t, tt.expectedOutput.Spec, als.Spec, tt.description)
 		} else {
@@ -411,7 +303,7 @@ func Test_BuildAccessLogSubscription_WithAndWithoutAdditionalTagsAnnotation(t *t
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, als, err := modelBuilder.Build(ctx, tt.input)
+			_, als, err := modelBuilder.Build(ctx, tt.input, name)
 			assert.NoError(t, err, tt.description)
 
 			assert.Equal(t, tt.expectedAdditionalTags, als.Spec.AdditionalTags, tt.description)

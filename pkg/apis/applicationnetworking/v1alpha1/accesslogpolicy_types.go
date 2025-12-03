@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	AccessLogSubscriptionAnnotationKey = k8s.AnnotationPrefix + "accessLogSubscription"
+	AccessLogSubscriptionAnnotationKey             = k8s.AnnotationPrefix + "accessLogSubscription"
+	AccessLogSubscriptionResourceNameAnnotationKey = k8s.AnnotationPrefix + "accessLogSubscriptionResourceName"
 )
 
 // +genclient

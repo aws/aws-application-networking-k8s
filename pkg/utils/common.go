@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"golang.org/x/exp/constraints"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type MapFunc[T any, U any] func(T) U
@@ -60,30 +59,12 @@ func SliceFilter[T any](in []T, f FilterFunc[T]) []T {
 	return out
 }
 
-func LatticeServiceName(k8sSourceRouteName string, k8sSourceRouteNamespace string) string {
+func LatticeServiceName(k8sSourceRouteName string, k8sSourceRouteNamespace string, serviceNameOverride string) string {
+	if serviceNameOverride != "" {
+		return serviceNameOverride
+	}
+
 	return fmt.Sprintf("%s-%s", Truncate(k8sSourceRouteName, 20), Truncate(k8sSourceRouteNamespace, 18))
-}
-
-func TargetRefToLatticeResourceName(
-	targetRef *gwv1alpha2.NamespacedPolicyTargetReference,
-	parentNamespace string,
-) (string, error) {
-	// For Service Network, the name is just the Gateway's name.
-	if targetRef.Kind == "Gateway" {
-		return string(targetRef.Name), nil
-	}
-
-	// For VPC Lattice Service, the name is Route's name, followed by hyphen (-), then the Route's namespace.
-	// If the Route's namespace is not provided, we assume it's the parent's namespace.
-	if targetRef.Kind == "HTTPRoute" || targetRef.Kind == "GRPCRoute" {
-		namespace := parentNamespace
-		if targetRef.Namespace != nil {
-			namespace = string(*targetRef.Namespace)
-		}
-		return LatticeServiceName(string(targetRef.Name), namespace), nil
-	}
-
-	return "", fmt.Errorf("unsupported targetRef Kind: %s", targetRef.Kind)
 }
 
 func RandomAlphaString(length int) string {

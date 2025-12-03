@@ -2,6 +2,8 @@ package k8s
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -1451,6 +1453,226 @@ func TestGetAdditionalTagsFromAnnotations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetAdditionalTagsFromAnnotations(context.Background(), tt.obj)
+			assert.Equal(t, tt.expected, result, tt.description)
+		})
+	}
+}
+
+func TestIsInvalidServiceNameOverrideError(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		expected    bool
+		description string
+	}{
+		{
+			name:        "InvalidServiceNameOverrideError type",
+			err:         NewInvalidServiceNameOverrideError("test-service", "invalid name"),
+			expected:    true,
+			description: "should return true for InvalidServiceNameOverrideError",
+		},
+		{
+			name:        "wrapped InvalidServiceNameOverrideError",
+			err:         fmt.Errorf("wrapper: %w", NewInvalidServiceNameOverrideError("test-service", "invalid name")),
+			expected:    true,
+			description: "should return true for wrapped InvalidServiceNameOverrideError",
+		},
+		{
+			name:        "regular fmt.Errorf",
+			err:         fmt.Errorf("regular error"),
+			expected:    false,
+			description: "should return false for regular errors",
+		},
+		{
+			name:        "nil error",
+			err:         nil,
+			expected:    false,
+			description: "should return false for nil error",
+		},
+		{
+			name:        "different error type",
+			err:         errors.New("different error"),
+			expected:    false,
+			description: "should return false for different error types",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsInvalidServiceNameOverrideError(tt.err)
+			assert.Equal(t, tt.expected, result, tt.description)
+		})
+	}
+}
+
+func TestValidateVPCLatticeServiceName(t *testing.T) {
+	tests := []struct {
+		name        string
+		serviceName string
+		expectError bool
+		description string
+	}{
+		{
+			name:        "valid service name",
+			serviceName: "my-service-123",
+			expectError: false,
+			description: "should accept valid service name",
+		},
+		{
+			name:        "too short",
+			serviceName: "ab",
+			expectError: true,
+			description: "should reject service name shorter than 3 characters",
+		},
+		{
+			name:        "too long",
+			serviceName: strings.Repeat("a", 41),
+			expectError: true,
+			description: "should reject service name longer than 40 characters",
+		},
+		{
+			name:        "contains uppercase",
+			serviceName: "My-Service",
+			expectError: true,
+			description: "should reject service name with uppercase letters",
+		},
+		{
+			name:        "starts with svc-",
+			serviceName: "svc-myservice",
+			expectError: true,
+			description: "should reject service name starting with 'svc-' prefix",
+		},
+		{
+			name:        "contains double hyphens",
+			serviceName: "my--service",
+			expectError: true,
+			description: "should reject service name with double hyphens",
+		},
+		{
+			name:        "starts with hyphen",
+			serviceName: "-myservice",
+			expectError: true,
+			description: "should reject service name starting with hyphen",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateVPCLatticeServiceName(tt.serviceName)
+			if tt.expectError {
+				assert.Error(t, err, tt.description)
+			} else {
+				assert.NoError(t, err, tt.description)
+			}
+		})
+	}
+}
+
+func TestGetServiceNameOverrideWithValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		obj         metav1.Object
+		expected    string
+		expectError bool
+		description string
+	}{
+		{
+			name: "no annotations",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+				},
+			},
+			expected:    "",
+			expectError: false,
+			description: "should return empty string when no annotations",
+		},
+		{
+			name: "empty annotations map",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-route",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+				},
+			},
+			expected:    "",
+			expectError: false,
+			description: "should return empty string when annotations map is empty",
+		},
+		{
+			name: "no service name override annotation",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"other-annotation": "value",
+					},
+				},
+			},
+			expected:    "",
+			expectError: false,
+			description: "should return empty string when service name override annotation not present",
+		},
+		{
+			name: "empty service name override",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceNameOverrideAnnotation: "",
+					},
+				},
+			},
+			expected:    "",
+			expectError: false,
+			description: "should return empty string when service name override is empty",
+		},
+		{
+			name: "valid service name override",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceNameOverrideAnnotation: "my-custom-service",
+					},
+				},
+			},
+			expected:    "my-custom-service",
+			expectError: false,
+			description: "should return valid service name override",
+		},
+		{
+			name: "invalid service name override validation fails",
+			obj: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+					Annotations: map[string]string{
+						ServiceNameOverrideAnnotation: "ab",
+					},
+				},
+			},
+			expected:    "",
+			expectError: true,
+			description: "should return error when ValidateVPCLatticeServiceName fails",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := GetServiceNameOverrideWithValidation(tt.obj)
+
+			if tt.expectError {
+				assert.Error(t, err, tt.description)
+				assert.True(t, IsInvalidServiceNameOverrideError(err), "Should return InvalidServiceNameError for validation failures")
+			} else {
+				assert.NoError(t, err, tt.description)
+			}
 			assert.Equal(t, tt.expected, result, tt.description)
 		})
 	}
