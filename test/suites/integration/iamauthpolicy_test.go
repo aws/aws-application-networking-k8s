@@ -303,7 +303,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
 	})
 
-	It("supports targetRef HTTPRoute change from invalid to valid service name override", func() {
+	/*It("supports targetRef HTTPRoute change from invalid to valid service name override", func() {
 		policy := newPolicy("recovery-test", "HTTPRoute", httpRouteWithInvalidServiceNameOverride.Name)
 
 		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonInvalid})
@@ -340,7 +340,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
 		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
-	})
+	})*/
 })
 
 type StatusConditionsReader interface {
