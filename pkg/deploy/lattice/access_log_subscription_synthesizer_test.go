@@ -37,7 +37,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 		}
 
-		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
+		stack, accessLogSubscription, _ := builder.Build(context.Background(), input, "TestName")
 
 		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(&lattice.AccessLogSubscriptionStatus{}, nil).Times(1)
 
@@ -57,7 +57,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 		}
 
-		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
+		stack, accessLogSubscription, _ := builder.Build(context.Background(), input, "TestName")
 
 		mockManager.EXPECT().Create(ctx, accessLogSubscription).Return(nil, errors.New("mock error")).Times(1)
 
@@ -82,7 +82,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 		}
 
-		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
+		stack, accessLogSubscription, _ := builder.Build(context.Background(), input, "TestName")
 
 		k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockManager.EXPECT().Update(ctx, accessLogSubscription).Return(&lattice.AccessLogSubscriptionStatus{}, nil).AnyTimes()
@@ -108,7 +108,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 		}
 
-		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
+		stack, accessLogSubscription, _ := builder.Build(context.Background(), input, "TestName")
 
 		k8sClient.EXPECT().List(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockManager.EXPECT().Update(ctx, accessLogSubscription).Return(nil, errors.New("mock error")).AnyTimes()
@@ -135,7 +135,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 		}
 
-		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
+		stack, accessLogSubscription, _ := builder.Build(context.Background(), input, "TestName")
 
 		mockManager.EXPECT().Delete(ctx, accessLogSubscription.Status.Arn).Return(nil).Times(1)
 
@@ -159,7 +159,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 		}
 
-		stack, _, _ := builder.Build(context.Background(), input)
+		stack, _, _ := builder.Build(context.Background(), input, "TestName")
 
 		mockManager.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).Times(0)
 
@@ -185,7 +185,7 @@ func TestSynthesizeAccessLogSubscription(t *testing.T) {
 			},
 		}
 
-		stack, accessLogSubscription, _ := builder.Build(context.Background(), input)
+		stack, accessLogSubscription, _ := builder.Build(context.Background(), input, "TestName")
 
 		mockManager.EXPECT().Delete(ctx, accessLogSubscription.Status.Arn).Return(errors.New("mock error")).Times(1)
 

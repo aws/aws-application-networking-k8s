@@ -192,7 +192,11 @@ func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request,
 		k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 
 	if _, err := r.buildAndDeployModel(ctx, route); err != nil {
-		return fmt.Errorf("failed to cleanup route %s, %s: %w", route.Name(), route.Namespace(), err)
+		if k8s.IsInvalidServiceNameOverrideError(err) {
+			r.log.Infof(ctx, "Route %s deletion proceeding, no VPC Lattice resources created due to error: %v", route.Name(), err)
+		} else {
+			return fmt.Errorf("failed to cleanup route %s, %s: %w", route.Name(), route.Namespace(), err)
+		}
 	}
 
 	if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
@@ -369,7 +373,12 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 }
 
 func (r *routeReconciler) updateRouteStatusWithServiceInfo(ctx context.Context, route core.Route) error {
-	svcName := k8sutils.LatticeServiceName(route.Name(), route.Namespace())
+	serviceNameOverride, err := k8s.GetServiceNameOverrideWithValidation(route.K8sObject())
+	if err != nil {
+		return err
+	}
+
+	svcName := k8sutils.LatticeServiceName(route.Name(), route.Namespace(), serviceNameOverride)
 	svc, err := r.cloud.Lattice().FindService(ctx, svcName)
 	if err != nil && !services.IsNotFoundError(err) {
 		return err
