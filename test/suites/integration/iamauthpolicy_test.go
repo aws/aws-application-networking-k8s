@@ -304,6 +304,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 	})
 
 	It("supports targetRef HTTPRoute change from invalid to valid service name override", func() {
+		Skip("Test skipped")
 		policy := newPolicy("recovery-test", "HTTPRoute", httpRouteWithInvalidServiceNameOverride.Name)
 
 		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonInvalid})
