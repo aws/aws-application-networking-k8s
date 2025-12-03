@@ -134,15 +134,25 @@ func (r *accessLogPolicyReconciler) reconcile(ctx context.Context, req ctrl.Requ
 
 	r.eventRecorder.Event(alp, corev1.EventTypeNormal, k8s.ReconcilingEvent, "Started reconciling")
 
+	var err error
 	if !alp.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, alp)
+		err = r.reconcileDelete(ctx, alp)
 	} else {
-		return r.reconcileUpsert(ctx, alp)
+		err = r.reconcileUpsert(ctx, alp)
 	}
+
+	if err != nil {
+		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, fmt.Sprintf("Reconcile failed: %s", err))
+		return err
+	}
+
+	r.eventRecorder.Event(alp, corev1.EventTypeNormal, k8s.ReconciledEvent, "Successfully reconciled")
+	return nil
 }
 
 func (r *accessLogPolicyReconciler) reconcileDelete(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) error {
-	_, err := r.buildAndDeployModel(ctx, alp)
+	targetRefName := alp.Annotations[anv1alpha1.AccessLogSubscriptionResourceNameAnnotationKey]
+	_, err := r.buildAndDeployModel(ctx, alp, targetRefName)
 	if err != nil {
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning,
 			k8s.FailedReconcileEvent, fmt.Sprintf("Failed to delete due to %s", err))
@@ -189,7 +199,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
 	}
 
-	targetRefExists, err := r.targetRefExists(ctx, alp)
+	targetRefExists, targetRef, err := r.targetRefExists(ctx, alp)
 	if err != nil {
 		return err
 	}
@@ -199,7 +209,15 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
 	}
 
-	stack, err := r.buildAndDeployModel(ctx, alp)
+	targetRefName, err := r.targetRefToResourceName(alp, targetRef)
+	if err != nil {
+		if k8s.IsInvalidServiceNameOverrideError(err) {
+			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, err.Error())
+		}
+		return err
+	}
+
+	stack, err := r.buildAndDeployModel(ctx, alp, targetRefName)
 	if err != nil {
 		if services.IsConflictError(err) {
 			message := "An Access Log Policy with a Destination Arn for the same destination type already exists for this targetRef"
@@ -215,7 +233,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
-	err = r.updateAccessLogPolicyAnnotations(ctx, alp, stack)
+	err = r.updateAccessLogPolicyAnnotations(ctx, alp, stack, targetRefName)
 	if err != nil {
 		return err
 	}
@@ -230,40 +248,46 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 	return nil
 }
 
-func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) (bool, error) {
+func (r *accessLogPolicyReconciler) targetRefExists(ctx context.Context, alp *anv1alpha1.AccessLogPolicy) (bool, metav1.Object, error) {
 	targetRefNamespacedName := types.NamespacedName{
 		Name:      string(alp.Spec.TargetRef.Name),
 		Namespace: k8s.NamespaceOrDefault(alp.Spec.TargetRef.Namespace),
 	}
 
 	var err error
+	var targetObj metav1.Object
 
 	switch alp.Spec.TargetRef.Kind {
 	case "Gateway":
 		gw := &gwv1.Gateway{}
 		err = r.client.Get(ctx, targetRefNamespacedName, gw)
+		targetObj = gw
 	case "HTTPRoute":
-		httpRoute := &gwv1.HTTPRoute{}
-		err = r.client.Get(ctx, targetRefNamespacedName, httpRoute)
+		route := &gwv1.HTTPRoute{}
+		err = r.client.Get(ctx, targetRefNamespacedName, route)
+		targetObj = route
 	case "GRPCRoute":
-		grpcRoute := &gwv1.GRPCRoute{}
-		err = r.client.Get(ctx, targetRefNamespacedName, grpcRoute)
+		route := &gwv1.GRPCRoute{}
+		err = r.client.Get(ctx, targetRefNamespacedName, route)
+		targetObj = route
 	default:
-		return false, fmt.Errorf("access Log Policy targetRef is for unsupported Kind: %s", alp.Spec.TargetRef.Kind)
+		return false, nil, fmt.Errorf("access Log Policy targetRef is for unsupported Kind: %s", alp.Spec.TargetRef.Kind)
 	}
 
 	if err != nil && !apierrors.IsNotFound(err) {
-		return false, err
+		return false, nil, err
 	}
 
-	return err == nil, nil
+	exists := err == nil
+	return exists, targetObj, nil
 }
 
 func (r *accessLogPolicyReconciler) buildAndDeployModel(
 	ctx context.Context,
 	alp *anv1alpha1.AccessLogPolicy,
+	targetRefName string,
 ) (core.Stack, error) {
-	stack, _, err := r.modelBuilder.Build(ctx, alp)
+	stack, _, err := r.modelBuilder.Build(ctx, alp, targetRefName)
 	if err != nil {
 		return nil, err
 	}
@@ -286,6 +310,7 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyAnnotations(
 	ctx context.Context,
 	alp *anv1alpha1.AccessLogPolicy,
 	stack core.Stack,
+	targetRefName string,
 ) error {
 	var accessLogSubscriptions []*model.AccessLogSubscription
 	err := stack.ListResources(&accessLogSubscriptions)
@@ -300,6 +325,7 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyAnnotations(
 				alp.Annotations = make(map[string]string)
 			}
 			alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey] = als.Status.Arn
+			alp.Annotations[anv1alpha1.AccessLogSubscriptionResourceNameAnnotationKey] = targetRefName
 			if err := r.client.Patch(ctx, alp, client.MergeFrom(oldAlp)); err != nil {
 				r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent,
 					"Failed to update annotation due to "+err.Error())
@@ -374,4 +400,31 @@ func (r *accessLogPolicyReconciler) findImpactedAccessLogPolicies(ctx context.Co
 	}
 
 	return requests
+}
+
+func (r *accessLogPolicyReconciler) targetRefToResourceName(
+	alp *anv1alpha1.AccessLogPolicy,
+	targetObj metav1.Object,
+) (string, error) {
+	targetRef := alp.Spec.TargetRef
+
+	if targetRef.Kind == "Gateway" {
+		return string(targetRef.Name), nil
+	}
+
+	if targetRef.Kind == "HTTPRoute" || targetRef.Kind == "GRPCRoute" {
+		namespace := alp.Namespace
+		if targetRef.Namespace != nil {
+			namespace = string(*targetRef.Namespace)
+		}
+
+		serviceNameOverride, err := k8s.GetServiceNameOverrideWithValidation(targetObj)
+		if err != nil {
+			return "", fmt.Errorf("route '%s' has %w", targetRef.Name, err)
+		}
+
+		return utils.LatticeServiceName(string(targetRef.Name), namespace, serviceNameOverride), nil
+	}
+
+	return "", fmt.Errorf("unsupported targetRef kind: %s", targetRef.Kind)
 }

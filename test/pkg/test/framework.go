@@ -9,6 +9,7 @@ import (
 	"time"
 
 	anaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/onsi/gomega/format"
@@ -320,7 +321,8 @@ func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *gwv1.Gatew
 
 func (env *Framework) GetVpcLatticeService(ctx context.Context, route core.Route) *vpclattice.ServiceSummary {
 	var found *vpclattice.ServiceSummary
-	latticeServiceName := utils.LatticeServiceName(route.Name(), route.Namespace())
+	serviceNameOverride, _ := k8s.GetServiceNameOverrideWithValidation(route.K8sObject())
+	latticeServiceName := utils.LatticeServiceName(route.Name(), route.Namespace(), serviceNameOverride)
 	Eventually(func(g Gomega) {
 		svc, err := env.LatticeClient.FindService(ctx, latticeServiceName)
 		g.Expect(err).ToNot(HaveOccurred())
