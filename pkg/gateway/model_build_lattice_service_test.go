@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -1009,7 +1010,12 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			assert.Equal(t, tt.expected.CustomerCertARN, svc.Spec.CustomerCertARN)
 			assert.Equal(t, tt.expected.CustomerDomainName, svc.Spec.CustomerDomainName)
 			assert.Equal(t, tt.expected.RouteType, svc.Spec.RouteType)
-			assert.Equal(t, tt.expected.ServiceNetworkNames, svc.Spec.ServiceNetworkNames)
+
+			expectedNetworkNames := append([]string{}, tt.expected.ServiceNetworkNames...)
+			actualNetworkNames := append([]string{}, svc.Spec.ServiceNetworkNames...)
+			sort.Strings(expectedNetworkNames)
+			sort.Strings(actualNetworkNames)
+			assert.Equal(t, expectedNetworkNames, actualNetworkNames)
 		})
 	}
 }
