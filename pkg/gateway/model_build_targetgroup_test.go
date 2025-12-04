@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -1271,6 +1272,256 @@ func Test_TGModelByHTTPRouteBuild_AdditionalTags(t *testing.T) {
 			assert.Nil(t, err, tt.description)
 
 			assert.Equal(t, tt.expectedAdditionalTags, stackTg.Spec.AdditionalTags, tt.description)
+		})
+	}
+}
+
+func Test_TGModelByServiceExportWithExportedPorts_TargetGroupPolicy(t *testing.T) {
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	tests := []struct {
+		name                 string
+		svcExport            *anv1alpha1.ServiceExport
+		svc                  *corev1.Service
+		tgp                  *anv1alpha1.TargetGroupPolicy
+		wantErrIsNil         bool
+		wantProtocol         string
+		wantProtocolVersion  string
+		wantHealthCheckProto *string
+		description          string
+	}{
+		{
+			name: "ServiceExport with HTTP routeType and HTTPS protocol override from TargetGroupPolicy",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "https-override",
+					Namespace: "bar",
+				},
+				Spec: anv1alpha1.ServiceExportSpec{
+					ExportedPorts: []anv1alpha1.ExportedPort{
+						{
+							Port:      80,
+							RouteType: "HTTP",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "https-override",
+					Namespace: "bar",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Port: 80},
+					},
+					IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				},
+			},
+			tgp: &anv1alpha1.TargetGroupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "https-override",
+					Namespace: "bar",
+				},
+				Spec: anv1alpha1.TargetGroupPolicySpec{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Group: "application-networking.k8s.aws",
+						Kind:  "ServiceExport",
+						Name:  "https-override",
+					},
+					Protocol:        func() *string { s := vpclattice.TargetGroupProtocolHttps; return &s }(),
+					ProtocolVersion: func() *string { s := vpclattice.TargetGroupProtocolVersionHttp2; return &s }(),
+					HealthCheck: &anv1alpha1.HealthCheckConfig{
+						Enabled:  func() *bool { b := true; return &b }(),
+						Protocol: func() *anv1alpha1.HealthCheckProtocol { p := anv1alpha1.HealthCheckProtocolHTTPS; return &p }(),
+						ProtocolVersion: func() *anv1alpha1.HealthCheckProtocolVersion {
+							v := anv1alpha1.HealthCheckProtocolVersionHTTP2
+							return &v
+						}(),
+						Port:                    func() *int64 { p := int64(80); return &p }(),
+						Path:                    func() *string { s := "/env"; return &s }(),
+						IntervalSeconds:         func() *int64 { i := int64(10); return &i }(),
+						TimeoutSeconds:          func() *int64 { t := int64(5); return &t }(),
+						HealthyThresholdCount:   func() *int64 { c := int64(2); return &c }(),
+						UnhealthyThresholdCount: func() *int64 { c := int64(3); return &c }(),
+						StatusMatch:             func() *string { s := "200-299"; return &s }(),
+					},
+				},
+			},
+			wantErrIsNil:         true,
+			wantProtocol:         vpclattice.TargetGroupProtocolHttps,
+			wantProtocolVersion:  vpclattice.TargetGroupProtocolVersionHttp2,
+			wantHealthCheckProto: func() *string { s := vpclattice.TargetGroupProtocolHttps; return &s }(),
+			description:          "should use HTTPS protocol and HTTP2 from TargetGroupPolicy when specified",
+		},
+		{
+			name: "ServiceExport with GRPC routeType and no TargetGroupPolicy override",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "grpc-default",
+					Namespace: "bar",
+				},
+				Spec: anv1alpha1.ServiceExportSpec{
+					ExportedPorts: []anv1alpha1.ExportedPort{
+						{
+							Port:      8081,
+							RouteType: "GRPC",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "grpc-default",
+					Namespace: "bar",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Port: 8081},
+					},
+					IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				},
+			},
+			wantErrIsNil:        true,
+			wantProtocol:        vpclattice.TargetGroupProtocolHttp,
+			wantProtocolVersion: vpclattice.TargetGroupProtocolVersionGrpc,
+			description:         "should use default GRPC protocol when no TargetGroupPolicy",
+		},
+		{
+			name: "ServiceExport with TLS routeType and TCP protocol (no protocolVersion)",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tls-tcp",
+					Namespace: "bar",
+				},
+				Spec: anv1alpha1.ServiceExportSpec{
+					ExportedPorts: []anv1alpha1.ExportedPort{
+						{
+							Port:      443,
+							RouteType: "TLS",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tls-tcp",
+					Namespace: "bar",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Port: 443},
+					},
+					IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				},
+			},
+			tgp: &anv1alpha1.TargetGroupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tls-tcp",
+					Namespace: "bar",
+				},
+				Spec: anv1alpha1.TargetGroupPolicySpec{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Group: "application-networking.k8s.aws",
+						Kind:  "ServiceExport",
+						Name:  "tls-tcp",
+					},
+					Protocol: func() *string { s := vpclattice.TargetGroupProtocolTcp; return &s }(),
+				},
+			},
+			wantErrIsNil:        true,
+			wantProtocol:        vpclattice.TargetGroupProtocolTcp,
+			wantProtocolVersion: "",
+			description:         "should use TCP protocol with empty protocolVersion",
+		},
+		{
+			name: "ServiceExport with HTTP routeType and HTTPS protocol with HTTP1 override",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "https-http1",
+					Namespace: "bar",
+				},
+				Spec: anv1alpha1.ServiceExportSpec{
+					ExportedPorts: []anv1alpha1.ExportedPort{
+						{
+							Port:      80,
+							RouteType: "HTTP",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "https-http1",
+					Namespace: "bar",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Port: 80},
+					},
+					IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				},
+			},
+			tgp: &anv1alpha1.TargetGroupPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "https-http1",
+					Namespace: "bar",
+				},
+				Spec: anv1alpha1.TargetGroupPolicySpec{
+					TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+						Group: "application-networking.k8s.aws",
+						Kind:  "ServiceExport",
+						Name:  "https-http1",
+					},
+					Protocol:        func() *string { s := vpclattice.TargetGroupProtocolHttps; return &s }(),
+					ProtocolVersion: func() *string { s := vpclattice.TargetGroupProtocolVersionHttp1; return &s }(),
+				},
+			},
+			wantErrIsNil:        true,
+			wantProtocol:        vpclattice.TargetGroupProtocolHttps,
+			wantProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+			description:         "should use HTTPS protocol with HTTP1 from TargetGroupPolicy",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			anv1alpha1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, tt.svc.DeepCopy()))
+
+			if tt.tgp != nil {
+				assert.NoError(t, k8sClient.Create(ctx, tt.tgp.DeepCopy()))
+			}
+
+			builder := NewSvcExportTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
+
+			stack, err := builder.Build(ctx, tt.svcExport)
+			if !tt.wantErrIsNil {
+				assert.NotNil(t, err, tt.description)
+				return
+			}
+			assert.Nil(t, err, tt.description)
+
+			var targetGroups []*model.TargetGroup
+			err = stack.ListResources(&targetGroups)
+			assert.Nil(t, err)
+			assert.Equal(t, 1, len(targetGroups))
+
+			tg := targetGroups[0]
+			assert.Equal(t, tt.wantProtocol, tg.Spec.Protocol, tt.description)
+			assert.Equal(t, tt.wantProtocolVersion, tg.Spec.ProtocolVersion, tt.description)
+
+			if tt.wantHealthCheckProto != nil {
+				assert.NotNil(t, tg.Spec.HealthCheckConfig, tt.description)
+				assert.Equal(t, *tt.wantHealthCheckProto, *tg.Spec.HealthCheckConfig.Protocol, tt.description)
+			}
 		})
 	}
 }

@@ -30,6 +30,42 @@ However, the policy will not take effect unless the target is valid.
 
 
 
+### ServiceExport with ExportedPorts
+
+When using ServiceExport with the `exportedPorts` field, TargetGroupPolicy protocol and protocolVersion settings will override the default protocol inferred from the `routeType`. This allows you to configure HTTPS or other protocols even when the routeType is HTTP.
+
+Example:
+
+```yaml
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceExport
+metadata:
+  name: my-service
+spec:
+  exportedPorts:
+  - port: 80
+    routeType: HTTP  # Default would be HTTP/1
+---
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: TargetGroupPolicy
+metadata:
+  name: https-override
+spec:
+  targetRef:
+    group: "application-networking.k8s.aws"
+    kind: ServiceExport
+    name: my-service
+  protocol: HTTPS        # Overrides HTTP from routeType
+  protocolVersion: HTTP2 # Overrides HTTP1 default
+  healthCheck:
+    enabled: true
+    path: "/health"
+    protocol: HTTPS
+    protocolVersion: HTTP2
+```
+
+In this example, even though the ServiceExport specifies `routeType: HTTP`, the TargetGroupPolicy will configure the target group to use HTTPS with HTTP/2, providing secure communication between the VPC Lattice service and your backend pods.
+
 ### Limitations and Considerations
 
 - Attaching TargetGroupPolicy to an existing Service that is already referenced by a route will result in a replacement

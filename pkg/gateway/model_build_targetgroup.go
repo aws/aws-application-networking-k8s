@@ -188,13 +188,13 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx
 		return nil, err
 	}
 
-	// Get health check config from policy
-	_, _, healthCheckConfig, err := parseTargetGroupConfig(tgp)
+	// Get protocol, protocolVersion, and health check config from policy
+	policyProtocol, policyProtocolVersion, healthCheckConfig, err := parseTargetGroupConfig(tgp)
 	if err != nil {
 		return nil, err
 	}
 
-	// Set protocol and protocolVersion based on routeType
+	// Set default protocol and protocolVersion based on routeType
 	var protocol, protocolVersion string
 	switch exportedPort.RouteType {
 	case "HTTP":
@@ -208,6 +208,21 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx
 		protocolVersion = ""
 	default:
 		return nil, fmt.Errorf("unsupported route type: %s", exportedPort.RouteType)
+	}
+
+	// Override with TargetGroupPolicy settings if specified
+	if tgp != nil {
+		if tgp.Spec.Protocol != nil {
+			protocol = policyProtocol
+		}
+		// Only override protocolVersion if protocol is not TCP
+		if tgp.Spec.ProtocolVersion != nil && protocol != vpclattice.TargetGroupProtocolTcp {
+			protocolVersion = policyProtocolVersion
+		}
+		// For TCP protocol, ensure protocolVersion is empty
+		if protocol == vpclattice.TargetGroupProtocolTcp {
+			protocolVersion = ""
+		}
 	}
 
 	spec := model.TargetGroupSpec{
