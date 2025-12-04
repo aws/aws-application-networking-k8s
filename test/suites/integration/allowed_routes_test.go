@@ -86,7 +86,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 			Consistently(func(g Gomega) {
 				route := core.NewHTTPRoute(*httpRoute)
-				_, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace()))
+				_, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).To(HaveOccurred())
 			}, "30s", "5s").Should(Succeed())
 		})
@@ -135,7 +135,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				g.Expect(acceptedCondition.Reason).To(Equal("Accepted"))
 
 				route := core.NewHTTPRoute(*updatedRoute)
-				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace()))
+				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(vpcLatticeService).ToNot(BeNil())
 
@@ -216,7 +216,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				g.Expect(acceptedCondition.Reason).To(Equal("Accepted"))
 
 				route := core.NewHTTPRoute(*updatedRoute)
-				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace()))
+				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).ToNot(HaveOccurred())
 
 				listListenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
@@ -318,7 +318,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				}
 
 				route := core.NewHTTPRoute(*updatedRoute)
-				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace()))
+				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).ToNot(HaveOccurred())
 
 				listListenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
@@ -437,7 +437,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				g.Expect(http1AcceptedCondition.Reason).To(Equal("NotAllowedByListeners"))
 
 				route := core.NewHTTPRoute(*updatedRoute)
-				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace()))
+				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).ToNot(HaveOccurred())
 
 				listListenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
@@ -525,7 +525,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				g.Expect(acceptedCondition.Reason).To(Equal("Accepted"))
 
 				route := core.NewHTTPRoute(*updatedRoute)
-				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace()))
+				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).ToNot(HaveOccurred())
 
 				listListenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
@@ -623,7 +623,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 			Consistently(func(g Gomega) {
 				route := core.NewHTTPRoute(*httpRoute)
-				_, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace()))
+				_, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).To(HaveOccurred())
 			}, "30s", "5s").Should(Succeed())
 		})
@@ -700,7 +700,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 			Consistently(func(g Gomega) {
 				route := core.NewTLSRoute(*tlsRoute)
-				_, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace()))
+				_, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).To(HaveOccurred())
 			}, "30s", "5s").Should(Succeed())
 		})
