@@ -366,6 +366,7 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrId string
 		nameOrId = config.DefaultServiceNetwork
 	}
 
+	// Step 1: Try to find in local (owned) service networks
 	input := &vpclattice.ListServiceNetworksInput{}
 	allSn, err := d.ListServiceNetworksAsList(ctx, input)
 	if err != nil {
@@ -373,26 +374,43 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrId string
 	}
 
 	snMatch, err := d.serviceNetworkMatch(allSn, nameOrId)
-	if err != nil {
+
+	// If found locally, return it with tags
+	if err == nil {
+		return d.buildServiceNetworkInfo(ctx, snMatch)
+	}
+
+	// If error is not "not found", return the error
+	if !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
 
-	// try to fetch tags only if SN in the same aws account with controller's config
+	// Step 2: Not found locally, try RAM-shared networks via VPC associations
+	return d.findServiceNetworkViaVPCAssociation(ctx, nameOrId)
+}
+
+// buildServiceNetworkInfo constructs ServiceNetworkInfo from a matched
+// service network, attempting to fetch tags if the network is local.
+func (d *defaultLattice) buildServiceNetworkInfo(ctx context.Context, snMatch *vpclattice.ServiceNetworkSummary) (*ServiceNetworkInfo, error) {
 	tags := Tags{}
+
+	// Try to fetch tags only if SN is in the same AWS account
 	isLocal, err := d.isLocalResource(aws.StringValue(snMatch.Arn))
 	if err != nil {
 		return nil, err
 	}
+
 	if isLocal {
 		tagsInput := vpclattice.ListTagsForResourceInput{ResourceArn: snMatch.Arn}
 		tagsOutput, err := d.ListTagsForResourceWithContext(ctx, &tagsInput)
 		if err != nil {
 			aerr, ok := err.(awserr.Error)
-			// In case ownAccount is not set, we cant tell if SN is foreign.
+			// In case ownAccount is not set, we can't tell if SN is foreign.
 			// In this case access denied is expected.
 			if !ok || aerr.Code() != vpclattice.ErrCodeAccessDeniedException {
 				return nil, err
 			}
+			// If access denied, proceed without tags
 		} else {
 			tags = tagsOutput.Tags
 		}
@@ -402,6 +420,53 @@ func (d *defaultLattice) FindServiceNetwork(ctx context.Context, nameOrId string
 		SvcNetwork: *snMatch,
 		Tags:       tags,
 	}, nil
+}
+
+// findServiceNetworkViaVPCAssociation attempts to find a service network
+// by examining VPC associations. This is used to discover RAM-shared
+// service networks that don't appear in ListServiceNetworks.
+func (d *defaultLattice) findServiceNetworkViaVPCAssociation(ctx context.Context, nameOrId string) (*ServiceNetworkInfo, error) {
+	// List all VPC-to-Service Network associations for the controller's VPC
+	associations, err := d.ListServiceNetworkVpcAssociationsAsList(ctx,
+		&vpclattice.ListServiceNetworkVpcAssociationsInput{
+			VpcIdentifier: aws.String(config.VpcID),
+		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list VPC associations while searching for service network %s: %w", nameOrId, err)
+	}
+
+	// Find matching service network by name or ID
+	var matches []*vpclattice.ServiceNetworkVpcAssociationSummary
+	for _, assoc := range associations {
+		// Only consider active associations
+		if aws.StringValue(assoc.Status) != vpclattice.ServiceNetworkVpcAssociationStatusActive {
+			continue
+		}
+
+		if aws.StringValue(assoc.ServiceNetworkName) == nameOrId ||
+			aws.StringValue(assoc.ServiceNetworkId) == nameOrId {
+			matches = append(matches, assoc)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil, NewNotFoundError("Service network", nameOrId)
+	case 1:
+		assoc := matches[0]
+		return &ServiceNetworkInfo{
+			SvcNetwork: vpclattice.ServiceNetworkSummary{
+				Id:   assoc.ServiceNetworkId,
+				Arn:  assoc.ServiceNetworkArn,
+				Name: assoc.ServiceNetworkName,
+			},
+			Tags: nil, // Cannot read tags for cross-account resources
+		}, nil
+	default:
+		// Multiple matches - this shouldn't happen but handle defensively
+		return nil, fmt.Errorf("%w, multiple VPC associations found for service network %s",
+			ErrNameConflict, nameOrId)
+	}
 }
 
 // see utils.LatticeServiceName
