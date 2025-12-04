@@ -1430,6 +1430,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#protocol-override-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol Override Example
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1756,6 +1767,7 @@ for example, using target groups in the VPC Lattice setup outside Kubernetes.</p
 instead AWS Gateway API Controller uses its own version of the resource for the purpose of Gateway API integration.</p>
 <h3 id="targetgrouppolicy-integration">TargetGroupPolicy Integration<a class="headerlink" href="#targetgrouppolicy-integration" title="Permanent link">&para;</a></h3>
 <p>ServiceExport resources can be targeted by <a href="../target-group-policy/"><code>TargetGroupPolicy</code></a> to configure protocol, protocol version, and health check settings. When a TargetGroupPolicy is applied to a ServiceExport, the configuration is automatically propagated to all target groups across all clusters that participate in the multi-cluster service mesh, ensuring consistent behavior regardless of which cluster contains the route resource.</p>
+<p><strong>Protocol Override with ExportedPorts</strong>: When using the <code>exportedPorts</code> field, TargetGroupPolicy protocol and protocolVersion settings will override the default protocol inferred from the <code>routeType</code>. For example, you can specify <code>routeType: HTTP</code> in the ServiceExport but use <code>protocol: HTTPS</code> in the TargetGroupPolicy to enable secure communication between VPC Lattice and your backend pods.</p>
 <h3 id="annotations-legacy-method">Annotations (Legacy Method)<a class="headerlink" href="#annotations-legacy-method" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>application-networking.k8s.aws/port</code><br />
@@ -1837,6 +1849,38 @@ instead AWS Gateway API Controller uses its own version of the resource for the 
 <a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">    </span><span class="nt">statusMatch</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200-299&quot;</span>
 </code></pre></div>
 <p>This configuration ensures that all target groups created for the <code>inventory-service</code> across all clusters will use the same health check configuration, providing consistent health monitoring in multi-cluster deployments.</p>
+<h3 id="protocol-override-example">Protocol Override Example<a class="headerlink" href="#protocol-override-example" title="Permanent link">&para;</a></h3>
+<p>The following example demonstrates how to use TargetGroupPolicy to override the protocol for a ServiceExport with exportedPorts:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># ServiceExport with HTTP routeType</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceExport</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">secure-service</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">exportedPorts</span><span class="p">:</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">443</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">routeType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span><span class="w">  </span><span class="c1"># Default would be HTTP/1</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="nn">---</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># TargetGroupPolicy overriding to HTTPS</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupPolicy</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https-override</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">  </span><span class="nt">targetRef</span><span class="p">:</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">    </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;application-networking.k8s.aws&quot;</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceExport</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">secure-service</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">  </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPS</span><span class="w">        </span><span class="c1"># Overrides HTTP from routeType</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">  </span><span class="nt">protocolVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP2</span><span class="w"> </span><span class="c1"># Overrides HTTP1 default</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="w">  </span><span class="nt">healthCheck</span><span class="p">:</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/health&quot;</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPS</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="w">    </span><span class="nt">protocolVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP2</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="w">    </span><span class="nt">statusMatch</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200-299&quot;</span>
+</code></pre></div>
+<p>In this example, even though the ServiceExport specifies <code>routeType: HTTP</code>, the TargetGroupPolicy configures the target group to use HTTPS with HTTP/2, enabling secure communication between VPC Lattice and your backend pods.</p>
 
 
 
