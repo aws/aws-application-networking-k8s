@@ -2071,7 +2071,12 @@ func Test_LatticeServiceModelBuild_FilterRejectedParentRefsForServiceNetworkAsso
 			svc, err := task.buildLatticeService(ctx)
 			assert.NoError(t, err, tt.description)
 			assert.NotNil(t, svc, tt.description)
-			assert.Equal(t, tt.expectedServiceNetworkNames, svc.Spec.ServiceNetworkNames, tt.description)
+
+			expectedNetworkNames := append([]string{}, tt.expectedServiceNetworkNames...)
+			actualNetworkNames := append([]string{}, svc.Spec.ServiceNetworkNames...)
+			sort.Strings(expectedNetworkNames)
+			sort.Strings(actualNetworkNames)
+			assert.Equal(t, expectedNetworkNames, actualNetworkNames, tt.description)
 		})
 	}
 }
