@@ -482,6 +482,14 @@ func (r *routeReconciler) validateRoute(ctx context.Context, route core.Route) e
 		return fmt.Errorf("validate route: %w", err)
 	}
 
+	if core.HasAllParentRefsRejected(route) {
+		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
+			k8s.RouteEventReasonFailedBuildModel,
+			"No VPC Lattice resources created. Route's parentRefs rejected by all Gateway listeners due to allowedRoutes policies. Check route status conditions for more detail.")
+		return fmt.Errorf("%w: route has validation errors, see status", ErrValidation)
+	}
+
+	// Additional broader validation check for any issues
 	if r.hasNotAcceptedCondition(route) {
 		return fmt.Errorf("%w: route has validation errors, see status", ErrValidation)
 	}
@@ -509,8 +517,9 @@ func (r *routeReconciler) hasNotAcceptedCondition(route core.Route) bool {
 //
 // If parent GW exists will check:
 // - NoMatchingParent: parentRef sectionName and port matches Listener name and port
+// - NotAllowedByListeners: listener allowedRoutes.namespaces allows route
+// - NotAllowedByListeners: listener allowedRoutes.kinds contains route GroupKind
 // - TODO: NoMatchingListenerHostname: listener hostname matches one of route hostnames
-// - TODO: NotAllowedByListeners: listener allowedRoutes contains route GroupKind
 func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route core.Route) ([]gwv1.RouteParentStatus, error) {
 	if len(route.Spec().ParentRefs()) == 0 {
 		return nil, ErrParentRefsNotFound
@@ -525,6 +534,8 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 	gw := gws[0]
 	for _, parentRef := range route.Spec().ParentRefs() {
 		noMatchingParent := true
+		notAllowedByAnyMatchingListener := true
+
 		for _, listener := range gw.Spec.Listeners {
 			if parentRef.Port != nil && *parentRef.Port != listener.Port {
 				continue
@@ -533,6 +544,16 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 				continue
 			}
 			noMatchingParent = false
+
+			allowed, err := core.IsRouteAllowedByListener(ctx, r.client, route, gw, listener)
+			if err != nil {
+				return nil, err
+			}
+
+			if allowed {
+				notAllowedByAnyMatchingListener = false
+				break
+			}
 		}
 
 		parentStatus := gwv1.RouteParentStatus{
@@ -545,6 +566,9 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 		switch {
 		case noMatchingParent:
 			cnd = r.newCondition(route, gwv1.RouteConditionAccepted, gwv1.RouteReasonNoMatchingParent, "")
+		case notAllowedByAnyMatchingListener:
+			cnd = r.newCondition(route, gwv1.RouteConditionAccepted, gwv1.RouteReasonNotAllowedByListeners,
+				"No matching listeners allow this route. Check Gateway listener allowedRoutes policies")
 		default:
 			cnd = r.newCondition(route, gwv1.RouteConditionAccepted, gwv1.RouteReasonAccepted, "")
 		}
