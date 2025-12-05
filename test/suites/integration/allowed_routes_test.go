@@ -18,13 +18,17 @@ import (
 
 var _ = Describe("AllowedRoutes Test", Ordered, func() {
 	var (
-		diffNS = "diff-namespace"
+		diffNS    = "diff-namespace"
+		labeledNS = "labeled-namespace"
 
-		deployment    *appsv1.Deployment
-		service       *corev1.Service
-		diffNamespace *corev1.Namespace
-		httpRoute     *gwv1.HTTPRoute
-		tlsRoute      *gwv1alpha2.TLSRoute
+		deployment        *appsv1.Deployment
+		service           *corev1.Service
+		diffNamespace     *corev1.Namespace
+		labeledNamespace  *corev1.Namespace
+		labeledDeployment *appsv1.Deployment
+		labeledService    *corev1.Service
+		httpRoute         *gwv1.HTTPRoute
+		tlsRoute          *gwv1alpha2.TLSRoute
 
 		originalGatewaySpec gwv1.GatewaySpec
 	)
@@ -88,6 +92,22 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 			Namespace: diffNS,
 		})
 		testFramework.ExpectCreated(ctx, deployment, service)
+
+		labeledNamespace = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: labeledNS,
+				Labels: map[string]string{
+					"env": "prod",
+				},
+			},
+		}
+		testFramework.ExpectCreated(ctx, labeledNamespace)
+
+		labeledDeployment, labeledService = testFramework.NewNginxApp(test.ElasticSearchOptions{
+			Name:      "inventory-ver2",
+			Namespace: labeledNS,
+		})
+		testFramework.ExpectCreated(ctx, labeledDeployment, labeledService)
 	})
 
 	Context("Listeners with default policy to allow routes from same namespace", func() {
@@ -187,16 +207,6 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 	Context("Listeners with namespace selector allowing routes from specific labeled namespaces", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				ns := &corev1.Namespace{}
-				g.Expect(testFramework.Get(ctx, client.ObjectKey{Name: diffNS}, ns)).To(Succeed())
-				if ns.Labels == nil {
-					ns.Labels = make(map[string]string)
-				}
-				ns.Labels["env"] = "prod"
-				g.Expect(testFramework.Update(ctx, ns)).To(Succeed())
-			}).Should(Succeed())
-
 			updateGatewayAndWait([]gwv1.Listener{
 				{
 					Name:     "http",
@@ -228,7 +238,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 		})
 
 		It("HTTPRoute from prod labeled namespace should be accepted by HTTP listener with matching selector", func() {
-			httpRoute = testFramework.NewHttpRoute(testGateway, service, "Service")
+			httpRoute = testFramework.NewHttpRoute(testGateway, labeledService, "Service")
 			testFramework.ExpectCreated(ctx, httpRoute)
 
 			Eventually(func(g Gomega) {
@@ -716,7 +726,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		testFramework.ExpectDeletedThenNotFound(ctx, deployment, service, diffNamespace)
+		testFramework.ExpectDeletedThenNotFound(ctx, deployment, service, diffNamespace, labeledDeployment, labeledService, labeledNamespace)
 	})
 })
 
