@@ -1,6 +1,9 @@
 package integration
 
 import (
+	"log"
+	"os"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -10,8 +13,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"log"
-	"os"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -42,7 +43,8 @@ var _ = Describe("HTTPRoute rule priorities", func() {
 				CommonRouteSpec: gwv1.CommonRouteSpec{
 					ParentRefs: []gwv1.ParentReference{
 						{
-							Name: gwv1.ObjectName(testGateway.Name),
+							Name:        gwv1.ObjectName(testGateway.Name),
+							SectionName: lo.ToPtr(gwv1.SectionName("http")),
 						},
 					},
 				},

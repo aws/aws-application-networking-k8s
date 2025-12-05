@@ -23,11 +23,21 @@ func (env *Framework) NewGateway(name string, namespace string) *gwv1.Gateway {
 						Name:     "http",
 						Protocol: gwv1.HTTPProtocolType,
 						Port:     80,
+						AllowedRoutes: &gwv1.AllowedRoutes{
+							Namespaces: &gwv1.RouteNamespaces{
+								From: lo.ToPtr(gwv1.NamespacesFromAll),
+							},
+						},
 					},
 					{
 						Name:     "https",
 						Protocol: gwv1.HTTPSProtocolType,
 						Port:     443,
+						AllowedRoutes: &gwv1.AllowedRoutes{
+							Namespaces: &gwv1.RouteNamespaces{
+								From: lo.ToPtr(gwv1.NamespacesFromAll),
+							},
+						},
 						TLS: &gwv1.GatewayTLSConfig{
 							Mode: lo.ToPtr(gwv1.TLSModeTerminate),
 							CertificateRefs: []gwv1.SecretObjectReference{
@@ -41,6 +51,11 @@ func (env *Framework) NewGateway(name string, namespace string) *gwv1.Gateway {
 						Name:     "tls",
 						Protocol: gwv1.TLSProtocolType,
 						Port:     444,
+						AllowedRoutes: &gwv1.AllowedRoutes{
+							Namespaces: &gwv1.RouteNamespaces{
+								From: lo.ToPtr(gwv1.NamespacesFromAll),
+							},
+						},
 						TLS: &gwv1.GatewayTLSConfig{
 							Mode: lo.ToPtr(gwv1.TLSModePassthrough),
 						},

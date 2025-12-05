@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -86,26 +87,43 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			wantErrIsNil:  true,
 			gwClass:       vpcLatticeGatewayClass,
 			gws:           []gwv1.Gateway{vpcLatticeGateway},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "test",
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service1",
+						Namespace: "test",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
+							},
+						},
+						Hostnames: []gwv1.Hostname{
+							"test1.test.com",
+							"test2.test.com",
+						},
+					},
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
 							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
 							},
 						},
 					},
-					Hostnames: []gwv1.Hostname{
-						"test1.test.com",
-						"test2.test.com",
-					},
-				},
-			}),
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service1",
@@ -124,22 +142,39 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gws: []gwv1.Gateway{
 				vpcLatticeGateway,
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service1",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service1",
@@ -157,22 +192,39 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gws: []gwv1.Gateway{
 				vpcLatticeGateway,
 			},
-			route: core.NewGRPCRoute(gwv1.GRPCRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "test",
-				},
-				Spec: gwv1.GRPCRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+			route: func() core.Route {
+				route := core.NewGRPCRoute(gwv1.GRPCRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service1",
+						Namespace: "test",
+					},
+					Spec: gwv1.GRPCRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service1",
@@ -190,37 +242,55 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gws: []gwv1.Gateway{
 				vpcLatticeGateway,
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              "service2",
-					Namespace:         "ns1",
-					Finalizers:        []string{"gateway.k8s.aws/resources"},
-					DeletionTimestamp: &now, // <- the important bit
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "service2",
+						Namespace:         "ns1",
+						Finalizers:        []string{"gateway.k8s.aws/resources"},
+						DeletionTimestamp: &now, // <- the important bit
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
+									SectionName: &httpSectionName,
+								},
+							},
+						},
+						Rules: []gwv1.HTTPRouteRule{
 							{
-								Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
-								SectionName: &httpSectionName,
-							},
-						},
-					},
-					Rules: []gwv1.HTTPRouteRule{
-						{
-							BackendRefs: []gwv1.HTTPBackendRef{
-								{
-									BackendRef: backendRef1,
-								},
-								{
-									BackendRef: backendRef2,
+								BackendRefs: []gwv1.HTTPBackendRef{
+									{
+										BackendRef: backendRef1,
+									},
+									{
+										BackendRef: backendRef2,
+									},
 								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
+							SectionName: &httpSectionName,
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service2",
@@ -257,23 +327,41 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 					},
 				},
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
-								SectionName: &tlsSectionName,
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service1",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
+									SectionName: &tlsSectionName,
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
+							SectionName: &tlsSectionName,
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service1",
@@ -290,22 +378,39 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gws: []gwv1.Gateway{
 				vpcLatticeGateway,
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      "not-a-real-gateway",
-								Namespace: namespacePtr("default"),
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service1",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      "not-a-real-gateway",
+									Namespace: namespacePtr("default"),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      "not-a-real-gateway",
+							Namespace: namespacePtr("default"),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			wantErrIsNil: false,
 		},
 		{
@@ -332,23 +437,41 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 					},
 				},
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
-								SectionName: &tlsSectionName,
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service1",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
+									SectionName: &tlsSectionName,
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace:   namespacePtr(vpcLatticeGateway.Namespace),
+							SectionName: &tlsSectionName,
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service1",
@@ -375,26 +498,55 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 					},
 				},
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
-							},
-							{
-								Name:      "gateway2",
-								Namespace: namespacePtr("ns2"),
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service1",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
+								{
+									Name:      "gateway2",
+									Namespace: namespacePtr("ns2"),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      "gateway2",
+							Namespace: namespacePtr("ns2"),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service1",
@@ -412,22 +564,39 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gws: []gwv1.Gateway{
 				vpcLatticeGateway,
 			},
-			route: core.NewTLSRoute(gwv1alpha2.TLSRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1alpha2.TLSRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+			route: func() core.Route {
+				route := core.NewTLSRoute(gwv1alpha2.TLSRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service1",
+						Namespace: "default",
+					},
+					Spec: gwv1alpha2.TLSRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 		},
 		{
 			name:          "Multiple service networks with one different controller",
@@ -447,27 +616,44 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 					},
 				},
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service1",
-					Namespace: "default",
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						// has two parent refs and one is not managed by lattice
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
-							},
-							{
-								Name:      "not-lattice",
-								Namespace: namespacePtr("ns2"),
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service1",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							// has two parent refs and one is not managed by lattice
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
+								{
+									Name:      "not-lattice",
+									Namespace: namespacePtr("ns2"),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service1",
@@ -486,25 +672,42 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gws: []gwv1.Gateway{
 				vpcLatticeGateway,
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "standalone-service",
-					Namespace: "default",
-					Annotations: map[string]string{
-						k8s.StandaloneAnnotation: "true",
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "standalone-service",
+						Namespace: "default",
+						Annotations: map[string]string{
+							k8s.StandaloneAnnotation: "true",
+						},
 					},
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "standalone-service",
@@ -533,22 +736,39 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 					},
 				},
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service-inherits-standalone",
-					Namespace: "default",
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      "standalone-gateway",
-								Namespace: namespacePtr("default"),
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service-inherits-standalone",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      "standalone-gateway",
+									Namespace: namespacePtr("default"),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      "standalone-gateway",
+							Namespace: namespacePtr("default"),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service-inherits-standalone",
@@ -577,25 +797,42 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 					},
 				},
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service-overrides-gateway",
-					Namespace: "default",
-					Annotations: map[string]string{
-						k8s.StandaloneAnnotation: "false",
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service-overrides-gateway",
+						Namespace: "default",
+						Annotations: map[string]string{
+							k8s.StandaloneAnnotation: "false",
+						},
 					},
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      "standalone-gateway",
-								Namespace: namespacePtr("default"),
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      "standalone-gateway",
+									Namespace: namespacePtr("default"),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      "standalone-gateway",
+							Namespace: namespacePtr("default"),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "service-overrides-gateway",
@@ -613,25 +850,42 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gws: []gwv1.Gateway{
 				vpcLatticeGateway,
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "standalone-with-override",
-					Namespace: "default",
-					Annotations: map[string]string{
-						k8s.StandaloneAnnotation: "true",
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "standalone-with-override",
+						Namespace: "default",
+						Annotations: map[string]string{
+							k8s.StandaloneAnnotation: "true",
+						},
 					},
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "standalone-with-override",
@@ -649,28 +903,45 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			gws: []gwv1.Gateway{
 				vpcLatticeGateway,
 			},
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "standalone-with-hostname",
-					Namespace: "default",
-					Annotations: map[string]string{
-						k8s.StandaloneAnnotation: "true",
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "standalone-with-hostname",
+						Namespace: "default",
+						Annotations: map[string]string{
+							k8s.StandaloneAnnotation: "true",
+						},
 					},
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
+							},
+						},
+						Hostnames: []gwv1.Hostname{
+							"standalone.example.com",
+						},
+					},
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
 							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
 							},
 						},
 					},
-					Hostnames: []gwv1.Hostname{
-						"standalone.example.com",
-					},
-				},
-			}),
+				})
+				return route
+			}(),
 			expected: model.ServiceSpec{
 				ServiceTagFields: model.ServiceTagFields{
 					RouteName:      "standalone-with-hostname",
@@ -739,7 +1010,12 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 			assert.Equal(t, tt.expected.CustomerCertARN, svc.Spec.CustomerCertARN)
 			assert.Equal(t, tt.expected.CustomerDomainName, svc.Spec.CustomerDomainName)
 			assert.Equal(t, tt.expected.RouteType, svc.Spec.RouteType)
-			assert.Equal(t, tt.expected.ServiceNetworkNames, svc.Spec.ServiceNetworkNames)
+
+			expectedNetworkNames := append([]string{}, tt.expected.ServiceNetworkNames...)
+			actualNetworkNames := append([]string{}, svc.Spec.ServiceNetworkNames...)
+			sort.Strings(expectedNetworkNames)
+			sort.Strings(actualNetworkNames)
+			assert.Equal(t, expectedNetworkNames, actualNetworkNames)
 		})
 	}
 }
@@ -1283,25 +1559,42 @@ func Test_LatticeServiceModelBuild_HTTPRouteWithAndWithoutAdditionalTagsAnnotati
 	}{
 		{
 			name: "HTTPRoute with additional tags annotation",
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service-with-tags",
-					Namespace: "default",
-					Annotations: map[string]string{
-						k8s.TagsAnnotationKey: "Environment=Prod,Project=ServiceTest,Team=Platform",
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service-with-tags",
+						Namespace: "default",
+						Annotations: map[string]string{
+							k8s.TagsAnnotationKey: "Environment=Prod,Project=ServiceTest,Team=Platform",
+						},
 					},
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expectedAdditionalTags: k8s.Tags{
 				"Environment": &[]string{"Prod"}[0],
 				"Project":     &[]string{"ServiceTest"}[0],
@@ -1311,22 +1604,39 @@ func Test_LatticeServiceModelBuild_HTTPRouteWithAndWithoutAdditionalTagsAnnotati
 		},
 		{
 			name: "HTTPRoute without additional tags annotation",
-			route: core.NewHTTPRoute(gwv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "service-no-tags",
-					Namespace: "default",
-				},
-				Spec: gwv1.HTTPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
-								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "service-no-tags",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
 							},
 						},
 					},
-				},
-			}),
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
 			expectedAdditionalTags: nil,
 			description:            "should have nil additional tags when no annotation present in service spec",
 		},
@@ -1358,6 +1668,415 @@ func Test_LatticeServiceModelBuild_HTTPRouteWithAndWithoutAdditionalTagsAnnotati
 			assert.NoError(t, err, tt.description)
 
 			assert.Equal(t, tt.expectedAdditionalTags, svc.Spec.AdditionalTags, tt.description)
+		})
+	}
+}
+
+func Test_LatticeServiceModelBuild_ChecksParentRefsStatusBeforeServiceCreation(t *testing.T) {
+	vpcLatticeGatewayClass := gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gwClass",
+		},
+		Spec: gwv1.GatewayClassSpec{
+			ControllerName: config.LatticeGatewayControllerName,
+		},
+	}
+
+	vpcLatticeGateway := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway1",
+			Namespace: "default",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
+		},
+	}
+
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
+		return &p
+	}
+
+	tests := []struct {
+		name                 string
+		route                core.Route
+		expectServiceCreated bool
+		description          string
+	}{
+		{
+			name: "all parentRefs rejected skips service creation",
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "rejected-route",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
+							},
+						},
+					},
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionFalse,
+							},
+						},
+					},
+				})
+				return route
+			}(),
+			expectServiceCreated: false,
+			description:          "Service creation should be skipped when all parentRefs are rejected",
+		},
+		{
+			name: "some parentRefs accepted should create service",
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "accepted-route",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+									Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+								},
+							},
+						},
+					},
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
+			expectServiceCreated: true,
+			description:          "Service creation should proceed when some parentRefs are accepted",
+		},
+		{
+			name: "no parentRefs in status should skip service creation",
+			route: core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-status-route",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+								Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+							},
+						},
+					},
+				},
+			}),
+			expectServiceCreated: false,
+			description:          "Service creation should be skipped when no parentRefs in status",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGatewayClass.DeepCopy()))
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGateway.DeepCopy()))
+
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
+
+			task := &latticeServiceModelBuildTask{
+				log:    gwlog.FallbackLogger,
+				route:  tt.route,
+				stack:  stack,
+				client: k8sClient,
+			}
+
+			svc, err := task.buildLatticeService(ctx)
+			assert.NoError(t, err, tt.description)
+
+			if tt.expectServiceCreated {
+				assert.NotNil(t, svc, tt.description)
+			} else {
+				assert.Nil(t, svc, tt.description)
+			}
+		})
+	}
+}
+
+func Test_LatticeServiceModelBuild_FilterRejectedParentRefsForServiceNetworkAssociation(t *testing.T) {
+	vpcLatticeGatewayClass := gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gwClass",
+		},
+		Spec: gwv1.GatewayClassSpec{
+			ControllerName: config.LatticeGatewayControllerName,
+		},
+	}
+
+	gateway1 := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway1",
+			Namespace: "default",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
+		},
+	}
+
+	gateway2 := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway2",
+			Namespace: "default",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
+		},
+	}
+
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
+		return &p
+	}
+
+	tests := []struct {
+		name                        string
+		route                       core.Route
+		expectedServiceNetworkNames []string
+		description                 string
+	}{
+		{
+			name: "only accepted parentRefs included in service network association",
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "mixed-acceptance-route",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(gateway1.Name),
+									Namespace: namespacePtr(gateway1.Namespace),
+								},
+								{
+									Name:      gwv1.ObjectName(gateway2.Name),
+									Namespace: namespacePtr(gateway2.Namespace),
+								},
+							},
+						},
+					},
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(gateway1.Name),
+							Namespace: namespacePtr(gateway1.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(gateway2.Name),
+							Namespace: namespacePtr(gateway2.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionFalse,
+							},
+						},
+					},
+				})
+				return route
+			}(),
+			expectedServiceNetworkNames: []string{"gateway1"},
+			description:                 "Only accepted parentRefs should be included in service network names",
+		},
+		{
+			name: "all accepted parentRefs included",
+			route: func() core.Route {
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "all-accepted-route",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      gwv1.ObjectName(gateway1.Name),
+									Namespace: namespacePtr(gateway1.Namespace),
+								},
+								{
+									Name:      gwv1.ObjectName(gateway2.Name),
+									Namespace: namespacePtr(gateway2.Namespace),
+								},
+							},
+						},
+					},
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(gateway1.Name),
+							Namespace: namespacePtr(gateway1.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      gwv1.ObjectName(gateway2.Name),
+							Namespace: namespacePtr(gateway2.Namespace),
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
+			expectedServiceNetworkNames: []string{"gateway1", "gateway2"},
+			description:                 "All accepted parentRefs should be included in service network names",
+		},
+		{
+			name: "two accepted parentRefs to same gateway should be deduplicated in service network names",
+			route: func() core.Route {
+				httpSection := gwv1.SectionName("http")
+				httpsSection := gwv1.SectionName("https")
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "duplicate-gateway-route",
+						Namespace: "default",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:        gwv1.ObjectName(gateway1.Name),
+									Namespace:   namespacePtr(gateway1.Namespace),
+									SectionName: &httpSection,
+								},
+								{
+									Name:        gwv1.ObjectName(gateway1.Name),
+									Namespace:   namespacePtr(gateway1.Namespace),
+									SectionName: &httpsSection,
+								},
+							},
+						},
+					},
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:        gwv1.ObjectName(gateway1.Name),
+							Namespace:   namespacePtr(gateway1.Namespace),
+							SectionName: &httpSection,
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:        gwv1.ObjectName(gateway1.Name),
+							Namespace:   namespacePtr(gateway1.Namespace),
+							SectionName: &httpsSection,
+						},
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				})
+				return route
+			}(),
+			expectedServiceNetworkNames: []string{"gateway1"},
+			description:                 "Multiple parentRefs to same gateway should result in deduplicated service network names",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGatewayClass.DeepCopy()))
+			assert.NoError(t, k8sClient.Create(ctx, gateway1.DeepCopy()))
+			assert.NoError(t, k8sClient.Create(ctx, gateway2.DeepCopy()))
+
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
+
+			task := &latticeServiceModelBuildTask{
+				log:    gwlog.FallbackLogger,
+				route:  tt.route,
+				stack:  stack,
+				client: k8sClient,
+			}
+
+			svc, err := task.buildLatticeService(ctx)
+			assert.NoError(t, err, tt.description)
+			assert.NotNil(t, svc, tt.description)
+
+			expectedNetworkNames := append([]string{}, tt.expectedServiceNetworkNames...)
+			actualNetworkNames := append([]string{}, svc.Spec.ServiceNetworkNames...)
+			sort.Strings(expectedNetworkNames)
+			sort.Strings(actualNetworkNames)
+			assert.Equal(t, expectedNetworkNames, actualNetworkNames, tt.description)
 		})
 	}
 }

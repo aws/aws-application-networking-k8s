@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -11,6 +10,7 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
@@ -18,38 +18,10 @@ const (
 	awsCustomCertARN = "application-networking.k8s.aws/certificate-arn"
 )
 
-func (t *latticeServiceModelBuildTask) extractListenerInfo(
-	ctx context.Context,
-	parentRef gwv1.ParentReference,
-	gw *gwv1.Gateway,
-) (int64, string, error) {
-	if parentRef.SectionName != nil {
-		t.log.Debugf(ctx, "Listener parentRef SectionName is %s", *parentRef.SectionName)
-	}
-
-	t.log.Debugf(ctx, "Building Listener for Route %s-%s", t.route.Name(), t.route.Namespace())
-	// If no SectionName is specified, use the first listener port
-	if parentRef.SectionName == nil {
-		if len(gw.Spec.Listeners) == 0 {
-			return 0, "", errors.New("error building listener, there is NO listeners on GW")
-		}
-		listenerPort := int(gw.Spec.Listeners[0].Port)
-		protocol := gw.Spec.Listeners[0].Protocol
-		return int64(listenerPort), string(protocol), nil
-	}
-	// Find the matching section name
-	for _, section := range gw.Spec.Listeners {
-		if section.Name == *parentRef.SectionName {
-			listenerPort := int(section.Port)
-			protocol := section.Protocol
-			if isTLSPassthroughGatewayListener(&section) {
-				t.log.Debugf(ctx, "Found TLS passthrough section %v", section.TLS)
-				protocol = vpclattice.ListenerProtocolTlsPassthrough
-			}
-			return int64(listenerPort), string(protocol), nil
-		}
-	}
-	return 0, "", fmt.Errorf("error building listener, no matching sectionName in parentRef for Name %s, Section %s", parentRef.Name, *parentRef.SectionName)
+type ListenerConfig struct {
+	Name     string
+	Port     int64
+	Protocol string
 }
 
 func isTLSPassthroughGatewayListener(listener *gwv1.Listener) bool {
@@ -98,26 +70,64 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 		return err
 	}
 
+	listenersToCreate := make(map[string]ListenerConfig)
+
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		if string(parentRef.Name) != gw.Name {
 			continue
 		}
 
-		port, protocol, err := t.extractListenerInfo(ctx, parentRef, gw)
+		// Check if this parentRef was accepted during validation
+		if !core.IsParentRefAccepted(t.route, parentRef) {
+			t.log.Debugf(ctx, "Skipping VPC Lattice Listener creation for rejected parentRef %s", parentRef.Name)
+			continue
+		}
+
+		// Find all gateway listeners that match this parentRef
+		for _, gwListener := range gw.Spec.Listeners {
+			if parentRef.Port != nil && *parentRef.Port != gwListener.Port {
+				continue
+			}
+			if parentRef.SectionName != nil && *parentRef.SectionName != gwListener.Name {
+				continue
+			}
+
+			allowed, err := core.IsRouteAllowedByListener(ctx, t.client, t.route, gw, gwListener)
+			if err != nil {
+				return fmt.Errorf("error checking allowedRoutes policy for listener %s: %w", gwListener.Name, err)
+			}
+			if !allowed {
+				t.log.Debugf(ctx, "Skipping listener %s due to allowedRoutes policy", gwListener.Name)
+				continue
+			}
+
+			protocol := string(gwListener.Protocol)
+			if isTLSPassthroughGatewayListener(&gwListener) {
+				t.log.Debugf(ctx, "Found TLS passthrough listener %s", gwListener.Name)
+				protocol = vpclattice.ListenerProtocolTlsPassthrough
+			}
+
+			listenerName := string(gwListener.Name)
+			listenersToCreate[listenerName] = ListenerConfig{
+				Name:     listenerName,
+				Port:     int64(gwListener.Port),
+				Protocol: protocol,
+			}
+		}
+	}
+
+	for _, listenerConfig := range listenersToCreate {
+		defaultAction, err := t.getListenerDefaultAction(ctx, listenerConfig.Protocol)
 		if err != nil {
 			return err
 		}
 
-		defaultAction, err := t.getListenerDefaultAction(ctx, protocol)
-		if err != nil {
-			return err
-		}
 		spec := model.ListenerSpec{
 			StackServiceId:    stackSvcId,
 			K8SRouteName:      t.route.Name(),
 			K8SRouteNamespace: t.route.Namespace(),
-			Port:              port,
-			Protocol:          protocol,
+			Port:              listenerConfig.Port,
+			Protocol:          listenerConfig.Protocol,
 			DefaultAction:     defaultAction,
 		}
 
