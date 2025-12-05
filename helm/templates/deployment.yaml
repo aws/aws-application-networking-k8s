@@ -91,6 +91,8 @@ spec:
             value: {{ .Values.latticeEndpoint | quote }}
           - name: DEFAULT_SERVICE_NETWORK
             value: {{ .Values.defaultServiceNetwork | quote }}
+          - name: ENABLE_SERVICE_NETWORK_OVERRIDE
+            value: {{ .Values.enableServiceNetworkOverride | quote }}
           - name: LOG_LEVEL
             value: {{ .Values.log.level | quote }}
           - name: WEBHOOK_ENABLED
