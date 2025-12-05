@@ -29,6 +29,51 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 		originalGatewaySpec gwv1.GatewaySpec
 	)
 
+	// Helper function to update Gateway and wait for update to be persisted
+	updateGatewayAndWait := func(listeners []gwv1.Listener) {
+		Eventually(func(g Gomega) {
+			currentGateway := &gwv1.Gateway{}
+			g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
+
+			currentGateway.Spec.Listeners = listeners
+			g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
+
+			// Verify the update was persisted by re-reading from cluster
+			updatedGateway := &gwv1.Gateway{}
+			g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), updatedGateway)).To(Succeed())
+			g.Expect(updatedGateway.Spec.Listeners).To(HaveLen(len(listeners)))
+
+			// Verify all listeners match what we set
+			for i, expectedListener := range listeners {
+				g.Expect(updatedGateway.Spec.Listeners[i].Name).To(Equal(expectedListener.Name))
+				g.Expect(updatedGateway.Spec.Listeners[i].Port).To(Equal(expectedListener.Port))
+				g.Expect(updatedGateway.Spec.Listeners[i].Protocol).To(Equal(expectedListener.Protocol))
+			}
+		}).Should(Succeed())
+
+		// Register cleanup to restore Gateway even if test panics or fails
+		DeferCleanup(func() {
+			Eventually(func(g Gomega) {
+				gw := &gwv1.Gateway{}
+				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), gw)).To(Succeed())
+				gw.Spec = *originalGatewaySpec.DeepCopy()
+				g.Expect(testFramework.Update(ctx, gw)).To(Succeed())
+
+				// Verify restoration was persisted by re-reading from cluster
+				restoredGateway := &gwv1.Gateway{}
+				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), restoredGateway)).To(Succeed())
+				g.Expect(restoredGateway.Spec.Listeners).To(HaveLen(len(originalGatewaySpec.Listeners)))
+
+				// Verify all listeners match original spec
+				for i, originalListener := range originalGatewaySpec.Listeners {
+					g.Expect(restoredGateway.Spec.Listeners[i].Name).To(Equal(originalListener.Name))
+					g.Expect(restoredGateway.Spec.Listeners[i].Port).To(Equal(originalListener.Port))
+					g.Expect(restoredGateway.Spec.Listeners[i].Protocol).To(Equal(originalListener.Protocol))
+				}
+			}).Should(Succeed())
+		})
+	}
+
 	BeforeAll(func() {
 		// Backup common testGateway spec
 		originalGatewaySpec = *testGateway.Spec.DeepCopy()
@@ -47,24 +92,18 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 	Context("Listeners with default policy to allow routes from same namespace", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				currentGateway := &gwv1.Gateway{}
-				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
-
-				currentGateway.Spec.Listeners = []gwv1.Listener{
-					{
-						Name:     "http",
-						Protocol: gwv1.HTTPProtocolType,
-						Port:     80,
-					},
-					{
-						Name:     "https",
-						Protocol: gwv1.HTTPSProtocolType,
-						Port:     443,
-					},
-				}
-				g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
-			}).Should(Succeed())
+			updateGatewayAndWait([]gwv1.Listener{
+				{
+					Name:     "http",
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+				},
+				{
+					Name:     "https",
+					Protocol: gwv1.HTTPSProtocolType,
+					Port:     443,
+				},
+			})
 		})
 
 		It("HTTPRoute from different namespace should be rejected", func() {
@@ -94,29 +133,23 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 	Context("Listeners with one allowing routes from default same and other from all namespaces", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				currentGateway := &gwv1.Gateway{}
-				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
-
-				currentGateway.Spec.Listeners = []gwv1.Listener{
-					{
-						Name:     "http",
-						Protocol: gwv1.HTTPProtocolType,
-						Port:     80,
-					},
-					{
-						Name:     "https",
-						Protocol: gwv1.HTTPSProtocolType,
-						Port:     443,
-						AllowedRoutes: &gwv1.AllowedRoutes{
-							Namespaces: &gwv1.RouteNamespaces{
-								From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromAll}[0],
-							},
+			updateGatewayAndWait([]gwv1.Listener{
+				{
+					Name:     "http",
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+				},
+				{
+					Name:     "https",
+					Protocol: gwv1.HTTPSProtocolType,
+					Port:     443,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Namespaces: &gwv1.RouteNamespaces{
+							From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromAll}[0],
 						},
 					},
-				}
-				g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
-			}).Should(Succeed())
+				},
+			})
 		})
 
 		It("HTTPRoute from different namespace should be accepted by HTTPS listener allowing routes from all namespaces", func() {
@@ -164,40 +197,34 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				g.Expect(testFramework.Update(ctx, ns)).To(Succeed())
 			}).Should(Succeed())
 
-			Eventually(func(g Gomega) {
-				currentGateway := &gwv1.Gateway{}
-				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
-
-				currentGateway.Spec.Listeners = []gwv1.Listener{
-					{
-						Name:     "http",
-						Protocol: gwv1.HTTPProtocolType,
-						Port:     80,
-						AllowedRoutes: &gwv1.AllowedRoutes{
-							Namespaces: &gwv1.RouteNamespaces{
-								From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromSelector}[0],
-								Selector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"env": "prod"},
-								},
+			updateGatewayAndWait([]gwv1.Listener{
+				{
+					Name:     "http",
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Namespaces: &gwv1.RouteNamespaces{
+							From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromSelector}[0],
+							Selector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"env": "prod"},
 							},
 						},
 					},
-					{
-						Name:     "https",
-						Protocol: gwv1.HTTPSProtocolType,
-						Port:     443,
-						AllowedRoutes: &gwv1.AllowedRoutes{
-							Namespaces: &gwv1.RouteNamespaces{
-								From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromSelector}[0],
-								Selector: &metav1.LabelSelector{
-									MatchLabels: map[string]string{"env": "dev"},
-								},
+				},
+				{
+					Name:     "https",
+					Protocol: gwv1.HTTPSProtocolType,
+					Port:     443,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Namespaces: &gwv1.RouteNamespaces{
+							From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromSelector}[0],
+							Selector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"env": "dev"},
 							},
 						},
 					},
-				}
-				g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
-			}).Should(Succeed())
+				},
+			})
 		})
 
 		It("HTTPRoute from prod labeled namespace should be accepted by HTTP listener with matching selector", func() {
@@ -234,34 +261,28 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 	Context("Both listeners allowing routes from all namespaces", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				currentGateway := &gwv1.Gateway{}
-				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
-
-				currentGateway.Spec.Listeners = []gwv1.Listener{
-					{
-						Name:     "http",
-						Protocol: gwv1.HTTPProtocolType,
-						Port:     80,
-						AllowedRoutes: &gwv1.AllowedRoutes{
-							Namespaces: &gwv1.RouteNamespaces{
-								From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromAll}[0],
-							},
+			updateGatewayAndWait([]gwv1.Listener{
+				{
+					Name:     "http",
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Namespaces: &gwv1.RouteNamespaces{
+							From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromAll}[0],
 						},
 					},
-					{
-						Name:     "http1",
-						Protocol: gwv1.HTTPProtocolType,
-						Port:     90,
-						AllowedRoutes: &gwv1.AllowedRoutes{
-							Namespaces: &gwv1.RouteNamespaces{
-								From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromAll}[0],
-							},
+				},
+				{
+					Name:     "http1",
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     90,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Namespaces: &gwv1.RouteNamespaces{
+							From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromAll}[0],
 						},
 					},
-				}
-				g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
-			}).Should(Succeed())
+				},
+			})
 		})
 
 		It("HTTPRoute with multiple parentRefs should be accepted by both listeners", func() {
@@ -338,34 +359,28 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 	Context("Listeners with mixed namespace policies allowing routes from all and same namespace respectively", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				currentGateway := &gwv1.Gateway{}
-				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
-
-				currentGateway.Spec.Listeners = []gwv1.Listener{
-					{
-						Name:     "http",
-						Protocol: gwv1.HTTPProtocolType,
-						Port:     80,
-						AllowedRoutes: &gwv1.AllowedRoutes{
-							Namespaces: &gwv1.RouteNamespaces{
-								From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromAll}[0],
-							},
+			updateGatewayAndWait([]gwv1.Listener{
+				{
+					Name:     "http",
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Namespaces: &gwv1.RouteNamespaces{
+							From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromAll}[0],
 						},
 					},
-					{
-						Name:     "http1",
-						Protocol: gwv1.HTTPProtocolType,
-						Port:     90,
-						AllowedRoutes: &gwv1.AllowedRoutes{
-							Namespaces: &gwv1.RouteNamespaces{
-								From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromSame}[0],
-							},
+				},
+				{
+					Name:     "http1",
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     90,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Namespaces: &gwv1.RouteNamespaces{
+							From: &[]gwv1.FromNamespaces{gwv1.NamespacesFromSame}[0],
 						},
 					},
-				}
-				g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
-			}).Should(Succeed())
+				},
+			})
 		})
 
 		It("HTTPRoute with multiple parentRefs should have one accepted parentRef by all namespace listener and one rejected by same namespace listener", func() {
@@ -455,28 +470,23 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 	Context("Listeners with default protocol based kind policy", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				currentGateway := &gwv1.Gateway{}
-				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
-
-				currentGateway.Spec.Listeners = []gwv1.Listener{
-					{
-						Name:     "http",
-						Protocol: gwv1.HTTPProtocolType,
-						Port:     80},
-					{
-						Name:     "https",
-						Protocol: gwv1.HTTPSProtocolType,
-						Port:     443,
-					},
-					{
-						Name:     "tls",
-						Protocol: gwv1.TLSProtocolType,
-						Port:     444,
-					},
-				}
-				g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
-			}).Should(Succeed())
+			updateGatewayAndWait([]gwv1.Listener{
+				{
+					Name:     "http",
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+				},
+				{
+					Name:     "https",
+					Protocol: gwv1.HTTPSProtocolType,
+					Port:     443,
+				},
+				{
+					Name:     "tls",
+					Protocol: gwv1.TLSProtocolType,
+					Port:     444,
+				},
+			})
 		})
 
 		It("HTTPRoute should be accepted by compatible HTTP and HTTPS listeners but filtered out from TLS listener", func() {
@@ -551,26 +561,20 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 	Context("HTTPS listener configured to allow only GRPCRoute", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				currentGateway := &gwv1.Gateway{}
-				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
-
-				currentGateway.Spec.Listeners = []gwv1.Listener{
-					{
-						Name:     "https",
-						Protocol: gwv1.HTTPSProtocolType,
-						Port:     443,
-						AllowedRoutes: &gwv1.AllowedRoutes{
-							Kinds: []gwv1.RouteGroupKind{
-								{
-									Kind: "GRPCRoute",
-								},
+			updateGatewayAndWait([]gwv1.Listener{
+				{
+					Name:     "https",
+					Protocol: gwv1.HTTPSProtocolType,
+					Port:     443,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{
+							{
+								Kind: "GRPCRoute",
 							},
 						},
 					},
-				}
-				g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
-			}).Should(Succeed())
+				},
+			})
 		})
 
 		It("HTTPRoute should be rejected by HTTPS listener configured to allow only GRPCRoute", func() {
@@ -631,24 +635,18 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 
 	Context("HTTP and HTTPS listeners with default kind policies incompatible with TLSRoute", func() {
 		BeforeEach(func() {
-			Eventually(func(g Gomega) {
-				currentGateway := &gwv1.Gateway{}
-				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
-
-				currentGateway.Spec.Listeners = []gwv1.Listener{
-					{
-						Name:     "http",
-						Protocol: gwv1.HTTPProtocolType,
-						Port:     80,
-					},
-					{
-						Name:     "https",
-						Protocol: gwv1.HTTPSProtocolType,
-						Port:     443,
-					},
-				}
-				g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
-			}).Should(Succeed())
+			updateGatewayAndWait([]gwv1.Listener{
+				{
+					Name:     "http",
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+				},
+				{
+					Name:     "https",
+					Protocol: gwv1.HTTPSProtocolType,
+					Port:     443,
+				},
+			})
 		})
 
 		It("TLSRoute should be rejected by HTTP and HTTPS listeners due to protocol incompatibility", func() {
@@ -715,13 +713,6 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 			testFramework.ExpectDeletedThenNotFound(ctx, tlsRoute)
 			tlsRoute = nil
 		}
-
-		Eventually(func(g Gomega) {
-			currentGateway := &gwv1.Gateway{}
-			g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(testGateway), currentGateway)).To(Succeed())
-			currentGateway.Spec = *originalGatewaySpec.DeepCopy()
-			g.Expect(testFramework.Update(ctx, currentGateway)).To(Succeed())
-		}).Should(Succeed())
 	})
 
 	AfterAll(func() {
