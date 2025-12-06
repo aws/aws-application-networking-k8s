@@ -304,7 +304,6 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 	})
 
 	It("supports targetRef HTTPRoute change from invalid to valid service name override", func() {
-		Skip("Test skipped")
 		policy := newPolicy("recovery-test", "HTTPRoute", httpRouteWithInvalidServiceNameOverride.Name)
 
 		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonInvalid})
@@ -324,19 +323,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 			annotationResId:   svcId,
 		}
 
-		Eventually(func(g Gomega) (K8sResults, error) {
-			p := &anv1alpha1.IAMAuthPolicy{}
-			err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), p)
-			if err != nil {
-				return K8sResults{}, err
-			}
-			return K8sResults{
-				statusReason:      GetPolicyStatusReason(p),
-				annotationResType: p.Annotations[controllers.IAMAuthPolicyAnnotationType],
-				annotationResId:   p.Annotations[controllers.IAMAuthPolicyAnnotationResId],
-			}, nil
-		}).WithTimeout(120 * time.Second).WithPolling(time.Second).
-			Should(Equal(wantResults))
+		testK8sPolicy(policy, wantResults)
 		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
 
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)

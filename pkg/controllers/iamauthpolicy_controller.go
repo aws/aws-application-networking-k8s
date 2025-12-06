@@ -161,6 +161,7 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 			if statusErr := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, gwv1alpha2.PolicyReasonInvalid, err.Error()); statusErr != nil {
 				return ctrl.Result{}, statusErr
 			}
+			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
