@@ -426,6 +426,11 @@ func (d *defaultLattice) buildServiceNetworkInfo(ctx context.Context, snMatch *v
 // by examining VPC associations. This is used to discover RAM-shared
 // service networks that don't appear in ListServiceNetworks.
 func (d *defaultLattice) findServiceNetworkViaVPCAssociation(ctx context.Context, nameOrId string) (*ServiceNetworkInfo, error) {
+	// Validate that VPC ID is configured
+	if config.VpcID == "" {
+		return nil, fmt.Errorf("cannot discover RAM-shared service networks: CLUSTER_VPC_ID environment variable is not set")
+	}
+
 	// List all VPC-to-Service Network associations for the controller's VPC
 	associations, err := d.ListServiceNetworkVpcAssociationsAsList(ctx,
 		&vpclattice.ListServiceNetworkVpcAssociationsInput{
