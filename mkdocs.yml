@@ -25,6 +25,7 @@ nav:
     - Pod Readiness Gates: guides/pod-readiness-gates.md
     - Configuration: guides/environment.md
     - Additional Tags: guides/additional-tags.md
+    - Service Name Override: guides/service-name-override.md
   - API Specification: api-reference.md
   - API Reference:
     - AccessLogPolicy: api-types/access-log-policy.md
