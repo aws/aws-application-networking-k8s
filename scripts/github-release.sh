@@ -70,6 +70,7 @@ sed_inplace "deploy-$OLD_VERSION.yaml" "deploy-$RELEASE_VERSION.yaml" "$WORKSPAC
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/deploy.md
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/getstarted.md
 sed_inplace "mike deploy $OLD_VERSION" "mike deploy $RELEASE_VERSION" "$WORKSPACE_DIR"/.github/workflows/publish-doc.yaml
+sed_inplace "CURRENT_CONTROLLER_VERSION=\"$OLD_VERSION\"" "CURRENT_CONTROLLER_VERSION=\"$RELEASE_VERSION\"" "$WORKSPACE_DIR"/scripts/setup.sh
 
 
 # Build the deploy.yaml
@@ -96,6 +97,7 @@ git add "$WORKSPACE_DIR/README.md" \
   "$WORKSPACE_DIR/files/controller-installation/deploy-$RELEASE_VERSION.yaml" \
   "$WORKSPACE_DIR/docs/guides/deploy.md" \
   "$WORKSPACE_DIR/docs/guides/getstarted.md" \
+  "$WORKSPACE_DIR/scripts/setup.sh" \
 
 # Add the old deploy file if it exists and was removed
 if [ -f "$WORKSPACE_DIR/files/controller-installation/deploy-$VERSION_TO_REMOVE.yaml" ]; then
