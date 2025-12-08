@@ -28,12 +28,14 @@ spec:
 Service name overrides must be set during route creation and cannot be modified. Adding or changing the annotation on existing routes does not work.
 
 **To add or change a service name override for existing route:**
+
 1. Delete the route: `kubectl delete httproute my-route`  
 2. Update annotation and recreate: `kubectl apply -f updated-route.yaml`
 
 ## Validation Rules
 
 Service names must:
+
 - Be 3-40 characters long
 - Use only lowercase letters, numbers, and hyphens
 - Start and end with alphanumeric characters  
