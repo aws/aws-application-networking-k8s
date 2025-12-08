@@ -191,7 +191,7 @@ aws ecr-public get-login-password --region us-east-1 | helm registry login --use
 # Run helm with either install or upgrade
 helm install gateway-api-controller \
     oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
-    --version=v1.1.7 \
+    --version=v2.0.0 \
     --set=serviceAccount.create=false \
     --namespace aws-application-networking-system \
     --set=log.level=info # use "debug" for debug level logs
@@ -200,7 +200,7 @@ helm install gateway-api-controller \
 === "Kubectl"
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v1.1.7.yaml
+kubectl apply -f https://raw.githubusercontent.com/aws/aws-application-networking-k8s/main/files/controller-installation/deploy-v2.0.0.yaml
 ```
 
 1. Create the `amazon-vpc-lattice` GatewayClass:
