@@ -201,21 +201,19 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		return nil, err
 	}
 
-	// If not set on route, check the Gateway's lattice-service-name annotation
+	// If not set on route, check the Gateway's service-name-override annotation (fallback)
 	if serviceNameOverride == "" {
 		gw, gwErr := t.findGateway(ctx)
 		if gwErr == nil && gw != nil {
-			gwAnnotations := gw.GetAnnotations()
-			if gwAnnotations != nil {
-				// Check for the lattice-service-name annotation on the Gateway
-				if latticeServiceName, exists := gwAnnotations[k8s.AnnotationPrefix+"lattice-service-name"]; exists && latticeServiceName != "" {
-					if validateErr := k8s.ValidateVPCLatticeServiceName(latticeServiceName); validateErr != nil {
-						return nil, k8s.NewInvalidServiceNameOverrideError(latticeServiceName, validateErr.Error())
-					}
-					serviceNameOverride = latticeServiceName
-					t.log.Debugf(ctx, "Using lattice-service-name from Gateway %s/%s: %s",
-						gw.GetNamespace(), gw.GetName(), latticeServiceName)
-				}
+			// Use the same validation function as HTTPRoute for consistency
+			gwServiceNameOverride, gwErr := k8s.GetServiceNameOverrideWithValidation(gw)
+			if gwErr != nil {
+				return nil, gwErr
+			}
+			if gwServiceNameOverride != "" {
+				serviceNameOverride = gwServiceNameOverride
+				t.log.Debugf(ctx, "Using service-name-override from Gateway %s/%s: %s",
+					gw.GetNamespace(), gw.GetName(), serviceNameOverride)
 			}
 		}
 	}
