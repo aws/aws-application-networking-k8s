@@ -171,3 +171,190 @@ spec:
 
 5. Controller takes over the VPC Lattice service and updates it to reflect traffic weights in green HTTPRoute
 6. Controller updates ManagedBy tag on service, service network service association, listeners, and rules to transfer ownership
+
+## Multi-Cluster Service Export/Import Example
+
+This example demonstrates how to export a service from one cluster and import it into another cluster for blue/green deployments or multi-active configurations depending on your backend service architecture.
+
+### Cluster 1: Export Service
+
+Create a ServiceExport to make your service available to other clusters:
+
+```yaml
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceExport
+metadata:
+  name: test-service
+  annotations:
+    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
+    application-networking.k8s.aws/tags: "Environment=Test,Team=Marketing"
+spec:
+  exportedPorts:
+  - port: 80
+    routeType: HTTP
+```
+
+### Cluster 2: Import and Route to Service
+
+#### 1. Create Gateway
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: my-hotel
+  namespace: default
+spec:
+  gatewayClassName: amazon-vpc-lattice
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+```
+
+#### 2. Create ServiceImport
+
+```yaml
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceImport
+metadata:
+  name: test-service
+spec:
+  type: ClusterSetIP
+  ports:
+  - port: 80
+    protocol: TCP
+```
+
+#### 3. Create HTTPRoute with Traffic Split
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: test-service
+spec:
+  parentRefs:
+  - name: my-hotel
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: test-service
+      kind: ServiceImport
+      weight: 90
+    - name: test-service
+      kind: Service
+      port: 80
+      weight: 10
+```
+
+In this configuration:
+
+- 90% of traffic is routed to the imported service from Cluster 1
+- 10% of traffic is routed to the local service in Cluster 2
+- This enables blue/green deployments or multi-active configurations depending on your backend service setup
+
+## Optimizing DNS Resolution for Zone-Local Traffic in EKS
+
+### Problem
+
+In multi-zone EKS clusters, DNS queries for services (including VPC Lattice endpoints) may return IP addresses from all availability zones, causing cross-zone traffic and increased latency. Applications repeatedly receive DNS answers spanning multiple zones rather than preferring zone-local endpoints.
+
+### Solution
+
+Configure CoreDNS to prefer zone-local endpoints by:
+
+1. Distributing CoreDNS pods across all availability zones
+2. Enabling PreferClose traffic distribution on the CoreDNS service
+
+This ensures DNS queries are answered by zone-local CoreDNS pods, which then return zone-local service endpoints when available.
+
+### Implementation Steps
+
+#### 1. Scale CoreDNS Deployment
+
+Increase CoreDNS replicas to ensure coverage across all zones (2 replicas per zone recommended for resilience):
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coredns
+  namespace: kube-system
+spec:
+  replicas: 6  # For 3 AZs: 2 replicas per zone
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          # Prevent multiple CoreDNS pods on same node
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: k8s-app
+                operator: In
+                values:
+                - kube-dns
+            topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            k8s-app: kube-dns
+        maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+```
+
+#### 2. Enable PreferClose Traffic Distribution
+
+Update the CoreDNS service:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-dns
+  namespace: kube-system
+spec:
+  trafficDistribution: PreferClose
+  # ... rest of service configuration
+```
+
+Apply changes:
+
+```bash
+kubectl apply -f coredns-deployment.yaml
+kubectl apply -f coredns-service.yaml
+```
+
+### Validation
+
+Monitor DNS resolution behavior using a test client that continuously resolves service names and logs returned IP addresses. After applying the configuration:
+
+**Before:** DNS answers include IPs from multiple zones
+
+```
+addr=169.254.171.0 (zone-a)
+addr=169.254.171.160 (zone-b)
+addr=169.254.171.96 (zone-c)
+```
+
+**After (~30-60 seconds):** DNS consistently returns zone-local IPs
+
+```
+addr=169.254.171.96 (zone-c only)
+```
+
+### Important Considerations
+
+* **Replica Count:** Use (number_of_zones × 2) replicas for resilience during deployments
+* **Deployment Impact:** During CoreDNS pod updates in a zone, DNS queries may temporarily return cross-zone endpoints until new pods are ready
+* **Dual Resolvers:** Having 2 CoreDNS pods per zone maintains DNS availability during rolling updates
+
+### Benefits
+
+* Lower latency for service-to-service communication
+* Improved fault isolation within availability zones
