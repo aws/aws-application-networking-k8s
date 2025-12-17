@@ -26,6 +26,7 @@ nav:
     - Configuration: guides/environment.md
     - Additional Tags: guides/additional-tags.md
     - Service Name Override: guides/service-name-override.md
+    - Controller Metrics: guides/metrics.md
   - API Specification: api-reference.md
   - API Reference:
     - AccessLogPolicy: api-types/access-log-policy.md
