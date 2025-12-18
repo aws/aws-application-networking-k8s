@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/dev/guides/tls-passthrough/">
+        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/dev/guides/metrics/">
       
       
-        <link rel="prev" href="../grpc/">
+        <link rel="prev" href="../service-name-override/">
       
       
-        <link rel="next" href="../pod-readiness-gates/">
+        <link rel="next" href="../../api-reference/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>TLS Passthrough - AWS Gateway API Controller</title>
+        <title>Controller Metrics - AWS Gateway API Controller</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tls-passthrough-support" class="md-skip">
+        <a href="#gateway-api-controller-metrics" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              TLS Passthrough
+              Controller Metrics
             
           </span>
         </div>
@@ -862,37 +862,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    TLS Passthrough
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../tls-passthrough/" class="md-nav__link">
         
   
   
@@ -908,181 +881,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#install-gateway-api-tlsroute-crd" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install Gateway API TLSRoute CRD
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#setup-tls-passthrough-connectivity-in-a-single-cluster" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Setup TLS Passthrough Connectivity in a single cluster
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Setup TLS Passthrough Connectivity in a single cluster">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-configure-tls-passthrough-listener-on-gateway" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Configure TLS Passthrough Listener on Gateway
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-configure-tlsroute" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Configure TLSRoute
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-verify-the-controller-has-reconciled-nginx-tls-route" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Verify the controller has reconciled nginx-tls route
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-verify-tls-passthrough-traffic" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Verify TLS Passthrough Traffic
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#setup-tls-passthrough-connectivity-spanning-multiple-clusters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Setup TLS Passthrough Connectivity spanning multiple clusters
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Setup TLS Passthrough Connectivity spanning multiple clusters">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-in-this-example-we-still-use-the-parking-kubernetes-service-as-the-client-pod-to-test-the-cross-cluster-tls-passthrough-traffic" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. In this example we still use the "parking" Kubernetes service as the client pod to test the cross cluster TLS passthrough traffic.
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-in-cluster-1-create-tls-rate1-kubernetes-service" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. In cluster-1, create tls-rate1 Kubernetes Service:
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-configure-serviceexport-with-targetgrouppolicy-protocoltcp-in-cluster-2" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Configure ServiceExport with TargetGroupPolicy protocol:TCP in cluster-2
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-configure-serviceimport-in-cluster1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Configure ServiceImport in cluster1
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-configure-tlsroute-for-bluegreen-deployment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Configure TLSRoute for blue/green deployment
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#6-verify-cross-cluster-tls-passthrough-traffic" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. Verify cross-cluster TLS passthrough traffic
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1204,10 +1002,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../metrics/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller Metrics
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1223,6 +1048,264 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#getting-access-to-available-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Getting Access to Available Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Getting Access to Available Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-verify-controller-is-running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Verify Controller is Running
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-port-forward-to-metrics-endpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Port Forward to Metrics Endpoint
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-access-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Access Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setting-up-prometheus-and-grafana" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setting Up Prometheus and Grafana
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting Up Prometheus and Grafana">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-add-helm-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Add Helm Repository
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-create-prometheus-values-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Create Prometheus Values File
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-install-prometheus-with-custom-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Install Prometheus with Custom Values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-verify-all-pods-are-running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Verify All Pods are Running
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-deploy-servicemonitor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Deploy ServiceMonitor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-6-verify-servicemonitor-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6: Verify ServiceMonitor Deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-7-access-prometheus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 7: Access Prometheus
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-8-test-queries-in-prometheus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 8: Test Queries in Prometheus
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-9-access-grafana" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 9: Access Grafana
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-10-create-dashboards-in-grafana" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 10: Create Dashboards in Grafana
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#available-metrics-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Available Metrics Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Available Metrics Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aws-sdk-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWS SDK Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#controller-runtime-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controller Runtime Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workqueue-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workqueue Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1839,186 +1922,136 @@
   
 
 
-<h1 id="tls-passthrough-support">TLS Passthrough Support<a class="headerlink" href="#tls-passthrough-support" title="Permanent link">&para;</a></h1>
-<p><a href="https://gateway-api.sigs.k8s.io/guides/tls/">Kubernetes Gateway API</a> lays out the general guidelines on how to configure TLS passthrough. Here are examples on how to use them against AWS Gateway Api controller and VPC Lattice.</p>
-<h2 id="install-gateway-api-tlsroute-crd">Install Gateway API TLSRoute CRD<a class="headerlink" href="#install-gateway-api-tlsroute-crd" title="Permanent link">&para;</a></h2>
-<p>The TLSRoute CRD is already included in the deployment.yaml, if you are using this method to install the controller no extra steps needed.
-If you want to install the TLSRoute CRD manually by yourself:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a># Install CRD
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a># Verfiy TLSRoute CRD 
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>kubectl get crd tlsroutes.gateway.networking.k8s.io 
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>NAME                                  CREATED AT
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>tlsroutes.gateway.networking.k8s.io   2024-03-07T23:16:22Z
+<h1 id="gateway-api-controller-metrics">Gateway API Controller Metrics<a class="headerlink" href="#gateway-api-controller-metrics" title="Permanent link">&para;</a></h1>
+<p>This guide explains how to access and monitor metrics from the AWS Gateway API Controller using Prometheus and Grafana.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li>A running Kubernetes cluster with the AWS Gateway API Controller installed</li>
+<li><code>kubectl</code> CLI tool installed and configured</li>
+<li><code>helm</code> CLI tool installed</li>
+</ul>
+<h2 id="getting-access-to-available-metrics">Getting Access to Available Metrics<a class="headerlink" href="#getting-access-to-available-metrics" title="Permanent link">&para;</a></h2>
+<p>The controller makes metrics available via HTTP endpoint in <a href="https://prometheus.io/docs/instrumenting/exposition_formats/">Prometheus metric format</a>. One possible solution for collecting and visualizing these metrics is to set up Prometheus and Grafana using kube-prometheus-stack which is described in the <a href="#setting-up-prometheus-and-grafana">next section</a>.</p>
+<h3 id="step-1-verify-controller-is-running">Step 1: Verify Controller is Running<a class="headerlink" href="#step-1-verify-controller-is-running" title="Permanent link">&para;</a></h3>
+<p>First, verify that the Gateway API Controller is running:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>aws-application-networking-system
+</code></pre></div>
+<h3 id="step-2-port-forward-to-metrics-endpoint">Step 2: Port Forward to Metrics Endpoint<a class="headerlink" href="#step-2-port-forward-to-metrics-endpoint" title="Permanent link">&para;</a></h3>
+<p>Port forward to the controller's metrics endpoint:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>deployment/gateway-api-controller<span class="w"> </span><span class="m">8080</span>:8080
+</code></pre></div>
+<h3 id="step-3-access-metrics">Step 3: Access Metrics<a class="headerlink" href="#step-3-access-metrics" title="Permanent link">&para;</a></h3>
+<p>Access the metrics endpoint:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>http://localhost:8080/metrics
+</code></pre></div>
+<p>This will display all available metrics exposed by the controller. </p>
+<h2 id="setting-up-prometheus-and-grafana">Setting Up Prometheus and Grafana<a class="headerlink" href="#setting-up-prometheus-and-grafana" title="Permanent link">&para;</a></h2>
+<p>For a complete monitoring solution, you can set up Prometheus and Grafana to collect and visualize metrics.</p>
+<h3 id="step-1-add-helm-repository">Step 1: Add Helm Repository<a class="headerlink" href="#step-1-add-helm-repository" title="Permanent link">&para;</a></h3>
+<p>Add the Prometheus community Helm repository:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>prometheus-community<span class="w"> </span>https://prometheus-community.github.io/helm-charts
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
+</code></pre></div>
+<h3 id="step-2-create-prometheus-values-file">Step 2: Create Prometheus Values File<a class="headerlink" href="#step-2-create-prometheus-values-file" title="Permanent link">&para;</a></h3>
+<p>Create a <code>prometheus-values.yaml</code> file with the following sample configuration:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">prometheus</span><span class="p">:</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">prometheusSpec</span><span class="p">:</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">serviceMonitorNamespaceSelector</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">podMonitorNamespaceSelector</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">serviceMonitorSelectorNilUsesHelmValues</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">retention</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7d</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nt">grafana</span><span class="p">:</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">adminPassword</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">admin</span>
+</code></pre></div>
+<h3 id="step-3-install-prometheus-with-custom-values">Step 3: Install Prometheus with Custom Values<a class="headerlink" href="#step-3-install-prometheus-with-custom-values" title="Permanent link">&para;</a></h3>
+<p>Install the Prometheus stack with your custom values:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>helm<span class="w"> </span>install<span class="w"> </span>prometheus<span class="w"> </span>prometheus-community/kube-prometheus-stack<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--namespace<span class="w"> </span>monitoring<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--create-namespace<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--values<span class="w"> </span>prometheus-values.yaml
+</code></pre></div>
+<h3 id="step-4-verify-all-pods-are-running">Step 4: Verify All Pods are Running<a class="headerlink" href="#step-4-verify-all-pods-are-running" title="Permanent link">&para;</a></h3>
+<p>Verify that all monitoring pods are running:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>monitoring
+</code></pre></div>
+<h3 id="step-5-deploy-servicemonitor">Step 5: Deploy ServiceMonitor<a class="headerlink" href="#step-5-deploy-servicemonitor" title="Permanent link">&para;</a></h3>
+<p>Deploy the ServiceMonitor to configure Prometheus to scrape metrics from the controller:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/prometheus/monitor.yaml
+</code></pre></div>
+<h3 id="step-6-verify-servicemonitor-deployment">Step 6: Verify ServiceMonitor Deployment<a class="headerlink" href="#step-6-verify-servicemonitor-deployment" title="Permanent link">&para;</a></h3>
+<p>Verify that the ServiceMonitor has been created:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>servicemonitor<span class="w"> </span>-n<span class="w"> </span>aws-application-networking-system
+</code></pre></div>
+<h3 id="step-7-access-prometheus">Step 7: Access Prometheus<a class="headerlink" href="#step-7-access-prometheus" title="Permanent link">&para;</a></h3>
+<p>Port forward to the Prometheus service:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>monitoring<span class="w"> </span>svc/prometheus-kube-prometheus-prometheus<span class="w"> </span><span class="m">9090</span>:9090
+</code></pre></div>
+<p>Open <a href="http://localhost:9090/service-discovery">http://localhost:9090/service-discovery</a> in your browser and verify that the service monitor is discovered.</p>
+<p><img alt="Prometheus Service Discovery" src="../../images/prometheus_service_discovery.jpg" width="800" /></p>
+<h3 id="step-8-test-queries-in-prometheus">Step 8: Test Queries in Prometheus<a class="headerlink" href="#step-8-test-queries-in-prometheus" title="Permanent link">&para;</a></h3>
+<p>Open <a href="http://localhost:9090/query">http://localhost:9090/query</a> in your browser to execute queries.</p>
+<p>Example query:</p>
+<p>Total number of successful HTTPRoute reconciliations:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">controller_runtime_reconcile_total</span><span class="p">{</span><span class="nl">controller</span><span class="o">=</span><span class="p">&quot;</span><span class="s">httproute</span><span class="p">&quot;,</span><span class="nl">result</span><span class="o">=</span><span class="p">&quot;</span><span class="s">success</span><span class="p">&quot;}</span>
 </code></pre></div></p>
-<h2 id="setup-tls-passthrough-connectivity-in-a-single-cluster">Setup TLS Passthrough Connectivity in a single cluster<a class="headerlink" href="#setup-tls-passthrough-connectivity-in-a-single-cluster" title="Permanent link">&para;</a></h2>
-<h3 id="1-configure-tls-passthrough-listener-on-gateway">1. Configure TLS Passthrough Listener on Gateway<a class="headerlink" href="#1-configure-tls-passthrough-listener-on-gateway" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl apply -f files/examples/my-gateway-tls-passthrough.yaml
+<p><img alt="Prometheus Query Interface" src="../../images/prometheus_query.jpg" width="800" /></p>
+<h3 id="step-9-access-grafana">Step 9: Access Grafana<a class="headerlink" href="#step-9-access-grafana" title="Permanent link">&para;</a></h3>
+<p>Port forward to the Grafana service:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>monitoring<span class="w"> </span>svc/prometheus-grafana<span class="w"> </span><span class="m">3000</span>:80
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a># tls listener config snips:
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>apiVersion: gateway.networking.k8s.io/v1
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>kind: Gateway
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>metadata:
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  name: my-hotel-tls-passthrough
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>spec:
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>  gatewayClassName: amazon-vpc-lattice
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>  listeners:
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>  ...
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  - name: tls
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    protocol: TLS 
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    port: 443
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    tls:
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>      mode: Passthrough 
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>  ...
-</code></pre></div>
-<h3 id="2-configure-tlsroute">2. Configure TLSRoute<a class="headerlink" href="#2-configure-tlsroute" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a># Suppose in the below example, we use the &quot;parking&quot; service as the client pod to test the TLS passthrough traffic.
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl apply -f files/examples/parking.yaml
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a># Configure nginx backend service (This nginx image includes a self-signed certificate)
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>kubectl apply -f files/example/nginx-server-tls-passthrough.yaml
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a># configure nginx tls route
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>kubectl apply -f files/examples/tlsroute-nginx.yaml
-</code></pre></div>
-<h3 id="3-verify-the-controller-has-reconciled-nginx-tls-route">3. Verify the controller has reconciled nginx-tls route<a class="headerlink" href="#3-verify-the-controller-has-reconciled-nginx-tls-route" title="Permanent link">&para;</a></h3>
-<p>Make sure the TLSRoute has the <code>application-networking.k8s.aws/lattice-assigned-domain-name</code> annotation and status <code>Accepted: True</code>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl get tlsroute nginx-tls -o yaml
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>apiVersion: gateway.networking.k8s.io/v1alpha2
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>kind: TLSRoute
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>metadata:
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  annotations:
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    application-networking.k8s.aws/lattice-assigned-domain-name: nginx-tls-default-0af995120af2711bc.7d67968.vpc-lattice-svcs.us-west-2.on.aws
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    ...
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>  name: nginx-tls
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>  namespace: default
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a> ...
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>status:
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>  parents:
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>  - conditions:
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    - lastTransitionTime: .....
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>      message: &quot;&quot;
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>      observedGeneration: 1
-<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>      reason: Accepted
-<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>      status: &quot;True&quot;
-<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>      type: Accepted
-<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>    - lastTransitionTime: .....
-<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>      message: &quot;&quot;
-<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>      observedGeneration: 1
-<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>      reason: ResolvedRefs
-<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>      status: &quot;True&quot;
-<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>      type: ResolvedRefs
-<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>    controllerName: application-networking.k8s.aws/gateway-api-controller
+<p>Open <a href="http://localhost:3000/login">http://localhost:3000/login</a> in your browser and enter <code>admin/admin</code> as credentials.</p>
+<h3 id="step-10-create-dashboards-in-grafana">Step 10: Create Dashboards in Grafana<a class="headerlink" href="#step-10-create-dashboards-in-grafana" title="Permanent link">&para;</a></h3>
+<p>You can create custom dashboards in Grafana using the exposed metrics:</p>
+<ol>
+<li>Go to <strong>Dashboards</strong></li>
+<li>Click <strong>New dashboard</strong> → <strong>Add visualization</strong></li>
+<li>Select <strong>Prometheus</strong> as the data source</li>
+<li>Write your query</li>
+</ol>
+<p><strong>Example queries for Grafana dashboards:</strong></p>
+<p>Total number of successful HTTPRoute reconciliations:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">controller_runtime_reconcile_total</span><span class="p">{</span><span class="nl">controller</span><span class="o">=</span><span class="p">&quot;</span><span class="s">httproute</span><span class="p">&quot;,</span><span class="nl">result</span><span class="o">=</span><span class="p">&quot;</span><span class="s">success</span><span class="p">&quot;}</span>
 </code></pre></div></p>
-<h3 id="4-verify-tls-passthrough-traffic">4. Verify TLS Passthrough Traffic<a class="headerlink" href="#4-verify-tls-passthrough-traffic" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl get deployment nginx-tls 
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>NAME        READY   UP-TO-DATE   AVAILABLE   AGE
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>nginx-tls   2/2     2            2           1d
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a># Use the specified TLSRoute hostname to send traffic to the beackend nginx service
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>kubectl exec deployments/parking  -- curl -kv  https://nginx-test.my-test.com  --resolve nginx-test.my-test.com:443:169.254.171.0
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>* Trying 169.254.171.0:443...
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>* Connected to nginx-test.my-test.com (169.254.171.0) port 443 (#0)
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>....
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>* TLSv1.2 (OUT), TLS header, Certificate Status (22):
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>* TLSv1.2 (OUT), TLS handshake, Client hello (1):
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>* TLSv1.2 (IN), TLS handshake, Server hello (2):
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>* TLSv1.2 (IN), TLS handshake, Certificate (11):
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>* TLSv1.2 (IN), TLS handshake, Server key exchange (12):
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>* TLSv1.2 (IN), TLS handshake, Server finished (14):
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>* TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
-<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>* TLSv1.2 (OUT), TLS change cipher, Change cipher spec (1):
-<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>* TLSv1.2 (OUT), TLS handshake, Finished (20):    
-<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>* TLSv1.2 (IN), TLS change cipher, Change cipher spec (1):
-<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>* TLSv1.2 (IN), TLS handshake, Finished (20):   &lt;---------- TLS Handshake from client pod to the backend `nginx-tls` pod successfully, no tls termination in the middle
-<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>* SSL connection using TLSv1.2 / ECDHE-RSA-AES256-GCM-SHA384
-<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>* ALPN, server accepted to use h2
-<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>....
-<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>&lt;body&gt;
-<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>&lt;h1&gt;Welcome to nginx!&lt;/h1&gt;
-<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>&lt;p&gt;If you see this page, the nginx web server is successfully installed and
-<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>working. Further configuration is required.&lt;/p&gt;
-<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>....
-</code></pre></div>
-<h2 id="setup-tls-passthrough-connectivity-spanning-multiple-clusters">Setup TLS Passthrough Connectivity spanning multiple clusters<a class="headerlink" href="#setup-tls-passthrough-connectivity-spanning-multiple-clusters" title="Permanent link">&para;</a></h2>
-<p><img alt="tlsoute multi cluster" src="../../images/tlsroute-multi-cluster.png" /></p>
-<h3 id="1-in-this-example-we-still-use-the-parking-kubernetes-service-as-the-client-pod-to-test-the-cross-cluster-tls-passthrough-traffic">1. In this example we still use the "parking" Kubernetes service as the client pod to test the cross cluster TLS passthrough traffic.<a class="headerlink" href="#1-in-this-example-we-still-use-the-parking-kubernetes-service-as-the-client-pod-to-test-the-cross-cluster-tls-passthrough-traffic" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl apply -f files/examples/parking.yaml
-</code></pre></div>
-<h3 id="2-in-cluster-1-create-tls-rate1-kubernetes-service">2. In cluster-1, create <code>tls-rate1</code> Kubernetes Service:<a class="headerlink" href="#2-in-cluster-1-create-tls-rate1-kubernetes-service" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl apply -f files/examples/tls-rate1.yaml
-</code></pre></div>
-<h3 id="3-configure-serviceexport-with-targetgrouppolicy-protocoltcp-in-cluster-2">3. Configure ServiceExport with TargetGroupPolicy <code>protocol:TCP</code> in cluster-2<a class="headerlink" href="#3-configure-serviceexport-with-targetgrouppolicy-protocoltcp-in-cluster-2" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a># Create tls-rate2 Kubernetes Service in cluster-2
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>kubectl apply -f files/examples/tls-rate2.yaml
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a># Create serviceexport in cluster-2
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>kubectl apply -f files/examples/tls-rate2-export.yaml
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a># Create targetgroup policy to configure TCP protocol for tls-rate2 in cluster-2
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>kubectl apply -f files/examples/tls-rate2-targetgrouppolicy.yaml
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a># Snips of serviceexport config
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>apiVersion: application-networking.k8s.aws/v1alpha1
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>kind: ServiceExport
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>metadata:
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>  name: tls-rate-2
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>  annotations:
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>    application-networking.k8s.aws/federation: &quot;amazon-vpc-lattice&quot;
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a># Snips of targetgroup policy config
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>apiVersion: application-networking.k8s.aws/v1alpha1
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>kind: TargetGroupPolicy
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>metadata:
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    name: tls-rate2
-<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>spec:
-<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    targetRef:
-<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>        group: &quot;application-networking.k8s.aws&quot;
-<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>        kind: ServiceExport
-<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>        name: tls-rate2
-<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>    protocol: TCP
-</code></pre></div>
-<h3 id="4-configure-serviceimport-in-cluster1">4.  Configure ServiceImport in cluster1<a class="headerlink" href="#4-configure-serviceimport-in-cluster1" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>kubectl apply -f files/examples/tls-rate2-import.yaml
-</code></pre></div>
-<h3 id="5-configure-tlsroute-for-bluegreen-deployment">5. Configure TLSRoute for blue/green deployment<a class="headerlink" href="#5-configure-tlsroute-for-bluegreen-deployment" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kubectl apply -f files/examples/rate-tlsroute-bluegreen.yaml
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a># snips of TLSRoute span multiple Kubernetes Clusters
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>apiVersion: gateway.networking.k8s.io/v1alpha2
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>kind: TLSRoute
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>metadata:
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>  name: tls-rate
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>spec:
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>  hostnames:
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>  - tls-rate.my-test.com
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>  parentRefs:
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>  - name: my-hotel-tls
-<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>    sectionName: tls
-<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>  rules:
-<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>  - backendRefs:
-<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>    - name: tls-rate1 &lt;---------- to Kubernetes Cluster-1
-<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>      kind: Service
-<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>      port: 443
-<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>      weight: 10
-<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>    - name: tls-rate2 &lt;---------- to Kubernetes Cluster-2
-<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>      kind: ServiceImport
-<a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>      port: 443
-<a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>      weight: 90  
-</code></pre></div>
-<h3 id="6-verify-cross-cluster-tls-passthrough-traffic">6. Verify cross-cluster TLS passthrough traffic<a class="headerlink" href="#6-verify-cross-cluster-tls-passthrough-traffic" title="Permanent link">&para;</a></h3>
-<p>Expected to receive the weighted traffic route to tls-rate1 service(10%) and tls-rate2 service(90%), if you curl the <code>tls-rate.my-test.com</code> from the client pod multiple times:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>kubectl exec deploy/parking -- sh -c &#39;for ((i=1; i&lt;=30; i++)); do curl -k https://tls-rate.my-test.com --resolve tls-rate.my-test.com:443:169.254.171.0 2&gt;/dev/null; done&#39;
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>Requsting to TLS Pod(tls-rate2-7f8b9cc97b-fgqk6): tls-rate2 handler pod &lt;----&gt;  k8s service in cluster-2
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>Requsting to TLS Pod(tls-rate2-7f8b9cc97b-fgqk6): tls-rate2 handler pod
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>Requsting to TLS Pod(tls-rate2-7f8b9cc97b-fgqk6): tls-rate2 handler pod
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>Requsting to TLS Pod(tls-rate2-7f8b9cc97b-fgqk6): tls-rate2 handler pod
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>Requsting to TLS Pod(tls-rate1-98cc7fd87a-642zw): tls-rate1 handler pod &lt;----&gt; k8s service in cluster-1
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>Requsting to TLS Pod(tls-rate2-7f8b9cc97b-fgqk6): tls-rate2 handler pod
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>Requsting to TLS Pod(tls-rate2-7f8b9cc97b-fgqk6): tls-rate2 handler pod
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>Requsting to TLS Pod(tls-rate2-7f8b9cc97b-fgqk6): tls-rate2 handler pod
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>Requsting to TLS Pod(tls-rate1-98cc7fd87a-642zw): tls-rate1 handler pod
+<p>P99 latency for HTTPRoute reconciliations:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kr">histogram_quantile</span><span class="o">(</span><span class="mf">0.99</span><span class="p">,</span><span class="w"> </span><span class="nv">controller_runtime_reconcile_time_seconds_bucket</span><span class="p">{</span><span class="nl">controller</span><span class="o">=</span><span class="p">&quot;</span><span class="s">httproute</span><span class="p">&quot;}</span><span class="o">)</span>
 </code></pre></div></p>
+<p><img alt="Grafana Dashboard" src="../../images/grafana_dashboard.jpg" width="800" /></p>
+<h2 id="available-metrics-reference">Available Metrics Reference<a class="headerlink" href="#available-metrics-reference" title="Permanent link">&para;</a></h2>
+<p>The controller exposes a comprehensive set of metrics that can be used for monitoring and alerting. Below is a reference of commonly used metrics organized by category.</p>
+<h3 id="aws-sdk-metrics">AWS SDK Metrics<a class="headerlink" href="#aws-sdk-metrics" title="Permanent link">&para;</a></h3>
+<p>These metrics track interactions with AWS services:</p>
+<ul>
+<li><strong>aws_api_call_duration_seconds</strong> (histogram): Perceived latency from when your code makes an SDK call, includes retries</li>
+<li><strong>aws_api_call_retries</strong> (histogram): Number of times the SDK retried requests to AWS services for SDK API calls</li>
+<li><strong>aws_api_calls_total</strong> (counter): Total number of SDK API calls from the customer's code to AWS services</li>
+<li><strong>aws_api_request_duration_seconds</strong> (histogram): Latency of an individual HTTP request to the service endpoint</li>
+<li><strong>aws_api_requests_total</strong> (counter): Total number of HTTP requests that the SDK made</li>
+</ul>
+<h3 id="controller-runtime-metrics">Controller Runtime Metrics<a class="headerlink" href="#controller-runtime-metrics" title="Permanent link">&para;</a></h3>
+<p>These metrics track the controller's reconciliation behavior:</p>
+<ul>
+<li><strong>controller_runtime_active_workers</strong> (gauge): Number of currently used workers per controller</li>
+<li><strong>controller_runtime_max_concurrent_reconciles</strong> (gauge): Maximum number of concurrent reconciles per controller</li>
+<li><strong>controller_runtime_reconcile_errors_total</strong> (counter): Total number of reconciliation errors per controller</li>
+<li><strong>controller_runtime_reconcile_panics_total</strong> (counter): Total number of reconciliation panics per controller</li>
+<li><strong>controller_runtime_reconcile_time_seconds</strong> (histogram): Length of time per reconciliation per controller</li>
+<li><strong>controller_runtime_reconcile_total</strong> (counter): Total number of reconciliations per controller</li>
+<li><strong>controller_runtime_terminal_reconcile_errors_total</strong> (counter): Total number of terminal reconciliation errors per controller</li>
+<li><strong>controller_runtime_webhook_panics_total</strong> (counter): Total number of webhook panics</li>
+</ul>
+<h3 id="workqueue-metrics">Workqueue Metrics<a class="headerlink" href="#workqueue-metrics" title="Permanent link">&para;</a></h3>
+<p>These metrics track the internal workqueue behavior:</p>
+<ul>
+<li><strong>workqueue_adds_total</strong> (counter): Total number of adds handled by workqueue</li>
+<li><strong>workqueue_depth</strong> (gauge): Current depth of workqueue</li>
+<li><strong>workqueue_longest_running_processor_seconds</strong> (gauge): How many seconds has the longest running processor for workqueue been running</li>
+<li><strong>workqueue_queue_duration_seconds</strong> (histogram): How long in seconds an item stays in workqueue before being requested</li>
+<li><strong>workqueue_retries_total</strong> (counter): Total number of retries handled by workqueue</li>
+<li><strong>workqueue_unfinished_work_seconds</strong> (gauge): How many seconds of work has been done that is in progress and hasn't been observed by work_duration</li>
+<li><strong>workqueue_work_duration_seconds</strong> (histogram): How long in seconds processing an item from workqueue takes</li>
+</ul>
 
 
 
@@ -2056,7 +2089,7 @@ If you want to install the TLSRoute CRD manually by yourself:
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../grpc/" class="md-footer__link md-footer__link--prev" aria-label="Previous: GRPC">
+          <a href="../service-name-override/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Service Name Override">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2066,20 +2099,20 @@ If you want to install the TLSRoute CRD manually by yourself:
                 Previous
               </span>
               <div class="md-ellipsis">
-                GRPC
+                Service Name Override
               </div>
             </div>
           </a>
         
         
           
-          <a href="../pod-readiness-gates/" class="md-footer__link md-footer__link--next" aria-label="Next: Pod Readiness Gates">
+          <a href="../../api-reference/" class="md-footer__link md-footer__link--next" aria-label="Next: API Specification">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Pod Readiness Gates
+                API Specification
               </div>
             </div>
             <div class="md-footer__button md-icon">
