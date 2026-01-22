@@ -303,7 +303,6 @@ spec:
     healthyThresholdCount: 2
     unhealthyThresholdCount: 3
     path: "/health"
-    port: 80
     protocol: HTTP
     protocolVersion: HTTP1
     statusMatch: "200-299"
@@ -329,7 +328,6 @@ spec:
     healthyThresholdCount: 2
     unhealthyThresholdCount: 3
     path: "/health"
-    port: 80
     protocol: HTTP
     protocolVersion: HTTP1
     statusMatch: "200-299"
