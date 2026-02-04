@@ -1,4 +1,4 @@
-# Getting Started with AWS Gateway API Controller
+# Getting Started with AWS VPC Lattice Gateway API Controller
 
 This guide helps you get started using the controller.
 
@@ -13,8 +13,8 @@ Using these examples as a foundation, see the [Concepts](../concepts/overview.md
 
 Before proceeding to the next sections, you need to:
 
-- Create a cluster `gw-api-controller-demo` with the controller following the [AWS Gateway API Controller installation guide on Amazon EKS](deploy.md/#deploy-the-controller-on-amazon-eks).
-- Clone the [AWS Gateway API Controller](https://github.com/aws/aws-application-networking-k8s) repository.
+- Create a cluster `gw-api-controller-demo` with the controller following the [AWS VPC Lattice Gateway API Controller installation guide on Amazon EKS](deploy.md/#deploy-the-controller-on-amazon-eks).
+- Clone the [AWS VPC Lattice Gateway API Controller](https://github.com/aws/aws-application-networking-k8s) repository.
 
     ```bash linenums="1"
     git clone https://github.com/aws/aws-application-networking-k8s.git
@@ -34,7 +34,7 @@ This example creates a single cluster in a single VPC, then configures two HTTPR
 
 **Setup in-cluster service-to-service communications**
 
-1. AWS Gateway API Controller needs a VPC Lattice service network to operate.
+1. The AWS VPC Lattice Gateway API Controller needs a VPC Lattice service network to operate.
 
     === "Helm"
         If you installed the controller with `helm`, you can update chart configurations by specifying the `defaultServiceNetwork` variable:

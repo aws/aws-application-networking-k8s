@@ -1,10 +1,10 @@
 # Gateway API Controller Metrics
 
-This guide explains how to access and monitor metrics from the AWS Gateway API Controller using Prometheus and Grafana.
+This guide explains how to access and monitor metrics from the AWS VPC Lattice Gateway API Controller using Prometheus and Grafana.
 
 ## Prerequisites
 
-- A running Kubernetes cluster with the AWS Gateway API Controller installed
+- A running Kubernetes cluster with the AWS VPC Lattice Gateway API Controller installed
 - `kubectl` CLI tool installed and configured
 - `helm` CLI tool installed
 
