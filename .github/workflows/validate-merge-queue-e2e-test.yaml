@@ -27,10 +27,10 @@ jobs:
       SECONDARY_ACCOUNT_TEST_ROLE_ARN: ${{ secrets.SECONDARY_ACCOUNT_IAM_ROLE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
       - run: sed -En 's/^go[[:space:]]+([[:digit:].]+)$/GO_VERSION=\1/p' go.mod >> $GITHUB_ENV
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
@@ -54,7 +54,7 @@ jobs:
       - name: Setup cluster credentials
         run: eksctl utils write-kubeconfig --cluster=$CLUSTER_NAME
       - name: Enable actions cache
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env['ACTIONS_CACHE_URL'])

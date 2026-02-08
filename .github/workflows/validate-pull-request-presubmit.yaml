@@ -7,14 +7,14 @@ jobs:
     env:
       K8S_VERSION: ${{ matrix.k8sVersion }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - run: sed -En 's/^go[[:space:]]+([[:digit:].]+)$/GO_VERSION=\1/p' go.mod >> $GITHUB_ENV
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
       - run: pip install -r requirements.txt
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
