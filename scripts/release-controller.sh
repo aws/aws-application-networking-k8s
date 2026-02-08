@@ -45,18 +45,25 @@ SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 WORKSPACE_DIR=$SCRIPTS_DIR/..
 
 # Check all the dependencies are present in container.
+# shellcheck disable=SC1091
 source "$SCRIPTS_DIR/lib/common.sh"
+# shellcheck disable=SC1091
 source "$SCRIPTS_DIR/lib/login.sh"
 check_is_installed git
 check_is_installed jq
 check_is_installed yq
 
-ASSUME_COMMAND=$(aws --output json sts assume-role --role-arn $ECR_PUBLISH_ROLE_ARN --role-session-name 'publish-images' --duration-seconds 3600 | jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
-eval $ASSUME_COMMAND
+ASSUME_JSON="$(aws --output json sts assume-role --role-arn "$ECR_PUBLISH_ROLE_ARN" --role-session-name 'publish-images' --duration-seconds 3600)"
+export AWS_ACCESS_KEY_ID
+AWS_ACCESS_KEY_ID="$(jq -r '.Credentials.AccessKeyId' <<<"$ASSUME_JSON")"
+export AWS_SECRET_ACCESS_KEY
+AWS_SECRET_ACCESS_KEY="$(jq -r '.Credentials.SecretAccessKey' <<<"$ASSUME_JSON")"
+export AWS_SESSION_TOKEN
+AWS_SESSION_TOKEN="$(jq -r '.Credentials.SessionToken' <<<"$ASSUME_JSON")"
 echo "Assumed $ECR_PUBLISH_ROLE_ARN"
 
 # Setup the destination repository for docker and helm
-perform_docker_and_helm_login $IMAGE_REPOSITORY
+perform_docker_and_helm_login "$IMAGE_REPOSITORY"
 
 if [[ "$SKIP_BUILD_IMAGE" != "true" ]]; then
   # Determine parameters for docker-build command
@@ -86,9 +93,6 @@ if [[ "$SKIP_BUILD_IMAGE" != "true" ]]; then
       "${DOCKER_BUILD_CONTEXT}"
   fi
 
-  if [ $? -ne 0 ]; then
-    exit 2
-  fi
 fi
 
 if [[ "$SKIP_BUILD_CHART" != "true" ]]; then
