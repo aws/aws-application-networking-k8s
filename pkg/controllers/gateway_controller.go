@@ -327,6 +327,9 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 
 	defaultListener := gw.Spec.Listeners[0]
 
+	// Build new listener status list from current spec (removes stale entries for deleted listeners)
+	newListenerStatuses := make([]gwv1.ListenerStatus, 0, len(gw.Spec.Listeners))
+
 	// go through each section of gw
 	for _, listener := range gw.Spec.Listeners {
 		listenerStatus := gwv1.ListenerStatus{
@@ -406,20 +409,10 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
 		}
 
-		found := false
-		for i, oldStatus := range gw.Status.Listeners {
-			if oldStatus.Name == listenerStatus.Name {
-				gw.Status.Listeners[i].AttachedRoutes = listenerStatus.AttachedRoutes
-				gw.Status.Listeners[i].SupportedKinds = listenerStatus.SupportedKinds
-				// Only have one condition in the logic
-				gw.Status.Listeners[i].Conditions = utils.GetNewConditions(gw.Status.Listeners[i].Conditions, listenerStatus.Conditions[0])
-				found = true
-			}
-		}
-		if !found {
-			gw.Status.Listeners = append(gw.Status.Listeners, listenerStatus)
-		}
+		newListenerStatuses = append(newListenerStatuses, listenerStatus)
 	}
+
+	gw.Status.Listeners = newListenerStatuses
 
 	if err := k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 		return pkgerrors.Wrapf(err, "listener update failed")
