@@ -38,11 +38,11 @@ caCert: {{ .Values.webhookTLS.caCert }}
 cert: {{ .Values.webhookTLS.cert }}
 key: {{ .Values.webhookTLS.key }}
 {{- else -}}
-{{- $ca := genCA "aws-gateway-controller-ca" 36500 -}}
+{{- $ca := genCA "aws-gateway-controller-ca" 365 -}}
 {{- $serviceDefaultName:= printf "webhook-service.%s.svc" .Release.Namespace -}}
 {{- $secretName := "webhook-cert" -}}
 {{- $altNames := list ($serviceDefaultName) (printf "%s.cluster.local" $serviceDefaultName) -}}
-{{- $cert := genSignedCert $serviceDefaultName nil $altNames 36500 $ca -}}
+{{- $cert := genSignedCert $serviceDefaultName nil $altNames 365 $ca -}}
 caCert: {{ $ca.Cert | b64enc }}
 cert: {{ $cert.Cert | b64enc }}
 key: {{ $cert.Key | b64enc }}
