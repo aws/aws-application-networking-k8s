@@ -354,10 +354,18 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 		} else {
 			hasValidListener = true
 
-			condition := metav1.Condition{
+			acceptedCondition := metav1.Condition{
 				Type:               string(gwv1.ListenerConditionAccepted),
 				Status:             metav1.ConditionTrue,
 				Reason:             string(gwv1.ListenerReasonAccepted),
+				ObservedGeneration: gw.Generation,
+				LastTransitionTime: metav1.Now(),
+			}
+
+			resolvedRefsCondition := metav1.Condition{
+				Type:               string(gwv1.ListenerConditionResolvedRefs),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(gwv1.ListenerReasonResolvedRefs),
 				ObservedGeneration: gw.Generation,
 				LastTransitionTime: metav1.Now(),
 			}
@@ -406,7 +414,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{
 				Kind: "HTTPRoute",
 			})
-			listenerStatus.Conditions = append(listenerStatus.Conditions, condition)
+			listenerStatus.Conditions = append(listenerStatus.Conditions, acceptedCondition, resolvedRefsCondition)
 		}
 
 		newListenerStatuses = append(newListenerStatuses, listenerStatus)
