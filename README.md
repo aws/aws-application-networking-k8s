@@ -1,11 +1,11 @@
-# AWS VPC Lattice Gateway API Controller
+# Amazon VPC Lattice Gateway API Controller
 
 <p align="center">
     <img src="docs/images/kubernetes_icon.svg" alt="Kubernetes logo" width="100" /> 
     <img src="docs/images/controller.png" alt="AWS Load Balancer logo" width="100" />
 </p>
 
-The AWS VPC Lattice Gateway API Controller is an implementation of the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/). This project is designed to run in a Kubernetes cluster and orchestrates AWS VPC Lattice resources using Kubernetes Custom Resource Definitions like Gateway and HTTPRoute.
+The Amazon VPC Lattice Gateway API Controller is an implementation of the Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/). This project is designed to run in a Kubernetes cluster and orchestrates AWS VPC Lattice resources using Kubernetes Custom Resource Definitions like Gateway and HTTPRoute.
 
 ## Documentation
 

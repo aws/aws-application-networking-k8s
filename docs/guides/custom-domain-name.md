@@ -32,9 +32,9 @@ spec:
 ## Managing DNS records using ExternalDNS
 
 To register custom domain names to your DNS provider, we recommend using [ExternalDNS](https://github.com/kubernetes-sigs/external-dns).
-The AWS VPC Lattice Gateway API Controller supports ExternalDNS integration through CRD source - the controller will manage `DNSEndpoint` resource for you.
+The Amazon VPC Lattice Gateway API Controller supports ExternalDNS integration through CRD source - the controller will manage `DNSEndpoint` resource for you.
 
-To use ExternalDNS with the AWS VPC Lattice Gateway API Controller, you need to:
+To use ExternalDNS with the Amazon VPC Lattice Gateway API Controller, you need to:
 
 1. Install `DNSEndpoint` CRD. This is bundled with both Gateway API Controller Helm chart and `files/controller-installation/deploy-*.yaml` manifest, but also can be installed manually by the following command:
    ```sh

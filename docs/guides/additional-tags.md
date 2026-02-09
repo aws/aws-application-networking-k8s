@@ -1,6 +1,6 @@
 # Additional Tags
 
-The AWS VPC Lattice Gateway API Controller automatically applies some tags to resources it creates. In addition, you can use annotations to specify additional tags.
+The Amazon VPC Lattice Gateway API Controller automatically applies some tags to resources it creates. In addition, you can use annotations to specify additional tags.
 
 The `application-networking.k8s.aws/tags` annotation specifies additional tags that will be applied to AWS resources created.
 

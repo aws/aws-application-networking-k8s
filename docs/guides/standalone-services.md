@@ -4,7 +4,7 @@ This guide explains how to create standalone VPC Lattice services that are not a
 
 ## Overview
 
-By default, the AWS VPC Lattice Gateway API Controller creates VPC Lattice services and automatically associates them with service networks based on the Gateway configuration. Standalone mode allows you to create VPC Lattice services without this automatic association, enabling:
+By default, the Amazon VPC Lattice Gateway API Controller creates VPC Lattice services and automatically associates them with service networks based on the Gateway configuration. Standalone mode allows you to create VPC Lattice services without this automatic association, enabling:
 
 - Independent service lifecycle management
 - Selective service network membership

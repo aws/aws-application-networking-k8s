@@ -1,5 +1,5 @@
 ### Environment Variables
-The AWS VPC Lattice Gateway API Controller supports a number of configuration options, which are set through environment variables.
+The Amazon VPC Lattice Gateway API Controller supports a number of configuration options, which are set through environment variables.
 The following environment variables are available, and all of them are optional.
 
 ---
@@ -21,7 +21,7 @@ This variable is required except for EKS cluster. This needs to be specified if 
 
 **Default:** *Inferred from IMDS metadata*
 
-When running the AWS VPC Lattice Gateway API Controller outside the Kubernetes Cluster, this specifies the VPC of the cluster. This needs to be specified if IMDS is not available.
+When running the Amazon VPC Lattice Gateway API Controller outside the Kubernetes Cluster, this specifies the VPC of the cluster. This needs to be specified if IMDS is not available.
 
 ---
 
@@ -31,7 +31,7 @@ When running the AWS VPC Lattice Gateway API Controller outside the Kubernetes C
 
 **Default:** *Inferred from IMDS metadata*
 
-When running the AWS VPC Lattice Gateway API Controller outside the Kubernetes Cluster, this specifies the AWS account. This needs to be specified if IMDS is not available.
+When running the Amazon VPC Lattice Gateway API Controller outside the Kubernetes Cluster, this specifies the AWS account. This needs to be specified if IMDS is not available.
 
 ---
 
@@ -41,7 +41,7 @@ When running the AWS VPC Lattice Gateway API Controller outside the Kubernetes C
 
 **Default:** *Inferred from IMDS metadata*
 
-When running the AWS VPC Lattice Gateway API Controller outside the Kubernetes Cluster, this specifies the AWS Region of VPC Lattice Service endpoint. This needs to be specified if IMDS is not available.
+When running the Amazon VPC Lattice Gateway API Controller outside the Kubernetes Cluster, this specifies the AWS Region of VPC Lattice Service endpoint. This needs to be specified if IMDS is not available.
 
 ---
 
@@ -51,7 +51,7 @@ When running the AWS VPC Lattice Gateway API Controller outside the Kubernetes C
 
 **Default:** *"info"*
 
-When set as "debug", the AWS VPC Lattice Gateway API Controller will emit debug level logs.
+When set as "debug", the Amazon VPC Lattice Gateway API Controller will emit debug level logs.
 
 
 ---

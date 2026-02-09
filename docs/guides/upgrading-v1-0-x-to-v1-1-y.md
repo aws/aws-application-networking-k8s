@@ -1,6 +1,6 @@
-# Update the AWS VPC Lattice Gateway API Controller from v1.0.x to v1.1.y
+# Update the Amazon VPC Lattice Gateway API Controller from v1.0.x to v1.1.y
 
-Release `v1.1.0` of the AWS VPC Lattice Gateway API Controller is built against `v1.2` of the Gateway API spec, but the controller is also compatible with the `v1.1` Gateway API. It is _not_ compatible the `v1.0` Gateway API.
+Release `v1.1.0` of the Amazon VPC Lattice Gateway API Controller is built against `v1.2` of the Gateway API spec, but the controller is also compatible with the `v1.1` Gateway API. It is _not_ compatible the `v1.0` Gateway API.
 
 Previous `v1.0.x` builds of the controller were built against `v1.0` of the Gateway API spec. This guide outlines the controller upgrade process from `v1.0.x` to `v1.1.y`. Please note that users are required to install Gateway API CRDs themselves as these are no longer bundled as of release `v1.1.0`. The latest Gateway API CRDs are available [here](https://gateway-api.sigs.k8s.io/). Please [follow this installation](https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api) process.
 

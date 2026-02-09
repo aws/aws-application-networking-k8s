@@ -23,12 +23,12 @@ Install these tools before proceeding:
 
 Before proceeding to the next sections, you need to:
 
-1. Create a and set up a cluster `dev-cluster` with the controller following the [AWS VPC Lattice Gateway API Controller installation guide on Amazon EKS](../guides/deploy.md).
+1. Create a and set up a cluster `dev-cluster` with the controller following the [Amazon VPC Lattice Gateway API Controller installation guide on Amazon EKS](../guides/deploy.md).
 
     !!! Note
         You can either install the Controller and CRDs following the [steps in the installation guide](../guides/deploy.md/#install-the-controller) or using the steps below if you prefer to create the individual CRDs.
 
-1. Clone the [AWS VPC Lattice Gateway API Controller](https://github.com/aws/aws-application-networking-k8s) repository.
+1. Clone the [Amazon VPC Lattice Gateway API Controller](https://github.com/aws/aws-application-networking-k8s) repository.
     ```bash
     git clone git@github.com:aws/aws-application-networking-k8s.git
     cd aws-application-networking-k8s
@@ -182,4 +182,4 @@ Generate `deploy.yaml`
 make build-deploy
 ```
 
-Then follow [Deploying the AWS VPC Lattice Gateway API Controller](../guides/deploy.md) to configure and deploy the docker image.
+Then follow [Deploying the Amazon VPC Lattice Gateway API Controller](../guides/deploy.md) to configure and deploy the docker image.

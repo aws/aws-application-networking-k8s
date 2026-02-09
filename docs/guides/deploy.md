@@ -1,8 +1,8 @@
-# Deploy the AWS VPC Lattice Gateway API Controller on Amazon EKS
+# Deploy the Amazon VPC Lattice Gateway API Controller on Amazon EKS
 
-This Deployment Guide provides an end-to-end procedure to install the AWS VPC Lattice Gateway API Controller with [Amazon Elastic Kubernetes Service](https://aws.amazon.com/eks/).
+This Deployment Guide provides an end-to-end procedure to install the Amazon VPC Lattice Gateway API Controller with [Amazon Elastic Kubernetes Service](https://aws.amazon.com/eks/).
 
-Amazon EKS is a simple, recommended way of preparing a cluster for running services with the AWS VPC Lattice Gateway API Controller. However, the AWS VPC Lattice Gateway API Controller can be used on any Kubernetes cluster on AWS. Check out the [Advanced Configurations](advanced-configurations.md) section below for instructions on how to install and run the controller on self-hosted Kubernetes clusters on AWS.
+Amazon EKS is a simple, recommended way of preparing a cluster for running services with the Amazon VPC Lattice Gateway API Controller. However, the Amazon VPC Lattice Gateway API Controller can be used on any Kubernetes cluster on AWS. Check out the [Advanced Configurations](advanced-configurations.md) section below for instructions on how to install and run the controller on self-hosted Kubernetes clusters on AWS.
 
 ### Prerequisites
 
@@ -61,7 +61,7 @@ aws ec2 authorize-security-group-ingress --group-id $CLUSTER_SG --ip-permissions
 
 **Set up IAM permissions**
 
-The AWS VPC Lattice Gateway API Controller needs to have the necessary permissions to operate.
+The Amazon VPC Lattice Gateway API Controller needs to have the necessary permissions to operate.
 
 1. Create a policy (`recommended-inline-policy.json`) in IAM with the following content that can invoke the Gateway API and copy the policy ARN for later use:
 

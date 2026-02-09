@@ -50,7 +50,7 @@ Fine-grained authorization policies that can be used to define access to service
 In the context of Kubernetes, Amazon VPC Lattice helps to simplify the following:
 
 - **Kubernetes multi-cluster connectivity**: Architecting multiple clusters across multiple VPCs.
-  After configuring your services with the AWS VPC Lattice Gateway API Controller, you can facilitate advanced traffic management and application layer routing between services on those clusters without dealing with the underlying infrastructure.
+  After configuring your services with the Amazon VPC Lattice Gateway API Controller, you can facilitate advanced traffic management and application layer routing between services on those clusters without dealing with the underlying infrastructure.
   VPC Lattice handles a lot of the details for you without needing things like sidecars.
   
 -  **Multi-cluster health check consistency**: When using TargetGroupPolicy with ServiceExport resources, health check configurations are automatically propagated across all clusters participating in the service mesh. This ensures consistent health monitoring behavior regardless of which cluster contains the route resource, eliminating configuration drift and improving reliability in multi-cluster deployments.
@@ -71,7 +71,7 @@ With VPC Lattice you can also avoid some of these common problems:
 
 For those already familiar with the reference implementation of [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/), the API generally serves two purposes: enabling routing for both North-South (Ingress) and also East-West (Mesh) traffic.  
 
-The AWS VPC Lattice Gateway API Controller is currently focused only on East-West (Mesh) traffic through VPC Lattice.
+The Amazon VPC Lattice Gateway API Controller is currently focused only on East-West (Mesh) traffic through VPC Lattice.
 
 Many users will expect North-South (Ingress) ALB/NLB-type features. This is available (still using the v1 Ingress spec) from the [AWS Load Balancer Controller](https://github.com/kubernetes-sigs/aws-load-balancer-controller)
 
