@@ -16,7 +16,7 @@ main() {
 }
 
 installOrUpdatePackage() {
-    if brew list --versions | grep -q "${1}"; then
+    if brew list "$1" &>/dev/null; then
         read -p "${1} is already installed, do you want to update? (Y/N): " update_package
         if [[ $update_package == 'Y' || $update_package == 'y' ]]; then
             echo "Updating ${1}"
