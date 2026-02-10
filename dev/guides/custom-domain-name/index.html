@@ -25,7 +25,7 @@
     
     
       
-        <title>Custom Domain Name - AWS Gateway API Controller</title>
+        <title>Custom Domain Name - Amazon VPC Lattice Gateway API Controller</title>
       
     
     
@@ -96,7 +96,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="AWS Gateway API Controller" class="md-header__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-header__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
@@ -109,7 +109,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            AWS Gateway API Controller
+            Amazon VPC Lattice Gateway API Controller
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -385,12 +385,12 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="AWS Gateway API Controller" class="md-nav__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-nav__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
     </a>
-    AWS Gateway API Controller
+    Amazon VPC Lattice Gateway API Controller
   </label>
   
     <div class="md-nav__source">
@@ -1732,8 +1732,8 @@ VPC Lattice generates a unique Fully Qualified Domain Name (FQDN) for you; howev
 </code></pre></div>
 <h2 id="managing-dns-records-using-externaldns">Managing DNS records using ExternalDNS<a class="headerlink" href="#managing-dns-records-using-externaldns" title="Permanent link">&para;</a></h2>
 <p>To register custom domain names to your DNS provider, we recommend using <a href="https://github.com/kubernetes-sigs/external-dns">ExternalDNS</a>.
-AWS Gateway API Controller supports ExternalDNS integration through CRD source - the controller will manage <code>DNSEndpoint</code> resource for you. </p>
-<p>To use ExternalDNS with the AWS Gateway API Controller, you need to:</p>
+The Amazon VPC Lattice Gateway API Controller supports ExternalDNS integration through CRD source - the controller will manage <code>DNSEndpoint</code> resource for you.</p>
+<p>To use ExternalDNS with the Amazon VPC Lattice Gateway API Controller, you need to:</p>
 <ol>
 <li>
 <p>Install <code>DNSEndpoint</code> CRD. This is bundled with both Gateway API Controller Helm chart and <code>files/controller-installation/deploy-*.yaml</code> manifest, but also can be installed manually by the following command:

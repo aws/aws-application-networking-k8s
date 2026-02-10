@@ -25,7 +25,7 @@
     
     
       
-        <title>Introduction - AWS Gateway API Controller</title>
+        <title>Introduction - Amazon VPC Lattice Gateway API Controller</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#aws-gateway-api-controller-user-guide" class="md-skip">
+        <a href="#amazon-vpc-lattice-gateway-api-controller-user-guide" class="md-skip">
           Skip to content
         </a>
       
@@ -96,7 +96,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="AWS Gateway API Controller" class="md-header__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-header__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
@@ -109,7 +109,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            AWS Gateway API Controller
+            Amazon VPC Lattice Gateway API Controller
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -385,12 +385,12 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="AWS Gateway API Controller" class="md-nav__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-nav__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
     </a>
-    AWS Gateway API Controller
+    Amazon VPC Lattice Gateway API Controller
   </label>
   
     <div class="md-nav__source">
@@ -1647,10 +1647,10 @@
   
 
 
-<h1 id="aws-gateway-api-controller-user-guide">AWS Gateway API Controller User Guide<a class="headerlink" href="#aws-gateway-api-controller-user-guide" title="Permanent link">&para;</a></h1>
-<p>As part of the VPC Lattice launch, AWS introduced the AWS Gateway API Controller ; an implementation of the Kubernetes Gateway API. Gateway API is an open-source standard interface to enable Kubernetes application networking through expressive, extensible, and role-oriented interfaces. AWS Gateway API controller extends custom resources, defined by Gateway API, which allows you to create VPC Lattice resources using Kubernetes APIs.</p>
-<p>When installed in your cluster, the controller watches for the creation of Gateway API resources such as gateways and routes and provisions corresponding Amazon VPC Lattice objects. This enables users to configure VPC Lattice Services, VPC Lattice service networks and Target Groups using Kubernetes APIs, without needing to write custom code or manage sidecar proxies. The AWS Gateway API Controller is an open-source project and fully supported by Amazon.</p>
-<p>AWS Gateway API Controller integrates with Amazon VPC Lattice and allows you to:</p>
+<h1 id="amazon-vpc-lattice-gateway-api-controller-user-guide">Amazon VPC Lattice Gateway API Controller User Guide<a class="headerlink" href="#amazon-vpc-lattice-gateway-api-controller-user-guide" title="Permanent link">&para;</a></h1>
+<p>As part of the VPC Lattice launch, AWS introduced the Amazon VPC Lattice Gateway API Controller; an implementation of the Kubernetes Gateway API. Gateway API is an open-source standard interface to enable Kubernetes application networking through expressive, extensible, and role-oriented interfaces. The Amazon VPC Lattice Gateway API Controller extends custom resources, defined by Gateway API, which allows you to create VPC Lattice resources using Kubernetes APIs.</p>
+<p>When installed in your cluster, the controller watches for the creation of Gateway API resources such as gateways and routes and provisions corresponding Amazon VPC Lattice objects. This enables users to configure VPC Lattice Services, VPC Lattice service networks and Target Groups using Kubernetes APIs, without needing to write custom code or manage sidecar proxies. The Amazon VPC Lattice Gateway API Controller is an open-source project and fully supported by Amazon.</p>
+<p>The Amazon VPC Lattice Gateway API Controller integrates with Amazon VPC Lattice and allows you to:</p>
 <ul>
 <li>Handle network connectivity seamlessly between services across VPCs and accounts.</li>
 <li>Discover VPC Lattice services spanning multiple Kubernetes clusters.</li>
@@ -1658,13 +1658,13 @@
 <li>Observe the request/response traffic across the services.</li>
 <li>Ensure consistent health check configuration across multi-cluster deployments through automatic policy propagation.</li>
 </ul>
-<p>This documentation describes how to set up the AWS Gateway API Controller, provides example use cases, development concepts, and API references. AWS Gateway API Controller will provide developers the ability to publish services running on Kubernetes cluster and other compute platforms on AWS such as AWS Lambda or Amazon EC2. Once the AWS Gateway API controller deployed and running, you will be able to manage services for multiple Kubernetes clusters and other compute targets on AWS through the following:</p>
+<p>This documentation describes how to set up the Amazon VPC Lattice Gateway API Controller, provides example use cases, development concepts, and API references. The Amazon VPC Lattice Gateway API Controller will provide developers the ability to publish services running on Kubernetes cluster and other compute platforms on AWS such as AWS Lambda or Amazon EC2. Once the Amazon VPC Lattice Gateway API Controller is deployed and running, you will be able to manage services for multiple Kubernetes clusters and other compute targets on AWS through the following:</p>
 <ul>
 <li><strong>CLI</strong>: Use <code>aws</code> and <code>eksctl</code> to create clusters and set up AWS policies. Then use <code>kubectl</code> and YAML files to set up Kubernetes objects.</li>
 <li><strong>AWS Console</strong>: View VPC Lattice assets through the VPC area of the AWS console.</li>
 </ul>
 <p>Integrating with the Kubernetes Gateway API provides a kubernetes-native experience for developers to create services, manage network routing and traffic behaviour without the heavy lifting managing the underlying networking infrastrcuture. This lets you work with Kubernetes service-related resources using Kubernetes APIs and custom resource definitions (CRDs) defined by the Kubernetes <a href="https://gateway-api.sigs.k8s.io/references/spec/">networking.k8s.io specification</a>.</p>
-<p>For more information on this technology, see <a href="https://gateway-api.sigs.k8s.io/">Kubernetes Gateway API</a>. </p>
+<p>For more information on this technology, see <a href="https://gateway-api.sigs.k8s.io/">Kubernetes Gateway API</a>.</p>
 
 
 

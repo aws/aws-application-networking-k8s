@@ -25,7 +25,7 @@
     
     
       
-        <title>Concepts - AWS Gateway API Controller</title>
+        <title>Concepts - Amazon VPC Lattice Gateway API Controller</title>
       
     
     
@@ -96,7 +96,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="AWS Gateway API Controller" class="md-header__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-header__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
@@ -109,7 +109,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            AWS Gateway API Controller
+            Amazon VPC Lattice Gateway API Controller
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -385,12 +385,12 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="AWS Gateway API Controller" class="md-nav__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-nav__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
     </a>
-    AWS Gateway API Controller
+    Amazon VPC Lattice Gateway API Controller
   </label>
   
     <div class="md-nav__source">
@@ -1767,7 +1767,7 @@ Fine-grained authorization policies that can be used to define access to service
 <ul>
 <li>
 <p><strong>Kubernetes multi-cluster connectivity</strong>: Architecting multiple clusters across multiple VPCs.
-  After configuring your services with the AWS Gateway API Controller, you can facilitate advanced traffic management and application layer routing between services on those clusters without dealing with the underlying infrastructure.
+  After configuring your services with the Amazon VPC Lattice Gateway API Controller, you can facilitate advanced traffic management and application layer routing between services on those clusters without dealing with the underlying infrastructure.
   VPC Lattice handles a lot of the details for you without needing things like sidecars.</p>
 </li>
 <li>
@@ -1787,7 +1787,7 @@ Fine-grained authorization policies that can be used to define access to service
 </ul>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <p>For those already familiar with the reference implementation of <a href="https://gateway-api.sigs.k8s.io/">Kubernetes Gateway API</a>, the API generally serves two purposes: enabling routing for both North-South (Ingress) and also East-West (Mesh) traffic.  </p>
-<p>The AWS Gateway API Controller is currently focused only on East-West (Mesh) traffic through VPC Lattice.</p>
+<p>The Amazon VPC Lattice Gateway API Controller is currently focused only on East-West (Mesh) traffic through VPC Lattice.</p>
 <p>Many users will expect North-South (Ingress) ALB/NLB-type features. This is available (still using the v1 Ingress spec) from the <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller">AWS Load Balancer Controller</a></p>
 <h2 id="relationship-between-vpc-lattice-and-kubernetes">Relationship between VPC Lattice and Kubernetes<a class="headerlink" href="#relationship-between-vpc-lattice-and-kubernetes" title="Permanent link">&para;</a></h2>
 <p>As a Kubernetes user, you can have a very Kubernetes-native experience using the VPC Lattice APIs.

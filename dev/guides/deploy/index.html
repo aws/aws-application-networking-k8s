@@ -25,7 +25,7 @@
     
     
       
-        <title>Controller Installation - AWS Gateway API Controller</title>
+        <title>Controller Installation - Amazon VPC Lattice Gateway API Controller</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#deploy-the-aws-gateway-api-controller-on-amazon-eks" class="md-skip">
+        <a href="#deploy-the-amazon-vpc-lattice-gateway-api-controller-on-amazon-eks" class="md-skip">
           Skip to content
         </a>
       
@@ -96,7 +96,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="AWS Gateway API Controller" class="md-header__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-header__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
@@ -109,7 +109,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            AWS Gateway API Controller
+            Amazon VPC Lattice Gateway API Controller
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -385,12 +385,12 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="AWS Gateway API Controller" class="md-nav__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-nav__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
     </a>
-    AWS Gateway API Controller
+    Amazon VPC Lattice Gateway API Controller
   </label>
   
     <div class="md-nav__source">
@@ -1717,9 +1717,9 @@
   
 
 
-<h1 id="deploy-the-aws-gateway-api-controller-on-amazon-eks">Deploy the AWS Gateway API Controller on Amazon EKS<a class="headerlink" href="#deploy-the-aws-gateway-api-controller-on-amazon-eks" title="Permanent link">&para;</a></h1>
-<p>This Deployment Guide provides an end-to-end procedure to install the AWS Gateway API Controller with <a href="https://aws.amazon.com/eks/">Amazon Elastic Kubernetes Service</a>.</p>
-<p>Amazon EKS is a simple, recommended way of preparing a cluster for running services with the AWS Gateway API Controller. However, the AWS Gateway API Controller can be used on any Kubernetes cluster on AWS. Check out the <a href="../advanced-configurations/">Advanced Configurations</a> section below for instructions on how to install and run the controller on self-hosted Kubernetes clusters on AWS.</p>
+<h1 id="deploy-the-amazon-vpc-lattice-gateway-api-controller-on-amazon-eks">Deploy the Amazon VPC Lattice Gateway API Controller on Amazon EKS<a class="headerlink" href="#deploy-the-amazon-vpc-lattice-gateway-api-controller-on-amazon-eks" title="Permanent link">&para;</a></h1>
+<p>This Deployment Guide provides an end-to-end procedure to install the Amazon VPC Lattice Gateway API Controller with <a href="https://aws.amazon.com/eks/">Amazon Elastic Kubernetes Service</a>.</p>
+<p>Amazon EKS is a simple, recommended way of preparing a cluster for running services with the Amazon VPC Lattice Gateway API Controller. However, the Amazon VPC Lattice Gateway API Controller can be used on any Kubernetes cluster on AWS. Check out the <a href="../advanced-configurations/">Advanced Configurations</a> section below for instructions on how to install and run the controller on self-hosted Kubernetes clusters on AWS.</p>
 <h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
 <p>Install these tools before proceeding:</p>
 <ol>
@@ -1759,7 +1759,7 @@
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>aws<span class="w"> </span>ec2<span class="w"> </span>authorize-security-group-ingress<span class="w"> </span>--group-id<span class="w"> </span><span class="nv">$CLUSTER_SG</span><span class="w"> </span>--ip-permissions<span class="w"> </span><span class="s2">&quot;PrefixListIds=[{PrefixListId=</span><span class="si">${</span><span class="nv">PREFIX_LIST_ID_IPV6</span><span class="si">}</span><span class="s2">}],IpProtocol=-1&quot;</span>
 </code></pre></div>
 <p><strong>Set up IAM permissions</strong></p>
-<p>The AWS Gateway API Controller needs to have the necessary permissions to operate.</p>
+<p>The Amazon VPC Lattice Gateway API Controller needs to have the necessary permissions to operate.</p>
 <ol>
 <li>Create a policy (<code>recommended-inline-policy.json</code>) in IAM with the following content that can invoke the Gateway API and copy the policy ARN for later use:</li>
 </ol>

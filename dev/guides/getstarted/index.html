@@ -25,7 +25,7 @@
     
     
       
-        <title>Getting Started - AWS Gateway API Controller</title>
+        <title>Getting Started - Amazon VPC Lattice Gateway API Controller</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#getting-started-with-aws-gateway-api-controller" class="md-skip">
+        <a href="#getting-started-with-amazon-vpc-lattice-gateway-api-controller" class="md-skip">
           Skip to content
         </a>
       
@@ -96,7 +96,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="AWS Gateway API Controller" class="md-header__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-header__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
@@ -109,7 +109,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            AWS Gateway API Controller
+            Amazon VPC Lattice Gateway API Controller
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -385,12 +385,12 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="AWS Gateway API Controller" class="md-nav__button md-logo" aria-label="AWS Gateway API Controller" data-md-component="logo">
+    <a href="../.." title="Amazon VPC Lattice Gateway API Controller" class="md-nav__button md-logo" aria-label="Amazon VPC Lattice Gateway API Controller" data-md-component="logo">
       
   <img src="../../images/controller.png" alt="logo">
 
     </a>
-    AWS Gateway API Controller
+    Amazon VPC Lattice Gateway API Controller
   </label>
   
     <div class="md-nav__source">
@@ -1745,7 +1745,7 @@
   
 
 
-<h1 id="getting-started-with-aws-gateway-api-controller">Getting Started with AWS Gateway API Controller<a class="headerlink" href="#getting-started-with-aws-gateway-api-controller" title="Permanent link">&para;</a></h1>
+<h1 id="getting-started-with-amazon-vpc-lattice-gateway-api-controller">Getting Started with Amazon VPC Lattice Gateway API Controller<a class="headerlink" href="#getting-started-with-amazon-vpc-lattice-gateway-api-controller" title="Permanent link">&para;</a></h1>
 <p>This guide helps you get started using the controller.</p>
 <p>Following this guide, you will:</p>
 <ul>
@@ -1756,9 +1756,9 @@
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <p>Before proceeding to the next sections, you need to:</p>
 <ul>
-<li>Create a cluster <code>gw-api-controller-demo</code> with the controller following the <a href="../deploy/#deploy-the-controller-on-amazon-eks">AWS Gateway API Controller installation guide on Amazon EKS</a>.</li>
+<li>Create a cluster <code>gw-api-controller-demo</code> with the controller following the <a href="../deploy/#deploy-the-controller-on-amazon-eks">Amazon VPC Lattice Gateway API Controller installation guide on Amazon EKS</a>.</li>
 <li>
-<p>Clone the <a href="https://github.com/aws/aws-application-networking-k8s">AWS Gateway API Controller</a> repository.</p>
+<p>Clone the <a href="https://github.com/aws/aws-application-networking-k8s">Amazon VPC Lattice Gateway API Controller</a> repository.</p>
 <p><div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1">1</a></span>
 <span class="normal"><a href="#__codelineno-0-2">2</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/aws/aws-application-networking-k8s.git
 <a id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>aws-application-networking-k8s
@@ -1775,7 +1775,7 @@
 <p><strong>Setup in-cluster service-to-service communications</strong></p>
 <ol>
 <li>
-<p>AWS Gateway API Controller needs a VPC Lattice service network to operate.</p>
+<p>The Amazon VPC Lattice Gateway API Controller needs a VPC Lattice service network to operate.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Helm</label><label for="__tabbed_1_2">AWS CLI</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
