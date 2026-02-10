@@ -1,10 +1,10 @@
 # Advanced configurations
 
-The section below covers advanced configuration techniques for installing and using the AWS Gateway API Controller. This includes things such as running the controller on a self-hosted cluster on AWS or using an IPv6 EKS cluster.
+The section below covers advanced configuration techniques for installing and using the Amazon VPC Lattice Gateway API Controller. This includes things such as running the controller on a self-hosted cluster on AWS or using an IPv6 EKS cluster.
 
 ### Using a self-managed Kubernetes cluster
 
-You can install AWS Gateway API Controller to a self-managed Kubernetes cluster in AWS.
+You can install the Amazon VPC Lattice Gateway API Controller to a self-managed Kubernetes cluster in AWS.
 
 However, the controller utilizes [IMDS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) to get necessary information from instance metadata, such as AWS account ID and VPC ID. So:
 
