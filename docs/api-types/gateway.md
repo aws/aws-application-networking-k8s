@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`Gateway` allows you to configure network traffic through AWS Gateway API Controller.
+`Gateway` allows you to configure network traffic through the Amazon VPC Lattice Gateway API Controller.
 When a Gateway is defined with `amazon-vpc-lattice` GatewayClass, the controller will watch for the gateway
 and the resources under them, creating required resources under Amazon VPC Lattice.
 
@@ -67,5 +67,5 @@ either `http` or `https` listener as a parent based on their desired protocol to
 ---
 
 This `Gateway` documentation provides a detailed introduction, feature set, and a basic example of how to configure
-and use the resource within AWS Gateway API Controller project. For in-depth details and specifications, you can refer to the
+and use the resource within the Amazon VPC Lattice Gateway API Controller project. For in-depth details and specifications, you can refer to the
 official [Gateway API documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.Gateway).
