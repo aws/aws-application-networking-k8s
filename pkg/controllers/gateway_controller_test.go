@@ -157,3 +157,127 @@ func TestUpdateGWListenerStatus_RemovesStaleListeners(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateGWListenerStatus_ResolvedRefsCondition(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+	gwv1alpha2.Install(scheme)
+	addOptionalCRDs(scheme)
+
+	tests := []struct {
+		name              string
+		listeners         []gwv1.Listener
+		expectAccepted    bool
+		expectResolvedRef bool
+	}{
+		{
+			name: "valid listener has both Accepted and ResolvedRefs conditions set to True",
+			listeners: []gwv1.Listener{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+					},
+				},
+			},
+			expectAccepted:    true,
+			expectResolvedRef: true,
+		},
+		{
+			name: "invalid listener has ResolvedRefs False and no Accepted condition",
+			listeners: []gwv1.Listener{
+				{
+					Name:     "bad",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{{Kind: "UnsupportedRoute"}},
+					},
+				},
+			},
+			expectAccepted:    false,
+			expectResolvedRef: false,
+		},
+		{
+			name: "multiple valid listeners each have both conditions",
+			listeners: []gwv1.Listener{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+					},
+				},
+				{
+					Name:     "https",
+					Port:     443,
+					Protocol: gwv1.HTTPSProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+					},
+				},
+			},
+			expectAccepted:    true,
+			expectResolvedRef: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			gw := &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "amazon-vpc-lattice",
+					Listeners:        tt.listeners,
+				},
+			}
+
+			k8sClient := testclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(gw).
+				WithStatusSubresource(gw).
+				Build()
+
+			_ = UpdateGWListenerStatus(ctx, k8sClient, gw)
+
+			updatedGw := &gwv1.Gateway{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      "test-gateway",
+				Namespace: "default",
+			}, updatedGw)
+			assert.NoError(t, err)
+
+			for _, ls := range updatedGw.Status.Listeners {
+				var foundAccepted, foundResolvedRefs bool
+				for _, cond := range ls.Conditions {
+					if cond.Type == string(gwv1.ListenerConditionAccepted) {
+						foundAccepted = true
+						assert.Equal(t, metav1.ConditionTrue, cond.Status)
+						assert.Equal(t, string(gwv1.ListenerReasonAccepted), cond.Reason)
+					}
+					if cond.Type == string(gwv1.ListenerConditionResolvedRefs) {
+						foundResolvedRefs = true
+						if tt.expectResolvedRef {
+							assert.Equal(t, metav1.ConditionTrue, cond.Status)
+							assert.Equal(t, string(gwv1.ListenerReasonResolvedRefs), cond.Reason)
+						} else {
+							assert.Equal(t, metav1.ConditionFalse, cond.Status)
+							assert.Equal(t, string(gwv1.ListenerReasonInvalidRouteKinds), cond.Reason)
+						}
+					}
+				}
+				assert.Equal(t, tt.expectAccepted, foundAccepted, "Accepted condition presence mismatch for listener %s", ls.Name)
+				assert.True(t, foundResolvedRefs, "ResolvedRefs condition must be present for listener %s", ls.Name)
+			}
+		})
+	}
+}
