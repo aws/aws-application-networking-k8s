@@ -24,7 +24,7 @@ spec:
     protocol: HTTPS     # Specify HTTPS protocol
     port: 443           # Specify communication on port 443
 ...
-```    
+```
 
 Next, the following modifications to the `files/examples/rate-route-path.yaml` file tell the `rates` HTTPRoute to use HTTPs for communications:
 
@@ -43,7 +43,7 @@ spec:
 ...
 ```
 
-In this case, the VPC Lattice service automatically generates a managed ACM certificate and uses it for encryting client to service traffic.
+In this case, the VPC Lattice service automatically generates a managed ACM certificate and uses it for encrypting client to service traffic.
 
 ### Bring Your Own Certificate (BYOC)
 
@@ -77,6 +77,7 @@ spec:
       options:           # Instead, we specify ACM certificate ARN under this section
         application-networking.k8s.aws/certificate-arn: arn:aws:acm:us-west-2:<account>:certificate/<certificate-id>
 ```
+
 Note that only `Terminate` mode is supported (Passthrough is not supported).
 
 Next, associate the HTTPRoute to the listener configuration you just configured:
