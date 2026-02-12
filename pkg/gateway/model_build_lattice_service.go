@@ -218,10 +218,29 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	}
 	spec.AllowTakeoverFrom = allowTakeoverFrom
 
+	// Check for service name override on route first (highest precedence)
 	serviceNameOverride, err := k8s.GetServiceNameOverrideWithValidation(t.route.K8sObject())
 	if err != nil {
 		return nil, err
 	}
+
+	// If not set on route, check the Gateway's service-name-override annotation (fallback)
+	if serviceNameOverride == "" {
+		gw, gwErr := t.findGateway(ctx)
+		if gwErr == nil && gw != nil {
+			// Use the same validation function as HTTPRoute for consistency
+			gwServiceNameOverride, gwErr := k8s.GetServiceNameOverrideWithValidation(gw)
+			if gwErr != nil {
+				return nil, gwErr
+			}
+			if gwServiceNameOverride != "" {
+				serviceNameOverride = gwServiceNameOverride
+				t.log.Debugf(ctx, "Using service-name-override from Gateway %s/%s: %s",
+					gw.GetNamespace(), gw.GetName(), serviceNameOverride)
+			}
+		}
+	}
+
 	spec.ServiceNameOverride = serviceNameOverride
 
 	svc, err := model.NewLatticeService(t.stack, spec)
