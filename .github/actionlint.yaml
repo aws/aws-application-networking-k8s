@@ -1,0 +1,7 @@
+---
+# actionlint configuration (optional)
+# https://github.com/rhysd/actionlint/blob/main/docs/config.md
+#
+# Keep this minimal; ignore rules should be added only to suppress known false positives.
+self-hosted-runner:
+  labels: []

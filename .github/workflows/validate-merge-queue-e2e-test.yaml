@@ -1,4 +1,26 @@
 name: Validate code in the merge queue with e2e-test
+
+# ================================================================
+# Purpose: Validate merge-queue changes by building the controller image,
+#          installing it into a pre-provisioned EKS cluster, and running e2e
+#          integration + webhook test suites.
+#
+# Triggers:
+#   - merge_group (GitHub merge queue)
+#
+# Permissions:
+#   - workflow: id-token:write (AWS OIDC), contents:read
+#
+# Required secrets:
+#   - AWS_DEFAULT_REGION
+#   - ECR_PUBLISH_IAM_ROLE
+#   - PRIVATE_IMAGE_REPOSITORY
+#   - CLUSTER_NAME
+#   - CLUSTER_VPC_ID
+#   - SECONDARY_ACCOUNT_IAM_ROLE
+#   - INTEGRATION_TEST_IAM_ROLE
+# ================================================================
+
 permissions:
   id-token: write
   contents: read
@@ -27,57 +49,69 @@ jobs:
       SECONDARY_ACCOUNT_TEST_ROLE_ARN: ${{ secrets.SECONDARY_ACCOUNT_IAM_ROLE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - run: sed -En 's/^go[[:space:]]+([[:digit:].]+)$/GO_VERSION=\1/p' go.mod >> $GITHUB_ENV
+        uses: actions/checkout@v6
+      - run: sed -En 's/^go[[:space:]]+([[:digit:].]+)$/GO_VERSION=\1/p' go.mod >> "$GITHUB_ENV"
+
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
           cache-dependency-path: test/go.sum
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           version: latest
+
       - name: Setup AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.INTEGRATION_TEST_IAM_ROLE }}
           role-duration-seconds: 14400
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
       - name: Setup eksctl
         run: |
           curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
           sudo mv /tmp/eksctl /usr/local/bin
+
       # Assumes a cluster named CLUSTER_NAME exists.
       # TODO: create cluster if it does not exist.
       - name: Setup cluster credentials
-        run: eksctl utils write-kubeconfig --cluster=$CLUSTER_NAME
+        run: eksctl utils write-kubeconfig --cluster="$CLUSTER_NAME"
+
       - name: Enable actions cache
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env['ACTIONS_CACHE_URL'])
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN'])
             core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL'])
             core.exportVariable('ACTIONS_CACHE_SERVICE_V2', process.env['ACTIONS_CACHE_SERVICE_V2'])
+
       - name: Build and push image
         run: |
           SKIP_BUILD_CHART=true scripts/release-controller.sh
+
       - name: Install helm chart
         run: |
           helm install gateway-api-controller ./helm \
              --namespace aws-application-networking-system \
              --set=serviceAccount.create=false \
-             --set=image.repository=$IMAGE_REPOSITORY \
-             --set=image.tag=$RELEASE_VERSION \
+             --set=image.repository="${IMAGE_REPOSITORY}" \
+             --set=image.tag="${RELEASE_VERSION}" \
              --set=log.level=debug
+
       - name: Install Gateway API v1.2 CRDs
         run: |
-          kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.0" | kubectl apply -f -
+          set -euo pipefail
+          kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.1" | kubectl apply -f -
       - name: Install latest custom CRDs
         run: |
+          set -euo pipefail
           kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
+          # TLSRoute is experimental in Gateway API and not part of the standard CRD bundle.
           kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceimports.yaml
@@ -85,17 +119,21 @@ jobs:
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
+
       - name: Create Lattice GatewayClass
         run: |
           kubectl apply -f files/controller-installation/gatewayclass.yaml
+
       - name: Run test
         run: |
           make e2e-test
           make webhook-e2e-test
+
       - name: Cleanup
         if: always()
         run: |
           make e2e-clean
+
       - name: Uninstall helm chart
         if: always()
         run: |
