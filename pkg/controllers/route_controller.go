@@ -368,6 +368,13 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		return err
 	}
 
+	// TODO: UpdateGWListenerStatus calls ListAllRoutes() (3 List API calls). With concurrent
+	// reconciles, this can cause transient count inaccuracies that self-correct on next reconcile.
+	// Consider debouncing gateway status updates or using an informer cache.
+	if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
+		r.log.Warnf(ctx, "failed to update gateway listener status: %v", err)
+	}
+
 	r.log.Infow(ctx, "reconciled", "name", req.Name)
 	return nil
 }
