@@ -281,3 +281,112 @@ func TestUpdateGWListenerStatus_ResolvedRefsCondition(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateGWListenerStatus_ProgrammedCondition(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+	gwv1alpha2.Install(scheme)
+	addOptionalCRDs(scheme)
+
+	tests := []struct {
+		name             string
+		listeners        []gwv1.Listener
+		expectProgrammed bool
+	}{
+		{
+			name: "valid listener has Programmed condition set to True",
+			listeners: []gwv1.Listener{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+					},
+				},
+			},
+			expectProgrammed: true,
+		},
+		{
+			name: "invalid listener does not have Programmed condition",
+			listeners: []gwv1.Listener{
+				{
+					Name:     "bad",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{{Kind: "UnsupportedRoute"}},
+					},
+				},
+			},
+			expectProgrammed: false,
+		},
+		{
+			name: "multiple valid listeners each have Programmed condition",
+			listeners: []gwv1.Listener{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+					},
+				},
+				{
+					Name:     "https",
+					Port:     443,
+					Protocol: gwv1.HTTPSProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+					},
+				},
+			},
+			expectProgrammed: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			gw := &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "default",
+				},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "amazon-vpc-lattice",
+					Listeners:        tt.listeners,
+				},
+			}
+
+			k8sClient := testclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(gw).
+				WithStatusSubresource(gw).
+				Build()
+
+			_ = UpdateGWListenerStatus(ctx, k8sClient, gw)
+
+			updatedGw := &gwv1.Gateway{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      "test-gateway",
+				Namespace: "default",
+			}, updatedGw)
+			assert.NoError(t, err)
+
+			for _, ls := range updatedGw.Status.Listeners {
+				var foundProgrammed bool
+				for _, cond := range ls.Conditions {
+					if cond.Type == string(gwv1.ListenerConditionProgrammed) {
+						foundProgrammed = true
+						assert.Equal(t, metav1.ConditionTrue, cond.Status)
+						assert.Equal(t, string(gwv1.ListenerReasonProgrammed), cond.Reason)
+					}
+				}
+				assert.Equal(t, tt.expectProgrammed, foundProgrammed, "Programmed condition presence mismatch for listener %s", ls.Name)
+			}
+		})
+	}
+}

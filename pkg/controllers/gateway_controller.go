@@ -370,6 +370,14 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 				LastTransitionTime: metav1.Now(),
 			}
 
+			programmedCondition := metav1.Condition{
+				Type:               string(gwv1.ListenerConditionProgrammed),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(gwv1.ListenerReasonProgrammed),
+				ObservedGeneration: gw.Generation,
+				LastTransitionTime: metav1.Now(),
+			}
+
 			for _, route := range routes {
 				if !route.DeletionTimestamp().IsZero() {
 					// Ignore the deleted route
@@ -414,7 +422,7 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{
 				Kind: "HTTPRoute",
 			})
-			listenerStatus.Conditions = append(listenerStatus.Conditions, acceptedCondition, resolvedRefsCondition)
+			listenerStatus.Conditions = append(listenerStatus.Conditions, acceptedCondition, resolvedRefsCondition, programmedCondition)
 		}
 
 		newListenerStatuses = append(newListenerStatuses, listenerStatus)
