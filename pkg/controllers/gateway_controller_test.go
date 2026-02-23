@@ -390,3 +390,314 @@ func TestUpdateGWListenerStatus_ProgrammedCondition(t *testing.T) {
 		})
 	}
 }
+
+func TestListenerRouteGroupKindSupported_TLSRoute(t *testing.T) {
+	tests := []struct {
+		name        string
+		listener    gwv1.Listener
+		expectValid bool
+		expectKinds []gwv1.RouteGroupKind
+	}{
+		{
+			name: "TLSRoute valid on TLS listener",
+			listener: gwv1.Listener{
+				Protocol: gwv1.TLSProtocolType,
+				AllowedRoutes: &gwv1.AllowedRoutes{
+					Kinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}},
+				},
+			},
+			expectValid: true,
+			expectKinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}},
+		},
+		{
+			name: "TLSRoute invalid on HTTP listener",
+			listener: gwv1.Listener{
+				Protocol: gwv1.HTTPProtocolType,
+				AllowedRoutes: &gwv1.AllowedRoutes{
+					Kinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}},
+				},
+			},
+			expectValid: false,
+			expectKinds: []gwv1.RouteGroupKind{},
+		},
+		{
+			name: "TLSRoute invalid on HTTPS listener",
+			listener: gwv1.Listener{
+				Protocol: gwv1.HTTPSProtocolType,
+				AllowedRoutes: &gwv1.AllowedRoutes{
+					Kinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}},
+				},
+			},
+			expectValid: false,
+			expectKinds: []gwv1.RouteGroupKind{},
+		},
+		{
+			name: "GRPCRoute valid on HTTPS listener",
+			listener: gwv1.Listener{
+				Protocol: gwv1.HTTPSProtocolType,
+				AllowedRoutes: &gwv1.AllowedRoutes{
+					Kinds: []gwv1.RouteGroupKind{{Kind: "GRPCRoute"}},
+				},
+			},
+			expectValid: true,
+			expectKinds: []gwv1.RouteGroupKind{{Kind: "GRPCRoute"}},
+		},
+		{
+			name: "GRPCRoute invalid on HTTP listener",
+			listener: gwv1.Listener{
+				Protocol: gwv1.HTTPProtocolType,
+				AllowedRoutes: &gwv1.AllowedRoutes{
+					Kinds: []gwv1.RouteGroupKind{{Kind: "GRPCRoute"}},
+				},
+			},
+			expectValid: false,
+			expectKinds: []gwv1.RouteGroupKind{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			valid, kinds := listenerRouteGroupKindSupported(tt.listener)
+			assert.Equal(t, tt.expectValid, valid)
+			assert.Equal(t, tt.expectKinds, kinds)
+		})
+	}
+}
+
+func TestUpdateGWListenerStatus_AttachedRoutes(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+	gwv1alpha2.Install(scheme)
+	addOptionalCRDs(scheme)
+
+	sectionHTTP := gwv1.SectionName("http")
+	gwName := gwv1.ObjectName("test-gateway")
+
+	tests := []struct {
+		name                   string
+		listeners              []gwv1.Listener
+		httpRoutes             []*gwv1.HTTPRoute
+		tlsRoutes              []*gwv1alpha2.TLSRoute
+		expectedAttachedRoutes map[gwv1.SectionName]int32
+	}{
+		{
+			name: "nil sectionName attaches HTTPRoute to all compatible listeners",
+			listeners: []gwv1.Listener{
+				{
+					Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}}},
+				},
+				{
+					Name: "https", Port: 443, Protocol: gwv1.HTTPSProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}}},
+				},
+			},
+			httpRoutes: []*gwv1.HTTPRoute{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "default"},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{{Name: gwName}},
+						},
+					},
+				},
+			},
+			expectedAttachedRoutes: map[gwv1.SectionName]int32{
+				"http":  1,
+				"https": 1,
+			},
+		},
+		{
+			name: "explicit sectionName attaches only to matching listener",
+			listeners: []gwv1.Listener{
+				{
+					Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}}},
+				},
+				{
+					Name: "https", Port: 443, Protocol: gwv1.HTTPSProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}}},
+				},
+			},
+			httpRoutes: []*gwv1.HTTPRoute{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "default"},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{{Name: gwName, SectionName: &sectionHTTP}},
+						},
+					},
+				},
+			},
+			expectedAttachedRoutes: map[gwv1.SectionName]int32{
+				"http":  1,
+				"https": 0,
+			},
+		},
+		{
+			name: "HTTPRoute does not attach to TLS listener",
+			listeners: []gwv1.Listener{
+				{
+					Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}}},
+				},
+				{
+					Name: "tls", Port: 8443, Protocol: gwv1.TLSProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}}},
+				},
+			},
+			httpRoutes: []*gwv1.HTTPRoute{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "default"},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{{Name: gwName}},
+						},
+					},
+				},
+			},
+			expectedAttachedRoutes: map[gwv1.SectionName]int32{
+				"http": 1,
+				"tls":  0,
+			},
+		},
+		{
+			name: "TLSRoute attaches only to TLS listener with nil sectionName",
+			listeners: []gwv1.Listener{
+				{
+					Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}}},
+				},
+				{
+					Name: "tls", Port: 8443, Protocol: gwv1.TLSProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}}},
+				},
+			},
+			tlsRoutes: []*gwv1alpha2.TLSRoute{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "tls-route1", Namespace: "default"},
+					Spec: gwv1alpha2.TLSRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{{Name: gwName}},
+						},
+					},
+				},
+			},
+			expectedAttachedRoutes: map[gwv1.SectionName]int32{
+				"http": 0,
+				"tls":  1,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			gw := &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-gateway", Namespace: "default"},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "amazon-vpc-lattice",
+					Listeners:        tt.listeners,
+				},
+			}
+
+			builder := testclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(gw).
+				WithStatusSubresource(gw)
+
+			for _, r := range tt.httpRoutes {
+				builder = builder.WithObjects(r)
+			}
+			for _, r := range tt.tlsRoutes {
+				builder = builder.WithObjects(r)
+			}
+
+			k8sClient := builder.Build()
+
+			err := UpdateGWListenerStatus(ctx, k8sClient, gw)
+			assert.NoError(t, err)
+
+			updatedGw := &gwv1.Gateway{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-gateway", Namespace: "default"}, updatedGw)
+			assert.NoError(t, err)
+
+			for _, ls := range updatedGw.Status.Listeners {
+				expected, ok := tt.expectedAttachedRoutes[ls.Name]
+				assert.True(t, ok, "unexpected listener %s", ls.Name)
+				assert.Equal(t, expected, ls.AttachedRoutes, "attachedRoutes mismatch for listener %s", ls.Name)
+			}
+		})
+	}
+}
+
+func TestUpdateGWListenerStatus_SupportedKinds(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+	gwv1alpha2.Install(scheme)
+	addOptionalCRDs(scheme)
+
+	tests := []struct {
+		name          string
+		listener      gwv1.Listener
+		expectedKinds []gwv1.RouteGroupKind
+	}{
+		{
+			name: "HTTP listener supports HTTPRoute",
+			listener: gwv1.Listener{
+				Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType,
+				AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}}},
+			},
+			expectedKinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+		},
+		{
+			name: "HTTPS listener supports HTTPRoute and GRPCRoute",
+			listener: gwv1.Listener{
+				Name: "https", Port: 443, Protocol: gwv1.HTTPSProtocolType,
+				AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}}},
+			},
+			expectedKinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}, {Kind: "GRPCRoute"}},
+		},
+		{
+			name: "TLS listener supports TLSRoute",
+			listener: gwv1.Listener{
+				Name: "tls", Port: 8443, Protocol: gwv1.TLSProtocolType,
+				AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}}},
+			},
+			expectedKinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			gw := &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-gateway", Namespace: "default"},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "amazon-vpc-lattice",
+					Listeners:        []gwv1.Listener{tt.listener},
+				},
+			}
+
+			k8sClient := testclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(gw).
+				WithStatusSubresource(gw).
+				Build()
+
+			err := UpdateGWListenerStatus(ctx, k8sClient, gw)
+			assert.NoError(t, err)
+
+			updatedGw := &gwv1.Gateway{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-gateway", Namespace: "default"}, updatedGw)
+			assert.NoError(t, err)
+
+			assert.Equal(t, 1, len(updatedGw.Status.Listeners))
+			assert.Equal(t, tt.expectedKinds, updatedGw.Status.Listeners[0].SupportedKinds)
+		})
+	}
+}
