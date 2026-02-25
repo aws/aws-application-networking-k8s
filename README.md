@@ -55,5 +55,5 @@ This project is licensed under the Apache-2.0 License.
 [getting-started]: https://www.gateway-api-controller.eks.aws.dev/guides/getstarted/
 [spec]: https://www.gateway-api-controller.eks.aws.dev/api-reference/
 [concepts]: https://www.gateway-api-controller.eks.aws.dev/concepts/
-[gh_release]: https://github.com/aws/aws-application-networking-k8s/releases/tag/v2.0.0
+[gh_release]: https://github.com/aws/aws-application-networking-k8s/releases/tag/v2.0.1
 [godoc]: https://www.gateway-api-controller.eks.aws.dev/
