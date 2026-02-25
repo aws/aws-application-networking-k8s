@@ -325,8 +325,6 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 		return fmt.Errorf("failed to find gateway listener")
 	}
 
-	defaultListener := gw.Spec.Listeners[0]
-
 	// Build new listener status list from current spec (removes stale entries for deleted listeners)
 	newListenerStatuses := make([]gwv1.ListenerStatus, 0, len(gw.Spec.Listeners))
 
@@ -394,14 +392,8 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 						continue
 					}
 
-					var sectionName string
-					if parentRef.SectionName == nil {
-						sectionName = string(defaultListener.Name)
-					} else {
-						sectionName = string(*parentRef.SectionName)
-					}
-
-					if sectionName != string(listener.Name) {
+					// When sectionName is specified, only match that listener
+					if parentRef.SectionName != nil && string(*parentRef.SectionName) != string(listener.Name) {
 						continue
 					}
 
@@ -409,19 +401,27 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 						continue
 					}
 
+					// Check route kind and namespace compatibility with listener
+					allowed, err := core.IsRouteAllowedByListener(ctx, k8sClient, route, gw, listener)
+					if err != nil || !allowed {
+						continue
+					}
+
 					listenerStatus.AttachedRoutes++
 				}
 			}
 
-			if listener.Protocol == gwv1.HTTPSProtocolType {
-				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{
-					Kind: "GRPCRoute",
-				})
+			switch listener.Protocol {
+			case gwv1.TLSProtocolType:
+				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{Kind: "TLSRoute"})
+			case gwv1.HTTPSProtocolType:
+				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds,
+					gwv1.RouteGroupKind{Kind: "HTTPRoute"},
+					gwv1.RouteGroupKind{Kind: "GRPCRoute"},
+				)
+			default:
+				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{Kind: "HTTPRoute"})
 			}
-
-			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{
-				Kind: "HTTPRoute",
-			})
 			listenerStatus.Conditions = append(listenerStatus.Conditions, acceptedCondition, resolvedRefsCondition, programmedCondition)
 		}
 
@@ -446,26 +446,25 @@ func listenerRouteGroupKindSupported(listener gwv1.Listener) (bool, []gwv1.Route
 	supportedKinds := make([]gwv1.RouteGroupKind, 0)
 
 	for _, routeGroupKind := range listener.AllowedRoutes.Kinds {
-		if routeGroupKind.Kind == "HTTPRoute" {
-			supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{
-				Kind: "HTTPRoute",
-			})
-		} else if routeGroupKind.Kind == "GRPCRoute" {
+		switch routeGroupKind.Kind {
+		case "HTTPRoute":
+			supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "HTTPRoute"})
+		case "GRPCRoute":
 			if listener.Protocol == gwv1.HTTPSProtocolType {
-				supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{
-					Kind: "GRPCRoute",
-				})
+				supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "GRPCRoute"})
 			} else {
 				validRoute = false
 			}
-		} else {
+		case "TLSRoute":
+			if listener.Protocol == gwv1.TLSProtocolType {
+				supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "TLSRoute"})
+			} else {
+				validRoute = false
+			}
+		default:
 			validRoute = false
 		}
 	}
 
-	if validRoute {
-		return true, supportedKinds
-	} else {
-		return false, supportedKinds
-	}
+	return validRoute, supportedKinds
 }
