@@ -2143,6 +2143,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - services
   verbs:
   - create
@@ -2615,7 +2623,7 @@ spec:
         env:
         - name: WEBHOOK_ENABLED
           value: ""
-        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v1.1.4
+        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v2.0.1
         livenessProbe:
           httpGet:
             path: /healthz
