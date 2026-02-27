@@ -36,6 +36,7 @@ jobs:
       - run: make test
       - run: make docs
       - name: Send coverage
+        continue-on-error: true
         env:
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: goveralls -coverprofile=coverage.out -service=github
