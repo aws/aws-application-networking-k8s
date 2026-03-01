@@ -1,0 +1,16 @@
+---
+# Markdownlint configuration
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+default: true
+
+# Line length: allow longer lines (URLs, tables)
+MD013:
+  line_length: 120
+  code_blocks: false
+  tables: false
+
+# Inline HTML is used in mkdocs/markdown sometimes
+MD033: false
+
+# Don't require a top-level heading as the first line in all markdown files
+MD041: false

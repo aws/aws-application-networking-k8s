@@ -1,0 +1,35 @@
+---
+# Pre-commit hooks configuration
+#
+# Install:
+#   pre-commit install
+#
+# Run:
+#   pre-commit run --all-files
+#
+# Update:
+#   pre-commit autoupdate
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        files: >-
+          ^(\.github/workflows/.*\.(yml|yaml)|\.github/dependabot\.yml|\.pre-commit-config\.yaml|\.markdownlint\.yaml|\.commitlintrc\.yaml|\.github/actionlint\.(yml|yaml))$
+      - id: end-of-file-fixer
+        name: Ensure newline at EOF
+        files: >-
+          ^(\.github/workflows/.*\.(yml|yaml)|\.github/dependabot\.yml|\.pre-commit-config\.yaml|\.markdownlint\.yaml|\.commitlintrc\.yaml|\.github/actionlint\.(yml|yaml))$
+      - id: check-merge-conflict
+        name: Detect merge conflict markers
+      - id: check-added-large-files
+        name: Prevent large files from being committed
+        args: ["--maxkb=500"]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.10
+    hooks:
+      - id: actionlint
+        name: Lint GitHub Actions workflows (actionlint)
+        files: ^\.github/workflows/.*\.(yml|yaml)$

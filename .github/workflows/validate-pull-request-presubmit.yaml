@@ -1,20 +1,40 @@
 name: Validate pull request with presubmit before putting into queue
+
+# ================================================================
+# Purpose: Run presubmit checks on pull requests (manifest generation, vet,
+#          unit tests, and docs build) to catch issues before merge.
+#
+# Triggers:
+#   - pull_request
+#
+# Permissions:
+#   - workflow: permissions: {} (start from zero)
+#   - job: contents:read, pull-requests:read
+#
+# Secrets:
+#   - Uses GITHUB_TOKEN (for Coveralls upload via goveralls)
+# ================================================================
+
 on:
   pull_request:
+
+permissions: {}
 jobs:
   validate:
     runs-on: ubuntu-latest
-    env:
-      K8S_VERSION: ${{ matrix.k8sVersion }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v3
-      - run: sed -En 's/^go[[:space:]]+([[:digit:].]+)$/GO_VERSION=\1/p' go.mod >> $GITHUB_ENV
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v6
+      - run: sed -En 's/^go[[:space:]]+([[:digit:].]+)$/GO_VERSION=\1/p' go.mod >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'
           cache: 'pip'
       - run: pip install -r requirements.txt
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
