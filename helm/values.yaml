@@ -87,8 +87,13 @@ webhookEnabled: true
 disableTaggingServiceApi: false
 routeMaxConcurrentReconciles:
 
-# TLS cert/key for the webhook. If specified, values must be base64 encoded
+# TLS cert/key for the webhook. If specified, values must be base64 encoded.
+# When not provided, Helm generates self-signed certs using webhookTLS.validityDays.
 webhookTLS:
   caCert:
   cert:
   key:
+  # Validity in days for generated webhook certificates.
+  # Default preserves existing behavior for installed clusters.
+  # Set to 365 to opt in to annual certificate rotation.
+  validityDays: 36500

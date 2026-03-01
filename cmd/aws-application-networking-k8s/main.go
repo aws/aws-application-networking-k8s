@@ -179,7 +179,7 @@ func main() {
 		TaggingServiceAPIDisabled: config.DisableTaggingServiceAPI,
 	}, metrics.Registry)
 	if err != nil {
-		setupLog.Fatal("cloud client setup failed: %s", err)
+		setupLog.Fatalf("cloud client setup failed: %s", err)
 	}
 
 	// do not create the webhook server when running locally

@@ -45,7 +45,10 @@ var ServiceNetworkOverrideMode = false
 var RouteMaxConcurrentReconciles = 1
 
 func ConfigInit() error {
-	sess, _ := session.NewSession()
+	sess, err := session.NewSession()
+	if err != nil {
+		return fmt.Errorf("failed to create aws session: %w", err)
+	}
 	metadata := NewEC2Metadata(sess)
 	return configInit(sess, metadata)
 }
@@ -128,10 +131,16 @@ func getClusterName(sess *session.Session) (string, error) {
 		return "", err
 	}
 	ec2Client := ec2.New(sess, &aws.Config{Region: aws.String(region)})
-	tagReq := &ec2.DescribeTagsInput{Filters: []*ec2.Filter{{
-		Name:   aws.String("resource-id"),
-		Values: []*string{aws.String(instanceId)},
-	}}}
+	tagReq := &ec2.DescribeTagsInput{Filters: []*ec2.Filter{
+		{
+			Name:   aws.String("resource-id"),
+			Values: []*string{aws.String(instanceId)},
+		},
+		{
+			Name:   aws.String("key"),
+			Values: []*string{aws.String("aws:eks:cluster-name")},
+		},
+	}}
 	tagRes, err := ec2Client.DescribeTags(tagReq)
 	if err != nil {
 		return "", err
