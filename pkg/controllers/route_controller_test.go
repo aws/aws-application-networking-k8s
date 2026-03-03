@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/external-dns/endpoint"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func TestRouteReconciler_ReconcileCreates(t *testing.T) {
@@ -559,6 +560,84 @@ func TestRouteReconciler_UpdateRouteStatusWithServiceInfo(t *testing.T) {
 		k8sClient.Get(ctx, k8s.NamespacedName(route), updatedRoute)
 		annotations := updatedRoute.GetAnnotations()
 		assert.Nil(t, annotations)
+	})
+}
+
+func TestUpdateRouteListenerStatus_UpdatesGatewayAttachedRoutes(t *testing.T) {
+	ctx := context.Background()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	gwv1alpha2.Install(k8sScheme)
+	addOptionalCRDs(k8sScheme)
+
+	t.Run("gateway attachedRoutes increments when route references it", func(t *testing.T) {
+		gwClass := &gwv1.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "amazon-vpc-lattice",
+			},
+			Spec: gwv1.GatewayClassSpec{
+				ControllerName: config.LatticeGatewayControllerName,
+			},
+		}
+
+		gw := &gwv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-gateway",
+				Namespace: "default",
+			},
+			Spec: gwv1.GatewaySpec{
+				GatewayClassName: "amazon-vpc-lattice",
+				Listeners: []gwv1.Listener{
+					{
+						Name:     "http",
+						Port:     80,
+						Protocol: gwv1.HTTPProtocolType,
+						AllowedRoutes: &gwv1.AllowedRoutes{
+							Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+						},
+					},
+				},
+			},
+		}
+
+		sectionName := gwv1.SectionName("http")
+		route := &gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-route",
+				Namespace: "default",
+			},
+			Spec: gwv1.HTTPRouteSpec{
+				CommonRouteSpec: gwv1.CommonRouteSpec{
+					ParentRefs: []gwv1.ParentReference{
+						{
+							Name:        "test-gateway",
+							SectionName: &sectionName,
+						},
+					},
+				},
+			},
+		}
+
+		k8sClient := testclient.NewClientBuilder().
+			WithScheme(k8sScheme).
+			WithObjects(gwClass, gw, route).
+			WithStatusSubresource(gw).
+			Build()
+
+		coreRoute, err := core.GetHTTPRoute(ctx, k8sClient, k8s.NamespacedName(route))
+		assert.NoError(t, err)
+
+		err = updateRouteListenerStatus(ctx, k8sClient, coreRoute)
+		assert.NoError(t, err)
+
+		// Verify gateway status was updated
+		updatedGw := &gwv1.Gateway{}
+		err = k8sClient.Get(ctx, k8s.NamespacedName(gw), updatedGw)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(updatedGw.Status.Listeners))
+		assert.Equal(t, int32(1), updatedGw.Status.Listeners[0].AttachedRoutes)
 	})
 }
 
