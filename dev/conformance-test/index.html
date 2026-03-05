@@ -1588,6 +1588,12 @@
 
 <h1 id="report-on-gateway-api-conformance-testing">Report on Gateway API Conformance Testing<a class="headerlink" href="#report-on-gateway-api-conformance-testing" title="Permanent link">&para;</a></h1>
 <p><a href="https://gateway-api.sigs.k8s.io/concepts/conformance/?h=conformance">Kubernetes Gateway API Conformance</a></p>
+<h2 id="test-environment">Test Environment<a class="headerlink" href="#test-environment" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Controller</strong>: Amazon VPC Lattice Gateway API Controller v2.0.1</li>
+<li><strong>Conformance Test Suite</strong>: Gateway API v1.4.0</li>
+<li><strong>GatewayClass</strong>: <code>amazon-vpc-lattice</code></li>
+</ul>
 <h2 id="summary-of-test-result">Summary of Test Result<a class="headerlink" href="#summary-of-test-result" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1619,39 +1625,63 @@
 </tr>
 <tr>
 <td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-with-attached-routes.go">GatewayWithAttachedRoutes</a></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-modify-listeners.go">GatewayModifyListeners</a></td>
 <td>ok</td>
 <td></td>
 </tr>
 <tr>
 <td></td>
-<td></td>
-<td></td>
-<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-with-attached-routes.go">GatewayWithAttachedRoutes</a></td>
+<td>partial</td>
+<td>2/3 subtests pass. Unresolved refs subtest fails because controller does not validate TLS certificateRefs (Lattice uses ACM)</td>
 </tr>
 <tr>
 <td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-secret-invalid-reference-grant.go">GatewaySecretInvalidReferenceGrants</a></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-invalid-tls-configuration.go">GatewayInvalidTLSConfiguration</a></td>
 <td>N/A</td>
-<td>VPC Lattice supports ACM certs</td>
+<td>VPC Lattice uses ACM for TLS, not K8s Secrets</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-secret-invalid-reference-grant.go">GatewaySecretInvalidReferenceGrant</a></td>
+<td>N/A</td>
+<td>VPC Lattice uses ACM for TLS</td>
 </tr>
 <tr>
 <td></td>
 <td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-secret-missing-reference-grant.go">GatewaySecretMissingReferenceGrant</a></td>
 <td>N/A</td>
-<td>VPC Lattice supports ACM certs</td>
+<td>VPC Lattice uses ACM for TLS</td>
 </tr>
 <tr>
 <td></td>
 <td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-secret-reference-grant-all-in-namespace.go">GatewaySecretReferenceGrantAllInNamespace</a></td>
 <td>N/A</td>
-<td>VPC Lattice supports ACM Certs</td>
+<td>VPC Lattice uses ACM for TLS</td>
 </tr>
 <tr>
 <td></td>
 <td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-secret-reference-grant-specific.go">GatewaySecretReferenceGrantSpecific</a></td>
 <td>N/A</td>
-<td>VPC Lattice supports ACM certs</td>
+<td>VPC Lattice uses ACM for TLS</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-static-addresses.go">GatewayStaticAddresses</a></td>
+<td>N/A</td>
+<td>Not supported</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-http-listener-isolation.go">GatewayHTTPListenerIsolation</a></td>
+<td>N/A</td>
+<td>Not supported</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-infrastructure.go">GatewayInfrastructure</a></td>
+<td>N/A</td>
+<td>Not supported</td>
 </tr>
 <tr>
 <td></td>
@@ -1661,13 +1691,31 @@
 </tr>
 <tr>
 <td>HTTPRoute</td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-simple-same-namespace.go">HTTPRouteSimpleSameNamespace</a></td>
+<td>ok</td>
+<td>Flaky when run after other tests due to Lattice resource cleanup timing</td>
+</tr>
+<tr>
+<td></td>
 <td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-cross-namespace.go">HTTPRouteCrossNamespace</a></td>
 <td>ok</td>
 <td></td>
 </tr>
 <tr>
 <td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-exact-path-matching.go">HTTPExactPathMatching</a></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-exact-path-matching.go">HTTPRouteExactPathMatching</a></td>
+<td>ok</td>
+<td>6/6 subtests pass</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-parent-ref.go">HTTPRouteInvalidCrossNamespaceParentRef</a></td>
+<td>ok</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-parentref-not-matching-section-name.go">HTTPRouteInvalidParentRefNotMatchingSectionName</a></td>
 <td>ok</td>
 <td></td>
 </tr>
@@ -1679,9 +1727,111 @@
 </tr>
 <tr>
 <td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-simple-same-namespace.go">HTTPRouteSimpleSameNamespace</a></td>
-<td>ok</td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-matching.go">HTTPRouteMatching</a></td>
+<td>fail</td>
+<td>Route precedence not supported by Lattice</td>
+</tr>
+<tr>
 <td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-matching-across-routes.go">HTTPRouteMatchingAcrossRoutes</a></td>
+<td>fail</td>
+<td>Custom domain name conflict not allowed</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-path-match-order.go">HTTPRoutePathMatchOrder</a></td>
+<td>fail</td>
+<td>Test data exceeds Lattice limit on # of rules</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-observed-generation-bump.go">HTTPRouteObservedGenerationBump</a></td>
+<td>fail</td>
+<td>Passes in isolation, fails due to test ordering interference</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-backendref-nonexistent.go">HTTPRouteInvalidNonExistentBackendRef</a></td>
+<td>partial</td>
+<td>1/2 subtests pass. Returns 404 instead of expected 500 for invalid backend. Fix: <a href="https://github.com/aws/aws-application-networking-k8s/pull/899">#899</a></td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-backendref-unknown-kind.go">HTTPRouteInvalidBackendRefUnknownKind</a></td>
+<td>partial</td>
+<td>Status condition set correctly, returns 404 instead of expected 500 for invalid backend. Fix: <a href="https://github.com/aws/aws-application-networking-k8s/pull/899">#899</a></td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-weight.go">HTTPRouteWeight</a></td>
+<td>fail</td>
+<td>DNS resolution issues during test</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-service-types.go">HTTPRouteServiceTypes</a></td>
+<td>fail</td>
+<td>Headless services not supported</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-https-listener.go">HTTPRouteHTTPSListener</a></td>
+<td>fail</td>
+<td>Listener hostname not supported</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-redirect-host-and-status.go">HTTPRouteRedirectHostAndStatus</a></td>
+<td>N/A</td>
+<td>Not supported by Lattice</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-request-header-modifier.go">HTTPRouteRequestHeaderModifier</a></td>
+<td>N/A</td>
+<td>Not supported by Lattice</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-response-header-modifier.go">HTTPRouteResponseHeaderModifier</a></td>
+<td>N/A</td>
+<td>Not supported by Lattice</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-rewrite-host.go">HTTPRouteRewriteHost</a></td>
+<td>N/A</td>
+<td>Not supported by Lattice</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-rewrite-path.go">HTTPRouteRewritePath</a></td>
+<td>N/A</td>
+<td>Not supported by Lattice</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-redirect-path.go">HTTPRouteRedirectPath</a></td>
+<td>N/A</td>
+<td>Not supported by Lattice</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-redirect-port.go">HTTPRouteRedirectPort</a></td>
+<td>N/A</td>
+<td>Not supported by Lattice</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-redirect-scheme.go">HTTPRouteRedirectScheme</a></td>
+<td>N/A</td>
+<td>Not supported by Lattice</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-hostname-intersection.go">HTTPRouteHostnameIntersection</a></td>
+<td>N/A</td>
+<td>VPC Lattice only supports one custom domain</td>
 </tr>
 <tr>
 <td></td>
@@ -1691,27 +1841,15 @@
 </tr>
 <tr>
 <td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-matching-across-routes.go">HTTPRouteMatchingAcrossRoutes</a></td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-query-param-matching.go">HTTPRouteQueryParamMatching</a></td>
 <td>N/A</td>
-<td>Custom domain name conflict not allowed</td>
+<td>Not supported by Lattice</td>
 </tr>
 <tr>
 <td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-matching.go">HTTPRouteMatching</a></td>
-<td>fail</td>
-<td>Route precedence</td>
-</tr>
-<tr>
-<td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-observed-generation-bump.go">HTTPRouteObservedGenerationBump</a></td>
-<td>ok</td>
-<td></td>
-</tr>
-<tr>
-<td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-path-match-order.go">HTTPRoutePathMatchOrder</a></td>
-<td>fail</td>
-<td>Test data exceeds Lattice limit on # of rules</td>
+<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-method-matching.go">HTTPRouteMethodMatching</a></td>
+<td>N/A</td>
+<td>Not supported by Lattice</td>
 </tr>
 <tr>
 <td></td>
@@ -1727,131 +1865,49 @@
 </tr>
 <tr>
 <td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-backendref-nonexistent.go">HTTPRouteInvalidNonExistentBackendRef</a></td>
-<td>fail</td>
-<td><a href="https://github.com/aws/aws-application-networking-k8s/issues/277">#277</a></td>
-</tr>
-<tr>
-<td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-backendref-unknown-kind.go">HTTPRouteInvalidBackendRefUnknownKind</a></td>
-<td>fail</td>
-<td><a href="https://github.com/aws/aws-application-networking-k8s/issues/277">#277</a></td>
-</tr>
-<tr>
-<td></td>
 <td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-backend-ref.go">HTTPRouteInvalidCrossNamespaceBackendRef</a></td>
-<td>fail</td>
-<td><a href="https://github.com/aws/aws-application-networking-k8s/issues/277">#277</a></td>
-</tr>
-<tr>
-<td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-parent-ref.go">HTTPRouteInvalidCrossNamespaceParentRef</a></td>
-<td>fail</td>
-<td><a href="https://github.com/aws/aws-application-networking-k8s/issues/277">#277</a></td>
+<td>N/A</td>
+<td>Not supported</td>
 </tr>
 <tr>
 <td></td>
 <td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-parentref-not-matching-listener-port.go">HTTPRouteInvalidParentRefNotMatchingListenerPort</a></td>
-<td>fail</td>
-<td><a href="https://github.com/aws/aws-application-networking-k8s/issues/277">#277</a></td>
-</tr>
-<tr>
-<td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-parentref-not-matching-section-name.go">HTTPRouteInvalidParentRefNotMatchingSectionName</a></td>
-<td>fail</td>
-<td><a href="https://github.com/aws/aws-application-networking-k8s/issues/277">#277</a></td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-method-matching.go">HTTPRouteMethodMatching</a></td>
-<td>fail</td>
-<td>not supported in controller yet. <a href="https://github.com/aws/aws-application-networking-k8s/issues/123">#123</a></td>
-</tr>
-<tr>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td></td>
-<td><a href="https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-hostname-intersection.go">HTTPRouteHostnameIntersection</a></td>
 <td>N/A</td>
-<td>VPC lattice only supports one custom domain</td>
-</tr>
-<tr>
-<td></td>
-<td>HTTPRouteQueryParamMatching</td>
-<td>N/A</td>
-<td>Not supported by lattice</td>
-</tr>
-<tr>
-<td></td>
-<td>HTTPRouteRedirectHostAndStatus</td>
-<td>N/A</td>
-<td>Not supported by lattice</td>
-</tr>
-<tr>
-<td></td>
-<td>HTTPRouteRedirectPath</td>
-<td>N/A</td>
-<td>Not supported by lattice</td>
-</tr>
-<tr>
-<td></td>
-<td>HTTPRouteRedirectPort</td>
-<td>N/A</td>
-<td>Not supported by lattice</td>
-</tr>
-<tr>
-<td></td>
-<td>HTTPRouteRedirectScheme</td>
-<td>N/A</td>
-<td>Not supported by lattice</td>
-</tr>
-<tr>
-<td></td>
-<td>HTTPRouteRequestHeaderModifier</td>
-<td>N/A</td>
-<td>Not supported by lattice</td>
-</tr>
-<tr>
-<td></td>
-<td>HTTPRouteResponseHeaderModifier</td>
-<td>N/A</td>
-<td>Not supported by lattice</td>
-</tr>
-<tr>
-<td></td>
-<td>HTTPRouteRewriteHost</td>
-<td>N/A</td>
-<td>Not supported by lattice</td>
-</tr>
-<tr>
-<td></td>
-<td>HTTPRouteRewritePath</td>
-<td>N/A</td>
-<td>Not supported by lattice</td>
+<td>Not supported</td>
 </tr>
 </tbody>
 </table>
 <h2 id="running-gateway-api-conformance">Running Gateway API Conformance<a class="headerlink" href="#running-gateway-api-conformance" title="Permanent link">&para;</a></h2>
 <h3 id="running-controller-from-cloud-desktop">Running controller from cloud desktop<a class="headerlink" href="#running-controller-from-cloud-desktop" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a># run controller in following mode
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>REGION=us-west-2 DEFAULT_SERVICE_NETWORK=my-cluster-default ENABLE_SERVICE_NETWORK_OVERRIDE=true \
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>make run
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>AWS_EC2_METADATA_DISABLED=false AWS_REGION=us-west-2 \
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>CLUSTER_VPC_ID=&lt;vpc-id&gt; AWS_ACCOUNT_ID=&lt;account-id&gt; \
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>CLUSTER_NAME=&lt;cluster-name&gt; DEFAULT_SERVICE_NETWORK=&lt;service-network&gt; \
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>ENABLE_SERVICE_NETWORK_OVERRIDE=true \
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>go run cmd/aws-application-networking-k8s/main.go
+</code></pre></div>
+<h3 id="running-conformance-tests">Running conformance tests<a class="headerlink" href="#running-conformance-tests" title="Permanent link">&para;</a></h3>
+<p>Conformance tests send traffic directly, so they must run inside the VPC. Use an in-cluster pod:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Build test binary</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>&lt;gateway-api-repo&gt;
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">CGO_ENABLED</span><span class="o">=</span><span class="m">0</span><span class="w"> </span><span class="nv">GOOS</span><span class="o">=</span>linux<span class="w"> </span><span class="nv">GOARCH</span><span class="o">=</span>amd64<span class="w"> </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>./conformance/<span class="w"> </span>-o<span class="w"> </span>conformance.test
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Create runner pod</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>kubectl<span class="w"> </span>run<span class="w"> </span>conformance-runner<span class="w"> </span>--image<span class="o">=</span>public.ecr.aws/docker/library/alpine:3.19<span class="w"> </span>--command<span class="w"> </span>--<span class="w"> </span>sleep<span class="w"> </span>infinity
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready<span class="w"> </span>pod/conformance-runner<span class="w"> </span>--timeout<span class="o">=</span>60s
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>kubectl<span class="w"> </span>create<span class="w"> </span>clusterrolebinding<span class="w"> </span>conformance-runner-admin<span class="w"> </span>--clusterrole<span class="o">=</span>cluster-admin<span class="w"> </span>--serviceaccount<span class="o">=</span>default:default
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Copy binary and run</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>kubectl<span class="w"> </span>cp<span class="w"> </span>conformance.test<span class="w"> </span>conformance-runner:/conformance.test
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>conformance-runner<span class="w"> </span>--<span class="w"> </span>chmod<span class="w"> </span>+x<span class="w"> </span>/conformance.test
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>conformance-runner<span class="w"> </span>--<span class="w"> </span>/conformance.test<span class="w"> </span>-test.v<span class="w"> </span>-test.timeout<span class="w"> </span>180m<span class="w"> </span>-test.run<span class="w"> </span>TestConformance<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span>--gateway-class<span class="o">=</span>amazon-vpc-lattice<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span>--supported-features<span class="o">=</span>Gateway,HTTPRoute
 </code></pre></div>
 <h3 id="run-individual-conformance-test">Run individual conformance test<a class="headerlink" href="#run-individual-conformance-test" title="Permanent link">&para;</a></h3>
-<p>Conformance tests directly send traffic, so they should run inside the VPC that the cluster is operating on.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>go test ./conformance/ --run &quot;TestConformance/HTTPRouteCrossNamespace$&quot; -v -args -gateway-class amazon-vpc-lattice \
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>-supported-features Gateway,HTTPRoute,GatewayClassObservedGenerationBump
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>conformance-runner<span class="w"> </span>--<span class="w"> </span>/conformance.test<span class="w"> </span>-test.v<span class="w"> </span>-test.timeout<span class="w"> </span>15m<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>-test.run<span class="w"> </span><span class="s2">&quot;TestConformance/HTTPRouteCrossNamespace</span>$<span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>--gateway-class<span class="o">=</span>amazon-vpc-lattice<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span>--supported-features<span class="o">=</span>Gateway,HTTPRoute
 </code></pre></div>
 
 
