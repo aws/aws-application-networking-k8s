@@ -16,9 +16,10 @@ type Rule struct {
 }
 
 const (
-	MaxRulePriority                      = 100
-	InvalidBackendRefTgId                = "INVALID"
-	DefaultActionFixedResponseStatusCode = 404
+	MaxRulePriority                          = 100
+	InvalidBackendRefTgId                    = "INVALID"
+	DefaultActionFixedResponseStatusCode     = 404
+	InvalidBackendRefFixedResponseStatusCode = 500
 )
 
 type RuleSpec struct {
