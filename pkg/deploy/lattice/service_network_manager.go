@@ -27,6 +27,7 @@ type ServiceNetworkManager interface {
 	DeleteVpcAssociation(ctx context.Context, snName string) error
 
 	CreateOrUpdate(ctx context.Context, serviceNetwork *model.ServiceNetwork) (model.ServiceNetworkStatus, error)
+	Delete(ctx context.Context, snName string) error
 }
 
 func NewDefaultServiceNetworkManager(log gwlog.Logger, cloud pkg_aws.Cloud) *defaultServiceNetworkManager {
@@ -169,6 +170,40 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 		}
 		return lattice_runtime.NewRetryError()
 	}
+	return nil
+}
+
+func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string) error {
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName)
+	if err != nil {
+		if services.IsNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+
+	snArn := aws.StringValue(sn.SvcNetwork.Arn)
+	owned, err := m.cloud.IsArnManaged(ctx, snArn)
+	if err != nil {
+		m.log.Warnf(ctx, "cannot check ownership of ServiceNetwork %s: %s, skipping deletion", snName, err)
+		return nil
+	}
+	if !owned {
+		m.log.Infof(ctx, "ServiceNetwork %s not owned by controller, skipping deletion", snName)
+		return nil
+	}
+
+	if err := m.DeleteVpcAssociation(ctx, snName); err != nil {
+		return err
+	}
+
+	_, err = m.cloud.Lattice().DeleteServiceNetworkWithContext(ctx, &vpclattice.DeleteServiceNetworkInput{
+		ServiceNetworkIdentifier: sn.SvcNetwork.Id,
+	})
+	if err != nil {
+		return err
+	}
+	m.log.Infof(ctx, "Deleted ServiceNetwork %s", snName)
 	return nil
 }
 
