@@ -822,3 +822,74 @@ func Test_UpsertVpcAssociation_WithAdditionalTags_NoExistingAssociation(t *testi
 	assert.Equal(t, err, nil)
 	assert.Equal(t, resp, snArn)
 }
+
+func Test_Delete_SnNotFound(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	mockLattice.EXPECT().FindServiceNetwork(ctx, "test-sn").Return(nil, mocks.NewNotFoundError("ServiceNetwork", "test-sn"))
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	err := snMgr.Delete(ctx, "test-sn")
+	assert.Nil(t, err)
+}
+
+func Test_Delete_SnNotOwned(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mocks.NewMockTagging(c), TestCloudConfig)
+
+	snArn := "arn:aws:vpc-lattice:us-west-2:account-id:servicenetwork/sn-123"
+	snId := "sn-123"
+	name := "test-sn"
+
+	mockLattice.EXPECT().FindServiceNetwork(ctx, name).Return(&mocks.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{Arn: &snArn, Id: &snId, Name: &name},
+	}, nil)
+	// Return tags that don't match the controller's managed-by tag
+	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
+		&vpclattice.ListTagsForResourceOutput{Tags: map[string]*string{}}, nil)
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	err := snMgr.Delete(ctx, name)
+	assert.Nil(t, err)
+}
+
+func Test_Delete_SnOwned_Success(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mocks.NewMockTagging(c), TestCloudConfig)
+
+	snArn := "arn:aws:vpc-lattice:us-west-2:account-id:servicenetwork/sn-123"
+	snId := "sn-123"
+	name := "test-sn"
+
+	// First call from Delete, second from DeleteVpcAssociation
+	mockLattice.EXPECT().FindServiceNetwork(ctx, name).Return(&mocks.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{Arn: &snArn, Id: &snId, Name: &name},
+	}, nil).Times(2)
+
+	// IsArnManaged check for the SN itself - return controller's tags
+	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(
+		&vpclattice.ListTagsForResourceOutput{Tags: cloud.DefaultTags()}, nil)
+
+	// DeleteVpcAssociation: no active association
+	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(
+		[]*vpclattice.ServiceNetworkVpcAssociationSummary{}, nil)
+
+	// Delete the SN
+	mockLattice.EXPECT().DeleteServiceNetworkWithContext(ctx, &vpclattice.DeleteServiceNetworkInput{
+		ServiceNetworkIdentifier: &snId,
+	}).Return(&vpclattice.DeleteServiceNetworkOutput{}, nil)
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	err := snMgr.Delete(ctx, name)
+	assert.Nil(t, err)
+}
