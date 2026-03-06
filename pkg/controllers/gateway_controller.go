@@ -61,6 +61,7 @@ type gatewayReconciler struct {
 	finalizerManager k8s.FinalizerManager
 	eventRecorder    record.EventRecorder
 	cloud            aws.Cloud
+	snManager        deploy.ServiceNetworkManager
 }
 
 func RegisterGatewayController(
@@ -73,6 +74,8 @@ func RegisterGatewayController(
 	scheme := mgr.GetScheme()
 	evtRec := mgr.GetEventRecorderFor("gateway")
 
+	snManager := deploy.NewDefaultServiceNetworkManager(log, cloud)
+
 	r := &gatewayReconciler{
 		log:              log,
 		client:           mgrClient,
@@ -80,11 +83,11 @@ func RegisterGatewayController(
 		finalizerManager: finalizerManager,
 		eventRecorder:    evtRec,
 		cloud:            cloud,
+		snManager:        snManager,
 	}
 
 	if config.DefaultServiceNetwork != "" {
 		// Attempt creation of default service network, move gracefully even if it fails.
-		snManager := deploy.NewDefaultServiceNetworkManager(log, cloud)
 		_, err := snManager.CreateOrUpdate(context.Background(), &model.ServiceNetwork{
 			Spec: model.ServiceNetworkSpec{
 				Name: config.DefaultServiceNetwork,
@@ -177,12 +180,40 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 		}
 	}
 
-	err = r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
+	hasSibling, err := r.hasSiblingGateway(ctx, gw)
 	if err != nil {
 		return err
 	}
+	if hasSibling {
+		r.log.Infof(ctx, "Skipping ServiceNetwork deletion for %s, another Gateway with the same name exists", gw.Name)
+	} else {
+		if err := r.snManager.Delete(ctx, gw.Name); err != nil {
+			return err
+		}
+	}
 
-	return nil
+	return r.finalizerManager.RemoveFinalizers(ctx, gw, gatewayFinalizer)
+}
+
+// hasSiblingGateway checks if another active Lattice-controlled Gateway with the same .Name exists.
+// Gateways that are themselves being deleted (DeletionTimestamp set) are not counted as siblings,
+// so that simultaneous deletion of all Gateways sharing an SN name still cleans up the SN.
+func (r *gatewayReconciler) hasSiblingGateway(ctx context.Context, gw *gwv1.Gateway) (bool, error) {
+	gwList := &gwv1.GatewayList{}
+	if err := r.client.List(ctx, gwList); err != nil {
+		return false, fmt.Errorf("failed to list gateways: %w", err)
+	}
+	for i := range gwList.Items {
+		other := &gwList.Items[i]
+		if other.UID == gw.UID {
+			continue
+		}
+		if other.Name == gw.Name && other.DeletionTimestamp.IsZero() &&
+			k8s.IsControlledByLatticeGatewayController(ctx, r.client, other) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1.Gateway) error {
@@ -205,14 +236,12 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1.Gatewa
 		return err
 	}
 
-	snInfo, err := r.cloud.Lattice().FindServiceNetwork(ctx, gw.Name)
+	snStatus, err := r.snManager.CreateOrUpdate(ctx, &model.ServiceNetwork{
+		Spec: model.ServiceNetworkSpec{
+			Name: gw.Name,
+		},
+	})
 	if err != nil {
-		if services.IsNotFoundError(err) {
-			if err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonPending, "VPC Lattice Service Network not found"); err != nil {
-				return lattice_runtime.NewRetryError()
-			}
-			return nil
-		}
 		if errors.Is(err, services.ErrNameConflict) {
 			if err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonInvalid, "Found multiple VPC Lattice Service Networks matching Gateway name. Either ensure only one Service Network has a matching name, or use the Service Network's id as the Gateway name."); err != nil {
 				return lattice_runtime.NewRetryError()
@@ -222,7 +251,7 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1.Gatewa
 		return err
 	}
 
-	err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonProgrammed, fmt.Sprintf("aws-service-network-arn: %s", *snInfo.SvcNetwork.Arn))
+	err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonProgrammed, fmt.Sprintf("aws-service-network-arn: %s", snStatus.ServiceNetworkARN))
 	if err != nil {
 		return err
 	}

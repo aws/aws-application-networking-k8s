@@ -11,14 +11,28 @@ Service networks are identified by Gateway name (without namespace) - for exampl
 will point to a VPC Lattice service network `my-gateway`. If multiple Gateways share the same name, all of them
 will point to the same service network.
 
-VPC Lattice service networks must be managed separately, as it is a broader concept that can cover resources
-outside the Kubernetes cluster. To create and manage a service network, you can either:
+### ServiceNetwork Lifecycle
 
-- Specify `DEFAULT_SERVICE_NETWORK` configuration option on the controller. This will make the controller
-  to create a service network with such name, and associate the cluster VPC to it for you. This is suitable
-  for simple use cases with single service network.
-- Manage service networks outside the cluster, using AWS Console, CDK, CloudFormation, etc. This is recommended
-  for more advanced use cases that cover multiple clusters and VPCs.
+When a Gateway is created, the controller automatically creates a VPC Lattice ServiceNetwork with the same name
+and associates it with the cluster VPC. When the Gateway is deleted, the controller deletes the ServiceNetwork
+if it was created by the controller (tracked via the `application-networking.k8s.aws/ManagedBy` tag).
+
+Auto-created ServiceNetworks use **default VPC Lattice settings** — no auth policy, no sharing configuration,
+and no custom attributes. If you need to configure auth type, sharing, or other
+[ServiceNetwork attributes](https://docs.aws.amazon.com/vpc-lattice/latest/APIReference/API_CreateServiceNetwork.html),
+create the ServiceNetwork externally (via Console, CLI, CDK, CloudFormation, etc.) before creating the Gateway.
+The controller will detect the existing ServiceNetwork by name and reuse it without modifying or deleting it.
+
+**Deletion behavior:**
+
+- If multiple Gateways share the same ServiceNetwork name, deleting one Gateway will **not** delete the
+  ServiceNetwork as long as another active Gateway with the same name still exists.
+- If the ServiceNetwork has active service associations, the controller will not delete it and will report
+  an error asking you to detach all services first.
+- Externally-created ServiceNetworks are never deleted by the controller.
+
+In addition to auto-creation, you can also use the `DEFAULT_SERVICE_NETWORK` configuration option on the controller
+to create a default ServiceNetwork at startup.
 
 Gateways with `amazon-vpc-lattice` GatewayClass do not create a single entrypoint to bind Listeners and Routes
 under them. Instead, each Route will have its own domain name assigned. To see an example of how domain names
