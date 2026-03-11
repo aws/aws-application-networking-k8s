@@ -267,7 +267,7 @@ func Test_Create(t *testing.T) {
 
 		mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, input *vpclattice.CreateRuleInput, i ...interface{}) (*vpclattice.CreateRuleOutput, error) {
-				assert.Equal(t, int64(404), aws.Int64Value(input.Action.FixedResponse.StatusCode))
+				assert.Equal(t, int64(500), aws.Int64Value(input.Action.FixedResponse.StatusCode))
 
 				return &vpclattice.CreateRuleOutput{
 					Arn:  aws.String("arn"),

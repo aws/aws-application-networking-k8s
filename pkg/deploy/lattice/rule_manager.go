@@ -132,10 +132,10 @@ func (r *defaultRuleManager) buildLatticeRule(modelRule *model.Rule) (*vpclattic
 			},
 		}
 	} else {
-		r.log.Debugf(context.TODO(), "There are no valid target groups, defaulting to 404 Fixed response")
+		r.log.Debugf(context.TODO(), "There are no valid target groups, defaulting to 500 Fixed response")
 		gro.Action = &vpclattice.RuleAction{
 			FixedResponse: &vpclattice.FixedResponseAction{
-				StatusCode: aws.Int64(model.DefaultActionFixedResponseStatusCode),
+				StatusCode: aws.Int64(model.InvalidBackendRefFixedResponseStatusCode),
 			},
 		}
 	}
