@@ -197,6 +197,11 @@ helm install gateway-api-controller \
     --set=log.level=info # use "debug" for debug level logs
 ```
 
+!!! Note
+    To enable automatic DNS record management with ExternalDNS for custom domain names, add `--set=installExternalDNSCRD=true`.
+    If external-dns is already installed in your cluster, leave this as `false` (default) to avoid CRD conflicts.
+    See [Custom Domain Name](custom-domain-name.md) for details.
+
 === "Kubectl"
 
 ```bash
