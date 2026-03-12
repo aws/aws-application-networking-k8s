@@ -160,20 +160,28 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 }
 
 func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway) error {
+	// Update gateway conditions with current generation so observedGeneration stays
+	// current during the Terminating phase (deletion bumps metadata.generation).
+	_ = r.updateGatewayAcceptStatus(ctx, gw, true)
+
 	routes, err := core.ListAllRoutes(ctx, r.client)
 	if err != nil {
 		return err
 	}
 
 	for _, route := range routes {
-		parents, err := k8s.FindControlledParents(ctx, r.client, route)
-		if len(parents) > 0 {
-			gw := parents[0]
-			return fmt.Errorf("cannot delete gateway %s/%s - found referencing route %s/%s",
-				gw.Namespace, gw.Name, route.Namespace(), route.Name())
-		}
-		if err != nil {
-			continue
+		for _, parentRef := range route.Spec().ParentRefs() {
+			if string(parentRef.Name) != gw.Name {
+				continue
+			}
+			ns := route.Namespace()
+			if parentRef.Namespace != nil {
+				ns = string(*parentRef.Namespace)
+			}
+			if ns == gw.Namespace {
+				return fmt.Errorf("cannot delete gateway %s/%s - found referencing route %s/%s",
+					gw.Namespace, gw.Name, route.Namespace(), route.Name())
+			}
 		}
 	}
 
