@@ -111,3 +111,64 @@ Standalone services require explicit configuration for cross-VPC communication t
 **How do I prevent 503 errors during deployments?**
 
 When using the Amazon VPC Lattice Gateway API Controller with EKS, customers may experience 503 errors during deployments due to a timing gap between pod termination and VPC Lattice configuration propagation, which affects the time controller takes to deregister a terminating pod. We recommend setting `terminationGracePeriod` to at least 150 seconds and implementing a preStop hook that has a sleep of 60 seconds (but no more than the `terminationGracePeriod`). For optimal performance, also consider setting `ROUTE_MAX_CONCURRENT_RECONCILES` to 10 which further accelerates the pod deregistration process, regardless of the number of targets.
+
+## Troubleshooting
+
+**Why do I see "vpcId is not specified: EC2MetadataError" when the controller starts?**
+
+This error occurs when the controller cannot access the EC2 Instance Metadata Service (IMDS):
+
+```json
+{
+    "level": "fatal",
+    "ts": "2025-08-24T00:57:37.700Z",
+    "logger": "setup",
+    "caller": "runtime/proc.go:272",
+    "msg": "init config failed: vpcId is not specified: EC2MetadataError: failed to make EC2Metadata request\n\n\tstatus code: 401, request id: "
+}
+```
+
+**Root Cause**: EKS Managed Node Groups use IMDSv2 with a default HTTP PUT response hop limit of 1. This restricts pod access to the EC2 metadata service because containerized workloads require an additional network hop.
+
+**Solution**: Increase the HTTP PUT response hop limit to 2 on your EKS nodes. You can do this in several ways:
+
+1. **Modify existing instances** (temporary fix):
+   ```bash
+   aws ec2 modify-instance-metadata-options \
+       --instance-id <instance-id> \
+       --http-put-response-hop-limit 2 \
+       --http-endpoint enabled
+   ```
+
+2. **Use a Launch Template** (recommended for new node groups):
+   Create or update your Launch Template with the following metadata options:
+   ```yaml
+   MetadataOptions:
+     HttpEndpoint: enabled
+     HttpTokens: required
+     HttpPutResponseHopLimit: 2
+   ```
+
+3. **Using eksctl** when creating a node group:
+   ```yaml
+   managedNodeGroups:
+     - name: my-nodegroup
+       instanceType: m5.large
+       desiredCapacity: 2
+       disableIMDSv1: true
+       # eksctl automatically sets hop limit to 2 for managed node groups
+   ```
+
+For more information, see the [AWS documentation on configuring IMDS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html).
+
+**Why can't the controller discover the VPC ID automatically?**
+
+The controller attempts to discover the VPC ID from EC2 instance metadata. If this fails (see the IMDS troubleshooting above), you can explicitly set the VPC ID using the `CLUSTER_VPC_ID` environment variable in the controller deployment:
+
+```yaml
+env:
+  - name: CLUSTER_VPC_ID
+    value: "vpc-0123456789abcdef0"
+```
+
+This bypasses the need for IMDS access for VPC discovery.
