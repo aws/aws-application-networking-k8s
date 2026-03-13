@@ -1767,7 +1767,7 @@ The following modifications to the <code>files/examples/my-hotel-gateway.yaml</c
 </span><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nn">...</span>
 </code></pre></div>
-<p>In this case, the VPC Lattice service automatically generates a managed ACM certificate and uses it for encryting client to service traffic.</p>
+<p>In this case, the VPC Lattice service automatically generates a managed ACM certificate and uses it for encrypting client to service traffic.</p>
 <h3 id="bring-your-own-certificate-byoc">Bring Your Own Certificate (BYOC)<a class="headerlink" href="#bring-your-own-certificate-byoc" title="Permanent link">&para;</a></h3>
 <p>If you want to use a custom domain name along with its own certificate, you can:</p>
 <ul>
@@ -1775,7 +1775,7 @@ The following modifications to the <code>files/examples/my-hotel-gateway.yaml</c
 <li>Add the ARN to the listener configuration as shown below.</li>
 </ul>
 <p>The following shows modifications to <code>files/examples/my-hotel-gateway.yaml</code> to add a custom certificate:</p>
-<p><div class="highlight"><span class="filename">my-hotel-gateway.yaml</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
+<div class="highlight"><span class="filename">my-hotel-gateway.yaml</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gateway</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hotel</span>
@@ -1797,7 +1797,7 @@ The following modifications to the <code>files/examples/my-hotel-gateway.yaml</c
 </span><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">      </span><span class="nt">options</span><span class="p">:</span><span class="w">           </span><span class="c1"># Instead, we specify ACM certificate ARN under this section</span>
 <a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">        </span><span class="nt">application-networking.k8s.aws/certificate-arn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arn:aws:acm:us-west-2:&lt;account&gt;:certificate/&lt;certificate-id&gt;</span>
 </code></pre></div>
-Note that only <code>Terminate</code> mode is supported (Passthrough is not supported).</p>
+<p>Note that only <code>Terminate</code> mode is supported (Passthrough is not supported).</p>
 <p>Next, associate the HTTPRoute to the listener configuration you just configured:</p>
 <div class="highlight"><span class="filename">rate-route-path.yaml</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPRoute</span>
