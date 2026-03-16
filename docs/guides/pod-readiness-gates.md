@@ -18,6 +18,19 @@ This prevents the rolling update of a deployment from terminating old pods until
 ## Setup
 Pod readiness gates rely on [»admission webhooks«](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/), where the Kubernetes API server makes calls to the AWS Gateway API controller as part of pod creation. This call is made using TLS, so the controller must present a TLS certificate. This certificate is stored as a standard Kubernetes secret. If you are using Helm, the certificate will automatically be configured as part of the Helm install.
 
+For Helm installs, certificate validity is controlled by `webhookTLS.validityDays`.
+The default is `36500` days to preserve existing behavior. You can opt in to
+`365` days for annual certificate rotation:
+
+```bash
+helm upgrade --install gateway-api-controller \
+  oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
+  --namespace aws-application-networking-system \
+  --set webhookTLS.validityDays=365
+```
+
+When using `365`, plan and automate annual certificate rotation.
+
 If you are manually deploying the controller using the ```deploy.yaml``` file, you will need to either patch the ```deploy.yaml``` file (see ```scripts/patch-deploy-yaml.sh```) or generate the secret following installation (see ```scripts/gen-webhook-secret.sh```) and manually enable the webhook via the ```WEBHOOK_ENABLED``` environment variable.
 
 Note that, without the secret in place, the controller cannot start successfully, and you will see an error message like the following:
