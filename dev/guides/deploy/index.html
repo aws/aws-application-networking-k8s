@@ -1884,6 +1884,12 @@
 <a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">    </span>--namespace<span class="w"> </span>aws-application-networking-system<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">    </span>--set<span class="o">=</span>log.level<span class="o">=</span>info<span class="w"> </span><span class="c1"># use &quot;debug&quot; for debug level logs</span>
 </code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To enable automatic DNS record management with ExternalDNS for custom domain names, add <code>--set=installExternalDNSCRD=true</code>.
+If external-dns is already installed in your cluster, leave this as <code>false</code> (default) to avoid CRD conflicts.
+See <a href="../custom-domain-name/">Custom Domain Name</a> for details.</p>
+</div>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:1"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Kubectl</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block"></div>

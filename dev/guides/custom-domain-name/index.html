@@ -1736,8 +1736,12 @@ The Amazon VPC Lattice Gateway API Controller supports ExternalDNS integration t
 <p>To use ExternalDNS with the Amazon VPC Lattice Gateway API Controller, you need to:</p>
 <ol>
 <li>
-<p>Install <code>DNSEndpoint</code> CRD. This is bundled with both Gateway API Controller Helm chart and <code>files/controller-installation/deploy-*.yaml</code> manifest, but also can be installed manually by the following command:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
+<p>Install <code>DNSEndpoint</code> CRD. You can enable it via the Gateway API Controller Helm chart:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>helm<span class="w"> </span>install<span class="w"> </span>gateway-api-controller<span class="w"> </span>...<span class="w"> </span>--set<span class="o">=</span><span class="nv">installExternalDNSCRD</span><span class="o">=</span><span class="nb">true</span>
+</code></pre></div></p>
+<p>If external-dns is already installed in your cluster, the CRD already exists and you should leave <code>installExternalDNSCRD</code> as <code>false</code> (default) to avoid CRD conflicts.</p>
+<p>If installing via <code>files/controller-installation/deploy-*.yaml</code> manifest, or as an alternative to the Helm flag, install the CRD manually:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
 </code></pre></div></p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1749,8 +1753,8 @@ The Amazon VPC Lattice Gateway API Controller supports ExternalDNS integration t
 </li>
 <li>Run ExternalDNS controller watching <code>crd</code> source. 
    The following example command runs ExternalDNS compiled from source, using AWS Route53 provider:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/external-dns<span class="w"> </span>--source<span class="w"> </span>crd<span class="w"> </span>--crd-source-apiversion<span class="w"> </span>externaldns.k8s.io/v1alpha1<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>--crd-source-kind<span class="w"> </span>DNSEndpoint<span class="w"> </span>--provider<span class="w"> </span>aws<span class="w"> </span>--txt-prefix<span class="w"> </span><span class="s2">&quot;prefix.&quot;</span>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/external-dns<span class="w"> </span>--source<span class="w"> </span>crd<span class="w"> </span>--crd-source-apiversion<span class="w"> </span>externaldns.k8s.io/v1alpha1<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>--crd-source-kind<span class="w"> </span>DNSEndpoint<span class="w"> </span>--provider<span class="w"> </span>aws<span class="w"> </span>--txt-prefix<span class="w"> </span><span class="s2">&quot;prefix.&quot;</span>
 </code></pre></div></li>
 <li>Create HTTPRoutes and Services. The controller should create <code>DNSEndpoint</code> resource owned by the HTTPRoute you created.</li>
 <li>ExternalDNS will watch the changes and create DNS record on the configured DNS provider.</li>
