@@ -9,8 +9,8 @@ import (
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"

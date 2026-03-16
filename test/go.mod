@@ -1,6 +1,6 @@
 module github.com/aws/aws-application-networking-k8s/test
 
-go 1.24.7
+go 1.26.0
 
 replace github.com/aws/aws-application-networking-k8s => ../
 
@@ -13,7 +13,6 @@ require (
 	github.com/onsi/gomega v1.39.0
 	github.com/samber/lo v1.52.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa
 	k8s.io/api v0.34.1
 	k8s.io/apimachinery v0.34.1
 	k8s.io/client-go v0.34.1
@@ -49,7 +48,6 @@ require (
 	github.com/go-openapi/swag/yamlutils v0.24.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -76,6 +74,7 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
+	go.uber.org/mock v0.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect

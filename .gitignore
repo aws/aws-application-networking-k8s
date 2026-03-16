@@ -23,4 +23,4 @@ pkg/**/prog.*
 *.tgz
 
 # Kiro
-.kiro
+.kiroaws-application-networking-k8s

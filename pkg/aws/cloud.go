@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"golang.org/x/exp/maps"
+	"maps"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/metrics"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
