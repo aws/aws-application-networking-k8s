@@ -1,12 +1,11 @@
-
----
+{{- if .Values.installExternalDNSCRD }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.5.0
     api-approved.kubernetes.io: "https://github.com/kubernetes-sigs/external-dns/pull/2007"
-  creationTimestamp: null
+    helm.sh/resource-policy: keep
   name: dnsendpoints.externaldns.k8s.io
 spec:
   group: externaldns.k8s.io
@@ -86,9 +85,4 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+{{- end }}

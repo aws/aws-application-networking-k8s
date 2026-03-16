@@ -36,7 +36,14 @@ The Amazon VPC Lattice Gateway API Controller supports ExternalDNS integration t
 
 To use ExternalDNS with the Amazon VPC Lattice Gateway API Controller, you need to:
 
-1. Install `DNSEndpoint` CRD. This is bundled with both Gateway API Controller Helm chart and `files/controller-installation/deploy-*.yaml` manifest, but also can be installed manually by the following command:
+1. Install `DNSEndpoint` CRD. You can enable it via the Gateway API Controller Helm chart:
+   ```sh
+   helm install gateway-api-controller ... --set=installExternalDNSCRD=true
+   ```
+
+    If external-dns is already installed in your cluster, the CRD already exists and you should leave `installExternalDNSCRD` as `false` (default) to avoid CRD conflicts.
+
+    If installing via `files/controller-installation/deploy-*.yaml` manifest, or as an alternative to the Helm flag, install the CRD manually:
    ```sh
    kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
    ```
