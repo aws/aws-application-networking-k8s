@@ -92,3 +92,9 @@ webhookTLS:
   caCert:
   cert:
   key:
+
+# Set to true to install the DNSEndpoint CRD (externaldns.k8s.io_dnsendpoints).
+# Required for automatic DNS record management with ExternalDNS when using custom domain names.
+# Set to false if external-dns is already installed in the cluster or if you don't need DNS integration.
+# See: docs/guides/custom-domain-name.md
+installExternalDNSCRD: false
