@@ -16,7 +16,81 @@ In order to avoid this situation, the AWS Gateway API controller can set the rea
 This prevents the rolling update of a deployment from terminating old pods until the newly created pods are »Healthy« in the VPC Lattice target group and ready to take traffic.
 
 ## Setup
-Pod readiness gates rely on [»admission webhooks«](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/), where the Kubernetes API server makes calls to the AWS Gateway API controller as part of pod creation. This call is made using TLS, so the controller must present a TLS certificate. This certificate is stored as a standard Kubernetes secret. If you are using Helm, the certificate will automatically be configured as part of the Helm install.
+Pod readiness gates rely on [»admission webhooks«](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/), where the Kubernetes API server makes calls to the AWS Gateway API controller as part of pod creation. This call is made using TLS, so the controller must present a TLS certificate. This certificate is stored as a standard Kubernetes secret.
+
+There are three ways to manage the webhook TLS certificate:
+
+### Option 1: Helm auto-generated certificates (default)
+If you are using Helm, the certificate will automatically be configured as part of the Helm install. No additional configuration is needed.
+
+### Option 2: User-provided certificates
+You can provide your own TLS certificates by setting the `webhookTLS` values during Helm install:
+```
+helm install gateway-api-controller \
+    oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
+    --namespace aws-application-networking-system \
+    --set=webhookTLS.caCert=<base64-encoded-ca-cert> \
+    --set=webhookTLS.cert=<base64-encoded-cert> \
+    --set=webhookTLS.key=<base64-encoded-key>
+```
+
+### Option 3: cert-manager integration
+If you have [cert-manager](https://cert-manager.io/) installed in your cluster, you can use it to manage the webhook TLS certificates. cert-manager will automatically generate, rotate, and inject the CA bundle into the webhook configuration.
+
+Helm values for cert-manager integration:
+
+| Value | Description | Default |
+|---|---|---|
+| `webhookTLS.certManager.enabled` | Enable cert-manager integration | `false` |
+| `webhookTLS.certManager.certificateName` | Name of the cert-manager `Certificate` resource (required when enabled) | `""` |
+| `webhookTLS.certManager.certificateSecretName` | Secret name where cert-manager stores the TLS cert/key | `"webhook-cert"` |
+
+1. Create a cert-manager `Issuer` and `Certificate` in the controller namespace:
+    ```yaml
+    apiVersion: cert-manager.io/v1
+    kind: Issuer
+    metadata:
+      name: selfsigned-issuer
+      namespace: aws-application-networking-system
+    spec:
+      selfSigned: {}
+    ---
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: gateway-api-webhook
+      namespace: aws-application-networking-system
+    spec:
+      secretName: webhook-cert 
+      dnsNames:
+        - webhook-service.aws-application-networking-system.svc
+        - webhook-service.aws-application-networking-system.svc.cluster.local
+      issuerRef:
+        name: selfsigned-issuer
+        kind: Issuer
+    ```
+
+2. Verify cert-manager created the secret:
+    ```
+    kubectl get secret webhook-cert -n aws-application-networking-system
+    ```
+
+3. Install the Helm chart with cert-manager enabled:
+    ```
+    helm install gateway-api-controller \
+        oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
+        --namespace aws-application-networking-system \
+        --set=webhookTLS.certManager.enabled=true \
+        --set=webhookTLS.certManager.certificateName=gateway-api-webhook
+    ```
+
+!!! note
+    The cert-manager `Certificate` resource must be in the same namespace as the Helm release. The `certificateName` must match the `metadata.name` of your `Certificate` resource.
+
+!!! note
+    If your `Certificate` uses a `secretName` other than `webhook-cert`, set `webhookTLS.certManager.certificateSecretName` to match.
+
+### Manual deployment (non-Helm)
 
 If you are manually deploying the controller using the ```deploy.yaml``` file, you will need to either patch the ```deploy.yaml``` file (see ```scripts/patch-deploy-yaml.sh```) or generate the secret following installation (see ```scripts/gen-webhook-secret.sh```) and manually enable the webhook via the ```WEBHOOK_ENABLED``` environment variable.
 
