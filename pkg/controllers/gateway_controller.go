@@ -160,20 +160,28 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 }
 
 func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway) error {
+	// Update gateway conditions with current generation so observedGeneration stays
+	// current during the Terminating phase (deletion bumps metadata.generation).
+	_ = r.updateGatewayAcceptStatus(ctx, gw, true)
+
 	routes, err := core.ListAllRoutes(ctx, r.client)
 	if err != nil {
 		return err
 	}
 
 	for _, route := range routes {
-		parents, err := k8s.FindControlledParents(ctx, r.client, route)
-		if len(parents) > 0 {
-			gw := parents[0]
-			return fmt.Errorf("cannot delete gateway %s/%s - found referencing route %s/%s",
-				gw.Namespace, gw.Name, route.Namespace(), route.Name())
-		}
-		if err != nil {
-			continue
+		for _, parentRef := range route.Spec().ParentRefs() {
+			if string(parentRef.Name) != gw.Name {
+				continue
+			}
+			ns := route.Namespace()
+			if parentRef.Namespace != nil {
+				ns = string(*parentRef.Namespace)
+			}
+			if ns == gw.Namespace {
+				return fmt.Errorf("cannot delete gateway %s/%s - found referencing route %s/%s",
+					gw.Namespace, gw.Name, route.Namespace(), route.Name())
+			}
 		}
 	}
 
@@ -305,19 +313,35 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 	// Add one of lattice domains as GW address. This is supposed to be a single ingress endpoint (or a single pool of them)
 	// but we have different endpoints for each service. This can represent incorrect value in some cases (e.g. cross-account)
 	// Due to size limit, we cannot put all service addresses here.
-	if len(routes) > 0 {
-		gw.Status.Addresses = []gwv1.GatewayStatusAddress{}
-		addressType := gwv1.HostnameAddressType
-		for _, route := range routes {
-			if route.DeletionTimestamp().IsZero() && len(route.K8sObject().GetAnnotations()) > 0 {
-				if domain, exists := route.K8sObject().GetAnnotations()[LatticeAssignedDomainName]; exists {
-					gw.Status.Addresses = append(gw.Status.Addresses, gwv1.GatewayStatusAddress{
-						Type:  &addressType,
-						Value: domain,
-					})
-					break
-				}
+	gw.Status.Addresses = []gwv1.GatewayStatusAddress{}
+	addressType := gwv1.HostnameAddressType
+	for _, route := range routes {
+		if !route.DeletionTimestamp().IsZero() {
+			continue
+		}
+		referencesGW := false
+		for _, parentRef := range route.Spec().ParentRefs() {
+			if string(parentRef.Name) != gw.Name {
+				continue
 			}
+			ns := route.Namespace()
+			if parentRef.Namespace != nil {
+				ns = string(*parentRef.Namespace)
+			}
+			if ns == gw.Namespace {
+				referencesGW = true
+				break
+			}
+		}
+		if !referencesGW {
+			continue
+		}
+		if domain, exists := route.K8sObject().GetAnnotations()[LatticeAssignedDomainName]; exists {
+			gw.Status.Addresses = append(gw.Status.Addresses, gwv1.GatewayStatusAddress{
+				Type:  &addressType,
+				Value: domain,
+			})
+			break
 		}
 	}
 
