@@ -40,7 +40,7 @@ spec:
       {{- end }}
       {{- end }}
       securityContext:
-        runAsNonRoot: true
+        {{- toYaml .Values.deployment.podSecurityContext | nindent 8 }}
       containers:
       - command:
         - /manager
@@ -69,11 +69,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 10
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-          readOnlyRootFilesystem: true
+          {{- toYaml .Values.deployment.containerSecurityContext | nindent 10 }}
         volumeMounts:
           - mountPath: /etc/webhook-cert
             name: webhook-cert
