@@ -27,3 +27,15 @@ updates:
     labels:
       - "dependencies"
       - "go"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "00:00"
+      timezone: "UTC"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
