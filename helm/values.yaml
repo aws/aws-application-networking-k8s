@@ -92,6 +92,14 @@ webhookTLS:
   caCert:
   cert:
   key:
+  # Use cert-manager to manage webhook TLS certificates.
+  # The cert-manager Certificate resource must be in the same namespace as the Helm release.
+  certManager:
+    enabled: false
+    # cert-manager Certificate resource name (required when enabled)
+    certificateName: ""
+    # Secret name where cert-manager stores the TLS cert/key (defaults to "webhook-cert")
+    certificateSecretName: "webhook-cert"
 
 # Set to true to install the DNSEndpoint CRD (externaldns.k8s.io_dnsendpoints).
 # Required for automatic DNS record management with ExternalDNS when using custom domain names.

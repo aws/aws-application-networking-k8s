@@ -1,14 +1,24 @@
-{{ $tls := fromYaml ( include "aws-gateway-controller.webhookTLS" . ) }}
+{{- include "aws-gateway-controller.validateWebhookTLS" . -}}
+{{- $tls := dict -}}
+{{- if not .Values.webhookTLS.certManager.enabled -}}
+{{- $tls = fromYaml ( include "aws-gateway-controller.webhookTLS" . ) -}}
+{{- end -}}
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: aws-appnet-gwc-mutating-webhook
+{{- if .Values.webhookTLS.certManager.enabled }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ .Values.webhookTLS.certManager.certificateName }}
+{{- end }}
 webhooks:
   - admissionReviewVersions:
       - v1
     clientConfig:
+{{- if not .Values.webhookTLS.certManager.enabled }}
       caBundle: {{ $tls.caCert }}
+{{- end }}
       service:
         name: webhook-service
         namespace: {{ .Release.Namespace }}
@@ -49,6 +59,7 @@ spec:
       targetPort: webhook-server
   selector:
     control-plane: gateway-api-controller
+{{- if not .Values.webhookTLS.certManager.enabled }}
 ---
 apiVersion: v1
 kind: Secret
@@ -60,3 +71,4 @@ data:
   ca.crt: {{ $tls.caCert }}
   tls.crt: {{ $tls.cert }}
   tls.key: {{ $tls.key }}
+{{- end }}

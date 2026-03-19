@@ -48,3 +48,15 @@ cert: {{ $cert.Cert | b64enc }}
 key: {{ $cert.Key | b64enc }}
 {{- end -}}
 {{- end -}}
+
+{{/* Validate webhookTLS configuration */}}
+{{- define "aws-gateway-controller.validateWebhookTLS" -}}
+{{- if .Values.webhookTLS.certManager.enabled -}}
+{{- if and .Values.webhookTLS.caCert .Values.webhookTLS.cert .Values.webhookTLS.key -}}
+{{- fail "webhookTLS.certManager.enabled and webhookTLS.caCert/cert/key are mutually exclusive. Use one or the other." -}}
+{{- end -}}
+{{- if not .Values.webhookTLS.certManager.certificateName -}}
+{{- fail "webhookTLS.certManager.certificateName is required when webhookTLS.certManager.enabled is true." -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
