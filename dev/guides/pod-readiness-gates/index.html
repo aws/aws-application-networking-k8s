@@ -961,6 +961,56 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-1-helm-auto-generated-certificates-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option 1: Helm auto-generated certificates (default)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-2-user-provided-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option 2: User-provided certificates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-3-cert-manager-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option 3: cert-manager integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manual-deployment-non-helm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual deployment (non-Helm)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1742,97 +1792,188 @@ The controller automatically injects the necessary readiness gate configuration 
 <p>In order to avoid this situation, the AWS Gateway API controller can set the readiness condition on the pods that constitute your ingress or service backend. The condition status on a pod will be set to <code>True</code> only when the corresponding target in the VPC Lattice target group shows a health state of »Healthy«.
 This prevents the rolling update of a deployment from terminating old pods until the newly created pods are »Healthy« in the VPC Lattice target group and ready to take traffic.</p>
 <h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
-<p>Pod readiness gates rely on <a href="https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/">»admission webhooks«</a>, where the Kubernetes API server makes calls to the AWS Gateway API controller as part of pod creation. This call is made using TLS, so the controller must present a TLS certificate. This certificate is stored as a standard Kubernetes secret. If you are using Helm, the certificate will automatically be configured as part of the Helm install.</p>
+<p>Pod readiness gates rely on <a href="https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/">»admission webhooks«</a>, where the Kubernetes API server makes calls to the AWS Gateway API controller as part of pod creation. This call is made using TLS, so the controller must present a TLS certificate. This certificate is stored as a standard Kubernetes secret.</p>
+<p>There are three ways to manage the webhook TLS certificate:</p>
+<h3 id="option-1-helm-auto-generated-certificates-default">Option 1: Helm auto-generated certificates (default)<a class="headerlink" href="#option-1-helm-auto-generated-certificates-default" title="Permanent link">&para;</a></h3>
+<p>If you are using Helm, the certificate will automatically be configured as part of the Helm install. No additional configuration is needed.</p>
+<h3 id="option-2-user-provided-certificates">Option 2: User-provided certificates<a class="headerlink" href="#option-2-user-provided-certificates" title="Permanent link">&para;</a></h3>
+<p>You can provide your own TLS certificates by setting the <code>webhookTLS</code> values during Helm install:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>helm install gateway-api-controller \
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    --namespace aws-application-networking-system \
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    --set=webhookTLS.caCert=&lt;base64-encoded-ca-cert&gt; \
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    --set=webhookTLS.cert=&lt;base64-encoded-cert&gt; \
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    --set=webhookTLS.key=&lt;base64-encoded-key&gt;
+</code></pre></div></p>
+<h3 id="option-3-cert-manager-integration">Option 3: cert-manager integration<a class="headerlink" href="#option-3-cert-manager-integration" title="Permanent link">&para;</a></h3>
+<p>If you have <a href="https://cert-manager.io/">cert-manager</a> installed in your cluster, you can use it to manage the webhook TLS certificates. cert-manager will automatically generate, rotate, and inject the CA bundle into the webhook configuration.</p>
+<p>Helm values for cert-manager integration:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>webhookTLS.certManager.enabled</code></td>
+<td>Enable cert-manager integration</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>webhookTLS.certManager.certificateName</code></td>
+<td>Name of the cert-manager <code>Certificate</code> resource (required when enabled)</td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>webhookTLS.certManager.certificateSecretName</code></td>
+<td>Secret name where cert-manager stores the TLS cert/key</td>
+<td><code>"webhook-cert"</code></td>
+</tr>
+</tbody>
+</table>
+<ol>
+<li>
+<p>Create a cert-manager <code>Issuer</code> and <code>Certificate</code> in the controller namespace:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Issuer</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">selfsigned-issuer</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aws-application-networking-system</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">selfSigned</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nn">---</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Certificate</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-api-webhook</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aws-application-networking-system</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook-cert</span><span class="w"> </span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="nt">dnsNames</span><span class="p">:</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook-service.aws-application-networking-system.svc</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook-service.aws-application-networking-system.svc.cluster.local</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span><span class="nt">issuerRef</span><span class="p">:</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">selfsigned-issuer</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Issuer</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>Verify cert-manager created the secret:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl get secret webhook-cert -n aws-application-networking-system
+</code></pre></div></p>
+</li>
+<li>
+<p>Install the Helm chart with cert-manager enabled:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>helm install gateway-api-controller \
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart \
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    --namespace aws-application-networking-system \
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    --set=webhookTLS.certManager.enabled=true \
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    --set=webhookTLS.certManager.certificateName=gateway-api-webhook
+</code></pre></div></p>
+</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The cert-manager <code>Certificate</code> resource must be in the same namespace as the Helm release. The <code>certificateName</code> must match the <code>metadata.name</code> of your <code>Certificate</code> resource.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If your <code>Certificate</code> uses a <code>secretName</code> other than <code>webhook-cert</code>, set <code>webhookTLS.certManager.certificateSecretName</code> to match.</p>
+</div>
+<h3 id="manual-deployment-non-helm">Manual deployment (non-Helm)<a class="headerlink" href="#manual-deployment-non-helm" title="Permanent link">&para;</a></h3>
 <p>If you are manually deploying the controller using the <code>deploy.yaml</code> file, you will need to either patch the <code>deploy.yaml</code> file (see <code>scripts/patch-deploy-yaml.sh</code>) or generate the secret following installation (see <code>scripts/gen-webhook-secret.sh</code>) and manually enable the webhook via the <code>WEBHOOK_ENABLED</code> environment variable.</p>
 <p>Note that, without the secret in place, the controller cannot start successfully, and you will see an error message like the following:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>{&quot;level&quot;:&quot;error&quot;,&quot;ts&quot;:&quot;...&quot;,&quot;logger&quot;:&quot;setup&quot;,&quot;caller&quot;:&quot;workspace/main.go:240&quot;,&quot;msg&quot;:&quot;tls: failed to find any PEM data in certificate inputproblem running manager&quot;}
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>{&quot;level&quot;:&quot;error&quot;,&quot;ts&quot;:&quot;...&quot;,&quot;logger&quot;:&quot;setup&quot;,&quot;caller&quot;:&quot;workspace/main.go:240&quot;,&quot;msg&quot;:&quot;tls: failed to find any PEM data in certificate inputproblem running manager&quot;}
 </code></pre></div>
 For this reason, the webhook is <code>DISABLED</code> by default in the controller for the non-Helm install. You can enable the webhook by setting the <code>WEBHOOK_ENABLED</code> environment variable to "true" in the <code>deploy.yaml</code> file.
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-api-controller</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aws-application-networking-system</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">labels</span><span class="p">:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">control-plane</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-api-controller</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">template</span><span class="p p-Indicator">:</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">        </span><span class="nt">kubectl.kubernetes.io/default-container</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manager</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="nt">labels</span><span class="p">:</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="nt">control-plane</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-api-controller</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">      </span><span class="nt">securityContext</span><span class="p">:</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">        </span><span class="nt">runAsNonRoot</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">command</span><span class="p">:</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manager</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">        </span><span class="nt">env</span><span class="p">:</span>
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WEBHOOK_ENABLED</span>
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">            </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span><span class="w">   </span><span class="c1"># &lt;-- value of &quot;true&quot; enables the webhook in the controller</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Deployment</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-api-controller</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aws-application-networking-system</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">labels</span><span class="p">:</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">control-plane</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-api-controller</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">template</span><span class="p p-Indicator">:</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">      </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">        </span><span class="nt">kubectl.kubernetes.io/default-container</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manager</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="nt">labels</span><span class="p">:</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">        </span><span class="nt">control-plane</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-api-controller</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">      </span><span class="nt">securityContext</span><span class="p">:</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">        </span><span class="nt">runAsNonRoot</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">command</span><span class="p">:</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manager</span>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">        </span><span class="nt">env</span><span class="p">:</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WEBHOOK_ENABLED</span>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">            </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span><span class="w">   </span><span class="c1"># &lt;-- value of &quot;true&quot; enables the webhook in the controller</span>
 </code></pre></div>
 If you run <code>scripts/patch-deploy-yaml.sh</code> prior to installing <code>deploy.yaml</code>, the script will create the necessary TLS certificates and configuration and will enable the webhook in the controller. Note that, even with the webhook enabled, the webhook will only run for namespaces labeled with <code>application-networking.k8s.aws/pod-readiness-gate-inject: enabled</code>.  </p>
 <h2 id="enabling-the-readiness-gate">Enabling the readiness gate<a class="headerlink" href="#enabling-the-readiness-gate" title="Permanent link">&para;</a></h2>
 <p>After a Helm install or manually configuring and enabling the webhook, you are ready to begin using pod readiness gates. Apply a label to each namespace you would like to use this feature. You can create and label a namespace as follows -</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ kubectl create namespace example-ns
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>namespace/example-ns created
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>$ kubectl label namespace example-ns application-networking.k8s.aws/pod-readiness-gate-inject=enabled
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>namespace/example-ns labeled
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>$ kubectl describe namespace example-ns
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>Name:         example-ns
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>Labels:       application-networking.k8s.aws/pod-readiness-gate-inject=enabled
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>              kubernetes.io/metadata.name=example-ns
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>Annotations:  &lt;none&gt;
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>Status:       Active
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$ kubectl create namespace example-ns
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>namespace/example-ns created
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>$ kubectl label namespace example-ns application-networking.k8s.aws/pod-readiness-gate-inject=enabled
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>namespace/example-ns labeled
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>$ kubectl describe namespace example-ns
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>Name:         example-ns
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>Labels:       application-networking.k8s.aws/pod-readiness-gate-inject=enabled
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>              kubernetes.io/metadata.name=example-ns
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>Annotations:  &lt;none&gt;
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>Status:       Active
 </code></pre></div>
 <p>Once labelled, the controller will add the pod readiness gates to all subsequently created pods in the namespace.</p>
 <p>The readiness gates have the condition type <code>application-networking.k8s.aws/pod-readiness-gate</code> and the controller injects the config to the pod spec only during pod creation.</p>
 <h2 id="object-selector">Object Selector<a class="headerlink" href="#object-selector" title="Permanent link">&para;</a></h2>
 <p>The default webhook configuration matches all pods in the namespaces containing the label <code>application-networking.k8s.aws/pod-readiness-gate-inject=enabled</code>. You can modify the webhook configuration further to select specific pods from the labeled namespace by specifying the <code>objectSelector</code>. For example, in order to select ONLY pods with <code>application-networking.k8s.aws/pod-readiness-gate-inject: enabled</code> label instead of all pods in the labeled namespace, you can add the following <code>objectSelector</code> to the webhook:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>  objectSelector:
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    matchLabels:
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>      application-networking.k8s.aws/pod-readiness-gate-inject: enabled
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>  objectSelector:
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    matchLabels:
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>      application-networking.k8s.aws/pod-readiness-gate-inject: enabled
 </code></pre></div>
 To edit,
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$ kubectl edit mutatingwebhookconfigurations aws-appnet-gwc-mutating-webhook
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  ...
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  name: mpod.gwc.k8s.aws
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  namespaceSelector:
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    matchExpressions:
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    - key: application-networking.k8s.aws/pod-readiness-gate-inject
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>      operator: In
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>      values:
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>      - enabled
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>  objectSelector:
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    matchLabels:
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>      application-networking.k8s.aws/pod-readiness-gate-inject: enabled
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>  ...
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>$ kubectl edit mutatingwebhookconfigurations aws-appnet-gwc-mutating-webhook
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>  ...
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  name: mpod.gwc.k8s.aws
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>  namespaceSelector:
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    matchExpressions:
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    - key: application-networking.k8s.aws/pod-readiness-gate-inject
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>      operator: In
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>      values:
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>      - enabled
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>  objectSelector:
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    matchLabels:
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>      application-networking.k8s.aws/pod-readiness-gate-inject: enabled
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>  ...
 </code></pre></div>
 When you specify multiple selectors, pods matching all the conditions will get mutated.</p>
 <h2 id="checking-the-pod-condition-status">Checking the pod condition status<a class="headerlink" href="#checking-the-pod-condition-status" title="Permanent link">&para;</a></h2>
 <p>The status of the readiness gates can be verified with <code>kubectl get pod -o wide</code>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   0/1
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   0/1
 </code></pre></div></p>
 <p>When the target is registered and healthy in the VPC Lattice target group, the output will look like:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   1/1
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>NAME                          READY   STATUS    RESTARTS   AGE   IP         NODE                       READINESS GATES
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   1/1
 </code></pre></div></p>
 <p>If a readiness gate doesn't get ready, you can check the reason via:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="gp">$ </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nginx-test-545d8f4d89-l7rcl<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-B7<span class="w"> </span><span class="s1">&#39;type: application-networking.k8s.aws/pod-readiness-gate&#39;</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="go">status:</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="go">  conditions:</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="go">  - lastProbeTime: null</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="go">    lastTransitionTime: null</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="go">    reason: HEALTHY</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="go">    status: &quot;True&quot;</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="go">    type: application-networking.k8s.aws/pod-readiness-gate</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gp">$ </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nginx-test-545d8f4d89-l7rcl<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-B7<span class="w"> </span><span class="s1">&#39;type: application-networking.k8s.aws/pod-readiness-gate&#39;</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="go">status:</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="go">  conditions:</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="go">  - lastProbeTime: null</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">    lastTransitionTime: null</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="go">    reason: HEALTHY</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="go">    status: &quot;True&quot;</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="go">    type: application-networking.k8s.aws/pod-readiness-gate</span>
 </code></pre></div>
 
 
