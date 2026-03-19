@@ -1,13 +1,10 @@
 module github.com/aws/aws-application-networking-k8s
 
-go 1.24.0
-
-toolchain go1.24.7
+go 1.26.0
 
 require (
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/go-logr/zapr v1.3.0
-	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/onsi/ginkgo v1.16.5
@@ -15,8 +12,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/stretchr/testify v1.11.1
+	go.uber.org/mock v0.6.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	k8s.io/api v0.34.1
 	k8s.io/apimachinery v0.34.1
