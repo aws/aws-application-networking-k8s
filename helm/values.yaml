@@ -33,6 +33,22 @@ deployment:
   # Number of replicas.
   replicas: 2
   topologySpreadConstraints: []
+  # Pod-level security context. Override to customize or add seccompProfile, runAsUser, fsGroup, etc.
+  # See: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  # Container-level security context. Override to customize capabilities, seccompProfile, etc.
+  # See: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: RuntimeDefault
 
 # If "installScope: cluster" then these labels will be applied to ClusterRole
 role:
