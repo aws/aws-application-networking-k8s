@@ -35,6 +35,20 @@ func (m *MockCloud) EXPECT() *MockCloudMockRecorder {
 	return m.recorder
 }
 
+// ACM mocks base method.
+func (m *MockCloud) ACM() services.ACM {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ACM")
+	ret0, _ := ret[0].(services.ACM)
+	return ret0
+}
+
+// ACM indicates an expected call of ACM.
+func (mr *MockCloudMockRecorder) ACM() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ACM", reflect.TypeOf((*MockCloud)(nil).ACM))
+}
+
 // Config mocks base method.
 func (m *MockCloud) Config() CloudConfig {
 	m.ctrl.T.Helper()

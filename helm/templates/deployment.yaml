@@ -101,6 +101,8 @@ spec:
             value: {{ .Values.disableTaggingServiceApi | quote }}
           - name: ROUTE_MAX_CONCURRENT_RECONCILES
             value: {{ .Values.routeMaxConcurrentReconciles | quote }}
+          - name: CERT_DISCOVERY_ENABLED
+            value: {{ .Values.certificateDiscoveryEnabled | quote }}
 
       terminationGracePeriodSeconds: 10
       volumes:

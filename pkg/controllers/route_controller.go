@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -98,6 +99,8 @@ func RegisterAllRouteControllers(
 		{core.TlsRouteType, &gwv1alpha2.TLSRoute{}},
 	}
 
+	certDiscovery := services.NewCertificateDiscovery(cloud.ACM())
+
 	for _, routeInfo := range routeInfos {
 		brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(log, mgrClient)
 		reconciler := routeReconciler{
@@ -107,7 +110,7 @@ func RegisterAllRouteControllers(
 			scheme:           mgr.GetScheme(),
 			finalizerManager: finalizerManager,
 			eventRecorder:    mgr.GetEventRecorderFor(string(routeInfo.routeType) + "route"),
-			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, brTgBuilder),
+			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, brTgBuilder, gateway.WithCertDiscovery(certDiscovery)),
 			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 			cloud:            cloud,
@@ -357,6 +360,24 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 				return fmt.Errorf("failed to update route status for conflict due to err %w", err)
 			}
 			return nil
+		}
+		if stderrors.Is(err, gateway.ErrCertificateNotFound) {
+			parentRef, parentRefErr := r.findControlledParentRef(ctx, route)
+			if parentRefErr != nil {
+				return parentRefErr
+			}
+			route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
+			route.Status().UpdateRouteCondition(parentRef, metav1.Condition{
+				Type:               string(gwv1.RouteConditionAccepted),
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: route.K8sObject().GetGeneration(),
+				Reason:             "CertificateNotFound",
+				Message:            err.Error(),
+			})
+			if statusErr := r.client.Status().Update(ctx, route.K8sObject()); statusErr != nil {
+				return fmt.Errorf("failed to update route status: %w", statusErr)
+			}
+			return err
 		}
 		return err
 	}

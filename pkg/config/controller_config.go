@@ -30,6 +30,7 @@ const (
 	DEV_MODE                        = "DEV_MODE"
 	WEBHOOK_ENABLED                 = "WEBHOOK_ENABLED"
 	ROUTE_MAX_CONCURRENT_RECONCILES = "ROUTE_MAX_CONCURRENT_RECONCILES"
+	CERT_DISCOVERY_ENABLED          = "CERT_DISCOVERY_ENABLED"
 )
 
 var VpcID = ""
@@ -43,6 +44,7 @@ var WebhookEnabled = ""
 var DisableTaggingServiceAPI = false
 var ServiceNetworkOverrideMode = false
 var RouteMaxConcurrentReconciles = 1
+var CertDiscoveryEnabled = true
 
 func ConfigInit() error {
 	sess, _ := session.NewSession()
@@ -105,6 +107,11 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 			return fmt.Errorf("invalid value for ROUTE_MAX_CONCURRENT_RECONCILES: %s", err)
 		}
 		RouteMaxConcurrentReconciles = routeMaxConcurrentReconcilesInt
+	}
+
+	certDiscoveryEnabled := os.Getenv(CERT_DISCOVERY_ENABLED)
+	if strings.ToLower(certDiscoveryEnabled) == "false" {
+		CertDiscoveryEnabled = false
 	}
 
 	return nil
