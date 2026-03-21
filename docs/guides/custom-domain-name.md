@@ -28,6 +28,8 @@ spec:
 
 ```
 
+Note that VPC Lattice supports only one custom domain name per service. If multiple hostnames are specified, only the first is used.
+Additionally, custom domain names cannot be modified after creation.
 
 ## Managing DNS records using ExternalDNS
 

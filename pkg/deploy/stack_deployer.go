@@ -72,7 +72,7 @@ func NewLatticeServiceStackDeploy(
 
 	tgMgr := lattice.NewTargetGroupManager(log, cloud, k8sClient)
 	tgSvcExpBuilder := gateway.NewSvcExportTargetGroupBuilder(log, k8sClient)
-	svcBuilder := gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder)
+	svcBuilder := gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder, nil)
 
 	tgGcOnce.Do(func() {
 		// TODO: need to refactor TG synthesizer. Remove stack from constructor
@@ -255,7 +255,7 @@ func NewTargetGroupStackDeploy(
 		k8sclient:          k8sClient,
 		targetGroupManager: lattice.NewTargetGroupManager(log, cloud, k8sClient),
 		svcExportTgBuilder: gateway.NewSvcExportTargetGroupBuilder(log, k8sClient),
-		svcBuilder:         gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder),
+		svcBuilder:         gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder, nil),
 	}
 }
 
