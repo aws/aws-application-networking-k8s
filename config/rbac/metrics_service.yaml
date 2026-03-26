@@ -7,9 +7,9 @@ metadata:
   namespace: aws-application-networking-system
 spec:
   ports:
-  - name: https
-    port: 8443
+  - name: http
+    port: 8080
     protocol: TCP
-    targetPort: https
+    targetPort: http
   selector:
     control-plane: gateway-api-controller
