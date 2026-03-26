@@ -10,6 +10,6 @@ spec:
   - name: http
     port: 8080
     protocol: TCP
-    targetPort: http
+    targetPort: 8080
   selector:
     control-plane: gateway-api-controller
