@@ -1730,6 +1730,8 @@ VPC Lattice generates a unique Fully Qualified Domain Name (FQDN) for you; howev
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PathPrefix</span>
 <a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/review2</span>
 </code></pre></div>
+<p>Note that VPC Lattice supports only one custom domain name per service. If multiple hostnames are specified, only the first is used.
+Additionally, custom domain names cannot be modified after creation.</p>
 <h2 id="managing-dns-records-using-externaldns">Managing DNS records using ExternalDNS<a class="headerlink" href="#managing-dns-records-using-externaldns" title="Permanent link">&para;</a></h2>
 <p>To register custom domain names to your DNS provider, we recommend using <a href="https://github.com/kubernetes-sigs/external-dns">ExternalDNS</a>.
 The Amazon VPC Lattice Gateway API Controller supports ExternalDNS integration through CRD source - the controller will manage <code>DNSEndpoint</code> resource for you.</p>
