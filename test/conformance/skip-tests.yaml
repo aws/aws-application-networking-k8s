@@ -1,0 +1,95 @@
+# Tests skipped during conformance runs.
+# Categories: architectural-limitation, lattice-feature-limitation, controller-bug
+
+# Lattice uses ACM for TLS, not K8s Secrets
+- name: GatewayInvalidTLSConfiguration
+  category: architectural-limitation
+  reason: "Lattice uses ACM for TLS, not K8s Secrets"
+
+- name: HTTPRouteHostnameIntersection
+  category: architectural-limitation
+  reason: "Lattice supports one custom domain per service"
+
+- name: HTTPRouteListenerHostnameMatching
+  category: architectural-limitation
+  reason: "Listener hostname not supported by Lattice"
+
+- name: HTTPRouteMatchingAcrossRoutes
+  category: architectural-limitation
+  reason: "Custom domain name conflict not allowed"
+
+# TLS via ACM, not K8s Secrets
+- name: GatewaySecretInvalidReferenceGrant
+  category: architectural-limitation
+  reason: "Lattice uses ACM for TLS, not K8s Secrets"
+
+- name: GatewaySecretMissingReferenceGrant
+  category: architectural-limitation
+  reason: "Lattice uses ACM for TLS, not K8s Secrets"
+
+# ReferenceGrant not implemented
+- name: HTTPRouteInvalidCrossNamespaceBackendRef
+  category: architectural-limitation
+  reason: "ReferenceGrant not implemented"
+
+- name: HTTPRouteInvalidReferenceGrant
+  category: architectural-limitation
+  reason: "ReferenceGrant not implemented"
+
+- name: HTTPRoutePartiallyInvalidViaInvalidReferenceGrant
+  category: architectural-limitation
+  reason: "ReferenceGrant not implemented"
+
+- name: HTTPRouteReferenceGrant
+  category: architectural-limitation
+  reason: "ReferenceGrant not implemented"
+
+# Lattice feature limitations
+- name: HTTPRouteHeaderMatching
+  category: lattice-feature-limitation
+  reason: "Rule count limit exceeded"
+
+- name: HTTPRoutePathMatchOrder
+  category: lattice-feature-limitation
+  reason: "Rule count limit exceeded"
+
+- name: HTTPRouteMatching
+  category: lattice-feature-limitation
+  reason: "Route precedence not supported"
+
+- name: HTTPRouteRequestHeaderModifier
+  category: lattice-feature-limitation
+  reason: "Header modification not supported by Lattice"
+
+- name: HTTPRouteRedirectHostAndStatus
+  category: lattice-feature-limitation
+  reason: "Redirect not supported by Lattice"
+
+- name: HTTPRouteHTTPSListener
+  category: lattice-feature-limitation
+  reason: "Listener hostname not supported by Lattice"
+
+- name: HTTPRouteServiceTypes
+  category: lattice-feature-limitation
+  reason: "Service types test incompatible with Lattice"
+
+- name: HTTPRouteWeight
+  category: lattice-feature-limitation
+  reason: "Weight distribution test incompatible with Lattice"
+
+# Controller bugs (fixable)
+- name: GatewayWithAttachedRoutes
+  category: controller-bug
+  reason: "Unresolved refs subtest fails due to ACM TLS"
+
+- name: HTTPRouteObservedGenerationBump
+  category: controller-bug
+  reason: "Passes in isolation, test ordering interference"
+
+- name: HTTPRouteSimpleSameNamespace
+  category: controller-bug
+  reason: "Flaky in partial runs, passes in full suite"
+
+- name: HTTPRouteInvalidBackendRefUnknownKind
+  category: controller-bug
+  reason: "Returns 404 instead of 500 for unknown kind backend refs, fix #899 only covers nonexistent backends"

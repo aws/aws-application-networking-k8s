@@ -1,0 +1,24 @@
+diff --git a/conformance/utils/kubernetes/helpers.go b/conformance/utils/kubernetes/helpers.go
+index d32899e..8a6248c 100644
+--- a/conformance/utils/kubernetes/helpers.go
++++ b/conformance/utils/kubernetes/helpers.go
+@@ -444,6 +444,19 @@ func WaitForGatewayAddress(t *testing.T, client client.Client, timeoutConfig con
+ 			}
+ 		}
+ 		port = strconv.FormatInt(int64(listener.Port), 10)
++
++		// PATCHED: VPC Lattice assigns DNS per-route, not per-gateway.
++		// Accept a Gateway as ready if it has Programmed=True and an address is set.
++		// If no address is set yet, keep waiting until the controller populates it.
++		for _, cond := range gw.Status.Conditions {
++			if string(cond.Type) == string(gatewayv1.GatewayConditionProgrammed) && cond.Status == metav1.ConditionTrue {
++				if len(gw.Status.Addresses) > 0 {
++					ipAddr = gw.Status.Addresses[0].Value
++					return true, nil
++				}
++			}
++		}
++
+ 		for _, address := range gw.Status.Addresses {
+ 			if address.Type != nil {
+ 				ipAddr = address.Value
