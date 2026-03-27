@@ -12,6 +12,8 @@ import (
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+
+	core "github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
 
 func TestUpdateGWListenerStatus_RemovesStaleListeners(t *testing.T) {
@@ -698,6 +700,115 @@ func TestUpdateGWListenerStatus_SupportedKinds(t *testing.T) {
 
 			assert.Equal(t, 1, len(updatedGw.Status.Listeners))
 			assert.Equal(t, tt.expectedKinds, updatedGw.Status.Listeners[0].SupportedKinds)
+		})
+	}
+}
+
+func TestUpdateGWListenerStatus_OverrideRoute(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+	gwv1alpha2.Install(scheme)
+	addOptionalCRDs(scheme)
+
+	gwName := gwv1.ObjectName("test-gateway")
+
+	tests := []struct {
+		name                string
+		cachedAnnotations   map[string]string
+		overrideAnnotations map[string]string
+		useOverride         bool
+		expectAddress       bool
+		expectedDomain      string
+	}{
+		{
+			name:              "without override, stale cache has no address",
+			cachedAnnotations: map[string]string{},
+			useOverride:       false,
+			expectAddress:     false,
+		},
+		{
+			name:                "override replaces stale cached route",
+			cachedAnnotations:   map[string]string{},
+			overrideAnnotations: map[string]string{LatticeAssignedDomainName: "my-service.lattice.aws"},
+			useOverride:         true,
+			expectAddress:       true,
+			expectedDomain:      "my-service.lattice.aws",
+		},
+		{
+			name:              "without override, cached route with annotation works",
+			cachedAnnotations: map[string]string{LatticeAssignedDomainName: "cached.lattice.aws"},
+			useOverride:       false,
+			expectAddress:     true,
+			expectedDomain:    "cached.lattice.aws",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			gw := &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-gateway", Namespace: "default"},
+				Spec: gwv1.GatewaySpec{
+					GatewayClassName: "amazon-vpc-lattice",
+					Listeners: []gwv1.Listener{
+						{Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType,
+							AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}}}},
+					},
+				},
+			}
+
+			cachedRoute := &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "route1",
+					Namespace:   "default",
+					Annotations: tt.cachedAnnotations,
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{{Name: gwName}},
+					},
+				},
+			}
+
+			k8sClient := testclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(gw, cachedRoute).
+				WithStatusSubresource(gw).
+				Build()
+
+			var overrides []core.Route
+			if tt.useOverride {
+				overrideHTTPRoute := &gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "route1",
+						Namespace:   "default",
+						Annotations: tt.overrideAnnotations,
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{{Name: gwName}},
+						},
+					},
+				}
+				overrides = append(overrides, core.NewHTTPRoute(*overrideHTTPRoute))
+			}
+
+			err := UpdateGWListenerStatus(ctx, k8sClient, gw, overrides...)
+			assert.NoError(t, err)
+
+			updatedGw := &gwv1.Gateway{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-gateway", Namespace: "default"}, updatedGw)
+			assert.NoError(t, err)
+
+			if tt.expectAddress {
+				if assert.Equal(t, 1, len(updatedGw.Status.Addresses)) {
+					assert.Equal(t, tt.expectedDomain, updatedGw.Status.Addresses[0].Value)
+				}
+			} else {
+				assert.Equal(t, 0, len(updatedGw.Status.Addresses))
+			}
 		})
 	}
 }
