@@ -70,7 +70,7 @@ sed_inplace "deploy-$OLD_VERSION.yaml" "deploy-$RELEASE_VERSION.yaml" "$WORKSPAC
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/deploy.md
 sed_inplace "--version=$OLD_VERSION" "--version=$RELEASE_VERSION" "$WORKSPACE_DIR"/docs/guides/getstarted.md
 sed_inplace "mike deploy $OLD_VERSION" "mike deploy $RELEASE_VERSION" "$WORKSPACE_DIR"/.github/workflows/publish-doc.yaml
-sed_inplace "CURRENT_CONTROLLER_VERSION=\"$OLD_VERSION\"" "CURRENT_CONTROLLER_VERSION=\"$RELEASE_VERSION\"" "$WORKSPACE_DIR"/scripts/setup.sh
+sed_inplace "CURRENT_CONTROLLER_VERSION=\"${OLD_VERSION#v}\"" "CURRENT_CONTROLLER_VERSION=\"${RELEASE_VERSION#v}\"" "$WORKSPACE_DIR"/scripts/setup.sh
 
 
 # Build the deploy.yaml
