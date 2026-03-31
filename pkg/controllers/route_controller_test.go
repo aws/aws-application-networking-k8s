@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -319,7 +320,7 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 		scheme:           k8sScheme,
 		finalizerManager: mockFinalizer,
 		eventRecorder:    mockEventRecorder,
-		modelBuilder:     gateway.NewLatticeServiceBuilder(gwlog.FallbackLogger, k8sClient, brTgBuilder),
+		modelBuilder:     gateway.NewLatticeServiceBuilder(gwlog.FallbackLogger, k8sClient, brTgBuilder, nil),
 		stackDeployer:    deploy.NewLatticeServiceStackDeploy(gwlog.FallbackLogger, mockCloud, k8sClient),
 		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 		cloud:            mockCloud,
@@ -658,4 +659,108 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 
 	scheme.AddKnownTypes(awsGatewayControllerCRDGroupVersion, &anv1alpha1.VpcAssociationPolicy{}, &anv1alpha1.VpcAssociationPolicyList{})
 	metav1.AddToGroupVersion(scheme, awsGatewayControllerCRDGroupVersion)
+}
+
+func TestRouteReconciler_CertificateNotFound(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	gwv1alpha2.Install(k8sScheme)
+	discoveryv1.AddToScheme(k8sScheme)
+	addOptionalCRDs(k8sScheme)
+
+	gwClass := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "amazon-vpc-lattice",
+		},
+		Spec: gwv1.GatewayClassSpec{
+			ControllerName: config.LatticeGatewayControllerName,
+		},
+	}
+
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-gateway",
+			Namespace: "ns1",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+			Listeners: []gwv1.Listener{
+				{
+					Name:     "http",
+					Protocol: "HTTP",
+					Port:     80,
+				},
+			},
+		},
+	}
+
+	route := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-route",
+			Namespace: "ns1",
+		},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{
+						Name: "my-gateway",
+					},
+				},
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(gwClass, gw, route).
+		WithStatusSubresource(&gwv1.HTTPRoute{}).
+		Build()
+
+	mockBuilder := gateway.NewMockLatticeServiceBuilder(c)
+	mockBuilder.EXPECT().Build(gomock.Any(), gomock.Any()).Return(
+		nil, fmt.Errorf("%w for hostname app.example.com", gateway.ErrCertificateNotFound))
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	mockFinalizer := k8s.NewMockFinalizerManager(c)
+	mockFinalizer.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	rc := routeReconciler{
+		routeType:        core.HttpRouteType,
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		scheme:           k8sScheme,
+		finalizerManager: mockFinalizer,
+		eventRecorder:    mockEventRecorder,
+		modelBuilder:     mockBuilder,
+	}
+
+	routeName := k8s.NamespacedName(route)
+	result, err := rc.Reconcile(ctx, reconcile.Request{NamespacedName: routeName})
+	assert.Nil(t, err)
+	assert.Equal(t, 1*time.Minute, result.RequeueAfter)
+
+	// Verify route status was updated with Accepted: False
+	updatedRoute := &gwv1.HTTPRoute{}
+	k8sClient.Get(ctx, routeName, updatedRoute)
+
+	var acceptedCond *metav1.Condition
+	for _, parent := range updatedRoute.Status.Parents {
+		for i, cond := range parent.Conditions {
+			if cond.Type == string(gwv1.RouteConditionAccepted) {
+				acceptedCond = &parent.Conditions[i]
+				break
+			}
+		}
+	}
+	assert.NotNil(t, acceptedCond)
+	assert.Equal(t, metav1.ConditionFalse, acceptedCond.Status)
+	assert.Equal(t, "CertificateNotFound", acceptedCond.Reason)
+	assert.Contains(t, acceptedCond.Message, "no matching ACM certificate found")
 }

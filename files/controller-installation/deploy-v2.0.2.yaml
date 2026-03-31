@@ -2143,6 +2143,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - services
   verbs:
   - create
@@ -2466,34 +2474,6 @@ rules:
   - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: metrics-reader
-rules:
-- nonResourceURLs:
-  - /metrics
-  verbs:
-  - get
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: proxy-role
-rules:
-- apiGroups:
-  - authentication.k8s.io
-  resources:
-  - tokenreviews
-  verbs:
-  - create
-- apiGroups:
-  - authorization.k8s.io
-  resources:
-  - subjectaccessreviews
-  verbs:
-  - create
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: aws-application-networking-controller
@@ -2501,19 +2481,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: aws-application-networking-controller
-subjects:
-- kind: ServiceAccount
-  name: gateway-api-controller
-  namespace: aws-application-networking-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: proxy-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: proxy-role
 subjects:
 - kind: ServiceAccount
   name: gateway-api-controller
@@ -2556,10 +2523,10 @@ metadata:
   namespace: aws-application-networking-system
 spec:
   ports:
-  - name: https
-    port: 8443
+  - name: http
+    port: 8080
     protocol: TCP
-    targetPort: https
+    targetPort: 8080
   selector:
     control-plane: gateway-api-controller
 ---
@@ -2596,26 +2563,13 @@ spec:
     spec:
       containers:
       - args:
-        - --secure-listen-address=0.0.0.0:8443
-        - --upstream=http://127.0.0.1:8080/
-        - --logtostderr=true
-        - --v=10
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
-        name: kube-rbac-proxy
-        ports:
-        - containerPort: 8443
-          name: https
-          protocol: TCP
-      - args:
-        - --health-probe-bind-address=:8081
-        - --metrics-bind-address=0.0.0.0:8080
         - --leader-elect
         command:
         - /manager
         env:
         - name: WEBHOOK_ENABLED
           value: ""
-        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v1.1.5
+        image: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller:v2.0.2
         livenessProbe:
           httpGet:
             path: /healthz

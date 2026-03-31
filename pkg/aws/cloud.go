@@ -35,6 +35,7 @@ type Cloud interface {
 	Config() CloudConfig
 	Lattice() services.Lattice
 	Tagging() services.Tagging
+	ACM() services.ACM
 
 	// creates lattice tags with default values populated
 	DefaultTags() services.Tags
@@ -98,8 +99,15 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Re
 		tagging = services.NewDefaultTagging(sess, cfg.Region)
 	}
 
-	cl := NewDefaultCloudWithTagging(lattice, tagging, cfg)
-	return cl, nil
+	acmClient := services.NewDefaultACM(sess, cfg.Region)
+
+	return &defaultCloud{
+		cfg:          cfg,
+		lattice:      lattice,
+		tagging:      tagging,
+		acm:          acmClient,
+		managedByTag: getManagedByTag(cfg),
+	}, nil
 }
 
 // Used in testing and mocks
@@ -124,6 +132,7 @@ type defaultCloud struct {
 	cfg          CloudConfig
 	lattice      services.Lattice
 	tagging      services.Tagging
+	acm          services.ACM
 	managedByTag string
 }
 
@@ -133,6 +142,10 @@ func (c *defaultCloud) Lattice() services.Lattice {
 
 func (c *defaultCloud) Tagging() services.Tagging {
 	return c.tagging
+}
+
+func (c *defaultCloud) ACM() services.ACM {
+	return c.acm
 }
 
 func (c *defaultCloud) Config() CloudConfig {

@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -98,6 +100,8 @@ func RegisterAllRouteControllers(
 		{core.TlsRouteType, &gwv1alpha2.TLSRoute{}},
 	}
 
+	certDiscovery := services.NewCertificateDiscovery(cloud.ACM())
+
 	for _, routeInfo := range routeInfos {
 		brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(log, mgrClient)
 		reconciler := routeReconciler{
@@ -107,7 +111,7 @@ func RegisterAllRouteControllers(
 			scheme:           mgr.GetScheme(),
 			finalizerManager: finalizerManager,
 			eventRecorder:    mgr.GetEventRecorderFor(string(routeInfo.routeType) + "route"),
-			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, brTgBuilder),
+			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, brTgBuilder, certDiscovery),
 			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 			cloud:            cloud,
@@ -358,6 +362,24 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 			}
 			return nil
 		}
+		if stderrors.Is(err, gateway.ErrCertificateNotFound) {
+			parentRef, parentRefErr := r.findControlledParentRef(ctx, route)
+			if parentRefErr != nil {
+				return parentRefErr
+			}
+			route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
+			route.Status().UpdateRouteCondition(parentRef, metav1.Condition{
+				Type:               string(gwv1.RouteConditionAccepted),
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: route.K8sObject().GetGeneration(),
+				Reason:             "CertificateNotFound",
+				Message:            err.Error(),
+			})
+			if statusErr := r.client.Status().Update(ctx, route.K8sObject()); statusErr != nil {
+				return fmt.Errorf("failed to update route status: %w", statusErr)
+			}
+			return lattice_runtime.NewRequeueNeededAfter("certificate not found, retrying", 1*time.Minute)
+		}
 		return err
 	}
 
@@ -526,7 +548,7 @@ func (r *routeReconciler) hasNotAcceptedCondition(route core.Route) bool {
 // - NoMatchingParent: parentRef sectionName and port matches Listener name and port
 // - NotAllowedByListeners: listener allowedRoutes.namespaces allows route
 // - NotAllowedByListeners: listener allowedRoutes.kinds contains route GroupKind
-// - TODO: NoMatchingListenerHostname: listener hostname matches one of route hostnames
+// - NoMatchingListenerHostname: listener hostname matches one of route hostnames
 func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route core.Route) ([]gwv1.RouteParentStatus, error) {
 	if len(route.Spec().ParentRefs()) == 0 {
 		return nil, ErrParentRefsNotFound
@@ -541,6 +563,7 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 	gw := gws[0]
 	for _, parentRef := range route.Spec().ParentRefs() {
 		noMatchingParent := true
+		noMatchingHostname := false
 		notAllowedByAnyMatchingListener := true
 
 		for _, listener := range gw.Spec.Listeners {
@@ -551,6 +574,11 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 				continue
 			}
 			noMatchingParent = false
+
+			if !core.HostnamesIntersect(route, listener) {
+				noMatchingHostname = true
+				continue
+			}
 
 			allowed, err := core.IsRouteAllowedByListener(ctx, r.client, route, gw, listener)
 			if err != nil {
@@ -573,6 +601,9 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 		switch {
 		case noMatchingParent:
 			cnd = r.newCondition(route, gwv1.RouteConditionAccepted, gwv1.RouteReasonNoMatchingParent, "")
+		case noMatchingHostname && notAllowedByAnyMatchingListener:
+			cnd = r.newCondition(route, gwv1.RouteConditionAccepted, gwv1.RouteReasonNoMatchingListenerHostname,
+				"No matching listener hostname for this route")
 		case notAllowedByAnyMatchingListener:
 			cnd = r.newCondition(route, gwv1.RouteConditionAccepted, gwv1.RouteReasonNotAllowedByListeners,
 				"No matching listeners allow this route. Check Gateway listener allowedRoutes policies")
