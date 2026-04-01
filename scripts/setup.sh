@@ -3,7 +3,7 @@
 declare -a DEPENDENCY_LIST=("go" "awscli" "kubernetes-cli" "eksctl" "helm" "jq" "yq" "make")
 CURRENT_CONTROLLER_VERSION="2.0.2"
 CURRENT_CRD_VERSION="1.2.0"
-GOLANGCI_LINT_VERSION="2.4.0"
+GOLANGCI_LINT_VERSION="2.11.3"
 EKS_POD_IDENTITY_AGENT_VERSION="1.0.0-eksbuild.1"
 
 main() {
@@ -87,7 +87,7 @@ tools() {
             fi
         fi
 
-        go install github.com/golang/mock/mockgen@v1.6.0
+        go install go.uber.org/mock/mockgen@latest
 
         echo "Tools installed/updated successfully."
     fi
