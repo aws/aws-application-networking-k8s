@@ -27,6 +27,7 @@ type ServiceNetworkManager interface {
 	DeleteVpcAssociation(ctx context.Context, snName string) error
 
 	CreateOrUpdate(ctx context.Context, serviceNetwork *model.ServiceNetwork) (model.ServiceNetworkStatus, error)
+	Delete(ctx context.Context, snName string) error
 }
 
 func NewDefaultServiceNetworkManager(log gwlog.Logger, cloud pkg_aws.Cloud) *defaultServiceNetworkManager {
@@ -172,6 +173,52 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 	return nil
 }
 
+func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string) error {
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName)
+	if err != nil {
+		if services.IsNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+
+	snArn := aws.StringValue(sn.SvcNetwork.Arn)
+	owned, err := m.cloud.IsArnManaged(ctx, snArn)
+	if err != nil {
+		m.log.Warnf(ctx, "cannot check ownership of ServiceNetwork %s: %s, skipping deletion", snName, err)
+		return nil
+	}
+	if !owned {
+		m.log.Infof(ctx, "ServiceNetwork %s not owned by controller, skipping deletion", snName)
+		return nil
+	}
+
+	assocs, err := m.cloud.Lattice().ListServiceNetworkServiceAssociationsAsList(ctx,
+		&vpclattice.ListServiceNetworkServiceAssociationsInput{
+			ServiceNetworkIdentifier: sn.SvcNetwork.Id,
+		})
+	if err != nil {
+		return fmt.Errorf("failed to list service associations for ServiceNetwork %s: %w", snName, err)
+	}
+	if len(assocs) > 0 {
+		return fmt.Errorf("cannot delete ServiceNetwork %s: %d service association(s) still active, "+
+			"detach all services before deleting the Gateway", snName, len(assocs))
+	}
+
+	if err := m.DeleteVpcAssociation(ctx, snName); err != nil {
+		return err
+	}
+
+	_, err = m.cloud.Lattice().DeleteServiceNetworkWithContext(ctx, &vpclattice.DeleteServiceNetworkInput{
+		ServiceNetworkIdentifier: sn.SvcNetwork.Id,
+	})
+	if err != nil {
+		return err
+	}
+	m.log.Infof(ctx, "Deleted ServiceNetwork %s", snName)
+	return nil
+}
+
 func (m *defaultServiceNetworkManager) getActiveVpcAssociation(ctx context.Context, serviceNetworkId string) (*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
 	vpcLatticeSess := m.cloud.Lattice()
 	associationStatusInput := vpclattice.ListServiceNetworkVpcAssociationsInput{
@@ -250,6 +297,11 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 				serviceNetwork.Spec.Name, aws.StringValue(snva.Arn))
 			return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
 		}
+	}
+
+	if !serviceNetwork.Spec.AssociateToVPC {
+		m.log.Debugf(ctx, "Skipping VPC association for ServiceNetwork %s (AssociateToVPC=false)", serviceNetwork.Spec.Name)
+		return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
 	}
 
 	m.log.Debugf(ctx, "Creating association between ServiceNetwork %s and VPC %s", serviceNetworkId, config.VpcID)

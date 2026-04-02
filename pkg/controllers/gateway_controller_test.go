@@ -701,3 +701,79 @@ func TestUpdateGWListenerStatus_SupportedKinds(t *testing.T) {
 		})
 	}
 }
+
+func TestHasSiblingGateway(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+	gwv1alpha2.Install(scheme)
+	addOptionalCRDs(scheme)
+
+	latticeControllerName := gwv1.GatewayController("application-networking.k8s.aws/gateway-api-controller")
+	gwClass := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "amazon-vpc-lattice"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: latticeControllerName},
+	}
+
+	makeGW := func(name, ns string, uid types.UID, deleting bool) *gwv1.Gateway {
+		gw := &gwv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name, Namespace: ns, UID: uid,
+			},
+			Spec: gwv1.GatewaySpec{GatewayClassName: "amazon-vpc-lattice"},
+		}
+		if deleting {
+			now := metav1.Now()
+			gw.DeletionTimestamp = &now
+			gw.Finalizers = []string{"test"}
+		}
+		return gw
+	}
+
+	tests := []struct {
+		name     string
+		gw       *gwv1.Gateway
+		others   []*gwv1.Gateway
+		expected bool
+	}{
+		{
+			name:     "no sibling — only gateway with this name",
+			gw:       makeGW("my-network", "ns1", "uid-1", false),
+			others:   nil,
+			expected: false,
+		},
+		{
+			name:     "has sibling — same name different namespace",
+			gw:       makeGW("my-network", "ns1", "uid-1", false),
+			others:   []*gwv1.Gateway{makeGW("my-network", "ns2", "uid-2", false)},
+			expected: true,
+		},
+		{
+			name:     "sibling being deleted — not counted",
+			gw:       makeGW("my-network", "ns1", "uid-1", false),
+			others:   []*gwv1.Gateway{makeGW("my-network", "ns2", "uid-2", true)},
+			expected: false,
+		},
+		{
+			name:     "different name — not a sibling",
+			gw:       makeGW("my-network", "ns1", "uid-1", false),
+			others:   []*gwv1.Gateway{makeGW("other-network", "ns2", "uid-2", false)},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objs := []runtime.Object{gwClass, tt.gw}
+			for _, o := range tt.others {
+				objs = append(objs, o)
+			}
+			k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build()
+
+			r := &gatewayReconciler{client: k8sClient}
+			result, err := r.hasSiblingGateway(context.Background(), tt.gw)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
