@@ -47,11 +47,23 @@ func (r *resourceMapper) ServiceToServiceExport(ctx context.Context, svc *corev1
 	if svc == nil {
 		return nil
 	}
+	// Direct name match (common case: ServiceExport name == Service name)
 	svcExport := &anv1alpha1.ServiceExport{}
-	if err := r.client.Get(ctx, k8sutils.NamespacedName(svc), svcExport); err != nil {
+	if err := r.client.Get(ctx, k8sutils.NamespacedName(svc), svcExport); err == nil {
+		return svcExport
+	}
+
+	// Reverse lookup: find ServiceExport with service-name annotation pointing to this Service
+	svcExportList := &anv1alpha1.ServiceExportList{}
+	if err := r.client.List(ctx, svcExportList, client.InNamespace(svc.Namespace)); err != nil {
 		return nil
 	}
-	return svcExport
+	for i := range svcExportList.Items {
+		if k8sutils.GetServiceNameFromServiceExport(&svcExportList.Items[i]) == svc.Name {
+			return &svcExportList.Items[i]
+		}
+	}
+	return nil
 }
 
 func (r *resourceMapper) EndpointSliceToService(ctx context.Context, epSlice *discoveryv1.EndpointSlice) *corev1.Service {

@@ -18,6 +18,12 @@ ServiceExport resources can be targeted by [`TargetGroupPolicy`](target-group-po
 
 **Protocol Override with ExportedPorts**: When using the `exportedPorts` field, TargetGroupPolicy protocol and protocolVersion settings will override the default protocol inferred from the `routeType`. For example, you can specify `routeType: HTTP` in the ServiceExport but use `protocol: HTTPS` in the TargetGroupPolicy to enable secure communication between VPC Lattice and your backend pods.
 
+### Annotations
+
+* `application-networking.k8s.aws/service-name`  
+  (Optional) When specified, the controller will look up the named K8s Service instead of using the ServiceExport's own
+  name. See [ServiceImport](service-import.md) for the corresponding `export-name` annotation.
+
 ### Annotations (Legacy Method)
 
 * `application-networking.k8s.aws/port`  
@@ -155,3 +161,22 @@ spec:
 ```
 
 In this example, even though the ServiceExport specifies `routeType: HTTP`, the TargetGroupPolicy configures the target group to use HTTPS with HTTP/2, enabling secure communication between VPC Lattice and your backend pods.
+
+### Using service-name Annotation
+
+The following yaml creates a ServiceExport named `checkout-cluster1` that exports a Service named `checkout`:
+```yaml
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceExport
+metadata:
+  name: checkout-cluster1
+  annotations:
+    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
+    application-networking.k8s.aws/service-name: "checkout"
+spec:
+  exportedPorts:
+  - port: 80
+    routeType: HTTP
+```
+
+For a complete multi-cluster example, see [Cross-Cluster Routing with Same Service Names](../guides/advanced-configurations.md#cross-cluster-routing-with-same-service-names).

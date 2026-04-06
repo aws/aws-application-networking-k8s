@@ -217,6 +217,142 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 			wantErrIsNil:  false,
 			wantIsDeleted: false,
 		},
+		{
+			name: "ServiceExport with service-name annotation - service lookup uses annotation value",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-with-annotation",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/service-name": "actual-service",
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "actual-service", // Different from ServiceExport name
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			endPoints: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "actual-service",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "actual-service",
+						},
+					},
+				},
+			},
+			wantErrIsNil:        true,
+			wantIsDeleted:       false,
+			wantIPv6TargetGroup: false,
+		},
+		{
+			name: "ServiceExport with empty service-name annotation - falls back to ServiceExport name",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-empty-annotation",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/service-name": "",
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-empty-annotation", // Same as ServiceExport name
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			endPoints: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "export-empty-annotation",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "export-empty-annotation",
+						},
+					},
+				},
+			},
+			wantErrIsNil:        true,
+			wantIsDeleted:       false,
+			wantIPv6TargetGroup: false,
+		},
+		{
+			name: "ServiceExport with whitespace service-name annotation - falls back to ServiceExport name",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-whitespace-annotation",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/service-name": "   ",
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-whitespace-annotation", // Same as ServiceExport name
+					Namespace: "ns1",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{},
+					},
+					IPFamilies: []corev1.IPFamily{
+						corev1.IPv4Protocol,
+					},
+				},
+			},
+			endPoints: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "export-whitespace-annotation",
+						Labels: map[string]string{
+							discoveryv1.LabelServiceName: "export-whitespace-annotation",
+						},
+					},
+				},
+			},
+			wantErrIsNil:        true,
+			wantIsDeleted:       false,
+			wantIPv6TargetGroup: false,
+		},
+		{
+			name: "ServiceExport with service-name annotation referencing non-existent service - should fail",
+			svcExport: &anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "export-nonexistent",
+					Namespace: "ns1",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/service-name": "nonexistent-service",
+					},
+				},
+			},
+			// No service created - should fail
+			wantErrIsNil:        false,
+			wantIsDeleted:       false,
+			wantIPv6TargetGroup: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -276,8 +412,8 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 			assert.Equal(t, config.ClusterName, stackTg.Spec.K8SClusterName)
 			assert.Equal(t, config.VpcID, stackTg.Spec.VpcId)
 			assert.Equal(t, model.SourceTypeSvcExport, stackTg.Spec.K8SSourceType)
-			assert.Equal(t, tt.svc.Name, stackTg.Spec.K8SServiceName)
-			assert.Equal(t, tt.svc.Namespace, stackTg.Spec.K8SServiceNamespace)
+			assert.Equal(t, tt.svcExport.Name, stackTg.Spec.K8SServiceName)
+			assert.Equal(t, tt.svcExport.Namespace, stackTg.Spec.K8SServiceNamespace)
 			assert.Equal(t, "", stackTg.Spec.K8SRouteName)
 			assert.Equal(t, "", stackTg.Spec.K8SRouteNamespace)
 		})
