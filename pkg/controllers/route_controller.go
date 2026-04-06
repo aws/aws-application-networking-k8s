@@ -231,7 +231,7 @@ func updateRouteListenerStatus(ctx context.Context, k8sClient client.Client, rou
 	}
 	// TODO assume one parent for now and point to service network
 	gw := gws[0]
-	return UpdateGWListenerStatus(ctx, k8sClient, gw)
+	return UpdateGWListenerStatus(ctx, k8sClient, gw, route)
 
 }
 
