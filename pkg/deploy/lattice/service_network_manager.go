@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"golang.org/x/exp/slices"
+	"slices"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"

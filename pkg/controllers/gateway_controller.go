@@ -160,20 +160,28 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 }
 
 func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway) error {
+	// Update gateway conditions with current generation so observedGeneration stays
+	// current during the Terminating phase (deletion bumps metadata.generation).
+	_ = r.updateGatewayAcceptStatus(ctx, gw, true)
+
 	routes, err := core.ListAllRoutes(ctx, r.client)
 	if err != nil {
 		return err
 	}
 
 	for _, route := range routes {
-		parents, err := k8s.FindControlledParents(ctx, r.client, route)
-		if len(parents) > 0 {
-			gw := parents[0]
-			return fmt.Errorf("cannot delete gateway %s/%s - found referencing route %s/%s",
-				gw.Namespace, gw.Name, route.Namespace(), route.Name())
-		}
-		if err != nil {
-			continue
+		for _, parentRef := range route.Spec().ParentRefs() {
+			if string(parentRef.Name) != gw.Name {
+				continue
+			}
+			ns := route.Namespace()
+			if parentRef.Namespace != nil {
+				ns = string(*parentRef.Namespace)
+			}
+			if ns == gw.Namespace {
+				return fmt.Errorf("cannot delete gateway %s/%s - found referencing route %s/%s",
+					gw.Namespace, gw.Name, route.Namespace(), route.Name())
+			}
 		}
 	}
 
@@ -292,7 +300,7 @@ func (r *gatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	return nil
 }
 
-func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway) error {
+func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway, overrideRoute ...core.Route) error {
 	hasValidListener := false
 
 	gwOld := gw.DeepCopy()
@@ -302,30 +310,61 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 		return err
 	}
 
+	// If an override route is provided, replace the matching cached route (or append if new).
+	// This avoids a read-after-write race where the informer cache hasn't synced yet.
+	if len(overrideRoute) > 0 {
+		override := overrideRoute[0]
+		found := false
+		for i, r := range routes {
+			if r.Name() == override.Name() && r.Namespace() == override.Namespace() {
+				routes[i] = override
+				found = true
+				break
+			}
+		}
+		if !found {
+			routes = append(routes, override)
+		}
+	}
+
 	// Add one of lattice domains as GW address. This is supposed to be a single ingress endpoint (or a single pool of them)
 	// but we have different endpoints for each service. This can represent incorrect value in some cases (e.g. cross-account)
 	// Due to size limit, we cannot put all service addresses here.
-	if len(routes) > 0 {
-		gw.Status.Addresses = []gwv1.GatewayStatusAddress{}
-		addressType := gwv1.HostnameAddressType
-		for _, route := range routes {
-			if route.DeletionTimestamp().IsZero() && len(route.K8sObject().GetAnnotations()) > 0 {
-				if domain, exists := route.K8sObject().GetAnnotations()[LatticeAssignedDomainName]; exists {
-					gw.Status.Addresses = append(gw.Status.Addresses, gwv1.GatewayStatusAddress{
-						Type:  &addressType,
-						Value: domain,
-					})
-					break
-				}
+	gw.Status.Addresses = []gwv1.GatewayStatusAddress{}
+	addressType := gwv1.HostnameAddressType
+	for _, route := range routes {
+		if !route.DeletionTimestamp().IsZero() {
+			continue
+		}
+		referencesGW := false
+		for _, parentRef := range route.Spec().ParentRefs() {
+			if string(parentRef.Name) != gw.Name {
+				continue
 			}
+			ns := route.Namespace()
+			if parentRef.Namespace != nil {
+				ns = string(*parentRef.Namespace)
+			}
+			if ns == gw.Namespace {
+				referencesGW = true
+				break
+			}
+		}
+		if !referencesGW {
+			continue
+		}
+		if domain, exists := route.K8sObject().GetAnnotations()[LatticeAssignedDomainName]; exists {
+			gw.Status.Addresses = append(gw.Status.Addresses, gwv1.GatewayStatusAddress{
+				Type:  &addressType,
+				Value: domain,
+			})
+			break
 		}
 	}
 
 	if len(gw.Spec.Listeners) == 0 {
 		return fmt.Errorf("failed to find gateway listener")
 	}
-
-	defaultListener := gw.Spec.Listeners[0]
 
 	// Build new listener status list from current spec (removes stale entries for deleted listeners)
 	newListenerStatuses := make([]gwv1.ListenerStatus, 0, len(gw.Spec.Listeners))
@@ -370,6 +409,14 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 				LastTransitionTime: metav1.Now(),
 			}
 
+			programmedCondition := metav1.Condition{
+				Type:               string(gwv1.ListenerConditionProgrammed),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(gwv1.ListenerReasonProgrammed),
+				ObservedGeneration: gw.Generation,
+				LastTransitionTime: metav1.Now(),
+			}
+
 			for _, route := range routes {
 				if !route.DeletionTimestamp().IsZero() {
 					// Ignore the deleted route
@@ -386,14 +433,8 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 						continue
 					}
 
-					var sectionName string
-					if parentRef.SectionName == nil {
-						sectionName = string(defaultListener.Name)
-					} else {
-						sectionName = string(*parentRef.SectionName)
-					}
-
-					if sectionName != string(listener.Name) {
+					// When sectionName is specified, only match that listener
+					if parentRef.SectionName != nil && string(*parentRef.SectionName) != string(listener.Name) {
 						continue
 					}
 
@@ -401,20 +442,28 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 						continue
 					}
 
+					// Check route kind and namespace compatibility with listener
+					allowed, err := core.IsRouteAllowedByListener(ctx, k8sClient, route, gw, listener)
+					if err != nil || !allowed {
+						continue
+					}
+
 					listenerStatus.AttachedRoutes++
 				}
 			}
 
-			if listener.Protocol == gwv1.HTTPSProtocolType {
-				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{
-					Kind: "GRPCRoute",
-				})
+			switch listener.Protocol {
+			case gwv1.TLSProtocolType:
+				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{Kind: "TLSRoute"})
+			case gwv1.HTTPSProtocolType:
+				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds,
+					gwv1.RouteGroupKind{Kind: "HTTPRoute"},
+					gwv1.RouteGroupKind{Kind: "GRPCRoute"},
+				)
+			default:
+				listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{Kind: "HTTPRoute"})
 			}
-
-			listenerStatus.SupportedKinds = append(listenerStatus.SupportedKinds, gwv1.RouteGroupKind{
-				Kind: "HTTPRoute",
-			})
-			listenerStatus.Conditions = append(listenerStatus.Conditions, acceptedCondition, resolvedRefsCondition)
+			listenerStatus.Conditions = append(listenerStatus.Conditions, acceptedCondition, resolvedRefsCondition, programmedCondition)
 		}
 
 		newListenerStatuses = append(newListenerStatuses, listenerStatus)
@@ -438,26 +487,25 @@ func listenerRouteGroupKindSupported(listener gwv1.Listener) (bool, []gwv1.Route
 	supportedKinds := make([]gwv1.RouteGroupKind, 0)
 
 	for _, routeGroupKind := range listener.AllowedRoutes.Kinds {
-		if routeGroupKind.Kind == "HTTPRoute" {
-			supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{
-				Kind: "HTTPRoute",
-			})
-		} else if routeGroupKind.Kind == "GRPCRoute" {
+		switch routeGroupKind.Kind {
+		case "HTTPRoute":
+			supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "HTTPRoute"})
+		case "GRPCRoute":
 			if listener.Protocol == gwv1.HTTPSProtocolType {
-				supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{
-					Kind: "GRPCRoute",
-				})
+				supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "GRPCRoute"})
 			} else {
 				validRoute = false
 			}
-		} else {
+		case "TLSRoute":
+			if listener.Protocol == gwv1.TLSProtocolType {
+				supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "TLSRoute"})
+			} else {
+				validRoute = false
+			}
+		default:
 			validRoute = false
 		}
 	}
 
-	if validRoute {
-		return true, supportedKinds
-	} else {
-		return false, supportedKinds
-	}
+	return validRoute, supportedKinds
 }

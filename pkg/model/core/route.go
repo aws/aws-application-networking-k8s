@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -121,9 +122,13 @@ func HasAllParentRefsRejected(route Route) bool {
 }
 
 // IsRouteAllowedByListener checks if route is allowed by listener's namespace and kind policies
-// checks allowedRoutes.namespaces (Same, All, Selector) and allowedRoutes.kinds
+// checks allowedRoutes.namespaces (Same, All, Selector), allowedRoutes.kinds, and hostname intersection
 func IsRouteAllowedByListener(ctx context.Context, k8sClient client.Client, route Route, gw *gwv1.Gateway, listener gwv1.Listener) (bool, error) {
 	if !isRouteKindAllowedByListener(route, listener) {
+		return false, nil
+	}
+
+	if !hostnamesIntersect(route, listener) {
 		return false, nil
 	}
 
@@ -176,6 +181,48 @@ func isRouteKindAllowedByListener(route Route, listener gwv1.Listener) bool {
 	default:
 		return false
 	}
+}
+
+// hostnamesIntersect checks if a route's hostnames intersect with a listener's hostname.
+// Per Gateway API spec: if listener has no hostname, all routes match.
+// If route has no hostnames, it matches any listener. Otherwise at least one
+// route hostname must match or be a subdomain of the listener hostname (or vice versa).
+func hostnamesIntersect(route Route, listener gwv1.Listener) bool {
+	if listener.Hostname == nil || *listener.Hostname == "" {
+		return true
+	}
+	routeHostnames := route.Spec().Hostnames()
+	if len(routeHostnames) == 0 {
+		return true
+	}
+	lh := string(*listener.Hostname)
+	for _, rh := range routeHostnames {
+		if hostnameMatch(string(rh), lh) {
+			return true
+		}
+	}
+	return false
+}
+
+// hostnameMatch returns true if two hostnames intersect per Gateway API spec.
+// A wildcard hostname (*.example.com) matches any subdomain (foo.example.com).
+func hostnameMatch(a, b string) bool {
+	if a == b {
+		return true
+	}
+	// Check if one is a wildcard prefix of the other
+	if strings.HasPrefix(a, "*.") && strings.HasSuffix(b, a[1:]) {
+		return true
+	}
+	if strings.HasPrefix(b, "*.") && strings.HasSuffix(a, b[1:]) {
+		return true
+	}
+	return false
+}
+
+// HostnamesIntersect checks if any of the route's hostnames intersect with the listener's hostname.
+func HostnamesIntersect(route Route, listener gwv1.Listener) bool {
+	return hostnamesIntersect(route, listener)
 }
 
 func IsParentRefAccepted(route Route, parentRef gwv1.ParentReference) bool {

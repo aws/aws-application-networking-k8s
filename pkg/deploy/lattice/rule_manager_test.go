@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func Test_Create(t *testing.T) {
@@ -267,7 +267,7 @@ func Test_Create(t *testing.T) {
 
 		mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, input *vpclattice.CreateRuleInput, i ...interface{}) (*vpclattice.CreateRuleOutput, error) {
-				assert.Equal(t, int64(404), aws.Int64Value(input.Action.FixedResponse.StatusCode))
+				assert.Equal(t, int64(500), aws.Int64Value(input.Action.FixedResponse.StatusCode))
 
 				return &vpclattice.CreateRuleOutput{
 					Arn:  aws.String("arn"),

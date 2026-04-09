@@ -24,3 +24,4 @@ pkg/**/prog.*
 
 # Kiro
 .kiro
+aws-application-networking-k8s

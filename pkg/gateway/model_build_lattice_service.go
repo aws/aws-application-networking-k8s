@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/service/vpclattice"
@@ -12,6 +13,7 @@ import (
 
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -20,25 +22,30 @@ import (
 
 //go:generate mockgen -destination model_build_lattice_service_mock.go -package gateway github.com/aws/aws-application-networking-k8s/pkg/gateway LatticeServiceBuilder
 
+var ErrCertificateNotFound = errors.New("no matching ACM certificate found")
+
 type LatticeServiceBuilder interface {
 	Build(ctx context.Context, httpRoute core.Route) (core.Stack, error)
 }
 
 type LatticeServiceModelBuilder struct {
-	log         gwlog.Logger
-	client      client.Client
-	brTgBuilder BackendRefTargetGroupModelBuilder
+	log           gwlog.Logger
+	client        client.Client
+	brTgBuilder   BackendRefTargetGroupModelBuilder
+	certDiscovery services.CertificateDiscovery
 }
 
 func NewLatticeServiceBuilder(
 	log gwlog.Logger,
 	client client.Client,
 	brTgBuilder BackendRefTargetGroupModelBuilder,
+	certDiscovery services.CertificateDiscovery,
 ) *LatticeServiceModelBuilder {
 	return &LatticeServiceModelBuilder{
-		log:         log,
-		client:      client,
-		brTgBuilder: brTgBuilder,
+		log:           log,
+		client:        client,
+		brTgBuilder:   brTgBuilder,
+		certDiscovery: certDiscovery,
 	}
 }
 
@@ -49,11 +56,12 @@ func (b *LatticeServiceModelBuilder) Build(
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
 
 	task := &latticeServiceModelBuildTask{
-		log:         b.log,
-		route:       route,
-		stack:       stack,
-		client:      b.client,
-		brTgBuilder: b.brTgBuilder,
+		log:           b.log,
+		route:         route,
+		stack:         stack,
+		client:        b.client,
+		brTgBuilder:   b.brTgBuilder,
+		certDiscovery: b.certDiscovery,
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -246,6 +254,7 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 		return "", err
 	}
 
+	hasTLSTerminateListener := false
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		if string(parentRef.Name) != gw.Name {
 			t.log.Debugf(ctx, "Ignore ParentRef of different gateway %s", parentRef.Name)
@@ -259,6 +268,7 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 		for _, section := range gw.Spec.Listeners {
 			if section.Name == *parentRef.SectionName && section.TLS != nil {
 				if section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModeTerminate {
+					hasTLSTerminateListener = true
 					curCertARN, ok := section.TLS.Options[awsCustomCertARN]
 					if ok {
 						t.log.Debugf(ctx, "Found certification %s under section %s", curCertARN, section.Name)
@@ -270,15 +280,36 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 		}
 	}
 
+	// Automatic certificate discovery fallback
+	if hasTLSTerminateListener && t.certDiscovery != nil &&
+		len(t.route.Spec().Hostnames()) > 0 && t.route.DeletionTimestamp().IsZero() {
+		// VPC Lattice supports one custom domain per service, so only the first hostname is used
+		hostname := string(t.route.Spec().Hostnames()[0])
+		t.log.Debugf(ctx, "Attempting automatic certificate discovery for hostname %s", hostname)
+		certArn, err := t.certDiscovery.Discover(ctx, hostname)
+		if err != nil {
+			if errors.Is(err, services.ErrACMAccessDenied) {
+				return "", fmt.Errorf("%w: %v", ErrCertificateNotFound, err)
+			}
+			return "", fmt.Errorf("certificate discovery failed for hostname %s: %w", hostname, err)
+		}
+		if certArn != "" {
+			t.log.Infof(ctx, "Discovered certificate %s for hostname %s", certArn, hostname)
+			return certArn, nil
+		}
+		return "", fmt.Errorf("%w for hostname %s", ErrCertificateNotFound, hostname)
+	}
+
 	return "", nil
 }
 
 type latticeServiceModelBuildTask struct {
-	log         gwlog.Logger
-	route       core.Route
-	client      client.Client
-	stack       core.Stack
-	brTgBuilder BackendRefTargetGroupModelBuilder
+	log           gwlog.Logger
+	route         core.Route
+	client        client.Client
+	stack         core.Stack
+	brTgBuilder   BackendRefTargetGroupModelBuilder
+	certDiscovery services.CertificateDiscovery
 }
 
 // isStandaloneMode determines if standalone mode should be enabled for the route.

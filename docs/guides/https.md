@@ -24,7 +24,7 @@ spec:
     protocol: HTTPS     # Specify HTTPS protocol
     port: 443           # Specify communication on port 443
 ...
-```    
+```
 
 Next, the following modifications to the `files/examples/rate-route-path.yaml` file tell the `rates` HTTPRoute to use HTTPs for communications:
 
@@ -43,16 +43,56 @@ spec:
 ...
 ```
 
-In this case, the VPC Lattice service automatically generates a managed ACM certificate and uses it for encryting client to service traffic.
+In this case, the VPC Lattice service automatically generates a managed ACM certificate and uses it for encrypting client to service traffic.
 
 ### Bring Your Own Certificate (BYOC)
 
-If you want to use a custom domain name along with its own certificate, you can:
+If you want to use a custom domain name along with its own certificate, follow instructions on [Requesting a public certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) to create a certificate for your custom domain name in ACM. 
 
-* Follow instructions on [Requesting a public certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) and get an ACM certificate ARN.
-* Add the ARN to the listener configuration as shown below.
+Note that only `Terminate` mode is supported (Passthrough is not supported).
 
-The following shows modifications to `files/examples/my-hotel-gateway.yaml` to add a custom certificate:
+#### Automatic Certificate Discovery
+
+If you have an ACM certificate matching your route's hostname, the controller can automatically discover and use it. Configure an HTTPS listener without the `certificate-arn` option:
+
+```yaml title="my-hotel-gateway.yaml"
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: my-hotel
+spec:
+  gatewayClassName: amazon-vpc-lattice
+  listeners:
+  - name: https
+    protocol: HTTPS      # This is required
+    port: 443
+    tls:
+      mode: Terminate    # This is required
+      certificateRefs:   # This is required per API spec, but currently not used by the controller
+      - name: unused
+      # No certificate-arn option needed — the controller discovers it from ACM
+```
+
+The HTTPRoute must specify a `hostnames` field matching the certificate's domain or SAN:
+
+```yaml title="rate-route-path.yaml"
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: rates
+spec:
+  hostnames:
+    - review.my-test.com               # MUST match the DNS in the certificate
+  parentRefs:
+  - name: my-hotel
+    sectionName: https
+  rules:
+  ...
+```
+
+#### Manual Certificate ARN
+
+If you want to explicitly specify which certificate to use, add the ARN to the listener configuration. This takes priority over automatic discovery.
 
 ```yaml title="my-hotel-gateway.yaml" hl_lines="16 17 18 19"
 apiVersion: gateway.networking.k8s.io/v1
@@ -77,7 +117,6 @@ spec:
       options:           # Instead, we specify ACM certificate ARN under this section
         application-networking.k8s.aws/certificate-arn: arn:aws:acm:us-west-2:<account>:certificate/<certificate-id>
 ```
-Note that only `Terminate` mode is supported (Passthrough is not supported).
 
 Next, associate the HTTPRoute to the listener configuration you just configured:
 
