@@ -11,8 +11,9 @@ import (
 
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
@@ -25,7 +26,7 @@ import (
 type ListenerManager interface {
 	Upsert(ctx context.Context, modelListener *model.Listener, modelSvc *model.Service) (model.ListenerStatus, error)
 	Delete(ctx context.Context, modelListener *model.Listener) error
-	List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error)
+	List(ctx context.Context, serviceID string) ([]*types.ListenerSummary, error)
 }
 
 type defaultListenerManager struct {
@@ -71,9 +72,9 @@ func (d *defaultListenerManager) Upsert(
 	}
 
 	existingListenerStatus := model.ListenerStatus{
-		Name:        aws.StringValue(latticeListenerSummary.Name),
-		ListenerArn: aws.StringValue(latticeListenerSummary.Arn),
-		Id:          aws.StringValue(latticeListenerSummary.Id),
+		Name:        aws.ToString(latticeListenerSummary.Name),
+		ListenerArn: aws.ToString(latticeListenerSummary.Arn),
+		Id:          aws.ToString(latticeListenerSummary.Id),
 		ServiceId:   latticeSvcId,
 	}
 
@@ -84,12 +85,12 @@ func (d *defaultListenerManager) Upsert(
 		}
 	}
 
-	err = d.cloud.Tagging().UpdateTags(ctx, aws.StringValue(latticeListenerSummary.Arn), modelListener.Spec.AdditionalTags, awsManagedTags)
+	err = d.cloud.Tagging().UpdateTags(ctx, aws.ToString(latticeListenerSummary.Arn), modelListener.Spec.AdditionalTags, awsManagedTags)
 	if err != nil {
-		return model.ListenerStatus{}, fmt.Errorf("failed to update tags for listener %s due to %s", aws.StringValue(latticeListenerSummary.Id), err)
+		return model.ListenerStatus{}, fmt.Errorf("failed to update tags for listener %s due to %s", aws.ToString(latticeListenerSummary.Id), err)
 	}
 
-	if modelListener.Spec.Protocol != vpclattice.ListenerProtocolTlsPassthrough {
+	if modelListener.Spec.Protocol != string(types.ListenerProtocolTlsPassthrough) {
 		// The only mutable field for lattice listener is defaultAction, for non-TLS_PASSTHROUGH listener, the defaultAction is always the FixedResponse 404. Don't need to update.
 		return existingListenerStatus, nil
 	}
@@ -107,55 +108,57 @@ func (d *defaultListenerManager) Upsert(
 	return existingListenerStatus, nil
 }
 
-func (d *defaultListenerManager) create(ctx context.Context, latticeSvcId string, modelListener *model.Listener, defaultAction *vpclattice.RuleAction) (
+func (d *defaultListenerManager) create(ctx context.Context, latticeSvcId string, modelListener *model.Listener, defaultAction types.RuleAction) (
 	model.ListenerStatus, error) {
 	tags := d.cloud.MergeTags(d.cloud.DefaultTags(), modelListener.Spec.AdditionalTags)
 
+	port := int32(modelListener.Spec.Port)
 	listenerInput := vpclattice.CreateListenerInput{
 		ClientToken:       nil,
 		DefaultAction:     defaultAction,
 		Name:              aws.String(k8sLatticeListenerName(modelListener)),
-		Port:              aws.Int64(modelListener.Spec.Port),
-		Protocol:          aws.String(modelListener.Spec.Protocol),
+		Port:              &port,
+		Protocol:          types.ListenerProtocol(modelListener.Spec.Protocol),
 		ServiceIdentifier: aws.String(latticeSvcId),
 		Tags:              tags,
 	}
 
-	resp, err := d.cloud.Lattice().CreateListenerWithContext(ctx, &listenerInput)
+	resp, err := d.cloud.Lattice().CreateListener(ctx, &listenerInput)
 	if err != nil {
 		return model.ListenerStatus{},
-			fmt.Errorf("failed CreateListener %s due to %s", aws.StringValue(listenerInput.Name), err)
+			fmt.Errorf("failed CreateListener %s due to %s", aws.ToString(listenerInput.Name), err)
 	}
-	d.log.Infof(ctx, "Success CreateListener %s, %s", aws.StringValue(resp.Name), aws.StringValue(resp.Id))
+	d.log.Infof(ctx, "Success CreateListener %s, %s", aws.ToString(resp.Name), aws.ToString(resp.Id))
 
 	return model.ListenerStatus{
-		Name:        aws.StringValue(resp.Name),
-		ListenerArn: aws.StringValue(resp.Arn),
-		Id:          aws.StringValue(resp.Id),
+		Name:        aws.ToString(resp.Name),
+		ListenerArn: aws.ToString(resp.Arn),
+		Id:          aws.ToString(resp.Id),
 		ServiceId:   latticeSvcId,
 	}, nil
 }
 
-func (d *defaultListenerManager) update(ctx context.Context, latticeSvcId string, listener *vpclattice.ListenerSummary, defaultAction *vpclattice.RuleAction) error {
+func (d *defaultListenerManager) update(ctx context.Context, latticeSvcId string, listener *types.ListenerSummary, defaultAction types.RuleAction) error {
 
-	d.log.Debugf(ctx, "Updating listener %s default action", aws.StringValue(listener.Id))
-	_, err := d.cloud.Lattice().UpdateListenerWithContext(ctx, &vpclattice.UpdateListenerInput{
+	d.log.Debugf(ctx, "Updating listener %s default action", aws.ToString(listener.Id))
+	_, err := d.cloud.Lattice().UpdateListener(ctx, &vpclattice.UpdateListenerInput{
 		DefaultAction:      defaultAction,
 		ListenerIdentifier: listener.Id,
 		ServiceIdentifier:  aws.String(latticeSvcId),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to update lattice listener %s due to %s", aws.StringValue(listener.Id), err)
+		return fmt.Errorf("failed to update lattice listener %s due to %s", aws.ToString(listener.Id), err)
 	}
-	d.log.Infof(ctx, "Success update listener %s default action", aws.StringValue(listener.Id))
+	d.log.Infof(ctx, "Success update listener %s default action", aws.ToString(listener.Id))
 	return nil
 }
 
-func (d *defaultListenerManager) getLatticeListenerDefaultAction(ctx context.Context, stackListener *model.Listener) (*vpclattice.RuleAction, error) {
+func (d *defaultListenerManager) getLatticeListenerDefaultAction(ctx context.Context, stackListener *model.Listener) (types.RuleAction, error) {
 	if stackListener.Spec.DefaultAction.FixedResponseStatusCode != nil {
-		return &vpclattice.RuleAction{
-			FixedResponse: &vpclattice.FixedResponseAction{
-				StatusCode: stackListener.Spec.DefaultAction.FixedResponseStatusCode,
+		statusCode := int32(*stackListener.Spec.DefaultAction.FixedResponseStatusCode)
+		return &types.RuleActionMemberFixedResponse{
+			Value: types.FixedResponseAction{
+				StatusCode: &statusCode,
 			},
 		}, nil
 	}
@@ -167,30 +170,31 @@ func (d *defaultListenerManager) getLatticeListenerDefaultAction(ctx context.Con
 		}
 	}
 	if !hasValidTargetGroup {
-		if stackListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+		if stackListener.Spec.Protocol == string(types.ListenerProtocolTlsPassthrough) {
 			return nil, fmt.Errorf("TLSRoute %s/%s must have at least one valid backendRef target group", stackListener.Spec.K8SRouteNamespace, stackListener.Spec.K8SRouteName)
 		} else {
 			return nil, fmt.Errorf("unreachable code, since the defaultAction for non-TLS_PASSTHROUGH listener is always the FixedResponse 404")
 		}
 	}
 
-	var latticeTGs []*vpclattice.WeightedTargetGroup
+	var latticeTGs []types.WeightedTargetGroup
 	for _, modelTg := range stackListener.Spec.DefaultAction.Forward.TargetGroups {
 		// skip any invalid TGs - eventually VPC Lattice may support weighted fixed response
 		// and this logic can be more in line with the spec
 		if modelTg.LatticeTgId == model.InvalidBackendRefTgId {
 			continue
 		}
-		latticeTG := vpclattice.WeightedTargetGroup{
+		weight := int32(modelTg.Weight)
+		latticeTG := types.WeightedTargetGroup{
 			TargetGroupIdentifier: aws.String(modelTg.LatticeTgId),
-			Weight:                aws.Int64(modelTg.Weight),
+			Weight:                &weight,
 		}
-		latticeTGs = append(latticeTGs, &latticeTG)
+		latticeTGs = append(latticeTGs, latticeTG)
 	}
 
 	d.log.Debugf(ctx, "DefaultAction Forward target groups: %v", latticeTGs)
-	return &vpclattice.RuleAction{
-		Forward: &vpclattice.ForwardAction{
+	return &types.RuleActionMemberForward{
+		Value: types.ForwardAction{
 			TargetGroups: latticeTGs,
 		},
 	}, nil
@@ -198,7 +202,7 @@ func (d *defaultListenerManager) getLatticeListenerDefaultAction(ctx context.Con
 
 func k8sLatticeListenerName(modelListener *model.Listener) string {
 	protocol := strings.ToLower(modelListener.Spec.Protocol)
-	if modelListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+	if modelListener.Spec.Protocol == string(types.ListenerProtocolTlsPassthrough) {
 		protocol = "tls"
 	}
 
@@ -210,21 +214,21 @@ func k8sLatticeListenerName(modelListener *model.Listener) string {
 	return listenerName
 }
 
-func (d *defaultListenerManager) List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error) {
-	var sdkListeners []*vpclattice.ListenerSummary
+func (d *defaultListenerManager) List(ctx context.Context, serviceID string) ([]*types.ListenerSummary, error) {
+	var sdkListeners []*types.ListenerSummary
 
 	d.log.Debugf(ctx, "Listing listeners for service %s", serviceID)
 	listenerListInput := vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(serviceID),
 	}
 
-	resp, err := d.cloud.Lattice().ListListenersWithContext(ctx, &listenerListInput)
+	resp, err := d.cloud.Lattice().ListListeners(ctx, &listenerListInput)
 	if err != nil {
 		return sdkListeners, err
 	}
 
 	for _, r := range resp.Items {
-		listener := vpclattice.ListenerSummary{
+		listener := types.ListenerSummary{
 			Arn:      r.Arn,
 			Id:       r.Id,
 			Port:     r.Port,
@@ -241,9 +245,9 @@ func (d *defaultListenerManager) needToUpdateDefaultAction(
 	ctx context.Context,
 	latticeSvcId string,
 	latticeListenerId string,
-	listenerDefaultActionFromStack *vpclattice.RuleAction) (bool, error) {
+	listenerDefaultActionFromStack types.RuleAction) (bool, error) {
 
-	resp, err := d.cloud.Lattice().GetListenerWithContext(ctx, &vpclattice.GetListenerInput{
+	resp, err := d.cloud.Lattice().GetListener(ctx, &vpclattice.GetListenerInput{
 		ServiceIdentifier:  &latticeSvcId,
 		ListenerIdentifier: &latticeListenerId,
 	})
@@ -258,20 +262,20 @@ func (d *defaultListenerManager) findListenerByPort(
 	ctx context.Context,
 	latticeSvcId string,
 	port int64,
-) (*vpclattice.ListenerSummary, error) {
+) (*types.ListenerSummary, error) {
 	listenerListInput := vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(latticeSvcId),
 	}
 
-	resp, err := d.cloud.Lattice().ListListenersWithContext(ctx, &listenerListInput)
+	resp, err := d.cloud.Lattice().ListListeners(ctx, &listenerListInput)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, r := range resp.Items {
-		if aws.Int64Value(r.Port) == port {
+		if aws.ToInt32(r.Port) == int32(port) {
 			d.log.Debugf(ctx, "Port %d already in use by listener %s for service %s", port, *r.Arn, latticeSvcId)
-			return r, nil
+			return &r, nil
 		}
 	}
 
@@ -289,7 +293,7 @@ func (d *defaultListenerManager) Delete(ctx context.Context, modelListener *mode
 		ListenerIdentifier: aws.String(modelListener.Status.Id),
 	}
 
-	_, err := d.cloud.Lattice().DeleteListenerWithContext(ctx, &listenerDeleteInput)
+	_, err := d.cloud.Lattice().DeleteListener(ctx, &listenerDeleteInput)
 	if err != nil {
 		if services.IsLatticeAPINotFoundErr(err) {
 			d.log.Debugf(ctx, "Listener already deleted")

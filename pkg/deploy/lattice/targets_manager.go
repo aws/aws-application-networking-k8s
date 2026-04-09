@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 //go:generate mockgen -destination targets_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice TargetsManager
 
 type TargetsManager interface {
-	List(ctx context.Context, modelTg *model.TargetGroup) ([]*vpclattice.TargetSummary, error)
+	List(ctx context.Context, modelTg *model.TargetGroup) ([]types.TargetSummary, error)
 	Update(ctx context.Context, modelTargets *model.Targets, modelTg *model.TargetGroup) error
 }
 
@@ -42,7 +43,7 @@ func NewTargetsManager(
 	}
 }
 
-func (s *defaultTargetsManager) List(ctx context.Context, modelTg *model.TargetGroup) ([]*vpclattice.TargetSummary, error) {
+func (s *defaultTargetsManager) List(ctx context.Context, modelTg *model.TargetGroup) ([]types.TargetSummary, error) {
 	lattice := s.cloud.Lattice()
 	listTargetsInput := vpclattice.ListTargetsInput{
 		TargetGroupIdentifier: &modelTg.Status.Id,
@@ -82,7 +83,7 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 
 func (s *defaultTargetsManager) findStaleTargets(
 	modelTargets *model.Targets,
-	listTargetsOutput []*vpclattice.TargetSummary) []model.Target {
+	listTargetsOutput []types.TargetSummary) []model.Target {
 
 	// Disregard readiness information, and use IP/Port as key.
 	modelSet := utils.NewSet[model.Target]()
@@ -97,12 +98,12 @@ func (s *defaultTargetsManager) findStaleTargets(
 	staleTargets := make([]model.Target, 0)
 	for _, target := range listTargetsOutput {
 		ipPort := model.Target{
-			TargetIP: aws.StringValue(target.Id),
-			Port:     aws.Int64Value(target.Port),
+			TargetIP: aws.ToString(target.Id),
+			Port:     int64(aws.ToInt32(target.Port)),
 		}
 		// Consider targets stale if they are not in the current model set and not already draining
 		// This ensures that when pods are recreated with new IPs, old IPs are properly deregistered
-		if aws.StringValue(target.Status) != vpclattice.TargetStatusDraining && !modelSet.Contains(ipPort) {
+		if string(target.Status) != string(types.TargetStatusDraining) && !modelSet.Contains(ipPort) {
 			staleTargets = append(staleTargets, ipPort)
 		}
 	}
@@ -117,8 +118,9 @@ func (s *defaultTargetsManager) registerTargets(
 	if len(targets) == 0 {
 		return nil
 	}
-	latticeTargets := utils.SliceMap(targets, func(t model.Target) *vpclattice.Target {
-		return &vpclattice.Target{Id: &t.TargetIP, Port: &t.Port}
+	latticeTargets := utils.SliceMap(targets, func(t model.Target) types.Target {
+		p := int32(t.Port)
+		return types.Target{Id: &t.TargetIP, Port: &p}
 	})
 	chunks := utils.Chunks(latticeTargets, maxTargetsPerLatticeTargetsApiCall)
 	var registerTargetsError error
@@ -127,7 +129,7 @@ func (s *defaultTargetsManager) registerTargets(
 			TargetGroupIdentifier: &modelTg.Status.Id,
 			Targets:               chunk,
 		}
-		resp, err := s.cloud.Lattice().RegisterTargetsWithContext(ctx, &registerTargetsInput)
+		resp, err := s.cloud.Lattice().RegisterTargets(ctx, &registerTargetsInput)
 		if err != nil {
 			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("failed to register targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
 		}
@@ -149,8 +151,9 @@ func (s *defaultTargetsManager) deregisterTargets(
 	if len(targets) == 0 {
 		return nil
 	}
-	latticeTargets := utils.SliceMap(targets, func(t model.Target) *vpclattice.Target {
-		return &vpclattice.Target{Id: &t.TargetIP, Port: &t.Port}
+	latticeTargets := utils.SliceMap(targets, func(t model.Target) types.Target {
+		p := int32(t.Port)
+		return types.Target{Id: &t.TargetIP, Port: &p}
 	})
 
 	chunks := utils.Chunks(latticeTargets, maxTargetsPerLatticeTargetsApiCall)
@@ -160,7 +163,7 @@ func (s *defaultTargetsManager) deregisterTargets(
 			TargetGroupIdentifier: &modelTg.Status.Id,
 			Targets:               chunk,
 		}
-		resp, err := s.cloud.Lattice().DeregisterTargetsWithContext(ctx, &deregisterTargetsInput)
+		resp, err := s.cloud.Lattice().DeregisterTargets(ctx, &deregisterTargetsInput)
 		if err != nil {
 			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
 		}

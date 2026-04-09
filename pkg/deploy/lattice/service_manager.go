@@ -8,8 +8,9 @@ import (
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -28,9 +29,9 @@ type CreateSnSvcAssocResp = vpclattice.CreateServiceNetworkServiceAssociationOut
 type DelSnSvcAssocReq = vpclattice.DeleteServiceNetworkServiceAssociationInput
 type DelSnSvcAssocResp = vpclattice.DeleteServiceNetworkServiceAssociationOutput
 type GetSvcReq = vpclattice.GetServiceInput
-type SvcSummary = vpclattice.ServiceSummary
+type SvcSummary = types.ServiceSummary
 type ListSnSvcAssocsReq = vpclattice.ListServiceNetworkServiceAssociationsInput
-type SnSvcAssocSummary = vpclattice.ServiceNetworkServiceAssociationSummary
+type SnSvcAssocSummary = types.ServiceNetworkServiceAssociationSummary
 
 type ServiceManager interface {
 	Upsert(ctx context.Context, service *model.Service) (model.ServiceStatus, error)
@@ -51,13 +52,13 @@ func NewServiceManager(log gwlog.Logger, cloud pkg_aws.Cloud) *defaultServiceMan
 
 func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, svc *Service) (ServiceInfo, error) {
 	createSvcReq := m.newCreateSvcReq(svc)
-	createSvcResp, err := m.cloud.Lattice().CreateServiceWithContext(ctx, createSvcReq)
+	createSvcResp, err := m.cloud.Lattice().CreateService(ctx, createSvcReq)
 	if err != nil {
-		return ServiceInfo{}, fmt.Errorf("failed CreateService %s due to %s", aws.StringValue(createSvcReq.Name), err)
+		return ServiceInfo{}, fmt.Errorf("failed CreateService %s due to %s", aws.ToString(createSvcReq.Name), err)
 	}
 
 	m.log.Infof(ctx, "Success CreateService %s %s",
-		aws.StringValue(createSvcResp.Name), aws.StringValue(createSvcResp.Id))
+		aws.ToString(createSvcResp.Name), aws.ToString(createSvcResp.Id))
 
 	// Only create associations if service networks are specified (not standalone)
 	if len(svc.Spec.ServiceNetworkNames) > 0 {
@@ -69,7 +70,7 @@ func (m *defaultServiceManager) createServiceAndAssociate(ctx context.Context, s
 		}
 	} else {
 		m.log.Infof(ctx, "Skipping service network association for standalone service %s",
-			aws.StringValue(createSvcResp.Name))
+			aws.ToString(createSvcResp.Name))
 	}
 
 	svcInfo := svcStatusFromCreateSvcResp(createSvcResp)
@@ -89,13 +90,13 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 		ServiceNetworkIdentifier: snInfo.SvcNetwork.Id,
 		Tags:                     tags,
 	}
-	assocResp, err := m.cloud.Lattice().CreateServiceNetworkServiceAssociationWithContext(ctx, assocReq)
+	assocResp, err := m.cloud.Lattice().CreateServiceNetworkServiceAssociation(ctx, assocReq)
 	if err != nil {
 		return fmt.Errorf("failed CreateServiceNetworkServiceAssociation %s %s due to %s",
-			aws.StringValue(assocReq.ServiceNetworkIdentifier), aws.StringValue(assocReq.ServiceIdentifier), err)
+			aws.ToString(assocReq.ServiceNetworkIdentifier), aws.ToString(assocReq.ServiceIdentifier), err)
 	}
 	m.log.Infof(ctx, "Success CreateServiceNetworkServiceAssociation %s %s",
-		aws.StringValue(assocReq.ServiceNetworkIdentifier), aws.StringValue(assocReq.ServiceIdentifier))
+		aws.ToString(assocReq.ServiceNetworkIdentifier), aws.ToString(assocReq.ServiceIdentifier))
 
 	err = handleCreateAssociationResp(assocResp)
 	if err != nil {
@@ -117,7 +118,7 @@ func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 		req.CustomDomainName = &svc.Spec.CustomerDomainName
 	}
 	if svc.Spec.CustomerCertARN != "" {
-		req.SetCertificateArn(svc.Spec.CustomerCertARN)
+		req.CertificateArn = &svc.Spec.CustomerCertARN
 	}
 
 	return req
@@ -128,16 +129,16 @@ func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceInfo {
 	if resp == nil {
 		return svcInfo
 	}
-	svcInfo.Arn = aws.StringValue(resp.Arn)
-	svcInfo.Id = aws.StringValue(resp.Id)
+	svcInfo.Arn = aws.ToString(resp.Arn)
+	svcInfo.Id = aws.ToString(resp.Id)
 	if resp.DnsEntry != nil {
-		svcInfo.Dns = aws.StringValue(resp.DnsEntry.DomainName)
+		svcInfo.Dns = aws.ToString(resp.DnsEntry.DomainName)
 	}
 	return svcInfo
 }
 
 func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
-	tagsResp, err := m.cloud.Lattice().ListTagsForResourceWithContext(ctx, &vpclattice.ListTagsForResourceInput{
+	tagsResp, err := m.cloud.Lattice().ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{
 		ResourceArn: svcSum.Arn,
 	})
 	if err != nil {
@@ -154,9 +155,9 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 			newOwner := m.cloud.DefaultTags()[pkg_aws.TagManagedBy]
 			err = m.transferServiceOwnership(ctx, svcSum.Arn, newOwner)
 			if err != nil {
-				return fmt.Errorf("failed to takeover service %s from %s to %s: %w", svc.LatticeServiceName(), currentOwner, *newOwner, err)
+				return fmt.Errorf("failed to takeover service %s from %s to %s: %w", svc.LatticeServiceName(), currentOwner, newOwner, err)
 			}
-			m.log.Infof(ctx, "Successfully took over service %s from %s to %s", svc.LatticeServiceName(), currentOwner, *newOwner)
+			m.log.Infof(ctx, "Successfully took over service %s from %s to %s", svc.LatticeServiceName(), currentOwner, newOwner)
 			return nil
 		} else {
 			return services.NewConflictError("service", svc.Spec.RouteNamespace+"/"+svc.Spec.RouteName,
@@ -168,7 +169,7 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 	case tagFields.RouteName == "" && tagFields.RouteNamespace == "":
 		// backwards compatibility: If the service has no identification tags, consider this controller has
 		// correct information and add tags
-		_, err = m.cloud.Lattice().TagResourceWithContext(ctx, &vpclattice.TagResourceInput{
+		_, err = m.cloud.Lattice().TagResource(ctx, &vpclattice.TagResourceInput{
 			ResourceArn: svcSum.Arn,
 			Tags:        svc.Spec.ToTags(),
 		})
@@ -184,9 +185,9 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 }
 
 func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context, svc *Service, svcSum *SvcSummary) (ServiceInfo, error) {
-	err := m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(svcSum.Arn), svc.Spec.AdditionalTags, nil)
+	err := m.cloud.Tagging().UpdateTags(ctx, aws.ToString(svcSum.Arn), svc.Spec.AdditionalTags, nil)
 	if err != nil {
-		return ServiceInfo{}, fmt.Errorf("failed to update tags for service %s: %w", aws.StringValue(svcSum.Id), err)
+		return ServiceInfo{}, fmt.Errorf("failed to update tags for service %s: %w", aws.ToString(svcSum.Id), err)
 	}
 
 	if svc.Spec.CustomerCertARN != "" {
@@ -194,7 +195,7 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 			CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
 			ServiceIdentifier: svcSum.Id,
 		}
-		_, err := m.cloud.Lattice().UpdateService(updReq)
+		_, err := m.cloud.Lattice().UpdateService(ctx, updReq)
 		if err != nil {
 			return ServiceInfo{}, err
 		}
@@ -206,16 +207,16 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 	}
 
 	svcInfo := ServiceInfo{
-		Arn: aws.StringValue(svcSum.Arn),
-		Id:  aws.StringValue(svcSum.Id),
+		Arn: aws.ToString(svcSum.Arn),
+		Id:  aws.ToString(svcSum.Id),
 	}
 	if svcSum.DnsEntry != nil {
-		svcInfo.Dns = aws.StringValue(svcSum.DnsEntry.DomainName)
+		svcInfo.Dns = aws.ToString(svcSum.DnsEntry.DomainName)
 	}
 	return svcInfo, nil
 }
 
-func (m *defaultServiceManager) getAllAssociations(ctx context.Context, svcSum *SvcSummary) ([]*SnSvcAssocSummary, error) {
+func (m *defaultServiceManager) getAllAssociations(ctx context.Context, svcSum *SvcSummary) ([]SnSvcAssocSummary, error) {
 	assocsReq := &ListSnSvcAssocsReq{
 		ServiceIdentifier: svcSum.Id,
 	}
@@ -253,19 +254,19 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 	}
 
 	for _, assoc := range toUpdate {
-		err := m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(assoc.Arn), svc.Spec.AdditionalTags, awsManagedTags)
+		err := m.cloud.Tagging().UpdateTags(ctx, aws.ToString(assoc.Arn), svc.Spec.AdditionalTags, awsManagedTags)
 		if err != nil {
-			return fmt.Errorf("failed to update tags for association %s: %w", aws.StringValue(assoc.Arn), err)
+			return fmt.Errorf("failed to update tags for association %s: %w", aws.ToString(assoc.Arn), err)
 		}
 	}
 
 	for _, assoc := range toDelete {
 		isManaged, err := m.cloud.IsArnManaged(ctx, *assoc.Arn)
 		if err != nil {
-			// TODO check for vpclattice.ErrCodeAccessDeniedException or a new error type ErrorCodeNotFoundException
+			// TODO check for types.AccessDeniedException or a new error type ErrorCodeNotFoundException
 			// when the api no longer responds with a 404 NotFoundException instead of either of the above.
-			// ErrorCodeNotFoundException currently not part of the golang sdk for the lattice api. This a is a distinct
-			// error from vpclattice.ErrCodeResourceNotFoundException.
+			// ErrorCodeNotFoundException currently not part of the golang sdk for the lattice api. This is a distinct
+			// error from types.ResourceNotFoundException.
 
 			// In a scenario that the service association is created by a foreign account,
 			// the owner account's controller cannot read the tags of this ServiceNetworkServiceAssociation,
@@ -287,10 +288,10 @@ func (m *defaultServiceManager) updateAssociations(ctx context.Context, svc *Ser
 
 // returns RetryError on all non-active Sn-Svc association responses
 func handleCreateAssociationResp(resp *CreateSnSvcAssocResp) error {
-	status := aws.StringValue(resp.Status)
-	if status != vpclattice.ServiceNetworkServiceAssociationStatusActive {
+	status := string(resp.Status)
+	if status != string(types.ServiceNetworkServiceAssociationStatusActive) {
 		return fmt.Errorf("%w: sn-service-association-id: %s, non-active status: %s",
-			lattice_runtime.NewRetryError(), aws.StringValue(resp.Id), status)
+			lattice_runtime.NewRetryError(), aws.ToString(resp.Id), status)
 	}
 	return nil
 }
@@ -298,10 +299,10 @@ func handleCreateAssociationResp(resp *CreateSnSvcAssocResp) error {
 // compare current sn-svc associations with new ones,
 // returns 2 slices: toCreate with SN names and toDelete with current associations
 // if assoc should be created but current state is in deletion we should retry
-func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, []SnSvcAssocSummary, []*SnSvcAssocSummary, error) {
+func associationsDiff(svc *Service, curAssocs []SnSvcAssocSummary) ([]string, []SnSvcAssocSummary, []SnSvcAssocSummary, error) {
 	toCreate := []string{}
 	toDelete := []SnSvcAssocSummary{}
-	toUpdate := []*SnSvcAssocSummary{}
+	toUpdate := []SnSvcAssocSummary{}
 
 	// create two Sets and find Difference New-Old->toCreate and Old-New->toDelete
 	newSet := map[string]bool{}
@@ -310,7 +311,7 @@ func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, [
 	}
 	oldSet := map[string]SnSvcAssocSummary{}
 	for _, sn := range curAssocs {
-		oldSet[*sn.ServiceNetworkName] = *sn
+		oldSet[aws.ToString(sn.ServiceNetworkName)] = sn
 	}
 
 	for newSn := range newSet {
@@ -318,14 +319,14 @@ func associationsDiff(svc *Service, curAssocs []*SnSvcAssocSummary) ([]string, [
 		if !ok {
 			toCreate = append(toCreate, newSn)
 		} else {
-			toUpdate = append(toUpdate, &oldSn)
+			toUpdate = append(toUpdate, oldSn)
 		}
 
 		// assoc should exists but in deletion state, will retry later to re-create
 		// TODO: we should have something more lightweight, retrying full reconciliation looks to heavy
-		if aws.StringValue(oldSn.Status) == vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress {
+		if string(oldSn.Status) == string(types.ServiceNetworkServiceAssociationStatusDeleteInProgress) {
 			return nil, nil, nil, fmt.Errorf("%w: want to associate sn: %s to svc: %s, but status is: %s",
-				lattice_runtime.NewRetryError(), newSn, svc.LatticeServiceName(), *oldSn.Status)
+				lattice_runtime.NewRetryError(), newSn, svc.LatticeServiceName(), string(oldSn.Status))
 		}
 		// TODO: if assoc in failed state, may be we should try to re-create?
 	}
@@ -362,7 +363,7 @@ func (m *defaultServiceManager) deleteAllListeners(ctx context.Context, svc *Svc
 		return err
 	}
 	for _, listener := range listeners {
-		_, err = m.cloud.Lattice().DeleteListenerWithContext(ctx, &vpclattice.DeleteListenerInput{
+		_, err = m.cloud.Lattice().DeleteListener(ctx, &vpclattice.DeleteListenerInput{
 			ServiceIdentifier:  svc.Id,
 			ListenerIdentifier: listener.Id,
 		})
@@ -375,13 +376,13 @@ func (m *defaultServiceManager) deleteAllListeners(ctx context.Context, svc *Svc
 
 func (m *defaultServiceManager) deleteAssociation(ctx context.Context, assocArn *string) error {
 	delReq := &DelSnSvcAssocReq{ServiceNetworkServiceAssociationIdentifier: assocArn}
-	_, err := m.cloud.Lattice().DeleteServiceNetworkServiceAssociationWithContext(ctx, delReq)
+	_, err := m.cloud.Lattice().DeleteServiceNetworkServiceAssociation(ctx, delReq)
 	if err != nil {
 		return fmt.Errorf("failed DeleteServiceNetworkServiceAssociation %s due to %s",
-			aws.StringValue(assocArn), err)
+			aws.ToString(assocArn), err)
 	}
 
-	m.log.Infof(ctx, "Success DeleteServiceNetworkServiceAssociation %s", aws.StringValue(assocArn))
+	m.log.Infof(ctx, "Success DeleteServiceNetworkServiceAssociation %s", aws.ToString(assocArn))
 	return nil
 }
 
@@ -389,9 +390,9 @@ func (m *defaultServiceManager) deleteService(ctx context.Context, svc *SvcSumma
 	delInput := vpclattice.DeleteServiceInput{
 		ServiceIdentifier: svc.Id,
 	}
-	_, err := m.cloud.Lattice().DeleteServiceWithContext(ctx, &delInput)
+	_, err := m.cloud.Lattice().DeleteService(ctx, &delInput)
 	if err != nil {
-		return fmt.Errorf("failed DeleteService %s due to %s", aws.StringValue(svc.Id), err)
+		return fmt.Errorf("failed DeleteService %s due to %s", aws.ToString(svc.Id), err)
 	}
 
 	m.log.Infof(ctx, "Success DeleteService %s", *svc.Id)
@@ -466,10 +467,10 @@ func (m *defaultServiceManager) canTakeoverService(svc *Service, serviceTags ser
 	return currentOwner == takeoverFrom
 }
 
-func (m *defaultServiceManager) transferServiceOwnership(ctx context.Context, serviceArn *string, newOwner *string) error {
-	_, err := m.cloud.Lattice().TagResourceWithContext(ctx, &vpclattice.TagResourceInput{
+func (m *defaultServiceManager) transferServiceOwnership(ctx context.Context, serviceArn *string, newOwner string) error {
+	_, err := m.cloud.Lattice().TagResource(ctx, &vpclattice.TagResourceInput{
 		ResourceArn: serviceArn,
-		Tags: map[string]*string{
+		Tags: map[string]string{
 			pkg_aws.TagManagedBy: newOwner,
 		},
 	})

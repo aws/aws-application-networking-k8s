@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/acm"
-	"github.com/aws/aws-sdk-go/service/acm/acmiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acm"
+	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
 )
 
 //go:generate mockgen -destination acm_mocks.go -package services github.com/aws/aws-application-networking-k8s/pkg/aws/services ACM
@@ -16,39 +14,39 @@ import (
 var ErrACMAccessDenied = errors.New("ACM access denied: missing acm:ListCertificates permission")
 
 type ACM interface {
-	ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]*acm.CertificateSummary, error)
+	ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]acmtypes.CertificateSummary, error)
 }
 
 type defaultACM struct {
-	client acmiface.ACMAPI
+	client *acm.Client
 }
 
-func NewDefaultACM(sess *session.Session, region string) *defaultACM {
+func NewDefaultACM(cfg aws.Config, region string) *defaultACM {
 	return &defaultACM{
-		client: acm.New(sess, aws.NewConfig().WithRegion(region).WithMaxRetries(20)),
+		client: acm.NewFromConfig(cfg, func(o *acm.Options) {
+			o.Region = region
+			o.RetryMaxAttempts = 20
+		}),
 	}
 }
 
-func (d *defaultACM) ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]*acm.CertificateSummary, error) {
-	var result []*acm.CertificateSummary
-	err := d.client.ListCertificatesPagesWithContext(ctx, input, func(page *acm.ListCertificatesOutput, lastPage bool) bool {
-		result = append(result, page.CertificateSummaryList...)
-		return true
-	})
-	if err != nil {
-		if isACMAccessDenied(err) {
-			return nil, ErrACMAccessDenied
+func (d *defaultACM) ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]acmtypes.CertificateSummary, error) {
+	var result []acmtypes.CertificateSummary
+	paginator := acm.NewListCertificatesPaginator(d.client, input)
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			if isACMAccessDenied(err) {
+				return nil, ErrACMAccessDenied
+			}
+			return nil, err
 		}
-		return nil, err
+		result = append(result, page.CertificateSummaryList...)
 	}
-
 	return result, nil
 }
 
 func isACMAccessDenied(err error) bool {
-	var awsErr awserr.Error
-	if errors.As(err, &awsErr) {
-		return awsErr.Code() == acm.ErrCodeAccessDeniedException
-	}
-	return false
+	var ade *acmtypes.AccessDeniedException
+	return errors.As(err, &ade)
 }
