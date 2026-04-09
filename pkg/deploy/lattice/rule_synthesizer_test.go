@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
@@ -64,7 +64,7 @@ func Test_SynthesizeRule(t *testing.T) {
 		}, nil)
 
 		mockRuleMgr.EXPECT().List(ctx, "svc-id", "listener-id").Return(
-			[]*vpclattice.RuleSummary{
+			[]types.RuleSummary{
 				{
 					Id:        aws.String("default-id"),
 					IsDefault: aws.Bool(true),
@@ -86,7 +86,7 @@ func Test_SynthesizeRule(t *testing.T) {
 		}, nil)
 
 		mockRuleMgr.EXPECT().List(ctx, "svc-id", "listener-id").Return(
-			[]*vpclattice.RuleSummary{
+			[]types.RuleSummary{
 				{
 					Id:        aws.String("default-id"),
 					IsDefault: aws.Bool(true),
@@ -114,7 +114,7 @@ func Test_SynthesizeRule(t *testing.T) {
 		}, nil)
 
 		mockRuleMgr.EXPECT().List(ctx, "svc-id", "listener-id").Return(
-			[]*vpclattice.RuleSummary{
+			[]types.RuleSummary{
 				{
 					Id:        aws.String("default-id"),
 					IsDefault: aws.Bool(true),
