@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
+	types "github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -57,10 +57,10 @@ func (mr *MockListenerManagerMockRecorder) Delete(ctx, modelListener any) *gomoc
 }
 
 // List mocks base method.
-func (m *MockListenerManager) List(ctx context.Context, serviceID string) ([]*vpclattice.ListenerSummary, error) {
+func (m *MockListenerManager) List(ctx context.Context, serviceID string) ([]*types.ListenerSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", ctx, serviceID)
-	ret0, _ := ret[0].([]*vpclattice.ListenerSummary)
+	ret0, _ := ret[0].([]*types.ListenerSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
