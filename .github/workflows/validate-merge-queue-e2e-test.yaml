@@ -60,12 +60,12 @@ jobs:
           cache-dependency-path: test/go.sum
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         with:
           version: latest
 
       - name: Setup AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.INTEGRATION_TEST_IAM_ROLE }}
           role-duration-seconds: 14400
