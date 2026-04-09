@@ -1,0 +1,22 @@
+---
+# Commitlint configuration (Conventional Commits)
+# https://www.conventionalcommits.org/
+#
+# Note: This file is only used if commitlint is installed/enabled in CI or locally.
+extends:
+  - "@commitlint/config-conventional"
+rules:
+  header-max-length: [2, "always", 72]
+  type-enum:
+    - 2
+    - "always"
+    - - feat
+      - fix
+      - docs
+      - refactor
+      - perf
+      - test
+      - ci
+      - chore
+      - revert
+  subject-case: [0]
