@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	apimachineryv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -253,7 +253,7 @@ func Test_BuildAccessLogSubscription_WithAndWithoutAdditionalTagsAnnotation(t *t
 	tests := []struct {
 		name                   string
 		input                  *anv1alpha1.AccessLogPolicy
-		expectedAdditionalTags map[string]*string
+		expectedAdditionalTags map[string]string
 		description            string
 	}{
 		{
@@ -274,10 +274,10 @@ func Test_BuildAccessLogSubscription_WithAndWithoutAdditionalTagsAnnotation(t *t
 					},
 				},
 			},
-			expectedAdditionalTags: map[string]*string{
-				"Environment": &[]string{"Prod"}[0],
-				"Project":     &[]string{"AccessLogTest"}[0],
-				"Team":        &[]string{"Platform"}[0],
+			expectedAdditionalTags: map[string]string{
+				"Environment": "Prod",
+				"Project":     "AccessLogTest",
+				"Team":        "Platform",
 			},
 			description: "should set additional tags from AccessLogPolicy annotations in access log subscription spec",
 		},

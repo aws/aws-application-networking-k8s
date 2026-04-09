@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
@@ -34,9 +34,9 @@ func TestDefaultTags(t *testing.T) {
 	c := NewDefaultCloud(nil, cfg)
 	tags := c.DefaultTags()
 	tagWant := getManagedByTag(cfg)
-	tagGot, exits := tags[TagManagedBy]
-	assert.True(t, exits)
-	assert.Equal(t, tagWant, *tagGot)
+	tagGot, exists := tags[TagManagedBy]
+	assert.True(t, exists)
+	assert.Equal(t, tagWant, tagGot)
 }
 
 func TestIsArnManaged(t *testing.T) {
@@ -49,9 +49,9 @@ func TestIsArnManaged(t *testing.T) {
 
 	t.Run("arn sent", func(t *testing.T) {
 		arn := "arn"
-		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			DoAndReturn(
-				func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+				func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...func(*vpclattice.Options)) (*vpclattice.ListTagsForResourceOutput, error) {
 					assert.Equal(t, arn, *req.ResourceArn)
 					return &vpclattice.ListTagsForResourceOutput{}, nil
 				})
@@ -60,7 +60,7 @@ func TestIsArnManaged(t *testing.T) {
 
 	t.Run("is managed", func(t *testing.T) {
 		arn := "arn"
-		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			Return(&vpclattice.ListTagsForResourceOutput{
 				Tags: cl.DefaultTags(),
 			}, nil)
@@ -70,7 +70,7 @@ func TestIsArnManaged(t *testing.T) {
 	})
 
 	t.Run("not managed", func(t *testing.T) {
-		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			Return(&vpclattice.ListTagsForResourceOutput{}, nil)
 		managed, err := cl.IsArnManaged(context.Background(), "arn")
 		assert.Nil(t, err)
@@ -78,7 +78,7 @@ func TestIsArnManaged(t *testing.T) {
 	})
 
 	t.Run("error", func(t *testing.T) {
-		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New(":("))
 		managed, err := cl.IsArnManaged(context.Background(), "arn")
 		assert.Error(t, err)
@@ -96,14 +96,14 @@ func Test_DefaultTagsMergedWith(t *testing.T) {
 
 	t.Run("Given non-overlapping tags, returns default tags merged with new tags", func(t *testing.T) {
 		input := services.Tags{
-			"Key1": aws.String("Value1"),
-			"Key2": aws.String("Value2"),
-			"Key3": aws.String("Value3"),
+			"Key1": "Value1",
+			"Key2": "Value2",
+			"Key3": "Value3",
 		}
 		expected := cloud.DefaultTags()
-		expected["Key1"] = aws.String("Value1")
-		expected["Key2"] = aws.String("Value2")
-		expected["Key3"] = aws.String("Value3")
+		expected["Key1"] = "Value1"
+		expected["Key2"] = "Value2"
+		expected["Key3"] = "Value3"
 		actual := cloud.DefaultTagsMergedWith(input)
 		assert.Equal(t, expected, actual)
 	})
@@ -112,8 +112,8 @@ func Test_DefaultTagsMergedWith(t *testing.T) {
 		input := services.Tags{}
 		expected := cloud.DefaultTags()
 		for k := range expected {
-			input[k] = aws.String("TestValue")
-			expected[k] = aws.String("TestValue")
+			input[k] = "TestValue"
+			expected[k] = "TestValue"
 		}
 		actual := cloud.DefaultTagsMergedWith(input)
 		assert.Equal(t, expected, actual)
@@ -165,7 +165,7 @@ func Test_TryOwnFromTags(t *testing.T) {
 		{
 			name: "improper ownership tag considered invalid",
 			tags: services.Tags{
-				TagManagedBy: aws.String("not/this/owner"),
+				TagManagedBy: "not/this/owner",
 			},
 			owned:      false,
 			tryAcquire: false,
@@ -181,7 +181,7 @@ func Test_TryOwnFromTags(t *testing.T) {
 			if tc.tryAcquire {
 				tagResourceCallCount = 1
 			}
-			mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), &vpclattice.TagResourceInput{ResourceArn: aws.String(arn), Tags: cloud.DefaultTags()}).
+			mockLattice.EXPECT().TagResource(gomock.Any(), &vpclattice.TagResourceInput{ResourceArn: aws.String(arn), Tags: cloud.DefaultTags()}).
 				Return(&vpclattice.TagResourceOutput{}, nil).Times(tagResourceCallCount)
 
 			res, err := cloud.TryOwnFromTags(context.Background(), arn, tc.tags)

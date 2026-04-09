@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
@@ -54,27 +54,27 @@ func Test_Synthesize(t *testing.T) {
 	assert.Equal(t, "create-name", tgToCreate.Status.Name)
 }
 
-func copy(src tgListOutput) tgListOutput {
+func copyTgOutput(src tgListOutput) tgListOutput {
 	srcSummary := src.tgSummary
 	cp := tgListOutput{
-		tgSummary: &vpclattice.TargetGroupSummary{
-			Arn:           aws.String(aws.StringValue(srcSummary.Arn)),
-			Id:            aws.String(aws.StringValue(srcSummary.Id)),
-			Name:          aws.String(aws.StringValue(srcSummary.Name)),
-			Type:          aws.String(aws.StringValue(srcSummary.Type)),
-			CreatedAt:     aws.Time(aws.TimeValue(srcSummary.CreatedAt)),
-			IpAddressType: aws.String(aws.StringValue(srcSummary.IpAddressType)),
-			Port:          aws.Int64(aws.Int64Value(srcSummary.Port)),
-			Protocol:      aws.String(aws.StringValue(srcSummary.Protocol)),
-			VpcIdentifier: aws.String(aws.StringValue(srcSummary.VpcIdentifier)),
+		tgSummary: types.TargetGroupSummary{
+			Arn:           aws.String(aws.ToString(srcSummary.Arn)),
+			Id:            aws.String(aws.ToString(srcSummary.Id)),
+			Name:          aws.String(aws.ToString(srcSummary.Name)),
+			Type:          srcSummary.Type,
+			CreatedAt:     aws.Time(aws.ToTime(srcSummary.CreatedAt)),
+			IpAddressType: srcSummary.IpAddressType,
+			Port:          aws.Int32(aws.ToInt32(srcSummary.Port)),
+			Protocol:      srcSummary.Protocol,
+			VpcIdentifier: aws.String(aws.ToString(srcSummary.VpcIdentifier)),
 		},
 	}
 
 	srctags := src.tags
 	if srctags != nil {
-		cp.tags = make(map[string]*string)
+		cp.tags = make(map[string]string)
 		for k, v := range srctags {
-			cp.tags[k] = aws.String(aws.StringValue(v))
+			cp.tags[k] = v
 		}
 	}
 
@@ -103,46 +103,46 @@ func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
 	var nonManagedTgs []tgListOutput
 
 	tgTagFetchUnsuccessful := tgListOutput{
-		tgSummary: &vpclattice.TargetGroupSummary{
+		tgSummary: types.TargetGroupSummary{
 			Arn:  aws.String("tg-arn"),
 			Id:   aws.String("tg-id"),
 			Name: aws.String("tg-name"),
-			Type: aws.String("IP"),
+			Type: types.TargetGroupTypeIp,
 		},
 		tags: nil,
 	}
 	nonManagedTgs = append(nonManagedTgs, tgTagFetchUnsuccessful)
 
-	tgWrongVpc := copy(tgTagFetchUnsuccessful)
-	tgWrongVpc.tags = make(map[string]*string)
+	tgWrongVpc := copyTgOutput(tgTagFetchUnsuccessful)
+	tgWrongVpc.tags = make(map[string]string)
 	tgWrongVpc.tgSummary.VpcIdentifier = aws.String("another-vpc")
 	nonManagedTgs = append(nonManagedTgs, tgWrongVpc)
 
-	tgWrongCluster := copy(tgWrongVpc)
+	tgWrongCluster := copyTgOutput(tgWrongVpc)
 	tgWrongCluster.tgSummary.VpcIdentifier = aws.String("vpc-id")
-	tgWrongCluster.tags[model.K8SClusterNameKey] = aws.String("another-cluster")
+	tgWrongCluster.tags[model.K8SClusterNameKey] = "another-cluster"
 	nonManagedTgs = append(nonManagedTgs, tgWrongCluster)
 
-	tgInvalidParentRef := copy(tgWrongCluster)
-	tgInvalidParentRef.tags[model.K8SClusterNameKey] = aws.String("cluster-name")
-	tgInvalidParentRef.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeInvalid))
+	tgInvalidParentRef := copyTgOutput(tgWrongCluster)
+	tgInvalidParentRef.tags[model.K8SClusterNameKey] = "cluster-name"
+	tgInvalidParentRef.tags[model.K8SSourceTypeKey] = string(model.SourceTypeInvalid)
 	nonManagedTgs = append(nonManagedTgs, tgInvalidParentRef)
 
-	tgMissingK8SServiceName := copy(tgInvalidParentRef)
-	tgMissingK8SServiceName.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
+	tgMissingK8SServiceName := copyTgOutput(tgInvalidParentRef)
+	tgMissingK8SServiceName.tags[model.K8SSourceTypeKey] = string(model.SourceTypeSvcExport)
 	nonManagedTgs = append(nonManagedTgs, tgMissingK8SServiceName)
 
-	tgMissingK8SServiceNamespace := copy(tgMissingK8SServiceName)
-	tgMissingK8SServiceNamespace.tags[model.K8SServiceNameKey] = aws.String("my-service")
+	tgMissingK8SServiceNamespace := copyTgOutput(tgMissingK8SServiceName)
+	tgMissingK8SServiceNamespace.tags[model.K8SServiceNameKey] = "my-service"
 	nonManagedTgs = append(nonManagedTgs, tgMissingK8SServiceNamespace)
 
-	tgMissingRouteName := copy(tgMissingK8SServiceNamespace)
-	tgMissingRouteName.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
-	tgMissingRouteName.tags[model.K8SServiceNamespaceKey] = aws.String("ns-1")
+	tgMissingRouteName := copyTgOutput(tgMissingK8SServiceNamespace)
+	tgMissingRouteName.tags[model.K8SSourceTypeKey] = string(model.SourceTypeHTTPRoute)
+	tgMissingRouteName.tags[model.K8SServiceNamespaceKey] = "ns-1"
 	nonManagedTgs = append(nonManagedTgs, tgMissingRouteName)
 
-	tgMissingRouteNamespace := copy(tgMissingRouteName)
-	tgMissingRouteNamespace.tags[model.K8SRouteNameKey] = aws.String("route-name")
+	tgMissingRouteNamespace := copyTgOutput(tgMissingRouteName)
+	tgMissingRouteNamespace.tags[model.K8SRouteNameKey] = "route-name"
 	nonManagedTgs = append(nonManagedTgs, tgMissingRouteNamespace)
 
 	mockTGManager.EXPECT().List(ctx).Return(nonManagedTgs, nil)
@@ -153,22 +153,22 @@ func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
 
 func getBaseTg() tgListOutput {
 	baseTg := tgListOutput{
-		tgSummary: &vpclattice.TargetGroupSummary{
+		tgSummary: types.TargetGroupSummary{
 			Arn:           aws.String("tg-arn"),
 			Id:            aws.String("tg-id"),
 			Name:          aws.String("tg-name"),
 			CreatedAt:     aws.Time(time.Now()),
 			VpcIdentifier: aws.String("vpc-id"),
-			Port:          aws.Int64(80),
-			Protocol:      aws.String("HTTP"),
-			IpAddressType: aws.String("IPV4"),
+			Port:          aws.Int32(80),
+			Protocol:      types.TargetGroupProtocolHttp,
+			IpAddressType: types.IpAddressTypeIpv4,
 		},
-		tags: make(map[string]*string),
+		tags: make(map[string]string),
 	}
-	baseTg.tags[model.K8SClusterNameKey] = aws.String("cluster-name")
-	baseTg.tags[model.K8SServiceNameKey] = aws.String("svc")
-	baseTg.tags[model.K8SServiceNamespaceKey] = aws.String("ns")
-	baseTg.tags[model.K8SProtocolVersionKey] = aws.String("HTTP")
+	baseTg.tags[model.K8SClusterNameKey] = "cluster-name"
+	baseTg.tags[model.K8SServiceNameKey] = "svc"
+	baseTg.tags[model.K8SServiceNamespaceKey] = "ns"
+	baseTg.tags[model.K8SProtocolVersionKey] = "HTTP"
 	return baseTg
 }
 
@@ -195,29 +195,29 @@ func Test_DoNotDeleteCases(t *testing.T) {
 
 	var noDeleteTgs []tgListOutput
 
-	tgWithSvcArns := copy(baseTg)
+	tgWithSvcArns := copyTgOutput(baseTg)
 	tgWithSvcArns.tgSummary.Arn = aws.String("tg-with-svcs-arn") // useful for reading logs
-	tgWithSvcArns.tgSummary.ServiceArns = []*string{aws.String("svc-arn")}
+	tgWithSvcArns.tgSummary.ServiceArns = []string{"svc-arn"}
 	noDeleteTgs = append(noDeleteTgs, tgWithSvcArns)
 
-	tgSvcExportUpToDate := copy(baseTg)
+	tgSvcExportUpToDate := copyTgOutput(baseTg)
 	tgSvcExportUpToDate.tgSummary.Arn = aws.String("tg-svc-export-arn")
-	tgSvcExportUpToDate.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
-	tgSvcExportUpToDate.tags[model.K8SProtocolVersionKey] = aws.String("HTTP1")
+	tgSvcExportUpToDate.tags[model.K8SSourceTypeKey] = string(model.SourceTypeSvcExport)
+	tgSvcExportUpToDate.tags[model.K8SProtocolVersionKey] = "HTTP1"
 	noDeleteTgs = append(noDeleteTgs, tgSvcExportUpToDate)
 
-	tgSvcUpToDate := copy(baseTg)
+	tgSvcUpToDate := copyTgOutput(baseTg)
 	tgSvcUpToDate.tgSummary.Arn = aws.String("tg-svc-arn")
-	tgSvcUpToDate.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
-	tgSvcUpToDate.tags[model.K8SRouteNameKey] = aws.String("route")
-	tgSvcUpToDate.tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
-	tgSvcUpToDate.tags[model.K8SProtocolVersionKey] = aws.String("HTTP1")
+	tgSvcUpToDate.tags[model.K8SSourceTypeKey] = string(model.SourceTypeHTTPRoute)
+	tgSvcUpToDate.tags[model.K8SRouteNameKey] = "route"
+	tgSvcUpToDate.tags[model.K8SRouteNamespaceKey] = "route-ns"
+	tgSvcUpToDate.tags[model.K8SProtocolVersionKey] = "HTTP1"
 	noDeleteTgs = append(noDeleteTgs, tgSvcUpToDate)
 
 	mockTGManager.EXPECT().List(ctx).Return(noDeleteTgs, nil)
 
 	mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, routeOrSvcExport client.Object, _ ...interface{}) error {
+		func(ctx context.Context, name apitypes.NamespacedName, routeOrSvcExport client.Object, _ ...interface{}) error {
 			routeOrSvcExport.SetName("ignored-name")
 			routeOrSvcExport.SetNamespace("ignored-ns")
 			return nil
@@ -277,10 +277,10 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 	baseTg := getBaseTg()
 
 	var deleteTgs []tgListOutput
-	tgSvcExport := copy(baseTg)
+	tgSvcExport := copyTgOutput(baseTg)
 	tgSvcExport.tgSummary.Arn = aws.String("tg-svc-export-arn")
-	tgSvcExport.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeSvcExport))
-	tgSvcExport.tags[model.K8SProtocolVersionKey] = aws.String("HTTP1")
+	tgSvcExport.tags[model.K8SSourceTypeKey] = string(model.SourceTypeSvcExport)
+	tgSvcExport.tags[model.K8SProtocolVersionKey] = "HTTP1"
 	deleteTgs = append(deleteTgs, tgSvcExport)
 
 	t.Run("Service Export does not exist", func(t *testing.T) {
@@ -308,7 +308,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 
 		// the important bit below - svc export get returns deleted
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, name types.NamespacedName, svcExport client.Object, _ ...interface{}) error {
+			func(ctx context.Context, name apitypes.NamespacedName, svcExport client.Object, _ ...interface{}) error {
 				now := metav1.Now()
 				svcExport.SetName("svc")
 				svcExport.SetNamespace("ns")
@@ -344,7 +344,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 		}
 
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, name types.NamespacedName, svcExport client.Object, _ ...interface{}) error {
+			func(ctx context.Context, name apitypes.NamespacedName, svcExport client.Object, _ ...interface{}) error {
 				svcExport.SetName("svc")
 				svcExport.SetNamespace("ns")
 				return nil
@@ -378,12 +378,12 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 	baseTg := getBaseTg()
 
 	var deleteTgs []tgListOutput
-	tgSvc := copy(baseTg)
+	tgSvc := copyTgOutput(baseTg)
 	tgSvc.tgSummary.Arn = aws.String("tg-svc-arn")
-	tgSvc.tags[model.K8SSourceTypeKey] = aws.String(string(model.SourceTypeHTTPRoute))
-	tgSvc.tags[model.K8SRouteNameKey] = aws.String("route")
-	tgSvc.tags[model.K8SRouteNamespaceKey] = aws.String("route-ns")
-	tgSvc.tags[model.K8SProtocolVersionKey] = aws.String("HTTP1")
+	tgSvc.tags[model.K8SSourceTypeKey] = string(model.SourceTypeHTTPRoute)
+	tgSvc.tags[model.K8SRouteNameKey] = "route"
+	tgSvc.tags[model.K8SRouteNamespaceKey] = "route-ns"
+	tgSvc.tags[model.K8SProtocolVersionKey] = "HTTP1"
 	deleteTgs = append(deleteTgs, tgSvc)
 
 	t.Run("Route does not exist", func(t *testing.T) {
@@ -411,7 +411,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 
 		// the important bit below - svc export get returns deleted
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, name types.NamespacedName, route client.Object, _ ...interface{}) error {
+			func(ctx context.Context, name apitypes.NamespacedName, route client.Object, _ ...interface{}) error {
 				now := metav1.Now()
 				route.SetName("route-name")
 				route.SetNamespace("route-ns")
@@ -457,7 +457,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 		mockSvcBuilder.EXPECT().Build(ctx, gomock.Any()).Return(stack, nil)
 
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, name types.NamespacedName, svcOrSvcExport client.Object, _ ...interface{}) error {
+			func(ctx context.Context, name apitypes.NamespacedName, svcOrSvcExport client.Object, _ ...interface{}) error {
 				svcOrSvcExport.SetName("svc")
 				svcOrSvcExport.SetNamespace("ns")
 				return nil

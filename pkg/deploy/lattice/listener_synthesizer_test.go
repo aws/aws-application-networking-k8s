@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
@@ -43,7 +43,7 @@ func Test_SynthesizeListenerCreate(t *testing.T) {
 	mockListenerMgr.EXPECT().Upsert(ctx, gomock.Any(), gomock.Any()).Return(
 		model.ListenerStatus{Id: "new-listener-id"}, nil)
 
-	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{}, nil)
+	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*types.ListenerSummary{}, nil)
 
 	ls := NewListenerSynthesizer(gwlog.FallbackLogger, mockListenerMgr, mockTargetGroupManager, stack)
 	err := ls.Synthesize(ctx)
@@ -68,7 +68,7 @@ func Test_SynthesizeListener_CreatNewHTTPListener_DeleteStaleHTTPSListener(t *te
 		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "l-id"),
 		Spec: model.ListenerSpec{
 			StackServiceId: "stack-svc-id",
-			Protocol:       vpclattice.ListenerProtocolHttp,
+			Protocol:       string(types.ListenerProtocolHttp),
 			Port:           80,
 			DefaultAction: &model.DefaultAction{
 				FixedResponseStatusCode: aws.Int64(404),
@@ -80,11 +80,11 @@ func Test_SynthesizeListener_CreatNewHTTPListener_DeleteStaleHTTPSListener(t *te
 	mockListenerMgr.EXPECT().Upsert(ctx, l, svc).Return(
 		model.ListenerStatus{Id: "new-listener-id"}, nil)
 
-	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{
+	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*types.ListenerSummary{
 		{
 			Id:       aws.String("to-delete-id"),
-			Protocol: aws.String(vpclattice.ListenerProtocolHttps),
-			Port:     aws.Int64(443), // <-- makes this listener unique
+			Protocol: types.ListenerProtocolHttps,
+			Port:     aws.Int32(443), // <-- makes this listener unique
 		},
 	}, nil)
 
@@ -144,7 +144,7 @@ func Test_SynthesizeListener_CreatNewTLSPassthroughListener_DeleteStaleHTTPSList
 		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Listener", "l-id"),
 		Spec: model.ListenerSpec{
 			StackServiceId: "stack-svc-id",
-			Protocol:       vpclattice.ListenerProtocolTlsPassthrough,
+			Protocol:       string(types.ListenerProtocolTlsPassthrough),
 			Port:           80,
 			DefaultAction:  &model.DefaultAction{Forward: &model.RuleAction{TargetGroups: rule.Spec.Action.TargetGroups}},
 		},
@@ -153,11 +153,11 @@ func Test_SynthesizeListener_CreatNewTLSPassthroughListener_DeleteStaleHTTPSList
 	mockListenerMgr.EXPECT().Upsert(ctx, l, svc).Return(
 		model.ListenerStatus{Id: "new-listener-id"}, nil)
 
-	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.ListenerSummary{
+	mockListenerMgr.EXPECT().List(ctx, gomock.Any()).Return([]*types.ListenerSummary{
 		{
 			Id:       aws.String("to-delete-id"),
-			Protocol: aws.String(vpclattice.ListenerProtocolHttps),
-			Port:     aws.Int64(443),
+			Protocol: types.ListenerProtocolHttps,
+			Port:     aws.Int32(443),
 		},
 	}, nil)
 

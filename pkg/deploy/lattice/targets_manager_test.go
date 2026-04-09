@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
@@ -43,17 +44,17 @@ func TestTargetsManager(t *testing.T) {
 		},
 	}
 
-	targetInput := &vpclattice.Target{
+	targetInput := types.Target{
 		Id:   aws.String(targets.TargetIP),
-		Port: aws.Int64(targets.Port),
+		Port: aws.Int32(int32(targets.Port)),
 	}
 	registerTargetsInput := &vpclattice.RegisterTargetsInput{
 		TargetGroupIdentifier: aws.String("tg-id"),
-		Targets:               []*vpclattice.Target{targetInput},
+		Targets:               []types.Target{targetInput},
 	}
 
 	registerTargetsOutput := &vpclattice.RegisterTargetsOutput{}
-	var emptyListTargetOutput []*vpclattice.TargetSummary
+	var emptyListTargetOutput []types.TargetSummary
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -64,7 +65,7 @@ func TestTargetsManager(t *testing.T) {
 
 	t.Run("success - no current targets", func(t *testing.T) {
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(emptyListTargetOutput, nil)
-		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(registerTargetsOutput, nil)
+		mockLattice.EXPECT().RegisterTargets(ctx, registerTargetsInput).Return(registerTargetsOutput, nil)
 
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
@@ -73,13 +74,13 @@ func TestTargetsManager(t *testing.T) {
 	})
 
 	t.Run("success - deregister targets, no target overlap", func(t *testing.T) {
-		existingTarget := &vpclattice.TargetSummary{
+		existingTarget := types.TargetSummary{
 			Id:   aws.String("192.0.2.250"),
-			Port: aws.Int64(80),
+			Port: aws.Int32(80),
 		}
-		existingTargets := []*vpclattice.TargetSummary{existingTarget}
+		existingTargets := []types.TargetSummary{existingTarget}
 
-		deregisterTargets := []*vpclattice.Target{
+		deregisterTargets := []types.Target{
 			{
 				Id:   existingTarget.Id,
 				Port: existingTarget.Port,
@@ -94,8 +95,8 @@ func TestTargetsManager(t *testing.T) {
 		}
 
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
-		mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, deregisterInput).Return(deregisterOutput, nil)
-		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(registerTargetsOutput, nil)
+		mockLattice.EXPECT().DeregisterTargets(ctx, deregisterInput).Return(deregisterOutput, nil)
+		mockLattice.EXPECT().RegisterTargets(ctx, registerTargetsInput).Return(registerTargetsOutput, nil)
 
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
@@ -111,23 +112,23 @@ func TestTargetsManager(t *testing.T) {
 		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
 		assert.NotNil(t, err)
 
-		// error on RegisterTargetsWithContext
+		// error on RegisterTargets
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(emptyListTargetOutput, nil)
-		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, errors.New("Register_Targets_Failed"))
+		mockLattice.EXPECT().RegisterTargets(ctx, gomock.Any()).Return(registerTargetsOutput, errors.New("Register_Targets_Failed"))
 
 		targetsManager = NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err = targetsManager.Update(ctx, &modelTargets, &modelTg)
 		assert.NotNil(t, err)
 
-		// error on DeregisterTargetsWithContext
-		existingTarget := &vpclattice.TargetSummary{
+		// error on DeregisterTargets
+		existingTarget := types.TargetSummary{
 			Id:   aws.String("192.0.2.250"),
-			Port: aws.Int64(80),
+			Port: aws.Int32(80),
 		}
-		existingTargets := []*vpclattice.TargetSummary{existingTarget}
+		existingTargets := []types.TargetSummary{existingTarget}
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
-		mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(&vpclattice.DeregisterTargetsOutput{}, errors.New("Deregister_Targets_Failed"))
-		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, nil)
+		mockLattice.EXPECT().DeregisterTargets(ctx, gomock.Any()).Return(&vpclattice.DeregisterTargetsOutput{}, errors.New("Deregister_Targets_Failed"))
+		mockLattice.EXPECT().RegisterTargets(ctx, gomock.Any()).Return(registerTargetsOutput, nil)
 
 		targetsManager = NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err = targetsManager.Update(ctx, &modelTargets, &modelTg)
@@ -155,10 +156,10 @@ func TestTargetsManager(t *testing.T) {
 	})
 
 	t.Run("register unsuccessful returns error", func(t *testing.T) {
-		unsuccessful := []*vpclattice.TargetFailure{
+		unsuccessful := []types.TargetFailure{
 			{
 				Id:   aws.String(targets.TargetIP),
-				Port: aws.Int64(targets.Port),
+				Port: aws.Int32(int32(targets.Port)),
 			},
 		}
 		unsuccessfulRTO := &vpclattice.RegisterTargetsOutput{
@@ -166,7 +167,7 @@ func TestTargetsManager(t *testing.T) {
 		}
 
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(emptyListTargetOutput, nil)
-		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(unsuccessfulRTO, nil)
+		mockLattice.EXPECT().RegisterTargets(ctx, registerTargetsInput).Return(unsuccessfulRTO, nil)
 
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
@@ -208,14 +209,14 @@ func TestTargetsManager(t *testing.T) {
 			Ready:    true,
 		}
 
-		existingTargets := []*vpclattice.TargetSummary{
+		existingTargets := []types.TargetSummary{
 			{
 				Id:   aws.String(mt1.TargetIP),
-				Port: aws.Int64(mt1.Port),
+				Port: aws.Int32(int32(mt1.Port)),
 			},
 			{
 				Id:   aws.String(mt2.TargetIP),
-				Port: aws.Int64(mt2.Port),
+				Port: aws.Int32(int32(mt2.Port)),
 			},
 		}
 
@@ -226,10 +227,10 @@ func TestTargetsManager(t *testing.T) {
 			},
 		}
 
-		deregisterTargets := []*vpclattice.Target{
+		deregisterTargets := []types.Target{
 			{
 				Id:   aws.String(mt1.TargetIP),
-				Port: aws.Int64(mt1.Port),
+				Port: aws.Int32(int32(mt1.Port)),
 			},
 		}
 
@@ -243,15 +244,15 @@ func TestTargetsManager(t *testing.T) {
 
 		registerInput := &vpclattice.RegisterTargetsInput{
 			TargetGroupIdentifier: aws.String("tg-id"),
-			Targets: []*vpclattice.Target{
-				{Id: aws.String(mt2.TargetIP), Port: aws.Int64(mt2.Port)},
-				{Id: aws.String(mt3.TargetIP), Port: aws.Int64(mt3.Port)},
+			Targets: []types.Target{
+				{Id: aws.String(mt2.TargetIP), Port: aws.Int32(int32(mt2.Port))},
+				{Id: aws.String(mt3.TargetIP), Port: aws.Int32(int32(mt3.Port))},
 			},
 		}
 
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
-		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, registerInput).Return(registerTargetsOutput, nil)
-		mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, deregisterInput).Return(deregisterOutput, nil)
+		mockLattice.EXPECT().RegisterTargets(ctx, registerInput).Return(registerTargetsOutput, nil)
+		mockLattice.EXPECT().DeregisterTargets(ctx, deregisterInput).Return(deregisterOutput, nil)
 
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err := targetsManager.Update(ctx, &newTargets, &modelTg)
@@ -261,13 +262,13 @@ func TestTargetsManager(t *testing.T) {
 	})
 
 	t.Run("port difference handled correctly", func(t *testing.T) {
-		existingTarget := &vpclattice.TargetSummary{
+		existingTarget := types.TargetSummary{
 			Id:   aws.String(targets.TargetIP),
-			Port: aws.Int64(targets.Port + 1), // <-- the important bit
+			Port: aws.Int32(int32(targets.Port + 1)), // <-- the important bit
 		}
-		existingTargets := []*vpclattice.TargetSummary{existingTarget}
+		existingTargets := []types.TargetSummary{existingTarget}
 
-		deregisterTargets := []*vpclattice.Target{
+		deregisterTargets := []types.Target{
 			{
 				Id:   existingTarget.Id,
 				Port: existingTarget.Port,
@@ -282,8 +283,8 @@ func TestTargetsManager(t *testing.T) {
 		}
 
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
-		mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, deregisterInput).Return(deregisterOutput, nil)
-		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, registerTargetsInput).Return(registerTargetsOutput, nil)
+		mockLattice.EXPECT().DeregisterTargets(ctx, deregisterInput).Return(deregisterOutput, nil)
+		mockLattice.EXPECT().RegisterTargets(ctx, registerTargetsInput).Return(registerTargetsOutput, nil)
 
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
@@ -303,10 +304,10 @@ func TestTargetsManager(t *testing.T) {
 		}
 		modelTargets.Spec.TargetList = extraTargets
 
-		existingTargets := []*vpclattice.TargetSummary{}
+		existingTargets := []types.TargetSummary{}
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
-		// RegisterTargetsWithContext should be called 3 times, once for the first 100, once for the second 100, and once for the rest or 1 targets
-		mockLattice.EXPECT().RegisterTargetsWithContext(ctx, gomock.Any()).Return(registerTargetsOutput, nil).Times(3)
+		// RegisterTargets should be called 3 times, once for the first 100, once for the second 100, and once for the rest or 1 targets
+		mockLattice.EXPECT().RegisterTargets(ctx, gomock.Any()).Return(registerTargetsOutput, nil).Times(3)
 
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
@@ -318,17 +319,17 @@ func TestTargetsManager(t *testing.T) {
 
 		modelTargets.Spec.TargetList = []model.Target{}
 
-		existingTargets := []*vpclattice.TargetSummary{}
+		existingTargets := []types.TargetSummary{}
 		for i := 0; i < 201; i++ {
-			existingTargets = append(existingTargets, &vpclattice.TargetSummary{
+			existingTargets = append(existingTargets, types.TargetSummary{
 				Id:   aws.String("192.0.3." + strconv.Itoa(i+1)),
-				Port: aws.Int64(8080),
+				Port: aws.Int32(8080),
 			})
 		}
 
 		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
-		// DeregisterTargetsWithContext should be called 3 times, once for the first 100, once for the second 100, and once for the rest of 1 targets
-		mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(&vpclattice.DeregisterTargetsOutput{}, nil).Times(3)
+		// DeregisterTargets should be called 3 times, once for the first 100, once for the second 100, and once for the rest of 1 targets
+		mockLattice.EXPECT().DeregisterTargets(ctx, gomock.Any()).Return(&vpclattice.DeregisterTargetsOutput{}, nil).Times(3)
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
 

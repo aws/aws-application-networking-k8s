@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-sdk-go/aws"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -984,67 +984,67 @@ func TestParseTagsFromAnnotation(t *testing.T) {
 		{
 			name:        "multiple tags",
 			annotation:  "Environment=Dev,Project=MyApp,Team=Platform",
-			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("MyApp"), "Team": aws.String("Platform")},
+			expected:    Tags{"Environment": "Dev", "Project": "MyApp", "Team": "Platform"},
 			description: "should parse multiple tags correctly",
 		},
 		{
 			name:        "tags with spaces",
 			annotation:  "Environment = Dev , Project = MyApp",
-			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("MyApp")},
+			expected:    Tags{"Environment": "Dev", "Project": "MyApp"},
 			description: "should handle spaces around keys and values",
 		},
 		{
 			name:        "invalid tag format",
 			annotation:  "Environment,Project=MyApp",
-			expected:    Tags{"Project": aws.String("MyApp")},
+			expected:    Tags{"Project": "MyApp"},
 			description: "should skip invalid tag format and parse valid ones",
 		},
 		{
 			name:        "empty key or value",
 			annotation:  "=Dev,Project=,Team=Platform",
-			expected:    Tags{"Team": aws.String("Platform")},
+			expected:    Tags{"Team": "Platform"},
 			description: "should skip tags with empty keys or values",
 		},
 		{
 			name:        "trailing comma",
 			annotation:  "Environment=Dev,Project=MyApp,",
-			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("MyApp")},
+			expected:    Tags{"Environment": "Dev", "Project": "MyApp"},
 			description: "should handle trailing comma gracefully",
 		},
 		{
 			name:        "whitespace only pairs",
 			annotation:  "Environment=Dev,   ,Project=MyApp",
-			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("MyApp")},
+			expected:    Tags{"Environment": "Dev", "Project": "MyApp"},
 			description: "should skip whitespace-only pairs",
 		},
 		{
 			name:        "tag key too long",
 			annotation:  strings.Repeat("a", 129) + "=value,Project=MyApp",
-			expected:    Tags{"Project": aws.String("MyApp")},
+			expected:    Tags{"Project": "MyApp"},
 			description: "should skip tags with keys longer than 128 characters",
 		},
 		{
 			name:        "tag value too long",
 			annotation:  "Environment=Dev,key=" + strings.Repeat("v", 257),
-			expected:    Tags{"Environment": aws.String("Dev")},
+			expected:    Tags{"Environment": "Dev"},
 			description: "should skip tags with values longer than 256 characters",
 		},
 		{
 			name:        "duplicate keys",
 			annotation:  "Environment=Dev,Project=App1,Environment=Prod,Team=Platform",
-			expected:    Tags{"Environment": aws.String("Dev"), "Project": aws.String("App1"), "Team": aws.String("Platform")},
+			expected:    Tags{"Environment": "Dev", "Project": "App1", "Team": "Platform"},
 			description: "should keep first occurrence of duplicate keys",
 		},
 		{
 			name:        "invalid characters in key",
 			annotation:  "Env#ironment=Dev,Project=MyApp",
-			expected:    Tags{"Project": aws.String("MyApp")},
+			expected:    Tags{"Project": "MyApp"},
 			description: "should skip tags with invalid characters in key",
 		},
 		{
 			name:        "invalid characters in value",
 			annotation:  "Environment=Dev,Project=My$App",
-			expected:    Tags{"Environment": aws.String("Dev")},
+			expected:    Tags{"Environment": "Dev"},
 			description: "should skip tags with invalid characters in value",
 		},
 		{
@@ -1061,7 +1061,7 @@ func TestParseTagsFromAnnotation(t *testing.T) {
 				for i := 1; i <= 50; i++ {
 					key := "key" + string(rune(i/10+48)) + string(rune(i%10+48))
 					value := "value" + string(rune(i/10+48)) + string(rune(i%10+48))
-					tags[key] = aws.String(value)
+					tags[key] = value
 				}
 				return tags
 			}(),
@@ -1099,21 +1099,21 @@ func TestGetNonAWSManagedTags(t *testing.T) {
 		{
 			name: "only additional tags",
 			tags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			expected: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			description: "should return all tags when no AWS managed tags present",
 		},
 		{
 			name: "only AWS managed tags",
 			tags: Tags{
-				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
-				"application-networking.k8s.aws/RouteType": aws.String("http"),
-				"application-networking.k8s.aws/RouteName": aws.String("test-route"),
+				"application-networking.k8s.aws/ManagedBy": "123456789/cluster/vpc-123",
+				"application-networking.k8s.aws/RouteType": "http",
+				"application-networking.k8s.aws/RouteName": "test-route",
 			},
 			expected:    Tags{},
 			description: "should return empty map when only AWS managed tags present",
@@ -1121,66 +1121,66 @@ func TestGetNonAWSManagedTags(t *testing.T) {
 		{
 			name: "mixed tags",
 			tags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
-				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
-				"application-networking.k8s.aws/RouteType": aws.String("http"),
-				"Team": aws.String("Platform"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
+				"application-networking.k8s.aws/ManagedBy": "123456789/cluster/vpc-123",
+				"application-networking.k8s.aws/RouteType": "http",
+				"Team": "Platform",
 			},
 			expected: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
-				"Team":        aws.String("Platform"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
+				"Team":        "Platform",
 			},
 			description: "should filter out AWS managed tags and keep additional tags",
 		},
 		{
 			name: "AWS reserved tags lowercase",
 			tags: Tags{
-				"aws:cloudformation:stack-name": aws.String("my-stack"),
-				"aws:region":                    aws.String("us-west-2"),
-				"Environment":                   aws.String("Dev"),
+				"aws:cloudformation:stack-name": "my-stack",
+				"aws:region":                    "us-west-2",
+				"Environment":                   "Dev",
 			},
 			expected: Tags{
-				"Environment": aws.String("Dev"),
+				"Environment": "Dev",
 			},
 			description: "should filter out lowercase aws: prefixed tags",
 		},
 		{
 			name: "AWS reserved tags uppercase",
 			tags: Tags{
-				"AWS:CloudFormation:StackName": aws.String("my-stack"),
-				"AWS:Region":                   aws.String("us-west-2"),
-				"Environment":                  aws.String("Dev"),
+				"AWS:CloudFormation:StackName": "my-stack",
+				"AWS:Region":                   "us-west-2",
+				"Environment":                  "Dev",
 			},
 			expected: Tags{
-				"Environment": aws.String("Dev"),
+				"Environment": "Dev",
 			},
 			description: "should filter out uppercase AWS: prefixed tags",
 		},
 		{
 			name: "AWS reserved tags mixed case",
 			tags: Tags{
-				"Aws:Service":  aws.String("ec2"),
-				"aWs:Resource": aws.String("instance"),
-				"Environment":  aws.String("Dev"),
+				"Aws:Service":  "ec2",
+				"aWs:Resource": "instance",
+				"Environment":  "Dev",
 			},
 			expected: Tags{
-				"Environment": aws.String("Dev"),
+				"Environment": "Dev",
 			},
 			description: "should filter out mixed case aws: prefixed tags",
 		},
 		{
 			name: "tags that start with aws but not aws:",
 			tags: Tags{
-				"awesome":     aws.String("value"),
-				"aws-region":  aws.String("us-west-2"),
-				"Environment": aws.String("Dev"),
+				"awesome":     "value",
+				"aws-region":  "us-west-2",
+				"Environment": "Dev",
 			},
 			expected: Tags{
-				"awesome":     aws.String("value"),
-				"aws-region":  aws.String("us-west-2"),
-				"Environment": aws.String("Dev"),
+				"awesome":     "value",
+				"aws-region":  "us-west-2",
+				"Environment": "Dev",
 			},
 			description: "should keep tags that start with 'aws' but not 'aws:'",
 		},
@@ -1215,12 +1215,12 @@ func TestCalculateTagDifference(t *testing.T) {
 			name:        "current nil, desired has tags",
 			currentTags: nil,
 			desiredTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			expectedToAdd: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			expectedToRemove: []string{},
 			description:      "should add all desired tags when current is nil",
@@ -1228,8 +1228,8 @@ func TestCalculateTagDifference(t *testing.T) {
 		{
 			name: "current has tags, desired nil",
 			currentTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			desiredTags:      nil,
 			expectedToAdd:    Tags{},
@@ -1239,12 +1239,12 @@ func TestCalculateTagDifference(t *testing.T) {
 		{
 			name: "no changes needed",
 			currentTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			desiredTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			expectedToAdd:    Tags{},
 			expectedToRemove: []string{},
@@ -1253,16 +1253,16 @@ func TestCalculateTagDifference(t *testing.T) {
 		{
 			name: "add new tags",
 			currentTags: Tags{
-				"Environment": aws.String("Dev"),
+				"Environment": "Dev",
 			},
 			desiredTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
-				"Team":        aws.String("Platform"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
+				"Team":        "Platform",
 			},
 			expectedToAdd: Tags{
-				"Project": aws.String("MyApp"),
-				"Team":    aws.String("Platform"),
+				"Project": "MyApp",
+				"Team":    "Platform",
 			},
 			expectedToRemove: []string{},
 			description:      "should add new tags",
@@ -1270,12 +1270,12 @@ func TestCalculateTagDifference(t *testing.T) {
 		{
 			name: "remove tags",
 			currentTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
-				"Team":        aws.String("Platform"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
+				"Team":        "Platform",
 			},
 			desiredTags: Tags{
-				"Environment": aws.String("Dev"),
+				"Environment": "Dev",
 			},
 			expectedToAdd:    Tags{},
 			expectedToRemove: []string{"Project", "Team"},
@@ -1284,16 +1284,16 @@ func TestCalculateTagDifference(t *testing.T) {
 		{
 			name: "update tag values",
 			currentTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("OldApp"),
+				"Environment": "Dev",
+				"Project":     "OldApp",
 			},
 			desiredTags: Tags{
-				"Environment": aws.String("Prod"),
-				"Project":     aws.String("NewApp"),
+				"Environment": "Prod",
+				"Project":     "NewApp",
 			},
 			expectedToAdd: Tags{
-				"Environment": aws.String("Prod"),
-				"Project":     aws.String("NewApp"),
+				"Environment": "Prod",
+				"Project":     "NewApp",
 			},
 			expectedToRemove: []string{},
 			description:      "should update changed tag values",
@@ -1301,18 +1301,18 @@ func TestCalculateTagDifference(t *testing.T) {
 		{
 			name: "mixed operations",
 			currentTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("OldApp"),
-				"OldTag":      aws.String("OldValue"),
+				"Environment": "Dev",
+				"Project":     "OldApp",
+				"OldTag":      "OldValue",
 			},
 			desiredTags: Tags{
-				"Environment": aws.String("Prod"),
-				"Project":     aws.String("OldApp"),
-				"NewTag":      aws.String("NewValue"),
+				"Environment": "Prod",
+				"Project":     "OldApp",
+				"NewTag":      "NewValue",
 			},
 			expectedToAdd: Tags{
-				"Environment": aws.String("Prod"),
-				"NewTag":      aws.String("NewValue"),
+				"Environment": "Prod",
+				"NewTag":      "NewValue",
 			},
 			expectedToRemove: []string{"OldTag"},
 			description:      "should handle add, update, and remove operations",
@@ -1325,13 +1325,7 @@ func TestCalculateTagDifference(t *testing.T) {
 
 			assert.Equal(t, tt.expectedToAdd, tagsToAdd, tt.description)
 
-			removeStrings := make([]string, len(tagsToRemove))
-			for i, tag := range tagsToRemove {
-				if tag != nil {
-					removeStrings[i] = *tag
-				}
-			}
-			assert.ElementsMatch(t, tt.expectedToRemove, removeStrings, tt.description)
+			assert.ElementsMatch(t, tt.expectedToRemove, tagsToRemove, tt.description)
 		})
 	}
 }
@@ -1412,8 +1406,8 @@ func TestGetAdditionalTagsFromAnnotations(t *testing.T) {
 				},
 			},
 			expected: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			description: "should parse and return valid tags",
 		},
@@ -1429,8 +1423,8 @@ func TestGetAdditionalTagsFromAnnotations(t *testing.T) {
 				},
 			},
 			expected: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			description: "should filter out AWS managed tags and return only additional tags",
 		},

@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
@@ -92,7 +93,7 @@ func Test_isLocalServiceNetwork_NilARN(t *testing.T) {
 
 // Test_UpsertVpcAssociation_RAMSharedNetwork_ExistingAssociation tests that RAM-shared networks skip ownership checks
 func Test_UpsertVpcAssociation_RAMSharedNetwork_ExistingAssociation(t *testing.T) {
-	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	securityGroupIds := []string{"sg-123456789", "sg-987654321"}
 
 	// RAM-shared network with different account ID
 	snId := "sn-12345678912345678"
@@ -101,22 +102,22 @@ func Test_UpsertVpcAssociation_RAMSharedNetwork_ExistingAssociation(t *testing.T
 	name := "ram-shared-network"
 	vpcId := config.VpcID
 
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusActive
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &vpcId,
 		Arn:                &snvaArn,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -131,10 +132,10 @@ func Test_UpsertVpcAssociation_RAMSharedNetwork_ExistingAssociation(t *testing.T
 		}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 
-	// Critical: For RAM-shared networks, we should NOT call GetServiceNetworkVpcAssociationWithContext,
+	// Critical: For RAM-shared networks, we should NOT call GetServiceNetworkVpcAssociation,
 	// TryOwn, or UpdateServiceNetworkVpcAssociation - they return early
-	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
-	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, nil)
@@ -145,7 +146,7 @@ func Test_UpsertVpcAssociation_RAMSharedNetwork_ExistingAssociation(t *testing.T
 
 // Test_UpsertVpcAssociation_RAMSharedNetwork_ReadOnly tests that RAM-shared networks are read-only
 func Test_UpsertVpcAssociation_RAMSharedNetwork_ReadOnly(t *testing.T) {
-	newSecurityGroupIds := []*string{aws.String("sg-999999999")}
+	newSecurityGroupIds := []string{"sg-999999999"}
 
 	// RAM-shared network with different account ID
 	snId := "sn-12345678912345678"
@@ -154,22 +155,22 @@ func Test_UpsertVpcAssociation_RAMSharedNetwork_ReadOnly(t *testing.T) {
 	name := "ram-shared-network"
 	vpcId := config.VpcID
 
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusActive
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &vpcId,
 		Arn:                &snvaArn,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -186,8 +187,8 @@ func Test_UpsertVpcAssociation_RAMSharedNetwork_ReadOnly(t *testing.T) {
 
 	// Even though security groups are different, RAM-shared networks should NOT be updated
 	// and should not even check the existing association
-	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
-	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.UpsertVpcAssociation(ctx, name, newSecurityGroupIds, nil)
@@ -198,8 +199,8 @@ func Test_UpsertVpcAssociation_RAMSharedNetwork_ReadOnly(t *testing.T) {
 
 // Test_UpsertVpcAssociation_LocalNetwork_WithUpdates tests that local networks CAN be updated
 func Test_UpsertVpcAssociation_LocalNetwork_WithUpdates(t *testing.T) {
-	existingSecurityGroupIds := []*string{aws.String("sg-111111111")}
-	newSecurityGroupIds := []*string{aws.String("sg-222222222"), aws.String("sg-333333333")}
+	existingSecurityGroupIds := []string{"sg-111111111"}
+	newSecurityGroupIds := []string{"sg-222222222", "sg-333333333"}
 
 	// Local network with same account ID
 	snId := "sn-12345678912345678"
@@ -208,22 +209,22 @@ func Test_UpsertVpcAssociation_LocalNetwork_WithUpdates(t *testing.T) {
 	name := "local-network"
 	vpcId := config.VpcID
 
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusActive
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &vpcId,
 		Arn:                &snvaArn,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -237,28 +238,28 @@ func Test_UpsertVpcAssociation_LocalNetwork_WithUpdates(t *testing.T) {
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
-	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
 		Arn:                &snvaArn,
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &name,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &vpcId,
 		SecurityGroupIds:   existingSecurityGroupIds,
 	}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
 		Tags: cloud.DefaultTags(),
 	}, nil)
 
 	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any(), nil).Return(nil)
 
 	// Local networks SHOULD be updated when security groups change
-	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{
 		Arn:              &snvaArn,
 		Id:               &snId,
 		SecurityGroupIds: newSecurityGroupIds,
-		Status:           &status,
+		Status:           status,
 	}, nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)

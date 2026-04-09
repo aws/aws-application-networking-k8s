@@ -7,8 +7,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -51,7 +52,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			tgSpec = model.TargetGroupSpec{
 				Port:            int32(8080),
 				Protocol:        "HTTP",
-				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+				ProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 			}
 			tgSpec.VpcId = config.VpcID
 			tgSpec.K8SClusterName = config.ClusterName
@@ -64,7 +65,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			tgSpec = model.TargetGroupSpec{
 				Port:            int32(8080),
 				Protocol:        "HTTP",
-				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+				ProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 			}
 			tgSpec.VpcId = config.VpcID
 			tgSpec.K8SClusterName = config.ClusterName
@@ -76,9 +77,9 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 			tgSpec.Type = model.TargetGroupTypeIP
 		}
 
-		tgSpec.AdditionalTags = map[string]*string{
-			"Environment": &[]string{"Test"}[0],
-			"Project":     &[]string{"TGManager"}[0],
+		tgSpec.AdditionalTags = map[string]string{
+			"Environment": "Test",
+			"Project":     "TGManager",
 		}
 
 		tgCreateInput := model.TargetGroup{
@@ -87,30 +88,30 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		}
 
 		expectedTags := cloud.DefaultTags()
-		expectedTags[model.K8SServiceNameKey] = &tgSpec.K8SServiceName
-		expectedTags[model.K8SServiceNamespaceKey] = &tgSpec.K8SServiceNamespace
-		expectedTags[model.K8SClusterNameKey] = &tgSpec.K8SClusterName
-		expectedTags[model.K8SProtocolVersionKey] = &tgSpec.ProtocolVersion
+		expectedTags[model.K8SServiceNameKey] = tgSpec.K8SServiceName
+		expectedTags[model.K8SServiceNamespaceKey] = tgSpec.K8SServiceNamespace
+		expectedTags[model.K8SClusterNameKey] = tgSpec.K8SClusterName
+		expectedTags[model.K8SProtocolVersionKey] = tgSpec.ProtocolVersion
 
 		if tgType == "by-serviceexport" {
 			value := string(model.SourceTypeSvcExport)
-			expectedTags[model.K8SSourceTypeKey] = &value
+			expectedTags[model.K8SSourceTypeKey] = value
 		} else if tgType == "by-backendref" {
 			value := string(model.SourceTypeHTTPRoute)
-			expectedTags[model.K8SSourceTypeKey] = &value
-			expectedTags[model.K8SRouteNameKey] = &tgSpec.K8SRouteName
-			expectedTags[model.K8SRouteNamespaceKey] = &tgSpec.K8SRouteNamespace
+			expectedTags[model.K8SSourceTypeKey] = value
+			expectedTags[model.K8SRouteNameKey] = tgSpec.K8SRouteName
+			expectedTags[model.K8SRouteNamespaceKey] = tgSpec.K8SRouteNamespace
 		}
 
-		expectedTags["Environment"] = &[]string{"Test"}[0]
-		expectedTags["Project"] = &[]string{"TGManager"}[0]
+		expectedTags["Environment"] = "Test"
+		expectedTags["Project"] = "TGManager"
 
 		mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
-		mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).DoAndReturn(
+		mockLattice.EXPECT().CreateTargetGroup(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, input *vpclattice.CreateTargetGroupInput, arg3 ...interface{}) (*vpclattice.CreateTargetGroupOutput, error) {
-				assert.Equal(t, aws.Int64(int64(tgSpec.Port)), input.Config.Port)
-				assert.Equal(t, tgSpec.Protocol, *input.Config.Protocol)
-				assert.Equal(t, tgSpec.ProtocolVersion, *input.Config.ProtocolVersion)
+				assert.Equal(t, aws.Int32(tgSpec.Port), input.Config.Port)
+				assert.Equal(t, tgSpec.Protocol, string(input.Config.Protocol))
+				assert.Equal(t, tgSpec.ProtocolVersion, string(input.Config.ProtocolVersion))
 				assert.Equal(t, expectedTags, input.Tags)
 				assert.Equal(t, tgSpec.VpcId, *input.Config.VpcIdentifier)
 
@@ -118,7 +119,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 					Arn:    aws.String("tg-arn-1"),
 					Id:     aws.String("tg-id-1"),
 					Name:   aws.String("tg-name-1"),
-					Status: aws.String(vpclattice.TargetGroupStatusActive),
+					Status: types.TargetGroupStatusActive,
 				}, nil
 			},
 		)
@@ -154,27 +155,27 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 	arn := "12345678912345678912"
 	id := "12345678912345678912"
 	name := "test"
-	tgStatus := vpclattice.TargetGroupStatusActive
+	tgStatus := types.TargetGroupStatusActive
 	tgCreateOutput := &vpclattice.CreateTargetGroupOutput{
 		Arn:    &arn,
 		Id:     &id,
 		Name:   &name,
-		Status: &tgStatus,
+		Status: tgStatus,
 	}
 
-	beforeCreateStatus := vpclattice.TargetGroupStatusCreateFailed
+	beforeCreateStatus := types.TargetGroupStatusCreateFailed
 	tgOutput := vpclattice.GetTargetGroupOutput{
 		Arn:    &arn,
 		Id:     &id,
 		Name:   &name,
-		Status: &beforeCreateStatus,
-		Config: &vpclattice.TargetGroupConfig{},
+		Status: beforeCreateStatus,
+		Config: &types.TargetGroupConfig{},
 	}
 
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
-	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+	mockLattice.EXPECT().GetTargetGroup(ctx, gomock.Any()).Return(&tgOutput, nil)
 
-	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
+	mockLattice.EXPECT().CreateTargetGroup(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	resp, err := tgManager.Upsert(ctx, &tgCreateInput)
 
@@ -187,12 +188,12 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 	tests := []struct {
 		name              string
-		healthCheckConfig *vpclattice.HealthCheckConfig
+		healthCheckConfig *types.HealthCheckConfig
 		wantErr           bool
 	}{
 		{
 			name: "includes health check",
-			healthCheckConfig: &vpclattice.HealthCheckConfig{
+			healthCheckConfig: &types.HealthCheckConfig{
 				Enabled: aws.Bool(false),
 			},
 			wantErr: false,
@@ -224,12 +225,12 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 
 			tgSpec := model.TargetGroupSpec{
 				Port:              80,
-				Protocol:          vpclattice.TargetGroupProtocolHttps,
-				ProtocolVersion:   vpclattice.TargetGroupProtocolVersionHttp1,
+				Protocol:          string(types.TargetGroupProtocolHttps),
+				ProtocolVersion:   string(types.TargetGroupProtocolVersionHttp1),
 				HealthCheckConfig: tt.healthCheckConfig,
-				AdditionalTags: map[string]*string{
-					"Environment": &[]string{"Test"}[0],
-					"Project":     &[]string{"UpdateTest"}[0],
+				AdditionalTags: map[string]string{
+					"Environment": "Test",
+					"Project":     "UpdateTest",
 				},
 			}
 
@@ -242,23 +243,23 @@ func Test_CreateTargetGroup_TGActive_UpdateHealthCheck(t *testing.T) {
 				Arn:    &arn,
 				Id:     &id,
 				Name:   aws.String("test-https-http1"),
-				Status: aws.String(vpclattice.TargetGroupStatusActive),
-				Config: &vpclattice.TargetGroupConfig{
-					Port:            aws.Int64(80),
-					Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
-					ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+				Status: types.TargetGroupStatusActive,
+				Config: &types.TargetGroupConfig{
+					Port:            aws.Int32(80),
+					Protocol:        types.TargetGroupProtocolHttps,
+					ProtocolVersion: types.TargetGroupProtocolVersionHttp1,
 				},
 			}
 
 			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
-			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+			mockLattice.EXPECT().GetTargetGroup(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 			mockTagging.EXPECT().UpdateTags(ctx, arn, tgSpec.AdditionalTags, nil).Return(nil)
 
 			if tt.wantErr {
-				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("error"))
+				mockLattice.EXPECT().UpdateTargetGroup(ctx, gomock.Any()).Return(nil, errors.New("error"))
 			} else {
-				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, nil)
+				mockLattice.EXPECT().UpdateTargetGroup(ctx, gomock.Any()).Return(nil, nil)
 			}
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
@@ -284,22 +285,22 @@ func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
-	hcConfig := &vpclattice.HealthCheckConfig{
+	hcConfig := &types.HealthCheckConfig{
 		Enabled:                    aws.Bool(true),
-		HealthCheckIntervalSeconds: aws.Int64(3),
-		HealthCheckTimeoutSeconds:  aws.Int64(3),
-		HealthyThresholdCount:      aws.Int64(3),
-		Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+		HealthCheckIntervalSeconds: aws.Int32(3),
+		HealthCheckTimeoutSeconds:  aws.Int32(3),
+		HealthyThresholdCount:      aws.Int32(3),
+		Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 		Path:                       aws.String("/"),
 		Port:                       nil,
-		Protocol:                   aws.String(vpclattice.TargetGroupProtocolHttps),
-		ProtocolVersion:            aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
-		UnhealthyThresholdCount:    aws.Int64(3),
+		Protocol:                   types.TargetGroupProtocolHttps,
+		ProtocolVersion:            types.HealthCheckProtocolVersionHttp1,
+		UnhealthyThresholdCount:    aws.Int32(3),
 	}
 	tgSpec := model.TargetGroupSpec{
 		Port:              80,
-		Protocol:          vpclattice.TargetGroupProtocolHttps,
-		ProtocolVersion:   vpclattice.TargetGroupProtocolVersionHttp1,
+		Protocol:          string(types.TargetGroupProtocolHttps),
+		ProtocolVersion:   string(types.TargetGroupProtocolVersionHttp1),
 		HealthCheckConfig: hcConfig,
 	}
 
@@ -312,21 +313,21 @@ func Test_CreateTargetGroup_TGActive_HealthCheckSame(t *testing.T) {
 		Arn:    aws.String("arn"),
 		Id:     aws.String("id"),
 		Name:   aws.String("test-https-http1"),
-		Status: aws.String(vpclattice.TargetGroupStatusActive),
-		Config: &vpclattice.TargetGroupConfig{
-			Port:            aws.Int64(80),
+		Status: types.TargetGroupStatusActive,
+		Config: &types.TargetGroupConfig{
+			Port:            aws.Int32(80),
 			HealthCheck:     hcConfig,
-			Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
-			ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+			Protocol:        types.TargetGroupProtocolHttps,
+			ProtocolVersion: types.TargetGroupProtocolVersionHttp1,
 		},
 	}
 
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{"arn"}, nil)
-	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+	mockLattice.EXPECT().GetTargetGroup(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 	mockTagging.EXPECT().UpdateTags(ctx, "arn", gomock.Any(), nil).Return(nil)
 
-	mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateTargetGroup(ctx, gomock.Any()).Times(0)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	resp, err := tgManager.Upsert(ctx, &tgCreateInput)
@@ -357,9 +358,9 @@ func Test_CreateTargetGroup_ExistingTG_Status_Retry(t *testing.T) {
 	id := "12345678912345678912"
 	name := "test"
 
-	retryStatuses := []string{
-		vpclattice.TargetGroupStatusCreateInProgress,
-		vpclattice.TargetGroupStatusDeleteInProgress,
+	retryStatuses := []types.TargetGroupStatus{
+		types.TargetGroupStatusCreateInProgress,
+		types.TargetGroupStatusDeleteInProgress,
 	}
 
 	for _, retryStatus := range retryStatuses {
@@ -369,16 +370,16 @@ func Test_CreateTargetGroup_ExistingTG_Status_Retry(t *testing.T) {
 				Arn:    &arn,
 				Id:     &id,
 				Name:   &name,
-				Status: &beforeCreateStatus,
-				Config: &vpclattice.TargetGroupConfig{
-					Port:            aws.Int64(80),
-					Protocol:        aws.String("HTTP"),
-					ProtocolVersion: aws.String("HTTP1"),
+				Status: beforeCreateStatus,
+				Config: &types.TargetGroupConfig{
+					Port:            aws.Int32(80),
+					Protocol:        types.TargetGroupProtocol("HTTP"),
+					ProtocolVersion: types.TargetGroupProtocolVersion("HTTP1"),
 				},
 			}
 
 			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
-			mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+			mockLattice.EXPECT().GetTargetGroup(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 			_, err := tgManager.Upsert(ctx, &tgCreateInput)
@@ -410,11 +411,11 @@ func Test_CreateTargetGroup_NewTG_RetryStatus(t *testing.T) {
 	id := "12345678912345678912"
 	name := "test"
 
-	retryStatuses := []string{
-		vpclattice.TargetGroupStatusDeleteInProgress,
-		vpclattice.TargetGroupStatusCreateFailed,
-		vpclattice.TargetGroupStatusDeleteFailed,
-		vpclattice.TargetGroupStatusDeleteInProgress,
+	retryStatuses := []types.TargetGroupStatus{
+		types.TargetGroupStatusDeleteInProgress,
+		types.TargetGroupStatusCreateFailed,
+		types.TargetGroupStatusDeleteFailed,
+		types.TargetGroupStatusDeleteInProgress,
 	}
 	for _, retryStatus := range retryStatuses {
 		t.Run(fmt.Sprintf("retry on status %s", retryStatus), func(t *testing.T) {
@@ -424,11 +425,11 @@ func Test_CreateTargetGroup_NewTG_RetryStatus(t *testing.T) {
 				Arn:    &arn,
 				Id:     &id,
 				Name:   &name,
-				Status: &tgStatus,
+				Status: tgStatus,
 			}
 
 			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
-			mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(tgCreateOutput, nil)
+			mockLattice.EXPECT().CreateTargetGroup(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 			_, err := tgManager.Upsert(ctx, &tgCreateInput)
@@ -466,7 +467,7 @@ func Test_Lattice_API_Errors(t *testing.T) {
 
 	// create error
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
-	mockLattice.EXPECT().CreateTargetGroupWithContext(ctx, gomock.Any()).Return(nil, errors.New("test"))
+	mockLattice.EXPECT().CreateTargetGroup(ctx, gomock.Any()).Return(nil, errors.New("test"))
 
 	tgManager = NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	_, err = tgManager.Upsert(ctx, &tgCreateInput)
@@ -476,20 +477,20 @@ func Test_Lattice_API_Errors(t *testing.T) {
 // Deregister unused status targets and delete target group work perfectly fine
 func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 	sId := "123.456.7.890"
-	sPort := int64(80)
-	targetStatus := vpclattice.TargetStatusUnused
-	targetsList := &vpclattice.TargetSummary{
+	sPort := int32(80)
+	targetStatus := types.TargetStatusUnused
+	targetsList := types.TargetSummary{
 		Id:     &sId,
 		Port:   &sPort,
-		Status: &targetStatus,
+		Status: targetStatus,
 	}
-	targetsSuccessful := &vpclattice.Target{
+	targetsSuccessful := types.Target{
 		Id:   &sId,
 		Port: &sPort,
 	}
 
-	listTargetsOutput := []*vpclattice.TargetSummary{targetsList}
-	successful := []*vpclattice.Target{targetsSuccessful}
+	listTargetsOutput := []types.TargetSummary{targetsList}
+	successful := []types.Target{targetsSuccessful}
 	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{
 		Successful: successful,
 	}
@@ -511,8 +512,8 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
+	mockLattice.EXPECT().DeregisterTargets(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().DeleteTargetGroup(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
@@ -526,12 +527,12 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroup(t *testing.T) {
 // Delete target group that no targets register on it
 func Test_DeleteTG_NoRegisteredTargets_DeleteTargetGroup(t *testing.T) {
 	sId := "123.456.7.890"
-	sPort := int64(80)
-	targets := &vpclattice.TargetSummary{
+	sPort := int32(80)
+	targets := types.TargetSummary{
 		Id:   &sId,
 		Port: &sPort,
 	}
-	listTargetsOutput := []*vpclattice.TargetSummary{targets}
+	listTargetsOutput := []types.TargetSummary{targets}
 	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{}
 	deleteTargetGroupOutput := &vpclattice.DeleteTargetGroupOutput{}
 
@@ -551,8 +552,8 @@ func Test_DeleteTG_NoRegisteredTargets_DeleteTargetGroup(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
+	mockLattice.EXPECT().DeregisterTargets(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().DeleteTargetGroup(ctx, gomock.Any()).Return(deleteTargetGroupOutput, nil)
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
@@ -575,33 +576,33 @@ func Test_DeleteTG_WithExistingTG(t *testing.T) {
 		Arn:    aws.String("existing-tg-arn"),
 		Id:     aws.String("existing-tg-id"),
 		Name:   aws.String("name"),
-		Status: aws.String(vpclattice.TargetGroupStatusActive),
-		Config: &vpclattice.TargetGroupConfig{
-			Port:            aws.Int64(80),
-			Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
-			ProtocolVersion: aws.String(vpclattice.HealthCheckProtocolVersionHttp1),
+		Status: types.TargetGroupStatusActive,
+		Config: &types.TargetGroupConfig{
+			Port:            aws.Int32(80),
+			Protocol:        types.TargetGroupProtocolHttps,
+			ProtocolVersion: types.TargetGroupProtocolVersionHttp1,
 		},
 	}
 
 	tgSpec := model.TargetGroupSpec{
 		Port:            80,
 		Protocol:        "HTTPS",
-		ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+		ProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 	}
 	tgDeleteInput := model.TargetGroup{
 		Spec:   tgSpec,
 		Status: nil,
 	}
-	var listTargetsOutput []*vpclattice.TargetSummary
+	var listTargetsOutput []types.TargetSummary
 
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{*tgOutput.Arn}, nil)
-	mockLattice.EXPECT().GetTargetGroupWithContext(ctx, gomock.Any()).Return(&tgOutput, nil)
+	mockLattice.EXPECT().GetTargetGroup(ctx, gomock.Any()).Return(&tgOutput, nil)
 
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
 
 	dtgInput := &vpclattice.DeleteTargetGroupInput{TargetGroupIdentifier: tgOutput.Id}
 	dtgOutput := &vpclattice.DeleteTargetGroupOutput{}
-	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, dtgInput).Return(dtgOutput, nil)
+	mockLattice.EXPECT().DeleteTargetGroup(ctx, dtgInput).Return(dtgOutput, nil)
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	err := tgManager.Delete(ctx, &tgDeleteInput)
@@ -620,7 +621,7 @@ func Test_DeleteTG_NothingToDelete(t *testing.T) {
 	tgSpec := model.TargetGroupSpec{
 		Port:            80,
 		Protocol:        "HTTPS",
-		ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+		ProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 	}
 	tgDeleteInput := model.TargetGroup{
 		Spec:   tgSpec,
@@ -638,12 +639,12 @@ func Test_DeleteTG_NothingToDelete(t *testing.T) {
 // While deleting target group, deregister targets fails
 func Test_DeleteTG_DeRegisteredTargetsFailed(t *testing.T) {
 	sId := "123.456.7.890"
-	sPort := int64(80)
-	targets := &vpclattice.TargetSummary{
+	sPort := int32(80)
+	targets := types.TargetSummary{
 		Id:   &sId,
 		Port: &sPort,
 	}
-	listTargetsOutput := []*vpclattice.TargetSummary{targets}
+	listTargetsOutput := []types.TargetSummary{targets}
 	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{}
 
 	tgSpec := model.TargetGroupSpec{
@@ -662,7 +663,7 @@ func Test_DeleteTG_DeRegisteredTargetsFailed(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, errors.New("Deregister_failed"))
+	mockLattice.EXPECT().DeregisterTargets(ctx, gomock.Any()).Return(deRegisterTargetsOutput, errors.New("Deregister_failed"))
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
@@ -675,12 +676,12 @@ func Test_DeleteTG_DeRegisteredTargetsFailed(t *testing.T) {
 // While deleting target group, list targets fails
 func Test_DeleteTG_ListTargetsFailed(t *testing.T) {
 	sId := "123.456.7.890"
-	sPort := int64(80)
-	targets := &vpclattice.TargetSummary{
+	sPort := int32(80)
+	targets := types.TargetSummary{
 		Id:   &sId,
 		Port: &sPort,
 	}
-	listTargetsOutput := []*vpclattice.TargetSummary{targets}
+	listTargetsOutput := []types.TargetSummary{targets}
 
 	tgSpec := model.TargetGroupSpec{
 		Type: "IP",
@@ -710,19 +711,19 @@ func Test_DeleteTG_ListTargetsFailed(t *testing.T) {
 // While deleting target group, deregister targets unsuccessfully
 func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 	sId := "123.456.7.890"
-	sPort := int64(80)
-	targets := &vpclattice.TargetSummary{
+	sPort := int32(80)
+	targets := types.TargetSummary{
 		Id:   &sId,
 		Port: &sPort,
 	}
-	listTargetsOutput := []*vpclattice.TargetSummary{targets}
-	targetsFailure := &vpclattice.TargetFailure{
+	listTargetsOutput := []types.TargetSummary{targets}
+	targetsFailure := types.TargetFailure{
 		FailureCode:    nil,
 		FailureMessage: nil,
 		Id:             &sId,
 		Port:           &sPort,
 	}
-	unsuccessful := []*vpclattice.TargetFailure{targetsFailure}
+	unsuccessful := []types.TargetFailure{targetsFailure}
 	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{
 		Unsuccessful: unsuccessful,
 	}
@@ -743,7 +744,7 @@ func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().DeregisterTargets(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
@@ -757,18 +758,18 @@ func Test_DeleteTG_DeRegisterTargetsUnsuccessfully(t *testing.T) {
 // Delete target group fails
 func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroupFailed(t *testing.T) {
 	sId := "123.456.7.890"
-	sPort := int64(80)
-	targetsList := &vpclattice.TargetSummary{
+	sPort := int32(80)
+	targetsList := types.TargetSummary{
 		Id:   &sId,
 		Port: &sPort,
 	}
-	targetsSuccessful := &vpclattice.Target{
+	targetsSuccessful := types.Target{
 		Id:   &sId,
 		Port: &sPort,
 	}
 
-	listTargetsOutput := []*vpclattice.TargetSummary{targetsList}
-	successful := []*vpclattice.Target{targetsSuccessful}
+	listTargetsOutput := []types.TargetSummary{targetsList}
+	successful := []types.Target{targetsSuccessful}
 	deRegisterTargetsOutput := &vpclattice.DeregisterTargetsOutput{
 		Successful: successful,
 	}
@@ -790,8 +791,8 @@ func Test_DeleteTG_DeRegisterTargets_DeleteTargetGroupFailed(t *testing.T) {
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
 	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
-	mockLattice.EXPECT().DeregisterTargetsWithContext(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
-	mockLattice.EXPECT().DeleteTargetGroupWithContext(ctx, gomock.Any()).Return(deleteTargetGroupOutput, errors.New("DeleteTG_failed"))
+	mockLattice.EXPECT().DeregisterTargets(ctx, gomock.Any()).Return(deRegisterTargetsOutput, nil)
+	mockLattice.EXPECT().DeleteTargetGroup(ctx, gomock.Any()).Return(deleteTargetGroupOutput, errors.New("DeleteTG_failed"))
 	mockTagging := mocks.NewMockTagging(c)
 	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
@@ -810,23 +811,23 @@ func Test_ListTG_TGsExist(t *testing.T) {
 	externalVpc := "external-vpc-id"
 
 	config.ClusterName = "cluster-name"
-	tgType := vpclattice.TargetGroupTypeIp
-	tg1 := &vpclattice.TargetGroupSummary{
+	tgType := types.TargetGroupTypeIp
+	tg1 := types.TargetGroupSummary{
 		Arn:           &arn,
 		Id:            &id,
 		Name:          &name1,
 		VpcIdentifier: &config.VpcID,
-		Type:          &tgType,
+		Type:          tgType,
 	}
 	name2 := "test2"
-	tg2 := &vpclattice.TargetGroupSummary{
+	tg2 := types.TargetGroupSummary{
 		Arn:           &arn,
 		Id:            &id,
 		Name:          &name2,
 		VpcIdentifier: &externalVpc,
-		Type:          &tgType,
+		Type:          tgType,
 	}
-	listTGOutput := []*vpclattice.TargetGroupSummary{tg1, tg2}
+	listTGOutput := []types.TargetGroupSummary{tg1, tg2}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -858,7 +859,7 @@ func Test_ListTG_TGsExist(t *testing.T) {
 }
 
 func Test_ListTG_NoTG(t *testing.T) {
-	listTGOutput := []*vpclattice.TargetGroupSummary{}
+	listTGOutput := []types.TargetGroupSummary{}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -878,15 +879,13 @@ func Test_ListTG_NoTG(t *testing.T) {
 
 func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 	var (
-		defaultMatcher = &vpclattice.Matcher{
-			HttpCode: aws.String("200"),
-		}
-		defaultPath                       = aws.String("/")
-		defaultProtocol                   = aws.String(vpclattice.TargetGroupProtocolHttp)
-		defaultHealthCheckIntervalSeconds = aws.Int64(30)
-		defaultHealthCheckTimeoutSeconds  = aws.Int64(5)
-		defaultHealthyThresholdCount      = aws.Int64(5)
-		defaultUnhealthyThresholdCount    = aws.Int64(2)
+		defaultMatcher                    types.Matcher = &types.MatcherMemberHttpCode{Value: "200"}
+		defaultPath                                     = aws.String("/")
+		defaultProtocol                                 = types.TargetGroupProtocolHttp
+		defaultHealthCheckIntervalSeconds               = aws.Int32(30)
+		defaultHealthCheckTimeoutSeconds                = aws.Int32(5)
+		defaultHealthyThresholdCount                    = aws.Int32(5)
+		defaultUnhealthyThresholdCount                  = aws.Int32(2)
 	)
 
 	type args struct {
@@ -897,15 +896,15 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *vpclattice.HealthCheckConfig
+		want *types.HealthCheckConfig
 	}{
 		{
 			name: "HTTP1 default health check config",
 			args: args{
-				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttp,
-				targetGroupProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+				targetGroupProtocol:        string(types.TargetGroupProtocolHttp),
+				targetGroupProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 			},
-			want: &vpclattice.HealthCheckConfig{
+			want: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
 				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
@@ -915,16 +914,16 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 				Path:                       defaultPath,
 				Port:                       nil,
 				Protocol:                   defaultProtocol,
-				ProtocolVersion:            aws.String(vpclattice.HealthCheckProtocolVersionHttp1),
+				ProtocolVersion:            types.HealthCheckProtocolVersionHttp1,
 			},
 		},
 		{
 			name: "HTTPS TargetGroup default health check config",
 			args: args{
-				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttps,
+				targetGroupProtocol:        string(types.TargetGroupProtocolHttps),
 				targetGroupProtocolVersion: "",
 			},
-			want: &vpclattice.HealthCheckConfig{
+			want: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
 				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
@@ -934,16 +933,16 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 				Path:                       defaultPath,
 				Port:                       nil,
 				Protocol:                   defaultProtocol,
-				ProtocolVersion:            aws.String(vpclattice.HealthCheckProtocolVersionHttp1),
+				ProtocolVersion:            types.HealthCheckProtocolVersionHttp1,
 			},
 		},
 		{
 			name: "empty target group protocol version default health check config",
 			args: args{
-				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttp,
+				targetGroupProtocol:        string(types.TargetGroupProtocolHttp),
 				targetGroupProtocolVersion: "",
 			},
-			want: &vpclattice.HealthCheckConfig{
+			want: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
 				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
@@ -953,16 +952,16 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 				Path:                       defaultPath,
 				Port:                       nil,
 				Protocol:                   defaultProtocol,
-				ProtocolVersion:            aws.String(vpclattice.HealthCheckProtocolVersionHttp1),
+				ProtocolVersion:            types.HealthCheckProtocolVersionHttp1,
 			},
 		},
 		{
 			name: "HTTP2 default health check config",
 			args: args{
-				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttp,
-				targetGroupProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp2,
+				targetGroupProtocol:        string(types.TargetGroupProtocolHttp),
+				targetGroupProtocolVersion: string(types.TargetGroupProtocolVersionHttp2),
 			},
-			want: &vpclattice.HealthCheckConfig{
+			want: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(false),
 				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
 				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
@@ -972,16 +971,16 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 				Path:                       defaultPath,
 				Port:                       nil,
 				Protocol:                   defaultProtocol,
-				ProtocolVersion:            aws.String(vpclattice.HealthCheckProtocolVersionHttp2),
+				ProtocolVersion:            types.HealthCheckProtocolVersionHttp2,
 			},
 		},
 		{
 			name: "GRPC default health check config",
 			args: args{
-				targetGroupProtocol:        vpclattice.TargetGroupProtocolHttp,
-				targetGroupProtocolVersion: vpclattice.TargetGroupProtocolVersionGrpc,
+				targetGroupProtocol:        string(types.TargetGroupProtocolHttp),
+				targetGroupProtocolVersion: string(types.TargetGroupProtocolVersionGrpc),
 			},
-			want: &vpclattice.HealthCheckConfig{
+			want: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(false),
 				HealthCheckIntervalSeconds: defaultHealthCheckIntervalSeconds,
 				HealthCheckTimeoutSeconds:  defaultHealthCheckTimeoutSeconds,
@@ -991,16 +990,16 @@ func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 				Path:                       defaultPath,
 				Port:                       nil,
 				Protocol:                   defaultProtocol,
-				ProtocolVersion:            aws.String(vpclattice.HealthCheckProtocolVersionHttp1),
+				ProtocolVersion:            types.HealthCheckProtocolVersionHttp1,
 			},
 		},
 		{
 			name: "TCP TargetGroup default health check config",
 			args: args{
-				targetGroupProtocol:        vpclattice.TargetGroupProtocolTcp,
+				targetGroupProtocol:        string(types.TargetGroupProtocolTcp),
 				targetGroupProtocolVersion: "",
 			},
-			want: &vpclattice.HealthCheckConfig{
+			want: &types.HealthCheckConfig{
 				Enabled: aws.Bool(false),
 			},
 		},
@@ -1028,7 +1027,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 		expectedResult bool
 		wantErr        bool
 		modelTg        *model.TargetGroup
-		latticeTg      *vpclattice.TargetGroupSummary
+		latticeTg      *types.TargetGroupSummary
 		tags           *model.TargetGroupTagFields
 	}{
 		{
@@ -1040,7 +1039,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 					Port: 8080,
 				},
 			},
-			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
+			latticeTg: &types.TargetGroupSummary{Port: aws.Int32(443)},
 			tags:      &model.TargetGroupTagFields{},
 		},
 		{
@@ -1052,7 +1051,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 					Port: 443,
 				},
 			},
-			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
+			latticeTg: &types.TargetGroupSummary{Port: aws.Int32(443)},
 			tags:      &model.TargetGroupTagFields{K8SClusterName: "foo"},
 		},
 		{
@@ -1068,7 +1067,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 					},
 				},
 			},
-			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
+			latticeTg: &types.TargetGroupSummary{Port: aws.Int32(443)},
 			tags: &model.TargetGroupTagFields{
 				K8SClusterName: "cluster",
 			},
@@ -1086,7 +1085,7 @@ func Test_IsTargetGroupMatch(t *testing.T) {
 					},
 				},
 			},
-			latticeTg: &vpclattice.TargetGroupSummary{Port: aws.Int64(443)},
+			latticeTg: &types.TargetGroupSummary{Port: aws.Int32(443)},
 		},
 	}
 
@@ -1125,16 +1124,16 @@ func Test_ResolveRuleTgIds(t *testing.T) {
 	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
 	mockCloud.EXPECT().Tagging().Return(mockTagging).AnyTimes()
 	mockTagging.EXPECT().GetTagsForArns(ctx, gomock.Any()).Return(
-		map[string]map[string]*string{
+		map[string]map[string]string{
 			"svc-export-tg-arn": {
-				model.K8SServiceNameKey:      aws.String("svc-name"),
-				model.K8SServiceNamespaceKey: aws.String("ns"),
-				model.K8SClusterNameKey:      aws.String("cluster-name"),
-				model.K8SSourceTypeKey:       aws.String(string(model.SourceTypeSvcExport)),
+				model.K8SServiceNameKey:      "svc-name",
+				model.K8SServiceNamespaceKey: "ns",
+				model.K8SClusterNameKey:      "cluster-name",
+				model.K8SSourceTypeKey:       string(model.SourceTypeSvcExport),
 			},
 		}, nil)
 	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(
-		[]*vpclattice.TargetGroupSummary{
+		[]types.TargetGroupSummary{
 			{
 				Arn:           aws.String("svc-export-tg-arn"),
 				VpcIdentifier: aws.String("vpc-id"),
@@ -1197,7 +1196,7 @@ func Test_update_ServiceExportWithPolicy_Integration(t *testing.T) {
 	tgSpec := model.TargetGroupSpec{
 		Port:            int32(8080),
 		Protocol:        "HTTP",
-		ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+		ProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 		TargetGroupTagFields: model.TargetGroupTagFields{
 			K8SSourceType:       model.SourceTypeSvcExport,
 			K8SServiceName:      "test-service",
@@ -1216,19 +1215,17 @@ func Test_update_ServiceExportWithPolicy_Integration(t *testing.T) {
 		Id:   aws.String("tg-12345"),
 		Name: aws.String("test-tg"),
 		Arn:  aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345"),
-		Config: &vpclattice.TargetGroupConfig{
-			HealthCheck: &vpclattice.HealthCheckConfig{
+		Config: &types.TargetGroupConfig{
+			HealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
 				Path:                       aws.String("/"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher: &vpclattice.Matcher{
-					HttpCode: aws.String("200"),
-				},
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 		},
 	}
@@ -1245,7 +1242,7 @@ func Test_update_ServiceExportWithPolicy_Integration(t *testing.T) {
 
 	// The update should not call UpdateTargetGroup since the health check config
 	// should match the existing one (both will use defaults)
-	mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateTargetGroup(ctx, gomock.Any()).Times(0)
 
 	status, err := tgManager.update(ctx, targetGroup, existingTg)
 
@@ -1261,9 +1258,9 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 	tests := []struct {
 		name                   string
 		targetGroup            *model.TargetGroup
-		existingHealthCheck    *vpclattice.HealthCheckConfig
+		existingHealthCheck    *types.HealthCheckConfig
 		policy                 *anv1alpha1.TargetGroupPolicy
-		expectedHealthCheck    *vpclattice.HealthCheckConfig
+		expectedHealthCheck    *types.HealthCheckConfig
 		expectUpdate           bool
 		expectPolicyResolution bool
 		policyResolutionError  error
@@ -1281,16 +1278,16 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 					ProtocolVersion: "HTTP1",
 				},
 			},
-			existingHealthCheck: &vpclattice.HealthCheckConfig{
+			existingHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 			policy: &anv1alpha1.TargetGroupPolicy{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1325,16 +1322,16 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 					},
 				},
 			},
-			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+			expectedHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/api/health"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(15),
-				HealthCheckTimeoutSeconds:  aws.Int64(10),
-				HealthyThresholdCount:      aws.Int64(3),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200-299")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(15),
+				HealthCheckTimeoutSeconds:  aws.Int32(10),
+				HealthyThresholdCount:      aws.Int32(3),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200-299"},
 			},
 			expectUpdate:           true,
 			expectPolicyResolution: true,
@@ -1352,28 +1349,28 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 					ProtocolVersion: "HTTP1",
 				},
 			},
-			existingHealthCheck: &vpclattice.HealthCheckConfig{
+			existingHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/custom"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(60),
-				HealthCheckTimeoutSeconds:  aws.Int64(10),
-				HealthyThresholdCount:      aws.Int64(3),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(60),
+				HealthCheckTimeoutSeconds:  aws.Int32(10),
+				HealthyThresholdCount:      aws.Int32(3),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 			policy: nil, // No policy found
-			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+			expectedHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 			expectUpdate:           true,
 			expectPolicyResolution: true,
@@ -1391,28 +1388,28 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 					ProtocolVersion: "HTTP1",
 				},
 			},
-			existingHealthCheck: &vpclattice.HealthCheckConfig{
+			existingHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 			policy: nil, // Policy resolution should be skipped
-			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+			expectedHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 			expectUpdate:           false, // Same config, no update needed
 			expectPolicyResolution: false, // Should skip policy resolution
@@ -1447,11 +1444,11 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 				Arn:    aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345"),
 				Id:     aws.String("tg-12345"),
 				Name:   aws.String("test-tg"),
-				Status: aws.String(vpclattice.TargetGroupStatusActive),
-				Config: &vpclattice.TargetGroupConfig{
-					Port:            aws.Int64(80),
-					Protocol:        aws.String("HTTP"),
-					ProtocolVersion: aws.String("HTTP1"),
+				Status: types.TargetGroupStatusActive,
+				Config: &types.TargetGroupConfig{
+					Port:            aws.Int32(80),
+					Protocol:        types.TargetGroupProtocol("HTTP"),
+					ProtocolVersion: types.TargetGroupProtocolVersion("HTTP1"),
 					HealthCheck:     tt.existingHealthCheck,
 				},
 			}
@@ -1461,9 +1458,9 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, k8sClient)
 
 			if tt.expectUpdate {
-				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateTargetGroupOutput{}, nil)
+				mockLattice.EXPECT().UpdateTargetGroup(ctx, gomock.Any()).Return(&vpclattice.UpdateTargetGroupOutput{}, nil)
 			} else {
-				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
+				mockLattice.EXPECT().UpdateTargetGroup(ctx, gomock.Any()).Times(0)
 			}
 
 			status, err := tgManager.update(ctx, tt.targetGroup, existingTg)
@@ -1483,8 +1480,8 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 		name                string
 		client              bool // whether to provide a k8s k8sClient
 		targetGroup         *model.TargetGroup
-		existingHealthCheck *vpclattice.HealthCheckConfig
-		expectedHealthCheck *vpclattice.HealthCheckConfig
+		existingHealthCheck *types.HealthCheckConfig
+		expectedHealthCheck *types.HealthCheckConfig
 		expectUpdate        bool
 	}{
 		{
@@ -1501,27 +1498,27 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 					ProtocolVersion: "HTTP1",
 				},
 			},
-			existingHealthCheck: &vpclattice.HealthCheckConfig{
+			existingHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/custom"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(60),
-				HealthCheckTimeoutSeconds:  aws.Int64(10),
-				HealthyThresholdCount:      aws.Int64(3),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(60),
+				HealthCheckTimeoutSeconds:  aws.Int32(10),
+				HealthyThresholdCount:      aws.Int32(3),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
-			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+			expectedHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 			expectUpdate: true,
 		},
@@ -1539,27 +1536,27 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 					ProtocolVersion: "HTTP1",
 				},
 			},
-			existingHealthCheck: &vpclattice.HealthCheckConfig{
+			existingHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
-			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+			expectedHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 			expectUpdate: false, // Same config, no update needed
 		},
@@ -1575,33 +1572,33 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 					},
 					Protocol:        "HTTP",
 					ProtocolVersion: "HTTP1",
-					HealthCheckConfig: &vpclattice.HealthCheckConfig{
+					HealthCheckConfig: &types.HealthCheckConfig{
 						Enabled: aws.Bool(false),
 						Path:    aws.String("/custom-route-health"),
 					},
 				},
 			},
-			existingHealthCheck: &vpclattice.HealthCheckConfig{
+			existingHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
-			expectedHealthCheck: &vpclattice.HealthCheckConfig{
+			expectedHealthCheck: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(false),
 				Path:                       aws.String("/custom-route-health"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 			expectUpdate: true,
 		},
@@ -1631,11 +1628,11 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 				Arn:    aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-12345"),
 				Id:     aws.String("tg-12345"),
 				Name:   aws.String("test-tg"),
-				Status: aws.String(vpclattice.TargetGroupStatusActive),
-				Config: &vpclattice.TargetGroupConfig{
-					Port:            aws.Int64(80),
-					Protocol:        aws.String("HTTP"),
-					ProtocolVersion: aws.String("HTTP1"),
+				Status: types.TargetGroupStatusActive,
+				Config: &types.TargetGroupConfig{
+					Port:            aws.Int32(80),
+					Protocol:        types.TargetGroupProtocol("HTTP"),
+					ProtocolVersion: types.TargetGroupProtocolVersion("HTTP1"),
 					HealthCheck:     tt.existingHealthCheck,
 				},
 			}
@@ -1645,9 +1642,9 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, k8sClient)
 
 			if tt.expectUpdate {
-				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateTargetGroupOutput{}, nil)
+				mockLattice.EXPECT().UpdateTargetGroup(ctx, gomock.Any()).Return(&vpclattice.UpdateTargetGroupOutput{}, nil)
 			} else {
-				mockLattice.EXPECT().UpdateTargetGroupWithContext(ctx, gomock.Any()).Times(0)
+				mockLattice.EXPECT().UpdateTargetGroup(ctx, gomock.Any()).Times(0)
 			}
 
 			status, err := tgManager.update(ctx, tt.targetGroup, existingTg)
@@ -1665,76 +1662,76 @@ func Test_update_BackwardsCompatibility(t *testing.T) {
 func Test_fillDefaultHealthCheckConfig_PolicyIntegration(t *testing.T) {
 	tests := []struct {
 		name                string
-		inputConfig         *vpclattice.HealthCheckConfig
+		inputConfig         *types.HealthCheckConfig
 		targetGroupProtocol string
 		protocolVersion     string
-		expectedConfig      *vpclattice.HealthCheckConfig
+		expectedConfig      *types.HealthCheckConfig
 	}{
 		{
 			name: "Policy config with some fields missing - should fill defaults",
-			inputConfig: &vpclattice.HealthCheckConfig{
+			inputConfig: &types.HealthCheckConfig{
 				Enabled: aws.Bool(true),
 				Path:    aws.String("/api/health"),
 				// Missing other fields - should be filled with defaults
 			},
 			targetGroupProtocol: "HTTP",
 			protocolVersion:     "HTTP1",
-			expectedConfig: &vpclattice.HealthCheckConfig{
+			expectedConfig: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/api/health"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 		},
 		{
 			name: "Policy config with all fields - should preserve policy values",
-			inputConfig: &vpclattice.HealthCheckConfig{
+			inputConfig: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(false),
 				Path:                       aws.String("/custom/health"),
-				Protocol:                   aws.String("HTTPS"),
-				ProtocolVersion:            aws.String("HTTP2"),
-				HealthCheckIntervalSeconds: aws.Int64(15),
-				HealthCheckTimeoutSeconds:  aws.Int64(10),
-				HealthyThresholdCount:      aws.Int64(3),
-				UnhealthyThresholdCount:    aws.Int64(4),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200-299")},
+				Protocol:                   types.TargetGroupProtocol("HTTPS"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP2"),
+				HealthCheckIntervalSeconds: aws.Int32(15),
+				HealthCheckTimeoutSeconds:  aws.Int32(10),
+				HealthyThresholdCount:      aws.Int32(3),
+				UnhealthyThresholdCount:    aws.Int32(4),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200-299"},
 			},
 			targetGroupProtocol: "HTTP",
 			protocolVersion:     "HTTP1",
-			expectedConfig: &vpclattice.HealthCheckConfig{
+			expectedConfig: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(false),
 				Path:                       aws.String("/custom/health"),
-				Protocol:                   aws.String("HTTPS"),
-				ProtocolVersion:            aws.String("HTTP2"),
-				HealthCheckIntervalSeconds: aws.Int64(15),
-				HealthCheckTimeoutSeconds:  aws.Int64(10),
-				HealthyThresholdCount:      aws.Int64(3),
-				UnhealthyThresholdCount:    aws.Int64(4),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200-299")},
+				Protocol:                   types.TargetGroupProtocol("HTTPS"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP2"),
+				HealthCheckIntervalSeconds: aws.Int32(15),
+				HealthCheckTimeoutSeconds:  aws.Int32(10),
+				HealthyThresholdCount:      aws.Int32(3),
+				UnhealthyThresholdCount:    aws.Int32(4),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200-299"},
 			},
 		},
 		{
 			name:        "Empty config - should fill all defaults",
-			inputConfig: &vpclattice.HealthCheckConfig{
+			inputConfig: &types.HealthCheckConfig{
 				// All fields nil
 			},
 			targetGroupProtocol: "HTTPS",
 			protocolVersion:     "HTTP2",
-			expectedConfig: &vpclattice.HealthCheckConfig{
+			expectedConfig: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(false), // HTTP2 defaults to disabled
 				Path:                       aws.String("/"),
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP2"), // Preserves HTTP2
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP2"), // Preserves HTTP2
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
 			},
 		},
 	}

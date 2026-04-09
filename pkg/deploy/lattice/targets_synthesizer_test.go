@@ -10,13 +10,13 @@ import (
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -110,11 +110,11 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 			},
 		}
 	}
-	newLatticeTarget := func(ip string, port int64, status string) *vpclattice.TargetSummary {
-		return &vpclattice.TargetSummary{
+	newLatticeTarget := func(ip string, port int32, status types.TargetStatus) *types.TargetSummary {
+		return &types.TargetSummary{
 			Id:     aws.String(ip),
-			Port:   aws.Int64(port),
-			Status: aws.String(status),
+			Port:   aws.Int32(port),
+			Status: status,
 		}
 	}
 
@@ -122,13 +122,13 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		TargetIP:  "10.10.1.1",
 		Port:      8675,
 		Ready:     false,
-		TargetRef: types.NamespacedName{Namespace: "ns", Name: "pod1"},
+		TargetRef: apitypes.NamespacedName{Namespace: "ns", Name: "pod1"},
 	}
 
 	tests := []struct {
 		name           string
 		model          model.Target
-		lattice        *vpclattice.TargetSummary
+		lattice        *types.TargetSummary
 		pod            *corev1.Pod
 		expectedStatus corev1.ConditionStatus
 		expectedReason string
@@ -137,7 +137,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		{
 			name:           "Healthy targets make pod ready",
 			model:          target,
-			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusHealthy),
+			lattice:        newLatticeTarget("10.10.1.1", 8675, types.TargetStatusHealthy),
 			pod:            newPod("ns", "pod1", true, false),
 			expectedStatus: corev1.ConditionTrue,
 			expectedReason: ReadinessReasonHealthy,
@@ -146,7 +146,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		{
 			name:           "Unavailable targets make pod ready",
 			model:          target,
-			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusUnavailable),
+			lattice:        newLatticeTarget("10.10.1.1", 8675, types.TargetStatusUnavailable),
 			pod:            newPod("ns", "pod1", true, false),
 			expectedStatus: corev1.ConditionTrue,
 			expectedReason: ReadinessReasonHealthCheckUnavailable,
@@ -155,7 +155,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		{
 			name:           "Initial targets do not make pod ready",
 			model:          target,
-			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusInitial),
+			lattice:        newLatticeTarget("10.10.1.1", 8675, types.TargetStatusInitial),
 			pod:            newPod("ns", "pod1", true, false),
 			expectedStatus: corev1.ConditionFalse,
 			expectedReason: ReadinessReasonInitial,
@@ -164,7 +164,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		{
 			name:           "Unhealthy targets do not make pod ready",
 			model:          target,
-			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusUnhealthy),
+			lattice:        newLatticeTarget("10.10.1.1", 8675, types.TargetStatusUnhealthy),
 			pod:            newPod("ns", "pod1", true, false),
 			expectedStatus: corev1.ConditionFalse,
 			expectedReason: ReadinessReasonUnhealthy,
@@ -173,7 +173,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		{
 			name:           "Draining(unhealthy) targets do not make pod ready",
 			model:          target,
-			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusDraining),
+			lattice:        newLatticeTarget("10.10.1.1", 8675, types.TargetStatusDraining),
 			pod:            newPod("ns", "pod1", true, false),
 			expectedStatus: corev1.ConditionFalse,
 			expectedReason: ReadinessReasonUnhealthy,
@@ -182,7 +182,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		{
 			name:           "Requeues if target not found",
 			model:          target,
-			lattice:        newLatticeTarget("dummy", 8675, vpclattice.TargetStatusHealthy),
+			lattice:        newLatticeTarget("dummy", 8675, types.TargetStatusHealthy),
 			pod:            newPod("ns", "pod1", true, false),
 			expectedStatus: corev1.ConditionFalse,
 			expectedReason: ReadinessReasonTargetNotFound,
@@ -191,7 +191,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		{
 			name:           "Pod without gate does not change condition",
 			model:          target,
-			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusHealthy),
+			lattice:        newLatticeTarget("10.10.1.1", 8675, types.TargetStatusHealthy),
 			pod:            newPod("ns", "pod1", false, false),
 			expectedStatus: corev1.ConditionFalse,
 			expectedReason: ReadinessReasonUnhealthy,
@@ -200,7 +200,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		{
 			name:           "Ready pods keep condition (even if target is unhealthy)",
 			model:          target,
-			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusUnhealthy),
+			lattice:        newLatticeTarget("10.10.1.1", 8675, types.TargetStatusUnhealthy),
 			pod:            newPod("ns", "pod1", true, true),
 			expectedStatus: corev1.ConditionTrue,
 			expectedReason: ReadinessReasonHealthy,
@@ -209,7 +209,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 		{
 			name:           "Unused pods keep condition",
 			model:          target,
-			lattice:        newLatticeTarget("10.10.1.1", 8675, vpclattice.TargetStatusUnused),
+			lattice:        newLatticeTarget("10.10.1.1", 8675, types.TargetStatusUnused),
 			pod:            newPod("ns", "pod1", true, false),
 			expectedStatus: corev1.ConditionFalse,
 			expectedReason: ReadinessReasonUnused,
@@ -243,7 +243,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 			}
 			model.NewTargets(stack, targetsSpec)
 
-			mockTargetsManager.EXPECT().List(ctx, gomock.Any()).Return([]*vpclattice.TargetSummary{tt.lattice}, nil)
+			mockTargetsManager.EXPECT().List(ctx, gomock.Any()).Return([]types.TargetSummary{*tt.lattice}, nil)
 
 			k8sClient := testclient.NewClientBuilder().Build()
 			assert.NoError(t, k8sClient.Create(ctx, tt.pod))
@@ -259,7 +259,7 @@ func Test_PostSynthesize_Conditions(t *testing.T) {
 			}
 
 			pod := &corev1.Pod{}
-			k8sClient.Get(ctx, types.NamespacedName{Namespace: "ns", Name: "pod1"}, pod)
+			k8sClient.Get(ctx, apitypes.NamespacedName{Namespace: "ns", Name: "pod1"}, pod)
 			cond := utils.FindPodStatusCondition(pod.Status.Conditions, LatticeReadinessGateConditionType)
 			assert.NotNil(t, cond)
 

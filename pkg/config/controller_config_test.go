@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +38,7 @@ func Test_config_init_with_partial_env_var(t *testing.T) {
 	os.Setenv(CLUSTER_VPC_ID, testClusterVpcId)
 	os.Setenv(DEFAULT_SERVICE_NETWORK, testClusterLocalGateway)
 	os.Unsetenv(AWS_ACCOUNT_ID)
-	err := configInit(nil, ec2MetadataUnavailable())
+	err := configInit(aws.Config{}, ec2MetadataUnavailable())
 	assert.NotNil(t, err)
 }
 
@@ -47,7 +48,7 @@ func Test_config_init_no_env_var(t *testing.T) {
 	os.Unsetenv(DEFAULT_SERVICE_NETWORK)
 	os.Unsetenv(AWS_ACCOUNT_ID)
 	os.Unsetenv(ROUTE_MAX_CONCURRENT_RECONCILES)
-	err := configInit(nil, ec2MetadataUnavailable())
+	err := configInit(aws.Config{}, ec2MetadataUnavailable())
 	assert.NotNil(t, err)
 
 }
@@ -68,7 +69,7 @@ func Test_config_init_with_all_env_var(t *testing.T) {
 	os.Setenv(AWS_ACCOUNT_ID, testAwsAccountId)
 	os.Setenv(CLUSTER_NAME, testClusterName)
 	os.Setenv(ROUTE_MAX_CONCURRENT_RECONCILES, testMaxRouteReconciles)
-	err := configInit(nil, ec2MetadataUnavailable())
+	err := configInit(aws.Config{}, ec2MetadataUnavailable())
 	assert.Nil(t, err)
 	assert.Equal(t, testRegion, Region)
 	assert.Equal(t, testClusterVpcId, VpcID)
@@ -83,6 +84,6 @@ func Test_bad_reconcile_value(t *testing.T) {
 	maxReconciles := "FOO"
 
 	os.Setenv(ROUTE_MAX_CONCURRENT_RECONCILES, maxReconciles)
-	err := configInit(nil, ec2MetadataUnavailable())
+	err := configInit(aws.Config{}, ec2MetadataUnavailable())
 	assert.NotNil(t, err)
 }

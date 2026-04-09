@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -292,7 +292,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					K8SRouteName:      "service1",
 					K8SRouteNamespace: "default",
 					Port:              443,
-					Protocol:          vpclattice.ListenerProtocolTlsPassthrough,
+					Protocol:          string(types.ListenerProtocolTlsPassthrough),
 					DefaultAction: &model.DefaultAction{
 						Forward: &model.RuleAction{
 							TargetGroups: []*model.RuleTargetGroup{
@@ -394,7 +394,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					K8SRouteName:      "service1",
 					K8SRouteNamespace: "default",
 					Port:              443,
-					Protocol:          vpclattice.ListenerProtocolTlsPassthrough,
+					Protocol:          string(types.ListenerProtocolTlsPassthrough),
 					DefaultAction: &model.DefaultAction{
 						Forward: &model.RuleAction{
 							TargetGroups: []*model.RuleTargetGroup{
@@ -757,9 +757,9 @@ func Test_ListenerModelBuild_HTTPRouteWithAndWithoutAdditionalTagsAnnotation(t *
 				return route
 			}(),
 			expectedAdditionalTags: k8s.Tags{
-				"Environment": &[]string{"Prod"}[0],
-				"Project":     &[]string{"ListenerTest"}[0],
-				"Team":        &[]string{"Platform"}[0],
+				"Environment": "Prod",
+				"Project":     "ListenerTest",
+				"Team":        "Platform",
 			},
 			description: "should set additional tags from HTTPRoute annotations in listener spec",
 		},

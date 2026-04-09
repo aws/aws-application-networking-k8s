@@ -11,8 +11,9 @@ import (
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -53,13 +54,13 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// assert that we call create service
 		mockLattice.EXPECT().
-			CreateServiceWithContext(gomock.Any(), gomock.Any()).
+			CreateService(gomock.Any(), gomock.Any()).
 			DoAndReturn(
 				func(_ context.Context, req *CreateSvcReq, _ ...interface{}) (*CreateSvcResp, error) {
 					assert.Equal(t, svc.LatticeServiceName(), *req.Name)
 					return &CreateSvcResp{
 						Arn:      aws.String("arn"),
-						DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
+						DnsEntry: &types.DnsEntry{DomainName: aws.String("dns")},
 						Id:       aws.String("svc-id"),
 					}, nil
 				}).
@@ -67,13 +68,13 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// assert that we call create association
 		mockLattice.EXPECT().
-			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			CreateServiceNetworkServiceAssociation(gomock.Any(), gomock.Any()).
 			DoAndReturn(
 				func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
 					assert.Equal(t, "sn-id", *req.ServiceNetworkIdentifier)
 					assert.Contains(t, req.Tags, pkg_aws.TagManagedBy)
 					return &CreateSnSvcAssocResp{
-						Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+						Status: types.ServiceNetworkServiceAssociationStatusActive,
 					}, nil
 				}).
 			Times(1)
@@ -84,7 +85,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			DoAndReturn(
 				func(ctx context.Context, name string) (*mocks.ServiceNetworkInfo, error) {
 					return &mocks.ServiceNetworkInfo{
-						SvcNetwork: vpclattice.ServiceNetworkSummary{
+						SvcNetwork: types.ServiceNetworkSummary{
 							Arn:  aws.String("sn-arn"),
 							Id:   aws.String("sn-id"),
 							Name: aws.String(name),
@@ -127,14 +128,14 @@ func TestServiceManagerInteg(t *testing.T) {
 		// service exists in lattice
 		mockLattice.EXPECT().
 			FindService(gomock.Any(), gomock.Any()).
-			Return(&vpclattice.ServiceSummary{
+			Return(&types.ServiceSummary{
 				Arn:  aws.String("svc-arn"),
 				Id:   aws.String("svc-id"),
 				Name: aws.String(svc.LatticeServiceName()),
 			}, nil).
 			Times(1)
 
-		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				return &vpclattice.ListTagsForResourceOutput{
 					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
@@ -147,14 +148,14 @@ func TestServiceManagerInteg(t *testing.T) {
 		// 3 associations exist in lattice: keep, delete, and foreign
 		mockLattice.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]*SnSvcAssocSummary, error) {
-				assocs := []*SnSvcAssocSummary{}
+			DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]SnSvcAssocSummary, error) {
+				assocs := []SnSvcAssocSummary{}
 				for _, sn := range []string{snKeep, snDelete, snForeign, snForeignRAM, snForeignRAM} {
-					assocs = append(assocs, &SnSvcAssocSummary{
+					assocs = append(assocs, SnSvcAssocSummary{
 						Arn:                aws.String(sn + "-arn"),
 						Id:                 aws.String(sn + "-id"),
 						ServiceNetworkName: aws.String(sn),
-						Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+						Status:             types.ServiceNetworkServiceAssociationStatusActive,
 					})
 				}
 				return assocs, nil
@@ -164,7 +165,7 @@ func TestServiceManagerInteg(t *testing.T) {
 		mockTagging.EXPECT().UpdateTags(ctx, "sn-keep-arn", gomock.Any(), gomock.Any()).Return(nil)
 
 		// return managed by gateway controller tags for all associations except for foreign and foreign ram
-		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				if *req.ResourceArn == snForeign+"-arn" {
 					return &vpclattice.ListTagsForResourceOutput{}, nil
@@ -180,17 +181,17 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// assert we call create and delete associations on managed resources
 		mockLattice.EXPECT().
-			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			CreateServiceNetworkServiceAssociation(gomock.Any(), gomock.Any()).
 			DoAndReturn(
 				func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
 					assert.Equal(t, snAdd+"-id", *req.ServiceNetworkIdentifier)
-					return &CreateSnSvcAssocResp{Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive)}, nil
+					return &CreateSnSvcAssocResp{Status: types.ServiceNetworkServiceAssociationStatusActive}, nil
 				}).
 			Times(1)
 
 		// make sure we call delete only on managed resource, only snDelete should be deleted
 		mockLattice.EXPECT().
-			DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+			DeleteServiceNetworkServiceAssociation(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(
 				func(_ context.Context, req *DelSnSvcAssocReq, _ ...interface{}) (*DelSnSvcAssocResp, error) {
 					assert.Equal(t, snDelete+"-arn", *req.ServiceNetworkServiceAssociationIdentifier)
@@ -204,7 +205,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			DoAndReturn(
 				func(ctx context.Context, name string) (*mocks.ServiceNetworkInfo, error) {
 					return &mocks.ServiceNetworkInfo{
-						SvcNetwork: vpclattice.ServiceNetworkSummary{
+						SvcNetwork: types.ServiceNetworkSummary{
 							Arn:  aws.String(name + "-arn"),
 							Id:   aws.String(name + "-id"),
 							Name: aws.String(name),
@@ -234,27 +235,27 @@ func TestServiceManagerInteg(t *testing.T) {
 		// service exists in lattice
 		mockLattice.EXPECT().
 			FindService(gomock.Any(), gomock.Any()).
-			Return(&vpclattice.ServiceSummary{
+			Return(&types.ServiceSummary{
 				Arn:  aws.String("svc-arn"),
 				Id:   aws.String("svc-id"),
 				Name: aws.String(svc.LatticeServiceName()),
 			}, nil).
 			Times(1)
 
-		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				return &vpclattice.ListTagsForResourceOutput{
-					Tags: map[string]*string{},
+					Tags: map[string]string{},
 				}, nil
 			}).
 			Times(1)
 
-		mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Eq(&vpclattice.TagResourceInput{
+		mockLattice.EXPECT().TagResource(gomock.Any(), gomock.Eq(&vpclattice.TagResourceInput{
 			ResourceArn: aws.String("svc-arn"),
 			Tags:        cl.DefaultTags(),
 		})).Times(1)
 
-		mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Eq(&vpclattice.TagResourceInput{
+		mockLattice.EXPECT().TagResource(gomock.Any(), gomock.Eq(&vpclattice.TagResourceInput{
 			ResourceArn: aws.String("svc-arn"),
 			Tags:        svc.Spec.ToTags(),
 		})).Times(1)
@@ -263,10 +264,10 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).Times(1)
 		mockLattice.EXPECT().
-			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			CreateServiceNetworkServiceAssociation(gomock.Any(), gomock.Any()).
 			DoAndReturn(
 				func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
-					return &CreateSnSvcAssocResp{Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive)}, nil
+					return &CreateSnSvcAssocResp{Status: types.ServiceNetworkServiceAssociationStatusActive}, nil
 				}).
 			Times(1)
 
@@ -298,13 +299,13 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// assert that we call create service
 		mockLattice.EXPECT().
-			CreateServiceWithContext(gomock.Any(), gomock.Any()).
+			CreateService(gomock.Any(), gomock.Any()).
 			DoAndReturn(
 				func(_ context.Context, req *CreateSvcReq, _ ...interface{}) (*CreateSvcResp, error) {
 					assert.Equal(t, svc.LatticeServiceName(), *req.Name)
 					return &CreateSvcResp{
 						Arn:      aws.String("standalone-arn"),
-						DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("standalone-dns")},
+						DnsEntry: &types.DnsEntry{DomainName: aws.String("standalone-dns")},
 						Id:       aws.String("standalone-svc-id"),
 					}, nil
 				}).
@@ -312,7 +313,7 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		// assert that we do NOT call create association for standalone services
 		mockLattice.EXPECT().
-			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			CreateServiceNetworkServiceAssociation(gomock.Any(), gomock.Any()).
 			Times(0)
 
 		// assert that we do NOT call find service network for standalone services
@@ -343,14 +344,14 @@ func TestServiceManagerInteg(t *testing.T) {
 		// service exists in lattice
 		mockLattice.EXPECT().
 			FindService(gomock.Any(), gomock.Any()).
-			Return(&vpclattice.ServiceSummary{
+			Return(&types.ServiceSummary{
 				Arn:  aws.String("standalone-svc-arn"),
 				Id:   aws.String("standalone-svc-id"),
 				Name: aws.String(svc.LatticeServiceName()),
 			}, nil).
 			Times(1)
 
-		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				return &vpclattice.ListTagsForResourceOutput{
 					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
@@ -363,18 +364,18 @@ func TestServiceManagerInteg(t *testing.T) {
 		// no associations exist for standalone service
 		mockLattice.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]*SnSvcAssocSummary, error) {
-				return []*SnSvcAssocSummary{}, nil
+			DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]SnSvcAssocSummary, error) {
+				return []SnSvcAssocSummary{}, nil
 			}).
 			Times(1)
 
 		// assert that we do NOT call create or delete association for standalone services
 		mockLattice.EXPECT().
-			CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+			CreateServiceNetworkServiceAssociation(gomock.Any(), gomock.Any()).
 			Times(0)
 
 		mockLattice.EXPECT().
-			DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+			DeleteServiceNetworkServiceAssociation(gomock.Any(), gomock.Any(), gomock.Any()).
 			Times(0)
 
 		// assert that we do NOT call find service network for standalone services
@@ -401,13 +402,13 @@ func TestServiceManagerInteg(t *testing.T) {
 		// service exists
 		mockLattice.EXPECT().
 			FindService(gomock.Any(), gomock.Any()).
-			Return(&vpclattice.ServiceSummary{
+			Return(&types.ServiceSummary{
 				Arn:  aws.String("svc-arn"),
 				Id:   aws.String("svc-id"),
 				Name: aws.String(svc.LatticeServiceName()),
 			}, nil)
 
-		mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 				return &vpclattice.ListTagsForResourceOutput{
 					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
@@ -417,29 +418,29 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		mockLattice.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
-			Return([]*SnSvcAssocSummary{
+			Return([]SnSvcAssocSummary{
 				{
 					Arn:                aws.String("assoc-arn"),
 					Id:                 aws.String("assoc-id"),
 					ServiceNetworkName: aws.String("sn"),
-					Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+					Status:             types.ServiceNetworkServiceAssociationStatusActive,
 				},
 			}, nil)
 
 		// assert we delete association and service
 		mockLattice.EXPECT().
-			DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+			DeleteServiceNetworkServiceAssociation(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, nil).
 			Times(1)
 
 		mockLattice.EXPECT().
-			DeleteServiceWithContext(gomock.Any(), gomock.Any()).Return(nil, nil).
+			DeleteService(gomock.Any(), gomock.Any()).Return(nil, nil).
 			Times(1)
 
 		// assert we delete listeners
 		mockLattice.EXPECT().
 			ListListenersAsList(gomock.Any(), gomock.Any()).
-			Return([]*vpclattice.ListenerSummary{
+			Return([]types.ListenerSummary{
 				{
 					Id: aws.String("L1"),
 				},
@@ -449,7 +450,7 @@ func TestServiceManagerInteg(t *testing.T) {
 			}, nil)
 
 		mockLattice.EXPECT().
-			DeleteListenerWithContext(gomock.Any(), gomock.Any()).
+			DeleteListener(gomock.Any(), gomock.Any()).
 			Return(nil, nil).
 			Times(2)
 
@@ -490,7 +491,7 @@ func TestCreateSvcReq(t *testing.T) {
 func TestSvcStatusFromCreateSvcResp(t *testing.T) {
 	resp := &CreateSvcResp{
 		Arn: aws.String("arn"),
-		DnsEntry: &vpclattice.DnsEntry{
+		DnsEntry: &types.DnsEntry{
 			DomainName: aws.String("dns"),
 		},
 		Id: aws.String("id"),
@@ -507,7 +508,7 @@ func TestHandleSnSvcAssocResp(t *testing.T) {
 
 	t.Run("assoc status active", func(t *testing.T) {
 		resp := &CreateSnSvcAssocResp{
-			Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+			Status: types.ServiceNetworkServiceAssociationStatusActive,
 		}
 		err := handleCreateAssociationResp(resp)
 		assert.Nil(t, err)
@@ -515,7 +516,7 @@ func TestHandleSnSvcAssocResp(t *testing.T) {
 
 	t.Run("assoc status non active", func(t *testing.T) {
 		resp := &CreateSnSvcAssocResp{
-			Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress),
+			Status: types.ServiceNetworkServiceAssociationStatusCreateInProgress,
 		}
 		err := handleCreateAssociationResp(resp)
 		var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
@@ -530,7 +531,7 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 		svc := &Service{Spec: model.ServiceSpec{
 			ServiceNetworkNames: []string{"sn"},
 		}}
-		assocs := []*SnSvcAssocSummary{{ServiceNetworkName: aws.String("sn")}}
+		assocs := []SnSvcAssocSummary{{ServiceNetworkName: aws.String("sn")}}
 		c, d, _, err := associationsDiff(svc, assocs)
 		assert.Nil(t, err)
 		assert.Equal(t, 0, len(c))
@@ -541,7 +542,7 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 		svc := &Service{Spec: model.ServiceSpec{
 			ServiceNetworkNames: []string{"sn1", "sn2"},
 		}}
-		assocs := []*SnSvcAssocSummary{}
+		assocs := []SnSvcAssocSummary{}
 		c, d, _, _ := associationsDiff(svc, assocs)
 		assert.Equal(t, 2, len(c))
 		assert.Equal(t, 0, len(d))
@@ -549,7 +550,7 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 
 	t.Run("only delete", func(t *testing.T) {
 		svc := &Service{}
-		assocs := []*SnSvcAssocSummary{
+		assocs := []SnSvcAssocSummary{
 			{ServiceNetworkName: aws.String("sn1")},
 			{ServiceNetworkName: aws.String("sn2")},
 		}
@@ -562,7 +563,7 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 		svc := &Service{Spec: model.ServiceSpec{
 			ServiceNetworkNames: []string{"sn1", "sn2", "sn3"},
 		}}
-		assocs := []*SnSvcAssocSummary{
+		assocs := []SnSvcAssocSummary{
 			{ServiceNetworkName: aws.String("sn1")},
 			{ServiceNetworkName: aws.String("sn4")},
 		}
@@ -575,9 +576,9 @@ func TestSnSvcAssocsDiff(t *testing.T) {
 		svc := &Service{Spec: model.ServiceSpec{
 			ServiceNetworkNames: []string{"sn"},
 		}}
-		assocs := []*SnSvcAssocSummary{{
+		assocs := []SnSvcAssocSummary{{
 			ServiceNetworkName: aws.String("sn"),
-			Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress),
+			Status:             types.ServiceNetworkServiceAssociationStatusDeleteInProgress,
 		}}
 		_, _, _, err := associationsDiff(svc, assocs)
 		var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
@@ -606,8 +607,8 @@ func Test_ServiceManager_WithAdditionalTags_CreateService(t *testing.T) {
 			},
 			ServiceNetworkNames: []string{"sn"},
 			AdditionalTags: mocks.Tags{
-				"Environment": &[]string{"Test"}[0],
-				"Project":     &[]string{"ServiceManager"}[0],
+				"Environment": "Test",
+				"Project":     "ServiceManager",
 			},
 		},
 	}
@@ -620,14 +621,14 @@ func Test_ServiceManager_WithAdditionalTags_CreateService(t *testing.T) {
 	expectedServiceTags := cl.MergeTags(cl.DefaultTagsMergedWith(svc.Spec.ToTags()), svc.Spec.AdditionalTags)
 
 	mockLattice.EXPECT().
-		CreateServiceWithContext(gomock.Any(), gomock.Any()).
+		CreateService(gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(_ context.Context, req *CreateSvcReq, _ ...interface{}) (*CreateSvcResp, error) {
 				assert.Equal(t, svc.LatticeServiceName(), *req.Name)
 				assert.Equal(t, expectedServiceTags, req.Tags, "Service tags should include additional tags")
 				return &CreateSvcResp{
 					Arn:      aws.String("arn"),
-					DnsEntry: &vpclattice.DnsEntry{DomainName: aws.String("dns")},
+					DnsEntry: &types.DnsEntry{DomainName: aws.String("dns")},
 					Id:       aws.String("svc-id"),
 				}, nil
 			}).
@@ -636,13 +637,13 @@ func Test_ServiceManager_WithAdditionalTags_CreateService(t *testing.T) {
 	expectedAssocTags := cl.MergeTags(cl.DefaultTags(), svc.Spec.AdditionalTags)
 
 	mockLattice.EXPECT().
-		CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+		CreateServiceNetworkServiceAssociation(gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
 				assert.Equal(t, "sn-id", *req.ServiceNetworkIdentifier)
 				assert.Equal(t, expectedAssocTags, req.Tags, "Association tags should include additional tags")
 				return &CreateSnSvcAssocResp{
-					Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+					Status: types.ServiceNetworkServiceAssociationStatusActive,
 				}, nil
 			}).
 		Times(1)
@@ -652,7 +653,7 @@ func Test_ServiceManager_WithAdditionalTags_CreateService(t *testing.T) {
 		DoAndReturn(
 			func(ctx context.Context, name string) (*mocks.ServiceNetworkInfo, error) {
 				return &mocks.ServiceNetworkInfo{
-					SvcNetwork: vpclattice.ServiceNetworkSummary{
+					SvcNetwork: types.ServiceNetworkSummary{
 						Arn:  aws.String("sn-arn"),
 						Id:   aws.String("sn-id"),
 						Name: aws.String(name),
@@ -687,22 +688,22 @@ func Test_ServiceManager_WithAdditionalTags_UpdateService(t *testing.T) {
 			},
 			ServiceNetworkNames: []string{"sn-keep"},
 			AdditionalTags: mocks.Tags{
-				"Environment": &[]string{"Prod"}[0],
-				"Project":     &[]string{"UpdateTest"}[0],
+				"Environment": "Prod",
+				"Project":     "UpdateTest",
 			},
 		},
 	}
 
 	mockLattice.EXPECT().
 		FindService(gomock.Any(), gomock.Any()).
-		Return(&vpclattice.ServiceSummary{
+		Return(&types.ServiceSummary{
 			Arn:  aws.String("svc-arn"),
 			Id:   aws.String("svc-id"),
 			Name: aws.String(svc.LatticeServiceName()),
 		}, nil).
 		Times(1)
 
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 			return &vpclattice.ListTagsForResourceOutput{
 				Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
@@ -714,13 +715,13 @@ func Test_ServiceManager_WithAdditionalTags_UpdateService(t *testing.T) {
 
 	mockLattice.EXPECT().
 		ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]*SnSvcAssocSummary, error) {
-			return []*SnSvcAssocSummary{
+		DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]SnSvcAssocSummary, error) {
+			return []SnSvcAssocSummary{
 				{
 					Arn:                aws.String("assoc-arn"),
 					Id:                 aws.String("assoc-id"),
 					ServiceNetworkName: aws.String("sn-keep"),
-					Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+					Status:             types.ServiceNetworkServiceAssociationStatusActive,
 				},
 			}, nil
 		}).
@@ -753,22 +754,22 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 			},
 			ServiceNetworkNames: []string{"sn-keep", "sn-create"},
 			AdditionalTags: mocks.Tags{
-				"Environment": &[]string{"Complex"}[0],
-				"Project":     &[]string{"UpdateAssocTest"}[0],
+				"Environment": "Complex",
+				"Project":     "UpdateAssocTest",
 			},
 		},
 	}
 
 	mockLattice.EXPECT().
 		FindService(gomock.Any(), gomock.Any()).
-		Return(&vpclattice.ServiceSummary{
+		Return(&types.ServiceSummary{
 			Arn:  aws.String("svc-arn"),
 			Id:   aws.String("svc-id"),
 			Name: aws.String(svc.LatticeServiceName()),
 		}, nil).
 		Times(1)
 
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 			return &vpclattice.ListTagsForResourceOutput{
 				Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
@@ -780,19 +781,19 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 
 	mockLattice.EXPECT().
 		ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]*SnSvcAssocSummary, error) {
-			return []*SnSvcAssocSummary{
+		DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]SnSvcAssocSummary, error) {
+			return []SnSvcAssocSummary{
 				{
 					Arn:                aws.String("sn-keep-arn"),
 					Id:                 aws.String("sn-keep-id"),
 					ServiceNetworkName: aws.String("sn-keep"),
-					Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+					Status:             types.ServiceNetworkServiceAssociationStatusActive,
 				},
 				{
 					Arn:                aws.String("sn-delete-arn"),
 					Id:                 aws.String("sn-delete-id"),
 					ServiceNetworkName: aws.String("sn-delete"),
-					Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+					Status:             types.ServiceNetworkServiceAssociationStatusActive,
 				},
 			}, nil
 		}).
@@ -800,7 +801,7 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 
 	mockTagging.EXPECT().UpdateTags(ctx, "sn-keep-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
 
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 			return &vpclattice.ListTagsForResourceOutput{
 				Tags: cl.DefaultTags(),
@@ -810,19 +811,19 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 
 	expectedAssocTags := cl.MergeTags(cl.DefaultTags(), svc.Spec.AdditionalTags)
 	mockLattice.EXPECT().
-		CreateServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any()).
+		CreateServiceNetworkServiceAssociation(gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(_ context.Context, req *CreateSnSvcAssocReq, _ ...interface{}) (*CreateSnSvcAssocResp, error) {
 				assert.Equal(t, "sn-create-id", *req.ServiceNetworkIdentifier)
 				assert.Equal(t, expectedAssocTags, req.Tags, "New association should include additional tags")
 				return &CreateSnSvcAssocResp{
-					Status: aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+					Status: types.ServiceNetworkServiceAssociationStatusActive,
 				}, nil
 			}).
 		Times(1)
 
 	mockLattice.EXPECT().
-		DeleteServiceNetworkServiceAssociationWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		DeleteServiceNetworkServiceAssociation(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(_ context.Context, req *DelSnSvcAssocReq, _ ...interface{}) (*DelSnSvcAssocResp, error) {
 				assert.Equal(t, "sn-delete-arn", *req.ServiceNetworkServiceAssociationIdentifier)
@@ -835,7 +836,7 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 		DoAndReturn(
 			func(ctx context.Context, name string) (*mocks.ServiceNetworkInfo, error) {
 				return &mocks.ServiceNetworkInfo{
-					SvcNetwork: vpclattice.ServiceNetworkSummary{
+					SvcNetwork: types.ServiceNetworkSummary{
 						Arn:  aws.String(name + "-arn"),
 						Id:   aws.String(name + "-id"),
 						Name: aws.String(name),
@@ -875,26 +876,26 @@ func Test_ServiceManager_ServiceTakeover(t *testing.T) {
 
 	mockLattice.EXPECT().
 		FindService(gomock.Any(), gomock.Any()).
-		Return(&vpclattice.ServiceSummary{
+		Return(&types.ServiceSummary{
 			Arn:  aws.String("svc-arn"),
 			Id:   aws.String("svc-id"),
 			Name: aws.String(svc.LatticeServiceName()),
 		}, nil).
 		Times(1)
 
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 			return &vpclattice.ListTagsForResourceOutput{
-				Tags: map[string]*string{
-					pkg_aws.TagManagedBy: aws.String("other-account/other-cluster/other-vpc"),
+				Tags: map[string]string{
+					pkg_aws.TagManagedBy: "other-account/other-cluster/other-vpc",
 				},
 			}, nil
 		}).
 		Times(1)
 
-	mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Eq(&vpclattice.TagResourceInput{
+	mockLattice.EXPECT().TagResource(gomock.Any(), gomock.Eq(&vpclattice.TagResourceInput{
 		ResourceArn: aws.String("svc-arn"),
-		Tags: map[string]*string{
+		Tags: map[string]string{
 			pkg_aws.TagManagedBy: cl.DefaultTags()[pkg_aws.TagManagedBy],
 		},
 	})).Times(1)
@@ -902,12 +903,12 @@ func Test_ServiceManager_ServiceTakeover(t *testing.T) {
 	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
 
 	mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
-		Return([]*SnSvcAssocSummary{
+		Return([]SnSvcAssocSummary{
 			{
 				Arn:                aws.String("assoc-arn"),
 				Id:                 aws.String("assoc-id"),
 				ServiceNetworkName: aws.String("sn"),
-				Status:             aws.String(vpclattice.ServiceNetworkServiceAssociationStatusActive),
+				Status:             types.ServiceNetworkServiceAssociationStatusActive,
 			},
 		}, nil).Times(1)
 
@@ -946,24 +947,24 @@ func Test_ServiceManager_ServiceTakeover_NotAllowed(t *testing.T) {
 
 	mockLattice.EXPECT().
 		FindService(gomock.Any(), gomock.Any()).
-		Return(&vpclattice.ServiceSummary{
+		Return(&types.ServiceSummary{
 			Arn:  aws.String("svc-arn"),
 			Id:   aws.String("svc-id"),
 			Name: aws.String(svc.LatticeServiceName()),
 		}, nil).
 		Times(1)
 
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
 			return &vpclattice.ListTagsForResourceOutput{
-				Tags: map[string]*string{
-					pkg_aws.TagManagedBy: aws.String("different-owner/different-cluster/different-vpc"),
+				Tags: map[string]string{
+					pkg_aws.TagManagedBy: "different-owner/different-cluster/different-vpc",
 				},
 			}, nil
 		}).
 		Times(1)
 
-	mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Any()).Times(0)
+	mockLattice.EXPECT().TagResource(gomock.Any(), gomock.Any()).Times(0)
 
 	mockTagging.EXPECT().UpdateTags(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
