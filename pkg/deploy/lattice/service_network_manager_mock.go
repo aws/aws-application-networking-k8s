@@ -101,7 +101,7 @@ func (mr *MockServiceNetworkManagerMockRecorder) Upsert(ctx, name, additionalTag
 }
 
 // UpsertVpcAssociation mocks base method.
-func (m *MockServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string, additionalTags services.Tags) (string, error) {
+func (m *MockServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []string, additionalTags services.Tags) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpsertVpcAssociation", ctx, snName, sgIds, additionalTags)
 	ret0, _ := ret[0].(string)

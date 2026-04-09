@@ -15,7 +15,7 @@ import (
 
 	core "github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
+	types "github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -58,7 +58,7 @@ func (mr *MockTargetGroupManagerMockRecorder) Delete(ctx, modelTg any) *gomock.C
 }
 
 // IsTargetGroupMatch mocks base method.
-func (m *MockTargetGroupManager) IsTargetGroupMatch(ctx context.Context, modelTg *lattice.TargetGroup, latticeTg *vpclattice.TargetGroupSummary, latticeTags *lattice.TargetGroupTagFields) (bool, error) {
+func (m *MockTargetGroupManager) IsTargetGroupMatch(ctx context.Context, modelTg *lattice.TargetGroup, latticeTg *types.TargetGroupSummary, latticeTags *lattice.TargetGroupTagFields) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsTargetGroupMatch", ctx, modelTg, latticeTg, latticeTags)
 	ret0, _ := ret[0].(bool)
