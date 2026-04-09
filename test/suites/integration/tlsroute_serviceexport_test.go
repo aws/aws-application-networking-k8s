@@ -2,8 +2,13 @@ package integration
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"log"
+	"net"
+	"os"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -11,10 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"log"
-	"net"
-	"os"
+	apitypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -72,23 +74,23 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 		fmt.Printf("vpcLatticeService: %v \n", vpcLatticeService)
 
 		tgSummary := testFramework.GetTCPTargetGroup(ctx, httpsSvc1)
-		tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+		tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: aws.String(*tgSummary.Id),
 		})
 		Expect(tg).To(Not(BeNil()))
 		Expect(err).To(BeNil())
 		Expect(*tgSummary.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-		Expect(*tgSummary.Protocol).To(Equal("TCP"))
+		Expect(string(tgSummary.Protocol)).To(Equal("TCP"))
 		Expect(tg.Config.HealthCheck).To(Not(BeNil()))
 		Expect(*tg.Config.HealthCheck.Enabled).To(BeTrue())
-		Expect(*tg.Config.HealthCheck.Protocol).To(Equal("HTTPS"))
-		Expect(*tg.Config.HealthCheck.ProtocolVersion).To(Equal("HTTP1"))
+		Expect(string(tg.Config.HealthCheck.Protocol)).To(Equal("HTTPS"))
+		Expect(string(tg.Config.HealthCheck.ProtocolVersion)).To(Equal("HTTP1"))
 		Expect(*tg.Config.HealthCheck.Port).To(BeEquivalentTo(443))
 		Eventually(func(g Gomega) {
 			targets := testFramework.GetTargets(ctx, tgSummary, httpsDeployment1)
 			for _, target := range targets {
 				g.Expect(*target.Port).To(BeEquivalentTo(httpsSvc1.Spec.Ports[0].TargetPort.IntVal))
-				g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusHealthy))
+				g.Expect(string(target.Status)).To(Equal(string(types.TargetStatusHealthy)))
 			}
 		})
 	})
@@ -99,7 +101,7 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 		latticeGeneratedDnsName := testFramework.GetVpcLatticeServiceTLSDns(tlsRoute.Name, tlsRoute.Namespace)
 		dnsIP, err := net.DefaultResolver.LookupIP(ctx, "ip4", latticeGeneratedDnsName)
 		Expect(err).To(BeNil())
-		testFramework.Get(ctx, types.NamespacedName{Name: httpsDeployment1.Name, Namespace: httpsDeployment1.Namespace}, httpsDeployment1)
+		testFramework.Get(ctx, apitypes.NamespacedName{Name: httpsDeployment1.Name, Namespace: httpsDeployment1.Namespace}, httpsDeployment1)
 		pods := testFramework.GetPodsByDeploymentName(httpsDeployment1.Name, httpsDeployment1.Namespace)
 		Expect(len(pods)).To(BeEquivalentTo(1))
 		pod := pods[0]

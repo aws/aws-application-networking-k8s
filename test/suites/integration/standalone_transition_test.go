@@ -3,13 +3,14 @@ package integration
 import (
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -68,7 +69,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			// Verify service ARN is surfaced in route annotations
 			Eventually(func(g Gomega) {
 				updatedRoute := &gwv1.HTTPRoute{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      httpRoute.Name,
 					Namespace: httpRoute.Namespace,
 				}, updatedRoute)
@@ -83,7 +84,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Removing standalone annotation to transition to service network mode")
 			Eventually(func(g Gomega) {
 				latestRoute := &gwv1.HTTPRoute{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      httpRoute.Name,
 					Namespace: httpRoute.Namespace,
 				}, latestRoute)
@@ -109,8 +110,8 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				g.Expect(associations).ToNot(BeEmpty(), "Service should have service network associations after removing standalone annotation")
 
 				// Verify at least one association is active
-				activeAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					return lo.FromPtr(assoc.Status) == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				activeAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					return string(assoc.Status) == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 				g.Expect(activeAssociations).ToNot(BeEmpty(), "At least one service network association should be active")
 			}).WithTimeout(3 * time.Minute).Should(Succeed())
@@ -126,7 +127,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Verifying service ARN annotation is still present after transition")
 			Eventually(func(g Gomega) {
 				updatedRoute := &gwv1.HTTPRoute{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      httpRoute.Name,
 					Namespace: httpRoute.Namespace,
 				}, updatedRoute)
@@ -180,8 +181,8 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				g.Expect(associations).ToNot(BeEmpty(), "Service should initially have service network associations")
 
 				// Verify at least one association is active
-				activeAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					return lo.FromPtr(assoc.Status) == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				activeAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					return string(assoc.Status) == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 				g.Expect(activeAssociations).ToNot(BeEmpty(), "At least one service network association should be active initially")
 			}).WithTimeout(2 * time.Minute).Should(Succeed())
@@ -189,7 +190,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Adding standalone annotation to transition to standalone mode")
 			Eventually(func(g Gomega) {
 				latestRoute := &gwv1.HTTPRoute{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      httpRoute.Name,
 					Namespace: httpRoute.Namespace,
 				}, latestRoute)
@@ -218,10 +219,10 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				// Check if associations are either empty or all are being deleted/deleted
 				if len(associations) > 0 {
 					// If associations exist, they should all be in a deletion state
-					deletingOrDeletedAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-						status := lo.FromPtr(assoc.Status)
-						return status == vpclattice.ServiceNetworkServiceAssociationStatusDeleteInProgress ||
-							status == vpclattice.ServiceNetworkServiceAssociationStatusDeleteFailed
+					deletingOrDeletedAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+						status := string(assoc.Status)
+						return status == string(types.ServiceNetworkServiceAssociationStatusDeleteInProgress) ||
+							status == string(types.ServiceNetworkServiceAssociationStatusDeleteFailed)
 					})
 					g.Expect(len(deletingOrDeletedAssociations)).To(Equal(len(associations)), "All associations should be in deletion state when transitioning to standalone")
 				}
@@ -238,7 +239,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Verifying service ARN annotation is present after transition")
 			Eventually(func(g Gomega) {
 				updatedRoute := &gwv1.HTTPRoute{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      httpRoute.Name,
 					Namespace: httpRoute.Namespace,
 				}, updatedRoute)
@@ -258,8 +259,8 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				g.Expect(err).ToNot(HaveOccurred())
 
 				// Filter for active associations - there should be none
-				activeAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					return lo.FromPtr(assoc.Status) == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				activeAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					return string(assoc.Status) == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 				g.Expect(activeAssociations).To(BeEmpty(), "No active service network associations should remain in standalone mode")
 			}).WithTimeout(4 * time.Minute).Should(Succeed())
@@ -305,8 +306,8 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(associations).ToNot(BeEmpty(), "Initial service should have service network associations")
 
-				activeAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					return lo.FromPtr(assoc.Status) == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				activeAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					return string(assoc.Status) == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 				g.Expect(activeAssociations).ToNot(BeEmpty(), "At least one association should be active initially")
 			}).WithTimeout(2 * time.Minute).Should(Succeed())
@@ -314,7 +315,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Transitioning to standalone mode by adding annotation")
 			Eventually(func(g Gomega) {
 				latestRoute := &gwv1.HTTPRoute{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      httpRoute.Name,
 					Namespace: httpRoute.Namespace,
 				}, latestRoute)
@@ -336,8 +337,8 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				})
 				g.Expect(err).ToNot(HaveOccurred())
 
-				activeAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					return lo.FromPtr(assoc.Status) == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				activeAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					return string(assoc.Status) == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 				g.Expect(activeAssociations).To(BeEmpty(), "No active associations should exist in standalone mode")
 			}).WithTimeout(4 * time.Minute).Should(Succeed())
@@ -345,7 +346,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Transitioning back to service network mode by removing annotation")
 			Eventually(func(g Gomega) {
 				latestRoute := &gwv1.HTTPRoute{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      httpRoute.Name,
 					Namespace: httpRoute.Namespace,
 				}, latestRoute)
@@ -370,18 +371,18 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				testFramework.Log.Infof(ctx, "Current associations count: %d", len(associations))
 				for i, assoc := range associations {
 					testFramework.Log.Infof(ctx, "Association %d: ID=%s, Status=%s, ServiceNetwork=%s",
-						i, lo.FromPtr(assoc.Id), lo.FromPtr(assoc.Status), lo.FromPtr(assoc.ServiceNetworkName))
+						i, lo.FromPtr(assoc.Id), string(assoc.Status), lo.FromPtr(assoc.ServiceNetworkName))
 				}
 
-				activeAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					return lo.FromPtr(assoc.Status) == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				activeAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					return string(assoc.Status) == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 
 				// Check for associations in creation state as well
-				creatingAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					status := lo.FromPtr(assoc.Status)
-					return status == vpclattice.ServiceNetworkServiceAssociationStatusCreateInProgress ||
-						status == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				creatingAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					status := string(assoc.Status)
+					return status == string(types.ServiceNetworkServiceAssociationStatusCreateInProgress) ||
+						status == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 
 				testFramework.Log.Infof(ctx, "Active associations: %d, Creating/Active associations: %d",
@@ -401,7 +402,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Verifying service ARN annotation persists through transitions")
 			Eventually(func(g Gomega) {
 				updatedRoute := &gwv1.HTTPRoute{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      httpRoute.Name,
 					Namespace: httpRoute.Namespace,
 				}, updatedRoute)
@@ -437,7 +438,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Adding standalone annotation to existing test gateway")
 			Eventually(func(g Gomega) {
 				latestGateway := &gwv1.Gateway{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      testGateway.Name,
 					Namespace: testGateway.Namespace,
 				}, latestGateway)
@@ -469,8 +470,8 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				})
 				g.Expect(err).ToNot(HaveOccurred())
 
-				activeAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					return lo.FromPtr(assoc.Status) == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				activeAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					return string(assoc.Status) == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 				g.Expect(activeAssociations).To(BeEmpty(), "Route should inherit standalone behavior from gateway")
 			}).WithTimeout(3 * time.Minute).Should(Succeed())
@@ -481,7 +482,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Removing standalone annotation from gateway")
 			Eventually(func(g Gomega) {
 				latestGateway := &gwv1.Gateway{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      testGateway.Name,
 					Namespace: testGateway.Namespace,
 				}, latestGateway)
@@ -497,7 +498,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Verifying gateway annotation has been removed")
 			Eventually(func(g Gomega) {
 				latestGateway := &gwv1.Gateway{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      testGateway.Name,
 					Namespace: testGateway.Namespace,
 				}, latestGateway)
@@ -526,8 +527,8 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				})
 				g.Expect(err).ToNot(HaveOccurred())
 
-				activeAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					return lo.FromPtr(assoc.Status) == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				activeAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					return string(assoc.Status) == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 				g.Expect(activeAssociations).ToNot(BeEmpty(), "Route should use service network mode when gateway annotation is removed")
 			}).WithTimeout(3 * time.Minute).Should(Succeed())
@@ -550,7 +551,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			// Clean up the standalone annotation from the test gateway
 			Eventually(func(g Gomega) {
 				latestGateway := &gwv1.Gateway{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      testGateway.Name,
 					Namespace: testGateway.Namespace,
 				}, latestGateway)
@@ -612,7 +613,7 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 			By("Correcting annotation value to valid 'true'")
 			Eventually(func(g Gomega) {
 				latestRoute := &gwv1.HTTPRoute{}
-				err := testFramework.Get(ctx, types.NamespacedName{
+				err := testFramework.Get(ctx, apitypes.NamespacedName{
 					Name:      httpRoute.Name,
 					Namespace: httpRoute.Namespace,
 				}, latestRoute)
@@ -634,8 +635,8 @@ var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
 				})
 				g.Expect(err).ToNot(HaveOccurred())
 
-				activeAssociations := lo.Filter(associations, func(assoc *vpclattice.ServiceNetworkServiceAssociationSummary, _ int) bool {
-					return lo.FromPtr(assoc.Status) == vpclattice.ServiceNetworkServiceAssociationStatusActive
+				activeAssociations := lo.Filter(associations, func(assoc types.ServiceNetworkServiceAssociationSummary, _ int) bool {
+					return string(assoc.Status) == string(types.ServiceNetworkServiceAssociationStatusActive)
 				})
 				g.Expect(activeAssociations).To(BeEmpty(), "Corrected annotation should result in standalone mode")
 			}).WithTimeout(3 * time.Minute).Should(Succeed())

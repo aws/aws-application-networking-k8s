@@ -1,8 +1,9 @@
 package integration
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,14 +52,14 @@ var _ = Describe("ServiceNetwork CRD", Serial, Ordered, func() {
 			snInfo, err := testFramework.LatticeClient.FindServiceNetwork(ctx, snName)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(snInfo).ToNot(BeNil())
-			g.Expect(aws.StringValue(snInfo.SvcNetwork.Name)).To(Equal(snName))
+			g.Expect(aws.ToString(snInfo.SvcNetwork.Name)).To(Equal(snName))
 
-			snArn := aws.StringValue(snInfo.SvcNetwork.Arn)
+			snArn := aws.ToString(snInfo.SvcNetwork.Arn)
 			tags, err := testFramework.Cloud.Tagging().GetTagsForArns(ctx, []string{snArn})
 			g.Expect(err).ToNot(HaveOccurred())
 			snTags := tags[snArn]
-			g.Expect(snTags).To(HaveKeyWithValue("Environment", aws.String("Dev")))
-			g.Expect(snTags).To(HaveKeyWithValue("Team", aws.String("Platform")))
+			g.Expect(snTags).To(HaveKeyWithValue("Environment", "Dev"))
+			g.Expect(snTags).To(HaveKeyWithValue("Team", "Platform"))
 
 			updated := &anv1alpha1.ServiceNetwork{}
 			err = testFramework.Get(ctx, client.ObjectKeyFromObject(serviceNetwork), updated)
@@ -87,7 +88,7 @@ var _ = Describe("ServiceNetwork CRD adopt existing", Serial, Ordered, func() {
 
 	BeforeAll(func() {
 		// Pre-create a Lattice SN via SDK (simulating external creation)
-		resp, err := testFramework.LatticeClient.CreateServiceNetworkWithContext(ctx, &vpclattice.CreateServiceNetworkInput{
+		resp, err := testFramework.LatticeClient.CreateServiceNetwork(ctx, &vpclattice.CreateServiceNetworkInput{
 			Name: aws.String(snName),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -121,7 +122,7 @@ var _ = Describe("ServiceNetwork CRD adopt existing", Serial, Ordered, func() {
 			updated := &anv1alpha1.ServiceNetwork{}
 			err := testFramework.Get(ctx, client.ObjectKeyFromObject(serviceNetwork), updated)
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(updated.Status.ServiceNetworkID).To(Equal(aws.StringValue(preCreatedSnId)))
+			g.Expect(updated.Status.ServiceNetworkID).To(Equal(aws.ToString(preCreatedSnId)))
 			g.Expect(updated.Status.ServiceNetworkARN).ToNot(BeEmpty())
 
 			programmed := false
@@ -223,11 +224,11 @@ var _ = Describe("ServiceNetwork CRD delete blocked by association", Serial, Ord
 	AfterAll(func() {
 		// Clean up association first to unblock SN deletion
 		if snssaId != nil {
-			testFramework.LatticeClient.DeleteServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.DeleteServiceNetworkServiceAssociationInput{
+			testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx, &vpclattice.DeleteServiceNetworkServiceAssociationInput{
 				ServiceNetworkServiceAssociationIdentifier: snssaId,
 			})
 			Eventually(func(g Gomega) {
-				_, err := testFramework.LatticeClient.GetServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
+				_, err := testFramework.LatticeClient.GetServiceNetworkServiceAssociation(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
 					ServiceNetworkServiceAssociationIdentifier: snssaId,
 				})
 				g.Expect(err).To(HaveOccurred())
@@ -235,7 +236,7 @@ var _ = Describe("ServiceNetwork CRD delete blocked by association", Serial, Ord
 		}
 		if serviceId != nil {
 			Eventually(func() error {
-				_, err := testFramework.LatticeClient.DeleteServiceWithContext(ctx, &vpclattice.DeleteServiceInput{
+				_, err := testFramework.LatticeClient.DeleteService(ctx, &vpclattice.DeleteServiceInput{
 					ServiceIdentifier: serviceId,
 				})
 				return err
@@ -280,7 +281,7 @@ var _ = Describe("ServiceNetwork CRD delete blocked by association", Serial, Ord
 		}).Should(Succeed())
 
 		// Create a Lattice service via SDK and wait for it to be active
-		svcResp, err := testFramework.LatticeClient.CreateServiceWithContext(ctx, &vpclattice.CreateServiceInput{
+		svcResp, err := testFramework.LatticeClient.CreateService(ctx, &vpclattice.CreateServiceInput{
 			Name: aws.String(svcName),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -290,11 +291,11 @@ var _ = Describe("ServiceNetwork CRD delete blocked by association", Serial, Ord
 			svc, err := testFramework.LatticeClient.FindService(ctx, svcName)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(svc).ToNot(BeNil())
-			g.Expect(aws.StringValue(svc.Status)).To(Equal(vpclattice.ServiceStatusActive))
+			g.Expect(string(svc.Status)).To(Equal(string(types.ServiceStatusActive)))
 		}).Should(Succeed())
 
 		// Associate the service to the SN
-		assocResp, err := testFramework.LatticeClient.CreateServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.CreateServiceNetworkServiceAssociationInput{
+		assocResp, err := testFramework.LatticeClient.CreateServiceNetworkServiceAssociation(ctx, &vpclattice.CreateServiceNetworkServiceAssociationInput{
 			ServiceNetworkIdentifier: aws.String(snId),
 			ServiceIdentifier:        serviceId,
 		})
@@ -303,11 +304,11 @@ var _ = Describe("ServiceNetwork CRD delete blocked by association", Serial, Ord
 
 		// Wait for association to be active
 		Eventually(func(g Gomega) {
-			resp, err := testFramework.LatticeClient.GetServiceNetworkServiceAssociationWithContext(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
+			resp, err := testFramework.LatticeClient.GetServiceNetworkServiceAssociation(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
 				ServiceNetworkServiceAssociationIdentifier: snssaId,
 			})
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(aws.StringValue(resp.Status)).To(Equal(vpclattice.ServiceNetworkServiceAssociationStatusActive))
+			g.Expect(string(resp.Status)).To(Equal(string(types.ServiceNetworkServiceAssociationStatusActive)))
 		}).Should(Succeed())
 
 		// Delete the ServiceNetwork CR

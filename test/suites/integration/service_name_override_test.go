@@ -4,7 +4,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -63,41 +64,41 @@ var _ = Describe("Service Name Override", Ordered, func() {
 			vpcLatticeService := testFramework.GetVpcLatticeService(ctx, route)
 
 			g.Expect(*vpcLatticeService.Name).To(Equal("custom-service-name"))
-			g.Expect(*vpcLatticeService.Status).To(Equal(vpclattice.ServiceStatusActive))
+			g.Expect(string(vpcLatticeService.Status)).To(Equal(string(types.ServiceStatusActive)))
 			g.Expect(*vpcLatticeService.DnsEntry.DomainName).To(ContainSubstring("custom-service-name"))
 
 			targetGroup := testFramework.GetTargetGroup(ctx, httpSvc)
-			g.Expect(*targetGroup.Protocol).To(Equal("HTTP"))
+			g.Expect(string(targetGroup.Protocol)).To(Equal("HTTP"))
 
-			listeners, err := testFramework.LatticeClient.ListListeners(&vpclattice.ListListenersInput{
+			listeners, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listeners.Items)).To(BeNumerically(">", 0))
 
 			for _, listener := range listeners.Items {
-				rules, err := testFramework.LatticeClient.ListRules(&vpclattice.ListRulesInput{
+				rules, err := testFramework.LatticeClient.ListRulesAsList(ctx, &vpclattice.ListRulesInput{
 					ServiceIdentifier:  vpcLatticeService.Id,
 					ListenerIdentifier: listener.Id,
 				})
 				g.Expect(err).To(BeNil())
-				g.Expect(len(rules.Items)).To(BeNumerically(">", 0))
+				g.Expect(len(rules)).To(BeNumerically(">", 0))
 
 				foundForwardRule := false
-				for _, rule := range rules.Items {
+				for _, rule := range rules {
 					if rule.IsDefault != nil && *rule.IsDefault {
 						continue
 					}
 
-					ruleDetail, err := testFramework.LatticeClient.GetRule(&vpclattice.GetRuleInput{
+					ruleDetail, err := testFramework.LatticeClient.GetRule(ctx, &vpclattice.GetRuleInput{
 						ServiceIdentifier:  vpcLatticeService.Id,
 						ListenerIdentifier: listener.Id,
 						RuleIdentifier:     rule.Id,
 					})
 					g.Expect(err).To(BeNil())
 
-					if ruleDetail.Action != nil && ruleDetail.Action.Forward != nil {
-						for _, targetGroupWeight := range ruleDetail.Action.Forward.TargetGroups {
+					if forwardAction, ok := ruleDetail.Action.(*types.RuleActionMemberForward); ok {
+						for _, targetGroupWeight := range forwardAction.Value.TargetGroups {
 							if *targetGroupWeight.TargetGroupIdentifier == *targetGroup.Id {
 								foundForwardRule = true
 								break
@@ -108,14 +109,14 @@ var _ = Describe("Service Name Override", Ordered, func() {
 				g.Expect(foundForwardRule).To(BeTrue(), "Expected to find a rule that forwards to target group %s", *targetGroup.Id)
 			}
 
-			associations, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociations(&vpclattice.ListServiceNetworkServiceAssociationsInput{
+			associations, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx, &vpclattice.ListServiceNetworkServiceAssociationsInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
-			g.Expect(len(associations.Items)).To(BeNumerically(">", 0))
+			g.Expect(len(associations)).To(BeNumerically(">", 0))
 
-			for _, association := range associations.Items {
-				g.Expect(*association.Status).To(Equal(vpclattice.ServiceNetworkServiceAssociationStatusActive))
+			for _, association := range associations {
+				g.Expect(string(association.Status)).To(Equal(string(types.ServiceNetworkServiceAssociationStatusActive)))
 			}
 
 			targets := testFramework.GetTargets(ctx, targetGroup, httpDeployment)

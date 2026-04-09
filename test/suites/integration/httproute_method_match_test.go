@@ -2,16 +2,18 @@ package integration
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"log"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -46,34 +48,34 @@ var _ = Describe("HTTPRoute method matches", Ordered, func() {
 
 		log.Println("Verifying VPC Lattice service listeners and rules")
 		Eventually(func(g Gomega) {
-			listListenerResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+			listListenerResp, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listListenerResp.Items)).To(BeEquivalentTo(1))
 			listener := listListenerResp.Items[0]
 			listenerId := listener.Id
-			listRulesResp, err := testFramework.LatticeClient.ListRulesWithContext(ctx, &vpclattice.ListRulesInput{
+			listRulesResp, err := testFramework.LatticeClient.ListRulesAsList(ctx, &vpclattice.ListRulesInput{
 				ListenerIdentifier: listenerId,
 				ServiceIdentifier:  vpcLatticeService.Id,
 			})
-			nonDefaultRules := lo.Filter(listRulesResp.Items, func(rule *vpclattice.RuleSummary, _ int) bool {
+			nonDefaultRules := lo.Filter(listRulesResp, func(rule types.RuleSummary, _ int) bool {
 				return rule.IsDefault == nil || *rule.IsDefault == false
 			})
-			ruleIds := lo.Map(nonDefaultRules, func(rule *vpclattice.RuleSummary, _ int) *string {
+			ruleIds := lo.Map(nonDefaultRules, func(rule types.RuleSummary, _ int) *string {
 				return rule.Id
 			})
 
 			g.Expect(len(ruleIds)).To(Equal(2))
 
-			rule0, err := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+			rule0, err := testFramework.LatticeClient.GetRule(ctx, &vpclattice.GetRuleInput{
 				ServiceIdentifier:  vpcLatticeService.Id,
 				ListenerIdentifier: listenerId,
 				RuleIdentifier:     ruleIds[0],
 			})
 			g.Expect(err).To(BeNil())
 
-			rule1, err := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+			rule1, err := testFramework.LatticeClient.GetRule(ctx, &vpclattice.GetRuleInput{
 				ServiceIdentifier:  vpcLatticeService.Id,
 				ListenerIdentifier: listenerId,
 				RuleIdentifier:     ruleIds[1],
@@ -82,8 +84,8 @@ var _ = Describe("HTTPRoute method matches", Ordered, func() {
 
 			httprouteRules := methodMatchHttpRoute.Spec.Rules
 			retrievedRules := []string{
-				*rule0.Match.HttpMatch.Method,
-				*rule1.Match.HttpMatch.Method}
+				*rule0.Match.(*types.RuleMatchMemberHttpMatch).Value.Method,
+				*rule1.Match.(*types.RuleMatchMemberHttpMatch).Value.Method}
 			expectedRules := []string{string(*httprouteRules[0].Matches[0].Method),
 				string(*httprouteRules[1].Matches[0].Method)}
 			log.Println("retrievedRules", retrievedRules)
@@ -96,7 +98,7 @@ var _ = Describe("HTTPRoute method matches", Ordered, func() {
 		log.Println("Verifying traffic")
 		dnsName := testFramework.GetVpcLatticeServiceDns(methodMatchHttpRoute.Name, methodMatchHttpRoute.Namespace)
 
-		testFramework.Get(ctx, types.NamespacedName{Name: deployment1.Name, Namespace: deployment1.Namespace}, deployment1)
+		testFramework.Get(ctx, apitypes.NamespacedName{Name: deployment1.Name, Namespace: deployment1.Namespace}, deployment1)
 
 		//get the pods of deployment1
 		pods := testFramework.GetPodsByDeploymentName(deployment1.Name, deployment1.Namespace)

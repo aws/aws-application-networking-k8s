@@ -1,20 +1,22 @@
 package integration
 
 import (
+	"context"
 	"fmt"
-	awsClient "github.com/aws/aws-sdk-go/aws/client"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	arn2 "github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ram"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
-	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	arn2 "github.com/aws/aws-sdk-go-v2/aws/arn"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	ram "github.com/aws/aws-sdk-go-v2/service/ram"
+	ramtypes "github.com/aws/aws-sdk-go-v2/service/ram/types"
+	resourcegroupstaggingapi "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
+	rgtatypes "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi/types"
+	sts "github.com/aws/aws-sdk-go-v2/service/sts"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -28,12 +30,12 @@ import (
 )
 
 type testClients struct {
-	ramClient1     *ram.RAM
-	ramClient2     *ram.RAM
-	latticeClient1 *vpclattice.VPCLattice
-	latticeClient2 *vpclattice.VPCLattice
-	rgClient1      *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
-	rgClient2      *resourcegroupstaggingapi.ResourceGroupsTaggingAPI
+	ramClient1     *ram.Client
+	ramClient2     *ram.Client
+	latticeClient1 *vpclattice.Client
+	latticeClient2 *vpclattice.Client
+	rgClient1      *resourcegroupstaggingapi.Client
+	rgClient2      *resourcegroupstaggingapi.Client
 }
 
 var _ = Describe("RAM Share", Ordered, func() {
@@ -51,47 +53,43 @@ var _ = Describe("RAM Share", Ordered, func() {
 	BeforeAll(func() {
 		secondaryTestRoleArn = os.Getenv("SECONDARY_ACCOUNT_TEST_ROLE_ARN")
 
-		retryer := awsClient.DefaultRetryer{
-			MinThrottleDelay: 500 * time.Millisecond,
-			MinRetryDelay:    500 * time.Millisecond,
-			MaxThrottleDelay: 5 * time.Second,
-			MaxRetryDelay:    5 * time.Second,
-			NumMaxRetries:    5,
-		}
+		primaryCfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
+			awsconfig.WithRegion(config.Region),
+		)
+		Expect(err).NotTo(HaveOccurred())
 
-		primarySess := session.Must(session.NewSession(&aws.Config{
-			Region:  aws.String(config.Region),
-			Retryer: retryer,
-		}))
-
-		stsClient := sts.New(primarySess)
+		stsClient := sts.NewFromConfig(primaryCfg)
 		assumeRoleInput := &sts.AssumeRoleInput{
 			RoleArn:         aws.String(secondaryTestRoleArn),
 			RoleSessionName: aws.String("aws-application-networking-k8s-ram-e2e-test"),
 		}
 
-		assumeRoleResult, err := stsClient.AssumeRoleWithContext(ctx, assumeRoleInput)
+		assumeRoleResult, err := stsClient.AssumeRole(ctx, assumeRoleInput)
 		Expect(err).NotTo(HaveOccurred())
 
 		creds := assumeRoleResult.Credentials
 
-		secondarySess := session.Must(session.NewSession(&aws.Config{
-			Region:  aws.String(config.Region),
-			Retryer: retryer,
-			Credentials: credentials.NewStaticCredentials(
+		secondaryCfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
+			awsconfig.WithRegion(config.Region),
+			awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 				*creds.AccessKeyId,
 				*creds.SecretAccessKey,
 				*creds.SessionToken,
-			),
-		}))
+			)),
+		)
+		Expect(err).NotTo(HaveOccurred())
 
 		clients = &testClients{
-			ramClient1:     ram.New(primarySess),
-			ramClient2:     ram.New(secondarySess),
-			latticeClient1: vpclattice.New(primarySess),
-			latticeClient2: vpclattice.New(secondarySess),
-			rgClient1:      resourcegroupstaggingapi.New(primarySess),
-			rgClient2:      resourcegroupstaggingapi.New(secondarySess),
+			ramClient1:     ram.NewFromConfig(primaryCfg),
+			ramClient2:     ram.NewFromConfig(secondaryCfg),
+			latticeClient1: vpclattice.NewFromConfig(primaryCfg, func(o *vpclattice.Options) {
+				o.RetryMaxAttempts = 10
+			}),
+			latticeClient2: vpclattice.NewFromConfig(secondaryCfg, func(o *vpclattice.Options) {
+				o.RetryMaxAttempts = 10
+			}),
+			rgClient1:      resourcegroupstaggingapi.NewFromConfig(primaryCfg),
+			rgClient2:      resourcegroupstaggingapi.NewFromConfig(secondaryCfg),
 		}
 	})
 
@@ -184,7 +182,7 @@ var _ = Describe("RAM Share", Ordered, func() {
 			Name: aws.String(randomName),
 			Tags: testFramework.NewTestTags(testSuite),
 		}
-		_, err := clients.latticeClient1.CreateServiceNetworkWithContext(ctx, createSNInput)
+		_, err := clients.latticeClient1.CreateServiceNetwork(ctx, createSNInput)
 		Expect(err).NotTo(HaveOccurred())
 
 		createSharedServiceNetwork(randomName, clients)
@@ -239,11 +237,11 @@ var _ = Describe("RAM Share", Ordered, func() {
 
 	AfterAll(func() {
 		// Find all AWS resources created in tests
-		var tagFilters []*resourcegroupstaggingapi.TagFilter
+		var tagFilters []rgtatypes.TagFilter
 		for key, value := range testFramework.NewTestTags(testSuite) {
-			tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{
+			tagFilters = append(tagFilters, rgtatypes.TagFilter{
 				Key:    aws.String(key),
-				Values: []*string{value},
+				Values: []string{value},
 			})
 		}
 		getResourcesInput := &resourcegroupstaggingapi.GetResourcesInput{
@@ -252,8 +250,8 @@ var _ = Describe("RAM Share", Ordered, func() {
 
 		deleteTaggedResources := func(
 			getResourcesResult *resourcegroupstaggingapi.GetResourcesOutput,
-			vpcLatticeClient *vpclattice.VPCLattice,
-			ramClient *ram.RAM,
+			vpcLatticeClient *vpclattice.Client,
+			ramClient *ram.Client,
 		) {
 			for _, mapping := range getResourcesResult.ResourceTagMappingList {
 				arn, err := arn2.Parse(*mapping.ResourceARN)
@@ -265,13 +263,13 @@ var _ = Describe("RAM Share", Ordered, func() {
 					deleteSnInput := &vpclattice.DeleteServiceNetworkInput{
 						ServiceNetworkIdentifier: aws.String(arn.String()),
 					}
-					_, err := vpcLatticeClient.DeleteServiceNetworkWithContext(ctx, deleteSnInput)
+					_, err := vpcLatticeClient.DeleteServiceNetwork(ctx, deleteSnInput)
 					Expect(err).ToNot(HaveOccurred())
 				case "resource-share":
 					deleteShareInput := &ram.DeleteResourceShareInput{
 						ResourceShareArn: aws.String(arn.String()),
 					}
-					_, err := ramClient.DeleteResourceShareWithContext(ctx, deleteShareInput)
+					_, err := ramClient.DeleteResourceShare(ctx, deleteShareInput)
 					Expect(err).ToNot(HaveOccurred())
 				default:
 					Fail(fmt.Sprintf("Unknown resource type %s", resourceType))
@@ -280,12 +278,12 @@ var _ = Describe("RAM Share", Ordered, func() {
 		}
 
 		// Delete secondary account AWS resources
-		secondaryGetResourcesResult, err := clients.rgClient2.GetResources(getResourcesInput)
+		secondaryGetResourcesResult, err := clients.rgClient2.GetResources(ctx, getResourcesInput)
 		Expect(err).ToNot(HaveOccurred())
 		deleteTaggedResources(secondaryGetResourcesResult, clients.latticeClient2, clients.ramClient2)
 
 		// Delete primary account AWS resources
-		primaryGetResourcesResult, err := clients.rgClient1.GetResources(getResourcesInput)
+		primaryGetResourcesResult, err := clients.rgClient1.GetResources(ctx, getResourcesInput)
 		Expect(err).ToNot(HaveOccurred())
 		deleteTaggedResources(primaryGetResourcesResult, clients.latticeClient1, clients.ramClient1)
 	})
@@ -299,39 +297,39 @@ func createSharedServiceNetwork(serviceNetworkName string, clients *testClients)
 		Name: aws.String(serviceNetworkName),
 		Tags: tags,
 	}
-	createSNResult, err := clients.latticeClient2.CreateServiceNetworkWithContext(ctx, createSNInput)
+	createSNResult, err := clients.latticeClient2.CreateServiceNetwork(ctx, createSNInput)
 	Expect(err).NotTo(HaveOccurred())
 
-	var k8sRamTestTags []*ram.Tag
+	var k8sRamTestTags []ramtypes.Tag
 	for key, value := range tags {
-		k8sRamTestTags = append(k8sRamTestTags, &ram.Tag{
+		k8sRamTestTags = append(k8sRamTestTags, ramtypes.Tag{
 			Key:   aws.String(key),
-			Value: value,
+			Value: aws.String(value),
 		})
 	}
 
 	// Share service network to primary account using randomName
 	createShareInput := &ram.CreateResourceShareInput{
 		Name:                    aws.String(serviceNetworkName),
-		ResourceArns:            []*string{createSNResult.Arn},
-		Principals:              []*string{aws.String(config.AccountID)},
+		ResourceArns:            []string{*createSNResult.Arn},
+		Principals:              []string{config.AccountID},
 		AllowExternalPrincipals: aws.Bool(true),
 		Tags:                    k8sRamTestTags,
 	}
-	createShareResult, err := clients.ramClient2.CreateResourceShareWithContext(ctx, createShareInput)
+	createShareResult, err := clients.ramClient2.CreateResourceShare(ctx, createShareInput)
 	Expect(err).To(BeNil())
 
 	// Wait for resource share invitation to appear in primary account
-	var invitation *ram.ResourceShareInvitation = nil
+	var invitation *ramtypes.ResourceShareInvitation = nil
 	Eventually(func(g Gomega) {
 		listInvitationsInput := &ram.GetResourceShareInvitationsInput{
-			ResourceShareArns: []*string{createShareResult.ResourceShare.ResourceShareArn},
+			ResourceShareArns: []string{*createShareResult.ResourceShare.ResourceShareArn},
 		}
-		listInvitationsResult, err := clients.ramClient1.GetResourceShareInvitations(listInvitationsInput)
+		listInvitationsResult, err := clients.ramClient1.GetResourceShareInvitations(ctx, listInvitationsInput)
 		Expect(err).NotTo(HaveOccurred())
 
 		if len(listInvitationsResult.ResourceShareInvitations) > 0 {
-			invitation = listInvitationsResult.ResourceShareInvitations[0]
+			invitation = &listInvitationsResult.ResourceShareInvitations[0]
 		}
 		g.Expect(invitation).ToNot(BeNil())
 	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
@@ -340,7 +338,7 @@ func createSharedServiceNetwork(serviceNetworkName string, clients *testClients)
 	acceptInput := &ram.AcceptResourceShareInvitationInput{
 		ResourceShareInvitationArn: invitation.ResourceShareInvitationArn,
 	}
-	_, err = clients.ramClient1.AcceptResourceShareInvitation(acceptInput)
+	_, err = clients.ramClient1.AcceptResourceShareInvitation(ctx, acceptInput)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Wait for service network to appear in primary account
@@ -349,7 +347,7 @@ func createSharedServiceNetwork(serviceNetworkName string, clients *testClients)
 		getSNInput := &vpclattice.GetServiceNetworkInput{
 			ServiceNetworkIdentifier: createSNResult.Id,
 		}
-		sn, err = clients.latticeClient1.GetServiceNetworkWithContext(ctx, getSNInput)
+		sn, err = clients.latticeClient1.GetServiceNetwork(ctx, getSNInput)
 		g.Expect(err).ToNot(HaveOccurred())
 	}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
