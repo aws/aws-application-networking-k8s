@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -99,7 +99,7 @@ func (t *latticeServiceModelBuildTask) buildModel(ctx context.Context) error {
 	}
 	t.log.Debugf(ctx, "Building rules for %d listeners", len(modelListeners))
 	for _, modelListener := range modelListeners {
-		if modelListener.Spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough {
+		if modelListener.Spec.Protocol == string(types.ListenerProtocolTlsPassthrough) {
 			t.log.Debugf(ctx, "Skip building rules for TLS_PASSTHROUGH listener %s, since lattice TLS_PASSTHROUGH listener can only have listener defaultAction and without any other rule", modelListener.ID())
 			continue
 		}

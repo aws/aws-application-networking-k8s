@@ -6,7 +6,8 @@ import (
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 )
 
 type IAMAuthPolicyManager struct {
@@ -67,7 +68,7 @@ func (m *IAMAuthPolicyManager) putPolicy(ctx context.Context, id, policy string)
 		Policy:             &policy,
 		ResourceIdentifier: &id,
 	}
-	_, err := m.cloud.Lattice().PutAuthPolicyWithContext(ctx, req)
+	_, err := m.cloud.Lattice().PutAuthPolicy(ctx, req)
 	return err
 }
 
@@ -122,40 +123,40 @@ func (m *IAMAuthPolicyManager) deleteSvc(ctx context.Context, policy model.IAMAu
 
 func (m *IAMAuthPolicyManager) deletePolicy(ctx context.Context, resId string) error {
 	req := &vpclattice.DeleteAuthPolicyInput{ResourceIdentifier: &resId}
-	_, err := m.cloud.Lattice().DeleteAuthPolicy(req)
+	_, err := m.cloud.Lattice().DeleteAuthPolicy(ctx, req)
 	return err
 }
 
 func (m *IAMAuthPolicyManager) enableSnIAMAuth(ctx context.Context, snId string) error {
-	return m.setSnAuthType(ctx, snId, vpclattice.AuthTypeAwsIam)
+	return m.setSnAuthType(ctx, snId, string(types.AuthTypeAwsIam))
 }
 
 func (m *IAMAuthPolicyManager) disableSnIAMAuth(ctx context.Context, snId string) error {
-	return m.setSnAuthType(ctx, snId, vpclattice.AuthTypeNone)
+	return m.setSnAuthType(ctx, snId, string(types.AuthTypeNone))
 }
 
 func (m *IAMAuthPolicyManager) setSnAuthType(ctx context.Context, snId, authType string) error {
 	req := &vpclattice.UpdateServiceNetworkInput{
-		AuthType:                 &authType,
+		AuthType:                 types.AuthType(authType),
 		ServiceNetworkIdentifier: &snId,
 	}
-	_, err := m.cloud.Lattice().UpdateServiceNetworkWithContext(ctx, req)
+	_, err := m.cloud.Lattice().UpdateServiceNetwork(ctx, req)
 	return err
 }
 
 func (m *IAMAuthPolicyManager) enableSvcIAMAuth(ctx context.Context, svcId string) error {
-	return m.setSvcAuthType(ctx, svcId, vpclattice.AuthTypeAwsIam)
+	return m.setSvcAuthType(ctx, svcId, string(types.AuthTypeAwsIam))
 }
 
 func (m *IAMAuthPolicyManager) disableSvcIAMAuth(ctx context.Context, svcId string) error {
-	return m.setSvcAuthType(ctx, svcId, vpclattice.AuthTypeNone)
+	return m.setSvcAuthType(ctx, svcId, string(types.AuthTypeNone))
 }
 
 func (m *IAMAuthPolicyManager) setSvcAuthType(ctx context.Context, svcId, authType string) error {
 	req := &vpclattice.UpdateServiceInput{
-		AuthType:          &authType,
+		AuthType:          types.AuthType(authType),
 		ServiceIdentifier: &svcId,
 	}
-	_, err := m.cloud.Lattice().UpdateServiceWithContext(ctx, req)
+	_, err := m.cloud.Lattice().UpdateService(ctx, req)
 	return err
 }

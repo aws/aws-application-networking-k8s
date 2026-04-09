@@ -103,9 +103,8 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 		return err
 	}
 	snName := string(k8sPolicy.Spec.TargetRef.Name)
-	sgIds := utils.SliceMap(k8sPolicy.Spec.SecurityGroupIds, func(sg anv1alpha1.SecurityGroupId) *string {
-		str := string(sg)
-		return &str
+	sgIds := utils.SliceMap(k8sPolicy.Spec.SecurityGroupIds, func(sg anv1alpha1.SecurityGroupId) string {
+		return string(sg)
 	})
 
 	additionalTags := k8s.GetAdditionalTagsFromAnnotations(ctx, k8sPolicy)

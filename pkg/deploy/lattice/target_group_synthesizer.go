@@ -5,15 +5,15 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -151,9 +151,9 @@ func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) ([]
 
 	for i, tg := range tgsToDelete {
 		modelStatus := model.TargetGroupStatus{
-			Name: aws.StringValue(tg.tgSummary.Name),
-			Arn:  aws.StringValue(tg.tgSummary.Arn),
-			Id:   aws.StringValue(tg.tgSummary.Id),
+			Name: aws.ToString(tg.tgSummary.Name),
+			Arn:  aws.ToString(tg.tgSummary.Arn),
+			Id:   aws.ToString(tg.tgSummary.Id),
 		}
 		modelTg := model.TargetGroup{
 			Status:    &modelStatus,
@@ -217,7 +217,7 @@ func (t *TargetGroupSynthesizer) calculateTargetGroupsToDelete(ctx context.Conte
 func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 	ctx context.Context, latticeTg tgListOutput, tagFields model.TargetGroupTagFields) bool {
 
-	svcExportName := types.NamespacedName{
+	svcExportName := apitypes.NamespacedName{
 		Namespace: tagFields.K8SServiceNamespace,
 		Name:      tagFields.K8SServiceName,
 	}
@@ -258,10 +258,10 @@ func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 
 	// the main identifiers are validated, just need to check the other essentials.
 	// protocolVersion is not in TG summary so we are bringing it from tags.
-	if int64(modelTg.Spec.Port) != aws.Int64Value(latticeTg.tgSummary.Port) ||
-		modelTg.Spec.Protocol != aws.StringValue(latticeTg.tgSummary.Protocol) ||
+	if int64(modelTg.Spec.Port) != int64(aws.ToInt32(latticeTg.tgSummary.Port)) ||
+		modelTg.Spec.Protocol != string(latticeTg.tgSummary.Protocol) ||
 		modelTg.Spec.ProtocolVersion != tagFields.K8SProtocolVersion ||
-		modelTg.Spec.IpAddressType != aws.StringValue(latticeTg.tgSummary.IpAddressType) {
+		modelTg.Spec.IpAddressType != string(latticeTg.tgSummary.IpAddressType) {
 
 		// one or more immutable fields differ from the source, so the TG is out of date
 		t.log.Infof(ctx, "Will delete TargetGroup %s (%s) - fields differ from source service/service export",
@@ -278,16 +278,16 @@ func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(
 func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 	ctx context.Context, latticeTg tgListOutput, tagFields model.TargetGroupTagFields) bool {
 
-	routeName := types.NamespacedName{
+	routeName := apitypes.NamespacedName{
 		Namespace: tagFields.K8SRouteNamespace,
 		Name:      tagFields.K8SRouteName,
 	}
 
 	var err error
 	var route core.Route
-	if tagFields.K8SProtocolVersion == vpclattice.TargetGroupProtocolVersionGrpc {
+	if tagFields.K8SProtocolVersion == string(types.TargetGroupProtocolVersionGrpc) {
 		route, err = core.GetGRPCRoute(ctx, t.client, routeName)
-	} else if *latticeTg.tgSummary.Protocol == vpclattice.TargetGroupProtocolTcp {
+	} else if string(latticeTg.tgSummary.Protocol) == string(types.TargetGroupProtocolTcp) {
 		route, err = core.GetTLSRoute(ctx, t.client, routeName)
 	} else {
 		route, err = core.GetHTTPRoute(ctx, t.client, routeName)
@@ -328,7 +328,7 @@ func (t *TargetGroupSynthesizer) shouldDeleteRouteTg(
 
 	var matchFound bool
 	for _, modelTg := range resTargetGroups {
-		match, err := t.targetGroupManager.IsTargetGroupMatch(ctx, modelTg, latticeTg.tgSummary, &tagFields)
+		match, err := t.targetGroupManager.IsTargetGroupMatch(ctx, modelTg, &latticeTg.tgSummary, &tagFields)
 		if err != nil {
 			t.log.Infof(ctx, "Received error during tg comparison %s", err)
 			continue
@@ -363,7 +363,7 @@ func (t *TargetGroupSynthesizer) hasTags(latticeTg tgListOutput) bool {
 }
 
 func (t *TargetGroupSynthesizer) vpcMatchesConfig(latticeTg tgListOutput) bool {
-	if aws.StringValue(latticeTg.tgSummary.VpcIdentifier) != config.VpcID {
+	if aws.ToString(latticeTg.tgSummary.VpcIdentifier) != config.VpcID {
 		t.log.Debugf(context.TODO(), "Ignoring target group %s (%s) because it is not configured for this VPC",
 			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
 		return false
