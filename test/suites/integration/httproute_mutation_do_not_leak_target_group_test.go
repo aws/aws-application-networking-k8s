@@ -2,9 +2,11 @@ package integration
 
 import (
 	"fmt"
+	"strings"
+
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -13,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strings"
 )
 
 var _ = Describe("HTTPRoute Mutation", func() {

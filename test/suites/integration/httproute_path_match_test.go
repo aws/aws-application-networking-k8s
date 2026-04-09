@@ -2,15 +2,17 @@ package integration
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"log"
+	"os"
+
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"log"
-	"os"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -46,33 +48,33 @@ var _ = Describe("HTTPRoute path matches", func() {
 
 		targetGroupV1 := testFramework.GetTargetGroup(ctx, service1)
 		Expect(*targetGroupV1.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-		Expect(*targetGroupV1.Protocol).To(Equal("HTTP"))
+		Expect(string(targetGroupV1.Protocol)).To(Equal("HTTP"))
 		targetsV1 := testFramework.GetTargets(ctx, targetGroupV1, deployment1)
 		Expect(*targetGroupV1.Port).To(BeEquivalentTo(80))
 		for _, target := range targetsV1 {
 			Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
-			Expect(*target.Status).To(Or(
-				Equal(vpclattice.TargetStatusInitial),
-				Equal(vpclattice.TargetStatusHealthy),
+			Expect(string(target.Status)).To(Or(
+				Equal(string(types.TargetStatusInitial)),
+				Equal(string(types.TargetStatusHealthy)),
 			))
 		}
 
 		targetGroupV2 := testFramework.GetTargetGroup(ctx, service2)
 		Expect(*targetGroupV2.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-		Expect(*targetGroupV2.Protocol).To(Equal("HTTP"))
+		Expect(string(targetGroupV2.Protocol)).To(Equal("HTTP"))
 		targetsV2 := testFramework.GetTargets(ctx, targetGroupV2, deployment2)
 		Expect(*targetGroupV2.Port).To(BeEquivalentTo(80))
 		for _, target := range targetsV2 {
 			Expect(*target.Port).To(BeEquivalentTo(service2.Spec.Ports[0].TargetPort.IntVal))
-			Expect(*target.Status).To(Or(
-				Equal(vpclattice.TargetStatusInitial),
-				Equal(vpclattice.TargetStatusHealthy),
+			Expect(string(target.Status)).To(Or(
+				Equal(string(types.TargetStatusInitial)),
+				Equal(string(types.TargetStatusHealthy)),
 			))
 		}
 
 		log.Println("Verifying VPC lattice service listeners and rules")
 		Eventually(func(g Gomega) {
-			listListenerResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+			listListenerResp, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
@@ -80,27 +82,27 @@ var _ = Describe("HTTPRoute path matches", func() {
 			listener := listListenerResp.Items[0]
 			g.Expect(*listener.Port).To(BeEquivalentTo(testGateway.Spec.Listeners[0].Port))
 			listenerId := listener.Id
-			listRulesResp, err := testFramework.LatticeClient.ListRulesWithContext(ctx, &vpclattice.ListRulesInput{
+			listRulesResp, err := testFramework.LatticeClient.ListRulesAsList(ctx, &vpclattice.ListRulesInput{
 				ListenerIdentifier: listenerId,
 				ServiceIdentifier:  vpcLatticeService.Id,
 			})
-			nonDefaultRules := lo.Filter(listRulesResp.Items, func(rule *vpclattice.RuleSummary, _ int) bool {
+			nonDefaultRules := lo.Filter(listRulesResp, func(rule types.RuleSummary, _ int) bool {
 				return rule.IsDefault == nil || *rule.IsDefault == false
 			})
-			ruleIds := lo.Map(nonDefaultRules, func(rule *vpclattice.RuleSummary, _ int) *string {
+			ruleIds := lo.Map(nonDefaultRules, func(rule types.RuleSummary, _ int) *string {
 				return rule.Id
 			})
 
 			g.Expect(len(ruleIds)).To(Equal(2))
 
-			rule0, err := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+			rule0, err := testFramework.LatticeClient.GetRule(ctx, &vpclattice.GetRuleInput{
 				ServiceIdentifier:  vpcLatticeService.Id,
 				ListenerIdentifier: listenerId,
 				RuleIdentifier:     ruleIds[0],
 			})
 			g.Expect(err).To(BeNil())
 
-			rule1, err := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+			rule1, err := testFramework.LatticeClient.GetRule(ctx, &vpclattice.GetRuleInput{
 				ServiceIdentifier:  vpcLatticeService.Id,
 				ListenerIdentifier: listenerId,
 				RuleIdentifier:     ruleIds[1],
@@ -109,8 +111,8 @@ var _ = Describe("HTTPRoute path matches", func() {
 
 			g.Expect(err).To(BeNil())
 			retrievedRules := []string{
-				*rule0.Match.HttpMatch.PathMatch.Match.Prefix,
-				*rule1.Match.HttpMatch.PathMatch.Match.Prefix}
+				rule0.Match.(*types.RuleMatchMemberHttpMatch).Value.PathMatch.Match.(*types.PathMatchTypeMemberPrefix).Value,
+				rule1.Match.(*types.RuleMatchMemberHttpMatch).Value.PathMatch.Match.(*types.PathMatchTypeMemberPrefix).Value}
 			expectedRules := []string{*httprouteRules[0].Matches[0].Path.Value,
 				*httprouteRules[1].Matches[0].Path.Value}
 			log.Println("retrievedRules", retrievedRules)
@@ -123,7 +125,7 @@ var _ = Describe("HTTPRoute path matches", func() {
 		log.Println("Verifying traffic")
 		dnsName := testFramework.GetVpcLatticeServiceDns(pathMatchHttpRoute.Name, pathMatchHttpRoute.Namespace)
 
-		testFramework.Get(ctx, types.NamespacedName{Name: deployment1.Name, Namespace: deployment1.Namespace}, deployment1)
+		testFramework.Get(ctx, apitypes.NamespacedName{Name: deployment1.Name, Namespace: deployment1.Namespace}, deployment1)
 
 		//get the pods of deployment1
 		pods := testFramework.GetPodsByDeploymentName(deployment1.Name, deployment1.Namespace)

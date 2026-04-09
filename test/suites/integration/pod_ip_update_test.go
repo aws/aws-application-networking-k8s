@@ -5,14 +5,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -26,7 +27,7 @@ var _ = Describe("Pod IP Update test", Ordered, func() {
 		httpsSvc1        *v1.Service
 		tlsRoute         *gwv1.TLSRoute
 		initialPodIPs    []string
-		initialTargets   []*vpclattice.TargetSummary
+		initialTargets   []types.TargetSummary
 	)
 
 	It("Set up k8s resource for TLS passthrough", func() {
@@ -59,13 +60,13 @@ var _ = Describe("Pod IP Update test", Ordered, func() {
 		fmt.Printf("vpcLatticeService: %v \n", vpcLatticeService)
 
 		tgSummary := testFramework.GetTCPTargetGroup(ctx, httpsSvc1)
-		tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+		tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: aws.String(*tgSummary.Id),
 		})
 		Expect(err).To(BeNil())
 		Expect(tg).NotTo(BeNil())
 		Expect(*tgSummary.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-		Expect(*tgSummary.Protocol).To(Equal("TCP"))
+		Expect(string(tgSummary.Protocol)).To(Equal("TCP"))
 
 		// Capture initial targets and pod IPs
 		initialTargets = testFramework.GetTargets(ctx, tgSummary, httpsDeployment1)
@@ -87,7 +88,7 @@ var _ = Describe("Pod IP Update test", Ordered, func() {
 
 	It("Scale deployment to zero and back to one", func() {
 		// Scale down to zero
-		testFramework.Get(ctx, types.NamespacedName{Name: httpsDeployment1.Name, Namespace: httpsDeployment1.Namespace}, httpsDeployment1)
+		testFramework.Get(ctx, apitypes.NamespacedName{Name: httpsDeployment1.Name, Namespace: httpsDeployment1.Namespace}, httpsDeployment1)
 		replicas := int32(0)
 		httpsDeployment1.Spec.Replicas = &replicas
 		testFramework.ExpectUpdated(ctx, httpsDeployment1)
@@ -101,7 +102,7 @@ var _ = Describe("Pod IP Update test", Ordered, func() {
 		fmt.Println("Deployment scaled down to zero")
 
 		// Scale back up to one
-		testFramework.Get(ctx, types.NamespacedName{Name: httpsDeployment1.Name, Namespace: httpsDeployment1.Namespace}, httpsDeployment1)
+		testFramework.Get(ctx, apitypes.NamespacedName{Name: httpsDeployment1.Name, Namespace: httpsDeployment1.Namespace}, httpsDeployment1)
 		replicas = int32(1)
 		httpsDeployment1.Spec.Replicas = &replicas
 		testFramework.ExpectUpdated(ctx, httpsDeployment1)
@@ -138,14 +139,14 @@ var _ = Describe("Pod IP Update test", Ordered, func() {
 			newTargets := testFramework.GetTargets(ctx, tgSummary, httpsDeployment1)
 			fmt.Printf("Current target count: %d\n", len(newTargets))
 			for _, target := range newTargets {
-				fmt.Printf("Current target: %s:%d (status: %s)\n", *target.Id, *target.Port, *target.Status)
+				fmt.Printf("Current target: %s:%d (status: %s)\n", *target.Id, *target.Port, string(target.Status))
 			}
 
 			// Verify that targets reflect the new pod IPs
 			targetIPs := make([]string, 0)
 			for _, target := range newTargets {
 				// Only consider healthy or initial targets, not draining ones
-				if *target.Status != vpclattice.TargetStatusDraining {
+				if string(target.Status) != string(types.TargetStatusDraining) {
 					targetIPs = append(targetIPs, *target.Id)
 				}
 			}

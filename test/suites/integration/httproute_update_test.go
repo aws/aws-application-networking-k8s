@@ -1,13 +1,14 @@
 package integration
 
 import (
-	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
 	"time"
 
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -23,8 +24,8 @@ var _ = Describe("HTTPRoute Update", func() {
 		route2      *gwv1.HTTPRoute
 		deployment1 *appsv1.Deployment
 		service1    *corev1.Service
-		tg1         *vpclattice.TargetGroupSummary
-		tg2         *vpclattice.TargetGroupSummary
+		tg1         *types.TargetGroupSummary
+		tg2         *types.TargetGroupSummary
 		err         error
 	)
 
@@ -37,8 +38,8 @@ var _ = Describe("HTTPRoute Update", func() {
 				"route-two", k8snamespace)
 
 			r1TgSpec := model.TargetGroupSpec{
-				Protocol:        vpclattice.TargetGroupProtocolHttp,
-				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+				Protocol:        string(types.TargetGroupProtocolHttp),
+				ProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 				TargetGroupTagFields: model.TargetGroupTagFields{
 					K8SServiceName:      service1.Name,
 					K8SServiceNamespace: service1.Namespace,
@@ -47,8 +48,8 @@ var _ = Describe("HTTPRoute Update", func() {
 				},
 			}
 			r2TgSpec := model.TargetGroupSpec{
-				Protocol:        vpclattice.TargetGroupProtocolHttp,
-				ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+				Protocol:        string(types.TargetGroupProtocolHttp),
+				ProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 				TargetGroupTagFields: model.TargetGroupTagFields{
 					K8SServiceName:      service1.Name,
 					K8SServiceNamespace: service1.Namespace,
@@ -75,12 +76,12 @@ var _ = Describe("HTTPRoute Update", func() {
 				g.Expect(tg2).ToNot(BeNil())
 
 				// without this we end up trying to delete while the tgs are still creating
-				g.Expect(*tg1.Status).To(Equal(vpclattice.TargetGroupStatusActive))
-				g.Expect(*tg2.Status).To(Equal(vpclattice.TargetGroupStatusActive))
+				g.Expect(string(tg1.Status)).To(Equal(string(types.TargetGroupStatusActive)))
+				g.Expect(string(tg2.Status)).To(Equal(string(types.TargetGroupStatusActive)))
 			}).WithPolling(15 * time.Second).WithTimeout(2 * time.Minute).Should(Succeed())
 
-			gwlog.FallbackLogger.Infof(ctx, "Found TG1 %s and TG2 %s", aws.StringValue(tg1.Id), aws.StringValue(tg2.Id))
-			Expect(aws.StringValue(tg1.Id) != aws.StringValue(tg2.Id)).To(BeTrue())
+			gwlog.FallbackLogger.Infof(ctx, "Found TG1 %s and TG2 %s", aws.ToString(tg1.Id), aws.ToString(tg2.Id))
+			Expect(aws.ToString(tg1.Id) != aws.ToString(tg2.Id)).To(BeTrue())
 
 			// deletion of one should not affect the other
 			testFramework.ExpectDeleted(ctx, route1)

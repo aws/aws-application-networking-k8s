@@ -8,8 +8,8 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -73,7 +73,7 @@ var _ = Describe("HTTPRoute Service Export/Import Test", Ordered, func() {
 
 		// Get the target group and verify it's configured for HTTP
 		tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, httpSvc, "http", "http1")
-		tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+		tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: aws.String(*tgSummary.Id),
 		})
 		Expect(tg).To(Not(BeNil()))
@@ -81,8 +81,8 @@ var _ = Describe("HTTPRoute Service Export/Import Test", Ordered, func() {
 		Expect(*tgSummary.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 
 		// Verify the target group is configured for HTTP
-		Expect(*tgSummary.Protocol).To(Equal("HTTP"))
-		Expect(*tg.Config.ProtocolVersion).To(Equal("HTTP1"))
+		Expect(string(tgSummary.Protocol)).To(Equal("HTTP"))
+		Expect(string(tg.Config.ProtocolVersion)).To(Equal("HTTP1"))
 
 		// Verify targets are registered
 		Eventually(func(g Gomega) {

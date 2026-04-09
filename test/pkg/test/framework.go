@@ -11,21 +11,20 @@ import (
 	anaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/onsi/gomega/format"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/external-dns/endpoint"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -114,7 +113,7 @@ type Framework struct {
 	Log                     gwlog.Logger
 	LatticeClient           services.Lattice
 	TaggingClient           services.Tagging
-	Ec2Client               *ec2.EC2
+	Ec2Client               *ec2.Client
 	GrpcurlRunner           *corev1.Pod
 	DefaultTags             services.Tags
 	Cloud                   anaws.Cloud
@@ -130,12 +129,15 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 		Region:      config.Region,
 		ClusterName: config.ClusterName,
 	}
-	sess := session.Must(session.NewSession())
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(config.Region))
+	if err != nil {
+		panic(fmt.Sprintf("unable to load AWS SDK config: %v", err))
+	}
 	framework := &Framework{
 		Client:                  lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: testScheme})),
-		LatticeClient:           services.NewDefaultLattice(sess, config.AccountID, config.Region),
-		TaggingClient:           services.NewDefaultTagging(sess, config.Region),
-		Ec2Client:               ec2.New(sess, &aws.Config{Region: aws.String(config.Region)}),
+		LatticeClient:           services.NewDefaultLattice(awsCfg, config.AccountID, config.Region),
+		TaggingClient:           services.NewDefaultTagging(awsCfg, config.Region),
+		Ec2Client:               ec2.NewFromConfig(awsCfg),
 		GrpcurlRunner:           &corev1.Pod{},
 		ctx:                     ctx,
 		Log:                     log,
@@ -158,7 +160,7 @@ func (env *Framework) ExpectToBeClean(ctx context.Context) {
 		env.EventuallyExpectNoneFound(ctx, testObject.ListType)
 	})
 	tags := env.DefaultTags
-	tags[model.K8SServiceNamespaceKey] = aws.String(K8sNamespace)
+	tags[model.K8SServiceNamespaceKey] = K8sNamespace
 	Eventually(func(g Gomega) {
 		arns, err := env.TaggingClient.FindResourcesByTags(ctx, services.ResourceTypeService, tags)
 		env.Log.Infow(ctx, "Expecting no services created by the controller", "found", arns, "err", err)
@@ -226,7 +228,7 @@ func (env *Framework) ExpectDeleted(ctx context.Context, objects ...client.Objec
 			// for routes, we can speed up deletion by first removing their rules
 			// get the latest version first tho
 			t := reflect.TypeOf(route)
-			nsName := types.NamespacedName{
+			nsName := apitypes.NamespacedName{
 				Name:      route.GetName(),
 				Namespace: route.GetNamespace(),
 			}
@@ -304,15 +306,15 @@ func (env *Framework) EventuallyExpectNoneFound(ctx context.Context, objectList 
 	}).WithOffset(1).Should(Succeed())
 }
 
-func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *gwv1.Gateway) *vpclattice.ServiceNetworkSummary {
-	var found *vpclattice.ServiceNetworkSummary
+func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *gwv1.Gateway) *types.ServiceNetworkSummary {
+	var found *types.ServiceNetworkSummary
 	Eventually(func(g Gomega) {
-		listServiceNetworksOutput, err := env.LatticeClient.ListServiceNetworksWithContext(ctx, &vpclattice.ListServiceNetworksInput{})
+		serviceNetworks, err := env.LatticeClient.ListServiceNetworksAsList(ctx, &vpclattice.ListServiceNetworksInput{})
 		g.Expect(err).ToNot(HaveOccurred())
-		g.Expect(listServiceNetworksOutput.Items).ToNot(BeEmpty())
-		for _, serviceNetwork := range listServiceNetworksOutput.Items {
+		g.Expect(serviceNetworks).ToNot(BeEmpty())
+		for _, serviceNetwork := range serviceNetworks {
 			if lo.FromPtr(serviceNetwork.Name) == gateway.Name {
-				found = serviceNetwork
+				found = &serviceNetwork
 			}
 		}
 		g.Expect(found).ToNot(BeNil())
@@ -320,8 +322,8 @@ func (env *Framework) GetServiceNetwork(ctx context.Context, gateway *gwv1.Gatew
 	return found
 }
 
-func (env *Framework) GetVpcLatticeService(ctx context.Context, route core.Route) *vpclattice.ServiceSummary {
-	var found *vpclattice.ServiceSummary
+func (env *Framework) GetVpcLatticeService(ctx context.Context, route core.Route) *types.ServiceSummary {
+	var found *types.ServiceSummary
 	serviceNameOverride, _ := k8s.GetServiceNameOverrideWithValidation(route.K8sObject())
 	latticeServiceName := utils.LatticeServiceName(route.Name(), route.Namespace(), serviceNameOverride)
 	Eventually(func(g Gomega) {
@@ -329,8 +331,9 @@ func (env *Framework) GetVpcLatticeService(ctx context.Context, route core.Route
 		g.Expect(err).ToNot(HaveOccurred())
 		found = svc
 		g.Expect(found).ToNot(BeNil())
-		g.Expect(found.Status).To(Equal(aws.String(vpclattice.ServiceStatusActive)))
-		g.Expect(found.DnsEntry).To(ContainSubstring(latticeServiceName))
+		g.Expect(found.Status).To(Equal(types.ServiceStatusActive))
+		g.Expect(found.DnsEntry).ToNot(BeNil())
+		g.Expect(*found.DnsEntry.DomainName).To(ContainSubstring(latticeServiceName))
 	}).WithOffset(1).Should(Succeed())
 
 	return found
@@ -338,9 +341,9 @@ func (env *Framework) GetVpcLatticeService(ctx context.Context, route core.Route
 
 func (env *Framework) GetFullTargetGroupFromSummary(
 	ctx context.Context,
-	tgSummary *vpclattice.TargetGroupSummary) *vpclattice.GetTargetGroupOutput {
+	tgSummary *types.TargetGroupSummary) *vpclattice.GetTargetGroupOutput {
 
-	tg, err := env.LatticeClient.GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
+	tg, err := env.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 		TargetGroupIdentifier: tgSummary.Arn,
 	})
 
@@ -351,15 +354,15 @@ func (env *Framework) GetFullTargetGroupFromSummary(
 	return tg
 }
 
-func (env *Framework) GetTargetGroup(ctx context.Context, service *corev1.Service) *vpclattice.TargetGroupSummary {
-	return env.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttp, vpclattice.TargetGroupProtocolVersionHttp1)
+func (env *Framework) GetTargetGroup(ctx context.Context, service *corev1.Service) *types.TargetGroupSummary {
+	return env.GetTargetGroupWithProtocol(ctx, service, string(types.TargetGroupProtocolHttp), string(types.TargetGroupProtocolVersionHttp1))
 }
 
-func (env *Framework) GetTCPTargetGroup(ctx context.Context, service *corev1.Service) *vpclattice.TargetGroupSummary {
+func (env *Framework) GetTCPTargetGroup(ctx context.Context, service *corev1.Service) *types.TargetGroupSummary {
 	return env.GetTargetGroupWithProtocol(ctx, service, "TCP", "")
 }
 
-func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *corev1.Service, protocol, protocolVersion string) *vpclattice.TargetGroupSummary {
+func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *corev1.Service, protocol, protocolVersion string) *types.TargetGroupSummary {
 	tgSpec := model.TargetGroupSpec{
 		TargetGroupTagFields: model.TargetGroupTagFields{
 			K8SServiceName:      service.Name,
@@ -369,7 +372,7 @@ func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *c
 		ProtocolVersion: strings.ToUpper(protocolVersion),
 	}
 
-	var found *vpclattice.TargetGroupSummary
+	var found *types.TargetGroupSummary
 	Eventually(func(g Gomega) {
 		tg, err := env.FindTargetGroupFromSpec(ctx, tgSpec)
 		if err != nil {
@@ -378,7 +381,7 @@ func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *c
 		}
 		g.Expect(err).To(BeNil())
 		g.Expect(tg).ToNot(BeNil())
-		g.Expect(tg.Status).To(Equal(aws.String(vpclattice.TargetGroupStatusActive)))
+		g.Expect(tg.Status).To(Equal(types.TargetGroupStatusActive))
 
 		found = tg
 	}).WithOffset(1).Should(Succeed())
@@ -387,19 +390,19 @@ func (env *Framework) GetTargetGroupWithProtocol(ctx context.Context, service *c
 	return found
 }
 
-func (env *Framework) FindTargetGroupFromSpec(ctx context.Context, tgSpec model.TargetGroupSpec) (*vpclattice.TargetGroupSummary, error) {
+func (env *Framework) FindTargetGroupFromSpec(ctx context.Context, tgSpec model.TargetGroupSpec) (*types.TargetGroupSummary, error) {
 	targetGroups, err := env.LatticeClient.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
 	if err != nil {
 		return nil, err
 	}
-	var candidate *vpclattice.TargetGroupSummary
+	var candidate *types.TargetGroupSummary
 
 	for _, targetGroup := range targetGroups {
-		if aws.StringValue(targetGroup.Protocol) != tgSpec.Protocol {
+		if string(targetGroup.Protocol) != tgSpec.Protocol {
 			continue
 		}
 
-		res, err := env.LatticeClient.ListTagsForResourceWithContext(ctx,
+		res, err := env.LatticeClient.ListTagsForResource(ctx,
 			&vpclattice.ListTagsForResourceInput{ResourceArn: targetGroup.Arn})
 		if err != nil {
 			return nil, err
@@ -423,23 +426,24 @@ func (env *Framework) FindTargetGroupFromSpec(ctx context.Context, tgSpec model.
 		// Select the most recently created target group.
 		// This handles cases where previous test cleanups were incomplete.
 		if candidate == nil || candidate.CreatedAt.Before(*targetGroup.CreatedAt) {
-			candidate = targetGroup
+			tg := targetGroup
+			candidate = &tg
 		}
 	}
 	return candidate, nil
 }
 
 // TODO: Create a new function that only verifying deployment len(podList.Items)==*deployment.Spec.Replicas, and don't do lattice.ListTargets() api call
-func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment) []*vpclattice.TargetSummary {
-	var found []*vpclattice.TargetSummary
+func (env *Framework) GetTargets(ctx context.Context, targetGroup *types.TargetGroupSummary, deployment *appsv1.Deployment) []types.TargetSummary {
+	var found []types.TargetSummary
 	Eventually(func(g Gomega) {
 		podIps, retrievedTargets := GetTargets(targetGroup, deployment, env, ctx)
 
-		targetIps := lo.Filter(retrievedTargets, func(target *vpclattice.TargetSummary, _ int) bool {
+		targetIps := lo.Filter(retrievedTargets, func(target types.TargetSummary, _ int) bool {
 			return lo.Contains(podIps, *target.Id) &&
-				(*target.Status == vpclattice.TargetStatusInitial ||
-					*target.Status == vpclattice.TargetStatusHealthy ||
-					*target.Status == vpclattice.TargetStatusUnavailable)
+				(target.Status == types.TargetStatusInitial ||
+					target.Status == types.TargetStatusHealthy ||
+					target.Status == types.TargetStatusUnavailable)
 		})
 
 		g.Expect(targetIps).Should(HaveLen(len(podIps)))
@@ -448,11 +452,11 @@ func (env *Framework) GetTargets(ctx context.Context, targetGroup *vpclattice.Ta
 	return found
 }
 
-func (env *Framework) GetAllTargets(ctx context.Context, targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment) ([]string, []*vpclattice.TargetSummary) {
+func (env *Framework) GetAllTargets(ctx context.Context, targetGroup *types.TargetGroupSummary, deployment *appsv1.Deployment) ([]string, []types.TargetSummary) {
 	return GetTargets(targetGroup, deployment, env, ctx)
 }
 
-func GetTargets(targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.Deployment, env *Framework, ctx context.Context) ([]string, []*vpclattice.TargetSummary) {
+func GetTargets(targetGroup *types.TargetGroupSummary, deployment *appsv1.Deployment, env *Framework, ctx context.Context) ([]string, []types.TargetSummary) {
 	env.Log.Infoln("Trying to retrieve registered targets for targetGroup", *targetGroup.Name)
 	env.Log.Infoln("deployment.Spec.Selector.MatchLabels:", deployment.Spec.Selector.MatchLabels)
 	podList := &corev1.PodList{}
@@ -472,22 +476,17 @@ func GetTargets(targetGroup *vpclattice.TargetGroupSummary, deployment *appsv1.D
 	return podIps, retrievedTargets
 }
 
-func (env *Framework) VerifyTargetGroupNotFound(tg *vpclattice.TargetGroupSummary) {
+func (env *Framework) VerifyTargetGroupNotFound(tg *types.TargetGroupSummary) {
 	Eventually(func(g Gomega) {
-		retrievedTargetGroup, err := env.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+		_, err := env.LatticeClient.GetTargetGroup(context.TODO(), &vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: tg.Id,
 		})
-		g.Expect(retrievedTargetGroup.Id).To(BeNil())
 		g.Expect(err).To(Not(BeNil()))
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				g.Expect(aerr.Code()).To(Equal(vpclattice.ErrCodeResourceNotFoundException))
-			}
-		}
+		g.Expect(services.IsNotFoundError(err)).To(BeTrue())
 	}).Should(Succeed())
 }
 
-func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *vpclattice.ServiceNetworkSummary) (bool, *vpclattice.ServiceNetworkVpcAssociationSummary, error) {
+func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpcId string, serviceNetwork *types.ServiceNetworkSummary) (bool, *types.ServiceNetworkVpcAssociationSummary, error) {
 	vpcAssociations, err := env.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
 		ServiceNetworkIdentifier: serviceNetwork.Id,
 		VpcIdentifier:            &vpcId,
@@ -499,13 +498,13 @@ func (env *Framework) IsVpcAssociatedWithServiceNetwork(ctx context.Context, vpc
 		return false, nil, fmt.Errorf("Expect to have one VpcServiceNetworkAssociation len(vpcAssociations): %d", len(vpcAssociations))
 	}
 	association := vpcAssociations[0]
-	if *association.Status != vpclattice.ServiceNetworkVpcAssociationStatusActive {
-		return false, association, fmt.Errorf("Current cluster should have one Active status association *association.Status: %s, err: %w", *association.Status, err)
+	if association.Status != types.ServiceNetworkVpcAssociationStatusActive {
+		return false, &association, fmt.Errorf("Current cluster should have one Active status association *association.Status: %s, err: %w", association.Status, err)
 	}
-	return true, association, nil
+	return true, &association, nil
 }
 
-func (env *Framework) AreAllLatticeTargetsHealthy(ctx context.Context, tg *vpclattice.TargetGroupSummary) (bool, error) {
+func (env *Framework) AreAllLatticeTargetsHealthy(ctx context.Context, tg *types.TargetGroupSummary) (bool, error) {
 	env.Log.Infof(ctx, "Checking whether AreAllLatticeTargetsHealthy for targetGroup: %v", tg)
 	targets, err := env.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: tg.Id})
 	if err != nil {
@@ -513,16 +512,16 @@ func (env *Framework) AreAllLatticeTargetsHealthy(ctx context.Context, tg *vpcla
 	}
 	for _, target := range targets {
 		env.Log.Infof(ctx, "Checking target: %v", target)
-		if *target.Status != vpclattice.TargetStatusHealthy {
+		if target.Status != types.TargetStatusHealthy {
 			return false, nil
 		}
 	}
 	return true, nil
 }
 
-func (env *Framework) GetLatticeServiceHttpsListenerNonDefaultRules(ctx context.Context, vpcLatticeService *vpclattice.ServiceSummary) ([]*vpclattice.GetRuleOutput, error) {
+func (env *Framework) GetLatticeServiceHttpsListenerNonDefaultRules(ctx context.Context, vpcLatticeService *types.ServiceSummary) ([]*vpclattice.GetRuleOutput, error) {
 
-	listListenerResp, err := env.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+	listListenerResp, err := env.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 		ServiceIdentifier: vpcLatticeService.Id,
 	})
 	if err != nil {
@@ -539,24 +538,24 @@ func (env *Framework) GetLatticeServiceHttpsListenerNonDefaultRules(ctx context.
 	if httpsListenerId == "" {
 		return nil, fmt.Errorf("expect having 1 https listener for lattice service %s, but got 0", *vpcLatticeService.Id)
 	}
-	listRulesResp, err := env.LatticeClient.ListRulesWithContext(ctx, &vpclattice.ListRulesInput{
+	rules, err := env.LatticeClient.ListRulesAsList(ctx, &vpclattice.ListRulesInput{
 		ListenerIdentifier: &httpsListenerId,
 		ServiceIdentifier:  vpcLatticeService.Id,
 	})
 	if err != nil {
 		return nil, err
 	}
-	nonDefaultRules := utils.SliceFilter(listRulesResp.Items, func(rule *vpclattice.RuleSummary) bool {
+	nonDefaultRules := utils.SliceFilter(rules, func(rule types.RuleSummary) bool {
 		return rule.IsDefault != nil && *rule.IsDefault == false
 	})
 
-	nonDefaultRuleIds := utils.SliceMap(nonDefaultRules, func(rule *vpclattice.RuleSummary) *string {
+	nonDefaultRuleIds := utils.SliceMap(nonDefaultRules, func(rule types.RuleSummary) *string {
 		return rule.Id
 	})
 
 	var retrievedRules []*vpclattice.GetRuleOutput
 	for _, ruleId := range nonDefaultRuleIds {
-		rule, err := env.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+		rule, err := env.LatticeClient.GetRule(ctx, &vpclattice.GetRuleInput{
 			ServiceIdentifier:  vpcLatticeService.Id,
 			ListenerIdentifier: &httpsListenerId,
 			RuleIdentifier:     ruleId,
@@ -574,7 +573,7 @@ func (env *Framework) GetVpcLatticeServiceDns(httpRouteName string, httpRouteNam
 	vpcLatticeServiceDns := ""
 	Eventually(func(g Gomega) {
 		httproute := gwv1.HTTPRoute{}
-		env.Get(env.ctx, types.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
+		env.Get(env.ctx, apitypes.NamespacedName{Name: httpRouteName, Namespace: httpRouteNamespace}, &httproute)
 		g.Expect(httproute.Annotations).To(HaveKey(controllers.LatticeAssignedDomainName))
 		vpcLatticeServiceDns = httproute.Annotations[controllers.LatticeAssignedDomainName]
 	}).Should(Succeed())
@@ -587,7 +586,7 @@ func (env *Framework) GetVpcLatticeServiceTLSDns(tlsRouteName string, tlsRouteNa
 	vpcLatticeServiceDns := ""
 	Eventually(func(g Gomega) {
 		tlsroute := gwv1.TLSRoute{}
-		env.Get(env.ctx, types.NamespacedName{Name: tlsRouteName, Namespace: tlsRouteNamespace}, &tlsroute)
+		env.Get(env.ctx, apitypes.NamespacedName{Name: tlsRouteName, Namespace: tlsRouteNamespace}, &tlsroute)
 		g.Expect(tlsroute.Annotations).To(HaveKey(controllers.LatticeAssignedDomainName))
 		vpcLatticeServiceDns = tlsroute.Annotations[controllers.LatticeAssignedDomainName]
 	}).Should(Succeed())
@@ -646,8 +645,8 @@ func (env *Framework) SleepForRouteUpdate() {
 	time.Sleep(10 * time.Second)
 }
 
-func (env *Framework) NewTestTags(testSuite string) map[string]*string {
-	return env.Cloud.DefaultTagsMergedWith(map[string]*string{
-		anaws.TagBase + "TestSuite": aws.String(testSuite),
+func (env *Framework) NewTestTags(testSuite string) map[string]string {
+	return env.Cloud.DefaultTagsMergedWith(map[string]string{
+		anaws.TagBase + "TestSuite": testSuite,
 	})
 }

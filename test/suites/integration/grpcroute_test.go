@@ -4,7 +4,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -25,7 +26,7 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		grpcHelloWorldDeployment *appsv1.Deployment
 		grpcHelloWorldService    *v1.Service
 		grpcRoute                *gwv1.GRPCRoute
-		latticeService           *vpclattice.ServiceSummary
+		latticeService           *types.ServiceSummary
 	)
 
 	BeforeAll(func() {
@@ -56,10 +57,10 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 		})
 		It("Expect one lattice targetGroup with GRPC ProtocolVersion is created", func() {
 			var tgSummary = testFramework.GetTargetGroupWithProtocol(ctx, grpcBinService, "http", "grpc")
-			tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{TargetGroupIdentifier: tgSummary.Id})
+			tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{TargetGroupIdentifier: tgSummary.Id})
 			Expect(err).To(BeNil())
-			Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
-			Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionGrpc))
+			Expect(string(tg.Config.Protocol)).To(Equal(string(types.TargetGroupProtocolHttp)))
+			Expect(string(tg.Config.ProtocolVersion)).To(Equal(string(types.TargetGroupProtocolVersionGrpc)))
 		})
 		It("Expected one lattice service listener rule is created with Prefix match `/` and HttpMethodMach POST", func() {
 			route, _ := core.NewRoute(grpcRoute)
@@ -68,8 +69,9 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 				rules, err := testFramework.GetLatticeServiceHttpsListenerNonDefaultRules(ctx, latticeService)
 				g.Expect(err).To(BeNil())
 				g.Expect(len(rules)).To(Equal(1))
-				g.Expect(*rules[0].Match.HttpMatch.Method).To(Equal("POST"))
-				g.Expect(*rules[0].Match.HttpMatch.PathMatch.Match.Prefix).To(Equal("/"))
+				httpMatch := rules[0].Match.(*types.RuleMatchMemberHttpMatch)
+				g.Expect(*httpMatch.Value.Method).To(Equal("POST"))
+				g.Expect(httpMatch.Value.PathMatch.Match.(*types.PathMatchTypeMemberPrefix).Value).To(Equal("/"))
 			}).Within(1 * time.Minute).Should(Succeed())
 		})
 
@@ -180,17 +182,20 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 				rules, err := testFramework.GetLatticeServiceHttpsListenerNonDefaultRules(ctx, latticeService)
 				g.Expect(err).To(BeNil())
 				g.Expect(len(rules)).To(Equal(1))
-				g.Expect(*rules[0].Match.HttpMatch.Method).To(Equal("POST"))
-				g.Expect(rules[0].Match.HttpMatch.PathMatch.Match.Exact).To(Not(BeNil()))
-				g.Expect(*rules[0].Match.HttpMatch.PathMatch.Match.Exact).To(Equal("/grpcbin.GRPCBin/HeadersUnary"))
-				headerMatches := rules[0].Match.HttpMatch.HeaderMatches
+				httpMatch, ok := rules[0].Match.(*types.RuleMatchMemberHttpMatch)
+				g.Expect(ok).To(BeTrue(), "expected RuleMatchMemberHttpMatch but got %T", rules[0].Match)
+				g.Expect(*httpMatch.Value.Method).To(Equal("POST"))
+				exactMatch, ok := httpMatch.Value.PathMatch.Match.(*types.PathMatchTypeMemberExact)
+				g.Expect(ok).To(BeTrue(), "expected PathMatchTypeMemberExact but got %T", httpMatch.Value.PathMatch.Match)
+				g.Expect(exactMatch.Value).To(Equal("/grpcbin.GRPCBin/HeadersUnary"))
+				headerMatches := httpMatch.Value.HeaderMatches
 				g.Expect(len(headerMatches)).To(Equal(3))
 				g.Expect(*headerMatches[0].Name).To(Equal("test-key1"))
-				g.Expect(*headerMatches[0].Match.Exact).To(Equal("test-value1"))
+				g.Expect(headerMatches[0].Match.(*types.HeaderMatchTypeMemberExact).Value).To(Equal("test-value1"))
 				g.Expect(*headerMatches[1].Name).To(Equal("test-key2"))
-				g.Expect(*headerMatches[1].Match.Exact).To(Equal("test-value2"))
+				g.Expect(headerMatches[1].Match.(*types.HeaderMatchTypeMemberExact).Value).To(Equal("test-value2"))
 				g.Expect(*headerMatches[2].Name).To(Equal("test-key3"))
-				g.Expect(*headerMatches[2].Match.Exact).To(Equal("test-value3"))
+				g.Expect(headerMatches[2].Match.(*types.HeaderMatchTypeMemberExact).Value).To(Equal("test-value3"))
 			}).Should(Succeed())
 		})
 
@@ -313,15 +318,18 @@ var _ = Describe("GRPCRoute test", Ordered, func() {
 				rules, err := testFramework.GetLatticeServiceHttpsListenerNonDefaultRules(ctx, latticeService)
 				g.Expect(err).To(BeNil())
 				g.Expect(len(rules)).To(Equal(2))
-				g.Expect(*rules[0].Match.HttpMatch.Method).To(Equal("POST"))
-				g.Expect(rules[0].Match.HttpMatch.PathMatch.Match.Prefix).To(Not(BeNil()))
+				httpMatch0 := rules[0].Match.(*types.RuleMatchMemberHttpMatch)
+				g.Expect(*httpMatch0.Value.Method).To(Equal("POST"))
+				g.Expect(httpMatch0.Value.PathMatch.Match).ToNot(BeNil())
 				for _, rule := range rules {
+					ruleHttpMatch := rule.Match.(*types.RuleMatchMemberHttpMatch)
+					ruleForward := rule.Action.(*types.RuleActionMemberForward)
 					if *rule.Priority == 1 {
-						g.Expect(*rule.Match.HttpMatch.PathMatch.Match.Prefix).To(Equal("/addsvc.Add/"))
-						g.Expect(*rule.Action.Forward.TargetGroups[0].TargetGroupIdentifier).To(Equal(*grpcBinTG.Id))
+						g.Expect(ruleHttpMatch.Value.PathMatch.Match.(*types.PathMatchTypeMemberPrefix).Value).To(Equal("/addsvc.Add/"))
+						g.Expect(*ruleForward.Value.TargetGroups[0].TargetGroupIdentifier).To(Equal(*grpcBinTG.Id))
 					} else if *rule.Priority == 2 {
-						g.Expect(*rule.Match.HttpMatch.PathMatch.Match.Prefix).To(Equal("/"))
-						g.Expect(*rule.Action.Forward.TargetGroups[0].TargetGroupIdentifier).To(Equal(*grpcHelloWorldTG.Id))
+						g.Expect(ruleHttpMatch.Value.PathMatch.Match.(*types.PathMatchTypeMemberPrefix).Value).To(Equal("/"))
+						g.Expect(*ruleForward.Value.TargetGroups[0].TargetGroupIdentifier).To(Equal(*grpcHelloWorldTG.Id))
 					}
 				}
 			}).Should(Succeed())

@@ -8,7 +8,8 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,8 +23,8 @@ var _ = Describe("Defined Target Ports", Ordered, func() {
 		service           *v1.Service
 		serviceExport     *anv1alpha1.ServiceExport
 		httpRoute         *gwv1.HTTPRoute
-		vpcLatticeService *vpclattice.ServiceSummary
-		definedPorts      []int64
+		vpcLatticeService *types.ServiceSummary
+		definedPorts      []int32
 	)
 
 	BeforeAll(func() {
@@ -36,7 +37,7 @@ var _ = Describe("Defined Target Ports", Ordered, func() {
 		serviceExport = testFramework.CreateServiceExport(service)
 		httpRoute = testFramework.NewHttpRoute(testGateway, service, "Service")
 
-		definedPorts = []int64{int64(service.Spec.Ports[0].TargetPort.IntVal)}
+		definedPorts = []int32{int32(service.Spec.Ports[0].TargetPort.IntVal)}
 		testFramework.ExpectCreated(
 			ctx,
 			service,
@@ -64,31 +65,31 @@ var _ = Describe("Defined Target Ports", Ordered, func() {
 		route, _ := core.NewRoute(httpRoute)
 		vpcLatticeService = testFramework.GetVpcLatticeService(ctx, route)
 		lsn := utils.LatticeServiceName(route.Name(), route.Namespace(), "")
-		Expect(*vpcLatticeService.DnsEntry).To(ContainSubstring(lsn))
+		Expect(*vpcLatticeService.DnsEntry.DomainName).To(ContainSubstring(lsn))
 
 		performVerification(service, deployment, definedPorts)
 	})
 })
 
-func performVerification(service *v1.Service, deployment *appsv1.Deployment, definedPorts []int64) {
+func performVerification(service *v1.Service, deployment *appsv1.Deployment, definedPorts []int32) {
 	// Verify VPC Lattice Target Group exists
 	targetGroup := testFramework.GetTargetGroup(ctx, service)
 	Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-	Expect(*targetGroup.Protocol).To(Equal("HTTP"))
+	Expect(string(targetGroup.Protocol)).To(Equal("HTTP"))
 	Expect(*targetGroup.Port).To(BeEquivalentTo(80))
 	targets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{TargetGroupIdentifier: targetGroup.Id})
 	Expect(err).To(BeNil())
 	for _, target := range targets {
 		Expect(targetUsesDefinedPort(definedPorts, target)).To(BeTrue())
-		Expect(*target.Status).To(Or(
-			Equal(vpclattice.TargetStatusInitial),
-			Equal(vpclattice.TargetStatusHealthy),
-			Equal(vpclattice.TargetStatusUnused),
+		Expect(string(target.Status)).To(Or(
+			Equal(string(types.TargetStatusInitial)),
+			Equal(string(types.TargetStatusHealthy)),
+			Equal(string(types.TargetStatusUnused)),
 		))
 	}
 }
 
-func targetUsesDefinedPort(definedPorts []int64, target *vpclattice.TargetSummary) bool {
+func targetUsesDefinedPort(definedPorts []int32, target types.TargetSummary) bool {
 	for _, definedPort := range definedPorts {
 		if *target.Port == definedPort {
 			return true

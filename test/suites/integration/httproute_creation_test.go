@@ -8,7 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -124,5 +124,5 @@ func verifyResourceCreation(
 
 	targetGroup := testFramework.GetTargetGroup(ctx, service)
 	Expect(*targetGroup.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-	Expect(*targetGroup.Protocol).To(Equal("HTTP"))
+	Expect(string(targetGroup.Protocol)).To(Equal("HTTP"))
 }

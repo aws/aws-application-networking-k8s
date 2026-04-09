@@ -3,8 +3,8 @@ package integration
 import (
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,18 +40,18 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 	It("Update Protocol replaces the Target Group with new one", func() {
 		policy = createTargetGroupPolicy(service, &TargetGroupPolicyConfig{
 			PolicyName: "test-policy",
-			Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+			Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 		})
 
 		testFramework.ExpectCreated(ctx, policy)
 
 		tg := testFramework.GetTargetGroup(ctx, service)
-		Expect(*tg.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+		Expect(string(tg.Protocol)).To(Equal(string(types.TargetGroupProtocolHttp)))
 
 		err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
 		Expect(err).Should(BeNil())
 
-		policy.Spec.Protocol = aws.String(vpclattice.TargetGroupProtocolHttps)
+		policy.Spec.Protocol = aws.String(string(types.TargetGroupProtocolHttps))
 		err = testFramework.Client.Update(ctx, policy)
 		Expect(err).Should(BeNil())
 
@@ -59,14 +59,14 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 
 		httpsTG := testFramework.GetTargetGroupWithProtocol(ctx, service, "https", "http1")
 
-		Expect(*httpsTG.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
+		Expect(string(httpsTG.Protocol)).To(Equal(string(types.TargetGroupProtocolHttps)))
 	})
 
 	It("Delete Target Group Policy reset health check config for HTTP and HTTP1 Target Group", func() {
 		policy = createTargetGroupPolicy(service, &TargetGroupPolicyConfig{
 			PolicyName:      "test-policy",
-			Protocol:        aws.String(vpclattice.TargetGroupProtocolHttp),
-			ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+			Protocol:        aws.String(string(types.TargetGroupProtocolHttp)),
+			ProtocolVersion: aws.String(string(types.TargetGroupProtocolVersionHttp1)),
 			HealthCheck: &anv1alpha1.HealthCheckConfig{
 				IntervalSeconds: aws.Int64(7),
 				StatusMatch:     aws.String("200,204"),
@@ -78,10 +78,10 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 		Eventually(func(g Gomega) {
 			tgSummary := testFramework.GetTargetGroup(ctx, service)
 			tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
-			g.Expect(*tg.Config.HealthCheck.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp1))
-			g.Expect(*tg.Config.HealthCheck.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+			g.Expect(string(tg.Config.HealthCheck.ProtocolVersion)).To(Equal(string(types.TargetGroupProtocolVersionHttp1)))
+			g.Expect(string(tg.Config.HealthCheck.Protocol)).To(Equal(string(types.TargetGroupProtocolHttp)))
 			g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(7))
-			g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,204"))
+			g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200,204"))
 		}).Within(60 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
@@ -91,18 +91,18 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 
 			tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
 
-			g.Expect(*tg.Config.HealthCheck).To(Equal(vpclattice.HealthCheckConfig{
+			g.Expect(*tg.Config.HealthCheck).To(Equal(types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Protocol:                   aws.String(vpclattice.TargetGroupProtocolHttp),
-				ProtocolVersion:            aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Protocol:                   types.TargetGroupProtocolHttp,
+				ProtocolVersion:            types.HealthCheckProtocolVersionHttp1,
 				Port:                       nil,
-				Matcher: &vpclattice.Matcher{
-					HttpCode: aws.String("200"),
+				Matcher: &types.MatcherMemberHttpCode{
+					Value: "200",
 				},
 			}))
 		}).Within(60 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
@@ -111,21 +111,21 @@ var _ = Describe("Target Group Policy Tests", Ordered, func() {
 	It("Delete Target Group Policy create HTTP and HTTP1 Target Group", func() {
 		policy = createTargetGroupPolicy(service, &TargetGroupPolicyConfig{
 			PolicyName:      "test-policy",
-			Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
-			ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp2),
+			Protocol:        aws.String(string(types.TargetGroupProtocolHttps)),
+			ProtocolVersion: aws.String(string(types.TargetGroupProtocolVersionHttp2)),
 		})
 
 		testFramework.ExpectCreated(ctx, policy)
 
 		tg := testFramework.GetTargetGroupWithProtocol(ctx, service, "https", "http2")
 
-		Expect(*tg.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
+		Expect(string(tg.Protocol)).To(Equal(string(types.TargetGroupProtocolHttps)))
 
 		testFramework.ExpectDeleted(ctx, policy)
 
 		httpTG := testFramework.GetTargetGroup(ctx, service)
 
-		Expect(*httpTG.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+		Expect(string(httpTG.Protocol)).To(Equal(string(types.TargetGroupProtocolHttp)))
 	})
 
 	AfterEach(func() {

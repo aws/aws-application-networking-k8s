@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 )
 
 var _ = Describe("AllowedRoutes Test", Ordered, func() {
@@ -192,15 +192,15 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(vpcLatticeService).ToNot(BeNil())
 
-				listListenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+				listListenersResp, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 					ServiceIdentifier: vpcLatticeService.Id,
 				})
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(listListenersResp.Items).To(HaveLen(1))
 
 				listener := listListenersResp.Items[0]
-				g.Expect(*listener.Port).To(Equal(int64(443)))
-				g.Expect(*listener.Protocol).To(Equal("HTTPS"))
+				g.Expect(*listener.Port).To(Equal(int32(443)))
+				g.Expect(string(listener.Protocol)).To(Equal("HTTPS"))
 			}).Should(Succeed())
 		})
 	})
@@ -256,15 +256,15 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).ToNot(HaveOccurred())
 
-				listListenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+				listListenersResp, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 					ServiceIdentifier: vpcLatticeService.Id,
 				})
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(listListenersResp.Items).To(HaveLen(1))
 
 				listener := listListenersResp.Items[0]
-				g.Expect(*listener.Port).To(Equal(int64(80)))
-				g.Expect(*listener.Protocol).To(Equal("HTTP"))
+				g.Expect(*listener.Port).To(Equal(int32(80)))
+				g.Expect(string(listener.Protocol)).To(Equal("HTTP"))
 			}).Should(Succeed())
 		})
 	})
@@ -352,17 +352,17 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).ToNot(HaveOccurred())
 
-				listListenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+				listListenersResp, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 					ServiceIdentifier: vpcLatticeService.Id,
 				})
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(listListenersResp.Items).To(HaveLen(2))
-				ports := []int64{}
+				ports := []int32{}
 				for _, listener := range listListenersResp.Items {
 					ports = append(ports, *listener.Port)
 				}
-				g.Expect(ports).To(ContainElement(int64(80)))
-				g.Expect(ports).To(ContainElement(int64(90)))
+				g.Expect(ports).To(ContainElement(int32(80)))
+				g.Expect(ports).To(ContainElement(int32(90)))
 			}).Should(Succeed())
 		})
 	})
@@ -465,15 +465,15 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).ToNot(HaveOccurred())
 
-				listListenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+				listListenersResp, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 					ServiceIdentifier: vpcLatticeService.Id,
 				})
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(listListenersResp.Items).To(HaveLen(1))
 
 				listener := listListenersResp.Items[0]
-				g.Expect(*listener.Port).To(Equal(int64(80)))
-				g.Expect(*listener.Protocol).To(Equal("HTTP"))
+				g.Expect(*listener.Port).To(Equal(int32(80)))
+				g.Expect(string(listener.Protocol)).To(Equal("HTTP"))
 			}).Should(Succeed())
 		})
 	})
@@ -551,21 +551,21 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 				vpcLatticeService, err := testFramework.LatticeClient.FindService(ctx, utils.LatticeServiceName(route.Name(), route.Namespace(), ""))
 				g.Expect(err).ToNot(HaveOccurred())
 
-				listListenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+				listListenersResp, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 					ServiceIdentifier: vpcLatticeService.Id,
 				})
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(listListenersResp.Items).To(HaveLen(2))
 
-				ports := []int64{}
+				ports := []int32{}
 				protocols := []string{}
 				for _, listener := range listListenersResp.Items {
 					ports = append(ports, *listener.Port)
-					protocols = append(protocols, *listener.Protocol)
+					protocols = append(protocols, string(listener.Protocol))
 				}
-				g.Expect(ports).To(ContainElement(int64(80)))
-				g.Expect(ports).To(ContainElement(int64(443)))
-				g.Expect(ports).ToNot(ContainElement(int64(444)))
+				g.Expect(ports).To(ContainElement(int32(80)))
+				g.Expect(ports).To(ContainElement(int32(443)))
+				g.Expect(ports).ToNot(ContainElement(int32(444)))
 				g.Expect(protocols).To(ContainElement("HTTP"))
 				g.Expect(protocols).To(ContainElement("HTTPS"))
 			}).Should(Succeed())

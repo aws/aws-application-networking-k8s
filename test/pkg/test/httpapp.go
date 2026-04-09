@@ -63,7 +63,7 @@ func (env *Framework) NewHttpApp(options HTTPAppOptions) (*appsv1.Deployment, *v
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: options.Namespace,
-			Name: options.Name,
+			Name:      options.Name,
 		},
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{

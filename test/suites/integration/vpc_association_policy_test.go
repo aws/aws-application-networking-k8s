@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ec2 "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -29,12 +30,12 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 
 	BeforeAll(func() {
 		// Create security group
-		describeVpcOutput, err := testFramework.Ec2Client.DescribeVpcs(&ec2.DescribeVpcsInput{
-			VpcIds: []*string{aws.String(test.CurrentClusterVpcId)},
+		describeVpcOutput, err := testFramework.Ec2Client.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{
+			VpcIds: []string{test.CurrentClusterVpcId},
 		})
 		Expect(err).To(BeNil())
 		sourceVPC := describeVpcOutput.Vpcs[0]
-		createSgOutput, err := testFramework.Ec2Client.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
+		createSgOutput, err := testFramework.Ec2Client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
 			Description: aws.String("k8s-test-lattice-snva-sg"),
 			GroupName:   aws.String("k8s-test-lattice-snva-sg"),
 			VpcId:       aws.String(test.CurrentClusterVpcId),
@@ -43,28 +44,28 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 		sgId = v1alpha1.SecurityGroupId(*createSgOutput.GroupId)
 
 		// Create security group inbound rules
-		_, err = testFramework.Ec2Client.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
+		_, err = testFramework.Ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId: createSgOutput.GroupId,
-			IpPermissions: []*ec2.IpPermission{
+			IpPermissions: []ec2types.IpPermission{
 				{ // SG Rule to allow HTTP
 					IpProtocol: aws.String("tcp"),
-					IpRanges: []*ec2.IpRange{
+					IpRanges: []ec2types.IpRange{
 						{
 							CidrIp: sourceVPC.CidrBlock,
 						},
 					},
-					FromPort: aws.Int64(80),
-					ToPort:   aws.Int64(80),
+					FromPort: aws.Int32(80),
+					ToPort:   aws.Int32(80),
 				},
 				{ // SG Rule to allow HTTPS
 					IpProtocol: aws.String("tcp"),
-					IpRanges: []*ec2.IpRange{
+					IpRanges: []ec2types.IpRange{
 						{
 							CidrIp: sourceVPC.CidrBlock,
 						},
 					},
-					FromPort: aws.Int64(443),
-					ToPort:   aws.Int64(443),
+					FromPort: aws.Int32(443),
+					ToPort:   aws.Int32(443),
 				},
 			},
 		})
@@ -98,24 +99,24 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 			g.Expect(err).To(BeNil())
 			g.Expect(associated).To(BeTrue())
 
-			output, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+			output, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 				ServiceNetworkVpcAssociationIdentifier: snva.Id,
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(output.SecurityGroupIds).To(HaveLen(1))
-			g.Expect(*output.SecurityGroupIds[0]).To(Equal(string(sgId)))
+			g.Expect(output.SecurityGroupIds[0]).To(Equal(string(sgId)))
 
-			snvaArn := aws.StringValue(snva.Arn)
+			snvaArn := aws.ToString(snva.Arn)
 
 			tagsMap, err := testFramework.Cloud.Tagging().GetTagsForArns(ctx, []string{snvaArn})
 			g.Expect(err).To(BeNil())
 
 			tags := tagsMap[snvaArn]
-			g.Expect(tags).To(HaveKeyWithValue("Environment", aws.String("Dev")))
-			g.Expect(tags).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-			g.Expect(tags).To(HaveKeyWithValue("Team", aws.String("Platform")))
-			g.Expect(tags).To(HaveKeyWithValue("CostCenter", aws.String("12345")))
-			g.Expect(tags).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+			g.Expect(tags).To(HaveKeyWithValue("Environment", "Dev"))
+			g.Expect(tags).To(HaveKeyWithValue("Project", "MyApp"))
+			g.Expect(tags).To(HaveKeyWithValue("Team", "Platform"))
+			g.Expect(tags).To(HaveKeyWithValue("CostCenter", "12345"))
+			g.Expect(tags).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 		}).WithTimeout(5 * time.Minute).Should(Succeed())
 	})
 
@@ -134,18 +135,18 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 			g.Expect(err).To(BeNil())
 			g.Expect(associated).To(BeTrue())
 
-			snvaArn := aws.StringValue(snva.Arn)
+			snvaArn := aws.ToString(snva.Arn)
 			testFramework.Log.Infof(ctx, "ServiceNetworkVpcAssociation ARN: %s", snvaArn)
 			tagsMap, err := testFramework.Cloud.Tagging().GetTagsForArns(ctx, []string{snvaArn})
 			g.Expect(err).To(BeNil())
 			tags := tagsMap[snvaArn]
-			g.Expect(tags).To(HaveKeyWithValue("Environment", aws.String("Prod")))
-			g.Expect(tags).To(HaveKeyWithValue("Project", aws.String("MyApp-v2")))
-			g.Expect(tags).To(HaveKeyWithValue("Team", aws.String("DevOps")))
+			g.Expect(tags).To(HaveKeyWithValue("Environment", "Prod"))
+			g.Expect(tags).To(HaveKeyWithValue("Project", "MyApp-v2"))
+			g.Expect(tags).To(HaveKeyWithValue("Team", "DevOps"))
 			g.Expect(tags).ToNot(HaveKey("CostCenter"))
 
-			g.Expect(tags).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String("test-override")))
-			g.Expect(tags).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+			g.Expect(tags).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
+			g.Expect(tags).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 		}).WithTimeout(5 * time.Minute).Should(Succeed())
 	})
 
@@ -170,13 +171,13 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 		testFramework.ExpectDeleted(ctx, vpcAssociationPolicy)
 
 		// Clean up the security group
-		_, err := testFramework.Ec2Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
+		_, err := testFramework.Ec2Client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
 			GroupId: aws.String(string(sgId)),
 		})
 		Expect(err).To(BeNil())
 
 		// Re-create SNVA manually to recover network state without policy.
-		_, err = testFramework.Cloud.Lattice().CreateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		_, err = testFramework.Cloud.Lattice().CreateServiceNetworkVpcAssociation(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
 			ServiceNetworkIdentifier: testServiceNetwork.Id,
 			VpcIdentifier:            &config.VpcID,
 			Tags:                     testFramework.Cloud.DefaultTags(),
