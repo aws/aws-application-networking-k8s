@@ -107,3 +107,62 @@ Greeting: Hello world
 ```
 
 This confirms that our gRPC request was successfully routed through VPC Lattice and processed by our `greeter-grpc-server`.
+
+## Cross-Cluster gRPC Routing with ServiceExport/ServiceImport
+
+You can route gRPC traffic to services running in other clusters using `ServiceExport` and `ServiceImport`.
+
+### Exporting Cluster Setup
+
+1. *Deploy the gRPC server and Service* (same as above).
+
+2. *Create a ServiceExport* with `routeType: GRPC`:
+   ```yaml
+   apiVersion: application-networking.k8s.aws/v1alpha1
+   kind: ServiceExport
+   metadata:
+     name: greeter-grpc-server
+   spec:
+     exportedPorts:
+     - port: 50051
+       routeType: GRPC
+   ```
+
+### Importing Cluster Setup
+
+1. *Create a ServiceImport* matching the exported service name and namespace:
+   ```yaml
+   apiVersion: application-networking.k8s.aws/v1alpha1
+   kind: ServiceImport
+   metadata:
+     name: greeter-grpc-server
+     annotations:
+       application-networking.k8s.aws/aws-eks-cluster-name: "exporting-cluster-name"
+   spec: {}
+   ```
+
+2. *Create a GRPCRoute* referencing the ServiceImport:
+   ```yaml
+   apiVersion: gateway.networking.k8s.io/v1
+   kind: GRPCRoute
+   metadata:
+     name: greeter-grpc-route
+   spec:
+     parentRefs:
+       - name: my-hotel
+         sectionName: https
+     rules:
+       - matches:
+           - method:
+               service: helloworld.Greeter
+               method: SayHello
+         backendRefs:
+           - name: greeter-grpc-server
+             kind: ServiceImport
+   ```
+
+3. *Test the route* using a gRPC client in the importing cluster. The VPC Lattice service DNS can be found in the
+   `application-networking.k8s.aws/lattice-assigned-domain-name` annotation on the GRPCRoute.
+   ```bash
+   go run test.go <SERVICE DNS> <PORT>
+   ```

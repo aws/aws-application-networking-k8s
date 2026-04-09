@@ -50,6 +50,28 @@ In this example:
 - The `hostnames` field is set to `nginx-test.my-test.com`. The customer must use this hostname to send traffic to the nginx service.
 
 
+## Cross-Cluster Routing with ServiceImport
+
+`TLSRoute` supports routing to services in other clusters via [`ServiceImport`](service-import.md).
+The remote cluster must export the service using a [`ServiceExport`](service-export.md) with `routeType: TLS`.
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: nginx-tls-route
+spec:
+  hostnames:
+    - nginx-test.my-test.com
+  parentRefs:
+    - name: my-hotel-tls-passthrough
+      sectionName: tls
+  rules:
+    - backendRefs:
+        - name: nginx-tls
+          kind: ServiceImport
+```
+
 For the detailed tls passthrough traffic connectivity setup, please refer the user guide [here](../guides/tls-passthrough.md).
 
 For the detailed Gateway API `TLSRoute` resource specifications, you can refer to the
