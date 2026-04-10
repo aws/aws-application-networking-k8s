@@ -153,7 +153,6 @@ endif
 	@echo "Cloning gateway-api at $(GATEWAY_API_VERSION)..."
 	git clone --branch $(GATEWAY_API_VERSION) --depth 1 \
 		https://github.com/kubernetes-sigs/gateway-api.git gateway-api
-	cd gateway-api && git apply ../test/conformance/patches/001-gateway-address.patch
 	@echo "Installing Gateway API CRDs at $(GATEWAY_API_VERSION)..."
 	-@kubectl delete validatingadmissionpolicybinding safe-upgrades.gateway.networking.k8s.io 2>/dev/null
 	-@kubectl delete validatingadmissionpolicy safe-upgrades.gateway.networking.k8s.io 2>/dev/null

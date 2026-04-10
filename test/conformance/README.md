@@ -32,7 +32,7 @@ In one terminal, run the controller from source:
 
 ```bash
 AWS_EC2_METADATA_DISABLED=false \
-AWS_REGION=us-west-2 \
+REGION=us-west-2 \
 CLUSTER_VPC_ID=<vpc-id> \
 AWS_ACCOUNT_ID=<account-id> \
 CLUSTER_NAME=<cluster-name> \
@@ -53,15 +53,3 @@ GATEWAY_API_VERSION=v1.5.1 CONTROLLER_VERSION=v2.0.1 make conformance-test
 
 - `conformance_test.go` — Test wrapper configuring timeouts, skip list, and Lattice settings
 - `skip-tests.yaml` — Skipped tests with categories: `architectural-limitation`, `lattice-feature-limitation`, `controller-bug`
-- `patches/001-gateway-address.patch` — Patches gateway address check for Lattice DNS model
-
-## Updating the Patch
-
-If the patch fails on a new Gateway API version, regenerate it:
-
-```bash
-git clone --branch <version> --depth 1 https://github.com/kubernetes-sigs/gateway-api.git
-cd gateway-api
-# Edit conformance/utils/kubernetes/helpers.go
-git diff > ../test/conformance/patches/001-gateway-address.patch
-```
