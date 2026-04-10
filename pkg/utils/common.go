@@ -4,19 +4,10 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-
-	"golang.org/x/exp/constraints"
 )
 
 type MapFunc[T any, U any] func(T) U
 type FilterFunc[T any] func(T) bool
-
-func min[T constraints.Ordered](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 func Chunks[T any](in []T, size int) [][]T {
 	out := [][]T{}

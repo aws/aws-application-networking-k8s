@@ -2,16 +2,18 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"testing"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -2077,6 +2079,222 @@ func Test_LatticeServiceModelBuild_FilterRejectedParentRefsForServiceNetworkAsso
 			sort.Strings(expectedNetworkNames)
 			sort.Strings(actualNetworkNames)
 			assert.Equal(t, expectedNetworkNames, actualNetworkNames, tt.description)
+		})
+	}
+}
+
+// stubCertDiscovery is a simple stub for CertificateDiscovery used in tests.
+type stubCertDiscovery struct {
+	arn    string
+	err    error
+	called bool
+}
+
+func (s *stubCertDiscovery) Discover(_ context.Context, _ string) (string, error) {
+	s.called = true
+	return s.arn, s.err
+}
+
+func Test_getACMCertArn(t *testing.T) {
+	tlsSectionName := gwv1.SectionName("tls")
+	tlsModeTerminate := gwv1.TLSModeTerminate
+
+	gwClass := gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "gwClass"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
+		return &p
+	}
+
+	httpsGateway := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: gwv1.ObjectName(gwClass.Name),
+			Listeners: []gwv1.Listener{
+				{
+					Name:     "tls",
+					Port:     443,
+					Protocol: "HTTPS",
+					TLS: &gwv1.GatewayTLSConfig{
+						Mode: &tlsModeTerminate,
+					},
+				},
+			},
+		},
+	}
+
+	httpsGatewayWithCert := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: gwv1.ObjectName(gwClass.Name),
+			Listeners: []gwv1.Listener{
+				{
+					Name:     "tls",
+					Port:     443,
+					Protocol: "HTTPS",
+					TLS: &gwv1.GatewayTLSConfig{
+						Mode: &tlsModeTerminate,
+						Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
+							"application-networking.k8s.aws/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/manual-cert",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	makeRoute := func(hostnames []gwv1.Hostname, deletionTimestamp *metav1.Time) core.Route {
+		route := core.NewHTTPRoute(gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "route1",
+				Namespace:         "default",
+				DeletionTimestamp: deletionTimestamp,
+				Finalizers: func() []string {
+					if deletionTimestamp != nil {
+						return []string{"gateway.k8s.aws/resources"}
+					}
+					return nil
+				}(),
+			},
+			Spec: gwv1.HTTPRouteSpec{
+				CommonRouteSpec: gwv1.CommonRouteSpec{
+					ParentRefs: []gwv1.ParentReference{
+						{
+							Name:        "gw",
+							Namespace:   namespacePtr("default"),
+							SectionName: &tlsSectionName,
+						},
+					},
+				},
+				Hostnames: hostnames,
+			},
+		})
+		route.Status().SetParents([]gwv1.RouteParentStatus{
+			{
+				ParentRef: gwv1.ParentReference{
+					Name:        "gw",
+					Namespace:   namespacePtr("default"),
+					SectionName: &tlsSectionName,
+				},
+				Conditions: []metav1.Condition{
+					{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue},
+				},
+			},
+		})
+		return route
+	}
+
+	tests := []struct {
+		name                string
+		gw                  gwv1.Gateway
+		route               core.Route
+		certDiscovery       *stubCertDiscovery
+		wantArn             string
+		wantErr             bool
+		wantErrIs           error
+		wantDiscoveryCalled bool
+	}{
+		{
+			name:                "manual cert annotation present returns manual ARN and skips discovery",
+			gw:                  httpsGatewayWithCert,
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			certDiscovery:       &stubCertDiscovery{arn: "should-not-be-used"},
+			wantArn:             "arn:aws:acm:us-west-2:123456789012:certificate/manual-cert",
+			wantDiscoveryCalled: false,
+		},
+		{
+			name:                "no annotation with hostname triggers discovery",
+			gw:                  httpsGateway,
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			certDiscovery:       &stubCertDiscovery{arn: "arn:aws:acm:us-west-2:123456789012:certificate/discovered"},
+			wantArn:             "arn:aws:acm:us-west-2:123456789012:certificate/discovered",
+			wantDiscoveryCalled: true,
+		},
+		{
+			name:                "no hostnames skips discovery",
+			gw:                  httpsGateway,
+			route:               makeRoute(nil, nil),
+			certDiscovery:       &stubCertDiscovery{arn: "should-not-be-used"},
+			wantArn:             "",
+			wantDiscoveryCalled: false,
+		},
+		{
+			name: "route being deleted skips discovery",
+			gw:   httpsGateway,
+			route: func() core.Route {
+				now := metav1.Now()
+				return makeRoute([]gwv1.Hostname{"app.example.com"}, &now)
+			}(),
+			certDiscovery:       &stubCertDiscovery{arn: "should-not-be-used"},
+			wantArn:             "",
+			wantDiscoveryCalled: false,
+		},
+		{
+			name:                "discovery transient error propagates",
+			gw:                  httpsGateway,
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			certDiscovery:       &stubCertDiscovery{err: fmt.Errorf("acm error")},
+			wantArn:             "",
+			wantErr:             true,
+			wantDiscoveryCalled: true,
+		},
+		{
+			name:                "discovery access denied returns error with permission message",
+			gw:                  httpsGateway,
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			certDiscovery:       &stubCertDiscovery{err: services.ErrACMAccessDenied},
+			wantArn:             "",
+			wantErr:             true,
+			wantErrIs:           ErrCertificateNotFound,
+			wantDiscoveryCalled: true,
+		},
+		{
+			name:                "no matching cert returns error",
+			gw:                  httpsGateway,
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			certDiscovery:       &stubCertDiscovery{arn: ""},
+			wantArn:             "",
+			wantErr:             true,
+			wantErrIs:           ErrCertificateNotFound,
+			wantDiscoveryCalled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, gwClass.DeepCopy()))
+			assert.NoError(t, k8sClient.Create(ctx, tt.gw.DeepCopy()))
+
+			task := &latticeServiceModelBuildTask{
+				log:           gwlog.FallbackLogger,
+				route:         tt.route,
+				stack:         core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject()))),
+				client:        k8sClient,
+				certDiscovery: tt.certDiscovery,
+			}
+
+			arn, err := task.getACMCertArn(ctx)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.wantErrIs != nil {
+					assert.ErrorIs(t, err, tt.wantErrIs)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantArn, arn)
+			assert.Equal(t, tt.wantDiscoveryCalled, tt.certDiscovery.called)
 		})
 	}
 }

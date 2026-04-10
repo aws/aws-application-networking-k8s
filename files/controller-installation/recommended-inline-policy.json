@@ -22,7 +22,8 @@
                 "s3:GetBucketPolicy",
                 "s3:PutBucketPolicy",
                 "tag:TagResources",
-                "tag:UntagResources"
+                "tag:UntagResources",
+                "acm:ListCertificates"
             ],
             "Resource": "*"
         },

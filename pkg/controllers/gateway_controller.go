@@ -300,7 +300,7 @@ func (r *gatewayReconciler) updateGatewayAcceptStatus(ctx context.Context, gw *g
 	return nil
 }
 
-func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway) error {
+func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway, overrideRoute ...core.Route) error {
 	hasValidListener := false
 
 	gwOld := gw.DeepCopy()
@@ -308,6 +308,23 @@ func UpdateGWListenerStatus(ctx context.Context, k8sClient client.Client, gw *gw
 	routes, err := core.ListAllRoutes(ctx, k8sClient)
 	if err != nil {
 		return err
+	}
+
+	// If an override route is provided, replace the matching cached route (or append if new).
+	// This avoids a read-after-write race where the informer cache hasn't synced yet.
+	if len(overrideRoute) > 0 {
+		override := overrideRoute[0]
+		found := false
+		for i, r := range routes {
+			if r.Name() == override.Name() && r.Namespace() == override.Namespace() {
+				routes[i] = override
+				found = true
+				break
+			}
+		}
+		if !found {
+			routes = append(routes, override)
+		}
 	}
 
 	// Add one of lattice domains as GW address. This is supposed to be a single ingress endpoint (or a single pool of them)
