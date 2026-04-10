@@ -822,3 +822,234 @@ func Test_UpsertVpcAssociation_WithAdditionalTags_NoExistingAssociation(t *testi
 	assert.Equal(t, err, nil)
 	assert.Equal(t, resp, snArn)
 }
+
+func Test_Upsert_NotFound_Creates(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	name := "test-sn"
+	arn := "arn:aws:vpc-lattice:us-west-2:123456789:servicenetwork/sn-123"
+	id := "sn-123"
+
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), name).Return(nil, nil)
+	mockLattice.EXPECT().CreateServiceNetworkWithContext(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.CreateServiceNetworkOutput{
+			Arn:  &arn,
+			Id:   &id,
+			Name: &name,
+		}, nil)
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	status, err := snMgr.Upsert(ctx, name, nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, arn, status.ServiceNetworkARN)
+	assert.Equal(t, id, status.ServiceNetworkID)
+}
+
+func Test_Upsert_Exists_Adopts(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	name := "test-sn"
+	snArn := "arn:aws:vpc-lattice:us-west-2:123456789:servicenetwork/sn-123"
+	snId := "sn-123"
+
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), name).
+		Return(&mocks.ServiceNetworkInfo{
+			SvcNetwork: vpclattice.ServiceNetworkSummary{
+				Arn:  aws.String(snArn),
+				Id:   aws.String(snId),
+				Name: aws.String(name),
+			},
+		}, nil)
+	// TryOwn calls getTags → ListTagsForResource; empty tags = no owner = adopt
+	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ListTagsForResourceOutput{Tags: map[string]*string{}}, nil)
+	// TryOwn then calls TagResource to claim ownership
+	mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Any()).Return(nil, nil)
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	status, err := snMgr.Upsert(ctx, name, nil)
+
+	assert.Nil(t, err)
+	assert.Equal(t, snArn, status.ServiceNetworkARN)
+	assert.Equal(t, snId, status.ServiceNetworkID)
+}
+
+func Test_Upsert_FindError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
+		Return(nil, errors.New("api error"))
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	_, err := snMgr.Upsert(ctx, "test-sn", nil)
+
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "api error")
+}
+
+func Test_Upsert_CreateError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").Return(nil, nil)
+	mockLattice.EXPECT().CreateServiceNetworkWithContext(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("create failed"))
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	_, err := snMgr.Upsert(ctx, "test-sn", nil)
+
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "create failed")
+}
+
+func Test_Upsert_TryOwnFails(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	snArn := "arn:aws:vpc-lattice:us-west-2:999999999:servicenetwork/sn-other"
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
+		Return(&mocks.ServiceNetworkInfo{
+			SvcNetwork: vpclattice.ServiceNetworkSummary{
+				Arn:  aws.String(snArn),
+				Id:   aws.String("sn-other"),
+				Name: aws.String("test-sn"),
+			},
+		}, nil)
+	// TryOwn calls getTags → ListTagsForResource; returns different owner
+	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ListTagsForResourceOutput{
+			Tags: map[string]*string{
+				"application-networking.k8s.aws/ManagedBy": aws.String("other-cluster"),
+			},
+		}, nil)
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	_, err := snMgr.Upsert(ctx, "test-sn", nil)
+
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "owned by another")
+}
+
+func Test_Delete_NotFound(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
+		Return(nil, mocks.NewNotFoundError("ServiceNetwork", "test-sn"))
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	err := snMgr.Delete(ctx, "test-sn")
+
+	assert.Nil(t, err)
+}
+
+func Test_Delete_NotOwned_Skips(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	snArn := "arn:aws:vpc-lattice:us-west-2:999999999:servicenetwork/sn-other"
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
+		Return(&mocks.ServiceNetworkInfo{
+			SvcNetwork: vpclattice.ServiceNetworkSummary{
+				Arn:  aws.String(snArn),
+				Id:   aws.String("sn-other"),
+				Name: aws.String("test-sn"),
+			},
+		}, nil)
+	// IsArnManaged calls getTags → ListTagsForResource; returns different owner
+	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ListTagsForResourceOutput{
+			Tags: map[string]*string{
+				"application-networking.k8s.aws/ManagedBy": aws.String("other-cluster"),
+			},
+		}, nil)
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	err := snMgr.Delete(ctx, "test-sn")
+
+	assert.Nil(t, err)
+}
+
+func Test_Delete_Owned_Deletes(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	snArn := "arn:aws:vpc-lattice:us-west-2:account-id:servicenetwork/sn-123"
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
+		Return(&mocks.ServiceNetworkInfo{
+			SvcNetwork: vpclattice.ServiceNetworkSummary{
+				Arn:  aws.String(snArn),
+				Id:   aws.String("sn-123"),
+				Name: aws.String("test-sn"),
+			},
+		}, nil)
+	// IsArnManaged: owned by this controller
+	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ListTagsForResourceOutput{
+			Tags: cloud.DefaultTags(),
+		}, nil)
+	mockLattice.EXPECT().DeleteServiceNetworkWithContext(gomock.Any(), gomock.Any()).Return(nil, nil)
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	err := snMgr.Delete(ctx, "test-sn")
+
+	assert.Nil(t, err)
+}
+
+func Test_Delete_ConflictException(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	snArn := "arn:aws:vpc-lattice:us-west-2:account-id:servicenetwork/sn-123"
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
+		Return(&mocks.ServiceNetworkInfo{
+			SvcNetwork: vpclattice.ServiceNetworkSummary{
+				Arn:  aws.String(snArn),
+				Id:   aws.String("sn-123"),
+				Name: aws.String("test-sn"),
+			},
+		}, nil)
+	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ListTagsForResourceOutput{
+			Tags: cloud.DefaultTags(),
+		}, nil)
+	mockLattice.EXPECT().DeleteServiceNetworkWithContext(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("ConflictException: service network has VPC(s) associated"))
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	err := snMgr.Delete(ctx, "test-sn")
+
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "ConflictException")
+}

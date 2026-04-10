@@ -119,7 +119,7 @@ jobs:
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
-
+          kubectl apply -f config/crds/bases/application-networking.k8s.aws_servicenetworks.yaml
       - name: Create Lattice GatewayClass
         run: |
           kubectl apply -f files/controller-installation/gatewayclass.yaml
