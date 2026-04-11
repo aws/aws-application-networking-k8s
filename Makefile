@@ -136,6 +136,83 @@ e2e-clean: ## Delete eks resources created in the e2e test namespace
 	@kubectl create namespace $(e2e-test-namespace)
 	@echo "Done!"
 
+conformance-test-namespace := "conformance-test"
+conformance-helm-release := "gateway-api-controller"
+conformance-helm-chart := "oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart"
+conformance-helm-namespace := "aws-application-networking-system"
+
+.PHONY: conformance-test
+conformance-test: ## Run conformance tests. Set INSTALL_CONTROLLER=true to install/uninstall controller via Helm.
+ifndef GATEWAY_API_VERSION
+	$(error GATEWAY_API_VERSION is required (e.g., GATEWAY_API_VERSION=v1.4.0))
+endif
+ifndef CONTROLLER_VERSION
+	$(error CONTROLLER_VERSION is required (e.g., CONTROLLER_VERSION=v2.1.0))
+endif
+	@rm -rf gateway-api
+	@echo "Cloning gateway-api at $(GATEWAY_API_VERSION)..."
+	git clone --branch $(GATEWAY_API_VERSION) --depth 1 \
+		https://github.com/kubernetes-sigs/gateway-api.git gateway-api
+	@echo "Installing Gateway API CRDs at $(GATEWAY_API_VERSION)..."
+	-@kubectl delete validatingadmissionpolicybinding safe-upgrades.gateway.networking.k8s.io 2>/dev/null
+	-@kubectl delete validatingadmissionpolicy safe-upgrades.gateway.networking.k8s.io 2>/dev/null
+	-@kubectl get crds -o name | grep gateway.networking.k8s.io | xargs -r kubectl delete 2>/dev/null
+	-@kubectl get crds -o name | grep gateway.networking.x-k8s.io | xargs -r kubectl delete 2>/dev/null
+	kubectl apply --server-side --force-conflicts -f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/experimental-install.yaml
+ifdef INSTALL_CONTROLLER
+	@echo "Installing controller $(CONTROLLER_VERSION) via Helm..."
+	helm install $(conformance-helm-release) $(conformance-helm-chart) \
+		--version $(CONTROLLER_VERSION) \
+		--namespace $(conformance-helm-namespace) \
+		--set=serviceAccount.create=false \
+		--set=defaultServiceNetwork=conformance-test \
+		--set=enableServiceNetworkOverride=true \
+		--set=log.level=debug \
+		--wait
+endif
+	kubectl apply -f files/controller-installation/gatewayclass.yaml
+	@GO_VER=$$(grep '^go ' gateway-api/go.mod | awk '{print $$2}'); \
+		echo "Building conformance test binary (go $$GO_VER)..."; \
+		cp test/conformance/conformance_test.go gateway-api/conformance/conformance_test.go && \
+		cp test/conformance/skip-tests.yaml gateway-api/conformance/skip-tests.yaml && \
+		cd gateway-api/conformance && \
+		CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=go$${GO_VER} GOPROXY=direct go test -c -o ../../test/conformance/conformance.test .
+	@kubectl create namespace $(conformance-test-namespace) > /dev/null 2>&1 || true
+	@kubectl delete pod conformance-runner -n $(conformance-test-namespace) --force 2>/dev/null || true
+	kubectl run conformance-runner -n $(conformance-test-namespace) \
+		--image=public.ecr.aws/docker/library/alpine:3.19 \
+		--command -- sleep infinity
+	kubectl wait --for=condition=Ready pod/conformance-runner \
+		-n $(conformance-test-namespace) --timeout=60s
+	@kubectl create clusterrolebinding conformance-runner-admin \
+		--clusterrole=cluster-admin \
+		--serviceaccount=$(conformance-test-namespace):default 2>/dev/null || true
+	kubectl cp test/conformance/conformance.test $(conformance-test-namespace)/conformance-runner:/conformance.test
+	kubectl cp test/conformance/skip-tests.yaml $(conformance-test-namespace)/conformance-runner:/skip-tests.yaml
+	kubectl exec conformance-runner -n $(conformance-test-namespace) -- chmod +x /conformance.test
+	@kubectl exec conformance-runner -n $(conformance-test-namespace) -- \
+		env CONTROLLER_VERSION=$(CONTROLLER_VERSION) REPORT_OUTPUT=/report.yaml \
+		/conformance.test \
+		-test.v \
+		-test.timeout 120m \
+		-test.run TestConformance \
+		|| true
+	@echo "Copying conformance report..."
+	-@kubectl cp $(conformance-test-namespace)/conformance-runner:/report.yaml ./conformance-report.yaml
+	@echo "Report saved to conformance-report.yaml"
+	@$(MAKE) conformance-clean
+
+.PHONY: conformance-clean
+conformance-clean: ## Delete resources created by conformance tests
+	@echo -n "Cleaning up conformance tests... "
+	-@kubectl delete pod conformance-runner -n $(conformance-test-namespace) --force
+	-@kubectl delete clusterrolebinding conformance-runner-admin
+	-@kubectl delete namespace $(conformance-test-namespace)
+	-@helm uninstall $(conformance-helm-release) --namespace $(conformance-helm-namespace) 2>/dev/null
+	-@rm -rf gateway-api
+	-@rm -f test/conformance/conformance.test
+	@echo "Done!"
+
 .PHONY: api-reference
 api-reference: ## Update documentation in docs/api-reference.md
 	@cd docgen && \
