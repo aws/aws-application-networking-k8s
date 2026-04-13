@@ -33,6 +33,7 @@ import (
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/controllers/predicates"
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
@@ -73,7 +74,7 @@ func RegisterServiceNetworkController(
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&anv1alpha1.ServiceNetwork{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		For(&anv1alpha1.ServiceNetwork{}, builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, predicates.AdditionalTagsAnnotationChangedPredicate))).
 		Complete(r)
 }
 

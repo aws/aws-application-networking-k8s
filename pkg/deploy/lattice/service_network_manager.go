@@ -30,7 +30,7 @@ type ServiceNetworkManager interface {
 
 	// Upsert finds or creates a service network by name and ensures ownership.
 	// Does not create a VPC association.
-	Upsert(ctx context.Context, name string, tags services.Tags) (model.ServiceNetworkStatus, error)
+	Upsert(ctx context.Context, name string, additionalTags services.Tags) (model.ServiceNetworkStatus, error)
 
 	// Delete deletes a service network by name if owned by this controller.
 	Delete(ctx context.Context, snName string) error
@@ -272,8 +272,8 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 	return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
 }
 
-func (m *defaultServiceNetworkManager) Upsert(ctx context.Context, name string, tags services.Tags) (model.ServiceNetworkStatus, error) {
-	allTags := m.cloud.DefaultTagsMergedWith(tags)
+func (m *defaultServiceNetworkManager) Upsert(ctx context.Context, name string, additionalTags services.Tags) (model.ServiceNetworkStatus, error) {
+	allTags := m.cloud.MergeTags(m.cloud.DefaultTags(), additionalTags)
 
 	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, name)
 	if err != nil && !services.IsNotFoundError(err) {
@@ -307,6 +307,11 @@ func (m *defaultServiceNetworkManager) Upsert(ctx context.Context, name string, 
 	}
 
 	m.log.Infof(ctx, "Adopted existing ServiceNetwork %s (arn: %s)", name, snArn)
+
+	if err := m.cloud.Tagging().UpdateTags(ctx, snArn, additionalTags, m.cloud.DefaultTags()); err != nil {
+		return model.ServiceNetworkStatus{}, fmt.Errorf("failed to update tags for ServiceNetwork %s: %w", name, err)
+	}
+
 	return model.ServiceNetworkStatus{
 		ServiceNetworkARN: snArn,
 		ServiceNetworkID:  aws.StringValue(sn.SvcNetwork.Id),
@@ -325,8 +330,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string
 	snArn := aws.StringValue(sn.SvcNetwork.Arn)
 	owned, err := m.cloud.IsArnManaged(ctx, snArn)
 	if err != nil {
-		m.log.Warnf(ctx, "Cannot check ownership of ServiceNetwork %s: %s, skipping deletion", snName, err)
-		return nil
+		return fmt.Errorf("failed to check ownership of ServiceNetwork %s: %w", snName, err)
 	}
 	if !owned {
 		m.log.Infof(ctx, "ServiceNetwork %s not owned by controller, skipping deletion", snName)

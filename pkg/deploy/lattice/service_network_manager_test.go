@@ -834,7 +834,7 @@ func Test_Upsert_NotFound_Creates(t *testing.T) {
 	arn := "arn:aws:vpc-lattice:us-west-2:123456789:servicenetwork/sn-123"
 	id := "sn-123"
 
-	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), name).Return(nil, nil)
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), name).Return(nil, mocks.NewNotFoundError("ServiceNetwork", name))
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(gomock.Any(), gomock.Any()).
 		Return(&vpclattice.CreateServiceNetworkOutput{
 			Arn:  &arn,
@@ -855,7 +855,8 @@ func Test_Upsert_Exists_Adopts(t *testing.T) {
 	defer c.Finish()
 	ctx := context.TODO()
 	mockLattice := mocks.NewMockLattice(c)
-	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 
 	name := "test-sn"
 	snArn := "arn:aws:vpc-lattice:us-west-2:123456789:servicenetwork/sn-123"
@@ -874,6 +875,8 @@ func Test_Upsert_Exists_Adopts(t *testing.T) {
 		Return(&vpclattice.ListTagsForResourceOutput{Tags: map[string]*string{}}, nil)
 	// TryOwn then calls TagResource to claim ownership
 	mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Any()).Return(nil, nil)
+	// UpdateTags after adoption
+	mockTagging.EXPECT().UpdateTags(gomock.Any(), snArn, gomock.Any(), gomock.Any()).Return(nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	status, err := snMgr.Upsert(ctx, name, nil)
@@ -907,7 +910,7 @@ func Test_Upsert_CreateError(t *testing.T) {
 	mockLattice := mocks.NewMockLattice(c)
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
-	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").Return(nil, nil)
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").Return(nil, mocks.NewNotFoundError("ServiceNetwork", "test-sn"))
 	mockLattice.EXPECT().CreateServiceNetworkWithContext(gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("create failed"))
 

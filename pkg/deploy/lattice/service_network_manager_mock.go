@@ -86,18 +86,18 @@ func (mr *MockServiceNetworkManagerMockRecorder) DeleteVpcAssociation(ctx, snNam
 }
 
 // Upsert mocks base method.
-func (m *MockServiceNetworkManager) Upsert(ctx context.Context, name string, tags services.Tags) (lattice.ServiceNetworkStatus, error) {
+func (m *MockServiceNetworkManager) Upsert(ctx context.Context, name string, additionalTags services.Tags) (lattice.ServiceNetworkStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Upsert", ctx, name, tags)
+	ret := m.ctrl.Call(m, "Upsert", ctx, name, additionalTags)
 	ret0, _ := ret[0].(lattice.ServiceNetworkStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Upsert indicates an expected call of Upsert.
-func (mr *MockServiceNetworkManagerMockRecorder) Upsert(ctx, name, tags any) *gomock.Call {
+func (mr *MockServiceNetworkManagerMockRecorder) Upsert(ctx, name, additionalTags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockServiceNetworkManager)(nil).Upsert), ctx, name, tags)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockServiceNetworkManager)(nil).Upsert), ctx, name, additionalTags)
 }
 
 // UpsertVpcAssociation mocks base method.
