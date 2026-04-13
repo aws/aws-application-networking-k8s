@@ -33,11 +33,12 @@ ServiceExport resources can be targeted by [`TargetGroupPolicy`](target-group-po
 The `exportedPorts` field allows you to explicitly define which ports of the service should be exported and what route types they should be used with. This is useful when you have a service with multiple ports serving different protocols.
 
 Each exported port has the following fields:
+
 * `port`: The port number to export
 * `routeType`: The type of route this port should be used with. Valid values are:
-  * `HTTP`: For HTTP traffic
-  * `GRPC`: For gRPC traffic
-  * `TLS`: For TLS traffic
+    * `HTTP`: For HTTP traffic
+    * `GRPC`: For gRPC traffic
+    * `TLS`: For TLS traffic
 
 If `exportedPorts` is not specified, the controller will use the port from the annotation "application-networking.k8s.aws/port" and create HTTP target groups for backward compatibility.
 

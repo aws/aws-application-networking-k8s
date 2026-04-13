@@ -19,7 +19,6 @@ This allows you to define and manage the routing of gRPC traffic within your Kub
 **Limitations**:
 
 - **Listener Protocol**: The `GRPCRoute` sectionName must refer to an HTTPS listener in the parent `Gateway`.
-- **Service Export**: The `GRPCRoute` does not support integration with `ServiceExport`.
 - **Method Matches**: One method match is allowed within a single rule.
 - **Header Matches Limit**: A maximum of 5 header matches per rule is supported.
 - **No Method Without Service**: Matching only by a gRPC method without specifying a service is not supported.
@@ -73,6 +72,30 @@ In this example:
   value `testValue1` for the routing rule to apply.
 - The second rule matches gRPC traffic for the service `helloworld.Greeter` and method `SayHello`, forwarding it to
   the `greeter-grpc-server` on port `443`.
+
+## Cross-Cluster Routing with ServiceImport
+
+`GRPCRoute` supports routing to services in other clusters via [`ServiceImport`](service-import.md).
+The remote cluster must export the service using a [`ServiceExport`](service-export.md) with `routeType: GRPC`.
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: greeter-grpc-route
+spec:
+  parentRefs:
+    - name: my-hotel
+      sectionName: https
+  rules:
+    - matches:
+        - method:
+            service: helloworld.Greeter
+            method: SayHello
+      backendRefs:
+        - name: greeter-grpc-server
+          kind: ServiceImport
+```
 
 ---
 
