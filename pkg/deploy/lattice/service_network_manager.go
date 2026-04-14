@@ -27,6 +27,13 @@ type ServiceNetworkManager interface {
 	DeleteVpcAssociation(ctx context.Context, snName string) error
 
 	CreateOrUpdate(ctx context.Context, serviceNetwork *model.ServiceNetwork) (model.ServiceNetworkStatus, error)
+
+	// Upsert finds or creates a service network by name and ensures ownership.
+	// Does not create a VPC association.
+	Upsert(ctx context.Context, name string, additionalTags services.Tags) (model.ServiceNetworkStatus, error)
+
+	// Delete deletes a service network by name if owned by this controller.
+	Delete(ctx context.Context, snName string) error
 }
 
 func NewDefaultServiceNetworkManager(log gwlog.Logger, cloud pkg_aws.Cloud) *defaultServiceNetworkManager {
@@ -263,6 +270,82 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		return model.ServiceNetworkStatus{}, err
 	}
 	return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
+}
+
+func (m *defaultServiceNetworkManager) Upsert(ctx context.Context, name string, additionalTags services.Tags) (model.ServiceNetworkStatus, error) {
+	allTags := m.cloud.MergeTags(m.cloud.DefaultTags(), additionalTags)
+
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, name)
+	if err != nil && !services.IsNotFoundError(err) {
+		return model.ServiceNetworkStatus{}, err
+	}
+
+	if sn == nil {
+		// SN not found, create it
+		resp, err := m.cloud.Lattice().CreateServiceNetworkWithContext(ctx, &vpclattice.CreateServiceNetworkInput{
+			Name: &name,
+			Tags: allTags,
+		})
+		if err != nil {
+			return model.ServiceNetworkStatus{}, err
+		}
+		m.log.Infof(ctx, "Created ServiceNetwork %s (id: %s)", name, aws.StringValue(resp.Id))
+		return model.ServiceNetworkStatus{
+			ServiceNetworkARN: aws.StringValue(resp.Arn),
+			ServiceNetworkID:  aws.StringValue(resp.Id),
+		}, nil
+	}
+
+	// SN exists, adopt it
+	snArn := aws.StringValue(sn.SvcNetwork.Arn)
+	owned, err := m.cloud.TryOwn(ctx, snArn)
+	if err != nil {
+		return model.ServiceNetworkStatus{}, fmt.Errorf("failed to check ownership of ServiceNetwork %s: %w", name, err)
+	}
+	if !owned {
+		return model.ServiceNetworkStatus{}, fmt.Errorf("ServiceNetwork %s is owned by another controller", name)
+	}
+
+	m.log.Infof(ctx, "Adopted existing ServiceNetwork %s (arn: %s)", name, snArn)
+
+	if err := m.cloud.Tagging().UpdateTags(ctx, snArn, additionalTags, m.cloud.DefaultTags()); err != nil {
+		return model.ServiceNetworkStatus{}, fmt.Errorf("failed to update tags for ServiceNetwork %s: %w", name, err)
+	}
+
+	return model.ServiceNetworkStatus{
+		ServiceNetworkARN: snArn,
+		ServiceNetworkID:  aws.StringValue(sn.SvcNetwork.Id),
+	}, nil
+}
+
+func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string) error {
+	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName)
+	if err != nil {
+		if services.IsNotFoundError(err) {
+			return nil // already gone
+		}
+		return err
+	}
+
+	snArn := aws.StringValue(sn.SvcNetwork.Arn)
+	owned, err := m.cloud.IsArnManaged(ctx, snArn)
+	if err != nil {
+		return fmt.Errorf("failed to check ownership of ServiceNetwork %s: %w", snName, err)
+	}
+	if !owned {
+		m.log.Infof(ctx, "ServiceNetwork %s not owned by controller, skipping deletion", snName)
+		return nil
+	}
+
+	_, err = m.cloud.Lattice().DeleteServiceNetworkWithContext(ctx, &vpclattice.DeleteServiceNetworkInput{
+		ServiceNetworkIdentifier: sn.SvcNetwork.Id,
+	})
+	if err != nil {
+		return err
+	}
+
+	m.log.Infof(ctx, "Deleted ServiceNetwork %s", snName)
+	return nil
 }
 
 func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx context.Context, existingSN *vpclattice.ServiceNetworkSummary, sgIds []*string, existingSnvaId *string, additionalTags services.Tags) (model.ServiceNetworkStatus, error) {

@@ -38,6 +38,7 @@ nav:
     - Service: api-types/service.md
     - ServiceExport: api-types/service-export.md
     - ServiceImport: api-types/service-import.md
+    - ServiceNetwork: api-types/service-network.md
     - TargetGroupPolicy: api-types/target-group-policy.md
     - VpcAssociationPolicy: api-types/vpc-association-policy.md
   - Contributing:

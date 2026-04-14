@@ -89,7 +89,8 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 		&anv1alpha1.TargetGroupPolicy{}, &anv1alpha1.TargetGroupPolicyList{},
 		&anv1alpha1.AccessLogPolicy{}, &anv1alpha1.AccessLogPolicyList{},
 		&anv1alpha1.VpcAssociationPolicy{}, &anv1alpha1.VpcAssociationPolicyList{},
-		&anv1alpha1.IAMAuthPolicy{}, &anv1alpha1.IAMAuthPolicyList{})
+		&anv1alpha1.IAMAuthPolicy{}, &anv1alpha1.IAMAuthPolicyList{},
+		&anv1alpha1.ServiceNetwork{}, &anv1alpha1.ServiceNetworkList{})
 
 	metav1.AddToGroupVersion(scheme, groupVersion)
 }
@@ -282,6 +283,11 @@ func main() {
 	err = controllers.RegisterVpcAssociationPolicyController(ctrlLog.Named("vpc-association-policy"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("vpc association policy controller setup failed: %s", err)
+	}
+
+	err = controllers.RegisterServiceNetworkController(ctrlLog.Named("service-network"), cloud, finalizerManager, mgr)
+	if err != nil {
+		setupLog.Fatalf("service network controller setup failed: %s", err)
 	}
 	//+kubebuilder:scaffold:builder
 

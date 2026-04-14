@@ -70,6 +70,7 @@ var (
 		{&gwv1.Gateway{}, &gwv1.GatewayList{}},
 		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
 		{&corev1.Service{}, &corev1.ServiceList{}},
+		{&anv1alpha1.ServiceNetwork{}, &anv1alpha1.ServiceNetworkList{}},
 	}
 )
 
