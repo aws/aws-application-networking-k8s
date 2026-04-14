@@ -132,7 +132,7 @@ func (r *serviceNetworkReconciler) reconcileUpsert(ctx context.Context, sn *anv1
 
 	status, err := r.snManager.Upsert(ctx, sn.Name, additionalTags)
 	if err != nil {
-		r.updateStatus(ctx, sn, metav1.ConditionFalse, "ReconcileError", err.Error(), "", "")
+		r.updateStatus(ctx, sn, metav1.ConditionFalse, "ReconcileError", err.Error(), sn.Status.ServiceNetworkARN, sn.Status.ServiceNetworkID)
 		return err
 	}
 
