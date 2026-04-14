@@ -1834,12 +1834,16 @@ instead AWS Gateway API Controller uses its own version of the resource for the 
 <h2 id="spec-fields">Spec Fields<a class="headerlink" href="#spec-fields" title="Permanent link">&para;</a></h2>
 <h3 id="exportedports">exportedPorts<a class="headerlink" href="#exportedports" title="Permanent link">&para;</a></h3>
 <p>The <code>exportedPorts</code> field allows you to explicitly define which ports of the service should be exported and what route types they should be used with. This is useful when you have a service with multiple ports serving different protocols.</p>
-<p>Each exported port has the following fields:
-* <code>port</code>: The port number to export
-* <code>routeType</code>: The type of route this port should be used with. Valid values are:
-  * <code>HTTP</code>: For HTTP traffic
-  * <code>GRPC</code>: For gRPC traffic
-  * <code>TLS</code>: For TLS traffic</p>
+<p>Each exported port has the following fields:</p>
+<ul>
+<li><code>port</code>: The port number to export</li>
+<li><code>routeType</code>: The type of route this port should be used with. Valid values are:<ul>
+<li><code>HTTP</code>: For HTTP traffic</li>
+<li><code>GRPC</code>: For gRPC traffic</li>
+<li><code>TLS</code>: For TLS traffic</li>
+</ul>
+</li>
+</ul>
 <p>If <code>exportedPorts</code> is not specified, the controller will use the port from the annotation "application-networking.k8s.aws/port" and create HTTP target groups for backward compatibility.</p>
 <h2 id="example-configurations">Example Configurations<a class="headerlink" href="#example-configurations" title="Permanent link">&para;</a></h2>
 <h3 id="legacy-configuration-using-annotations">Legacy Configuration (Using Annotations)<a class="headerlink" href="#legacy-configuration-using-annotations" title="Permanent link">&para;</a></h3>
