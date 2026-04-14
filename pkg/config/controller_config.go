@@ -30,6 +30,7 @@ const (
 	DEV_MODE                        = "DEV_MODE"
 	WEBHOOK_ENABLED                 = "WEBHOOK_ENABLED"
 	ROUTE_MAX_CONCURRENT_RECONCILES = "ROUTE_MAX_CONCURRENT_RECONCILES"
+	ROUTE_RECONCILE_INTERVAL        = "ROUTE_RECONCILE_INTERVAL"
 )
 
 var VpcID = ""
@@ -43,6 +44,7 @@ var WebhookEnabled = ""
 var DisableTaggingServiceAPI = false
 var ServiceNetworkOverrideMode = false
 var RouteMaxConcurrentReconciles = 1
+var RouteReconcileInterval = 0 // seconds; 0 = disabled (current behavior)
 
 func ConfigInit() error {
 	sess, _ := session.NewSession()
@@ -105,6 +107,15 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 			return fmt.Errorf("invalid value for ROUTE_MAX_CONCURRENT_RECONCILES: %s", err)
 		}
 		RouteMaxConcurrentReconciles = routeMaxConcurrentReconcilesInt
+	}
+
+	routeReconcileInterval := os.Getenv(ROUTE_RECONCILE_INTERVAL)
+	if routeReconcileInterval != "" {
+		routeReconcileIntervalInt, err := strconv.Atoi(routeReconcileInterval)
+		if err != nil {
+			return fmt.Errorf("invalid value for ROUTE_RECONCILE_INTERVAL: %s", err)
+		}
+		RouteReconcileInterval = routeReconcileIntervalInt
 	}
 
 	return nil
