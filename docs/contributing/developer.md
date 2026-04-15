@@ -62,6 +62,7 @@ kubectl apply -f config/crds/bases/application-networking.k8s.aws_targetgrouppol
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
+kubectl apply -f config/crds/bases/application-networking.k8s.aws_servicenetworks.yaml  # optional
 ```
 
 When e2e tests are terminated during execution, it might break clean-up stage and resources will leak. To delete dangling resources manually use cleanup script:
