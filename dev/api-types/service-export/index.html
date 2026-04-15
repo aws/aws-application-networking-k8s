@@ -1398,6 +1398,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Annotations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#annotations-legacy-method" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1491,6 +1502,17 @@
     <span class="md-ellipsis">
       
         Protocol Override Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-service-name-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using service-name Annotation
       
     </span>
   </a>
@@ -1852,6 +1874,12 @@ instead AWS Gateway API Controller uses its own version of the resource for the 
 <h3 id="targetgrouppolicy-integration">TargetGroupPolicy Integration<a class="headerlink" href="#targetgrouppolicy-integration" title="Permanent link">&para;</a></h3>
 <p>ServiceExport resources can be targeted by <a href="../target-group-policy/"><code>TargetGroupPolicy</code></a> to configure protocol, protocol version, and health check settings. When a TargetGroupPolicy is applied to a ServiceExport, the configuration is automatically propagated to all target groups across all clusters that participate in the multi-cluster service mesh, ensuring consistent behavior regardless of which cluster contains the route resource.</p>
 <p><strong>Protocol Override with ExportedPorts</strong>: When using the <code>exportedPorts</code> field, TargetGroupPolicy protocol and protocolVersion settings will override the default protocol inferred from the <code>routeType</code>. For example, you can specify <code>routeType: HTTP</code> in the ServiceExport but use <code>protocol: HTTPS</code> in the TargetGroupPolicy to enable secure communication between VPC Lattice and your backend pods.</p>
+<h3 id="annotations">Annotations<a class="headerlink" href="#annotations" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>application-networking.k8s.aws/service-name</code><br />
+  (Optional) When specified, the controller will look up the named K8s Service instead of using the ServiceExport's own
+  name. See <a href="../service-import/">ServiceImport</a> for the corresponding <code>export-name</code> annotation.</li>
+</ul>
 <h3 id="annotations-legacy-method">Annotations (Legacy Method)<a class="headerlink" href="#annotations-legacy-method" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>application-networking.k8s.aws/port</code><br />
@@ -1969,6 +1997,21 @@ instead AWS Gateway API Controller uses its own version of the resource for the 
 <a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="w">    </span><span class="nt">statusMatch</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200-299&quot;</span>
 </code></pre></div>
 <p>In this example, even though the ServiceExport specifies <code>routeType: HTTP</code>, the TargetGroupPolicy configures the target group to use HTTPS with HTTP/2, enabling secure communication between VPC Lattice and your backend pods.</p>
+<h3 id="using-service-name-annotation">Using service-name Annotation<a class="headerlink" href="#using-service-name-annotation" title="Permanent link">&para;</a></h3>
+<p>The following yaml creates a ServiceExport named <code>checkout-cluster1</code> that exports a Service named <code>checkout</code>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceExport</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">checkout-cluster1</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/federation</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;amazon-vpc-lattice&quot;</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;checkout&quot;</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">exportedPorts</span><span class="p">:</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="nt">routeType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
+</code></pre></div></p>
+<p>For a complete multi-cluster example, see <a href="../../guides/advanced-configurations/#cross-cluster-routing-with-same-service-names">Cross-Cluster Routing with Same Service Names</a>.</p>
 
 
 
