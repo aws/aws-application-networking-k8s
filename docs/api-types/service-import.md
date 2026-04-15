@@ -19,6 +19,10 @@ instead AWS Gateway API Controller uses its own version of the resource for the 
 * BackendRef ports pointing to ServiceImport is not respected. Use [port annotation](service-export.md#annotations) of ServiceExport instead.
 
 ### Annotations
+* `application-networking.k8s.aws/export-name`  
+  (Optional) When specified, the controller will find the target group created by the named ServiceExport instead of
+  matching by the ServiceImport's own name. See [ServiceExport](service-export.md) for the corresponding `service-name` annotation.
+
 * `application-networking.k8s.aws/aws-eks-cluster-name`  
   (Optional) When specified, the controller will only find target groups exported from the cluster.
 * `application-networking.k8s.aws/aws-vpc`  
@@ -87,3 +91,21 @@ spec:
         - name: service-1
           kind: ServiceImport
 ```
+
+The following yaml imports a ServiceExport named `checkout-cluster1` using the `export-name` annotation.
+```yaml
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceImport
+metadata:
+  name: checkout-import-1
+  annotations:
+    application-networking.k8s.aws/export-name: "checkout-cluster1"
+    application-networking.k8s.aws/aws-eks-cluster-name: "cluster1"
+spec:
+  type: ClusterSetIP
+  ports:
+  - port: 80
+    protocol: TCP
+```
+
+For a complete multi-cluster example, see [Cross-Cluster Routing with Same Service Names](../guides/advanced-configurations.md#cross-cluster-routing-with-same-service-names).

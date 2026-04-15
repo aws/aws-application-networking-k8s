@@ -278,13 +278,6 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 		t.log.Debugf(ctx, "Processing %s backendRef %s-%s", string(*backendRef.Kind()), backendRef.Name(), namespace)
 
 		if string(*backendRef.Kind()) == "ServiceImport" {
-			// there needs to be a pre-existing target group, we fetch all the fields
-			// needed to identify it
-			svcImportTg := model.SvcImportTargetGroup{
-				K8SServiceNamespace: namespace,
-				K8SServiceName:      string(backendRef.Name()),
-			}
-
 			// if there's a matching top-level service import, we can get additional fields
 			svcImportName := types.NamespacedName{
 				Namespace: namespace,
@@ -296,6 +289,20 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 					return nil, err
 				}
 			}
+
+			// Use annotation-based export name resolution
+			exportName := k8s.GetExportNameFromServiceImport(svcImport)
+			if exportName == "" {
+				exportName = string(backendRef.Name())
+			}
+
+			// there needs to be a pre-existing target group, we fetch all the fields
+			// needed to identify it
+			svcImportTg := model.SvcImportTargetGroup{
+				K8SServiceNamespace: namespace,
+				K8SServiceName:      exportName,
+			}
+
 			vpc, ok := svcImport.Annotations["application-networking.k8s.aws/aws-vpc"]
 			if ok {
 				svcImportTg.VpcId = vpc

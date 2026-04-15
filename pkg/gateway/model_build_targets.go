@@ -75,13 +75,15 @@ func (b *LatticeTargetsModelBuilder) build(ctx context.Context,
 	if isServiceExport {
 		b.log.Debugf(ctx, "Processing targets for service export %s-%s", serviceExport.Name, serviceExport.Namespace)
 
-		serviceName := types.NamespacedName{
+		// Use annotation-based service lookup
+		serviceName := k8s.GetServiceNameFromServiceExport(serviceExport)
+		serviceKey := types.NamespacedName{
 			Namespace: serviceExport.Namespace,
-			Name:      serviceExport.Name,
+			Name:      serviceName,
 		}
 
 		tmpSvc := &corev1.Service{}
-		if err := b.client.Get(ctx, serviceName, tmpSvc); err != nil {
+		if err := b.client.Get(ctx, serviceKey, tmpSvc); err != nil {
 			return nil, err
 		}
 		service = tmpSvc

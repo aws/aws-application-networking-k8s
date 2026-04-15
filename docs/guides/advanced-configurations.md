@@ -109,6 +109,89 @@ The service ARN will be available in the route annotations for integration with 
 kubectl get httproute standalone-api -o jsonpath='{.metadata.annotations.application-networking\.k8s\.aws/lattice-service-arn}'
 ```
 
+### Cross-Cluster Routing with Same Service Names
+
+When the same Service name exists in multiple clusters, you can use annotations to give each ServiceExport and ServiceImport a unique name while still referencing the correct backing Service.
+
+**Exporting clusters** — Use `service-name` to point to the actual Service:
+
+```yaml
+# In cluster1
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceExport
+metadata:
+  name: checkout-cluster1
+  annotations:
+    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
+    application-networking.k8s.aws/service-name: "checkout"
+spec:
+  exportedPorts:
+  - port: 80
+    routeType: HTTP
+---
+# In cluster2
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceExport
+metadata:
+  name: checkout-cluster2
+  annotations:
+    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
+    application-networking.k8s.aws/service-name: "checkout"
+spec:
+  exportedPorts:
+  - port: 80
+    routeType: HTTP
+```
+
+**Importing cluster** — Use `export-name` to reference each ServiceExport:
+
+```yaml
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceImport
+metadata:
+  name: checkout-import-1
+  annotations:
+    application-networking.k8s.aws/export-name: "checkout-cluster1"
+    application-networking.k8s.aws/aws-eks-cluster-name: "cluster1"
+spec:
+  type: ClusterSetIP
+  ports:
+  - port: 80
+    protocol: TCP
+---
+apiVersion: application-networking.k8s.aws/v1alpha1
+kind: ServiceImport
+metadata:
+  name: checkout-import-2
+  annotations:
+    application-networking.k8s.aws/export-name: "checkout-cluster2"
+    application-networking.k8s.aws/aws-eks-cluster-name: "cluster2"
+spec:
+  type: ClusterSetIP
+  ports:
+  - port: 80
+    protocol: TCP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: checkout-multi-cluster
+spec:
+  parentRefs:
+  - name: my-gateway
+    sectionName: http
+  rules:
+  - backendRefs:
+    - name: checkout-import-1
+      kind: ServiceImport
+      weight: 50
+    - name: checkout-import-2
+      kind: ServiceImport
+      weight: 50
+```
+
+For annotation reference, see [ServiceExport](../api-types/service-export.md) and [ServiceImport](../api-types/service-import.md).
+
 ### IPv6 support
 
 IPv6 address type is automatically used for your services and pods if

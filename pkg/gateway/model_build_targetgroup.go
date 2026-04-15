@@ -162,13 +162,21 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargets(ctx context.Context, s
 func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx context.Context, exportedPort anv1alpha1.ExportedPort) (*model.TargetGroup, error) {
 	svc := &corev1.Service{}
 	noSvcFoundAndDeleting := false
-	if err := t.client.Get(ctx, k8s.NamespacedName(t.serviceExport), svc); err != nil {
+
+	// Use annotation-based service lookup
+	serviceName := k8s.GetServiceNameFromServiceExport(t.serviceExport)
+	serviceKey := types.NamespacedName{
+		Namespace: t.serviceExport.Namespace,
+		Name:      serviceName,
+	}
+
+	if err := t.client.Get(ctx, serviceKey, svc); err != nil {
 		if apierrors.IsNotFound(err) && !t.serviceExport.DeletionTimestamp.IsZero() {
 			// If we're deleting, it's OK if the service isn't there
 			noSvcFoundAndDeleting = true
 		} else { // Either it's some other error or we aren't deleting
 			return nil, fmt.Errorf("failed to find corresponding k8sService %s, error :%w ",
-				k8s.NamespacedName(t.serviceExport), err)
+				serviceKey, err)
 		}
 	}
 
@@ -273,13 +281,21 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetsForPort(ctx context.Con
 func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Context) (*model.TargetGroup, error) {
 	svc := &corev1.Service{}
 	noSvcFoundAndDeleting := false
-	if err := t.client.Get(ctx, k8s.NamespacedName(t.serviceExport), svc); err != nil {
+
+	// Use annotation-based service lookup
+	serviceName := k8s.GetServiceNameFromServiceExport(t.serviceExport)
+	serviceKey := types.NamespacedName{
+		Namespace: t.serviceExport.Namespace,
+		Name:      serviceName,
+	}
+
+	if err := t.client.Get(ctx, serviceKey, svc); err != nil {
 		if apierrors.IsNotFound(err) && !t.serviceExport.DeletionTimestamp.IsZero() {
 			// If we're deleting, it's OK if the service isn't there
 			noSvcFoundAndDeleting = true
 		} else { // Either it's some other error or we aren't deleting
 			return nil, fmt.Errorf("failed to find corresponding k8sService %s, error :%w ",
-				k8s.NamespacedName(t.serviceExport), err)
+				serviceKey, err)
 		}
 	}
 

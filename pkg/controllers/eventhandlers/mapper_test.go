@@ -10,7 +10,10 @@ import (
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
+	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -297,6 +300,156 @@ func TestVpcAssociationPolicyToGateway(t *testing.T) {
 				assert.NotNil(t, gw)
 			} else {
 				assert.Nil(t, gw)
+			}
+		})
+	}
+}
+
+func TestServiceToServiceExport(t *testing.T) {
+	tests := []struct {
+		name         string
+		svc          *corev1.Service
+		svcExports   []anv1alpha1.ServiceExport
+		expectFound  bool
+		expectedName string
+	}{
+		{
+			name: "nil service returns nil",
+			svc:  nil,
+		},
+		{
+			name: "direct name match - ServiceExport name equals Service name",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "checkout",
+					Namespace: "default",
+				},
+			},
+			svcExports: []anv1alpha1.ServiceExport{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "checkout",
+						Namespace: "default",
+					},
+				},
+			},
+			expectFound:  true,
+			expectedName: "checkout",
+		},
+		{
+			name: "annotation reverse lookup - ServiceExport has service-name annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "checkout",
+					Namespace: "default",
+				},
+			},
+			svcExports: []anv1alpha1.ServiceExport{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "checkout-east",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"application-networking.k8s.aws/service-name": "checkout",
+						},
+					},
+				},
+			},
+			expectFound:  true,
+			expectedName: "checkout-east",
+		},
+		{
+			name: "no match - no ServiceExport with matching name or annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "checkout",
+					Namespace: "default",
+				},
+			},
+			svcExports: []anv1alpha1.ServiceExport{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "other-export",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"application-networking.k8s.aws/service-name": "other-service",
+						},
+					},
+				},
+			},
+			expectFound: false,
+		},
+		{
+			name: "direct match takes precedence over annotation match",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "checkout",
+					Namespace: "default",
+				},
+			},
+			svcExports: []anv1alpha1.ServiceExport{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "checkout",
+						Namespace: "default",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "checkout-annotated",
+						Namespace: "default",
+						Annotations: map[string]string{
+							"application-networking.k8s.aws/service-name": "checkout",
+						},
+					},
+				},
+			},
+			expectFound:  true,
+			expectedName: "checkout",
+		},
+		{
+			name: "different namespace - no match",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "checkout",
+					Namespace: "default",
+				},
+			},
+			svcExports: []anv1alpha1.ServiceExport{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "checkout-east",
+						Namespace: "other-ns",
+						Annotations: map[string]string{
+							"application-networking.k8s.aws/service-name": "checkout",
+						},
+					},
+				},
+			},
+			expectFound: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			anv1alpha1.Install(scheme)
+			clientgoscheme.AddToScheme(scheme)
+
+			builder := testclient.NewClientBuilder().WithScheme(scheme)
+			for i := range tt.svcExports {
+				builder = builder.WithObjects(&tt.svcExports[i])
+			}
+			k8sClient := builder.Build()
+
+			mapper := &resourceMapper{log: gwlog.FallbackLogger, client: k8sClient}
+			result := mapper.ServiceToServiceExport(context.Background(), tt.svc)
+
+			if tt.expectFound {
+				assert.NotNil(t, result, "Expected ServiceExport to be found")
+				assert.Equal(t, tt.expectedName, result.Name)
+			} else {
+				assert.Nil(t, result, "Expected no ServiceExport to be found")
 			}
 		})
 	}
