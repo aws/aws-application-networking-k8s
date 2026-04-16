@@ -1443,6 +1443,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#key-behaviors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1779,6 +1790,11 @@
 It provides a Kubernetes native way to create and delete service networks, as an alternative to the <a href="../../guides/environment/#default_service_network"><code>DEFAULT_SERVICE_NETWORK</code></a> environment variable.</p>
 <p>The ServiceNetwork CRD only manages service network creation and deletion. VPC association is managed by
 <a href="../vpc-association-policy/">VpcAssociationPolicy</a> and IAM auth is managed by <a href="../iam-auth-policy/">IAMAuthPolicy</a>.</p>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
+<p>The ServiceNetwork CRD is optional. To use it, install the CRD:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_servicenetworks.yaml
+</code></pre></div>
+<p>If the CRD is not installed, the controller will start normally and skip ServiceNetwork functionality.</p>
 <h3 id="key-behaviors">Key Behaviors<a class="headerlink" href="#key-behaviors" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Cluster scoped</strong>: Matches VPC Lattice's account level resource model. The service network name comes from <code>.metadata.name</code>.</li>
@@ -1800,12 +1816,12 @@ It provides a Kubernetes native way to create and delete service networks, as an
 <li>Optionally create an IAMAuthPolicy for auth.</li>
 </ol>
 <h2 id="example-configuration">Example Configuration<a class="headerlink" href="#example-configuration" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceNetwork</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-network</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/tags</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Environment=Dev,Team=Platform&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceNetwork</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-network</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/tags</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Environment=Dev,Team=Platform&quot;</span>
 </code></pre></div>
 
 

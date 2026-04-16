@@ -1871,6 +1871,7 @@
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_servicenetworks.yaml<span class="w">  </span><span class="c1"># optional</span>
 </code></pre></div>
 <p>When e2e tests are terminated during execution, it might break clean-up stage and resources will leak. To delete dangling resources manually use cleanup script:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>e2e-clean
