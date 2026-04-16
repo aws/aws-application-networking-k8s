@@ -285,9 +285,15 @@ func main() {
 		setupLog.Fatalf("vpc association policy controller setup failed: %s", err)
 	}
 
-	err = controllers.RegisterServiceNetworkController(ctrlLog.Named("service-network"), cloud, finalizerManager, mgr)
-	if err != nil {
-		setupLog.Fatalf("service network controller setup failed: %s", err)
+	if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), "ServiceNetwork"); err != nil {
+		setupLog.Fatalf("error checking ServiceNetwork CRD: %s", err)
+	} else if ok {
+		err = controllers.RegisterServiceNetworkController(ctrlLog.Named("service-network"), cloud, finalizerManager, mgr)
+		if err != nil {
+			setupLog.Fatalf("service network controller setup failed: %s", err)
+		}
+	} else {
+		setupLog.Infof("ServiceNetwork CRD not installed, skipping controller registration")
 	}
 	//+kubebuilder:scaffold:builder
 

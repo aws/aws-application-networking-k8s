@@ -8,6 +8,16 @@ It provides a Kubernetes native way to create and delete service networks, as an
 The ServiceNetwork CRD only manages service network creation and deletion. VPC association is managed by
 [VpcAssociationPolicy](vpc-association-policy.md) and IAM auth is managed by [IAMAuthPolicy](iam-auth-policy.md).
 
+### Prerequisites
+
+The ServiceNetwork CRD is optional. To use it, install the CRD:
+
+```bash
+kubectl apply -f config/crds/bases/application-networking.k8s.aws_servicenetworks.yaml
+```
+
+If the CRD is not installed, the controller will start normally and skip ServiceNetwork functionality.
+
 ### Key Behaviors
 
 - **Cluster scoped**: Matches VPC Lattice's account level resource model. The service network name comes from `.metadata.name`.
