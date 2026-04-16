@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"strings"
 
@@ -29,8 +30,8 @@ const (
 	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
 	DEV_MODE                        = "DEV_MODE"
 	WEBHOOK_ENABLED                 = "WEBHOOK_ENABLED"
-	ROUTE_MAX_CONCURRENT_RECONCILES = "ROUTE_MAX_CONCURRENT_RECONCILES"
-	ROUTE_RECONCILE_INTERVAL        = "ROUTE_RECONCILE_INTERVAL"
+	ROUTE_MAX_CONCURRENT_RECONCILES    = "ROUTE_MAX_CONCURRENT_RECONCILES"
+	RECONCILE_DEFAULT_RESYNC_SECONDS   = "RECONCILE_DEFAULT_RESYNC_SECONDS"
 )
 
 var VpcID = ""
@@ -44,7 +45,7 @@ var WebhookEnabled = ""
 var DisableTaggingServiceAPI = false
 var ServiceNetworkOverrideMode = false
 var RouteMaxConcurrentReconciles = 1
-var RouteReconcileInterval = 0 // seconds; 0 = disabled (current behavior)
+var ReconcileDefaultResyncSeconds time.Duration // 0 = disabled (current behavior)
 
 func ConfigInit() error {
 	sess, _ := session.NewSession()
@@ -109,13 +110,19 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		RouteMaxConcurrentReconciles = routeMaxConcurrentReconcilesInt
 	}
 
-	routeReconcileInterval := os.Getenv(ROUTE_RECONCILE_INTERVAL)
-	if routeReconcileInterval != "" {
-		routeReconcileIntervalInt, err := strconv.Atoi(routeReconcileInterval)
+	reconcileDefaultResyncSeconds := os.Getenv(RECONCILE_DEFAULT_RESYNC_SECONDS)
+	if reconcileDefaultResyncSeconds != "" {
+		reconcileDefaultResyncSecondsInt, err := strconv.Atoi(reconcileDefaultResyncSeconds)
 		if err != nil {
-			return fmt.Errorf("invalid value for ROUTE_RECONCILE_INTERVAL: %s", err)
+			return fmt.Errorf("invalid value for RECONCILE_DEFAULT_RESYNC_SECONDS: %s", err)
 		}
-		RouteReconcileInterval = routeReconcileIntervalInt
+		// Minimum 60 seconds to avoid excessive Lattice API calls.
+		// Each reconciliation makes multiple API calls (FindService, ListListeners,
+		// ListRules, ListTargetGroups, etc.), so lower values risk throttling.
+		if reconcileDefaultResyncSecondsInt < 60 {
+			return fmt.Errorf("RECONCILE_DEFAULT_RESYNC_SECONDS must be at least 60 seconds, got %d", reconcileDefaultResyncSecondsInt)
+		}
+		ReconcileDefaultResyncSeconds = time.Duration(reconcileDefaultResyncSecondsInt) * time.Second
 	}
 
 	return nil

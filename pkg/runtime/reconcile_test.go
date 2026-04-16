@@ -43,10 +43,10 @@ func Test_GenericError(t *testing.T) {
 }
 
 func Test_NilError_WithReconcileInterval(t *testing.T) {
-	originalInterval := config.RouteReconcileInterval
-	defer func() { config.RouteReconcileInterval = originalInterval }()
+	originalInterval := config.ReconcileDefaultResyncSeconds
+	defer func() { config.ReconcileDefaultResyncSeconds = originalInterval }()
 
-	config.RouteReconcileInterval = 300 // 5 minutes in seconds
+	config.ReconcileDefaultResyncSeconds = 5 * time.Minute
 
 	result, err := HandleReconcileError(nil)
 	assert.Equal(t, ctrl.Result{RequeueAfter: 5 * time.Minute}, result)
@@ -54,10 +54,10 @@ func Test_NilError_WithReconcileInterval(t *testing.T) {
 }
 
 func Test_NilError_WithZeroReconcileInterval(t *testing.T) {
-	originalInterval := config.RouteReconcileInterval
-	defer func() { config.RouteReconcileInterval = originalInterval }()
+	originalInterval := config.ReconcileDefaultResyncSeconds
+	defer func() { config.ReconcileDefaultResyncSeconds = originalInterval }()
 
-	config.RouteReconcileInterval = 0
+	config.ReconcileDefaultResyncSeconds = 0
 
 	result, err := HandleReconcileError(nil)
 	assert.Equal(t, ctrl.Result{}, result)

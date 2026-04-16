@@ -54,6 +54,8 @@ spec:
         env:
           - name: WEBHOOK_ENABLED
             value: ""
+          - name: RECONCILE_DEFAULT_RESYNC_SECONDS
+            value: ""
         # TODO(user): Configure the resources accordingly based on the project requirements.
         # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
