@@ -11,7 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func TestHasAllParentRefsRejected(t *testing.T) {
@@ -229,7 +228,7 @@ func TestIsRouteKindAllowedByListener(t *testing.T) {
 			case "GRPCRoute":
 				route = NewGRPCRoute(gwv1.GRPCRoute{})
 			case "TLSRoute":
-				route = NewTLSRoute(gwv1alpha2.TLSRoute{})
+				route = NewTLSRoute(gwv1.TLSRoute{})
 			}
 
 			listener := gwv1.Listener{
@@ -394,7 +393,7 @@ func TestIsRouteAllowedByListener(t *testing.T) {
 					},
 				})
 			case "TLSRoute":
-				route = NewTLSRoute(gwv1alpha2.TLSRoute{
+				route = NewTLSRoute(gwv1.TLSRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-route",
 						Namespace: test.routeNamespace,

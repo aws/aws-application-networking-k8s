@@ -2,15 +2,14 @@
 
 [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/guides/tls/) lays out the general guidelines on how to configure TLS passthrough. Here are examples on how to use them against AWS Gateway Api controller and VPC Lattice.
 
-## Install Gateway API TLSRoute CRD
+## Install Gateway API CRDs
 
-The TLSRoute CRD is already included in the deployment.yaml, if you are using this method to install the controller no extra steps needed.
-If you want to install the TLSRoute CRD manually by yourself:
+TLSRoute is included in the standard Gateway API CRD bundle starting from v1.5.0. Install the Gateway API CRDs by following the [official installation guide](https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api):
 ```
-# Install CRD
-kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
-# Verfiy TLSRoute CRD 
-kubectl get crd tlsroutes.gateway.networking.k8s.io 
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml
+
+# Verify TLSRoute CRD
+kubectl get crd tlsroutes.gateway.networking.k8s.io
 NAME                                  CREATED AT
 tlsroutes.gateway.networking.k8s.io   2024-03-07T23:16:22Z
 ```
@@ -60,7 +59,7 @@ kubectl apply -f files/examples/tlsroute-nginx.yaml
 Make sure the TLSRoute has the `application-networking.k8s.aws/lattice-assigned-domain-name` annotation and status `Accepted: True`
 ```
 kubectl get tlsroute nginx-tls -o yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   annotations:
@@ -183,7 +182,7 @@ kubectl apply -f files/examples/tls-rate2-import.yaml
 kubectl apply -f files/examples/rate-tlsroute-bluegreen.yaml
 
 # snips of TLSRoute span multiple Kubernetes Clusters
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tls-rate

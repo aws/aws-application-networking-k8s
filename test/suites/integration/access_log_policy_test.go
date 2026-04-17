@@ -275,10 +275,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 
 			// Service Network should have Access Log Subscription with S3 Bucket destination
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
@@ -498,10 +498,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			Expect(err).To(BeNil())
 			Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
-			Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 		}
 	})
 
@@ -550,10 +550,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonConflicted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonConflicted)))
 		}).Should(Succeed())
 	})
 
@@ -585,10 +585,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonInvalid)))
 		}).Should(Succeed())
 	})
 
@@ -620,10 +620,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonInvalid)))
 		}).Should(Succeed())
 	})
 
@@ -655,10 +655,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonInvalid)))
 		}).Should(Succeed())
 	})
 
@@ -729,10 +729,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 
 			// Service Network should have 1 Access Log Subscription with updated CloudWatch Log Group destination
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
@@ -774,10 +774,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 
 			// Service Network should only have 1 Access Log Subscription, with S3 Bucket destination
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
@@ -825,10 +825,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 
 			// Service Network should have 0 Access Log Subscriptions
 			listALSForSNInput := &vpclattice.ListAccessLogSubscriptionsInput{
@@ -879,10 +879,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonInvalid)))
 
 			// VPC Lattice Service should still have previous Access Log Subscription
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
@@ -919,10 +919,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonTargetNotFound)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonTargetNotFound)))
 
 			// VPC Lattice Service should still have previous Access Log Subscription
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
@@ -954,10 +954,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonInvalid)))
 
 			// VPC Lattice Service should still have previous Access Log Subscription
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
@@ -1002,10 +1002,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 		}).Should(Succeed())
 
 		// Attempt to update first Access Log Policy to use the original destination
@@ -1030,10 +1030,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonConflicted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonConflicted)))
 
 			// VPC Lattice Service should now have the old and new Access Log Subscriptions
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
@@ -1235,10 +1235,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonTargetNotFound)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonTargetNotFound)))
 		}).Should(Succeed())
 
 		// Recreate HTTPRoute
@@ -1253,10 +1253,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 			originalALSArn = alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
 		}).Should(Succeed())
 
@@ -1277,10 +1277,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonTargetNotFound)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonTargetNotFound)))
 		}).Should(Succeed())
 
 		// Recreate HTTPRoute
@@ -1295,10 +1295,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
 			g.Expect(alp.Status.Conditions[0].ObservedGeneration).To(BeEquivalentTo(expectedGeneration))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 
 			// Changing destination type should have resulted in ALS replacement
 			newALSArn = alp.Annotations[anv1alpha1.AccessLogSubscriptionAnnotationKey]
@@ -1418,9 +1418,9 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			err := testFramework.Client.Get(ctx, alpNamespacedName, alp)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 
 			customLatticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRouteWithValidServiceNameOverride))
 			g.Expect(*customLatticeService.Name).To(Equal("my-awesome-service"))
@@ -1468,9 +1468,9 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			g.Expect(err).To(BeNil())
 
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionFalse))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonInvalid)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonInvalid)))
 		}).Should(Succeed())
 
 		err := testFramework.Get(ctx, client.ObjectKeyFromObject(accessLogPolicy), accessLogPolicy)
@@ -1488,9 +1488,9 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			g.Expect(err).To(BeNil())
 
 			g.Expect(len(alp.Status.Conditions)).To(BeEquivalentTo(1))
-			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1alpha2.PolicyConditionAccepted)))
+			g.Expect(alp.Status.Conditions[0].Type).To(BeEquivalentTo(string(gwv1.PolicyConditionAccepted)))
 			g.Expect(alp.Status.Conditions[0].Status).To(BeEquivalentTo(metav1.ConditionTrue))
-			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1alpha2.PolicyReasonAccepted)))
+			g.Expect(alp.Status.Conditions[0].Reason).To(BeEquivalentTo(string(gwv1.PolicyReasonAccepted)))
 
 			validLatticeService := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRouteWithValidServiceNameOverride))
 			g.Expect(*validLatticeService.Name).To(Equal("my-awesome-service"))

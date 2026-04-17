@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/external-dns/endpoint"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	discoveryv1 "k8s.io/api/discovery/v1"
 
@@ -97,7 +96,7 @@ func RegisterAllRouteControllers(
 	}{
 		{core.HttpRouteType, &gwv1.HTTPRoute{}},
 		{core.GrpcRouteType, &gwv1.GRPCRoute{}},
-		{core.TlsRouteType, &gwv1alpha2.TLSRoute{}},
+		{core.TlsRouteType, &gwv1.TLSRoute{}},
 	}
 
 	certDiscovery := services.NewCertificateDiscovery(cloud.ACM())

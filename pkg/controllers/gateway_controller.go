@@ -486,6 +486,19 @@ func listenerRouteGroupKindSupported(listener gwv1.Listener) (bool, []gwv1.Route
 	validRoute := true
 	supportedKinds := make([]gwv1.RouteGroupKind, 0)
 
+	if listener.AllowedRoutes == nil || len(listener.AllowedRoutes.Kinds) == 0 {
+		switch listener.Protocol {
+		case gwv1.HTTPProtocolType:
+			supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "HTTPRoute"})
+		case gwv1.HTTPSProtocolType:
+			supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "HTTPRoute"})
+			supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "GRPCRoute"})
+		case gwv1.TLSProtocolType:
+			supportedKinds = append(supportedKinds, gwv1.RouteGroupKind{Kind: "TLSRoute"})
+		}
+		return validRoute, supportedKinds
+	}
+
 	for _, routeGroupKind := range listener.AllowedRoutes.Kinds {
 		switch routeGroupKind.Kind {
 		case "HTTPRoute":

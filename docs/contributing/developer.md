@@ -43,10 +43,10 @@ Before proceeding to the next sections, you need to:
 
 Once cluster is ready, we need to apply CRDs for `gateway-api` resources. First install core `gateway-api` CRDs:
 
-=== "v1.2 CRDs"
+=== "v1.5 CRDs"
     Install the latest `v1` CRDs:
     ```bash
-    kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.0" | kubectl apply -f -
+    kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.5.0" | kubectl apply -f -
     ```
     !!! Note
         Note that v1 CRDs are **not included** in `deploy-*.yaml` and `helm` chart. 
@@ -55,7 +55,6 @@ And install additional CRDs for the controller:
 
 ```bash
 kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
-kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceimports.yaml
 kubectl apply -f config/crds/bases/application-networking.k8s.aws_targetgrouppolicies.yaml

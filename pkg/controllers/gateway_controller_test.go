@@ -455,6 +455,30 @@ func TestListenerRouteGroupKindSupported_TLSRoute(t *testing.T) {
 			expectValid: false,
 			expectKinds: []gwv1.RouteGroupKind{},
 		},
+		{
+			name: "nil AllowedRoutes on HTTP listener defaults to HTTPRoute",
+			listener: gwv1.Listener{
+				Protocol: gwv1.HTTPProtocolType,
+			},
+			expectValid: true,
+			expectKinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+		},
+		{
+			name: "nil AllowedRoutes on HTTPS listener defaults to HTTPRoute and GRPCRoute",
+			listener: gwv1.Listener{
+				Protocol: gwv1.HTTPSProtocolType,
+			},
+			expectValid: true,
+			expectKinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}, {Kind: "GRPCRoute"}},
+		},
+		{
+			name: "nil AllowedRoutes on TLS listener defaults to TLSRoute",
+			listener: gwv1.Listener{
+				Protocol: gwv1.TLSProtocolType,
+			},
+			expectValid: true,
+			expectKinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}},
+		},
 	}
 
 	for _, tt := range tests {
@@ -480,7 +504,7 @@ func TestUpdateGWListenerStatus_AttachedRoutes(t *testing.T) {
 		name                   string
 		listeners              []gwv1.Listener
 		httpRoutes             []*gwv1.HTTPRoute
-		tlsRoutes              []*gwv1alpha2.TLSRoute
+		tlsRoutes              []*gwv1.TLSRoute
 		expectedAttachedRoutes map[gwv1.SectionName]int32
 	}{
 		{
@@ -576,10 +600,10 @@ func TestUpdateGWListenerStatus_AttachedRoutes(t *testing.T) {
 					AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "TLSRoute"}}},
 				},
 			},
-			tlsRoutes: []*gwv1alpha2.TLSRoute{
+			tlsRoutes: []*gwv1.TLSRoute{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "tls-route1", Namespace: "default"},
-					Spec: gwv1alpha2.TLSRouteSpec{
+					Spec: gwv1.TLSRouteSpec{
 						CommonRouteSpec: gwv1.CommonRouteSpec{
 							ParentRefs: []gwv1.ParentReference{{Name: gwName}},
 						},

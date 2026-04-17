@@ -103,16 +103,14 @@ jobs:
              --set=image.tag="${RELEASE_VERSION}" \
              --set=log.level=debug
 
-      - name: Install Gateway API v1.2 CRDs
+      - name: Install Gateway API v1.5 CRDs
         run: |
           set -euo pipefail
-          kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.1" | kubectl apply -f -
+          kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.5.0" | kubectl apply -f -
       - name: Install latest custom CRDs
         run: |
           set -euo pipefail
           kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
-          # TLSRoute is experimental in Gateway API and not part of the standard CRD bundle.
-          kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceimports.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_targetgrouppolicies.yaml

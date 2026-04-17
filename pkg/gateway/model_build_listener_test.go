@@ -152,7 +152,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 					Port:     443,
 					Protocol: "HTTPS",
 					Name:     sectionName,
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						Mode: &tlsModeTerminate,
 					},
 				}),
@@ -222,17 +222,17 @@ func Test_ListenerModelBuild(t *testing.T) {
 					Port:     443,
 					Protocol: "TLS",
 					Name:     sectionName,
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						Mode: &tlsModePassthrough,
 					},
 				}),
 			route: func() core.Route {
-				route := core.NewTLSRoute(gwv1alpha2.TLSRoute{
+				route := core.NewTLSRoute(gwv1.TLSRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service1",
 						Namespace: "default",
 					},
-					Spec: gwv1alpha2.TLSRouteSpec{
+					Spec: gwv1.TLSRouteSpec{
 						CommonRouteSpec: gwv1.CommonRouteSpec{
 							ParentRefs: []gwv1.ParentReference{
 								{
@@ -241,7 +241,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 								},
 							},
 						},
-						Rules: []gwv1alpha2.TLSRouteRule{
+						Rules: []gwv1.TLSRouteRule{
 							{
 								BackendRefs: []gwv1.BackendRef{
 									{
@@ -329,17 +329,17 @@ func Test_ListenerModelBuild(t *testing.T) {
 					Port:     443,
 					Protocol: "TLS",
 					Name:     sectionName,
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						Mode: &tlsModePassthrough,
 					},
 				}),
 			route: func() core.Route {
-				route := core.NewTLSRoute(gwv1alpha2.TLSRoute{
+				route := core.NewTLSRoute(gwv1.TLSRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service1",
 						Namespace: "default",
 					},
-					Spec: gwv1alpha2.TLSRouteSpec{
+					Spec: gwv1.TLSRouteSpec{
 						CommonRouteSpec: gwv1.CommonRouteSpec{
 							ParentRefs: []gwv1.ParentReference{
 								{
@@ -348,7 +348,7 @@ func Test_ListenerModelBuild(t *testing.T) {
 								},
 							},
 						},
-						Rules: []gwv1alpha2.TLSRouteRule{
+						Rules: []gwv1.TLSRouteRule{
 							{
 								BackendRefs: []gwv1.BackendRef{
 									{

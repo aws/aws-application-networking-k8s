@@ -3,12 +3,12 @@ package integration
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
@@ -28,7 +28,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 		labeledDeployment *appsv1.Deployment
 		labeledService    *corev1.Service
 		httpRoute         *gwv1.HTTPRoute
-		tlsRoute          *gwv1alpha2.TLSRoute
+		tlsRoute          *gwv1.TLSRoute
 
 		originalGatewaySpec gwv1.GatewaySpec
 	)
@@ -495,6 +495,9 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 					Name:     "tls",
 					Protocol: gwv1.TLSProtocolType,
 					Port:     444,
+					TLS: &gwv1.ListenerTLSConfig{
+						Mode: lo.ToPtr(gwv1.TLSModePassthrough),
+					},
 				},
 			})
 		})
@@ -660,12 +663,12 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 		})
 
 		It("TLSRoute should be rejected by HTTP and HTTPS listeners due to protocol incompatibility", func() {
-			tlsRoute = &gwv1alpha2.TLSRoute{
+			tlsRoute = &gwv1.TLSRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "k4-tlsroute",
 					Namespace: testGateway.Namespace,
 				},
-				Spec: gwv1alpha2.TLSRouteSpec{
+				Spec: gwv1.TLSRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
@@ -674,10 +677,10 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 							},
 						},
 					},
-					Hostnames: []gwv1alpha2.Hostname{"test.example.com"},
-					Rules: []gwv1alpha2.TLSRouteRule{
+					Hostnames: []gwv1.Hostname{"test.example.com"},
+					Rules: []gwv1.TLSRouteRule{
 						{
-							BackendRefs: []gwv1alpha2.BackendRef{
+							BackendRefs: []gwv1.BackendRef{
 								{
 									BackendObjectReference: gwv1.BackendObjectReference{
 										Name:      gwv1.ObjectName(service.Name),
@@ -694,7 +697,7 @@ var _ = Describe("AllowedRoutes Test", Ordered, func() {
 			testFramework.ExpectCreated(ctx, tlsRoute)
 
 			Eventually(func(g Gomega) {
-				updatedRoute := &gwv1alpha2.TLSRoute{}
+				updatedRoute := &gwv1.TLSRoute{}
 				g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(tlsRoute), updatedRoute)).To(Succeed())
 				g.Expect(updatedRoute.Status.Parents).To(HaveLen(1)) // Single parentRef
 

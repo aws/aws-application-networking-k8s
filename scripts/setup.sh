@@ -2,7 +2,7 @@
 
 declare -a DEPENDENCY_LIST=("go" "awscli" "kubernetes-cli" "eksctl" "helm" "jq" "yq" "make")
 CURRENT_CONTROLLER_VERSION="2.0.2"
-CURRENT_CRD_VERSION="1.2.0"
+CURRENT_CRD_VERSION="1.5.0"
 GOLANGCI_LINT_VERSION="2.11.3"
 EKS_POD_IDENTITY_AGENT_VERSION="1.0.0-eksbuild.1"
 

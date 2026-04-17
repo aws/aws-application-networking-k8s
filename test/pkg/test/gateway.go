@@ -38,7 +38,7 @@ func (env *Framework) NewGateway(name string, namespace string) *gwv1.Gateway {
 								From: lo.ToPtr(gwv1.NamespacesFromAll),
 							},
 						},
-						TLS: &gwv1.GatewayTLSConfig{
+						TLS: &gwv1.ListenerTLSConfig{
 							Mode: lo.ToPtr(gwv1.TLSModeTerminate),
 							CertificateRefs: []gwv1.SecretObjectReference{
 								{
@@ -56,7 +56,7 @@ func (env *Framework) NewGateway(name string, namespace string) *gwv1.Gateway {
 								From: lo.ToPtr(gwv1.NamespacesFromAll),
 							},
 						},
-						TLS: &gwv1.GatewayTLSConfig{
+						TLS: &gwv1.ListenerTLSConfig{
 							Mode: lo.ToPtr(gwv1.TLSModePassthrough),
 						},
 					},

@@ -317,7 +317,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 								Name:     "tls",
 								Port:     443,
 								Protocol: "HTTPS",
-								TLS: &gwv1.GatewayTLSConfig{
+								TLS: &gwv1.ListenerTLSConfig{
 									Mode:            &tlsModeTerminate,
 									CertificateRefs: nil,
 									Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
@@ -430,7 +430,7 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 								Name:     "tls",
 								Port:     443,
 								Protocol: "HTTPS",
-								TLS: &gwv1.GatewayTLSConfig{
+								TLS: &gwv1.ListenerTLSConfig{
 									Mode:            &tlsModeTerminate,
 									CertificateRefs: nil,
 								},
@@ -567,12 +567,12 @@ func Test_LatticeServiceModelBuild(t *testing.T) {
 				vpcLatticeGateway,
 			},
 			route: func() core.Route {
-				route := core.NewTLSRoute(gwv1alpha2.TLSRoute{
+				route := core.NewTLSRoute(gwv1.TLSRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "service1",
 						Namespace: "default",
 					},
-					Spec: gwv1alpha2.TLSRouteSpec{
+					Spec: gwv1.TLSRouteSpec{
 						CommonRouteSpec: gwv1.CommonRouteSpec{
 							ParentRefs: []gwv1.ParentReference{
 								{
@@ -2118,7 +2118,7 @@ func Test_getACMCertArn(t *testing.T) {
 					Name:     "tls",
 					Port:     443,
 					Protocol: "HTTPS",
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						Mode: &tlsModeTerminate,
 					},
 				},
@@ -2135,7 +2135,7 @@ func Test_getACMCertArn(t *testing.T) {
 					Name:     "tls",
 					Port:     443,
 					Protocol: "HTTPS",
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						Mode: &tlsModeTerminate,
 						Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
 							"application-networking.k8s.aws/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/manual-cert",

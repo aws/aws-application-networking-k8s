@@ -35,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"slices"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -100,7 +99,7 @@ func RegisterAccessLogPolicyController(
 		Watches(&gwv1.Gateway{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&gwv1.HTTPRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&gwv1.GRPCRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Watches(&gwv1alpha2.TLSRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+		Watches(&gwv1.TLSRoute{}, handler.EnqueueRequestsFromMapFunc(r.findImpactedAccessLogPolicies), pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 
 	return builder.Complete(r)
 }
@@ -180,7 +179,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		message := fmt.Sprintf("The targetRef's Group must be \"%s\" but was \"%s\"",
 			gwv1.GroupName, alp.Spec.TargetRef.Group)
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1.PolicyReasonInvalid, message)
 	}
 
 	validKinds := []string{"Gateway", "HTTPRoute", "GRPCRoute"}
@@ -188,7 +187,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		message := fmt.Sprintf("The targetRef's Kind must be \"Gateway\", \"HTTPRoute\", or \"GRPCRoute\""+
 			" but was \"%s\"", alp.Spec.TargetRef.Kind)
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1.PolicyReasonInvalid, message)
 	}
 
 	targetRefNamespace := k8s.NamespaceOrDefault(alp.Spec.TargetRef.Namespace)
@@ -196,7 +195,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		message := fmt.Sprintf("The targetRef's namespace, \"%s\", does not match the Access Log Policy's"+
 			" namespace, \"%s\"", targetRefNamespace, alp.Namespace)
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1.PolicyReasonInvalid, message)
 	}
 
 	targetRefExists, targetRef, err := r.targetRefExists(ctx, alp)
@@ -206,13 +205,13 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 	if !targetRefExists {
 		message := fmt.Sprintf("%s target \"%s/%s\" could not be found", alp.Spec.TargetRef.Kind, targetRefNamespace, alp.Spec.TargetRef.Name)
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonTargetNotFound, message)
+		return r.updateAccessLogPolicyStatus(ctx, alp, gwv1.PolicyReasonTargetNotFound, message)
 	}
 
 	targetRefName, err := r.targetRefToResourceName(alp, targetRef)
 	if err != nil {
 		if k8s.IsInvalidServiceNameOverrideError(err) {
-			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, err.Error())
+			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1.PolicyReasonInvalid, err.Error())
 		}
 		return err
 	}
@@ -222,11 +221,11 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		if services.IsConflictError(err) {
 			message := "An Access Log Policy with a Destination Arn for the same destination type already exists for this targetRef"
 			r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonConflicted, message)
+			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1.PolicyReasonConflicted, message)
 		} else if services.IsInvalidError(err) {
 			message := fmt.Sprintf("The AWS resource with Destination Arn \"%s\" could not be found", *alp.Spec.DestinationArn)
 			r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent, message)
-			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonInvalid, message)
+			return r.updateAccessLogPolicyStatus(ctx, alp, gwv1.PolicyReasonInvalid, message)
 		}
 		r.eventRecorder.Event(alp, corev1.EventTypeWarning, k8s.FailedReconcileEvent,
 			"Failed to create or update due to "+err.Error())
@@ -238,7 +237,7 @@ func (r *accessLogPolicyReconciler) reconcileUpsert(ctx context.Context, alp *an
 		return err
 	}
 
-	err = r.updateAccessLogPolicyStatus(ctx, alp, gwv1alpha2.PolicyReasonAccepted, config.LatticeGatewayControllerName)
+	err = r.updateAccessLogPolicyStatus(ctx, alp, gwv1.PolicyReasonAccepted, config.LatticeGatewayControllerName)
 	if err != nil {
 		return err
 	}
@@ -341,16 +340,16 @@ func (r *accessLogPolicyReconciler) updateAccessLogPolicyAnnotations(
 func (r *accessLogPolicyReconciler) updateAccessLogPolicyStatus(
 	ctx context.Context,
 	alp *anv1alpha1.AccessLogPolicy,
-	reason gwv1alpha2.PolicyConditionReason,
+	reason gwv1.PolicyConditionReason,
 	message string,
 ) error {
 	status := metav1.ConditionTrue
-	if reason != gwv1alpha2.PolicyReasonAccepted {
+	if reason != gwv1.PolicyReasonAccepted {
 		status = metav1.ConditionFalse
 	}
 
 	alp.Status.Conditions = utils.GetNewConditions(alp.Status.Conditions, metav1.Condition{
-		Type:               string(gwv1alpha2.PolicyConditionAccepted),
+		Type:               string(gwv1.PolicyConditionAccepted),
 		ObservedGeneration: alp.Generation,
 		Message:            message,
 		Status:             status,
