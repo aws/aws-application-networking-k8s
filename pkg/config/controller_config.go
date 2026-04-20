@@ -116,11 +116,12 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 		if err != nil {
 			return fmt.Errorf("invalid value for RECONCILE_DEFAULT_RESYNC_SECONDS: %s", err)
 		}
-		// Minimum 60 seconds to avoid excessive Lattice API calls.
+		// 0 explicitly disables periodic reconciliation.
+		// Otherwise, minimum 60 seconds to avoid excessive Lattice API calls.
 		// Each reconciliation makes multiple API calls (FindService, ListListeners,
 		// ListRules, ListTargetGroups, etc.), so lower values risk throttling.
-		if reconcileDefaultResyncSecondsInt < 60 {
-			return fmt.Errorf("RECONCILE_DEFAULT_RESYNC_SECONDS must be at least 60 seconds, got %d", reconcileDefaultResyncSecondsInt)
+		if reconcileDefaultResyncSecondsInt != 0 && reconcileDefaultResyncSecondsInt < 60 {
+			return fmt.Errorf("RECONCILE_DEFAULT_RESYNC_SECONDS must be 0 (disabled) or at least 60 seconds, got %d", reconcileDefaultResyncSecondsInt)
 		}
 		ReconcileDefaultResyncSeconds = time.Duration(reconcileDefaultResyncSecondsInt) * time.Second
 	}
