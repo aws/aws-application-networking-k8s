@@ -97,6 +97,8 @@ spec:
             value: {{ .Values.disableTaggingServiceApi | quote }}
           - name: ROUTE_MAX_CONCURRENT_RECONCILES
             value: {{ .Values.routeMaxConcurrentReconciles | quote }}
+          - name: RECONCILE_DEFAULT_RESYNC_SECONDS
+            value: {{ .Values.reconcileDefaultResyncSeconds | quote }}
 
       terminationGracePeriodSeconds: 10
       volumes:

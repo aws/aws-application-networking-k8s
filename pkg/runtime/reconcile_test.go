@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/stretchr/testify/assert"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -39,4 +40,26 @@ func Test_GenericError(t *testing.T) {
 	assert.Equal(t, ctrl.Result{}, result)
 	assert.Error(t, err)
 	assert.Equal(t, "generic error", err.Error())
+}
+
+func Test_NilError_WithReconcileInterval(t *testing.T) {
+	originalInterval := config.ReconcileDefaultResyncSeconds
+	defer func() { config.ReconcileDefaultResyncSeconds = originalInterval }()
+
+	config.ReconcileDefaultResyncSeconds = 5 * time.Minute
+
+	result, err := HandleReconcileError(nil)
+	assert.Equal(t, ctrl.Result{RequeueAfter: 5 * time.Minute}, result)
+	assert.NoError(t, err)
+}
+
+func Test_NilError_WithZeroReconcileInterval(t *testing.T) {
+	originalInterval := config.ReconcileDefaultResyncSeconds
+	defer func() { config.ReconcileDefaultResyncSeconds = originalInterval }()
+
+	config.ReconcileDefaultResyncSeconds = 0
+
+	result, err := HandleReconcileError(nil)
+	assert.Equal(t, ctrl.Result{}, result)
+	assert.NoError(t, err)
 }
