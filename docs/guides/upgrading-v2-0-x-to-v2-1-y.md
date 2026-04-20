@@ -44,3 +44,21 @@ Gateway API v1.5.0 installs a ValidatingAdmissionPolicy (`safe-upgrades.gateway.
 ```
 kubectl delete validatingadmissionpolicy safe-upgrades.gateway.networking.k8s.io
 ```
+
+### Optional: Clean up storedVersions
+
+After the controller has reconciled all TLSRoutes, you can remove `v1alpha2` from the CRD's `storedVersions`. This is not required for v1.5 but prevents potential issues if a future Gateway API release removes `v1alpha2` from the CRD spec entirely. Ensure all TLSRoutes have been reconciled by the new controller before running this step.
+
+Check current stored versions:
+
+```
+kubectl get crd tlsroutes.gateway.networking.k8s.io -o jsonpath='{.status.storedVersions}'
+```
+
+If the result includes `v1alpha2`, patch it to only include `v1`:
+
+```
+kubectl patch crd tlsroutes.gateway.networking.k8s.io \
+  --subresource='status' --type='merge' \
+  -p '{"status":{"storedVersions":["v1"]}}'
+```
