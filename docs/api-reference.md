@@ -100,7 +100,9 @@ Supported values are S3 Bucket, CloudWatch Log Group, and Firehose Delivery Stre
 <td>
 <code>targetRef</code><br/>
 <em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
 sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
+</a>
 </em>
 </td>
 <td>
@@ -197,7 +199,9 @@ string
 <td>
 <code>targetRef</code><br/>
 <em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
 sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
+</a>
 </em>
 </td>
 <td>
@@ -627,7 +631,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>The protocol version to use. Supported values are HTTP1 (default) and HTTP2.
-When a policy Protocol is TCP, you should not set this field. Otherwise, the whole TargetGroupPolicy will not take effect.
+When a policy Protocol is TCP, this field is ignored.
 When a policy is behind GRPCRoute, this field value will be ignored as GRPC is only supported through HTTP/2.</p>
 <p>Changes to this value results in a replacement of VPC Lattice target group.</p>
 </td>
@@ -636,7 +640,9 @@ When a policy is behind GRPCRoute, this field value will be ignored as GRPC is o
 <td>
 <code>targetRef</code><br/>
 <em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
 sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
+</a>
 </em>
 </td>
 <td>
@@ -766,7 +772,9 @@ bool
 <td>
 <code>targetRef</code><br/>
 <em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
 sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
+</a>
 </em>
 </td>
 <td>
@@ -824,7 +832,9 @@ Supported values are S3 Bucket, CloudWatch Log Group, and Firehose Delivery Stre
 <td>
 <code>targetRef</code><br/>
 <em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
 sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
+</a>
 </em>
 </td>
 <td>
@@ -1084,7 +1094,7 @@ HealthCheckProtocolVersion
 </td>
 <td>
 <em>(Optional)</em>
-<p>The protocol version used when performing health checks on targets.</p>
+<p>The protocol version used when performing health checks on targets. Defaults to HTTP/1.</p>
 </td>
 </tr>
 </tbody>
@@ -1162,7 +1172,9 @@ string
 <td>
 <code>targetRef</code><br/>
 <em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
 sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
+</a>
 </em>
 </td>
 <td>
@@ -1728,7 +1740,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>The protocol version to use. Supported values are HTTP1 (default) and HTTP2.
-When a policy Protocol is TCP, you should not set this field. Otherwise, the whole TargetGroupPolicy will not take effect.
+When a policy Protocol is TCP, this field is ignored.
 When a policy is behind GRPCRoute, this field value will be ignored as GRPC is only supported through HTTP/2.</p>
 <p>Changes to this value results in a replacement of VPC Lattice target group.</p>
 </td>
@@ -1737,7 +1749,9 @@ When a policy is behind GRPCRoute, this field value will be ignored as GRPC is o
 <td>
 <code>targetRef</code><br/>
 <em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
 sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
+</a>
 </em>
 </td>
 <td>
@@ -1768,7 +1782,7 @@ HealthCheckConfig
 (<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.TargetGroupPolicy">TargetGroupPolicy</a>)
 </p>
 <div>
-<p>TargetGroupPolicyStatus defines the observed state of TargetGroup.</p>
+<p>TargetGroupPolicyStatus defines the observed state of TargetGroupPolicy.</p>
 </div>
 <table>
 <thead>
@@ -1789,11 +1803,11 @@ HealthCheckConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>Conditions describe the current conditions of the TargetGroup.</p>
+<p>Conditions describe the current conditions of the TargetGroupPolicy.</p>
 <p>Implementations should prefer to express Policy conditions
 using the <code>PolicyConditionType</code> and <code>PolicyConditionReason</code>
 constants so that operators and tools can converge on a common
-vocabulary to describe TargetGroup state.</p>
+vocabulary to describe TargetGroupPolicy state.</p>
 <p>Known condition types are:</p>
 <ul>
 <li>&ldquo;Accepted&rdquo;</li>
@@ -1852,7 +1866,9 @@ bool
 <td>
 <code>targetRef</code><br/>
 <em>
+<a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
 sigs.k8s.io/gateway-api/apis/v1alpha2.NamespacedPolicyTargetReference
+</a>
 </em>
 </td>
 <td>
@@ -1905,5 +1921,5 @@ vocabulary to describe VpcAssociationPolicy state.</p>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>7466eeb</code>.
+on git commit <code>bd64dcb</code>.
 </em></p>

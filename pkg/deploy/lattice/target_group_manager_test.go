@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -1317,9 +1318,9 @@ func Test_update_ServiceExportWithPolicyResolution(t *testing.T) {
 				Status: anv1alpha1.TargetGroupPolicyStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   string(gwv1alpha2.PolicyConditionAccepted),
+							Type:   string(gwv1.PolicyConditionAccepted),
 							Status: metav1.ConditionTrue,
-							Reason: string(gwv1alpha2.PolicyReasonAccepted),
+							Reason: string(gwv1.PolicyReasonAccepted),
 						},
 					},
 				},

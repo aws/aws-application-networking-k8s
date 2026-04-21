@@ -28,7 +28,7 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 	var (
 		httpsDeployment1 *appsv1.Deployment
 		httpsSvc1        *v1.Service
-		tlsRoute         *v1alpha2.TLSRoute
+		tlsRoute         *gwv1.TLSRoute
 		serviceExport    *anv1alpha1.ServiceExport
 		serviceImport    *anv1alpha1.ServiceImport
 		policy           *anv1alpha1.TargetGroupPolicy
@@ -43,7 +43,7 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 		serviceExport = testFramework.CreateServiceExport(httpsSvc1)
 		testFramework.ExpectCreated(ctx, serviceExport)
 
-		tlsRoute = testFramework.NewTLSRoute(k8snamespace, testGateway, []v1alpha2.TLSRouteRule{
+		tlsRoute = testFramework.NewTLSRoute(k8snamespace, testGateway, []gwv1.TLSRouteRule{
 			{
 				BackendRefs: []gwv1.BackendRef{
 					{

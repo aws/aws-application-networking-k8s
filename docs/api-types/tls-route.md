@@ -7,10 +7,11 @@ This allows you to define and manage end-to-end TLS encrypted traffic routing to
 
 ### Considerations
 
-- `TLSRoute` sectionName must refer to a `TLS` protocol listener with `mode: Passthrough` in the parentRefs `Gateway`.
-- `TLSRoute` only supports to have one rule.
+- `TLSRoute` sectionName must refer to a `TLS` protocol listener with `mode: Passthrough` in the parentRefs `Gateway`. The `tls.mode` field must be explicitly set on the listener.
+- `TLSRoute` only supports exactly one rule.
+- Each rule must have at least one `backendRef`.
 - `TLSRoute` does not support any rule matching condition.
-- The `hostnames` field with exactly one host name is required.
+- The `hostnames` field with exactly one host name is required. IP addresses are not allowed.
 
 
 ## Example Configuration
@@ -18,7 +19,7 @@ This allows you to define and manage end-to-end TLS encrypted traffic routing to
 Here is a sample configuration that demonstrates how to set up  a `TLSRoute` resource to route end-to-end TLS encrypted traffic to a nginx service:
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: nginx-tls-route
@@ -56,7 +57,7 @@ In this example:
 The remote cluster must export the service using a [`ServiceExport`](service-export.md) with `routeType: TLS`.
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: nginx-tls-route
@@ -75,6 +76,6 @@ spec:
 For the detailed tls passthrough traffic connectivity setup, please refer the user guide [here](../guides/tls-passthrough.md).
 
 For the detailed Gateway API `TLSRoute` resource specifications, you can refer to the
-Kubernetes official [documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1alpha2.TLSRoute).
+Kubernetes official [documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.TLSRoute).
 
 For the VPC Lattice tls passthrough Listener configuration details, you can refer to the VPC Lattice [documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/tls-listeners.html).

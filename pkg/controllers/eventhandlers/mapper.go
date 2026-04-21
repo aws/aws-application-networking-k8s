@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type resourceMapper struct {
@@ -178,7 +177,7 @@ func (r *resourceMapper) backendRefToRoutes(ctx context.Context, obj client.Obje
 			routes = append(routes, core.NewGRPCRoute(k8sRoute))
 		}
 	case core.TlsRouteType:
-		routeList := &gwv1alpha2.TLSRouteList{}
+		routeList := &gwv1.TLSRouteList{}
 		r.client.List(ctx, routeList)
 		for _, k8sRoute := range routeList.Items {
 			routes = append(routes, core.NewTLSRoute(k8sRoute))

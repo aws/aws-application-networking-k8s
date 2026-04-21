@@ -163,7 +163,7 @@ func addGatewayCertDiscoveryListener(hostname string) {
 		Port:     443,
 		Hostname: lo.ToPtr(gwv1.Hostname(hostname)),
 		Protocol: gwv1.HTTPSProtocolType,
-		TLS: &gwv1.GatewayTLSConfig{
+		TLS: &gwv1.ListenerTLSConfig{
 			Mode: &tlsMode,
 			// No Options — no manual certificate-arn annotation.
 			// The controller must auto-discover the cert from ACM.

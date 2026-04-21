@@ -31,7 +31,7 @@ are assigned, please refer to our [Getting Started Guide](../guides/getstarted.m
 ### Limitations
 - GatewayAddress status does not represent all accessible endpoints belong to a Gateway.
   Instead, you should check annotations of each Route.
-- Only `Terminate` is supported for TLS mode. TLSRoute is currently not supported.
+- Both `Terminate` and `Passthrough` TLS modes are supported. `Terminate` is used with HTTPRoute/GRPCRoute, `Passthrough` is used with TLSRoute.
 - TLS certificate cannot be provided through `certificateRefs` field by `Secret` resource.
   Instead, you can create an ACM certificate and put its ARN to the `options` field.
 

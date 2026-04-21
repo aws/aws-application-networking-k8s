@@ -76,7 +76,7 @@ spec:
 
 The following example TLSRoute directs TLS traffic to the above ServiceImport.
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: my-tls-route

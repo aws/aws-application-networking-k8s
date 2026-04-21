@@ -61,7 +61,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 	}
 
 	type K8sResults struct {
-		statusReason      gwv1alpha2.PolicyConditionReason
+		statusReason      gwv1.PolicyConditionReason
 		annotationResType string
 		annotationResId   string
 	}
@@ -156,19 +156,19 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 	It("GroupName Error", func() {
 		policy := newPolicyWithGroup("group-name-err", "wrong.group", "Gateway", "gw")
-		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonInvalid})
+		testK8sPolicy(policy, K8sResults{statusReason: gwv1.PolicyReasonInvalid})
 		testFramework.Delete(ctx, policy)
 	})
 
 	It("Kind Error", func() {
 		policy := newPolicy("kind-err", "WrongKind", "gw")
-		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonInvalid})
+		testK8sPolicy(policy, K8sResults{statusReason: gwv1.PolicyReasonInvalid})
 		testFramework.Delete(ctx, policy)
 	})
 
 	It("TargetRef Not Found", func() {
 		policy := newPolicy("not-found", "Gateway", "not-found")
-		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonTargetNotFound})
+		testK8sPolicy(policy, K8sResults{statusReason: gwv1.PolicyReasonTargetNotFound})
 		testFramework.Delete(ctx, policy)
 	})
 
@@ -176,7 +176,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		policy1 := newPolicy("conflict-1", "Gateway", "test-gateway")
 		policy2 := newPolicy("conflict-2", "Gateway", "test-gateway")
 		// at least second policy should be in conflicted state
-		testK8sPolicy(policy2, K8sResults{statusReason: gwv1alpha2.PolicyReasonConflicted})
+		testK8sPolicy(policy2, K8sResults{statusReason: gwv1.PolicyReasonConflicted})
 		testFramework.ExpectDeletedThenNotFound(ctx, policy1, policy2)
 	})
 
@@ -187,7 +187,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 		// accepted
 		wantResults := K8sResults{
-			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			statusReason:      gwv1.PolicyReasonAccepted,
 			annotationResType: model.ServiceNetworkType,
 			annotationResId:   snId,
 		}
@@ -211,7 +211,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 		// accepted
 		wantResults := K8sResults{
-			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			statusReason:      gwv1.PolicyReasonAccepted,
 			annotationResType: model.ServiceType,
 			annotationResId:   svcId,
 		}
@@ -249,7 +249,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 
 		// Verify policy applied to first service
 		wantResults := K8sResults{
-			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			statusReason:      gwv1.PolicyReasonAccepted,
 			annotationResType: model.ServiceType,
 			annotationResId:   firstSvcId,
 		}
@@ -264,7 +264,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		testFramework.Update(ctx, policy)
 
 		wantResults = K8sResults{
-			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			statusReason:      gwv1.PolicyReasonAccepted,
 			annotationResType: model.ServiceType,
 			annotationResId:   secondSvcId,
 		}
@@ -291,7 +291,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		Expect(*svc.Name).To(Equal("my-awesome-service"))
 
 		wantResults := K8sResults{
-			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			statusReason:      gwv1.PolicyReasonAccepted,
 			annotationResType: model.ServiceType,
 			annotationResId:   svcId,
 		}
@@ -306,7 +306,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 	It("supports targetRef HTTPRoute change from invalid to valid service name override", func() {
 		policy := newPolicy("recovery-test", "HTTPRoute", httpRouteWithInvalidServiceNameOverride.Name)
 
-		testK8sPolicy(policy, K8sResults{statusReason: gwv1alpha2.PolicyReasonInvalid})
+		testK8sPolicy(policy, K8sResults{statusReason: gwv1.PolicyReasonInvalid})
 
 		err := testFramework.Client.Get(ctx, client.ObjectKeyFromObject(policy), policy)
 		Expect(err).ToNot(HaveOccurred())
@@ -318,7 +318,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		Expect(*svc.Name).To(Equal("my-awesome-service"))
 
 		wantResults := K8sResults{
-			statusReason:      gwv1alpha2.PolicyReasonAccepted,
+			statusReason:      gwv1.PolicyReasonAccepted,
 			annotationResType: model.ServiceType,
 			annotationResId:   svcId,
 		}
@@ -335,10 +335,10 @@ type StatusConditionsReader interface {
 	GetStatusConditions() *[]apimachineryv1.Condition
 }
 
-func GetPolicyStatusReason(obj StatusConditionsReader) gwv1alpha2.PolicyConditionReason {
-	cnd := meta.FindStatusCondition(*obj.GetStatusConditions(), string(gwv1alpha2.PolicyConditionAccepted))
+func GetPolicyStatusReason(obj StatusConditionsReader) gwv1.PolicyConditionReason {
+	cnd := meta.FindStatusCondition(*obj.GetStatusConditions(), string(gwv1.PolicyConditionAccepted))
 	if cnd != nil {
-		return gwv1alpha2.PolicyConditionReason(cnd.Reason)
+		return gwv1.PolicyConditionReason(cnd.Reason)
 	}
 	return ""
 }

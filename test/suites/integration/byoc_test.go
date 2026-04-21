@@ -246,7 +246,7 @@ func addGatewayBYOCListener(cname, certArn string) {
 		Port:     443,
 		Hostname: lo.ToPtr(gwv1.Hostname(cname)),
 		Protocol: gwv1.HTTPSProtocolType,
-		TLS: &gwv1.GatewayTLSConfig{
+		TLS: &gwv1.ListenerTLSConfig{
 			Mode: &tlsMode,
 			Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
 				"application-networking.k8s.aws/certificate-arn": gwv1.AnnotationValue(certArn),

@@ -32,19 +32,19 @@ var (
 
 type (
 	TargetRef       = gwv1alpha2.NamespacedPolicyTargetReference
-	ConditionType   = gwv1alpha2.PolicyConditionType
-	ConditionReason = gwv1alpha2.PolicyConditionReason
+	ConditionType   = gwv1.PolicyConditionType
+	ConditionReason = gwv1.PolicyConditionReason
 )
 
 const (
 	// GEP
 
-	ConditionTypeAccepted = gwv1alpha2.PolicyConditionAccepted
+	ConditionTypeAccepted = gwv1.PolicyConditionAccepted
 
-	ReasonAccepted       = gwv1alpha2.PolicyReasonAccepted
-	ReasonInvalid        = gwv1alpha2.PolicyReasonInvalid
-	ReasonTargetNotFound = gwv1alpha2.PolicyReasonTargetNotFound
-	ReasonConflicted     = gwv1alpha2.PolicyReasonConflicted
+	ReasonAccepted       = gwv1.PolicyReasonAccepted
+	ReasonInvalid        = gwv1.PolicyReasonInvalid
+	ReasonTargetNotFound = gwv1.PolicyReasonTargetNotFound
+	ReasonConflicted     = gwv1.PolicyReasonConflicted
 
 	// Non-GEP
 

@@ -119,8 +119,8 @@ func checkRequiredCRDs(mgr ctrl.Manager) error {
 			Kind:    "GRPCRoute",
 		},
 		{
-			Group:   gwv1alpha2.GroupVersion.Group,
-			Version: gwv1alpha2.GroupVersion.Version,
+			Group:   gwv1.GroupVersion.Group,
+			Version: gwv1.GroupVersion.Version,
 			Kind:    "TLSRoute",
 		},
 	}

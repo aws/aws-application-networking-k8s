@@ -45,7 +45,7 @@ type TargetGroupPolicySpec struct {
 	Protocol *string `json:"protocol,omitempty"`
 
 	// The protocol version to use. Supported values are HTTP1 (default) and HTTP2.
-	// When a policy Protocol is TCP, you should not set this field. Otherwise, the whole TargetGroupPolicy will not take effect.
+	// When a policy Protocol is TCP, this field is ignored.
 	// When a policy is behind GRPCRoute, this field value will be ignored as GRPC is only supported through HTTP/2.
 	//
 	// Changes to this value results in a replacement of VPC Lattice target group.
@@ -113,19 +113,19 @@ type HealthCheckConfig struct {
 	// +optional
 	Protocol *HealthCheckProtocol `json:"protocol,omitempty"`
 
-	// The protocol version used when performing health checks on targets.
+	// The protocol version used when performing health checks on targets. Defaults to HTTP/1.
 	// +optional
 	ProtocolVersion *HealthCheckProtocolVersion `json:"protocolVersion,omitempty"`
 }
 
-// TargetGroupPolicyStatus defines the observed state of TargetGroup.
+// TargetGroupPolicyStatus defines the observed state of TargetGroupPolicy.
 type TargetGroupPolicyStatus struct {
-	// Conditions describe the current conditions of the TargetGroup.
+	// Conditions describe the current conditions of the TargetGroupPolicy.
 	//
 	// Implementations should prefer to express Policy conditions
 	// using the `PolicyConditionType` and `PolicyConditionReason`
 	// constants so that operators and tools can converge on a common
-	// vocabulary to describe TargetGroup state.
+	// vocabulary to describe TargetGroupPolicy state.
 	//
 	// Known condition types are:
 	//
