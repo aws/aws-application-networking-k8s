@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/dev/contributing/developer/">
+        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/dev/guides/upgrading-v2-0-x-to-v2-1-y/">
       
       
-        <link rel="prev" href="../../api-types/vpc-association-policy/">
+        <link rel="prev" href="../upgrading-v1-0-x-to-v1-1-y/">
       
       
-        <link rel="next" href="../developer-cheat-sheet/">
+        <link rel="next" href="../getstarted/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Developer Guide - Amazon VPC Lattice Gateway API Controller</title>
+        <title>Upgrading Controller from v2.0.x to v2.1.y - Amazon VPC Lattice Gateway API Controller</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#developer-guide" class="md-skip">
+        <a href="#update-the-amazon-vpc-lattice-gateway-api-controller-from-v20x-to-v21y" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Developer Guide
+              Upgrading Controller from v2.0.x to v2.1.y
             
           </span>
         </div>
@@ -265,11 +265,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../guides/deploy/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../deploy/" class="md-tabs__link">
           
   
   
@@ -324,13 +326,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../contributing/developer/" class="md-tabs__link">
           
   
   
@@ -553,26 +553,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -590,7 +595,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -608,7 +613,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/deploy/" class="md-nav__link">
+      <a href="../deploy/" class="md-nav__link">
         
   
   
@@ -636,7 +641,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/upgrading-v1-0-x-to-v1-1-y/" class="md-nav__link">
+      <a href="../upgrading-v1-0-x-to-v1-1-y/" class="md-nav__link">
         
   
   
@@ -661,10 +666,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../guides/upgrading-v2-0-x-to-v2-1-y/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading Controller from v2.0.x to v2.1.y
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -680,6 +712,98 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade Process
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upgrade Process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tlsroute-v1alpha2-to-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLSRoute v1alpha2 to v1
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stricter-crd-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stricter CRD Validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#validatingadmissionpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ValidatingAdmissionPolicy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-clean-up-storedversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: Clean up storedVersions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -692,7 +816,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/getstarted/" class="md-nav__link">
+      <a href="../getstarted/" class="md-nav__link">
         
   
   
@@ -720,7 +844,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/standalone-services/" class="md-nav__link">
+      <a href="../standalone-services/" class="md-nav__link">
         
   
   
@@ -748,7 +872,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/ram-sharing/" class="md-nav__link">
+      <a href="../ram-sharing/" class="md-nav__link">
         
   
   
@@ -776,7 +900,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/advanced-configurations/" class="md-nav__link">
+      <a href="../advanced-configurations/" class="md-nav__link">
         
   
   
@@ -804,7 +928,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/https/" class="md-nav__link">
+      <a href="../https/" class="md-nav__link">
         
   
   
@@ -832,7 +956,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/custom-domain-name/" class="md-nav__link">
+      <a href="../custom-domain-name/" class="md-nav__link">
         
   
   
@@ -860,7 +984,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/grpc/" class="md-nav__link">
+      <a href="../grpc/" class="md-nav__link">
         
   
   
@@ -888,7 +1012,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/tls-passthrough/" class="md-nav__link">
+      <a href="../tls-passthrough/" class="md-nav__link">
         
   
   
@@ -916,7 +1040,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/pod-readiness-gates/" class="md-nav__link">
+      <a href="../pod-readiness-gates/" class="md-nav__link">
         
   
   
@@ -944,7 +1068,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/environment/" class="md-nav__link">
+      <a href="../environment/" class="md-nav__link">
         
   
   
@@ -972,7 +1096,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/additional-tags/" class="md-nav__link">
+      <a href="../additional-tags/" class="md-nav__link">
         
   
   
@@ -1000,7 +1124,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/service-name-override/" class="md-nav__link">
+      <a href="../service-name-override/" class="md-nav__link">
         
   
   
@@ -1028,7 +1152,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/metrics/" class="md-nav__link">
+      <a href="../metrics/" class="md-nav__link">
         
   
   
@@ -1482,31 +1606,26 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -1524,7 +1643,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1539,37 +1658,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Developer Guide
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../contributing/developer/" class="md-nav__link">
         
   
   
@@ -1585,125 +1677,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#automated-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Automated Setup
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#manual-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Manual Setup
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Setup
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#local-development" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Local Development
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#end-to-end-testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        End-to-End Testing
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#documentations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Documentations
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#contributing" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Contributing
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#make-docker-image" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Make Docker Image
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#deploy-controller-inside-a-kubernetes-cluster" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Deploy Controller inside a Kubernetes Cluster
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1716,7 +1689,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../developer-cheat-sheet/" class="md-nav__link">
+      <a href="../../contributing/developer-cheat-sheet/" class="md-nav__link">
         
   
   
@@ -1814,10 +1787,10 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../deploy/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Contributing
+    User Guides
   </span>
 
         </a>
@@ -1839,139 +1812,49 @@
   
 
 
-<h1 id="developer-guide">Developer Guide<a class="headerlink" href="#developer-guide" title="Permanent link">&para;</a></h1>
-<h2 id="automated-setup">Automated Setup<a class="headerlink" href="#automated-setup" title="Permanent link">&para;</a></h2>
-<p>The quickest way to get started is by running <code>bash ./scripts/setup.sh</code>, or <code>make setup</code> if you already have <code>make</code> installed. This script guides you through credential, tool, EKS cluster, and CRD setup.</p>
-<h2 id="manual-setup">Manual Setup<a class="headerlink" href="#manual-setup" title="Permanent link">&para;</a></h2>
-<p><strong>Tools</strong></p>
-<p>Install these tools before proceeding:</p>
+<h1 id="update-the-amazon-vpc-lattice-gateway-api-controller-from-v20x-to-v21y">Update the Amazon VPC Lattice Gateway API Controller from v2.0.x to v2.1.y<a class="headerlink" href="#update-the-amazon-vpc-lattice-gateway-api-controller-from-v20x-to-v21y" title="Permanent link">&para;</a></h1>
+<p>Release <code>v2.1.0</code> of the Amazon VPC Lattice Gateway API Controller is built against <code>v1.5</code> of the Gateway API spec. It is <em>not</em> compatible with Gateway API CRD versions prior to <code>v1.5</code>.</p>
+<p>Previous <code>v2.0.x</code> builds of the controller (up to <code>v2.0.2</code>) were built against <code>v1.2</code> of the Gateway API spec. This guide outlines the controller upgrade process from <code>v2.0.x</code> to <code>v2.1.y</code>. Please note that users are required to install Gateway API CRDs themselves. The latest Gateway API CRDs are available <a href="https://gateway-api.sigs.k8s.io/">here</a>. Please <a href="https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api">follow this installation</a> process.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Kubernetes 1.31 or higher</strong> is required. Gateway API v1.5.0 uses CEL validation rules for TLSRoute that require Kubernetes 1.31+.</li>
+</ul>
+<h2 id="upgrade-process">Upgrade Process<a class="headerlink" href="#upgrade-process" title="Permanent link">&para;</a></h2>
 <ol>
-<li><a href="https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2-linux.html">AWS CLI</a>,</li>
-<li><code>kubectl</code> - <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">the Kubernetes CLI</a>,</li>
-<li><code>helm</code> - <a href="https://helm.sh/docs/intro/install/">the package manager for Kubernetes</a>,</li>
-<li><code>eksctl</code>- <a href="https://docs.aws.amazon.com/eks/latest/userguide/setting-up.html">the CLI for Amazon EKS</a>,</li>
-<li><code>go v1.20.x</code> - <a href="https://go.dev/doc/install">language</a>,</li>
-<li><code>yq</code> - <a href="https://github.com/mikefarah/yq#install">CLI to manipulate yaml files</a>,</li>
-<li><code>jq</code> - <a href="https://jqlang.github.io/jq/">CLI to manipulate json files</a>,</li>
-<li><code>make</code>- build automation tool. </li>
+<li>Back up configuration, in particular TLSRoute objects</li>
+<li>Disable <code>v2.0.x</code> controller (e.g. scale to zero)</li>
+<li>Update Gateway API CRDs to <code>v1.5.0</code></li>
+<li>Deploy and launch <code>v2.1.y</code> controller version</li>
 </ol>
-<p><strong>Cluster creation and setup</strong></p>
-<p>Before proceeding to the next sections, you need to:</p>
-<ol>
-<li>
-<p>Create a and set up a cluster <code>dev-cluster</code> with the controller following the <a href="../../guides/deploy/">Amazon VPC Lattice Gateway API Controller installation guide on Amazon EKS</a>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>You can either install the Controller and CRDs following the <a href="../../guides/deploy/#install-the-controller">steps in the installation guide</a> or using the steps below if you prefer to create the individual CRDs.</p>
-</div>
-</li>
-<li>
-<p>Clone the <a href="https://github.com/aws/aws-application-networking-k8s">Amazon VPC Lattice Gateway API Controller</a> repository.
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:aws/aws-application-networking-k8s.git
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>aws-application-networking-k8s
-</code></pre></div></p>
-</li>
-<li>Install dependencies with <code>setup.sh</code> script:
-    <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make<span class="w"> </span>setup
-</code></pre></div></li>
-</ol>
-<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
-<p>Once cluster is ready, we need to apply CRDs for <code>gateway-api</code> resources. First install core <code>gateway-api</code> CRDs:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:1"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">v1.5 CRDs</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<p>Install the latest <code>v1</code> CRDs:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>kustomize<span class="w"> </span><span class="s2">&quot;github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.5.0&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-
-</code></pre></div></p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Note that v1 CRDs are <strong>not included</strong> in <code>deploy-*.yaml</code> and <code>helm</code> chart. </p>
-</div>
-</div>
-</div>
-</div>
-<p>And install additional CRDs for the controller:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_serviceimports.yaml
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_targetgrouppolicies.yaml
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>config/crds/bases/application-networking.k8s.aws_servicenetworks.yaml<span class="w">  </span><span class="c1"># optional</span>
+<p>The old controller must be disabled before upgrading CRDs because it watches <code>v1alpha2</code> TLSRoute, which is no longer served by the v1.5 standard CRDs. Running the old controller against v1.5 CRDs will cause it to crash.</p>
+<h3 id="tlsroute-v1alpha2-to-v1">TLSRoute <code>v1alpha2</code> to <code>v1</code><a class="headerlink" href="#tlsroute-v1alpha2-to-v1" title="Permanent link">&para;</a></h3>
+<p>Gateway API <code>v1.5</code> promoted TLSRoute to the Standard channel as <code>v1</code>. The <code>v1alpha2</code> version of TLSRoute is no longer served by the standard CRDs. TLSRoute is now included in the standard CRD bundle and no longer needs to be installed separately.</p>
+<p>Existing TLSRoutes stored as <code>v1alpha2</code> in etcd will continue working. The API server converts them to <code>v1</code> on read. When the controller reconciles and updates their status, the objects are re-stored as <code>v1</code> in etcd.</p>
+<p>Users must update their local YAML manifests from <code>apiVersion: gateway.networking.k8s.io/v1alpha2</code> to <code>apiVersion: gateway.networking.k8s.io/v1</code> for future applies. Applying manifests with <code>v1alpha2</code> will be rejected by the API server since that version is no longer served.</p>
+<h3 id="stricter-crd-validation">Stricter CRD Validation<a class="headerlink" href="#stricter-crd-validation" title="Permanent link">&para;</a></h3>
+<p>The <code>v1</code> TLSRoute CRD introduces stricter validation. The controller already enforced most of these at reconciliation time, but they are now rejected at admission by the API server:</p>
+<ul>
+<li><code>hostnames</code> is now required with at least 1 entry (was optional)</li>
+<li><code>rules</code> is limited to exactly 1 rule (was up to 16)</li>
+<li><code>rules[].backendRefs</code> is required with at least 1 entry (was optional)</li>
+<li>Hostnames cannot contain IP addresses (enforced via CEL validation)</li>
+<li>Gateway listeners with <code>protocol: TLS</code> must explicitly set <code>tls.mode</code> to <code>Passthrough</code></li>
+</ul>
+<p>Review your existing TLSRoute and Gateway objects before upgrading.</p>
+<h3 id="validatingadmissionpolicy">ValidatingAdmissionPolicy<a class="headerlink" href="#validatingadmissionpolicy" title="Permanent link">&para;</a></h3>
+<p>Gateway API v1.5.0 installs a ValidatingAdmissionPolicy (<code>safe-upgrades.gateway.networking.k8s.io</code>) that prevents downgrading CRDs to a version prior to v1.5. If you need to rollback, delete this policy first:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kubectl delete validatingadmissionpolicy safe-upgrades.gateway.networking.k8s.io
 </code></pre></div>
-<p>When e2e tests are terminated during execution, it might break clean-up stage and resources will leak. To delete dangling resources manually use cleanup script:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>e2e-clean
+<h3 id="optional-clean-up-storedversions">Optional: Clean up storedVersions<a class="headerlink" href="#optional-clean-up-storedversions" title="Permanent link">&para;</a></h3>
+<p>After the controller has reconciled all TLSRoutes, you can remove <code>v1alpha2</code> from the CRD's <code>storedVersions</code>. This is not required for v1.5 but prevents potential issues if a future Gateway API release removes <code>v1alpha2</code> from the CRD spec entirely. Ensure all TLSRoutes have been reconciled by the new controller before running this step.</p>
+<p>Check current stored versions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl get crd tlsroutes.gateway.networking.k8s.io -o jsonpath=&#39;{.status.storedVersions}&#39;
 </code></pre></div>
-<h2 id="local-development">Local Development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h2>
-<p>A minimal test of changes can be done with <code>make presubmit</code>. This command will also run on PR.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make<span class="w"> </span>presubmit
+<p>If the result includes <code>v1alpha2</code>, patch it to only include <code>v1</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl patch crd tlsroutes.gateway.networking.k8s.io \
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  --subresource=&#39;status&#39; --type=&#39;merge&#39; \
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -p &#39;{&quot;status&quot;:{&quot;storedVersions&quot;:[&quot;v1&quot;]}}&#39;
 </code></pre></div>
-<p>Start controller in development mode, that will point to cluster (see setup above).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>//<span class="w"> </span>should<span class="w"> </span>be<span class="w"> </span>region<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>cluster
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">REGION</span><span class="o">=</span>us-west-2<span class="w"> </span>make<span class="w"> </span>run
-</code></pre></div>
-<p>You can explore a collection of different yaml configurations in the examples folder that can be applied to cluster.</p>
-<p>To run it against specific lattice service endpoint.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">LATTICE_ENDPOINT</span><span class="o">=</span>https://vpc-lattice.us-west-2.amazonaws.com/<span class="w"> </span>make<span class="w"> </span>run
-</code></pre></div>
-<p>To easier load environment variables, if you hope to run the controller by GoLand IDE locally, you could run the <code>./scripts/load_env_variables.sh</code>
-And use "EnvFile" GoLand plugin to read the env variables from the generated <code>.env</code> file.</p>
-<h2 id="end-to-end-testing">End-to-End Testing<a class="headerlink" href="#end-to-end-testing" title="Permanent link">&para;</a></h2>
-<p>For larger changes it's recommended to run e2e suites on your local cluster.
-E2E tests require a service network named <code>test-gateway</code> with cluster VPC associated to run.
-You can either set up service network manually or use DEFAULT_SERVICE_NETWORK option when running controller locally. (e.g. <code>DEFAULT_SERVICE_NETWORK=test-gateway make run</code>)</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">REGION</span><span class="o">=</span>us-west-2<span class="w"> </span>make<span class="w"> </span>e2e-test
-</code></pre></div>
-<p>For the <code>RAM Share</code> test suite, which runs cross-account e2e tests, you will need a secondary AWS Account with a role that
-can be assumed by the primary account during test execution.
-You can create an IAM Role, with a Trust Policy allowing the primary account to assume it, via the AWS IAM Console.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">SECONDARY_ACCOUNT_TEST_ROLE_ARN</span><span class="o">=</span>arn:aws:iam::000000000000:role/MyRole
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FOCUS</span><span class="o">=</span><span class="s2">&quot;RAM Share&quot;</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nv">REGION</span><span class="o">=</span>us-west-2<span class="w"> </span>make<span class="w"> </span>e2e-test
-</code></pre></div>
-<p>You can use the <code>FOCUS</code> environment variable to run some specific test cases based on filter condition.
-You could assign the string in the Describe("xxxxxx") or It("xxxxxx") to the FOCUS environment variable to run the specific test cases.
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kd">var</span><span class="w"> </span><span class="nx">_</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">Describe</span><span class="p">(</span><span class="s">&quot;HTTPRoute path matches&quot;</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">    </span><span class="nx">It</span><span class="p">(</span><span class="s">&quot;HTTPRoute should support multiple path matches&quot;</span><span class="p">,</span><span class="w"> </span><span class="kd">func</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">        </span><span class="c1">// test case body</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="p">})</span>
-</code></pre></div></p>
-<p>For example, to run the test case "HTTPRoute should support multiple path matches", you could run the following command:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FOCUS</span><span class="o">=</span><span class="s2">&quot;HTTPRoute should support multiple path matches&quot;</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">REGION</span><span class="o">=</span>us-west-2
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>make<span class="w"> </span>e2e-test
-</code></pre></div></p>
-<p>Conversely, you can use the <code>SKIP</code> environment variable to skip specific test cases.</p>
-<p>For example, to skip the same test as above, you would run the following command:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">SKIP</span><span class="o">=</span><span class="s2">&quot;HTTPRoute should support multiple path matches&quot;</span>
-</code></pre></div></p>
-<p>For more detail on filter condition for ginkgo
-https://onsi.github.io/ginkgo/#focused-specs
-https://onsi.github.io/ginkgo/#description-based-filtering</p>
-<p>After all test cases running finished, in the <code>AfterSuite()</code> function, it will clean up k8s and vpc lattice resource created by current test cases running.</p>
-<h2 id="documentations">Documentations<a class="headerlink" href="#documentations" title="Permanent link">&para;</a></h2>
-<p>The controller documentation is managed in <code>docs/</code> directory, and built with <a href="https://www.mkdocs.org/">mkdocs</a>. It uses <a href="https://github.com/jimporter/mike">mike</a> to manage versioning.
-To build and verify your changes locally:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>make<span class="w"> </span>docs
-</code></pre></div>
-The website will be located in <code>site/</code> directory. You can also run a local dev-server by running <code>mike serve</code> or <code>mkdocs serve</code>.</p>
-<h2 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">&para;</a></h2>
-<p>Before sending a Pull Request, you should run unit tests:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make<span class="w"> </span>presubmit
-</code></pre></div>
-<p>For larger, functional changes, run e2e tests:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make<span class="w"> </span>e2e-test
-</code></pre></div></p>
-<h2 id="make-docker-image">Make Docker Image<a class="headerlink" href="#make-docker-image" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make docker-build
-</code></pre></div>
-<h2 id="deploy-controller-inside-a-kubernetes-cluster">Deploy Controller inside a Kubernetes Cluster<a class="headerlink" href="#deploy-controller-inside-a-kubernetes-cluster" title="Permanent link">&para;</a></h2>
-<p>Generate <code>deploy.yaml</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make<span class="w"> </span>build-deploy
-</code></pre></div>
-<p>Then follow <a href="../../guides/deploy/">Deploying the Amazon VPC Lattice Gateway API Controller</a> to configure and deploy the docker image.</p>
 
 
 
@@ -2009,7 +1892,7 @@ The website will be located in <code>site/</code> directory. You can also run a 
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../api-types/vpc-association-policy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: VpcAssociationPolicy">
+          <a href="../upgrading-v1-0-x-to-v1-1-y/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Upgrading Controller from v1.0.x to v1.1.y">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2019,20 +1902,20 @@ The website will be located in <code>site/</code> directory. You can also run a 
                 Previous
               </span>
               <div class="md-ellipsis">
-                VpcAssociationPolicy
+                Upgrading Controller from v1.0.x to v1.1.y
               </div>
             </div>
           </a>
         
         
           
-          <a href="../developer-cheat-sheet/" class="md-footer__link md-footer__link--next" aria-label="Next: Developer Cheat Sheet">
+          <a href="../getstarted/" class="md-footer__link md-footer__link--next" aria-label="Next: Getting Started">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Developer Cheat Sheet
+                Getting Started
               </div>
             </div>
             <div class="md-footer__button md-icon">

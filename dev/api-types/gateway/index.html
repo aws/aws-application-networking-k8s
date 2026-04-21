@@ -664,6 +664,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/upgrading-v2-0-x-to-v2-1-y/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading Controller from v2.0.x to v2.1.y
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/getstarted/" class="md-nav__link">
         
   
@@ -1792,7 +1820,7 @@ are assigned, please refer to our <a href="../../guides/getstarted/">Getting Sta
 <ul>
 <li>GatewayAddress status does not represent all accessible endpoints belong to a Gateway.
   Instead, you should check annotations of each Route.</li>
-<li>Only <code>Terminate</code> is supported for TLS mode. TLSRoute is currently not supported.</li>
+<li>Both <code>Terminate</code> and <code>Passthrough</code> TLS modes are supported. <code>Terminate</code> is used with HTTPRoute/GRPCRoute, <code>Passthrough</code> is used with TLSRoute.</li>
 <li>TLS certificate cannot be provided through <code>certificateRefs</code> field by <code>Secret</code> resource.
   Instead, you can create an ACM certificate and put its ARN to the <code>options</code> field.</li>
 </ul>
