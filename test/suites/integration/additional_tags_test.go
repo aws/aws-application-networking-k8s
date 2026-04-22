@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -50,13 +50,13 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			serviceTagsMap := serviceTags[*vpcLatticeService.Arn]
 
-			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Environment", aws.String("Dev")))
-			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
-			g.Expect(serviceTagsMap).To(HaveKeyWithValue("CostCenter", aws.String("12345")))
+			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Environment", "Dev"))
+			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Team", "Platform"))
+			g.Expect(serviceTagsMap).To(HaveKeyWithValue("CostCenter", "12345"))
 
 			tgSummary := testFramework.GetTargetGroup(ctx, httpSvc1)
-			tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+			tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 				TargetGroupIdentifier: aws.String(*tgSummary.Id),
 			})
 			g.Expect(err).To(BeNil())
@@ -65,12 +65,12 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			tgTagsMap := tgTags[*tg.Arn]
 
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Environment", aws.String("Dev")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("CostCenter", aws.String("12345")))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Environment", "Dev"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Team", "Platform"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("CostCenter", "12345"))
 
-			listeners, err := testFramework.LatticeClient.ListListeners(&vpclattice.ListListenersInput{
+			listeners, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
@@ -81,20 +81,20 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 				g.Expect(err).To(BeNil())
 				listenerTagsMap := listenerTags[*listener.Arn]
 
-				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Environment", aws.String("Dev")))
-				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
-				g.Expect(listenerTagsMap).To(HaveKeyWithValue("CostCenter", aws.String("12345")))
+				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Environment", "Dev"))
+				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Team", "Platform"))
+				g.Expect(listenerTagsMap).To(HaveKeyWithValue("CostCenter", "12345"))
 			}
 
 			for _, listener := range listeners.Items {
-				rules, err := testFramework.LatticeClient.ListRules(&vpclattice.ListRulesInput{
+				rules, err := testFramework.LatticeClient.ListRulesAsList(ctx, &vpclattice.ListRulesInput{
 					ServiceIdentifier:  vpcLatticeService.Id,
 					ListenerIdentifier: listener.Id,
 				})
 				g.Expect(err).To(BeNil())
 
-				for _, rule := range rules.Items {
+				for _, rule := range rules {
 					if rule.IsDefault != nil && *rule.IsDefault {
 						continue
 					}
@@ -103,28 +103,28 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 					g.Expect(err).To(BeNil())
 					ruleTagsMap := ruleTags[*rule.Arn]
 
-					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Environment", aws.String("Dev")))
-					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
-					g.Expect(ruleTagsMap).To(HaveKeyWithValue("CostCenter", aws.String("12345")))
+					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Environment", "Dev"))
+					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Team", "Platform"))
+					g.Expect(ruleTagsMap).To(HaveKeyWithValue("CostCenter", "12345"))
 				}
 			}
 
-			associations, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociations(&vpclattice.ListServiceNetworkServiceAssociationsInput{
+			associations, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx, &vpclattice.ListServiceNetworkServiceAssociationsInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
-			g.Expect(len(associations.Items)).To(BeNumerically(">", 0))
+			g.Expect(len(associations)).To(BeNumerically(">", 0))
 
-			for _, association := range associations.Items {
+			for _, association := range associations {
 				associationTags, err := testFramework.Cloud.Tagging().GetTagsForArns(ctx, []string{*association.Arn})
 				g.Expect(err).To(BeNil())
 				associationTagsMap := associationTags[*association.Arn]
 
-				g.Expect(associationTagsMap).To(HaveKeyWithValue("Environment", aws.String("Dev")))
-				g.Expect(associationTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-				g.Expect(associationTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
-				g.Expect(associationTagsMap).To(HaveKeyWithValue("CostCenter", aws.String("12345")))
+				g.Expect(associationTagsMap).To(HaveKeyWithValue("Environment", "Dev"))
+				g.Expect(associationTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+				g.Expect(associationTagsMap).To(HaveKeyWithValue("Team", "Platform"))
+				g.Expect(associationTagsMap).To(HaveKeyWithValue("CostCenter", "12345"))
 			}
 		}).Within(1 * time.Minute).Should(Succeed())
 	})
@@ -146,16 +146,16 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			serviceTagsMap := serviceTags[*vpcLatticeService.Arn]
 
-			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Environment", aws.String("Prod")))
-			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
+			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Environment", "Prod"))
+			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+			g.Expect(serviceTagsMap).To(HaveKeyWithValue("Team", "Platform"))
 			g.Expect(serviceTagsMap).ToNot(HaveKey("CostCenter"))
 
-			g.Expect(serviceTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String("test-override")))
-			g.Expect(serviceTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+			g.Expect(serviceTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
+			g.Expect(serviceTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 
 			tgSummary := testFramework.GetTargetGroup(ctx, httpSvc1)
-			tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+			tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 				TargetGroupIdentifier: aws.String(*tgSummary.Id),
 			})
 			g.Expect(err).To(BeNil())
@@ -164,15 +164,15 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			tgTagsMap := tgTags[*tg.Arn]
 
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Environment", aws.String("Prod")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Environment", "Prod"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Team", "Platform"))
 			g.Expect(tgTagsMap).ToNot(HaveKey("CostCenter"))
 
-			g.Expect(tgTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String("test-override")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+			g.Expect(tgTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 
-			listeners, err := testFramework.LatticeClient.ListListeners(&vpclattice.ListListenersInput{
+			listeners, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
@@ -183,23 +183,23 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 				g.Expect(err).To(BeNil())
 				listenerTagsMap := listenerTags[*listener.Arn]
 
-				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Environment", aws.String("Prod")))
-				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
+				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Environment", "Prod"))
+				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+				g.Expect(listenerTagsMap).To(HaveKeyWithValue("Team", "Platform"))
 				g.Expect(listenerTagsMap).ToNot(HaveKey("CostCenter"))
 
-				g.Expect(listenerTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String("test-override")))
-				g.Expect(listenerTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+				g.Expect(listenerTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
+				g.Expect(listenerTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 			}
 
 			for _, listener := range listeners.Items {
-				rules, err := testFramework.LatticeClient.ListRules(&vpclattice.ListRulesInput{
+				rules, err := testFramework.LatticeClient.ListRulesAsList(ctx, &vpclattice.ListRulesInput{
 					ServiceIdentifier:  vpcLatticeService.Id,
 					ListenerIdentifier: listener.Id,
 				})
 				g.Expect(err).To(BeNil())
 
-				for _, rule := range rules.Items {
+				for _, rule := range rules {
 					if rule.IsDefault != nil && *rule.IsDefault {
 						continue
 					}
@@ -208,34 +208,34 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 					g.Expect(err).To(BeNil())
 					ruleTagsMap := ruleTags[*rule.Arn]
 
-					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Environment", aws.String("Prod")))
-					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
+					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Environment", "Prod"))
+					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+					g.Expect(ruleTagsMap).To(HaveKeyWithValue("Team", "Platform"))
 					g.Expect(ruleTagsMap).ToNot(HaveKey("CostCenter"))
 
-					g.Expect(ruleTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String("test-override")))
-					g.Expect(ruleTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+					g.Expect(ruleTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
+					g.Expect(ruleTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 				}
 			}
 
-			associations, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociations(&vpclattice.ListServiceNetworkServiceAssociationsInput{
+			associations, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx, &vpclattice.ListServiceNetworkServiceAssociationsInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
-			g.Expect(len(associations.Items)).To(BeNumerically(">", 0))
+			g.Expect(len(associations)).To(BeNumerically(">", 0))
 
-			for _, association := range associations.Items {
+			for _, association := range associations {
 				associationTags, err := testFramework.Cloud.Tagging().GetTagsForArns(ctx, []string{*association.Arn})
 				g.Expect(err).To(BeNil())
 				associationTagsMap := associationTags[*association.Arn]
 
-				g.Expect(associationTagsMap).To(HaveKeyWithValue("Environment", aws.String("Prod")))
-				g.Expect(associationTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-				g.Expect(associationTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
+				g.Expect(associationTagsMap).To(HaveKeyWithValue("Environment", "Prod"))
+				g.Expect(associationTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+				g.Expect(associationTagsMap).To(HaveKeyWithValue("Team", "Platform"))
 				g.Expect(associationTagsMap).ToNot(HaveKey("CostCenter"))
 
-				g.Expect(associationTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String("test-override")))
-				g.Expect(associationTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+				g.Expect(associationTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
+				g.Expect(associationTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 			}
 		}).Within(1 * time.Minute).Should(Succeed())
 	})
@@ -292,7 +292,7 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 			tgSummary := testFramework.GetTargetGroup(ctx, serviceExportSvc1)
 			g.Expect(tgSummary).ToNot(BeNil())
 
-			tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+			tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 				TargetGroupIdentifier: aws.String(*tgSummary.Id),
 			})
 			g.Expect(err).To(BeNil())
@@ -301,12 +301,12 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			tgTagsMap := tgTags[*tg.Arn]
 
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Environment", aws.String("Dev")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("CostCenter", aws.String("12345")))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Environment", "Dev"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Team", "Platform"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("CostCenter", "12345"))
 
-			g.Expect(tgTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 		}).Within(1 * time.Minute).Should(Succeed())
 	})
 
@@ -322,7 +322,7 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			tgSummary := testFramework.GetTargetGroup(ctx, serviceExportSvc1)
-			tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+			tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 				TargetGroupIdentifier: aws.String(*tgSummary.Id),
 			})
 			g.Expect(err).To(BeNil())
@@ -331,13 +331,13 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			tgTagsMap := tgTags[*tg.Arn]
 
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Environment", aws.String("Prod")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Environment", "Prod"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue("Team", "Platform"))
 			g.Expect(tgTagsMap).ToNot(HaveKey("CostCenter"))
 
-			g.Expect(tgTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String("test-override")))
-			g.Expect(tgTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+			g.Expect(tgTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
+			g.Expect(tgTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 		}).Within(1 * time.Minute).Should(Succeed())
 	})
 

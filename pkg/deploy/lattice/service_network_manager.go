@@ -10,20 +10,20 @@ import (
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
 
 //go:generate mockgen -destination service_network_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ServiceNetworkManager
 
 type ServiceNetworkManager interface {
-	UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string, additionalTags services.Tags) (string, error)
+	UpsertVpcAssociation(ctx context.Context, snName string, sgIds []string, additionalTags services.Tags) (string, error)
 	DeleteVpcAssociation(ctx context.Context, snName string) error
 
 	CreateOrUpdate(ctx context.Context, serviceNetwork *model.ServiceNetwork) (model.ServiceNetworkStatus, error)
@@ -48,7 +48,7 @@ type defaultServiceNetworkManager struct {
 	cloud pkg_aws.Cloud
 }
 
-func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []*string, additionalTags services.Tags) (string, error) {
+func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []string, additionalTags services.Tags) (string, error) {
 	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, snName)
 	if err != nil {
 		return "", err
@@ -99,12 +99,12 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 			SecurityGroupIds:         sgIds,
 			Tags:                     tags,
 		}
-		resp, err := m.cloud.Lattice().CreateServiceNetworkVpcAssociationWithContext(ctx, &req)
+		resp, err := m.cloud.Lattice().CreateServiceNetworkVpcAssociation(ctx, &req)
 		if err != nil {
 			return "", err
 		}
-		switch status := aws.StringValue(resp.Status); status {
-		case vpclattice.ServiceNetworkVpcAssociationStatusActive:
+		switch status := string(resp.Status); status {
+		case string(types.ServiceNetworkVpcAssociationStatusActive):
 			return *resp.Arn, nil
 		default:
 			return *resp.Arn, fmt.Errorf("%w, vpc association status in %s", lattice_runtime.NewRetryError(), status)
@@ -150,10 +150,10 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 
 		owned, err := m.cloud.IsArnManaged(ctx, *snva.Arn)
 		if err != nil {
-			// TODO check for vpclattice.ErrCodeAccessDeniedException or a new error type ErrorCodeNotFoundException
+			// TODO check for types.AccessDeniedException or a new error type ErrorCodeNotFoundException
 			// when the api no longer responds with a 404 NotFoundException instead of either of the above.
-			// ErrorCodeNotFoundException currently not part of the golang sdk for the lattice api. This a is a distinct
-			// error from vpclattice.ErrCodeResourceNotFoundException.
+			// ErrorCodeNotFoundException currently not part of the golang sdk for the lattice api. This is a distinct
+			// error from types.ResourceNotFoundException.
 
 			// In a scenario that the vpc association is created by a foreign account,
 			// the owner account's controller cannot read the tags of this ServiceNetworkVpcAssociation,
@@ -170,16 +170,16 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 		deleteServiceNetworkVpcAssociationInput := vpclattice.DeleteServiceNetworkVpcAssociationInput{
 			ServiceNetworkVpcAssociationIdentifier: snva.Id,
 		}
-		resp, err := m.cloud.Lattice().DeleteServiceNetworkVpcAssociationWithContext(ctx, &deleteServiceNetworkVpcAssociationInput)
+		resp, err := m.cloud.Lattice().DeleteServiceNetworkVpcAssociation(ctx, &deleteServiceNetworkVpcAssociationInput)
 		if err != nil {
-			m.log.Infof(ctx, "Failed to delete association %s for %s, with response %s and err %s", *snva.Arn, snName, resp, err.Error())
+			m.log.Infof(ctx, "Failed to delete association %s for %s, with response %v and err %s", *snva.Arn, snName, resp, err.Error())
 		}
 		return lattice_runtime.NewRetryError()
 	}
 	return nil
 }
 
-func (m *defaultServiceNetworkManager) getActiveVpcAssociation(ctx context.Context, serviceNetworkId string) (*vpclattice.ServiceNetworkVpcAssociationSummary, error) {
+func (m *defaultServiceNetworkManager) getActiveVpcAssociation(ctx context.Context, serviceNetworkId string) (*types.ServiceNetworkVpcAssociationSummary, error) {
 	vpcLatticeSess := m.cloud.Lattice()
 	associationStatusInput := vpclattice.ListServiceNetworkVpcAssociationsInput{
 		ServiceNetworkIdentifier: &serviceNetworkId,
@@ -196,18 +196,18 @@ func (m *defaultServiceNetworkManager) getActiveVpcAssociation(ctx context.Conte
 
 	// There can be at most one response for this
 	snva := resp[0]
-	if aws.StringValue(snva.Status) == vpclattice.ServiceNetworkVpcAssociationStatusActive {
-		return snva, nil
+	if string(snva.Status) == string(types.ServiceNetworkVpcAssociationStatusActive) {
+		return &snva, nil
 	}
 	m.log.Debugf(ctx, "snva %s status: %s",
-		aws.StringValue(snva.Arn), aws.StringValue(snva.Status))
-	switch aws.StringValue(snva.Status) {
-	case vpclattice.ServiceNetworkVpcAssociationStatusActive,
-		vpclattice.ServiceNetworkVpcAssociationStatusDeleteFailed,
-		vpclattice.ServiceNetworkVpcAssociationStatusUpdateFailed:
+		aws.ToString(snva.Arn), string(snva.Status))
+	switch string(snva.Status) {
+	case string(types.ServiceNetworkVpcAssociationStatusActive),
+		string(types.ServiceNetworkVpcAssociationStatusDeleteFailed),
+		string(types.ServiceNetworkVpcAssociationStatusUpdateFailed):
 		// the resource exists
-		return snva, nil
-	case vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed:
+		return &snva, nil
+	case string(types.ServiceNetworkVpcAssociationStatusCreateFailed):
 		// consider it does not exist
 		return nil, nil
 	default:
@@ -236,17 +236,17 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 			Name: &serviceNetwork.Spec.Name,
 			Tags: m.cloud.DefaultTags(),
 		}
-		resp, err := vpcLatticeSess.CreateServiceNetworkWithContext(ctx, &serviceNetworkInput)
+		resp, err := vpcLatticeSess.CreateServiceNetwork(ctx, &serviceNetworkInput)
 		if err != nil {
 			return model.ServiceNetworkStatus{}, err
 		}
 
-		serviceNetworkId = aws.StringValue(resp.Id)
-		serviceNetworkArn = aws.StringValue(resp.Arn)
+		serviceNetworkId = aws.ToString(resp.Id)
+		serviceNetworkArn = aws.ToString(resp.Arn)
 	} else {
 		m.log.Debugf(ctx, "ServiceNetwork %s exists, checking its VPC association", serviceNetwork.Spec.Name)
-		serviceNetworkId = aws.StringValue(foundSnSummary.SvcNetwork.Id)
-		serviceNetworkArn = aws.StringValue(foundSnSummary.SvcNetwork.Arn)
+		serviceNetworkId = aws.ToString(foundSnSummary.SvcNetwork.Id)
+		serviceNetworkArn = aws.ToString(foundSnSummary.SvcNetwork.Arn)
 
 		snva, err := m.getActiveVpcAssociation(ctx, serviceNetworkId)
 		if err != nil {
@@ -254,7 +254,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		}
 		if snva != nil {
 			m.log.Debugf(ctx, "ServiceNetwork %s already has VPC association %s",
-				serviceNetwork.Spec.Name, aws.StringValue(snva.Arn))
+				serviceNetwork.Spec.Name, aws.ToString(snva.Arn))
 			return model.ServiceNetworkStatus{ServiceNetworkARN: serviceNetworkArn, ServiceNetworkID: serviceNetworkId}, nil
 		}
 	}
@@ -265,7 +265,7 @@ func (m *defaultServiceNetworkManager) CreateOrUpdate(ctx context.Context, servi
 		VpcIdentifier:            &config.VpcID,
 		Tags:                     m.cloud.DefaultTags(),
 	}
-	_, err = vpcLatticeSess.CreateServiceNetworkVpcAssociationWithContext(ctx, &createServiceNetworkVpcAssociationInput)
+	_, err = vpcLatticeSess.CreateServiceNetworkVpcAssociation(ctx, &createServiceNetworkVpcAssociationInput)
 	if err != nil {
 		return model.ServiceNetworkStatus{}, err
 	}
@@ -282,22 +282,22 @@ func (m *defaultServiceNetworkManager) Upsert(ctx context.Context, name string, 
 
 	if sn == nil {
 		// SN not found, create it
-		resp, err := m.cloud.Lattice().CreateServiceNetworkWithContext(ctx, &vpclattice.CreateServiceNetworkInput{
+		resp, err := m.cloud.Lattice().CreateServiceNetwork(ctx, &vpclattice.CreateServiceNetworkInput{
 			Name: &name,
 			Tags: allTags,
 		})
 		if err != nil {
 			return model.ServiceNetworkStatus{}, err
 		}
-		m.log.Infof(ctx, "Created ServiceNetwork %s (id: %s)", name, aws.StringValue(resp.Id))
+		m.log.Infof(ctx, "Created ServiceNetwork %s (id: %s)", name, aws.ToString(resp.Id))
 		return model.ServiceNetworkStatus{
-			ServiceNetworkARN: aws.StringValue(resp.Arn),
-			ServiceNetworkID:  aws.StringValue(resp.Id),
+			ServiceNetworkARN: aws.ToString(resp.Arn),
+			ServiceNetworkID:  aws.ToString(resp.Id),
 		}, nil
 	}
 
 	// SN exists, adopt it
-	snArn := aws.StringValue(sn.SvcNetwork.Arn)
+	snArn := aws.ToString(sn.SvcNetwork.Arn)
 	owned, err := m.cloud.TryOwn(ctx, snArn)
 	if err != nil {
 		return model.ServiceNetworkStatus{}, fmt.Errorf("failed to check ownership of ServiceNetwork %s: %w", name, err)
@@ -314,7 +314,7 @@ func (m *defaultServiceNetworkManager) Upsert(ctx context.Context, name string, 
 
 	return model.ServiceNetworkStatus{
 		ServiceNetworkARN: snArn,
-		ServiceNetworkID:  aws.StringValue(sn.SvcNetwork.Id),
+		ServiceNetworkID:  aws.ToString(sn.SvcNetwork.Id),
 	}, nil
 }
 
@@ -327,7 +327,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string
 		return err
 	}
 
-	snArn := aws.StringValue(sn.SvcNetwork.Arn)
+	snArn := aws.ToString(sn.SvcNetwork.Arn)
 	owned, err := m.cloud.IsArnManaged(ctx, snArn)
 	if err != nil {
 		return fmt.Errorf("failed to check ownership of ServiceNetwork %s: %w", snName, err)
@@ -337,7 +337,7 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string
 		return nil
 	}
 
-	_, err = m.cloud.Lattice().DeleteServiceNetworkWithContext(ctx, &vpclattice.DeleteServiceNetworkInput{
+	_, err = m.cloud.Lattice().DeleteServiceNetwork(ctx, &vpclattice.DeleteServiceNetworkInput{
 		ServiceNetworkIdentifier: sn.SvcNetwork.Id,
 	})
 	if err != nil {
@@ -348,17 +348,17 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string
 	return nil
 }
 
-func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx context.Context, existingSN *vpclattice.ServiceNetworkSummary, sgIds []*string, existingSnvaId *string, additionalTags services.Tags) (model.ServiceNetworkStatus, error) {
-	snva, err := m.cloud.Lattice().GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx context.Context, existingSN *types.ServiceNetworkSummary, sgIds []string, existingSnvaId *string, additionalTags services.Tags) (model.ServiceNetworkStatus, error) {
+	snva, err := m.cloud.Lattice().GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
 	})
 	if err != nil {
 		return model.ServiceNetworkStatus{}, err
 	}
 
-	err = m.cloud.Tagging().UpdateTags(ctx, aws.StringValue(snva.Arn), additionalTags, nil)
+	err = m.cloud.Tagging().UpdateTags(ctx, aws.ToString(snva.Arn), additionalTags, nil)
 	if err != nil {
-		return model.ServiceNetworkStatus{}, fmt.Errorf("failed to update tags for service network vpc association %s: %w", aws.StringValue(snva.Id), err)
+		return model.ServiceNetworkStatus{}, fmt.Errorf("failed to update tags for service network vpc association %s: %w", aws.ToString(snva.Id), err)
 	}
 
 	sgIdsEqual := securityGroupIdsEqual(sgIds, snva.SecurityGroupIds)
@@ -370,28 +370,33 @@ func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx co
 			SnvaSecurityGroupIds: snva.SecurityGroupIds,
 		}, nil
 	}
-	updateSnvaResp, err := m.cloud.Lattice().UpdateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.UpdateServiceNetworkVpcAssociationInput{
+	updateSnvaResp, err := m.cloud.Lattice().UpdateServiceNetworkVpcAssociation(ctx, &vpclattice.UpdateServiceNetworkVpcAssociationInput{
 		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
 		SecurityGroupIds:                       sgIds,
 	})
 	if err != nil {
 		return model.ServiceNetworkStatus{}, err
 	}
-	if *updateSnvaResp.Status == vpclattice.ServiceNetworkVpcAssociationStatusActive {
+	if string(updateSnvaResp.Status) == string(types.ServiceNetworkVpcAssociationStatusActive) {
 		return model.ServiceNetworkStatus{
 			ServiceNetworkID:     *existingSN.Id,
 			ServiceNetworkARN:    *existingSN.Arn,
 			SnvaSecurityGroupIds: updateSnvaResp.SecurityGroupIds,
 		}, nil
 	} else {
-		return model.ServiceNetworkStatus{}, fmt.Errorf("%w, update snva status: %s", lattice_runtime.NewRetryError(), *updateSnvaResp.Status)
+		return model.ServiceNetworkStatus{}, fmt.Errorf("%w, update snva status: %s", lattice_runtime.NewRetryError(), string(updateSnvaResp.Status))
 	}
 }
 
-func securityGroupIdsEqual(arr1, arr2 []*string) bool {
-	ids1 := utils.SliceMap(arr1, aws.StringValue)
+func securityGroupIdsEqual(arr1, arr2 []string) bool {
+	if len(arr1) == 0 && len(arr2) == 0 {
+		return true
+	}
+	ids1 := make([]string, len(arr1))
+	copy(ids1, arr1)
 	slices.Sort(ids1)
-	ids2 := utils.SliceMap(arr2, aws.StringValue)
+	ids2 := make([]string, len(arr2))
+	copy(ids2, arr2)
 	slices.Sort(ids2)
 	return slices.Equal(ids1, ids2)
 }

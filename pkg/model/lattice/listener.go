@@ -3,7 +3,7 @@ package lattice
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -75,10 +75,10 @@ func (spec *ListenerSpec) Validate() error {
 	if isFixedResponse == isForward { // either both true or both false
 		return fmt.Errorf("invalid listener default action, must be either fixed response or forward")
 	}
-	if spec.Protocol != vpclattice.ListenerProtocolTlsPassthrough && !isFixedResponse {
+	if spec.Protocol != string(types.ListenerProtocolTlsPassthrough) && !isFixedResponse {
 		return fmt.Errorf("non TLS_PASSTHROUGH listener default action must be fixed response")
 	}
-	if spec.Protocol == vpclattice.ListenerProtocolTlsPassthrough && !isForward {
+	if spec.Protocol == string(types.ListenerProtocolTlsPassthrough) && !isForward {
 		return fmt.Errorf("TLS_PASSTHROUGH listener default action must be forward")
 	}
 	return nil

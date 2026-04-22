@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -53,7 +54,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create TargetGroupPolicy with custom health check configuration
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "serviceexport-health-check-policy",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:                    aws.String("/health"),
 					IntervalSeconds:         aws.Int64(15),
@@ -74,7 +75,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/health"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(15))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(10))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,204"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200,204"))
 				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(3))
 				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(4))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
@@ -84,7 +85,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create initial policy
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "serviceexport-update-policy",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/initial"),
 					IntervalSeconds: aws.Int64(20),
@@ -123,7 +124,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create policy with custom configuration
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "serviceexport-fallback-policy",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/custom"),
 					IntervalSeconds: aws.Int64(45),
@@ -139,7 +140,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/custom"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(45))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,201"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200,201"))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
 
 			// Delete the policy
@@ -157,7 +158,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(5))
 				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(5))
 				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(2))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200"))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
 		})
 
@@ -168,18 +169,18 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
 
 			// Verify default health check configuration matches expected defaults
-			Expect(*tg.Config.HealthCheck).To(Equal(vpclattice.HealthCheckConfig{
+			Expect(*tg.Config.HealthCheck).To(Equal(types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Protocol:                   aws.String(vpclattice.TargetGroupProtocolHttp),
-				ProtocolVersion:            aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Protocol:                   types.TargetGroupProtocolHttp,
+				ProtocolVersion:            types.HealthCheckProtocolVersionHttp1,
 				Port:                       nil,
-				Matcher: &vpclattice.Matcher{
-					HttpCode: aws.String("200"),
+				Matcher: &types.MatcherMemberHttpCode{
+					Value: "200",
 				},
 			}))
 		})
@@ -206,7 +207,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create first policy (should win due to creation timestamp)
 			policy1 = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "serviceexport-conflict-policy-1",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/policy1"),
 					IntervalSeconds: aws.Int64(10),
@@ -218,7 +219,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create second policy (should lose due to later creation timestamp)
 			policy2 = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "serviceexport-conflict-policy-2",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/policy2"),
 					IntervalSeconds: aws.Int64(15),
@@ -278,7 +279,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Policy with name starting with 'a' should win over 'z' if created first
 			policy1 = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "a-serviceexport-alpha-policy",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/alpha"),
 					IntervalSeconds: aws.Int64(12),
@@ -289,7 +290,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 
 			policy2 = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "z-serviceexport-zulu-policy",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/zulu"),
 					IntervalSeconds: aws.Int64(18),
@@ -319,7 +320,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 		It("should set Accepted status condition for valid policies", func() {
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "serviceexport-valid-policy",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/health"),
 					IntervalSeconds: aws.Int64(30),
@@ -383,7 +384,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 						Kind: gwv1.Kind("Service"),
 						Name: gwv1.ObjectName(service.Name),
 					},
-					Protocol: aws.String(vpclattice.TargetGroupProtocolHttp),
+					Protocol: aws.String(string(types.TargetGroupProtocolHttp)),
 					HealthCheck: &anv1alpha1.HealthCheckConfig{
 						Path:            aws.String("/valid-path"),
 						IntervalSeconds: aws.Int64(-1), // Invalid negative value
@@ -422,7 +423,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 						Kind: gwv1.Kind("Service"),
 						Name: gwv1.ObjectName("non-existent-service"),
 					},
-					Protocol: aws.String(vpclattice.TargetGroupProtocolHttp),
+					Protocol: aws.String(string(types.TargetGroupProtocolHttp)),
 					HealthCheck: &anv1alpha1.HealthCheckConfig{
 						Path: aws.String("/non-existent"),
 					},
@@ -466,7 +467,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create policy with only protocol specified
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "serviceexport-minimal-policy",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				// No health check configuration - should use defaults
 			})
 
@@ -480,7 +481,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				// Should have default health check configuration since policy doesn't specify health check
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(30))
-				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+				g.Expect(string(tg.Config.Protocol)).To(Equal(string(types.TargetGroupProtocolHttp)))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
 		})
 	})
@@ -503,7 +504,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(5))
 				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(5))
 				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(2))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200"))
 			}).Within(120 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 		})
 
@@ -511,7 +512,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Test custom health check configuration with HTTP protocol
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "e2e-http-custom-path",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:                    aws.String("/api/health"),
 					IntervalSeconds:         aws.Int64(20),
@@ -549,13 +550,13 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
 
 				// Verify protocol configuration (ServiceExport target groups use HTTP protocol)
-				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+				g.Expect(string(tg.Config.Protocol)).To(Equal(string(types.TargetGroupProtocolHttp)))
 
 				// Verify health check configuration from policy is applied
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/api/health"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(20))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(8))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,202"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200,202"))
 				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(2))
 				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(3))
 			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
@@ -565,7 +566,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Test gRPC-style health check path with custom configuration
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "e2e-grpc-health-check",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:                    aws.String("/grpc.health.v1.Health/Check"),
 					IntervalSeconds:         aws.Int64(25),
@@ -605,7 +606,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/grpc.health.v1.Health/Check"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(25))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(12))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200"))
 				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(3))
 				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(2))
 			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
@@ -621,13 +622,13 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(30))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(5))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200"))
 			}).Within(30 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
 
 			// Apply policy with different configuration
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "e2e-precedence-test",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/custom/health"),
 					IntervalSeconds: aws.Int64(45),
@@ -666,7 +667,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/custom/health"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(45))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(15))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,201,202"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200,201,202"))
 			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 		})
 
@@ -674,7 +675,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create initial policy
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "e2e-rapid-changes-initial",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/initial"),
 					IntervalSeconds: aws.Int64(10),
@@ -715,7 +716,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create policy with specific configuration
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "e2e-consistency-test",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:                    aws.String("/consistent"),
 					IntervalSeconds:         aws.Int64(35),
@@ -738,7 +739,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/consistent"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(35))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(7))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,204"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200,204"))
 				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(4))
 				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(3))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
@@ -748,7 +749,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 
 			// Wait for target group to be cleaned up
 			Eventually(func(g Gomega) {
-				_, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+				_, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 					TargetGroupIdentifier: aws.String(originalTgId),
 				})
 				g.Expect(err).Should(HaveOccurred())
@@ -770,7 +771,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/consistent"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(35))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(7))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,204"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200,204"))
 				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(4))
 				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(3))
 			}).Within(120 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
@@ -805,22 +806,22 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(5))
 				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(5))
 				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(2))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200"))
 			}).Within(120 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 
 			// Verify exact default configuration that existed before the enhancement
-			expectedDefaults := vpclattice.HealthCheckConfig{
+			expectedDefaults := types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/"),
-				HealthCheckIntervalSeconds: aws.Int64(30),
-				HealthCheckTimeoutSeconds:  aws.Int64(5),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Protocol:                   aws.String(vpclattice.TargetGroupProtocolHttp),
-				ProtocolVersion:            aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+				HealthCheckIntervalSeconds: aws.Int32(30),
+				HealthCheckTimeoutSeconds:  aws.Int32(5),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Protocol:                   types.TargetGroupProtocolHttp,
+				ProtocolVersion:            types.HealthCheckProtocolVersionHttp1,
 				Port:                       nil,
-				Matcher: &vpclattice.Matcher{
-					HttpCode: aws.String("200"),
+				Matcher: &types.MatcherMemberHttpCode{
+					Value: "200",
 				},
 			}
 
@@ -832,7 +833,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create a policy and then delete it to verify fallback behavior
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "e2e-backwards-compat-temp",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path: aws.String("/temp"),
 				},
@@ -862,7 +863,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Test edge case parameter combinations that might cause issues
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "e2e-complex-params",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:                    aws.String("/api/v1/health/check?detailed=true"),
 					IntervalSeconds:         aws.Int64(5),                      // Minimum allowed
@@ -883,7 +884,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/api/v1/health/check?detailed=true"))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckIntervalSeconds).To(BeEquivalentTo(5))
 				g.Expect(*tg.Config.HealthCheck.HealthCheckTimeoutSeconds).To(BeEquivalentTo(2))
-				g.Expect(*tg.Config.HealthCheck.Matcher.HttpCode).To(Equal("200,201,202,204,206"))
+				g.Expect(tg.Config.HealthCheck.Matcher.(*types.MatcherMemberHttpCode).Value).To(Equal("200,201,202,204,206"))
 				g.Expect(*tg.Config.HealthCheck.HealthyThresholdCount).To(BeEquivalentTo(10))
 				g.Expect(*tg.Config.HealthCheck.UnhealthyThresholdCount).To(BeEquivalentTo(10))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
@@ -893,7 +894,7 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 			// Create policy and verify it gets applied to target group
 			policy = createServiceTargetGroupPolicy(service, &ServiceTargetGroupPolicyConfig{
 				PolicyName: "e2e-status-verification",
-				Protocol:   aws.String(vpclattice.TargetGroupProtocolHttp),
+				Protocol:   aws.String(string(types.TargetGroupProtocolHttp)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/status-test"),
 					IntervalSeconds: aws.Int64(40),
@@ -1050,8 +1051,8 @@ var _ = Describe("TargetGroupPolicy ServiceExport with ExportedPorts Integration
 			// ignored protocol settings from TargetGroupPolicy
 			policy = createServiceExportTargetGroupPolicy(serviceExport, &ServiceTargetGroupPolicyConfig{
 				PolicyName:      "exportedports-https-override",
-				Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
-				ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp2),
+				Protocol:        aws.String(string(types.TargetGroupProtocolHttps)),
+				ProtocolVersion: aws.String(string(types.TargetGroupProtocolVersionHttp2)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Enabled:         aws.Bool(true),
 					Path:            aws.String("/health"),
@@ -1069,17 +1070,17 @@ var _ = Describe("TargetGroupPolicy ServiceExport with ExportedPorts Integration
 			// instead of defaulting to HTTP based on routeType
 			Eventually(func(g Gomega) {
 				// Use GetTargetGroupWithProtocol to find the HTTPS target group
-				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttps, vpclattice.TargetGroupProtocolVersionHttp2)
+				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, string(types.TargetGroupProtocolHttps), string(types.TargetGroupProtocolVersionHttp2))
 				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
 
 				// Verify protocol override is applied
-				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
-				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp2))
+				g.Expect(string(tg.Config.Protocol)).To(Equal(string(types.TargetGroupProtocolHttps)))
+				g.Expect(string(tg.Config.ProtocolVersion)).To(Equal(string(types.TargetGroupProtocolVersionHttp2)))
 
 				// Verify health check configuration is also applied
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/health"))
-				g.Expect(*tg.Config.HealthCheck.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
-				g.Expect(*tg.Config.HealthCheck.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp2))
+				g.Expect(string(tg.Config.HealthCheck.Protocol)).To(Equal(string(types.TargetGroupProtocolHttps)))
+				g.Expect(string(tg.Config.HealthCheck.ProtocolVersion)).To(Equal(string(types.TargetGroupProtocolVersionHttp2)))
 			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 		})
 
@@ -1090,16 +1091,16 @@ var _ = Describe("TargetGroupPolicy ServiceExport with ExportedPorts Integration
 				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
 
 				// Should use HTTP protocol based on routeType
-				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
-				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp1))
+				g.Expect(string(tg.Config.Protocol)).To(Equal(string(types.TargetGroupProtocolHttp)))
+				g.Expect(string(tg.Config.ProtocolVersion)).To(Equal(string(types.TargetGroupProtocolVersionHttp1)))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
 		})
 
 		It("should apply HTTPS with HTTP1 protocol version override", func() {
 			policy = createServiceExportTargetGroupPolicy(serviceExport, &ServiceTargetGroupPolicyConfig{
 				PolicyName:      "exportedports-https-http1",
-				Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
-				ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+				Protocol:        aws.String(string(types.TargetGroupProtocolHttps)),
+				ProtocolVersion: aws.String(string(types.TargetGroupProtocolVersionHttp1)),
 				HealthCheck: &anv1alpha1.HealthCheckConfig{
 					Path:            aws.String("/api/health"),
 					IntervalSeconds: aws.Int64(15),
@@ -1111,13 +1112,13 @@ var _ = Describe("TargetGroupPolicy ServiceExport with ExportedPorts Integration
 			testFramework.ExpectCreated(ctx, policy)
 
 			Eventually(func(g Gomega) {
-				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttps, vpclattice.TargetGroupProtocolVersionHttp1)
+				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, string(types.TargetGroupProtocolHttps), string(types.TargetGroupProtocolVersionHttp1))
 				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
 
-				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
-				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp1))
+				g.Expect(string(tg.Config.Protocol)).To(Equal(string(types.TargetGroupProtocolHttps)))
+				g.Expect(string(tg.Config.ProtocolVersion)).To(Equal(string(types.TargetGroupProtocolVersionHttp1)))
 				g.Expect(*tg.Config.HealthCheck.Path).To(Equal("/api/health"))
-				g.Expect(*tg.Config.HealthCheck.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
+				g.Expect(string(tg.Config.HealthCheck.Protocol)).To(Equal(string(types.TargetGroupProtocolHttps)))
 			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 		})
 
@@ -1125,18 +1126,18 @@ var _ = Describe("TargetGroupPolicy ServiceExport with ExportedPorts Integration
 			// Start with HTTP protocol
 			policy = createServiceExportTargetGroupPolicy(serviceExport, &ServiceTargetGroupPolicyConfig{
 				PolicyName:      "exportedports-protocol-update",
-				Protocol:        aws.String(vpclattice.TargetGroupProtocolHttp),
-				ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp1),
+				Protocol:        aws.String(string(types.TargetGroupProtocolHttp)),
+				ProtocolVersion: aws.String(string(types.TargetGroupProtocolVersionHttp1)),
 			})
 
 			testFramework.ExpectCreated(ctx, policy)
 
 			// Verify initial HTTP configuration
 			Eventually(func(g Gomega) {
-				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttp, vpclattice.TargetGroupProtocolVersionHttp1)
+				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, string(types.TargetGroupProtocolHttp), string(types.TargetGroupProtocolVersionHttp1))
 				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
-				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
-				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp1))
+				g.Expect(string(tg.Config.Protocol)).To(Equal(string(types.TargetGroupProtocolHttp)))
+				g.Expect(string(tg.Config.ProtocolVersion)).To(Equal(string(types.TargetGroupProtocolVersionHttp1)))
 			}).Within(60 * time.Second).WithPolling(2 * time.Second).Should(Succeed())
 
 			// Note: Protocol changes require target group replacement in VPC Lattice
@@ -1147,24 +1148,24 @@ var _ = Describe("TargetGroupPolicy ServiceExport with ExportedPorts Integration
 			Eventually(func(g Gomega) {
 				tgSummary := testFramework.GetTargetGroup(ctx, service)
 				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
-				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttp))
+				g.Expect(string(tg.Config.Protocol)).To(Equal(string(types.TargetGroupProtocolHttp)))
 			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 
 			// Create new policy with HTTPS
 			policy = createServiceExportTargetGroupPolicy(serviceExport, &ServiceTargetGroupPolicyConfig{
 				PolicyName:      "exportedports-protocol-update-https",
-				Protocol:        aws.String(vpclattice.TargetGroupProtocolHttps),
-				ProtocolVersion: aws.String(vpclattice.TargetGroupProtocolVersionHttp2),
+				Protocol:        aws.String(string(types.TargetGroupProtocolHttps)),
+				ProtocolVersion: aws.String(string(types.TargetGroupProtocolVersionHttp2)),
 			})
 
 			testFramework.ExpectCreated(ctx, policy)
 
 			// Verify HTTPS configuration
 			Eventually(func(g Gomega) {
-				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, vpclattice.TargetGroupProtocolHttps, vpclattice.TargetGroupProtocolVersionHttp2)
+				tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, service, string(types.TargetGroupProtocolHttps), string(types.TargetGroupProtocolVersionHttp2))
 				tg := testFramework.GetFullTargetGroupFromSummary(ctx, tgSummary)
-				g.Expect(*tg.Config.Protocol).To(Equal(vpclattice.TargetGroupProtocolHttps))
-				g.Expect(*tg.Config.ProtocolVersion).To(Equal(vpclattice.TargetGroupProtocolVersionHttp2))
+				g.Expect(string(tg.Config.Protocol)).To(Equal(string(types.TargetGroupProtocolHttps)))
+				g.Expect(string(tg.Config.ProtocolVersion)).To(Equal(string(types.TargetGroupProtocolVersionHttp2)))
 			}).Within(90 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 		})
 	})

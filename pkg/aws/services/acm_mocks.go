@@ -13,7 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	acm "github.com/aws/aws-sdk-go/service/acm"
+	acm "github.com/aws/aws-sdk-go-v2/service/acm"
+	types "github.com/aws/aws-sdk-go-v2/service/acm/types"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,10 +43,10 @@ func (m *MockACM) EXPECT() *MockACMMockRecorder {
 }
 
 // ListCertificatesAsList mocks base method.
-func (m *MockACM) ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]*acm.CertificateSummary, error) {
+func (m *MockACM) ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]types.CertificateSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListCertificatesAsList", ctx, input)
-	ret0, _ := ret[0].([]*acm.CertificateSummary)
+	ret0, _ := ret[0].([]types.CertificateSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

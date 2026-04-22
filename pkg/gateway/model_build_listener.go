@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -104,7 +104,7 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 			protocol := string(gwListener.Protocol)
 			if isTLSPassthroughGatewayListener(&gwListener) {
 				t.log.Debugf(ctx, "Found TLS passthrough listener %s", gwListener.Name)
-				protocol = vpclattice.ListenerProtocolTlsPassthrough
+				protocol = string(types.ListenerProtocolTlsPassthrough)
 			}
 
 			listenerName := string(gwListener.Name)
@@ -148,7 +148,7 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 func (t *latticeServiceModelBuildTask) getListenerDefaultAction(ctx context.Context, modelListenerProtocol string) (
 	*model.DefaultAction, error,
 ) {
-	if modelListenerProtocol != vpclattice.ListenerProtocolTlsPassthrough {
+	if modelListenerProtocol != string(types.ListenerProtocolTlsPassthrough) {
 		return &model.DefaultAction{
 			FixedResponseStatusCode: aws.Int64(model.DefaultActionFixedResponseStatusCode),
 		}, nil

@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
@@ -26,7 +26,7 @@ const (
 var testFramework *test.Framework
 var ctx context.Context
 var testGateway *gwv1.Gateway
-var testServiceNetwork *vpclattice.ServiceNetworkSummary
+var testServiceNetwork *types.ServiceNetworkSummary
 
 var _ = SynchronizedBeforeSuite(func() {
 	vpcId := os.Getenv("CLUSTER_VPC_ID")

@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	lattice "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	vpclattice "github.com/aws/aws-sdk-go/service/vpclattice"
+	types "github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -43,10 +43,10 @@ func (m *MockTargetsManager) EXPECT() *MockTargetsManagerMockRecorder {
 }
 
 // List mocks base method.
-func (m *MockTargetsManager) List(ctx context.Context, modelTg *lattice.TargetGroup) ([]*vpclattice.TargetSummary, error) {
+func (m *MockTargetsManager) List(ctx context.Context, modelTg *lattice.TargetGroup) ([]types.TargetSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", ctx, modelTg)
-	ret0, _ := ret[0].([]*vpclattice.TargetSummary)
+	ret0, _ := ret[0].([]types.TargetSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

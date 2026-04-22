@@ -12,17 +12,20 @@ import (
 	"math/big"
 	"time"
 
+	"slices"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/acm"
-	"github.com/aws/aws-sdk-go/service/route53"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	acm "github.com/aws/aws-sdk-go-v2/service/acm"
+	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
+	route53 "github.com/aws/aws-sdk-go-v2/service/route53"
+	route53types "github.com/aws/aws-sdk-go-v2/service/route53/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"slices"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,10 +42,9 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 
 	var (
 		log       = testFramework.Log.Named("byoc")
-		awsCfg    = aws.NewConfig().WithRegion(config.Region)
-		sess, _   = session.NewSession(awsCfg)
-		acmClient = acm.New(sess, awsCfg)
-		r53Client = route53.New(sess)
+		awsCfg = lo.Must(awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(config.Region)))
+		acmClient = acm.NewFromConfig(awsCfg)
+		r53Client = route53.NewFromConfig(awsCfg)
 
 		certArn       string
 		hostedZoneId  string
@@ -127,7 +129,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
 	})
 })
 
-func createCertIfNotExists(client *acm.ACM, dnsName string) (string, error) {
+func createCertIfNotExists(client *acm.Client, dnsName string) (string, error) {
 	arn, err := findCert(client, dnsName)
 	if err != nil {
 		return "", err
@@ -142,7 +144,7 @@ func createCertIfNotExists(client *acm.ACM, dnsName string) (string, error) {
 	return arn, nil
 }
 
-func createCert(client *acm.ACM, dnsName string) (string, error) {
+func createCert(client *acm.Client, dnsName string) (string, error) {
 	cert, priv, err := genCert(dnsName)
 	if err != nil {
 		return "", err
@@ -201,9 +203,9 @@ func derToPem(der []byte, block string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func findCert(client *acm.ACM, dnsName string) (string, error) {
-	out, err := client.ListCertificates(&acm.ListCertificatesInput{
-		CertificateStatuses: []*string{aws.String(acm.CertificateStatusIssued)},
+func findCert(client *acm.Client, dnsName string) (string, error) {
+	out, err := client.ListCertificates(context.TODO(), &acm.ListCertificatesInput{
+		CertificateStatuses: []acmtypes.CertificateStatus{acmtypes.CertificateStatusIssued},
 	})
 	if err != nil {
 		return "", err
@@ -216,8 +218,8 @@ func findCert(client *acm.ACM, dnsName string) (string, error) {
 	return "", nil
 }
 
-func uploadCert(client *acm.ACM, cert []byte, priv []byte) (string, error) {
-	out, err := client.ImportCertificate(&acm.ImportCertificateInput{
+func uploadCert(client *acm.Client, cert []byte, priv []byte) (string, error) {
+	out, err := client.ImportCertificate(context.TODO(), &acm.ImportCertificateInput{
 		Certificate: cert,
 		PrivateKey:  priv,
 	})
@@ -227,8 +229,8 @@ func uploadCert(client *acm.ACM, cert []byte, priv []byte) (string, error) {
 	return *out.CertificateArn, nil
 }
 
-func deleteCert(client *acm.ACM, arn string) error {
-	_, err := client.DeleteCertificate(&acm.DeleteCertificateInput{
+func deleteCert(client *acm.Client, arn string) error {
+	_, err := client.DeleteCertificate(context.TODO(), &acm.DeleteCertificateInput{
 		CertificateArn: &arn,
 	})
 	return err
@@ -275,7 +277,7 @@ func removeGatewayBYOCListener() {
 	testFramework.ExpectUpdated(context.TODO(), gw)
 }
 
-func createHostedZoneIfNotExists(client *route53.Route53, hostedZoneName string) (*route53.HostedZone, error) {
+func createHostedZoneIfNotExists(client *route53.Client, hostedZoneName string) (*route53types.HostedZone, error) {
 	hostedZone, err := findHostedZone(client, hostedZoneName)
 	if err != nil {
 		return nil, err
@@ -290,42 +292,43 @@ func createHostedZoneIfNotExists(client *route53.Route53, hostedZoneName string)
 	return hostedZone, nil
 }
 
-func findHostedZone(client *route53.Route53, name string) (*route53.HostedZone, error) {
-	out, err := client.ListHostedZonesByName(&route53.ListHostedZonesByNameInput{DNSName: &name})
+func findHostedZone(client *route53.Client, name string) (*route53types.HostedZone, error) {
+	out, err := client.ListHostedZonesByName(context.TODO(), &route53.ListHostedZonesByNameInput{DNSName: &name})
 	if err != nil {
 		return nil, err
 	}
 	if len(out.HostedZones) == 0 {
 		return nil, nil
 	}
-	hz := out.HostedZones[0]
-	if aws.StringValue(hz.Name) != name {
+	hz := &out.HostedZones[0]
+	if aws.ToString(hz.Name) != name {
 		return nil, nil
 	}
 	return hz, nil
 }
 
-func createHostedZone(client *route53.Route53, name string) (*route53.HostedZone, error) {
-	out, err := client.CreateHostedZone(&route53.CreateHostedZoneInput{
+func createHostedZone(client *route53.Client, name string) (*route53types.HostedZone, error) {
+	out, err := client.CreateHostedZone(context.TODO(), &route53.CreateHostedZoneInput{
 		CallerReference: aws.String(fmt.Sprintf("%s-%d", name, time.Now().Unix())),
-		HostedZoneConfig: &route53.HostedZoneConfig{
+		HostedZoneConfig: &route53types.HostedZoneConfig{
 			Comment:     aws.String("eks byoc test"),
-			PrivateZone: aws.Bool(true),
+			PrivateZone: true,
 		},
-		VPC:  &route53.VPC{VPCId: &config.VpcID, VPCRegion: &config.Region},
+		VPC:  &route53types.VPC{VPCId: &config.VpcID, VPCRegion: route53types.VPCRegion(config.Region)},
 		Name: &name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	err = client.WaitUntilResourceRecordSetsChanged(&route53.GetChangeInput{Id: out.ChangeInfo.Id})
+	waiter := route53.NewResourceRecordSetsChangedWaiter(client)
+	err = waiter.Wait(context.TODO(), &route53.GetChangeInput{Id: out.ChangeInfo.Id}, 5*time.Minute)
 	if err != nil {
 		return nil, err
 	}
 	return out.HostedZone, nil
 }
 
-func createCnameIfNotExists(client *route53.Route53, hostedZoneId, cname, cvalue string) error {
+func createCnameIfNotExists(client *route53.Client, hostedZoneId, cname, cvalue string) error {
 	exists, err := cnameExists(client, hostedZoneId, cname)
 	if err != nil {
 		return err
@@ -340,17 +343,17 @@ func createCnameIfNotExists(client *route53.Route53, hostedZoneId, cname, cvalue
 	return nil
 }
 
-func createCname(client *route53.Route53, hostedZoneId, cname string, cvalue string) error {
-	out, err := client.ChangeResourceRecordSets(&route53.ChangeResourceRecordSetsInput{
-		ChangeBatch: &route53.ChangeBatch{
-			Changes: []*route53.Change{
+func createCname(client *route53.Client, hostedZoneId, cname string, cvalue string) error {
+	out, err := client.ChangeResourceRecordSets(context.TODO(), &route53.ChangeResourceRecordSetsInput{
+		ChangeBatch: &route53types.ChangeBatch{
+			Changes: []route53types.Change{
 				{
-					Action: aws.String(route53.ChangeActionCreate),
-					ResourceRecordSet: &route53.ResourceRecordSet{
+					Action: route53types.ChangeActionCreate,
+					ResourceRecordSet: &route53types.ResourceRecordSet{
 						Name:            &cname,
-						ResourceRecords: []*route53.ResourceRecord{{Value: &cvalue}},
+						ResourceRecords: []route53types.ResourceRecord{{Value: &cvalue}},
 						TTL:             aws.Int64(300),
-						Type:            aws.String(route53.RRTypeCname),
+						Type:            route53types.RRTypeCname,
 					},
 				},
 			},
@@ -361,64 +364,73 @@ func createCname(client *route53.Route53, hostedZoneId, cname string, cvalue str
 	if err != nil {
 		return err
 	}
-	err = client.WaitUntilResourceRecordSetsChanged(&route53.GetChangeInput{Id: out.ChangeInfo.Id})
+	waiter := route53.NewResourceRecordSetsChangedWaiter(client)
+	err = waiter.Wait(context.TODO(), &route53.GetChangeInput{Id: out.ChangeInfo.Id}, 5*time.Minute)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func cnameExists(client *route53.Route53, hostedZoneId, cname string) (bool, error) {
-	rrs, err := client.ListResourceRecordSets(&route53.ListResourceRecordSetsInput{
+func cnameExists(client *route53.Client, hostedZoneId, cname string) (bool, error) {
+	rrs, err := client.ListResourceRecordSets(context.TODO(), &route53.ListResourceRecordSetsInput{
 		HostedZoneId: &hostedZoneId,
 	})
 	if err != nil {
 		return false, err
 	}
 	for _, rec := range rrs.ResourceRecordSets {
-		if *rec.Name == cname+"." && *rec.Type == route53.RRTypeCname {
+		if *rec.Name == cname+"." && rec.Type == route53types.RRTypeCname {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func deleteHostedZoneRecords(client *route53.Route53, hostedZoneId string) error {
-	rrs, err := client.ListResourceRecordSets(&route53.ListResourceRecordSetsInput{
+func deleteHostedZoneRecords(client *route53.Client, hostedZoneId string) error {
+	rrs, err := client.ListResourceRecordSets(context.TODO(), &route53.ListResourceRecordSetsInput{
 		HostedZoneId: &hostedZoneId,
 	})
-	changes := []*route53.Change{}
+	if err != nil {
+		return err
+	}
+	changes := []route53types.Change{}
 	for _, rec := range rrs.ResourceRecordSets {
-		if *rec.Type == route53.RRTypeNs || *rec.Type == route53.RRTypeSoa {
+		if rec.Type == route53types.RRTypeNs || rec.Type == route53types.RRTypeSoa {
 			continue
 		}
-		changes = append(changes, &route53.Change{
-			Action:            aws.String(route53.ChangeActionDelete),
-			ResourceRecordSet: rec,
+		changes = append(changes, route53types.Change{
+			Action:            route53types.ChangeActionDelete,
+			ResourceRecordSet: &rec,
 		})
 	}
-	out, err := client.ChangeResourceRecordSets(&route53.ChangeResourceRecordSetsInput{
-		ChangeBatch: &route53.ChangeBatch{
+	out, err := client.ChangeResourceRecordSets(context.TODO(), &route53.ChangeResourceRecordSetsInput{
+		ChangeBatch: &route53types.ChangeBatch{
 			Changes: changes,
 			Comment: aws.String("cleanup byoc test"),
 		},
 		HostedZoneId: &hostedZoneId,
 	})
-	err = client.WaitUntilResourceRecordSetsChanged(&route53.GetChangeInput{Id: out.ChangeInfo.Id})
+	if err != nil {
+		return err
+	}
+	waiter := route53.NewResourceRecordSetsChangedWaiter(client)
+	err = waiter.Wait(context.TODO(), &route53.GetChangeInput{Id: out.ChangeInfo.Id}, 5*time.Minute)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func deleteHostedZone(client *route53.Route53, hostedZoneId string) error {
-	out, err := client.DeleteHostedZone(&route53.DeleteHostedZoneInput{
+func deleteHostedZone(client *route53.Client, hostedZoneId string) error {
+	out, err := client.DeleteHostedZone(context.TODO(), &route53.DeleteHostedZoneInput{
 		Id: &hostedZoneId,
 	})
 	if err != nil {
 		return err
 	}
-	err = client.WaitUntilResourceRecordSetsChanged(&route53.GetChangeInput{Id: out.ChangeInfo.Id})
+	waiter := route53.NewResourceRecordSetsChangedWaiter(client)
+	err = waiter.Wait(context.TODO(), &route53.GetChangeInput{Id: out.ChangeInfo.Id}, 5*time.Minute)
 	if err != nil {
 		return err
 	}

@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -21,93 +21,93 @@ func TestContainsTags(t *testing.T) {
 		{
 			contains: true,
 			findTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			sourceTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			testName: "exact match with one tag",
 		},
 		{
 			contains: true,
 			findTags: Tags{
-				"Key1": aws.String("Value1"),
-				"Key2": aws.String("Value2"),
+				"Key1": "Value1",
+				"Key2": "Value2",
 			},
 			sourceTags: Tags{
-				"Key1": aws.String("Value1"),
-				"Key2": aws.String("Value2"),
+				"Key1": "Value1",
+				"Key2": "Value2",
 			},
 			testName: "exact match with multiple tags",
 		},
 		{
 			contains: true,
 			findTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			sourceTags: Tags{
-				"Key1": aws.String("Value1"),
-				"Key2": aws.String("Value2"),
+				"Key1": "Value1",
+				"Key2": "Value2",
 			},
 			testName: "match one tag from source's multiple tags",
 		},
 		{
 			contains: true,
 			findTags: Tags{
-				"Key1": aws.String("Value1"),
-				"Key2": aws.String("Value2"),
+				"Key1": "Value1",
+				"Key2": "Value2",
 			},
 			sourceTags: Tags{
-				"Key3": aws.String("Value3"),
-				"Key2": aws.String("Value2"),
-				"Key1": aws.String("Value1"),
+				"Key3": "Value3",
+				"Key2": "Value2",
+				"Key1": "Value1",
 			},
 			testName: "match subset of tags from source's multiple tags",
 		},
 		{
 			contains: false,
 			findTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			sourceTags: Tags{
-				"Key2": aws.String("Value2"),
+				"Key2": "Value2",
 			},
 			testName: "no match for tag with different key and value",
 		},
 		{
 			contains: false,
 			findTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			sourceTags: Tags{
-				"Key1": aws.String("Value2"),
+				"Key1": "Value2",
 			},
 			testName: "no match for tag with same key, different value",
 		},
 		{
 			contains: false,
 			findTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			sourceTags: Tags{
-				"Key1": aws.String("value1"),
+				"Key1": "value1",
 			},
 			testName: "no match for tag with same key, different value case",
 		},
 		{
 			contains: false,
 			findTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			sourceTags: Tags{
-				"key1": aws.String("Value1"),
+				"key1": "Value1",
 			},
 			testName: "no match for tag with different key case",
 		},
 		{
 			contains: false,
 			findTags: Tags{
-				"Key1": aws.String("Value"),
+				"Key1": "Value",
 			},
 			sourceTags: Tags{},
 			testName:   "no match for tag when source has no tags",
@@ -116,26 +116,26 @@ func TestContainsTags(t *testing.T) {
 			contains: false,
 			findTags: Tags{},
 			sourceTags: Tags{
-				"Key1": aws.String("Value1"),
-				"Key2": aws.String("Value2"),
-				"Key3": aws.String("Value3"),
+				"Key1": "Value1",
+				"Key2": "Value2",
+				"Key3": "Value3",
 			},
 			testName: "no match when searching for empty tags",
 		},
 		{
 			contains: false,
 			findTags: Tags{
-				"Key1": aws.String(""),
+				"Key1": "",
 			},
 			sourceTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			testName: "no match for tag with empty check value",
 		},
 		{
 			contains: false,
 			findTags: Tags{
-				"Key1": aws.String(""),
+				"Key1": "",
 			},
 			sourceTags: Tags{},
 			testName:   "no match for tag with empty check value when source has no tags",
@@ -143,10 +143,10 @@ func TestContainsTags(t *testing.T) {
 		{
 			contains: false,
 			findTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			sourceTags: Tags{
-				"Key1": aws.String(""),
+				"Key1": "",
 			},
 			testName: "no match for tag with empty source value",
 		},
@@ -181,10 +181,10 @@ func Test_latticeTagging_FindResourcesByTags_ListTagsError(t *testing.T) {
 	}
 
 	inputTags := Tags{
-		"Key1": aws.String("Value1"),
+		"Key1": "Value1",
 	}
 
-	targetGroups := []*vpclattice.TargetGroupSummary{
+	targetGroups := []types.TargetGroupSummary{
 		{
 			Arn:  aws.String("tg-arn-1"),
 			Id:   aws.String("tg-id-1"),
@@ -195,7 +195,7 @@ func Test_latticeTagging_FindResourcesByTags_ListTagsError(t *testing.T) {
 	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).
 		Return(targetGroups, nil).Times(1)
 
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).
 		Return(nil, ErrInternal).Times(len(targetGroups))
 
 	_, err := lt.FindResourcesByTags(ctx, ResourceTypeTargetGroup, inputTags)
@@ -209,7 +209,7 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 		resourceType ResourceType
 		inputTags    Tags
 		testName     string
-		targetGroups []*vpclattice.TargetGroupSummary
+		targetGroups []types.TargetGroupSummary
 		tgTags       map[string]Tags
 		want         []string
 	}{
@@ -217,10 +217,10 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			ctx:          context.TODO(),
 			resourceType: ResourceTypeService,
 			inputTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			testName:     "no results for ListTargetGroups returns empty list",
-			targetGroups: []*vpclattice.TargetGroupSummary{},
+			targetGroups: []types.TargetGroupSummary{},
 			tgTags:       map[string]Tags{},
 			want:         []string{},
 		},
@@ -228,10 +228,10 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			ctx:          context.TODO(),
 			resourceType: ResourceTypeTargetGroup,
 			inputTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			testName: "no resources found if target groups do not have tags",
-			targetGroups: []*vpclattice.TargetGroupSummary{
+			targetGroups: []types.TargetGroupSummary{
 				{
 					Arn:  aws.String("tg-arn-1"),
 					Id:   aws.String("tg-id-1"),
@@ -253,10 +253,10 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			ctx:          context.TODO(),
 			resourceType: ResourceTypeTargetGroup,
 			inputTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			testName: "one item with tags is found",
-			targetGroups: []*vpclattice.TargetGroupSummary{
+			targetGroups: []types.TargetGroupSummary{
 				{
 					Arn:  aws.String("tg-arn-1"),
 					Id:   aws.String("tg-id-1"),
@@ -270,10 +270,10 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			},
 			tgTags: map[string]Tags{
 				"tg-arn-1": {
-					"Key1": aws.String("Value1"),
+					"Key1": "Value1",
 				},
 				"tg-arn-2": {
-					"Key2": aws.String("Value2"),
+					"Key2": "Value2",
 				},
 			},
 			want: []string{"tg-arn-1"},
@@ -282,10 +282,10 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			ctx:          context.TODO(),
 			resourceType: ResourceTypeTargetGroup,
 			inputTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			testName: "multiple items with tags are found",
-			targetGroups: []*vpclattice.TargetGroupSummary{
+			targetGroups: []types.TargetGroupSummary{
 				{
 					Arn:  aws.String("tg-arn-1"),
 					Id:   aws.String("tg-id-1"),
@@ -304,13 +304,13 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			},
 			tgTags: map[string]Tags{
 				"tg-arn-1": {
-					"Key1": aws.String("Value1"),
+					"Key1": "Value1",
 				},
 				"tg-arn-2": {
-					"Key1": aws.String("Value1"),
+					"Key1": "Value1",
 				},
 				"tg-arn-3": {
-					"Key2": aws.String("Value2"),
+					"Key2": "Value2",
 				},
 			},
 			want: []string{"tg-arn-1", "tg-arn-2"},
@@ -319,10 +319,10 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			ctx:          context.TODO(),
 			resourceType: ResourceTypeTargetGroup,
 			inputTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			testName: "no resources found if no target groups have matching tags",
-			targetGroups: []*vpclattice.TargetGroupSummary{
+			targetGroups: []types.TargetGroupSummary{
 				{
 					Arn:  aws.String("tg-arn-1"),
 					Id:   aws.String("tg-id-1"),
@@ -336,10 +336,10 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			},
 			tgTags: map[string]Tags{
 				"tg-arn-1": {
-					"Key2": aws.String("Value2"),
+					"Key2": "Value2",
 				},
 				"tg-arn-2": {
-					"Key2": aws.String("Value2"),
+					"Key2": "Value2",
 				},
 			},
 			want: []string{},
@@ -348,10 +348,10 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			ctx:          context.TODO(),
 			resourceType: ResourceTypeTargetGroup,
 			inputTags: Tags{
-				"Key1": aws.String("Value1"),
+				"Key1": "Value1",
 			},
 			testName: "no resources found with tags case mismatch",
-			targetGroups: []*vpclattice.TargetGroupSummary{
+			targetGroups: []types.TargetGroupSummary{
 				{
 					Arn:  aws.String("tg-arn-1"),
 					Id:   aws.String("tg-id-1"),
@@ -370,13 +370,13 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			},
 			tgTags: map[string]Tags{
 				"tg-arn-1": {
-					"Key1": aws.String("VALUE1"),
+					"Key1": "VALUE1",
 				},
 				"tg-arn-2": {
-					"Key1": aws.String("value1"),
+					"Key1": "value1",
 				},
 				"tg-arn-3": {
-					"key1": aws.String("Value1"),
+					"key1": "Value1",
 				},
 			},
 			want: []string{},
@@ -385,11 +385,11 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			ctx:          context.TODO(),
 			resourceType: ResourceTypeTargetGroup,
 			inputTags: Tags{
-				"Key1": aws.String("Value1"),
-				"Key2": aws.String("Value2"),
+				"Key1": "Value1",
+				"Key2": "Value2",
 			},
 			testName: "no resources found when only a subset of tags match",
-			targetGroups: []*vpclattice.TargetGroupSummary{
+			targetGroups: []types.TargetGroupSummary{
 				{
 					Arn:  aws.String("tg-arn-1"),
 					Id:   aws.String("tg-id-1"),
@@ -398,7 +398,7 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			},
 			tgTags: map[string]Tags{
 				"tg-arn-1": {
-					"Key1": aws.String("Value1"),
+					"Key1": "Value1",
 				},
 			},
 			want: []string{},
@@ -417,9 +417,9 @@ func Test_latticeTagging_FindResourcesByTags(t *testing.T) {
 			mockLattice.EXPECT().ListTargetGroupsAsList(tt.ctx, gomock.Any()).
 				Return(tt.targetGroups, nil).Times(1)
 
-			mockLattice.EXPECT().ListTagsForResourceWithContext(tt.ctx, gomock.Any()).DoAndReturn(
-				func(ctx aws.Context, input *vpclattice.ListTagsForResourceInput, opts ...request.Option) (*vpclattice.ListTagsForResourceOutput, error) {
-					return &vpclattice.ListTagsForResourceOutput{Tags: tt.tgTags[aws.StringValue(input.ResourceArn)]}, nil
+			mockLattice.EXPECT().ListTagsForResource(tt.ctx, gomock.Any()).DoAndReturn(
+				func(ctx context.Context, input *vpclattice.ListTagsForResourceInput, optFns ...func(*vpclattice.Options)) (*vpclattice.ListTagsForResourceOutput, error) {
+					return &vpclattice.ListTagsForResourceOutput{Tags: tt.tgTags[aws.ToString(input.ResourceArn)]}, nil
 				}).Times(len(tt.targetGroups))
 
 			got, err := lt.FindResourcesByTags(tt.ctx, ResourceTypeTargetGroup, tt.inputTags)
@@ -447,9 +447,9 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 			name:        "nil additional tags removes all existing additional tags",
 			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
-				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
+				"application-networking.k8s.aws/ManagedBy": "123456789/cluster/vpc-123",
 			},
 			additionalTags:     nil,
 			awsManagedTags:     nil,
@@ -462,11 +462,11 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 			name:        "add new additional tags when no existing additional tags",
 			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{
-				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+				"application-networking.k8s.aws/ManagedBy": "123456789/cluster/vpc-123",
 			},
 			additionalTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			awsManagedTags:     nil,
 			expectedTagCalls:   1,
@@ -478,14 +478,14 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 			name:        "update AWS managed tags only",
 			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{
-				"Environment": aws.String("Dev"),
-				"application-networking.k8s.aws/ManagedBy": aws.String("old-cluster/old-vpc"),
+				"Environment": "Dev",
+				"application-networking.k8s.aws/ManagedBy": "old-cluster/old-vpc",
 			},
 			additionalTags: Tags{
-				"Environment": aws.String("Dev"),
+				"Environment": "Dev",
 			},
 			awsManagedTags: Tags{
-				"application-networking.k8s.aws/ManagedBy": aws.String("new-cluster/new-vpc"),
+				"application-networking.k8s.aws/ManagedBy": "new-cluster/new-vpc",
 			},
 			expectedTagCalls:   1,
 			expectedUntagCalls: 0,
@@ -496,16 +496,16 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 			name:        "update both additional and AWS managed tags",
 			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("OldApp"),
-				"application-networking.k8s.aws/ManagedBy": aws.String("old-cluster/old-vpc"),
+				"Environment": "Dev",
+				"Project":     "OldApp",
+				"application-networking.k8s.aws/ManagedBy": "old-cluster/old-vpc",
 			},
 			additionalTags: Tags{
-				"Environment": aws.String("Prod"),
-				"Project":     aws.String("NewApp"),
+				"Environment": "Prod",
+				"Project":     "NewApp",
 			},
 			awsManagedTags: Tags{
-				"application-networking.k8s.aws/ManagedBy": aws.String("new-cluster/new-vpc"),
+				"application-networking.k8s.aws/ManagedBy": "new-cluster/new-vpc",
 			},
 			expectedTagCalls:   1,
 			expectedUntagCalls: 0,
@@ -516,16 +516,16 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 			name:        "no changes needed with AWS managed tags",
 			resourceArn: "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
-				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
+				"application-networking.k8s.aws/ManagedBy": "123456789/cluster/vpc-123",
 			},
 			additionalTags: Tags{
-				"Environment": aws.String("Dev"),
-				"Project":     aws.String("MyApp"),
+				"Environment": "Dev",
+				"Project":     "MyApp",
 			},
 			awsManagedTags: Tags{
-				"application-networking.k8s.aws/ManagedBy": aws.String("123456789/cluster/vpc-123"),
+				"application-networking.k8s.aws/ManagedBy": "123456789/cluster/vpc-123",
 			},
 			expectedTagCalls:   0,
 			expectedUntagCalls: 0,
@@ -537,12 +537,12 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 			resourceArn:  "arn:aws:vpc-lattice:us-west-2:123456789:service/svc-123",
 			existingTags: Tags{},
 			additionalTags: Tags{
-				"application-networking.k8s.aws/ManagedBy": aws.String("test-override"),
-				"application-networking.k8s.aws/RouteType": aws.String("http"),
-				"Environment": aws.String("Dev"),
+				"application-networking.k8s.aws/ManagedBy": "test-override",
+				"application-networking.k8s.aws/RouteType": "http",
+				"Environment": "Dev",
 			},
 			awsManagedTags: Tags{
-				"application-networking.k8s.aws/ManagedBy": aws.String("correct-value"),
+				"application-networking.k8s.aws/ManagedBy": "correct-value",
 			},
 			expectedTagCalls:   1,
 			expectedUntagCalls: 0,
@@ -560,16 +560,16 @@ func TestLatticeTagging_UpdateTags(t *testing.T) {
 				Lattice: mockLattice,
 			}
 
-			mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).
+			mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).
 				Return(&vpclattice.ListTagsForResourceOutput{Tags: tt.existingTags}, nil).Times(1)
 
 			if tt.expectedUntagCalls > 0 {
-				mockLattice.EXPECT().UntagResourceWithContext(ctx, gomock.Any()).
+				mockLattice.EXPECT().UntagResource(ctx, gomock.Any()).
 					Return(nil, nil).Times(tt.expectedUntagCalls)
 			}
 
 			if tt.expectedTagCalls > 0 {
-				mockLattice.EXPECT().TagResourceWithContext(ctx, gomock.Any()).
+				mockLattice.EXPECT().TagResource(ctx, gomock.Any()).
 					Return(nil, nil).Times(tt.expectedTagCalls)
 			}
 

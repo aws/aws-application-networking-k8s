@@ -1,29 +1,35 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	anaws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
-	arn2 "github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
+	arn2 "github.com/aws/aws-sdk-go-v2/aws/arn"
+	rgtatypes "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi/types"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go/service/firehose"
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	cloudwatchlogs "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	firehose "github.com/aws/aws-sdk-go-v2/service/firehose"
+	firehosetypes "github.com/aws/aws-sdk-go-v2/service/firehose/types"
+	iam "github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	resourcegroupstaggingapi "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
+	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -68,10 +74,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 	)
 
 	var (
-		s3Client                                     *s3.S3
-		logsClient                                   *cloudwatchlogs.CloudWatchLogs
-		firehoseClient                               *firehose.Firehose
-		iamClient                                    *iam.IAM
+		s3Client                                     *s3.Client
+		logsClient                                   *cloudwatchlogs.Client
+		firehoseClient                               *firehose.Client
+		iamClient                                    *iam.Client
 		httpDeployment                               *appsv1.Deployment
 		grpcDeployment                               *appsv1.Deployment
 		httpK8sService                               *corev1.Service
@@ -90,7 +96,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		deliveryStreamArn                            string
 		roleArn                                      string
 		awsResourceName                              string
-		sess                                         = session.Must(session.NewSession(&aws.Config{Region: aws.String(config.Region)}))
+		awsCfg                                       = lo.Must(awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(config.Region)))
 	)
 
 	BeforeAll(func() {
@@ -99,33 +105,36 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		tags := testFramework.NewTestTags(testSuite)
 
 		// Create S3 Bucket
-		s3Client = s3.New(sess)
-		_, err := s3Client.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+		s3Client = s3.NewFromConfig(awsCfg)
+		_, err := s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
 			Bucket: aws.String(awsResourceName),
+			CreateBucketConfiguration: &s3types.CreateBucketConfiguration{
+				LocationConstraint: s3types.BucketLocationConstraint(config.Region),
+			},
 		})
 		Expect(err).To(BeNil())
 		bucketArn = "arn:aws:s3:::" + awsResourceName
 
 		// Tag S3 Bucket
-		tagging := &s3.Tagging{
-			TagSet: make([]*s3.Tag, 0),
+		tagging := &s3types.Tagging{
+			TagSet: make([]s3types.Tag, 0),
 		}
 		for key, value := range tags {
-			tagging.TagSet = append(tagging.TagSet, &s3.Tag{
+			tagging.TagSet = append(tagging.TagSet, s3types.Tag{
 				Key:   aws.String(key),
-				Value: value,
+				Value: aws.String(value),
 			})
 		}
 		putTagsRequest := &s3.PutBucketTaggingInput{
 			Bucket:  aws.String(awsResourceName),
 			Tagging: tagging,
 		}
-		_, err = s3Client.PutBucketTaggingWithContext(ctx, putTagsRequest)
+		_, err = s3Client.PutBucketTagging(ctx, putTagsRequest)
 		Expect(err).To(BeNil())
 
 		// Create CloudWatch Log Group
-		logsClient = cloudwatchlogs.New(sess)
-		_, err = logsClient.CreateLogGroupWithContext(ctx, &cloudwatchlogs.CreateLogGroupInput{
+		logsClient = cloudwatchlogs.NewFromConfig(awsCfg)
+		_, err = logsClient.CreateLogGroup(ctx, &cloudwatchlogs.CreateLogGroupInput{
 			LogGroupName: aws.String(awsResourceName),
 			Tags:         tags,
 		})
@@ -133,7 +142,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		logGroupArn = fmt.Sprintf("arn:aws:logs:%s:%s:log-group:%s:*", config.Region, config.AccountID, awsResourceName)
 
 		// Create secondary CloudWatch Log Group
-		_, err = logsClient.CreateLogGroupWithContext(ctx, &cloudwatchlogs.CreateLogGroupInput{
+		_, err = logsClient.CreateLogGroup(ctx, &cloudwatchlogs.CreateLogGroupInput{
 			LogGroupName: aws.String(awsResourceName + "2"),
 			Tags:         tags,
 		})
@@ -141,15 +150,15 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		logGroup2Arn = fmt.Sprintf("arn:aws:logs:%s:%s:log-group:%s:*", config.Region, config.AccountID, awsResourceName+"2")
 
 		// Create IAM Role for Firehose Delivery Stream
-		iamClient = iam.New(sess)
-		var iamTags []*iam.Tag
+		iamClient = iam.NewFromConfig(awsCfg)
+		var iamTags []iamtypes.Tag
 		for key, value := range tags {
-			iamTags = append(iamTags, &iam.Tag{
+			iamTags = append(iamTags, iamtypes.Tag{
 				Key:   aws.String(key),
-				Value: value,
+				Value: aws.String(value),
 			})
 		}
-		createRoleOutput, err := iamClient.CreateRoleWithContext(ctx, &iam.CreateRoleInput{
+		createRoleOutput, err := iamClient.CreateRole(ctx, &iam.CreateRoleInput{
 			RoleName:                 aws.String(awsResourceName),
 			AssumeRolePolicyDocument: aws.String(deliveryStreamAssumeRolePolicy),
 			Tags:                     iamTags,
@@ -158,7 +167,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		roleArn = *createRoleOutput.Role.Arn
 
 		// Attach S3 permissions to IAM Role
-		_, err = iamClient.PutRolePolicyWithContext(ctx, &iam.PutRolePolicyInput{
+		_, err = iamClient.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
 			RoleName:       aws.String(awsResourceName),
 			PolicyName:     aws.String("FirehoseS3Permissions"),
 			PolicyDocument: aws.String(deliveryStreamRolePolicy),
@@ -169,25 +178,25 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		time.Sleep(30 * time.Second)
 
 		// Create Firehose Delivery Stream
-		var firehoseTags []*firehose.Tag
+		var firehoseTags []firehosetypes.Tag
 		for key, value := range tags {
-			firehoseTags = append(firehoseTags, &firehose.Tag{
+			firehoseTags = append(firehoseTags, firehosetypes.Tag{
 				Key:   aws.String(key),
-				Value: value,
+				Value: aws.String(value),
 			})
 		}
-		firehoseClient = firehose.New(sess)
-		_, err = firehoseClient.CreateDeliveryStreamWithContext(ctx, &firehose.CreateDeliveryStreamInput{
+		firehoseClient = firehose.NewFromConfig(awsCfg)
+		_, err = firehoseClient.CreateDeliveryStream(ctx, &firehose.CreateDeliveryStreamInput{
 			DeliveryStreamName: aws.String(awsResourceName),
-			DeliveryStreamType: aws.String(firehose.DeliveryStreamTypeDirectPut),
-			ExtendedS3DestinationConfiguration: &firehose.ExtendedS3DestinationConfiguration{
+			DeliveryStreamType: firehosetypes.DeliveryStreamTypeDirectPut,
+			ExtendedS3DestinationConfiguration: &firehosetypes.ExtendedS3DestinationConfiguration{
 				BucketARN: aws.String(bucketArn),
 				RoleARN:   aws.String(roleArn),
 			},
 			Tags: firehoseTags,
 		})
 		Expect(err).To(BeNil())
-		describeDeliveryStreamOutput, err := firehoseClient.DescribeDeliveryStreamWithContext(ctx, &firehose.DescribeDeliveryStreamInput{
+		describeDeliveryStreamOutput, err := firehoseClient.DescribeDeliveryStream(ctx, &firehose.DescribeDeliveryStreamInput{
 			DeliveryStreamName: aws.String(awsResourceName),
 		})
 		deliveryStreamArn = *describeDeliveryStreamOutput.DeliveryStreamDescription.DeliveryStreamARN
@@ -267,7 +276,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// Policy status should be Accepted
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -284,7 +293,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
@@ -295,12 +304,12 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 			// Access Log Subscription should have default tags and Access Log Policy tag applied
 			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
-				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+				lattice.AccessLogPolicyTagKey: alpNamespacedName.String(),
 			})
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
-			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResource(ctx, listTagsInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
 		}).Should(Succeed())
@@ -326,7 +335,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// Policy status should be Accepted
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -339,7 +348,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
@@ -350,12 +359,12 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 			// Access Log Subscription should have default tags and Access Log Policy tag applied
 			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
-				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+				lattice.AccessLogPolicyTagKey: alpNamespacedName.String(),
 			})
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
-			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResource(ctx, listTagsInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
 		}).Should(Succeed())
@@ -381,7 +390,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// Policy status should be Accepted
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -394,7 +403,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
@@ -405,12 +414,12 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 			// Access Log Subscription should have default tags and Access Log Policy tag applied
 			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
-				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+				lattice.AccessLogPolicyTagKey: alpNamespacedName.String(),
 			})
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
-			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResource(ctx, listTagsInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
 		}).Should(Succeed())
@@ -473,13 +482,13 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		// Service Network should have Access Log Subscription for each destination type
 		Eventually(func(g Gomega) {
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(len(output.Items)).To(BeEquivalentTo(3))
 
-			getDestinationArn := func(s *vpclattice.AccessLogSubscriptionSummary) string {
+			getDestinationArn := func(s types.AccessLogSubscriptionSummary) string {
 				return *s.DestinationArn
 			}
 
@@ -490,7 +499,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		// Every Access Log Policy status should be Accepted
 		for _, accessLogPolicy := range []*anv1alpha1.AccessLogPolicy{s3AccessLogPolicy, cwAccessLogPolicy} {
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -542,7 +551,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		// Policy status should be Conflicted
 		Eventually(func(g Gomega) {
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy2.Name,
 				Namespace: accessLogPolicy2.Namespace,
 			}
@@ -577,7 +586,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		// Policy status should be Invalid
 		Eventually(func(g Gomega) {
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -612,7 +621,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		// Policy status should be Invalid
 		Eventually(func(g Gomega) {
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -647,7 +656,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		// Policy status should be Invalid
 		Eventually(func(g Gomega) {
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -682,7 +691,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 				},
 			},
 		}
-		alpNamespacedName := types.NamespacedName{
+		alpNamespacedName := apitypes.NamespacedName{
 			Name:      accessLogPolicy.Name,
 			Namespace: accessLogPolicy.Namespace,
 		}
@@ -698,7 +707,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
@@ -721,7 +730,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// Policy status should be Accepted
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -738,7 +747,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
@@ -750,12 +759,12 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 			// Access Log Subscription should have default tags and Access Log Policy tag applied
 			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
-				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+				lattice.AccessLogPolicyTagKey: alpNamespacedName.String(),
 			})
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
-			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResource(ctx, listTagsInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
 		}).Should(Succeed())
@@ -783,7 +792,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(testServiceNetwork.Id))
@@ -796,12 +805,12 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 			// New Access Log Subscription should have default tags and Access Log Policy tag applied
 			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
-				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+				lattice.AccessLogPolicyTagKey: alpNamespacedName.String(),
 			})
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSOutput.Items[0].Arn,
 			}
-			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResource(ctx, listTagsInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
 		}).Should(Succeed())
@@ -834,7 +843,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSForSNInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			}
-			listALSForSNOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSForSNInput)
+			listALSForSNOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSForSNInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSForSNOutput.Items)).To(BeEquivalentTo(0))
 
@@ -842,7 +851,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSForSvcInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			}
-			listALSForSvcOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSForSvcInput)
+			listALSForSvcOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSForSvcInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSForSvcOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(*listALSForSvcOutput.Items[0].DestinationArn).To(BeEquivalentTo(bucketArn))
@@ -855,12 +864,12 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 			// New Access Log Subscription should have default tags and Access Log Policy tag applied
 			expectedTags := testFramework.Cloud.DefaultTagsMergedWith(services.Tags{
-				lattice.AccessLogPolicyTagKey: aws.String(alpNamespacedName.String()),
+				lattice.AccessLogPolicyTagKey: alpNamespacedName.String(),
 			})
 			listTagsInput := &vpclattice.ListTagsForResourceInput{
 				ResourceArn: listALSForSvcOutput.Items[0].Arn,
 			}
-			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResourceWithContext(ctx, listTagsInput)
+			listTagsOutput, err := testFramework.LatticeClient.ListTagsForResource(ctx, listTagsInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(listTagsOutput.Tags).To(BeEquivalentTo(expectedTags))
 		}).Should(Succeed())
@@ -888,7 +897,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
@@ -928,7 +937,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
@@ -963,7 +972,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(latticeService.Id))
@@ -994,7 +1003,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// Policy status should be Accepted
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy2.Name,
 				Namespace: accessLogPolicy2.Namespace,
 			}
@@ -1039,7 +1048,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(2))
 
@@ -1068,7 +1077,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// Service Network should have an Access Log Subscription
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			})
 			g.Expect(err).To(BeNil())
@@ -1082,7 +1091,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// Service Network should no longer have an Access Log Subscription
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			})
 			g.Expect(err).To(BeNil())
@@ -1112,7 +1121,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should have an Access Log Subscription
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			})
 			g.Expect(err).To(BeNil())
@@ -1126,7 +1135,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should no longer have an Access Log Subscription
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			})
 			g.Expect(err).To(BeNil())
@@ -1156,7 +1165,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should have an Access Log Subscription
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			})
 			g.Expect(err).To(BeNil())
@@ -1170,7 +1179,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should no longer have an Access Log Subscription
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			})
 			g.Expect(err).To(BeNil())
@@ -1210,7 +1219,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		}
 		testFramework.ExpectCreated(ctx, accessLogPolicy)
 		expectedGeneration := 1
-		alpNamespacedName := types.NamespacedName{
+		alpNamespacedName := apitypes.NamespacedName{
 			Name:      accessLogPolicy.Name,
 			Namespace: accessLogPolicy.Namespace,
 		}
@@ -1219,7 +1228,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		Eventually(func(g Gomega) {
 			// VPC Lattice Service should have an Access Log Subscription
-			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			output, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: latticeService.Arn,
 			})
 			g.Expect(err).To(BeNil())
@@ -1328,16 +1337,16 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectCreated(ctx, accessLogPolicy)
 
 		Eventually(func(g Gomega) {
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeNumerically(">", 0))
 
-			var targetALS *vpclattice.AccessLogSubscriptionSummary
-			for _, als := range listALSOutput.Items {
+			var targetALS *types.AccessLogSubscriptionSummary
+			for i, als := range listALSOutput.Items {
 				if *als.DestinationArn == bucketArn {
-					targetALS = als
+					targetALS = &listALSOutput.Items[i]
 					break
 				}
 			}
@@ -1347,10 +1356,10 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			alsTagsMap := alsTags[*targetALS.Arn]
 
-			g.Expect(alsTagsMap).To(HaveKeyWithValue("Environment", aws.String("Dev")))
-			g.Expect(alsTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-			g.Expect(alsTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
-			g.Expect(alsTagsMap).To(HaveKeyWithValue("CostCenter", aws.String("12345")))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Environment", "Dev"))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Team", "Platform"))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("CostCenter", "12345"))
 		}).Should(Succeed())
 
 		err := testFramework.Get(ctx, client.ObjectKeyFromObject(accessLogPolicy), accessLogPolicy)
@@ -1361,17 +1370,17 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectUpdated(ctx, accessLogPolicy)
 
 		Eventually(func(g Gomega) {
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(&vpclattice.ListAccessLogSubscriptionsInput{
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: testServiceNetwork.Arn,
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeNumerically(">", 0))
 
 			// Find the access log subscription for our policy
-			var targetALS *vpclattice.AccessLogSubscriptionSummary
-			for _, als := range listALSOutput.Items {
+			var targetALS *types.AccessLogSubscriptionSummary
+			for i, als := range listALSOutput.Items {
 				if *als.DestinationArn == bucketArn {
-					targetALS = als
+					targetALS = &listALSOutput.Items[i]
 					break
 				}
 			}
@@ -1381,13 +1390,13 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			g.Expect(err).To(BeNil())
 			alsTagsMap := alsTags[*targetALS.Arn]
 
-			g.Expect(alsTagsMap).To(HaveKeyWithValue("Environment", aws.String("Prod")))
-			g.Expect(alsTagsMap).To(HaveKeyWithValue("Project", aws.String("MyApp")))
-			g.Expect(alsTagsMap).To(HaveKeyWithValue("Team", aws.String("Platform")))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Environment", "Prod"))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Project", "MyApp"))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue("Team", "Platform"))
 			g.Expect(alsTagsMap).ToNot(HaveKey("CostCenter"))
 
-			g.Expect(alsTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String("test-override")))
-			g.Expect(alsTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, aws.String(fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId))))
+			g.Expect(alsTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
+			g.Expect(alsTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 		}).Should(Succeed())
 	})
 
@@ -1410,7 +1419,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectCreated(ctx, accessLogPolicy)
 
 		Eventually(func(g Gomega) {
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -1428,7 +1437,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 				ResourceIdentifier: customLatticeService.Arn,
 			}
-			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+			listALSOutput, err := testFramework.LatticeClient.ListAccessLogSubscriptions(ctx, listALSInput)
 			g.Expect(err).To(BeNil())
 			g.Expect(len(listALSOutput.Items)).To(BeEquivalentTo(1))
 			g.Expect(listALSOutput.Items[0].ResourceId).To(BeEquivalentTo(customLatticeService.Id))
@@ -1459,7 +1468,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectCreated(ctx, accessLogPolicy)
 
 		Eventually(func(g Gomega) {
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -1479,7 +1488,7 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 		testFramework.ExpectUpdated(ctx, accessLogPolicy)
 
 		Eventually(func(g Gomega) {
-			alpNamespacedName := types.NamespacedName{
+			alpNamespacedName := apitypes.NamespacedName{
 				Name:      accessLogPolicy.Name,
 				Namespace: accessLogPolicy.Namespace,
 			}
@@ -1528,18 +1537,18 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 
 		// Find all AWS resources created in tests
 		// This does not include IAM Roles because they are not supported in the Tagging API
-		var tagFilters []*resourcegroupstaggingapi.TagFilter
+		var tagFilters []rgtatypes.TagFilter
 		for key, value := range testFramework.NewTestTags(testSuite) {
-			tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{
+			tagFilters = append(tagFilters, rgtatypes.TagFilter{
 				Key:    aws.String(key),
-				Values: []*string{value},
+				Values: []string{value},
 			})
 		}
-		rgClient := resourcegroupstaggingapi.New(sess)
+		rgClient := resourcegroupstaggingapi.NewFromConfig(awsCfg)
 		getResourcesInput := &resourcegroupstaggingapi.GetResourcesInput{
 			TagFilters: tagFilters,
 		}
-		getResourcesResult, err := rgClient.GetResources(getResourcesInput)
+		getResourcesResult, err := rgClient.GetResources(ctx, getResourcesInput)
 		Expect(err).ToNot(HaveOccurred())
 
 		for _, mapping := range getResourcesResult.ResourceTagMappingList {
@@ -1549,24 +1558,24 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 			switch arn.Service {
 			case "s3":
 				bucketName := aws.String(arn.Resource)
-				output, err := s3Client.ListObjectsV2WithContext(ctx, &s3.ListObjectsV2Input{
+				output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 					Bucket: bucketName,
 				})
 				Expect(err).To(BeNil())
 				for _, object := range output.Contents {
-					_, err := s3Client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+					_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 						Bucket: bucketName,
 						Key:    object.Key,
 					})
 					Expect(err).To(BeNil())
 				}
-				_, err = s3Client.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{
+				_, err = s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
 					Bucket: bucketName,
 				})
 				Expect(err).To(BeNil())
 			case "logs":
 				logGroupName := strings.Split(arn.Resource, ":")[1]
-				_, err = logsClient.DeleteLogGroupWithContext(ctx, &cloudwatchlogs.DeleteLogGroupInput{
+				_, err = logsClient.DeleteLogGroup(ctx, &cloudwatchlogs.DeleteLogGroupInput{
 					LogGroupName: aws.String(logGroupName),
 				})
 				Expect(err).To(BeNil())
@@ -1576,32 +1585,32 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 					describeInput := &firehose.DescribeDeliveryStreamInput{
 						DeliveryStreamName: aws.String(deliveryStreamName),
 					}
-					describeOutput, err := firehoseClient.DescribeDeliveryStreamWithContext(ctx, describeInput)
+					describeOutput, err := firehoseClient.DescribeDeliveryStream(ctx, describeInput)
 					if err != nil {
 						return "", err
 					}
 
-					status := *describeOutput.DeliveryStreamDescription.DeliveryStreamStatus
-					if status != firehose.DeliveryStreamStatusActive {
+					status := string(describeOutput.DeliveryStreamDescription.DeliveryStreamStatus)
+					if describeOutput.DeliveryStreamDescription.DeliveryStreamStatus != firehosetypes.DeliveryStreamStatusActive {
 						return status, fmt.Errorf("expected status to be ACTIVE, got %s", status)
 					}
 
-					_, err = firehoseClient.DeleteDeliveryStreamWithContext(ctx, &firehose.DeleteDeliveryStreamInput{
+					_, err = firehoseClient.DeleteDeliveryStream(ctx, &firehose.DeleteDeliveryStreamInput{
 						DeliveryStreamName: aws.String(deliveryStreamName),
 					})
 					return status, err
-				}, 5*time.Minute, time.Minute).Should(Equal(firehose.DeliveryStreamStatusActive))
+				}, 5*time.Minute, time.Minute).Should(Equal(string(firehosetypes.DeliveryStreamStatusActive)))
 			default:
 				Fail(fmt.Sprintf("Unknown service type %s", arn.Service))
 			}
 		}
 
-		roles, err := iamClient.ListRolesWithContext(ctx, &iam.ListRolesInput{})
+		roles, err := iamClient.ListRoles(ctx, &iam.ListRolesInput{})
 		Expect(err).To(BeNil())
 
 		for _, role := range roles.Roles {
 			if strings.Contains(*role.RoleName, awsResourceNamePrefix) {
-				tags, err := iamClient.ListRoleTagsWithContext(ctx, &iam.ListRoleTagsInput{
+				tags, err := iamClient.ListRoleTags(ctx, &iam.ListRoleTagsInput{
 					RoleName: role.RoleName,
 				})
 				Expect(err).To(BeNil())
@@ -1609,12 +1618,12 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 				for _, tag := range tags.Tags {
 					if *tag.Key == anaws.TagBase+"TestSuite" && *tag.Value == testSuite {
 						// Detach managed policies from IAM Role
-						policies, err := iamClient.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{
+						policies, err := iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{
 							RoleName: role.RoleName,
 						})
 						Expect(err).To(BeNil())
 						for _, policy := range policies.AttachedPolicies {
-							_, err := iamClient.DetachRolePolicyWithContext(ctx, &iam.DetachRolePolicyInput{
+							_, err := iamClient.DetachRolePolicy(ctx, &iam.DetachRolePolicyInput{
 								RoleName:  role.RoleName,
 								PolicyArn: policy.PolicyArn,
 							})
@@ -1622,20 +1631,20 @@ var _ = Describe("Access Log Policy", Ordered, func() {
 						}
 
 						// Delete inline policies from IAM Role
-						inlinePolicies, err := iamClient.ListRolePoliciesWithContext(ctx, &iam.ListRolePoliciesInput{
+						inlinePolicies, err := iamClient.ListRolePolicies(ctx, &iam.ListRolePoliciesInput{
 							RoleName: role.RoleName,
 						})
 						Expect(err).To(BeNil())
 						for _, policyName := range inlinePolicies.PolicyNames {
-							_, err := iamClient.DeleteRolePolicyWithContext(ctx, &iam.DeleteRolePolicyInput{
+							_, err := iamClient.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
 								RoleName:   role.RoleName,
-								PolicyName: policyName,
+								PolicyName: &policyName,
 							})
 							Expect(err).To(BeNil())
 						}
 
 						// Delete IAM Role
-						_, err = iamClient.DeleteRoleWithContext(ctx, &iam.DeleteRoleInput{
+						_, err = iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
 							RoleName: role.RoleName,
 						})
 						Expect(err).To(BeNil())

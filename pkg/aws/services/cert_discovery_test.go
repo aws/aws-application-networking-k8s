@@ -7,19 +7,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/acm"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	acm "github.com/aws/aws-sdk-go-v2/service/acm"
+	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
 	"github.com/stretchr/testify/assert"
 )
 
 type fakeACM struct {
-	certs         []*acm.CertificateSummary
+	certs         []acmtypes.CertificateSummary
 	listErr       error
 	listCallCount int
 	mu            sync.Mutex
 }
 
-func (f *fakeACM) ListCertificatesAsList(_ context.Context, _ *acm.ListCertificatesInput) ([]*acm.CertificateSummary, error) {
+func (f *fakeACM) ListCertificatesAsList(_ context.Context, _ *acm.ListCertificatesInput) ([]acmtypes.CertificateSummary, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.listCallCount++
@@ -28,14 +29,14 @@ func (f *fakeACM) ListCertificatesAsList(_ context.Context, _ *acm.ListCertifica
 
 func TestDiscover_ExactMatchViaSAN(t *testing.T) {
 	now := time.Now()
-	cert := &acm.CertificateSummary{
+	cert := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:exact"),
 		DomainName:                           aws.String("example.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("example.com"), aws.String("api.example.com")},
+		SubjectAlternativeNameSummaries:      []string{"example.com", "api.example.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &now,
 	}
-	fake := &fakeACM{certs: []*acm.CertificateSummary{cert}}
+	fake := &fakeACM{certs: []acmtypes.CertificateSummary{cert}}
 	d := NewCertificateDiscovery(fake)
 
 	// hostname only in SANs, not the primary DomainName
@@ -46,21 +47,21 @@ func TestDiscover_ExactMatchViaSAN(t *testing.T) {
 
 func TestDiscover_GlobalCertListCache(t *testing.T) {
 	now := time.Now()
-	cert1 := &acm.CertificateSummary{
+	cert1 := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:cert-api"),
 		DomainName:                           aws.String("api.example.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("api.example.com")},
+		SubjectAlternativeNameSummaries:      []string{"api.example.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &now,
 	}
-	cert2 := &acm.CertificateSummary{
+	cert2 := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:cert-web"),
 		DomainName:                           aws.String("web.example.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("web.example.com")},
+		SubjectAlternativeNameSummaries:      []string{"web.example.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &now,
 	}
-	fake := &fakeACM{certs: []*acm.CertificateSummary{cert1, cert2}}
+	fake := &fakeACM{certs: []acmtypes.CertificateSummary{cert1, cert2}}
 	d := NewCertificateDiscovery(fake)
 
 	// Two different hostnames should share one ListCertificates call
@@ -94,14 +95,14 @@ func TestDiscover_PermissionError_TimedDisable(t *testing.T) {
 
 func TestDiscover_WildcardMatchViaSAN(t *testing.T) {
 	now := time.Now()
-	cert := &acm.CertificateSummary{
+	cert := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:wildcard"),
 		DomainName:                           aws.String("*.example.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("*.example.com")},
+		SubjectAlternativeNameSummaries:      []string{"*.example.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &now,
 	}
-	fake := &fakeACM{certs: []*acm.CertificateSummary{cert}}
+	fake := &fakeACM{certs: []acmtypes.CertificateSummary{cert}}
 	d := NewCertificateDiscovery(fake)
 
 	result, err := d.Discover(context.Background(), "foo.example.com")
@@ -111,21 +112,21 @@ func TestDiscover_WildcardMatchViaSAN(t *testing.T) {
 
 func TestDiscover_ExactOverWildcard(t *testing.T) {
 	now := time.Now()
-	exact := &acm.CertificateSummary{
+	exact := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:exact"),
 		DomainName:                           aws.String("api.example.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("api.example.com")},
+		SubjectAlternativeNameSummaries:      []string{"api.example.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &now,
 	}
-	wildcard := &acm.CertificateSummary{
+	wildcard := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:wildcard"),
 		DomainName:                           aws.String("*.example.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("*.example.com")},
+		SubjectAlternativeNameSummaries:      []string{"*.example.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &now,
 	}
-	fake := &fakeACM{certs: []*acm.CertificateSummary{wildcard, exact}}
+	fake := &fakeACM{certs: []acmtypes.CertificateSummary{wildcard, exact}}
 	d := NewCertificateDiscovery(fake)
 
 	result, err := d.Discover(context.Background(), "api.example.com")
@@ -136,21 +137,21 @@ func TestDiscover_ExactOverWildcard(t *testing.T) {
 func TestDiscover_NewerExactWins(t *testing.T) {
 	older := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	newer := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
-	certOld := &acm.CertificateSummary{
+	certOld := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:old"),
 		DomainName:                           aws.String("api.example.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("api.example.com")},
+		SubjectAlternativeNameSummaries:      []string{"api.example.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &older,
 	}
-	certNew := &acm.CertificateSummary{
+	certNew := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:new"),
 		DomainName:                           aws.String("api.example.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("api.example.com")},
+		SubjectAlternativeNameSummaries:      []string{"api.example.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &newer,
 	}
-	fake := &fakeACM{certs: []*acm.CertificateSummary{certOld, certNew}}
+	fake := &fakeACM{certs: []acmtypes.CertificateSummary{certOld, certNew}}
 	d := NewCertificateDiscovery(fake)
 
 	result, err := d.Discover(context.Background(), "api.example.com")
@@ -160,14 +161,14 @@ func TestDiscover_NewerExactWins(t *testing.T) {
 
 func TestDiscover_NoMatch(t *testing.T) {
 	now := time.Now()
-	cert := &acm.CertificateSummary{
+	cert := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:other"),
 		DomainName:                           aws.String("other.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("other.com")},
+		SubjectAlternativeNameSummaries:      []string{"other.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &now,
 	}
-	fake := &fakeACM{certs: []*acm.CertificateSummary{cert}}
+	fake := &fakeACM{certs: []acmtypes.CertificateSummary{cert}}
 	d := NewCertificateDiscovery(fake)
 
 	result, err := d.Discover(context.Background(), "api.example.com")
@@ -186,14 +187,14 @@ func TestDiscover_NonAccessDeniedError(t *testing.T) {
 
 func TestDiscover_ConcurrentCallsSingleListRequest(t *testing.T) {
 	now := time.Now()
-	cert := &acm.CertificateSummary{
+	cert := acmtypes.CertificateSummary{
 		CertificateArn:                       aws.String("arn:cert"),
 		DomainName:                           aws.String("api.example.com"),
-		SubjectAlternativeNameSummaries:      []*string{aws.String("api.example.com")},
+		SubjectAlternativeNameSummaries:      []string{"api.example.com"},
 		HasAdditionalSubjectAlternativeNames: aws.Bool(false),
 		IssuedAt:                             &now,
 	}
-	fake := &fakeACM{certs: []*acm.CertificateSummary{cert}}
+	fake := &fakeACM{certs: []acmtypes.CertificateSummary{cert}}
 	d := NewCertificateDiscovery(fake)
 
 	var wg sync.WaitGroup
@@ -260,13 +261,13 @@ func TestCertTimestamp(t *testing.T) {
 
 	tests := []struct {
 		name string
-		cert *acm.CertificateSummary
+		cert acmtypes.CertificateSummary
 		want *time.Time
 	}{
-		{"all set returns IssuedAt", &acm.CertificateSummary{IssuedAt: &t1, ImportedAt: &t2, CreatedAt: &t3}, &t1},
-		{"no IssuedAt returns ImportedAt", &acm.CertificateSummary{ImportedAt: &t2, CreatedAt: &t3}, &t2},
-		{"only CreatedAt", &acm.CertificateSummary{CreatedAt: &t3}, &t3},
-		{"all nil returns nil", &acm.CertificateSummary{}, nil},
+		{"all set returns IssuedAt", acmtypes.CertificateSummary{IssuedAt: &t1, ImportedAt: &t2, CreatedAt: &t3}, &t1},
+		{"no IssuedAt returns ImportedAt", acmtypes.CertificateSummary{ImportedAt: &t2, CreatedAt: &t3}, &t2},
+		{"only CreatedAt", acmtypes.CertificateSummary{CreatedAt: &t3}, &t3},
+		{"all nil returns nil", acmtypes.CertificateSummary{}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

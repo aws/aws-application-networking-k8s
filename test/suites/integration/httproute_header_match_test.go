@@ -2,15 +2,17 @@ package integration
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"log"
+	"regexp"
+
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"log"
-	"regexp"
+	apitypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -38,7 +40,7 @@ var _ = Describe("HTTPRoute header matches", func() {
 
 		log.Println("Verifying VPC lattice service listeners and rules")
 		Eventually(func(g Gomega) {
-			listListenerResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+			listListenerResp, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 				ServiceIdentifier: vpcLatticeService.Id,
 			})
 			g.Expect(err).To(BeNil())
@@ -46,33 +48,33 @@ var _ = Describe("HTTPRoute header matches", func() {
 			listener := listListenerResp.Items[0]
 			g.Expect(*listener.Port).To(BeEquivalentTo(testGateway.Spec.Listeners[0].Port))
 			listenerId := listener.Id
-			listRulesResp, err := testFramework.LatticeClient.ListRulesWithContext(ctx, &vpclattice.ListRulesInput{
+			listRulesResp, err := testFramework.LatticeClient.ListRulesAsList(ctx, &vpclattice.ListRulesInput{
 				ListenerIdentifier: listenerId,
 				ServiceIdentifier:  vpcLatticeService.Id,
 			})
 
 			headerMatchRuleNameRegExp := regexp.MustCompile("^k8s-[0-9]+-rule-1$")
-			g.Expect(listRulesResp.Items).To(HaveLen(2)) //1 default rules + 1 newly added header match rule
-			filteredRules := lo.Filter(listRulesResp.Items, func(rule *vpclattice.RuleSummary, _ int) bool {
+			g.Expect(listRulesResp).To(HaveLen(2)) //1 default rules + 1 newly added header match rule
+			filteredRules := lo.Filter(listRulesResp, func(rule types.RuleSummary, _ int) bool {
 				return headerMatchRuleNameRegExp.MatchString(*rule.Name)
 			})
 			g.Expect(filteredRules).To(HaveLen(1))
-			headerMatchRule, err := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+			headerMatchRule, err := testFramework.LatticeClient.GetRule(ctx, &vpclattice.GetRuleInput{
 				ServiceIdentifier:  vpcLatticeService.Id,
 				ListenerIdentifier: listenerId,
 				RuleIdentifier:     filteredRules[0].Id,
 			})
 			g.Expect(err).To(BeNil())
-			headerMatches := headerMatchRule.Match.HttpMatch.HeaderMatches
+			headerMatches := headerMatchRule.Match.(*types.RuleMatchMemberHttpMatch).Value.HeaderMatches
 			g.Expect(headerMatches).To(HaveLen(2))
 			g.Expect(*headerMatches[0].Name).To(Equal("my-header-name1"))
-			g.Expect(*headerMatches[0].Match.Exact).To(Equal("my-header-value1"))
+			g.Expect(headerMatches[0].Match.(*types.HeaderMatchTypeMemberExact).Value).To(Equal("my-header-value1"))
 			g.Expect(*headerMatches[1].Name).To(Equal("my-header-name2"))
-			g.Expect(*headerMatches[1].Match.Exact).To(Equal("my-header-value2"))
+			g.Expect(headerMatches[1].Match.(*types.HeaderMatchTypeMemberExact).Value).To(Equal("my-header-value2"))
 		}).WithOffset(1).Should(Succeed())
 
 		dnsName := testFramework.GetVpcLatticeServiceDns(headerMatchHttpRoute.Name, headerMatchHttpRoute.Namespace)
-		testFramework.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		testFramework.Get(ctx, apitypes.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 		pods := testFramework.GetPodsByDeploymentName(deployment.Name, deployment.Namespace)
 		Expect(len(pods)).To(BeEquivalentTo(1))
 		pod := pods[0]

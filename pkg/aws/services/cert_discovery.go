@@ -8,8 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/acm"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acm"
+	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
 	"k8s.io/apimachinery/pkg/util/cache"
 )
 
@@ -62,20 +63,20 @@ func (d *certDiscovery) Discover(ctx context.Context, hostname string) (string, 
 }
 
 // loadCertificates returns the cached cert list or fetches from ACM on cache miss.
-func (d *certDiscovery) loadCertificates(ctx context.Context) ([]*acm.CertificateSummary, error) {
+func (d *certDiscovery) loadCertificates(ctx context.Context) ([]acmtypes.CertificateSummary, error) {
 	if val, ok := d.cache.Get(certListCacheKey); ok {
-		return val.([]*acm.CertificateSummary), nil
+		return val.([]acmtypes.CertificateSummary), nil
 	}
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	if val, ok := d.cache.Get(certListCacheKey); ok {
-		return val.([]*acm.CertificateSummary), nil
+		return val.([]acmtypes.CertificateSummary), nil
 	}
 
 	certs, err := d.acm.ListCertificatesAsList(ctx, &acm.ListCertificatesInput{
-		CertificateStatuses: []*string{aws.String(acm.CertificateStatusIssued)},
+		CertificateStatuses: []acmtypes.CertificateStatus{acmtypes.CertificateStatusIssued},
 	})
 	if err != nil {
 		return nil, err
@@ -87,8 +88,8 @@ func (d *certDiscovery) loadCertificates(ctx context.Context) ([]*acm.Certificat
 
 // findBestMatch picks the best matching certificate for a hostname.
 // Priority: exact match > wildcard match, then most recent timestamp within the same tier.
-func (d *certDiscovery) findBestMatch(certs []*acm.CertificateSummary, hostname string) string {
-	var exactMatches, wildcardMatches []*acm.CertificateSummary
+func (d *certDiscovery) findBestMatch(certs []acmtypes.CertificateSummary, hostname string) string {
+	var exactMatches, wildcardMatches []acmtypes.CertificateSummary
 
 	for _, cert := range certs {
 		domains := getDomainsForCert(cert)
@@ -104,10 +105,10 @@ func (d *certDiscovery) findBestMatch(certs []*acm.CertificateSummary, hostname 
 	}
 
 	if best := mostRecentlyIssued(exactMatches); best != nil {
-		return aws.StringValue(best.CertificateArn)
+		return aws.ToString(best.CertificateArn)
 	}
 	if best := mostRecentlyIssued(wildcardMatches); best != nil {
-		return aws.StringValue(best.CertificateArn)
+		return aws.ToString(best.CertificateArn)
 	}
 	return ""
 }
@@ -115,12 +116,12 @@ func (d *certDiscovery) findBestMatch(certs []*acm.CertificateSummary, hostname 
 // getDomainsForCert returns all domain names for a certificate.
 // Uses SubjectAlternativeNameSummaries from ListCertificates (up to 100 SANs),
 // falling back to DomainName if no SANs are available.
-func getDomainsForCert(cert *acm.CertificateSummary) []string {
+func getDomainsForCert(cert acmtypes.CertificateSummary) []string {
 	if len(cert.SubjectAlternativeNameSummaries) > 0 {
-		return aws.StringValueSlice(cert.SubjectAlternativeNameSummaries)
+		return cert.SubjectAlternativeNameSummaries
 	}
 	if cert.DomainName != nil {
-		return []string{aws.StringValue(cert.DomainName)}
+		return []string{aws.ToString(cert.DomainName)}
 	}
 	return nil
 }
@@ -136,7 +137,6 @@ func isWildcardMatch(certDomain, hostname string) bool {
 	if !isValidWildcard(certDomain) {
 		return false
 	}
-
 	suffix := certDomain[1:] // ".example.com"
 	hostname = strings.ToLower(hostname)
 	suffix = strings.ToLower(suffix)
@@ -157,7 +157,7 @@ func isValidWildcard(domain string) bool {
 	return len(rest) > 0 && !strings.Contains(rest, "*")
 }
 
-func mostRecentlyIssued(certs []*acm.CertificateSummary) *acm.CertificateSummary {
+func mostRecentlyIssued(certs []acmtypes.CertificateSummary) *acmtypes.CertificateSummary {
 	if len(certs) == 0 {
 		return nil
 	}
@@ -170,10 +170,10 @@ func mostRecentlyIssued(certs []*acm.CertificateSummary) *acm.CertificateSummary
 			bestTime = t
 		}
 	}
-	return best
+	return &best
 }
 
-func certTimestamp(cert *acm.CertificateSummary) *time.Time {
+func certTimestamp(cert acmtypes.CertificateSummary) *time.Time {
 	if cert.IssuedAt != nil {
 		return cert.IssuedAt
 	}

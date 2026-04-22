@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 
 	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -27,7 +28,7 @@ const (
 	accessLogSubscriptionArn = "arn:aws:vpc-lattice:us-west-2:123456789012:accesslogsubscription/als-12345678901234567"
 )
 
-var accessLogPolicyNamespacedName = types.NamespacedName{
+var accessLogPolicyNamespacedName = apitypes.NamespacedName{
 	Namespace: "test-namespace",
 	Name:      "test-name",
 }
@@ -52,10 +53,10 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	mockTagging := services.NewMockTagging(c)
 	cloud := an_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
 	expectedTags := cloud.DefaultTagsMergedWith(services.Tags{
-		lattice.AccessLogPolicyTagKey: aws.String(accessLogPolicyNamespacedName.String()),
+		lattice.AccessLogPolicyTagKey: accessLogPolicyNamespacedName.String(),
 	})
 	serviceNetworkInfo := &services.ServiceNetworkInfo{
-		SvcNetwork: vpclattice.ServiceNetworkSummary{
+		SvcNetwork: types.ServiceNetworkSummary{
 			Arn:  aws.String(serviceNetworkArn),
 			Name: aws.String(sourceName),
 		},
@@ -97,7 +98,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
 
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSNInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -108,13 +109,13 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	t.Run("Create_NewALSForService_ReturnsNewALSStatus", func(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
 		accessLogSubscription.Spec.SourceType = lattice.ServiceSourceType
-		findServiceOutput := &vpclattice.ServiceSummary{
+		findServiceOutput := &types.ServiceSummary{
 			Arn:  aws.String(serviceArn),
 			Name: aws.String(sourceName),
 		}
 
 		mockLattice.EXPECT().FindService(ctx, sourceName).Return(findServiceOutput, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSvcInput).Return(createALSOutput, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSvcInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -124,13 +125,13 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 
 	t.Run("Create_NewALSForDeletedServiceNetwork_ReturnsNotFoundError", func(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
-		createALSErr := &vpclattice.ResourceNotFoundException{
+		createALSErr := &types.ResourceNotFoundException{
 			ResourceType: aws.String("SERVICE_NETWORK"),
 			ResourceId:   aws.String(serviceNetworkArn),
 		}
 
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(nil, createALSErr)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSNInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -141,17 +142,17 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	t.Run("Create_NewALSForDeletedService_ReturnsNotFoundError", func(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
 		accessLogSubscription.Spec.SourceType = lattice.ServiceSourceType
-		findServiceOutput := &vpclattice.ServiceSummary{
+		findServiceOutput := &types.ServiceSummary{
 			Arn:  aws.String(serviceArn),
 			Name: aws.String(sourceName),
 		}
-		createALSErr := &vpclattice.ResourceNotFoundException{
+		createALSErr := &types.ResourceNotFoundException{
 			ResourceType: aws.String("SERVICE"),
 			ResourceId:   aws.String(serviceArn),
 		}
 
 		mockLattice.EXPECT().FindService(ctx, sourceName).Return(findServiceOutput, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSvcInput).Return(nil, createALSErr)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSvcInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -161,13 +162,13 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 
 	t.Run("Create_NewALSForMissingS3Destination_ReturnsInvalidError", func(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
-		createALSErr := &vpclattice.ResourceNotFoundException{
+		createALSErr := &types.ResourceNotFoundException{
 			ResourceType: aws.String("BUCKET"),
 			ResourceId:   aws.String(s3DestinationArn),
 		}
 
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(nil, createALSErr)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSNInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -183,13 +184,13 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			DestinationArn:     aws.String(cloudWatchDestinationArn),
 			Tags:               expectedTags,
 		}
-		createALSErr := &vpclattice.ResourceNotFoundException{
+		createALSErr := &types.ResourceNotFoundException{
 			ResourceType: aws.String("LOG_GROUP"),
 			ResourceId:   aws.String(cloudWatchDestinationArn),
 		}
 
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -205,13 +206,13 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			DestinationArn:     aws.String(firehoseDestinationArn),
 			Tags:               expectedTags,
 		}
-		createALSErr := &vpclattice.ResourceNotFoundException{
+		createALSErr := &types.ResourceNotFoundException{
 			ResourceType: aws.String("DELIVERY_STREAM"),
 			ResourceId:   aws.String(firehoseDestinationArn),
 		}
 
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(nil, createALSErr)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSInput).Return(nil, createALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -221,14 +222,14 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 
 	t.Run("Create_ConflictingALSForSameResourceFromDifferentPolicy_ReturnsConflictError", func(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
-		createALSErr := &vpclattice.ConflictException{
+		createALSErr := &types.ConflictException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
 		listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 			ResourceIdentifier: aws.String(serviceNetworkArn),
 		}
 		listALSOutput := &vpclattice.ListAccessLogSubscriptionsOutput{
-			Items: []*vpclattice.AccessLogSubscriptionSummary{
+			Items: []types.AccessLogSubscriptionSummary{
 				{
 					Arn:            aws.String(accessLogSubscriptionArn),
 					DestinationArn: aws.String(s3DestinationArn),
@@ -240,14 +241,14 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		}
 		listTagsOutput := &vpclattice.ListTagsForResourceOutput{
 			Tags: services.Tags{
-				lattice.AccessLogPolicyTagKey: aws.String("other/policy"),
+				lattice.AccessLogPolicyTagKey: "other/policy",
 			},
 		}
 
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(nil, createALSErr)
-		mockLattice.EXPECT().ListAccessLogSubscriptionsWithContext(ctx, listALSInput).Return(listALSOutput, nil)
-		mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, listTagsInput).Return(listTagsOutput, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSNInput).Return(nil, createALSErr)
+		mockLattice.EXPECT().ListAccessLogSubscriptions(ctx, listALSInput).Return(listALSOutput, nil)
+		mockLattice.EXPECT().ListTagsForResource(ctx, listTagsInput).Return(listTagsOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -257,14 +258,14 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 
 	t.Run("Create_ConflictingALSForSameResourceFromSamePolicy_ReturnsNewALSStatus", func(t *testing.T) {
 		accessLogSubscription := simpleAccessLogSubscription(core.CreateEvent)
-		createALSErr := &vpclattice.ConflictException{
+		createALSErr := &types.ConflictException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
 		listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 			ResourceIdentifier: aws.String(serviceNetworkArn),
 		}
 		listALSOutput := &vpclattice.ListAccessLogSubscriptionsOutput{
-			Items: []*vpclattice.AccessLogSubscriptionSummary{
+			Items: []types.AccessLogSubscriptionSummary{
 				{
 					Arn:            aws.String(accessLogSubscriptionArn),
 					DestinationArn: aws.String(s3DestinationArn),
@@ -276,14 +277,14 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		}
 		listTagsOutput := &vpclattice.ListTagsForResourceOutput{
 			Tags: services.Tags{
-				lattice.AccessLogPolicyTagKey: aws.String(accessLogPolicyNamespacedName.String()),
+				lattice.AccessLogPolicyTagKey: accessLogPolicyNamespacedName.String(),
 			},
 		}
 
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(nil, createALSErr)
-		mockLattice.EXPECT().ListAccessLogSubscriptionsWithContext(ctx, listALSInput).Return(listALSOutput, nil)
-		mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, listTagsInput).Return(listTagsOutput, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSNInput).Return(nil, createALSErr)
+		mockLattice.EXPECT().ListAccessLogSubscriptions(ctx, listALSInput).Return(listALSOutput, nil)
+		mockLattice.EXPECT().ListTagsForResource(ctx, listTagsInput).Return(listTagsOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Create(ctx, accessLogSubscription)
@@ -322,9 +323,9 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			Arn: accessLogSubscriptionArn,
 		}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(getALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
+		mockLattice.EXPECT().UpdateAccessLogSubscription(ctx, updateALSInput).Return(updateALSOutput, nil)
 
 		mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, gomock.Any(), nil).Return(nil)
 
@@ -340,19 +341,19 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
-		updateALSErr := &vpclattice.ConflictException{
+		updateALSErr := &types.ConflictException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
 		createALSOutput := &vpclattice.CreateAccessLogSubscriptionOutput{
 			Arn: aws.String(newAccessLogSubscriptionArn),
 		}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(getALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSErr)
+		mockLattice.EXPECT().UpdateAccessLogSubscription(ctx, updateALSInput).Return(nil, updateALSErr)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
-		mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(deleteALSOutput, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSNInput).Return(createALSOutput, nil)
+		mockLattice.EXPECT().DeleteAccessLogSubscription(ctx, deleteALSInput).Return(deleteALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
@@ -370,7 +371,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			Arn: accessLogSubscriptionArn,
 		}
 		serviceNetworkInfo := &services.ServiceNetworkInfo{
-			SvcNetwork: vpclattice.ServiceNetworkSummary{
+			SvcNetwork: types.ServiceNetworkSummary{
 				Arn:  aws.String(newSourceArn),
 				Name: aws.String(newSourceName),
 			},
@@ -384,11 +385,11 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			Arn: aws.String(newAccessLogSubscriptionArn),
 		}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(getALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, newSourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, newSourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSInput).Return(createALSOutput, nil)
-		mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(deleteALSOutput, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSInput).Return(createALSOutput, nil)
+		mockLattice.EXPECT().DeleteAccessLogSubscription(ctx, deleteALSInput).Return(deleteALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
@@ -402,14 +403,14 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
-		getALSError := &vpclattice.ResourceNotFoundException{
+		getALSError := &types.ResourceNotFoundException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
 		createALSOutput.Arn = aws.String(newAccessLogSubscriptionArn)
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(nil, getALSError)
+		mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(nil, getALSError)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSNInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
@@ -423,16 +424,16 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
-		updateALSError := &vpclattice.ResourceNotFoundException{
+		updateALSError := &types.ResourceNotFoundException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
 		createALSOutput.Arn = aws.String(newAccessLogSubscriptionArn)
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(getALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
+		mockLattice.EXPECT().UpdateAccessLogSubscription(ctx, updateALSInput).Return(nil, updateALSError)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, createALSForSNInput).Return(createALSOutput, nil)
+		mockLattice.EXPECT().CreateAccessLogSubscription(ctx, createALSForSNInput).Return(createALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
@@ -445,9 +446,9 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
-		getALSError := &vpclattice.AccessDeniedException{}
+		getALSError := &types.AccessDeniedException{}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(nil, getALSError)
+		mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(nil, getALSError)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
@@ -460,11 +461,11 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
-		updateALSError := &vpclattice.AccessDeniedException{}
+		updateALSError := &types.AccessDeniedException{}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(getALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
+		mockLattice.EXPECT().UpdateAccessLogSubscription(ctx, updateALSInput).Return(nil, updateALSError)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
@@ -477,13 +478,13 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
-		updateALSError := &vpclattice.ResourceNotFoundException{
+		updateALSError := &types.ResourceNotFoundException{
 			ResourceType: aws.String("SERVICE_NETWORK"),
 		}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(getALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
+		mockLattice.EXPECT().UpdateAccessLogSubscription(ctx, updateALSInput).Return(nil, updateALSError)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
@@ -496,13 +497,13 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
-		updateALSError := &vpclattice.ResourceNotFoundException{
+		updateALSError := &types.ResourceNotFoundException{
 			ResourceType: aws.String("SERVICE"),
 		}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(getALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
+		mockLattice.EXPECT().UpdateAccessLogSubscription(ctx, updateALSInput).Return(nil, updateALSError)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		resp, err := mgr.Update(ctx, accessLogSubscription)
@@ -511,7 +512,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	})
 
 	t.Run("Test_Delete_AccessLogSubscriptionExists_ReturnsSuccess", func(t *testing.T) {
-		mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(deleteALSOutput, nil)
+		mockLattice.EXPECT().DeleteAccessLogSubscription(ctx, deleteALSInput).Return(deleteALSOutput, nil)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		err := mgr.Delete(ctx, accessLogSubscriptionArn)
@@ -519,11 +520,11 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 	})
 
 	t.Run("Delete_ALSDoesNotExist_ReturnsSuccess", func(t *testing.T) {
-		deleteALSErr := &vpclattice.ResourceNotFoundException{
+		deleteALSErr := &types.ResourceNotFoundException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
 
-		mockLattice.EXPECT().DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput).Return(nil, deleteALSErr)
+		mockLattice.EXPECT().DeleteAccessLogSubscription(ctx, deleteALSInput).Return(nil, deleteALSErr)
 
 		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
 		err := mgr.Delete(ctx, accessLogSubscriptionArn)
@@ -547,26 +548,26 @@ func Test_AccessLogSubscriptionManager_WithAdditionalTags_Create(t *testing.T) {
 			ALPNamespacedName: accessLogPolicyNamespacedName,
 			EventType:         core.CreateEvent,
 			AdditionalTags: services.Tags{
-				"Environment": &[]string{"Test"}[0],
-				"Project":     &[]string{"ALSManager"}[0],
+				"Environment": "Test",
+				"Project":     "ALSManager",
 			},
 		},
 	}
 
 	serviceNetworkInfo := &services.ServiceNetworkInfo{
-		SvcNetwork: vpclattice.ServiceNetworkSummary{
+		SvcNetwork: types.ServiceNetworkSummary{
 			Arn:  aws.String(serviceNetworkArn),
 			Name: aws.String(sourceName),
 		},
 	}
 
 	baseTags := cloud.DefaultTagsMergedWith(services.Tags{
-		lattice.AccessLogPolicyTagKey: aws.String(accessLogPolicyNamespacedName.String()),
+		lattice.AccessLogPolicyTagKey: accessLogPolicyNamespacedName.String(),
 	})
 	expectedTags := cloud.MergeTags(baseTags, accessLogSubscription.Spec.AdditionalTags)
 
 	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-	mockLattice.EXPECT().CreateAccessLogSubscriptionWithContext(ctx, gomock.Any()).DoAndReturn(
+	mockLattice.EXPECT().CreateAccessLogSubscription(ctx, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, input *vpclattice.CreateAccessLogSubscriptionInput, opts ...interface{}) (*vpclattice.CreateAccessLogSubscriptionOutput, error) {
 			assert.Equal(t, expectedTags, input.Tags, "ALS tags should include additional tags")
 			assert.Equal(t, serviceNetworkArn, *input.ResourceIdentifier)
@@ -599,8 +600,8 @@ func Test_AccessLogSubscriptionManager_WithAdditionalTags_Update(t *testing.T) {
 			ALPNamespacedName: accessLogPolicyNamespacedName,
 			EventType:         core.UpdateEvent,
 			AdditionalTags: services.Tags{
-				"Environment": &[]string{"Prod"}[0],
-				"Project":     &[]string{"ALSUpdate"}[0],
+				"Environment": "Prod",
+				"Project":     "ALSUpdate",
 			},
 		},
 		Status: &lattice.AccessLogSubscriptionStatus{
@@ -609,7 +610,7 @@ func Test_AccessLogSubscriptionManager_WithAdditionalTags_Update(t *testing.T) {
 	}
 
 	serviceNetworkInfo := &services.ServiceNetworkInfo{
-		SvcNetwork: vpclattice.ServiceNetworkSummary{
+		SvcNetwork: types.ServiceNetworkSummary{
 			Arn:  aws.String(serviceNetworkArn),
 			Name: aws.String(sourceName),
 		},
@@ -631,9 +632,9 @@ func Test_AccessLogSubscriptionManager_WithAdditionalTags_Update(t *testing.T) {
 		Arn: aws.String(accessLogSubscriptionArn),
 	}
 
-	mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+	mockLattice.EXPECT().GetAccessLogSubscription(ctx, getALSInput).Return(getALSOutput, nil)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
-	mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
+	mockLattice.EXPECT().UpdateAccessLogSubscription(ctx, updateALSInput).Return(updateALSOutput, nil)
 
 	mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, accessLogSubscription.Spec.AdditionalTags, nil).Return(nil)
 

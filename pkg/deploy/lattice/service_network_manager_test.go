@@ -5,7 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -17,7 +19,6 @@ import (
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) {
@@ -49,19 +50,19 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_NeedToAssociate(t *testing.T) 
 		Tags: cloud.DefaultTags(),
 	}
 
-	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, createServiceNetworkInput).Return(snCreateOutput, nil)
+	mockLattice.EXPECT().CreateServiceNetwork(ctx, createServiceNetworkInput).Return(snCreateOutput, nil)
 	snId := "12345678912345678912"
 	createServiceNetworkVpcAssociationInput := &vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: &snId,
 		VpcIdentifier:            &config.VpcID,
 		Tags:                     cloud.DefaultTags(),
 	}
-	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	associationStatus := types.ServiceNetworkVpcAssociationStatusActive
 	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
-		Status: &associationStatus,
+		Status: associationStatus,
 	}
 	mockLattice.EXPECT().
-		CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).
+		CreateServiceNetworkVpcAssociation(ctx, createServiceNetworkVpcAssociationInput).
 		Return(createServiceNetworkVPCAssociationOutput, nil)
 
 	mockLattice.EXPECT().
@@ -123,21 +124,21 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	snArn := "12345678912345678912"
 	name := "test"
 	vpcId := config.VpcID
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusCreateInProgress
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &vpcId,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
@@ -176,21 +177,21 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	snArn := "12345678912345678912"
 	name := "test"
 	vpcId := config.VpcID
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusDeleteInProgress
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusDeleteInProgress
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &vpcId,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
@@ -228,21 +229,21 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	snId := "12345678912345678912"
 	snArn := "12345678912345678912"
 	name := "test"
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusActive
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &config.VpcID,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
@@ -272,25 +273,25 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	snId := "12345678912345678912"
 	snArn := "12345678912345678912"
 	name := "test"
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusCreateFailed
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &config.VpcID,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
-	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	associationStatus := types.ServiceNetworkVpcAssociationStatusActive
 	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
-		Status: &associationStatus,
+		Status: associationStatus,
 	}
 
 	c := gomock.NewController(t)
@@ -300,7 +301,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
-		Tags: make(map[string]*string),
+		Tags: make(map[string]string),
 	}
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
@@ -313,7 +314,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_ServiceNetworkVpcAssociati
 		VpcIdentifier:            &config.VpcID,
 		Tags:                     cloud.DefaultTags(),
 	}
-	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
+	mockLattice.EXPECT().CreateServiceNetworkVpcAssociation(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
@@ -337,25 +338,25 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_SnAssociatedWithOtherVPC(t
 	snArn := "12345678912345678912"
 	name := "test"
 	vpcId := "123445677"
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusCreateFailed
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusCreateFailed
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &vpcId,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
-	associationStatus := vpclattice.ServiceNetworkVpcAssociationStatusActive
+	associationStatus := types.ServiceNetworkVpcAssociationStatusActive
 	createServiceNetworkVPCAssociationOutput := &vpclattice.CreateServiceNetworkVpcAssociationOutput{
-		Status: &associationStatus,
+		Status: associationStatus,
 	}
 
 	c := gomock.NewController(t)
@@ -365,7 +366,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_SnAssociatedWithOtherVPC(t
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
 	snTagsOuput := &vpclattice.ListTagsForResourceOutput{
-		Tags: make(map[string]*string),
+		Tags: make(map[string]string),
 	}
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
 		&mocks.ServiceNetworkInfo{
@@ -378,7 +379,7 @@ func Test_CreateOrUpdateServiceNetwork_SnAlreadyExist_SnAssociatedWithOtherVPC(t
 		VpcIdentifier:            &config.VpcID,
 		Tags:                     cloud.DefaultTags(),
 	}
-	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
+	mockLattice.EXPECT().CreateServiceNetworkVpcAssociation(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &snCreateInput)
@@ -424,8 +425,8 @@ func Test_CreateOrUpdateServiceNetwork_SnNotExist_ServiceNetworkVpcAssociationRe
 	}
 
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(nil, nil)
-	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, snCreateInput).Return(snCreateOutput, nil)
-	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, errors.New("ERROR"))
+	mockLattice.EXPECT().CreateServiceNetwork(ctx, snCreateInput).Return(snCreateOutput, nil)
+	mockLattice.EXPECT().CreateServiceNetworkVpcAssociation(ctx, createServiceNetworkVpcAssociationInput).Return(createServiceNetworkVPCAssociationOutput, errors.New("ERROR"))
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &CreateInput)
@@ -465,7 +466,7 @@ func Test_CreateSn_SnNotExist_SnCreateFailed(t *testing.T) {
 	}
 
 	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(nil, nil)
-	mockLattice.EXPECT().CreateServiceNetworkWithContext(ctx, snCreateInput).Return(snCreateOutput, errors.New("ERROR"))
+	mockLattice.EXPECT().CreateServiceNetwork(ctx, snCreateInput).Return(snCreateOutput, errors.New("ERROR"))
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.CreateOrUpdate(ctx, &CreateInput)
@@ -477,29 +478,29 @@ func Test_CreateSn_SnNotExist_SnCreateFailed(t *testing.T) {
 }
 
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_UpdateSNVASecurityGroups(t *testing.T) {
-	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	securityGroupIds := []string{"sg-123456789", "sg-987654321"}
 
 	snId := "sn-12345678912345678"
 	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
 	snvaArn := "arn:aws:vpc-lattice:region:account-id:servicenetworkvpcassociation/snva-12345678912345678"
 	name := "test"
 	vpcId := config.VpcID
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusActive
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &config.VpcID,
 		Arn:                &snvaArn,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -512,27 +513,27 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Update
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
-	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &name,
-		Status:             aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
+		Status:             types.ServiceNetworkVpcAssociationStatusActive,
 		VpcId:              &vpcId,
-		//SecurityGroupIds:   []*string{aws.String("sg-123456789"), aws.String("sg-987654321")},
+		//SecurityGroupIds:   []string{"sg-123456789", "sg-987654321"},
 	}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
 		Tags: cloud.DefaultTags(),
 	}, nil)
 
 	mockTagging.EXPECT().UpdateTags(ctx, gomock.Any(), gomock.Any(), nil).Return(nil)
 
-	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).MaxTimes(0)
-	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociation(ctx, gomock.Any()).MaxTimes(0)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{
 		Arn:              &snArn,
 		Id:               &snId,
 		SecurityGroupIds: securityGroupIds,
-		Status:           aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
+		Status:           types.ServiceNetworkVpcAssociationStatusActive,
 	}, nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
@@ -543,28 +544,28 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Update
 }
 
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_SecurityGroupsDoNotNeedToBeUpdated(t *testing.T) {
-	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	securityGroupIds := []string{"sg-123456789", "sg-987654321"}
 	snId := "sn-12345678912345678"
 	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
 	snvaArn := "arn:aws:vpc-lattice:region:account-id:servicenetworkvpcassociation/snva-12345678912345678"
 	name := "test"
 	vpcId := config.VpcID
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusActive
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &config.VpcID,
 		Arn:                &snvaArn,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -577,24 +578,24 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Securi
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
-	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
 		Arn:                &snvaArn,
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &name,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &vpcId,
 		SecurityGroupIds:   securityGroupIds,
 	}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
 		Tags: cloud.DefaultTags(),
 	}, nil)
 
 	mockTagging.EXPECT().UpdateTags(ctx, snvaArn, nil, nil).Return(nil)
 
-	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
-	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociation(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, nil)
@@ -603,27 +604,27 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Securi
 	assert.Equal(t, resp, snvaArn)
 }
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgress_WillNotInvokeLatticeUpdateSNVA(t *testing.T) {
-	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	securityGroupIds := []string{"sg-123456789", "sg-987654321"}
 	snId := "12345678912345678912"
 	snArn := "12345678912345678912"
 	snvaArn := "12345678912345678912"
 	name := "test"
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusCreateInProgress
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusCreateInProgress
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &config.VpcID,
 		Arn:                &snvaArn,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -635,10 +636,10 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgr
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
-	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
-	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociation(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	_, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, nil)
@@ -648,27 +649,27 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgr
 }
 
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_CannotUpdateSecurityGroupsFromNonemptyToEmpty(t *testing.T) {
-	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	securityGroupIds := []string{"sg-123456789", "sg-987654321"}
 	snId := "sn-12345678912345678"
 	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
 	snvaArn := "arn:aws:vpc-lattice:region:account-id:servicenetworkvpcassociation/snva-12345678912345678"
 	name := "test"
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusActive
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &config.VpcID,
 		Arn:                &snvaArn,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -681,55 +682,55 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Cannot
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
-	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
 		Arn:                &snvaArn,
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &name,
-		Status:             aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
+		Status:             types.ServiceNetworkVpcAssociationStatusActive,
 		VpcId:              &config.VpcID,
 		SecurityGroupIds:   securityGroupIds,
 	}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
 		Tags: cloud.DefaultTags(),
 	}, nil)
 
 	mockTagging.EXPECT().UpdateTags(ctx, snvaArn, gomock.Any(), nil).Return(nil)
 
-	mockLattice.EXPECT().CreateServiceNetworkServiceAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociation(ctx, gomock.Any()).Times(0)
 	updateSNVAError := errors.New("InvalidParameterException SecurityGroupIds cannot be empty")
-	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{}, updateSNVAError)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{}, updateSNVAError)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	_, err := snMgr.UpsertVpcAssociation(ctx, name, []*string{}, nil)
+	_, err := snMgr.UpsertVpcAssociation(ctx, name, []string{}, nil)
 
 	assert.Equal(t, err, updateSNVAError)
 }
 
 func Test_UpsertVpcAssociation_WithAdditionalTags_ExistingAssociation(t *testing.T) {
-	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	securityGroupIds := []string{"sg-123456789", "sg-987654321"}
 	snId := "sn-12345678912345678"
 	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
 	snvaArn := "arn:aws:vpc-lattice:region:account-id:servicenetworkvpcassociation/snva-12345678912345678"
 	name := "test"
 	vpcId := config.VpcID
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
 	}
 
-	status := vpclattice.ServiceNetworkVpcAssociationStatusActive
-	items := vpclattice.ServiceNetworkVpcAssociationSummary{
+	status := types.ServiceNetworkVpcAssociationStatusActive
+	items := types.ServiceNetworkVpcAssociationSummary{
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &snId,
-		Status:             &status,
+		Status:             status,
 		VpcId:              &config.VpcID,
 		Arn:                &snvaArn,
 	}
-	statusServiceNetworkVPCOutput := []*vpclattice.ServiceNetworkVpcAssociationSummary{&items}
+	statusServiceNetworkVPCOutput := []types.ServiceNetworkVpcAssociationSummary{items}
 
 	c := gomock.NewController(t)
 	defer c.Finish()
@@ -743,28 +744,28 @@ func Test_UpsertVpcAssociation_WithAdditionalTags_ExistingAssociation(t *testing
 			SvcNetwork: item,
 			Tags:       nil,
 		}, nil)
-	mockLattice.EXPECT().GetServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+	mockLattice.EXPECT().GetServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
 		Arn:                &snvaArn,
 		ServiceNetworkArn:  &snArn,
 		ServiceNetworkId:   &snId,
 		ServiceNetworkName: &name,
-		Status:             aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
+		Status:             types.ServiceNetworkVpcAssociationStatusActive,
 		VpcId:              &vpcId,
 		SecurityGroupIds:   securityGroupIds,
 	}, nil)
 	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(statusServiceNetworkVPCOutput, nil)
-	mockLattice.EXPECT().ListTagsForResourceWithContext(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
 		Tags: cloud.DefaultTags(),
 	}, nil)
 
 	additionalTags := mocks.Tags{
-		"Environment": &[]string{"Test"}[0],
-		"Project":     &[]string{"SNManager"}[0],
+		"Environment": "Test",
+		"Project":     "SNManager",
 	}
 
 	mockTagging.EXPECT().UpdateTags(ctx, snvaArn, additionalTags, nil).Return(nil)
 
-	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, additionalTags)
@@ -774,11 +775,11 @@ func Test_UpsertVpcAssociation_WithAdditionalTags_ExistingAssociation(t *testing
 }
 
 func Test_UpsertVpcAssociation_WithAdditionalTags_NoExistingAssociation(t *testing.T) {
-	securityGroupIds := []*string{aws.String("sg-123456789"), aws.String("sg-987654321")}
+	securityGroupIds := []string{"sg-123456789", "sg-987654321"}
 	snId := "12345678912345678912"
 	snArn := "12345678912345678912"
 	name := "test"
-	item := vpclattice.ServiceNetworkSummary{
+	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
 		Id:   &snId,
 		Name: &name,
@@ -797,22 +798,22 @@ func Test_UpsertVpcAssociation_WithAdditionalTags_NoExistingAssociation(t *testi
 			Tags:       nil,
 		}, nil)
 
-	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return([]*vpclattice.ServiceNetworkVpcAssociationSummary{}, nil)
+	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return([]types.ServiceNetworkVpcAssociationSummary{}, nil)
 
 	additionalTags := mocks.Tags{
-		"Environment": &[]string{"Prod"}[0],
-		"Project":     &[]string{"CreateTest"}[0],
+		"Environment": "Prod",
+		"Project":     "CreateTest",
 	}
 
 	expectedTags := cloud.MergeTags(cloud.DefaultTags(), additionalTags)
 
-	mockLattice.EXPECT().CreateServiceNetworkVpcAssociationWithContext(ctx, gomock.Any()).DoAndReturn(
+	mockLattice.EXPECT().CreateServiceNetworkVpcAssociation(ctx, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, input *vpclattice.CreateServiceNetworkVpcAssociationInput, opts ...interface{}) (*vpclattice.CreateServiceNetworkVpcAssociationOutput, error) {
 			assert.Equal(t, expectedTags, input.Tags, "Tags should include both default and additional tags")
 
 			return &vpclattice.CreateServiceNetworkVpcAssociationOutput{
 				Arn:    &snArn,
-				Status: aws.String(vpclattice.ServiceNetworkVpcAssociationStatusActive),
+				Status: types.ServiceNetworkVpcAssociationStatusActive,
 			}, nil
 		})
 
@@ -835,7 +836,7 @@ func Test_Upsert_NotFound_Creates(t *testing.T) {
 	id := "sn-123"
 
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), name).Return(nil, mocks.NewNotFoundError("ServiceNetwork", name))
-	mockLattice.EXPECT().CreateServiceNetworkWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().CreateServiceNetwork(gomock.Any(), gomock.Any()).
 		Return(&vpclattice.CreateServiceNetworkOutput{
 			Arn:  &arn,
 			Id:   &id,
@@ -864,17 +865,17 @@ func Test_Upsert_Exists_Adopts(t *testing.T) {
 
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), name).
 		Return(&mocks.ServiceNetworkInfo{
-			SvcNetwork: vpclattice.ServiceNetworkSummary{
+			SvcNetwork: types.ServiceNetworkSummary{
 				Arn:  aws.String(snArn),
 				Id:   aws.String(snId),
 				Name: aws.String(name),
 			},
 		}, nil)
 	// TryOwn calls getTags → ListTagsForResource; empty tags = no owner = adopt
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
-		Return(&vpclattice.ListTagsForResourceOutput{Tags: map[string]*string{}}, nil)
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ListTagsForResourceOutput{Tags: map[string]string{}}, nil)
 	// TryOwn then calls TagResource to claim ownership
-	mockLattice.EXPECT().TagResourceWithContext(gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockLattice.EXPECT().TagResource(gomock.Any(), gomock.Any()).Return(nil, nil)
 	// UpdateTags after adoption
 	mockTagging.EXPECT().UpdateTags(gomock.Any(), snArn, gomock.Any(), gomock.Any()).Return(nil)
 
@@ -911,7 +912,7 @@ func Test_Upsert_CreateError(t *testing.T) {
 	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").Return(nil, mocks.NewNotFoundError("ServiceNetwork", "test-sn"))
-	mockLattice.EXPECT().CreateServiceNetworkWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().CreateServiceNetwork(gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("create failed"))
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
@@ -931,17 +932,17 @@ func Test_Upsert_TryOwnFails(t *testing.T) {
 	snArn := "arn:aws:vpc-lattice:us-west-2:999999999:servicenetwork/sn-other"
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
 		Return(&mocks.ServiceNetworkInfo{
-			SvcNetwork: vpclattice.ServiceNetworkSummary{
+			SvcNetwork: types.ServiceNetworkSummary{
 				Arn:  aws.String(snArn),
 				Id:   aws.String("sn-other"),
 				Name: aws.String("test-sn"),
 			},
 		}, nil)
 	// TryOwn calls getTags → ListTagsForResource; returns different owner
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 		Return(&vpclattice.ListTagsForResourceOutput{
-			Tags: map[string]*string{
-				"application-networking.k8s.aws/ManagedBy": aws.String("other-cluster"),
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": "other-cluster",
 			},
 		}, nil)
 
@@ -978,17 +979,17 @@ func Test_Delete_NotOwned_Skips(t *testing.T) {
 	snArn := "arn:aws:vpc-lattice:us-west-2:999999999:servicenetwork/sn-other"
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
 		Return(&mocks.ServiceNetworkInfo{
-			SvcNetwork: vpclattice.ServiceNetworkSummary{
+			SvcNetwork: types.ServiceNetworkSummary{
 				Arn:  aws.String(snArn),
 				Id:   aws.String("sn-other"),
 				Name: aws.String("test-sn"),
 			},
 		}, nil)
 	// IsArnManaged calls getTags → ListTagsForResource; returns different owner
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 		Return(&vpclattice.ListTagsForResourceOutput{
-			Tags: map[string]*string{
-				"application-networking.k8s.aws/ManagedBy": aws.String("other-cluster"),
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": "other-cluster",
 			},
 		}, nil)
 
@@ -1008,18 +1009,18 @@ func Test_Delete_Owned_Deletes(t *testing.T) {
 	snArn := "arn:aws:vpc-lattice:us-west-2:account-id:servicenetwork/sn-123"
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
 		Return(&mocks.ServiceNetworkInfo{
-			SvcNetwork: vpclattice.ServiceNetworkSummary{
+			SvcNetwork: types.ServiceNetworkSummary{
 				Arn:  aws.String(snArn),
 				Id:   aws.String("sn-123"),
 				Name: aws.String("test-sn"),
 			},
 		}, nil)
 	// IsArnManaged: owned by this controller
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 		Return(&vpclattice.ListTagsForResourceOutput{
 			Tags: cloud.DefaultTags(),
 		}, nil)
-	mockLattice.EXPECT().DeleteServiceNetworkWithContext(gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockLattice.EXPECT().DeleteServiceNetwork(gomock.Any(), gomock.Any()).Return(nil, nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
 	err := snMgr.Delete(ctx, "test-sn")
@@ -1037,17 +1038,17 @@ func Test_Delete_ConflictException(t *testing.T) {
 	snArn := "arn:aws:vpc-lattice:us-west-2:account-id:servicenetwork/sn-123"
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-sn").
 		Return(&mocks.ServiceNetworkInfo{
-			SvcNetwork: vpclattice.ServiceNetworkSummary{
+			SvcNetwork: types.ServiceNetworkSummary{
 				Arn:  aws.String(snArn),
 				Id:   aws.String("sn-123"),
 				Name: aws.String("test-sn"),
 			},
 		}, nil)
-	mockLattice.EXPECT().ListTagsForResourceWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 		Return(&vpclattice.ListTagsForResourceOutput{
 			Tags: cloud.DefaultTags(),
 		}, nil)
-	mockLattice.EXPECT().DeleteServiceNetworkWithContext(gomock.Any(), gomock.Any()).
+	mockLattice.EXPECT().DeleteServiceNetwork(gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("ConflictException: service network has VPC(s) associated"))
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)

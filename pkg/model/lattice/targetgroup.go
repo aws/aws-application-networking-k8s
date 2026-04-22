@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -37,13 +37,13 @@ type TargetGroup struct {
 }
 
 type TargetGroupSpec struct {
-	VpcId             string                        `json:"vpcid"`
-	Type              TargetGroupType               `json:"type"`
-	Port              int32                         `json:"port"`
-	Protocol          string                        `json:"protocol"`
-	ProtocolVersion   string                        `json:"protocolversion"`
-	IpAddressType     string                        `json:"ipaddresstype"`
-	HealthCheckConfig *vpclattice.HealthCheckConfig `json:"healthcheckconfig"`
+	VpcId             string                   `json:"vpcid"`
+	Type              TargetGroupType          `json:"type"`
+	Port              int32                    `json:"port"`
+	Protocol          string                   `json:"protocol"`
+	ProtocolVersion   string                   `json:"protocolversion"`
+	IpAddressType     string                   `json:"ipaddresstype"`
+	HealthCheckConfig *types.HealthCheckConfig `json:"healthcheckconfig"`
 	TargetGroupTagFields
 	AdditionalTags services.Tags `json:"additionaltags,omitempty"`
 }
@@ -77,41 +77,33 @@ const (
 	SourceTypeInvalid   K8SSourceType = "INVALID"
 )
 
-func TGTagFieldsFromTags(tags map[string]*string) TargetGroupTagFields {
+func TGTagFieldsFromTags(tags map[string]string) TargetGroupTagFields {
 	return TargetGroupTagFields{
-		K8SClusterName:      getMapValue(tags, K8SClusterNameKey),
-		K8SSourceType:       GetParentRefType(getMapValue(tags, K8SSourceTypeKey)),
-		K8SServiceName:      getMapValue(tags, K8SServiceNameKey),
-		K8SServiceNamespace: getMapValue(tags, K8SServiceNamespaceKey),
-		K8SRouteName:        getMapValue(tags, K8SRouteNameKey),
-		K8SRouteNamespace:   getMapValue(tags, K8SRouteNamespaceKey),
-		K8SProtocolVersion:  getMapValue(tags, K8SProtocolVersionKey),
+		K8SClusterName:      tags[K8SClusterNameKey],
+		K8SSourceType:       GetParentRefType(tags[K8SSourceTypeKey]),
+		K8SServiceName:      tags[K8SServiceNameKey],
+		K8SServiceNamespace: tags[K8SServiceNamespaceKey],
+		K8SRouteName:        tags[K8SRouteNameKey],
+		K8SRouteNamespace:   tags[K8SRouteNamespaceKey],
+		K8SProtocolVersion:  tags[K8SProtocolVersionKey],
 	}
 }
 
-func TagsFromTGTagFields(tagFields TargetGroupTagFields) map[string]*string {
+func TagsFromTGTagFields(tagFields TargetGroupTagFields) map[string]string {
 	st := string(tagFields.K8SSourceType)
 
-	tags := map[string]*string{
-		K8SClusterNameKey:      &tagFields.K8SClusterName,
-		K8SServiceNameKey:      &tagFields.K8SServiceName,
-		K8SServiceNamespaceKey: &tagFields.K8SServiceNamespace,
-		K8SSourceTypeKey:       &st,
-		K8SProtocolVersionKey:  &tagFields.K8SProtocolVersion,
+	tags := map[string]string{
+		K8SClusterNameKey:      tagFields.K8SClusterName,
+		K8SServiceNameKey:      tagFields.K8SServiceName,
+		K8SServiceNamespaceKey: tagFields.K8SServiceNamespace,
+		K8SSourceTypeKey:       st,
+		K8SProtocolVersionKey:  tagFields.K8SProtocolVersion,
 	}
 	if tagFields.K8SSourceType != SourceTypeSvcExport {
-		tags[K8SRouteNameKey] = &tagFields.K8SRouteName
-		tags[K8SRouteNamespaceKey] = &tagFields.K8SRouteNamespace
+		tags[K8SRouteNameKey] = tagFields.K8SRouteName
+		tags[K8SRouteNamespaceKey] = tagFields.K8SRouteNamespace
 	}
 	return tags
-}
-
-func getMapValue(m map[string]*string, key string) string {
-	v, ok := m[key]
-	if !ok || v == nil {
-		return ""
-	}
-	return *v
 }
 
 func GetParentRefType(s string) K8SSourceType {

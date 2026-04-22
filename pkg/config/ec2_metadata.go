@@ -1,11 +1,13 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 )
 
 type EC2Metadata interface {
@@ -15,47 +17,53 @@ type EC2Metadata interface {
 }
 
 // NewEC2Metadata constructs new EC2Metadata implementation.
-func NewEC2Metadata(session *session.Session) EC2Metadata {
+func NewEC2Metadata(cfg aws.Config) EC2Metadata {
 	return &defaultEC2Metadata{
-		EC2Metadata: ec2metadata.New(session),
+		client: imds.NewFromConfig(cfg),
 	}
 }
 
 type defaultEC2Metadata struct {
-	*ec2metadata.EC2Metadata
+	client *imds.Client
+}
+
+func (c *defaultEC2Metadata) getMetadataString(path string) (string, error) {
+	out, err := c.client.GetMetadata(context.TODO(), &imds.GetMetadataInput{Path: path})
+	if err != nil {
+		return "", err
+	}
+	defer out.Content.Close()
+	b, err := io.ReadAll(out.Content)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func (c *defaultEC2Metadata) VpcID() (string, error) {
-	mac, err := c.GetMetadata("mac")
+	mac, err := c.getMetadataString("mac")
 	if err != nil {
 		return "", err
 	}
-	vpcID, err := c.GetMetadata(fmt.Sprintf("network/interfaces/macs/%s/vpc-id", mac))
-	if err != nil {
-		return "", err
-	}
-	return vpcID, nil
+	return c.getMetadataString(fmt.Sprintf("network/interfaces/macs/%s/vpc-id", mac))
 }
 
 func (c *defaultEC2Metadata) Region() (string, error) {
-	region, err := c.GetMetadata("placement/region")
-	if err != nil {
-		return "", err
-	}
-	return region, nil
+	return c.getMetadataString("placement/region")
 }
 
 func (c *defaultEC2Metadata) AccountId() (string, error) {
-	ec2Info, err := c.GetMetadata("identity-credentials/ec2/info")
+	ec2Info, err := c.getMetadataString("identity-credentials/ec2/info")
+	if err != nil {
+		return "", err
+	}
 	type accountInfo struct {
 		Code        string `json:"code"`
 		LastUpdated string `json:"LastUpdated"`
 		AccountId   string `json:"AccountId"`
 	}
-
 	var acc accountInfo
-	json.Unmarshal([]byte(ec2Info), &acc)
-	if err != nil {
+	if err := json.Unmarshal([]byte(ec2Info), &acc); err != nil {
 		return "", err
 	}
 	return acc.AccountId, nil

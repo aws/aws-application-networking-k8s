@@ -1,18 +1,19 @@
 package integration
 
 import (
+	"log"
+	"os"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"log"
-	"os"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -95,7 +96,7 @@ var _ = Describe("GRPCRoute Service Export/Import Test", Ordered, func() {
 
 		// Get the target group and verify it's configured for gRPC
 		tgSummary := testFramework.GetTargetGroupWithProtocol(ctx, grpcSvc, "http", "grpc")
-		tg, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+		tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: aws.String(*tgSummary.Id),
 		})
 		Expect(tg).To(Not(BeNil()))
@@ -103,8 +104,8 @@ var _ = Describe("GRPCRoute Service Export/Import Test", Ordered, func() {
 		Expect(*tgSummary.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
 
 		// Verify the target group is configured for gRPC
-		Expect(*tgSummary.Protocol).To(Equal("HTTP"))
-		Expect(*tg.Config.ProtocolVersion).To(Equal("GRPC"))
+		Expect(string(tgSummary.Protocol)).To(Equal("HTTP"))
+		Expect(string(tg.Config.ProtocolVersion)).To(Equal("GRPC"))
 
 		// Verify targets are registered
 		Eventually(func(g Gomega) {

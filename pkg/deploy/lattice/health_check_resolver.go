@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -39,7 +39,7 @@ func NewHealthCheckConfigResolver(log gwlog.Logger, client client.Client) *Healt
 // 3. Converts TargetGroupPolicy health check specification to VPC Lattice health check configuration format
 // 4. Falls back gracefully to nil (allowing caller to apply defaults) when policy resolution fails
 // 5. Preserves existing behavior when no policies are applicable
-func (r *HealthCheckConfigResolver) ResolveHealthCheckConfig(ctx context.Context, targetGroup *model.TargetGroup) (*vpclattice.HealthCheckConfig, error) {
+func (r *HealthCheckConfigResolver) ResolveHealthCheckConfig(ctx context.Context, targetGroup *model.TargetGroup) (*types.HealthCheckConfig, error) {
 	if r.client == nil {
 		r.log.Debugf(ctx, "No k8sClient available for policy resolution, skipping health check config resolution")
 		return nil, nil
@@ -91,7 +91,7 @@ func (r *HealthCheckConfigResolver) ResolveHealthCheckConfig(ctx context.Context
 // - Status match patterns (converted to VPC Lattice Matcher format)
 // - Health check path and port
 // - Protocol and protocol version
-func (r *HealthCheckConfigResolver) convertPolicyToHealthCheckConfig(tgp *anv1alpha1.TargetGroupPolicy) *vpclattice.HealthCheckConfig {
+func (r *HealthCheckConfigResolver) convertPolicyToHealthCheckConfig(tgp *anv1alpha1.TargetGroupPolicy) *types.HealthCheckConfig {
 	if tgp == nil {
 		return nil
 	}
@@ -102,35 +102,49 @@ func (r *HealthCheckConfigResolver) convertPolicyToHealthCheckConfig(tgp *anv1al
 	}
 
 	// Convert status match pattern to VPC Lattice Matcher format
-	var matcher *vpclattice.Matcher
+	var matcher types.Matcher
 	if hc.StatusMatch != nil {
-		matcher = &vpclattice.Matcher{HttpCode: hc.StatusMatch}
+		matcher = &types.MatcherMemberHttpCode{Value: *hc.StatusMatch}
 	}
 
 	// Convert TargetGroupPolicy health check types to VPC Lattice types
 	// The TargetGroupPolicy uses custom enum types that need to be cast to string pointers
-	var protocol *string
+	var protocol types.TargetGroupProtocol
 	if hc.Protocol != nil {
-		protocolStr := string(*hc.Protocol)
-		protocol = &protocolStr
+		protocol = types.TargetGroupProtocol(*hc.Protocol)
 	}
 
-	var protocolVersion *string
+	var protocolVersion types.HealthCheckProtocolVersion
 	if hc.ProtocolVersion != nil {
-		protocolVersionStr := string(*hc.ProtocolVersion)
-		protocolVersion = &protocolVersionStr
+		protocolVersion = types.HealthCheckProtocolVersion(*hc.ProtocolVersion)
 	}
 
-	return &vpclattice.HealthCheckConfig{
-		Enabled:                    hc.Enabled,
-		HealthCheckIntervalSeconds: hc.IntervalSeconds,
-		HealthCheckTimeoutSeconds:  hc.TimeoutSeconds,
-		HealthyThresholdCount:      hc.HealthyThresholdCount,
-		UnhealthyThresholdCount:    hc.UnhealthyThresholdCount,
-		Matcher:                    matcher,
-		Path:                       hc.Path,
-		Port:                       hc.Port,
-		Protocol:                   protocol,
-		ProtocolVersion:            protocolVersion,
+	cfg := &types.HealthCheckConfig{
+		Enabled:         hc.Enabled,
+		Matcher:         matcher,
+		Path:            hc.Path,
+		Protocol:        protocol,
+		ProtocolVersion: protocolVersion,
 	}
+	if hc.IntervalSeconds != nil {
+		v := int32(*hc.IntervalSeconds)
+		cfg.HealthCheckIntervalSeconds = &v
+	}
+	if hc.TimeoutSeconds != nil {
+		v := int32(*hc.TimeoutSeconds)
+		cfg.HealthCheckTimeoutSeconds = &v
+	}
+	if hc.HealthyThresholdCount != nil {
+		v := int32(*hc.HealthyThresholdCount)
+		cfg.HealthyThresholdCount = &v
+	}
+	if hc.UnhealthyThresholdCount != nil {
+		v := int32(*hc.UnhealthyThresholdCount)
+		cfg.UnhealthyThresholdCount = &v
+	}
+	if hc.Port != nil {
+		v := int32(*hc.Port)
+		cfg.Port = &v
+	}
+	return cfg
 }

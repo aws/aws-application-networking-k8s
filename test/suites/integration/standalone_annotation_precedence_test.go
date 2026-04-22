@@ -3,7 +3,7 @@ package integration
 import (
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -59,7 +59,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 		It("should create standalone services for multiple routes referencing the same gateway", func() {
 			// Create first HTTPRoute referencing the standalone gateway (no route-level annotation)
 			httpRoute1 = testFramework.NewHttpRoute(standaloneGateway, service1, "Service")
-			
+
 			// Create second HTTPRoute referencing the standalone gateway (no route-level annotation)
 			httpRoute2 = testFramework.NewHttpRoute(standaloneGateway, service2, "Service")
 
@@ -102,7 +102,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: httpRoute1.Namespace,
 				}, updatedRoute1)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				annotations := updatedRoute1.GetAnnotations()
 				g.Expect(annotations).ToNot(BeNil())
 				g.Expect(annotations).To(HaveKey(LatticeServiceArnKey))
@@ -116,7 +116,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: httpRoute2.Namespace,
 				}, updatedRoute2)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				annotations := updatedRoute2.GetAnnotations()
 				g.Expect(annotations).ToNot(BeNil())
 				g.Expect(annotations).To(HaveKey(LatticeServiceArnKey))
@@ -188,7 +188,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: httpRoute.Namespace,
 				}, updatedRoute)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				annotations := updatedRoute.GetAnnotations()
 				g.Expect(annotations).ToNot(BeNil())
 				g.Expect(annotations).To(HaveKey(LatticeServiceArnKey))
@@ -227,12 +227,12 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: testGateway.Namespace,
 				}, latestGateway)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				if latestGateway.Annotations == nil {
 					latestGateway.Annotations = make(map[string]string)
 				}
 				latestGateway.Annotations[StandaloneAnnotationKey] = "true"
-				
+
 				err = testFramework.Update(ctx, latestGateway)
 				g.Expect(err).ToNot(HaveOccurred())
 			}).WithTimeout(30 * time.Second).Should(Succeed())
@@ -262,11 +262,11 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: httpRoute.Namespace,
 				}, updatedRoute)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				routeAnnotations := updatedRoute.GetAnnotations()
 				g.Expect(routeAnnotations).ToNot(BeNil())
 				g.Expect(routeAnnotations[StandaloneAnnotationKey]).To(Equal("false"), "Route should have standalone=false annotation")
-				
+
 				// Check gateway annotations
 				updatedGateway := &gwv1.Gateway{}
 				err = testFramework.Get(ctx, types.NamespacedName{
@@ -274,7 +274,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: testGateway.Namespace,
 				}, updatedGateway)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				gatewayAnnotations := updatedGateway.GetAnnotations()
 				g.Expect(gatewayAnnotations).ToNot(BeNil())
 				g.Expect(gatewayAnnotations[StandaloneAnnotationKey]).To(Equal("true"), "Gateway should have standalone=true annotation")
@@ -289,7 +289,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: httpRoute.Namespace,
 				}, updatedRoute)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				annotations := updatedRoute.GetAnnotations()
 				g.Expect(annotations).ToNot(BeNil())
 				g.Expect(annotations).To(HaveKey(LatticeServiceArnKey))
@@ -307,7 +307,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 		AfterEach(func() {
 			// Clean up the route and service first
 			testFramework.ExpectDeletedThenNotFound(ctx, httpRoute, deployment, service)
-			
+
 			// Remove the standalone annotation from testGateway to restore it to original state
 			By("Removing standalone annotation from testGateway")
 			Eventually(func(g Gomega) {
@@ -317,7 +317,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: testGateway.Namespace,
 				}, latestGateway)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				if latestGateway.Annotations != nil {
 					delete(latestGateway.Annotations, StandaloneAnnotationKey)
 					err = testFramework.Update(ctx, latestGateway)
@@ -467,7 +467,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: httpRoute1.Namespace,
 				}, updatedRoute1)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				annotations := updatedRoute1.GetAnnotations()
 				g.Expect(annotations).ToNot(BeNil())
 				g.Expect(annotations).To(HaveKey(LatticeServiceArnKey))
@@ -481,7 +481,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: httpRoute2.Namespace,
 				}, updatedRoute2)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				annotations := updatedRoute2.GetAnnotations()
 				g.Expect(annotations).ToNot(BeNil())
 				g.Expect(annotations).To(HaveKey(LatticeServiceArnKey))
@@ -495,7 +495,7 @@ var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, fu
 					Namespace: httpRoute3.Namespace,
 				}, updatedRoute3)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				annotations := updatedRoute3.GetAnnotations()
 				g.Expect(annotations).ToNot(BeNil())
 				g.Expect(annotations).To(HaveKey(LatticeServiceArnKey))

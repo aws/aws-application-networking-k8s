@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -113,16 +113,17 @@ func (t *targetsSynthesizer) PostSynthesize(ctx context.Context) error {
 	return nil
 }
 
-func (t *targetsSynthesizer) syncStatus(ctx context.Context, modelTargets []model.Target, latticeTargets []*vpclattice.TargetSummary) (bool, error) {
+func (t *targetsSynthesizer) syncStatus(ctx context.Context, modelTargets []model.Target, latticeTargets []types.TargetSummary) (bool, error) {
 	// Extract Lattice targets as a set
-	latticeTargetMap := make(map[model.Target]*vpclattice.TargetSummary)
+	latticeTargetMap := make(map[model.Target]*types.TargetSummary)
 
 	for _, latticeTarget := range latticeTargets {
 		ipPort := model.Target{
-			TargetIP: aws.StringValue(latticeTarget.Id),
-			Port:     aws.Int64Value(latticeTarget.Port),
+			TargetIP: aws.ToString(latticeTarget.Id),
+			Port:     int64(aws.ToInt32(latticeTarget.Port)),
 		}
-		latticeTargetMap[ipPort] = latticeTarget
+		lt := latticeTarget
+		latticeTargetMap[ipPort] = &lt
 	}
 
 	var requeue bool
@@ -159,19 +160,19 @@ func (t *targetsSynthesizer) syncStatus(ctx context.Context, modelTargets []mode
 		// 1. Target for the pod (eventually) exists. If the target doesn't exist, we can simply requeue.
 		// 2. Target group will be always in use, except for ServiceExport TGs.
 		if latticeTarget, ok := latticeTargetMap[targetIpPort]; ok {
-			switch status := aws.StringValue(latticeTarget.Status); status {
-			case vpclattice.TargetStatusHealthy:
+			switch status := string(latticeTarget.Status); status {
+			case string(types.TargetStatusHealthy):
 				newCond.Status = corev1.ConditionTrue
 				newCond.Reason = ReadinessReasonHealthy
-			case vpclattice.TargetStatusUnavailable:
+			case string(types.TargetStatusUnavailable):
 				// Lattice HC not turned on. Readiness is designed to work only with HC but do not block deployment on this case.
 				newCond.Status = corev1.ConditionTrue
 				newCond.Reason = ReadinessReasonHealthCheckUnavailable
-			case vpclattice.TargetStatusUnused:
+			case string(types.TargetStatusUnused):
 				// Since this logic is called after HTTPRoute is wired, this only happens for ServiceExport TGs.
 				// In this case we do not have to evaluate them as Healthy, but we also do not have to requeue.
 				newCond.Reason = ReadinessReasonUnused
-			case vpclattice.TargetStatusInitial:
+			case string(types.TargetStatusInitial):
 				requeue = true
 				newCond.Reason = ReadinessReasonInitial
 			default:

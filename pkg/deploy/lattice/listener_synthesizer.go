@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -127,13 +127,13 @@ func (l *listenerSynthesizer) getLatticeListenersAsModels(ctx context.Context) (
 
 			spec := model.ListenerSpec{
 				StackServiceId: modelSvc.ID(),
-				Port:           aws.Int64Value(latticeListener.Port),
-				Protocol:       aws.StringValue(latticeListener.Protocol),
+				Port:           int64(aws.ToInt32(latticeListener.Port)),
+				Protocol:       string(latticeListener.Protocol),
 			}
 			status := model.ListenerStatus{
-				Name:        aws.StringValue(latticeListener.Name),
-				ListenerArn: aws.StringValue(latticeListener.Arn),
-				Id:          aws.StringValue(latticeListener.Id),
+				Name:        aws.ToString(latticeListener.Name),
+				ListenerArn: aws.ToString(latticeListener.Arn),
+				Id:          aws.ToString(latticeListener.Id),
 				ServiceId:   modelSvc.Status.Id,
 			}
 

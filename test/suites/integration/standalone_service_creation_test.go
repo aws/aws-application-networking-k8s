@@ -3,7 +3,7 @@ package integration
 import (
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -40,7 +40,7 @@ var _ = Describe("Standalone Service Creation", Ordered, func() {
 		It("creates VPC Lattice service without service network association", func() {
 			// Create HTTPRoute with standalone annotation
 			httpRoute = testFramework.NewHttpRoute(testGateway, service, "Service")
-			
+
 			// Add standalone annotation to the route
 			if httpRoute.Annotations == nil {
 				httpRoute.Annotations = make(map[string]string)
@@ -73,7 +73,7 @@ var _ = Describe("Standalone Service Creation", Ordered, func() {
 					Namespace: httpRoute.Namespace,
 				}, updatedRoute)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				annotations := updatedRoute.GetAnnotations()
 				g.Expect(annotations).ToNot(BeNil())
 				g.Expect(annotations).To(HaveKey(LatticeServiceArn))
@@ -84,7 +84,7 @@ var _ = Describe("Standalone Service Creation", Ordered, func() {
 			// Get target group and verify it's created properly
 			targetGroup := testFramework.GetTargetGroup(ctx, service)
 			Expect(targetGroup).ToNot(BeNil())
-			
+
 			// Verify targets are registered
 			testFramework.GetTargets(ctx, targetGroup, deployment)
 		})
@@ -134,7 +134,7 @@ var _ = Describe("Standalone Service Creation", Ordered, func() {
 					Namespace: gatewayHttpRoute.Namespace,
 				}, updatedRoute)
 				g.Expect(err).ToNot(HaveOccurred())
-				
+
 				annotations := updatedRoute.GetAnnotations()
 				g.Expect(annotations).ToNot(BeNil())
 				g.Expect(annotations).To(HaveKey(LatticeServiceArn))
