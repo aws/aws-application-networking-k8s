@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
@@ -26,8 +27,7 @@ var _ = Describe("Drift detection", Ordered, func() {
 
 	BeforeAll(func() {
 		if config.ReconcileDefaultResyncSeconds <= 0 {
-			Fail("RECONCILE_DEFAULT_RESYNC_SECONDS must be set to a positive value for drift detection tests. " +
-				"Ensure both the controller and test runner are started with e.g. RECONCILE_DEFAULT_RESYNC_SECONDS=60")
+			Skip("RECONCILE_DEFAULT_RESYNC_SECONDS not set or 0, skipping drift detection tests")
 		}
 
 		deployment, service = testFramework.NewNginxApp(test.ElasticSearchOptions{
@@ -61,9 +61,16 @@ var _ = Describe("Drift detection", Ordered, func() {
 				})
 			Expect(err).ToNot(HaveOccurred())
 		}
-		if len(assocResp.Items) > 0 {
-			time.Sleep(30 * time.Second)
-		}
+
+		// Wait for all associations to be fully deleted
+		Eventually(func(g Gomega) {
+			resp, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociations(
+				&vpclattice.ListServiceNetworkServiceAssociationsInput{
+					ServiceIdentifier: svc.Id,
+				})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(resp.Items).To(BeEmpty())
+		}).WithTimeout(2 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
 		_, err = testFramework.LatticeClient.DeleteService(&vpclattice.DeleteServiceInput{
 			ServiceIdentifier: svc.Id,
@@ -187,12 +194,10 @@ var _ = Describe("Drift detection", Ordered, func() {
 			}
 			g.Expect(newNonDefault).To(HaveLen(len(nonDefaultRules)))
 			// The recreated rule should have a different ID
-			for _, rule := range newNonDefault {
-				if aws.StringValue(rule.Id) != originalRuleId {
-					return // found a new rule, success
-				}
-			}
-			g.Expect(false).To(BeTrue(), "expected a rule with a different ID than the deleted one")
+			ids := lo.Map(newNonDefault, func(r *vpclattice.RuleSummary, _ int) string {
+				return aws.StringValue(r.Id)
+			})
+			g.Expect(ids).ToNot(ContainElement(originalRuleId))
 		}).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
 	})
 
@@ -285,10 +290,12 @@ var _ = Describe("Drift detection", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		testFramework.ExpectDeletedThenNotFound(ctx,
-			httpRoute,
-			deployment,
-			service,
-		)
+		if httpRoute != nil {
+			testFramework.ExpectDeletedThenNotFound(ctx,
+				httpRoute,
+				deployment,
+				service,
+			)
+		}
 	})
 })

@@ -24,6 +24,7 @@ nav:
     - TLS Passthrough: guides/tls-passthrough.md
     - Pod Readiness Gates: guides/pod-readiness-gates.md
     - Configuration: guides/environment.md
+    - Drift Detection: guides/drift-detection.md
     - Additional Tags: guides/additional-tags.md
     - Service Name Override: guides/service-name-override.md
     - Controller Metrics: guides/metrics.md

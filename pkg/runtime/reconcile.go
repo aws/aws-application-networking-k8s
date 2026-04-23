@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"errors"
+	"math/rand"
+	"time"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -11,7 +13,12 @@ import (
 func HandleReconcileError(err error) (ctrl.Result, error) {
 	if err == nil {
 		if config.ReconcileDefaultResyncSeconds > 0 {
-			return ctrl.Result{RequeueAfter: config.ReconcileDefaultResyncSeconds}, nil
+			// Add 0-20% jitter to prevent thundering herd at startup.
+			// Jitter scales with interval: short intervals get small jitter
+			// (preserving fast recovery), long intervals get proportionally
+			// larger jitter (acceptable since the user opted for slow recovery).
+			jitter := time.Duration(rand.Int63n(int64(config.ReconcileDefaultResyncSeconds) / 5))
+			return ctrl.Result{RequeueAfter: config.ReconcileDefaultResyncSeconds + jitter}, nil
 		}
 		return ctrl.Result{}, nil
 	}

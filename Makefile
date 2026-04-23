@@ -136,6 +136,19 @@ e2e-clean: ## Delete eks resources created in the e2e test namespace
 	@kubectl create namespace $(e2e-test-namespace)
 	@echo "Done!"
 
+.PHONY: drift-e2e-test
+drift-e2e-test: ## Run drift detection e2e tests (requires RECONCILE_DEFAULT_RESYNC_SECONDS on controller)
+	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1 || true
+	cd test && go test \
+		-p 1 \
+		-count 1 \
+		-timeout 30m \
+		-v \
+		./suites/integration/... \
+		--ginkgo.focus="Drift detection" \
+		--ginkgo.timeout=30m \
+		--ginkgo.v
+
 conformance-test-namespace := "conformance-test"
 conformance-helm-release := "gateway-api-controller"
 conformance-helm-chart := "oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart"

@@ -49,8 +49,10 @@ func Test_NilError_WithReconcileInterval(t *testing.T) {
 	config.ReconcileDefaultResyncSeconds = 5 * time.Minute
 
 	result, err := HandleReconcileError(nil)
-	assert.Equal(t, ctrl.Result{RequeueAfter: 5 * time.Minute}, result)
 	assert.NoError(t, err)
+	// RequeueAfter should be between interval and interval + 20% jitter
+	assert.GreaterOrEqual(t, result.RequeueAfter, 5*time.Minute)
+	assert.LessOrEqual(t, result.RequeueAfter, 6*time.Minute)
 }
 
 func Test_NilError_WithZeroReconcileInterval(t *testing.T) {
