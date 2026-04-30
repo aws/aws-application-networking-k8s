@@ -1,16 +1,16 @@
 package aws
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-
-	"context"
-	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 )
@@ -194,4 +194,18 @@ func Test_TryOwnFromTags(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAddUserAgentHandler(t *testing.T) {
+	sess, err := session.NewSession(&aws.Config{Region: aws.String("us-east-1")})
+	assert.NoError(t, err)
+
+	addUserAgentHandler(sess)
+
+	svc := vpclattice.New(sess)
+	req, _ := svc.ListServicesRequest(&vpclattice.ListServicesInput{})
+	req.Build()
+
+	ua := req.HTTPRequest.Header.Get("User-Agent")
+	assert.Contains(t, ua, "amazon-vpc-lattice-gateway-api-controller")
 }
