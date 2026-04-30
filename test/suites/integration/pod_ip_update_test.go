@@ -24,14 +24,14 @@ var _ = Describe("Pod IP Update test", Ordered, func() {
 	var (
 		httpsDeployment1 *appsv1.Deployment
 		httpsSvc1        *v1.Service
-		tlsRoute         *v1alpha2.TLSRoute
+		tlsRoute         *gwv1.TLSRoute
 		initialPodIPs    []string
 		initialTargets   []*vpclattice.TargetSummary
 	)
 
 	It("Set up k8s resource for TLS passthrough", func() {
 		httpsDeployment1, httpsSvc1 = testFramework.NewHttpsApp(test.HTTPsAppOptions{Name: "tls-passthrough-test", Namespace: k8snamespace})
-		tlsRoute = testFramework.NewTLSRoute(k8snamespace, testGateway, []v1alpha2.TLSRouteRule{
+		tlsRoute = testFramework.NewTLSRoute(k8snamespace, testGateway, []gwv1.TLSRouteRule{
 			{
 				BackendRefs: []gwv1.BackendRef{
 					{

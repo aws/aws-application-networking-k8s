@@ -1890,7 +1890,184 @@ func validateEqual(t *testing.T, expectedRules []model.RuleSpec, actualRules []*
 
 			assert.Equal(t, etg.Weight, atg.Weight)
 			assert.Equal(t, etg.StackTargetGroupId, atg.StackTargetGroupId)
-			assert.Equal(t, etg.SvcImportTG, etg.SvcImportTG)
+			assert.Equal(t, etg.SvcImportTG, atg.SvcImportTG)
 		}
+	}
+}
+
+func Test_ServiceImportAnnotationMapping(t *testing.T) {
+	var httpSectionName gwv1.SectionName = "http"
+	var serviceImportKind gwv1.Kind = "ServiceImport"
+
+	tests := []struct {
+		name                     string
+		serviceImportName        string
+		serviceImportAnnotations map[string]string
+		clusterAnnotations       map[string]string
+		expectedServiceName      string
+		expectedCluster          string
+		expectedVPC              string
+		wantErrIsNil             bool
+	}{
+		{
+			name:              "ServiceImport with export-name annotation",
+			serviceImportName: "import-with-annotation",
+			serviceImportAnnotations: map[string]string{
+				"application-networking.k8s.aws/export-name": "actual-export-name",
+			},
+			expectedServiceName: "actual-export-name",
+			wantErrIsNil:        true,
+		},
+		{
+			name:              "ServiceImport with empty export-name annotation",
+			serviceImportName: "import-empty-annotation",
+			serviceImportAnnotations: map[string]string{
+				"application-networking.k8s.aws/export-name": "   ", // Whitespace only
+			},
+			expectedServiceName: "import-empty-annotation", // Should fall back to ServiceImport name
+			wantErrIsNil:        true,
+		},
+		{
+			name:                     "ServiceImport without annotation",
+			serviceImportName:        "import-no-annotation",
+			serviceImportAnnotations: nil,
+			expectedServiceName:      "import-no-annotation", // Should use ServiceImport name
+			wantErrIsNil:             true,
+		},
+		{
+			name:              "ServiceImport with export-name and cluster/VPC filtering",
+			serviceImportName: "import-with-filtering",
+			serviceImportAnnotations: map[string]string{
+				"application-networking.k8s.aws/export-name": "filtered-export",
+			},
+			clusterAnnotations: map[string]string{
+				"application-networking.k8s.aws/aws-eks-cluster-name": "test-cluster",
+				"application-networking.k8s.aws/aws-vpc":              "vpc-12345",
+			},
+			expectedServiceName: "filtered-export",
+			expectedCluster:     "test-cluster",
+			expectedVPC:         "vpc-12345",
+			wantErrIsNil:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceImport{})
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			// Create ServiceImport with specified annotations
+			annotations := make(map[string]string)
+			if tt.serviceImportAnnotations != nil {
+				for k, v := range tt.serviceImportAnnotations {
+					annotations[k] = v
+				}
+			}
+			if tt.clusterAnnotations != nil {
+				for k, v := range tt.clusterAnnotations {
+					annotations[k] = v
+				}
+			}
+
+			serviceImport := &anv1alpha1.ServiceImport{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:        tt.serviceImportName,
+					Namespace:   "default",
+					Annotations: annotations,
+				},
+				Spec: anv1alpha1.ServiceImportSpec{
+					Type: anv1alpha1.ClusterSetIP,
+					Ports: []anv1alpha1.ServicePort{
+						{
+							Port:     80,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+				},
+			}
+			assert.NoError(t, k8sClient.Create(ctx, serviceImport))
+
+			// Create HTTPRoute that references the ServiceImport
+			route := core.NewHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "default",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:        "gw1",
+								SectionName: &httpSectionName,
+							},
+						},
+					},
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{
+									BackendRef: gwv1.BackendRef{
+										BackendObjectReference: gwv1.BackendObjectReference{
+											Name: gwv1.ObjectName(tt.serviceImportName),
+											Kind: &serviceImportKind,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+
+			task := &latticeServiceModelBuildTask{
+				log:         gwlog.FallbackLogger,
+				route:       route,
+				stack:       stack,
+				client:      k8sClient,
+				brTgBuilder: &dummyTgBuilder{},
+			}
+
+			err := task.buildRules(ctx, "listener-id")
+			if tt.wantErrIsNil {
+				assert.NoError(t, err)
+			} else {
+				assert.NotNil(t, err)
+				return
+			}
+
+			var resRules []*model.Rule
+			stack.ListResources(&resRules)
+			assert.Equal(t, 1, len(resRules), "Expected exactly one rule")
+
+			rule := resRules[0]
+			assert.Equal(t, 1, len(rule.Spec.Action.TargetGroups), "Expected exactly one target group")
+
+			targetGroup := rule.Spec.Action.TargetGroups[0]
+			assert.NotNil(t, targetGroup.SvcImportTG, "Expected ServiceImport target group")
+
+			// Verify the service name is correctly resolved
+			assert.Equal(t, tt.expectedServiceName, targetGroup.SvcImportTG.K8SServiceName,
+				"Service name should match expected value")
+			assert.Equal(t, "default", targetGroup.SvcImportTG.K8SServiceNamespace,
+				"Namespace should be default")
+
+			// Verify cluster and VPC filtering if specified
+			if tt.expectedCluster != "" {
+				assert.Equal(t, tt.expectedCluster, targetGroup.SvcImportTG.K8SClusterName,
+					"Cluster name should match expected value")
+			}
+			if tt.expectedVPC != "" {
+				assert.Equal(t, tt.expectedVPC, targetGroup.SvcImportTG.VpcId,
+					"VPC ID should match expected value")
+			}
+		})
 	}
 }

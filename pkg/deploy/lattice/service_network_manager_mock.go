@@ -57,6 +57,20 @@ func (mr *MockServiceNetworkManagerMockRecorder) CreateOrUpdate(ctx, serviceNetw
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrUpdate", reflect.TypeOf((*MockServiceNetworkManager)(nil).CreateOrUpdate), ctx, serviceNetwork)
 }
 
+// Delete mocks base method.
+func (m *MockServiceNetworkManager) Delete(ctx context.Context, snName string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", ctx, snName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockServiceNetworkManagerMockRecorder) Delete(ctx, snName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockServiceNetworkManager)(nil).Delete), ctx, snName)
+}
+
 // DeleteVpcAssociation mocks base method.
 func (m *MockServiceNetworkManager) DeleteVpcAssociation(ctx context.Context, snName string) error {
 	m.ctrl.T.Helper()
@@ -69,6 +83,21 @@ func (m *MockServiceNetworkManager) DeleteVpcAssociation(ctx context.Context, sn
 func (mr *MockServiceNetworkManagerMockRecorder) DeleteVpcAssociation(ctx, snName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteVpcAssociation", reflect.TypeOf((*MockServiceNetworkManager)(nil).DeleteVpcAssociation), ctx, snName)
+}
+
+// Upsert mocks base method.
+func (m *MockServiceNetworkManager) Upsert(ctx context.Context, name string, additionalTags services.Tags) (lattice.ServiceNetworkStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Upsert", ctx, name, additionalTags)
+	ret0, _ := ret[0].(lattice.ServiceNetworkStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Upsert indicates an expected call of Upsert.
+func (mr *MockServiceNetworkManagerMockRecorder) Upsert(ctx, name, additionalTags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockServiceNetworkManager)(nil).Upsert), ctx, name, additionalTags)
 }
 
 // UpsertVpcAssociation mocks base method.

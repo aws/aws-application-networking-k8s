@@ -89,7 +89,8 @@ func addOptionalCRDs(scheme *runtime.Scheme) {
 		&anv1alpha1.TargetGroupPolicy{}, &anv1alpha1.TargetGroupPolicyList{},
 		&anv1alpha1.AccessLogPolicy{}, &anv1alpha1.AccessLogPolicyList{},
 		&anv1alpha1.VpcAssociationPolicy{}, &anv1alpha1.VpcAssociationPolicyList{},
-		&anv1alpha1.IAMAuthPolicy{}, &anv1alpha1.IAMAuthPolicyList{})
+		&anv1alpha1.IAMAuthPolicy{}, &anv1alpha1.IAMAuthPolicyList{},
+		&anv1alpha1.ServiceNetwork{}, &anv1alpha1.ServiceNetworkList{})
 
 	metav1.AddToGroupVersion(scheme, groupVersion)
 }
@@ -118,8 +119,8 @@ func checkRequiredCRDs(mgr ctrl.Manager) error {
 			Kind:    "GRPCRoute",
 		},
 		{
-			Group:   gwv1alpha2.GroupVersion.Group,
-			Version: gwv1alpha2.GroupVersion.Version,
+			Group:   gwv1.GroupVersion.Group,
+			Version: gwv1.GroupVersion.Version,
 			Kind:    "TLSRoute",
 		},
 	}
@@ -283,6 +284,17 @@ func main() {
 	err = controllers.RegisterVpcAssociationPolicyController(ctrlLog.Named("vpc-association-policy"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("vpc association policy controller setup failed: %s", err)
+	}
+
+	if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), "ServiceNetwork"); err != nil {
+		setupLog.Fatalf("error checking ServiceNetwork CRD: %s", err)
+	} else if ok {
+		err = controllers.RegisterServiceNetworkController(ctrlLog.Named("service-network"), cloud, finalizerManager, mgr)
+		if err != nil {
+			setupLog.Fatalf("service network controller setup failed: %s", err)
+		}
+	} else {
+		setupLog.Infof("ServiceNetwork CRD not installed, skipping controller registration")
 	}
 	//+kubebuilder:scaffold:builder
 

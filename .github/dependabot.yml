@@ -5,8 +5,18 @@ updates:
     schedule:
       interval: "weekly"
     ignore:
+      # Manage these manually — they must be upgraded in lockstep and often contain breaking changes
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/controller-runtime"
+      - dependency-name: "sigs.k8s.io/gateway-api"
+      # Still ignore patch-only bumps for everything else
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -19,8 +29,16 @@ updates:
     schedule:
       interval: "weekly"
     ignore:
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/controller-runtime"
+      - dependency-name: "sigs.k8s.io/gateway-api"
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore"
       include: "scope"

@@ -1,6 +1,6 @@
-# API Specification
+# API Reference
 
-This page contains the API field specification for Gateway API.
+This page contains the API specification for Custom Resource Definitions supported by the Application Networking K8s Controller.
 
 <p>Packages:</p>
 <ul>
@@ -20,6 +20,8 @@ Resource Types:
 <a href="#application-networking.k8s.aws/v1alpha1.ServiceExport">ServiceExport</a>
 </li><li>
 <a href="#application-networking.k8s.aws/v1alpha1.ServiceImport">ServiceImport</a>
+</li><li>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceNetwork">ServiceNetwork</a>
 </li><li>
 <a href="#application-networking.k8s.aws/v1alpha1.TargetGroupPolicy">TargetGroupPolicy</a>
 </li><li>
@@ -273,6 +275,40 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
+<code>spec</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceExportSpec">
+ServiceExportSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>spec defines the desired state of ServiceExport</p>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>exportedPorts</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ExportedPort">
+[]ExportedPort
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>exportedPorts defines which ports of the service should be exported and what route types they should be used with.
+If not specified, the controller will use the port from the annotation &ldquo;application-networking.k8s.aws/port&rdquo;
+and create HTTP target groups for backward compatibility.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
 <code>status</code><br/>
 <em>
 <a href="#application-networking.k8s.aws/v1alpha1.ServiceExportStatus">
@@ -441,6 +477,81 @@ the multi-cluster service referenced by this ServiceImport.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceNetwork">ServiceNetwork
+</h3>
+<div>
+<p>ServiceNetwork is a cluster scoped resource that manages VPC Lattice Service Network lifecycle.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+application-networking.k8s.aws/v1alpha1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>ServiceNetwork</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceNetworkSpec">
+ServiceNetworkSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ServiceNetworkStatus">
+ServiceNetworkStatus
+</a>
+</em>
+</td>
+<td>
+<p>Status defines the current state of ServiceNetwork.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="application-networking.k8s.aws/v1alpha1.TargetGroupPolicy">TargetGroupPolicy
 </h3>
 <div>
@@ -506,7 +617,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>The protocol to use for routing traffic to the targets. Supported values are HTTP (default) and HTTPS.</p>
+<p>The protocol to use for routing traffic to the targets. Supported values are HTTP (default), HTTPS and TCP.</p>
 <p>Changes to this value results in a replacement of VPC Lattice target group.</p>
 </td>
 </tr>
@@ -519,8 +630,9 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>The protocol version to use. Supported values are HTTP1 (default) and HTTP2. When a policy is behind GRPCRoute,
-this field value will be ignored as GRPC is only supported through HTTP/2.</p>
+<p>The protocol version to use. Supported values are HTTP1 (default) and HTTP2.
+When a policy Protocol is TCP, this field is ignored.
+When a policy is behind GRPCRoute, this field value will be ignored as GRPC is only supported through HTTP/2.</p>
 <p>Changes to this value results in a replacement of VPC Lattice target group.</p>
 </td>
 </tr>
@@ -566,6 +678,7 @@ TargetGroupPolicyStatus
 </em>
 </td>
 <td>
+<p>Status defines the current state of TargetGroupPolicy.</p>
 </td>
 </tr>
 </tbody>
@@ -802,6 +915,47 @@ label.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ExportedPort">ExportedPort
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceExportSpec">ServiceExportSpec</a>)
+</p>
+<div>
+<p>ExportedPort defines a port to be exported and the route type it should be used with</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>port</code><br/>
+<em>
+int32
+</em>
+</td>
+<td>
+<p>port is the port number to export</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>routeType</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>routeType is the type of route this port should be used with
+Valid values are &ldquo;HTTP&rdquo;, &ldquo;GRPC&rdquo;, &ldquo;TLS&rdquo;</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="application-networking.k8s.aws/v1alpha1.HealthCheckConfig">HealthCheckConfig
 </h3>
 <p>
@@ -809,7 +963,7 @@ label.</p>
 </p>
 <div>
 <p>HealthCheckConfig defines health check configuration for given VPC Lattice target group.
-For the detailed explanation and supported values, please refer to VPC Lattice documentationon health checks.</p>
+For the detailed explanation and supported values, please refer to <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/target-group-health-checks.html">VPC Lattice health checks documentation</a>.</p>
 </div>
 <table>
 <thead>
@@ -1190,6 +1344,40 @@ This will be false if the service is found to be unexportable
 </td>
 </tr></tbody>
 </table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceExportSpec">ServiceExportSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceExport">ServiceExport</a>)
+</p>
+<div>
+<p>ServiceExportSpec defines the desired state of ServiceExport</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>exportedPorts</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.ExportedPort">
+[]ExportedPort
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>exportedPorts defines which ports of the service should be exported and what route types they should be used with.
+If not specified, the controller will use the port from the annotation &ldquo;application-networking.k8s.aws/port&rdquo;
+and create HTTP target groups for backward compatibility.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="application-networking.k8s.aws/v1alpha1.ServiceExportStatus">ServiceExportStatus
 </h3>
 <p>
@@ -1366,6 +1554,75 @@ was derived.</p>
 </td>
 </tr></tbody>
 </table>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceNetworkSpec">ServiceNetworkSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceNetwork">ServiceNetwork</a>)
+</p>
+<div>
+<p>ServiceNetworkSpec defines the desired state of ServiceNetwork.</p>
+</div>
+<h3 id="application-networking.k8s.aws/v1alpha1.ServiceNetworkStatus">ServiceNetworkStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.ServiceNetwork">ServiceNetwork</a>)
+</p>
+<div>
+<p>ServiceNetworkStatus defines the observed state of ServiceNetwork.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>conditions</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#condition-v1-meta">
+[]Kubernetes meta/v1.Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Conditions describe the current conditions of the ServiceNetwork.</p>
+<p>Known condition types are:</p>
+<ul>
+<li>&ldquo;Accepted&rdquo;</li>
+<li>&ldquo;Programmed&rdquo;</li>
+</ul>
+</td>
+</tr>
+<tr>
+<td>
+<code>serviceNetworkARN</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ARN of the VPC Lattice service network.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>serviceNetworkID</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ID of the VPC Lattice service network.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="application-networking.k8s.aws/v1alpha1.ServicePort">ServicePort
 </h3>
 <p>
@@ -1469,7 +1726,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>The protocol to use for routing traffic to the targets. Supported values are HTTP (default) and HTTPS.</p>
+<p>The protocol to use for routing traffic to the targets. Supported values are HTTP (default), HTTPS and TCP.</p>
 <p>Changes to this value results in a replacement of VPC Lattice target group.</p>
 </td>
 </tr>
@@ -1482,8 +1739,9 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>The protocol version to use. Supported values are HTTP1 (default) and HTTP2. When a policy is behind GRPCRoute,
-this field value will be ignored as GRPC is only supported through HTTP/2.</p>
+<p>The protocol version to use. Supported values are HTTP1 (default) and HTTP2.
+When a policy Protocol is TCP, this field is ignored.
+When a policy is behind GRPCRoute, this field value will be ignored as GRPC is only supported through HTTP/2.</p>
 <p>Changes to this value results in a replacement of VPC Lattice target group.</p>
 </td>
 </tr>
@@ -1545,11 +1803,11 @@ HealthCheckConfig
 </td>
 <td>
 <em>(Optional)</em>
-<p>Conditions describe the current conditions of the AccessLogPolicy.</p>
+<p>Conditions describe the current conditions of the TargetGroupPolicy.</p>
 <p>Implementations should prefer to express Policy conditions
 using the <code>PolicyConditionType</code> and <code>PolicyConditionReason</code>
 constants so that operators and tools can converge on a common
-vocabulary to describe AccessLogPolicy state.</p>
+vocabulary to describe TargetGroupPolicy state.</p>
 <p>Known condition types are:</p>
 <ul>
 <li>&ldquo;Accepted&rdquo;</li>
@@ -1663,5 +1921,5 @@ vocabulary to describe VpcAssociationPolicy state.</p>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>5de8f32</code>.
+on git commit <code>bd64dcb</code>.
 </em></p>

@@ -68,6 +68,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&ServiceExportList{},
 		&ServiceImport{},
 		&ServiceImportList{},
+		&ServiceNetwork{},
+		&ServiceNetworkList{},
 		&TargetGroupPolicy{},
 		&TargetGroupPolicyList{},
 		&VpcAssociationPolicy{},

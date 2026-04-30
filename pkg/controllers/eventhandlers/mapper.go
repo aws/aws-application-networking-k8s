@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type resourceMapper struct {
@@ -47,11 +46,23 @@ func (r *resourceMapper) ServiceToServiceExport(ctx context.Context, svc *corev1
 	if svc == nil {
 		return nil
 	}
+	// Direct name match (common case: ServiceExport name == Service name)
 	svcExport := &anv1alpha1.ServiceExport{}
-	if err := r.client.Get(ctx, k8sutils.NamespacedName(svc), svcExport); err != nil {
+	if err := r.client.Get(ctx, k8sutils.NamespacedName(svc), svcExport); err == nil {
+		return svcExport
+	}
+
+	// Reverse lookup: find ServiceExport with service-name annotation pointing to this Service
+	svcExportList := &anv1alpha1.ServiceExportList{}
+	if err := r.client.List(ctx, svcExportList, client.InNamespace(svc.Namespace)); err != nil {
 		return nil
 	}
-	return svcExport
+	for i := range svcExportList.Items {
+		if k8sutils.GetServiceNameFromServiceExport(&svcExportList.Items[i]) == svc.Name {
+			return &svcExportList.Items[i]
+		}
+	}
+	return nil
 }
 
 func (r *resourceMapper) EndpointSliceToService(ctx context.Context, epSlice *discoveryv1.EndpointSlice) *corev1.Service {
@@ -166,7 +177,7 @@ func (r *resourceMapper) backendRefToRoutes(ctx context.Context, obj client.Obje
 			routes = append(routes, core.NewGRPCRoute(k8sRoute))
 		}
 	case core.TlsRouteType:
-		routeList := &gwv1alpha2.TLSRouteList{}
+		routeList := &gwv1.TLSRouteList{}
 		r.client.List(ctx, routeList)
 		for _, k8sRoute := range routeList.Items {
 			routes = append(routes, core.NewTLSRoute(k8sRoute))

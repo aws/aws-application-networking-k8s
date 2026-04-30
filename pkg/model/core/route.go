@@ -12,7 +12,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type RouteType string
@@ -34,7 +33,7 @@ func NewRoute(object client.Object) (Route, error) {
 		return NewHTTPRoute(*obj), nil
 	case *gwv1.GRPCRoute:
 		return NewGRPCRoute(*obj), nil
-	case *gwv1alpha2.TLSRoute:
+	case *gwv1.TLSRoute:
 		return NewTLSRoute((*obj)), nil
 	default:
 		return nil, fmt.Errorf("unexpected route type for object %+v", object)

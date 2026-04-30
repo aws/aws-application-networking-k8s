@@ -397,6 +397,59 @@ func Test_Targets(t *testing.T) {
 			},
 		},
 		{
+			name: "ServiceExport with service-name annotation resolves correct Service endpoints",
+			port: 0,
+			endpointSlice: []discoveryv1.EndpointSlice{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns1",
+						Name:      "checkout-eps",
+						Labels:    map[string]string{discoveryv1.LabelServiceName: "checkout"},
+					},
+					Ports: []discoveryv1.EndpointPort{
+						{Port: aws.Int32(8080)},
+					},
+					Endpoints: []discoveryv1.Endpoint{
+						{
+							Addresses: []string{"10.10.1.1", "10.10.2.2"},
+							Conditions: discoveryv1.EndpointConditions{
+								Ready: aws.Bool(true),
+							},
+						},
+					},
+				},
+			},
+			svc: corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+					Name:      "checkout", // Different from ServiceExport name
+				},
+			},
+			serviceExport: anv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+					Name:      "checkout-cluster1",
+					Annotations: map[string]string{
+						"application-networking.k8s.aws/service-name": "checkout",
+					},
+				},
+			},
+			refByServiceExport: true,
+			wantErrIsNil:       true,
+			expectedTargetList: []model.Target{
+				{
+					TargetIP: "10.10.1.1",
+					Port:     8080,
+					Ready:    true,
+				},
+				{
+					TargetIP: "10.10.2.2",
+					Port:     8080,
+					Ready:    true,
+				},
+			},
+		},
+		{
 			name: "BackendRef port does not match service port",
 			port: 8750,
 			endpointSlice: []discoveryv1.EndpointSlice{

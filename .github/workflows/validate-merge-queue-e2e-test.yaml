@@ -60,12 +60,12 @@ jobs:
           cache-dependency-path: test/go.sum
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         with:
           version: latest
 
       - name: Setup AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.INTEGRATION_TEST_IAM_ROLE }}
           role-duration-seconds: 14400
@@ -82,7 +82,7 @@ jobs:
         run: eksctl utils write-kubeconfig --cluster="$CLUSTER_NAME"
 
       - name: Enable actions cache
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env['ACTIONS_CACHE_URL'])
@@ -103,23 +103,21 @@ jobs:
              --set=image.tag="${RELEASE_VERSION}" \
              --set=log.level=debug
 
-      - name: Install Gateway API v1.2 CRDs
+      - name: Install Gateway API v1.5 CRDs
         run: |
           set -euo pipefail
-          kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.2.1" | kubectl apply -f -
+          kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.5.0" | kubectl apply -f -
       - name: Install latest custom CRDs
         run: |
           set -euo pipefail
           kubectl apply -f config/crds/bases/externaldns.k8s.io_dnsendpoints.yaml
-          # TLSRoute is experimental in Gateway API and not part of the standard CRD bundle.
-          kubectl apply -f config/crds/bases/gateway.networking.k8s.io_tlsroutes.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceexports.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_serviceimports.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_targetgrouppolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
-
+          kubectl apply -f config/crds/bases/application-networking.k8s.aws_servicenetworks.yaml
       - name: Create Lattice GatewayClass
         run: |
           kubectl apply -f files/controller-installation/gatewayclass.yaml

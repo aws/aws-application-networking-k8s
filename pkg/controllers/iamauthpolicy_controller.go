@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 const (
@@ -158,7 +157,7 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 	resourceName, err := c.targetRefToResourceName(ctx, k8sPolicy)
 	if err != nil {
 		if k8s.IsInvalidServiceNameOverrideError(err) {
-			if statusErr := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, gwv1alpha2.PolicyReasonInvalid, err.Error()); statusErr != nil {
+			if statusErr := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, gwv1.PolicyReasonInvalid, err.Error()); statusErr != nil {
 				return ctrl.Result{}, statusErr
 			}
 			return ctrl.Result{}, nil

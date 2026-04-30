@@ -8,7 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 )
@@ -19,15 +18,15 @@ const (
 )
 
 type TLSRoute struct {
-	r gwv1alpha2.TLSRoute
+	r gwv1.TLSRoute
 }
 
-func NewTLSRoute(route gwv1alpha2.TLSRoute) *TLSRoute {
+func NewTLSRoute(route gwv1.TLSRoute) *TLSRoute {
 	return &TLSRoute{r: route}
 }
 
 func GetTLSRoute(ctx context.Context, client client.Client, routeNamespacedName types.NamespacedName) (Route, error) {
-	tlsRoute := &gwv1alpha2.TLSRoute{}
+	tlsRoute := &gwv1.TLSRoute{}
 	err := client.Get(ctx, routeNamespacedName, tlsRoute)
 	if err != nil {
 		return nil, err
@@ -36,7 +35,7 @@ func GetTLSRoute(ctx context.Context, client client.Client, routeNamespacedName 
 }
 
 func ListTLSRoutes(context context.Context, client client.Client) ([]Route, error) {
-	routeList := &gwv1alpha2.TLSRouteList{}
+	routeList := &gwv1.TLSRouteList{}
 	if err := client.List(context, routeList); err != nil {
 		return nil, err
 	}
@@ -76,7 +75,7 @@ func (r *TLSRoute) K8sObject() client.Object {
 	return &r.r
 }
 
-func (r *TLSRoute) Inner() *gwv1alpha2.TLSRoute {
+func (r *TLSRoute) Inner() *gwv1.TLSRoute {
 	return &r.r
 }
 
@@ -88,7 +87,7 @@ func (r *TLSRoute) GroupKind() metav1.GroupKind {
 }
 
 type TLSRouteSpec struct {
-	s gwv1alpha2.TLSRouteSpec
+	s gwv1.TLSRouteSpec
 }
 
 func (s *TLSRouteSpec) ParentRefs() []gwv1.ParentReference {
@@ -136,7 +135,7 @@ func (s *TLSRouteSpec) Equals(routeSpec RouteSpec) bool {
 }
 
 type TLSRouteStatus struct {
-	s *gwv1alpha2.TLSRouteStatus
+	s *gwv1.TLSRouteStatus
 }
 
 func (s *TLSRouteStatus) Parents() []gwv1.RouteParentStatus {
@@ -171,7 +170,7 @@ func (s *TLSRouteStatus) UpdateRouteCondition(parent gwv1.ParentReference, condi
 }
 
 type TLSRouteRule struct {
-	r gwv1alpha2.TLSRouteRule
+	r gwv1.TLSRouteRule
 }
 
 func (r *TLSRouteRule) BackendRefs() []BackendRef {

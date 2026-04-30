@@ -70,6 +70,7 @@ var (
 		{&gwv1.Gateway{}, &gwv1.GatewayList{}},
 		{&appsv1.Deployment{}, &appsv1.DeploymentList{}},
 		{&corev1.Service{}, &corev1.ServiceList{}},
+		{&anv1alpha1.ServiceNetwork{}, &anv1alpha1.ServiceNetworkList{}},
 	}
 )
 
@@ -585,7 +586,7 @@ func (env *Framework) GetVpcLatticeServiceTLSDns(tlsRouteName string, tlsRouteNa
 	env.Log.Infoln("GetVpcLatticeServiceTLSDns: ", tlsRouteName, tlsRouteNamespace)
 	vpcLatticeServiceDns := ""
 	Eventually(func(g Gomega) {
-		tlsroute := gwv1alpha2.TLSRoute{}
+		tlsroute := gwv1.TLSRoute{}
 		env.Get(env.ctx, types.NamespacedName{Name: tlsRouteName, Namespace: tlsRouteNamespace}, &tlsroute)
 		g.Expect(tlsroute.Annotations).To(HaveKey(controllers.LatticeAssignedDomainName))
 		vpcLatticeServiceDns = tlsroute.Annotations[controllers.LatticeAssignedDomainName]
