@@ -121,7 +121,7 @@ Maximum number of concurrently running reconcile loops per route type (HTTP, GRP
 
 **Default:** 0 (disabled)
 
-When set to a positive value (minimum 60), all controllers will periodically re-reconcile resources at the specified interval in seconds. This enables drift detection: if a VPC Lattice resource (service, listener, rule, target group, service network, etc.) is modified or deleted out-of-band (e.g. via the AWS Console or CLI), the controller will detect the discrepancy and restore the resource to match the desired state defined in Kubernetes.
+When set to a positive value (minimum 60), all controllers will periodically re-reconcile resources at the specified interval in seconds. This enables drift detection: if a VPC Lattice resource (service, listener, rule, target group, etc.) is modified or deleted out-of-band (e.g. via the AWS Console or CLI), the controller will detect the discrepancy and restore the resource to match the desired state defined in Kubernetes.
 
 When set to 0 (default), reconciliation only occurs in response to Kubernetes object changes, preserving the current behavior. A random jitter of 0-20% is added to each requeue to prevent thundering herd at controller startup.
 
