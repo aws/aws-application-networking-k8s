@@ -136,7 +136,8 @@ jobs:
 
       - name: Wait for controller rollout
         run: |
-          kubectl rollout status deployment/gateway-api-controller \
+          kubectl rollout status deployment \
+            -l app.kubernetes.io/instance=gateway-api-controller \
             --namespace aws-application-networking-system \
             --timeout=120s
 
