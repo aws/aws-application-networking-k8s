@@ -26,7 +26,7 @@ var _ = Describe("Drift detection", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		if config.ReconcileDefaultResyncSeconds <= 0 {
+		if config.ReconcileDefaultResyncInterval <= 0 {
 			Skip("RECONCILE_DEFAULT_RESYNC_SECONDS not set or 0, skipping drift detection tests")
 		}
 

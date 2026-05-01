@@ -43,10 +43,10 @@ func Test_GenericError(t *testing.T) {
 }
 
 func Test_NilError_WithReconcileInterval(t *testing.T) {
-	originalInterval := config.ReconcileDefaultResyncSeconds
-	defer func() { config.ReconcileDefaultResyncSeconds = originalInterval }()
+	originalInterval := config.ReconcileDefaultResyncInterval
+	defer func() { config.ReconcileDefaultResyncInterval = originalInterval }()
 
-	config.ReconcileDefaultResyncSeconds = 5 * time.Minute
+	config.ReconcileDefaultResyncInterval = 5 * time.Minute
 
 	result, err := HandleReconcileError(nil)
 	assert.NoError(t, err)
@@ -56,10 +56,10 @@ func Test_NilError_WithReconcileInterval(t *testing.T) {
 }
 
 func Test_NilError_WithZeroReconcileInterval(t *testing.T) {
-	originalInterval := config.ReconcileDefaultResyncSeconds
-	defer func() { config.ReconcileDefaultResyncSeconds = originalInterval }()
+	originalInterval := config.ReconcileDefaultResyncInterval
+	defer func() { config.ReconcileDefaultResyncInterval = originalInterval }()
 
-	config.ReconcileDefaultResyncSeconds = 0
+	config.ReconcileDefaultResyncInterval = 0
 
 	result, err := HandleReconcileError(nil)
 	assert.Equal(t, ctrl.Result{}, result)
