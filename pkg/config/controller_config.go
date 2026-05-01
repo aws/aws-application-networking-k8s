@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"strings"
 
@@ -20,16 +21,17 @@ const (
 )
 
 const (
-	REGION                          = "REGION"
-	CLUSTER_VPC_ID                  = "CLUSTER_VPC_ID"
-	CLUSTER_NAME                    = "CLUSTER_NAME"
-	DEFAULT_SERVICE_NETWORK         = "DEFAULT_SERVICE_NETWORK"
-	DISABLE_TAGGING_SERVICE_API     = "DISABLE_TAGGING_SERVICE_API"
-	ENABLE_SERVICE_NETWORK_OVERRIDE = "ENABLE_SERVICE_NETWORK_OVERRIDE"
-	AWS_ACCOUNT_ID                  = "AWS_ACCOUNT_ID"
-	DEV_MODE                        = "DEV_MODE"
-	WEBHOOK_ENABLED                 = "WEBHOOK_ENABLED"
-	ROUTE_MAX_CONCURRENT_RECONCILES = "ROUTE_MAX_CONCURRENT_RECONCILES"
+	REGION                           = "REGION"
+	CLUSTER_VPC_ID                   = "CLUSTER_VPC_ID"
+	CLUSTER_NAME                     = "CLUSTER_NAME"
+	DEFAULT_SERVICE_NETWORK          = "DEFAULT_SERVICE_NETWORK"
+	DISABLE_TAGGING_SERVICE_API      = "DISABLE_TAGGING_SERVICE_API"
+	ENABLE_SERVICE_NETWORK_OVERRIDE  = "ENABLE_SERVICE_NETWORK_OVERRIDE"
+	AWS_ACCOUNT_ID                   = "AWS_ACCOUNT_ID"
+	DEV_MODE                         = "DEV_MODE"
+	WEBHOOK_ENABLED                  = "WEBHOOK_ENABLED"
+	ROUTE_MAX_CONCURRENT_RECONCILES  = "ROUTE_MAX_CONCURRENT_RECONCILES"
+	RECONCILE_DEFAULT_RESYNC_SECONDS = "RECONCILE_DEFAULT_RESYNC_SECONDS"
 )
 
 var VpcID = ""
@@ -43,6 +45,7 @@ var WebhookEnabled = ""
 var DisableTaggingServiceAPI = false
 var ServiceNetworkOverrideMode = false
 var RouteMaxConcurrentReconciles = 1
+var ReconcileDefaultResyncInterval time.Duration // 0 = disabled (current behavior)
 
 func ConfigInit() error {
 	sess, _ := session.NewSession()
@@ -105,6 +108,22 @@ func configInit(sess *session.Session, metadata EC2Metadata) error {
 			return fmt.Errorf("invalid value for ROUTE_MAX_CONCURRENT_RECONCILES: %s", err)
 		}
 		RouteMaxConcurrentReconciles = routeMaxConcurrentReconcilesInt
+	}
+
+	reconcileDefaultResyncInterval := os.Getenv(RECONCILE_DEFAULT_RESYNC_SECONDS)
+	if reconcileDefaultResyncInterval != "" {
+		reconcileDefaultResyncIntervalInt, err := strconv.Atoi(reconcileDefaultResyncInterval)
+		if err != nil {
+			return fmt.Errorf("invalid value for RECONCILE_DEFAULT_RESYNC_SECONDS: %s", err)
+		}
+		// 0 explicitly disables periodic reconciliation.
+		// Otherwise, minimum 60 seconds to avoid excessive Lattice API calls.
+		// Each reconciliation makes multiple API calls (FindService, ListListeners,
+		// ListRules, ListTargetGroups, etc.), so lower values risk throttling.
+		if reconcileDefaultResyncIntervalInt != 0 && reconcileDefaultResyncIntervalInt < 60 {
+			return fmt.Errorf("RECONCILE_DEFAULT_RESYNC_SECONDS must be 0 (disabled) or at least 60 seconds, got %d", reconcileDefaultResyncIntervalInt)
+		}
+		ReconcileDefaultResyncInterval = time.Duration(reconcileDefaultResyncIntervalInt) * time.Second
 	}
 
 	return nil
