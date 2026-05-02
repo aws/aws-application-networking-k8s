@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/dev/guides/https/">
+        <link rel="canonical" href="https://www.gateway-api-controller.eks.aws.dev/dev/guides/drift-detection/">
       
       
-        <link rel="prev" href="../advanced-configurations/">
+        <link rel="prev" href="../environment/">
       
       
-        <link rel="next" href="../custom-domain-name/">
+        <link rel="next" href="../additional-tags/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>HTTPS - Amazon VPC Lattice Gateway API Controller</title>
+        <title>Drift Detection - Amazon VPC Lattice Gateway API Controller</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#configure-https-connections" class="md-skip">
+        <a href="#drift-detection" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              HTTPS
+              Drift Detection
             
           </span>
         </div>
@@ -806,35 +806,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HTTPS
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../https/" class="md-nav__link">
         
   
   
@@ -850,102 +825,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#configure-https-connections" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Configure HTTPs connections
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Configure HTTPs connections">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#securing-traffic-using-https" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Securing Traffic using HTTPs
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#bring-your-own-certificate-byoc" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Bring Your Own Certificate (BYOC)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Bring Your Own Certificate (BYOC)">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#automatic-certificate-discovery" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Automatic Certificate Discovery
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#manual-certificate-arn" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Manual Certificate ARN
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#enabling-tls-connection-on-the-backend" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Enabling TLS connection on the backend
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1095,10 +974,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../drift-detection/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift Detection
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1114,6 +1020,137 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#helm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Helm
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-helm-deployyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Helm (deploy.yaml)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#important-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Important considerations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Important considerations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dns-domain-changes-on-service-recreation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DNS domain changes on service recreation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ram-sharing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RAM sharing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#controller-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Controller coverage
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1842,136 +1879,55 @@
   
 
 
-  <h1>HTTPS</h1>
-
-<h2 id="configure-https-connections">Configure HTTPs connections<a class="headerlink" href="#configure-https-connections" title="Permanent link">&para;</a></h2>
-<p>The <a href="../getstarted/">Getting Started</a> guide uses <code>HTTP</code> communications by default. Using the examples here, you can change that to <code>HTTPs</code>. If you choose, you can further customize your <code>HTTPs</code> connections by adding custom domain names and certificates, as described below.</p>
-<p><strong>NOTE</strong>: You can get the yaml files used on this page by cloning the <a href="https://github.com/aws/aws-application-networking-k8s">AWS Gateway API Controller for VPC Lattice</a> site. The files are in the <code>files/examples/</code> directory.</p>
-<h3 id="securing-traffic-using-https">Securing Traffic using HTTPs<a class="headerlink" href="#securing-traffic-using-https" title="Permanent link">&para;</a></h3>
-<p>By adding https to the amazon-vpc-lattice gateway, you can tell the listener to use HTTPs communications.
-The following modifications to the <code>files/examples/my-hotel-gateway.yaml</code> file add HTTPs communications:</p>
-<div class="highlight"><span class="filename">my-hotel-gateway.yaml</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gateway</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hotel</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">gatewayClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">amazon-vpc-lattice</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">listeners</span><span class="p">:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="hll"><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https</span><span class="w">         </span><span class="c1"># Specify https listener</span>
-</span><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="hll"><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPS</span><span class="w">     </span><span class="c1"># Specify HTTPS protocol</span>
-</span><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="hll"><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">443</span><span class="w">           </span><span class="c1"># Specify communication on port 443</span>
-</span><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nn">...</span>
+<h1 id="drift-detection">Drift Detection<a class="headerlink" href="#drift-detection" title="Permanent link">&para;</a></h1>
+<p>The AWS Gateway API Controller can periodically re-reconcile resources to detect and recover from out-of-band changes to VPC Lattice resources. This is useful when Lattice resources are modified or deleted outside of Kubernetes, for example via the AWS Console, CLI, or other automation.</p>
+<h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<p>By default, the controller only reconciles when Kubernetes objects change (create, update, delete). If a VPC Lattice resource is modified or deleted out-of-band, the controller has no way to detect the change because nothing changed in Kubernetes.</p>
+<p>When drift detection is enabled, the controller schedules a periodic re-reconciliation after each successful reconcile. On each pass, the controller compares the desired state (defined in Kubernetes) against the live state in VPC Lattice and restores any discrepancies. This covers:</p>
+<ul>
+<li><strong>Services</strong> — recreated if deleted out-of-band</li>
+<li><strong>Listeners</strong> — recreated if deleted out-of-band</li>
+<li><strong>Rules</strong> — recreated if deleted, reverted if modified out-of-band</li>
+<li><strong>Target groups</strong> — recreated if deleted out-of-band</li>
+<li><strong>Targets</strong> (pod registrations) — re-registered if deregistered out-of-band</li>
+<li><strong>Service network service associations</strong> — restored if removed</li>
+<li><strong>Access log subscriptions</strong> — restored if removed</li>
+</ul>
+<p>The following resources are <strong>not</strong> currently covered by drift detection:</p>
+<ul>
+<li><strong>Service networks</strong> — the gateway controller checks for existence but does not create or modify service networks</li>
+<li><strong>IAM auth policies</strong> — uses a different reconciliation path</li>
+<li><strong>VPC association policies</strong> — uses a different reconciliation path</li>
+</ul>
+<p>A random jitter of 0-20% is added to each requeue interval to prevent all resources from reconciling at the same instant (thundering herd), particularly at controller startup.</p>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>Set the <code>RECONCILE_DEFAULT_RESYNC_SECONDS</code> environment variable to enable drift detection. The value is the interval in seconds between periodic reconciliations. The minimum value is 60 seconds.</p>
+<p>See <a href="../environment/#reconcile_default_resync_seconds">Configuration</a> for details on setting this variable.</p>
+<h3 id="helm">Helm<a class="headerlink" href="#helm" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>helm<span class="w"> </span>install<span class="w"> </span>gateway-api-controller<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span>oci://public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller-chart<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span>--set<span class="o">=</span><span class="nv">reconcileDefaultResyncSeconds</span><span class="o">=</span><span class="m">300</span>
 </code></pre></div>
-<p>Next, the following modifications to the <code>files/examples/rate-route-path.yaml</code> file tell the <code>rates</code> HTTPRoute to use HTTPs for communications:</p>
-<div class="highlight"><span class="filename">rate-route-path.yaml</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPRoute</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rates</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hotel</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">sectionName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span><span class="w"> </span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hotel</span><span class="w">      </span><span class="c1"># Specify the parentRefs name</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="hll"><span class="w">    </span><span class="nt">sectionName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https</span><span class="w">  </span><span class="c1"># Specify all traffic MUST use HTTPs</span>
-</span><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nn">...</span>
+<p>Or in <code>values.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">reconcileDefaultResyncSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
 </code></pre></div>
-<p>In this case, the VPC Lattice service automatically generates a managed ACM certificate and uses it for encrypting client to service traffic.</p>
-<h3 id="bring-your-own-certificate-byoc">Bring Your Own Certificate (BYOC)<a class="headerlink" href="#bring-your-own-certificate-byoc" title="Permanent link">&para;</a></h3>
-<p>If you want to use a custom domain name along with its own certificate, follow instructions on <a href="https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html">Requesting a public certificate</a> to create a certificate for your custom domain name in ACM. </p>
-<p>Note that only <code>Terminate</code> mode is supported (Passthrough is not supported).</p>
-<h4 id="automatic-certificate-discovery">Automatic Certificate Discovery<a class="headerlink" href="#automatic-certificate-discovery" title="Permanent link">&para;</a></h4>
-<p>If you have an ACM certificate matching your route's hostname, the controller can automatically discover and use it. Configure an HTTPS listener without the <code>certificate-arn</code> option:</p>
-<div class="highlight"><span class="filename">my-hotel-gateway.yaml</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gateway</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hotel</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">gatewayClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">amazon-vpc-lattice</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">listeners</span><span class="p">:</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPS</span><span class="w">      </span><span class="c1"># This is required</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">443</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">tls</span><span class="p">:</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Terminate</span><span class="w">    </span><span class="c1"># This is required</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">certificateRefs</span><span class="p">:</span><span class="w">   </span><span class="c1"># This is required per API spec, but currently not used by the controller</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unused</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">      </span><span class="c1"># No certificate-arn option needed — the controller discovers it from ACM</span>
+<h3 id="non-helm-deployyaml">Non-Helm (deploy.yaml)<a class="headerlink" href="#non-helm-deployyaml" title="Permanent link">&para;</a></h3>
+<p>Add the environment variable to the controller container in <code>config/manager/manager.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">env</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RECONCILE_DEFAULT_RESYNC_SECONDS</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;300&quot;</span>
 </code></pre></div>
-<p>The HTTPRoute must specify a <code>hostnames</code> field matching the certificate's domain or SAN:</p>
-<div class="highlight"><span class="filename">rate-route-path.yaml</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPRoute</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rates</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">hostnames</span><span class="p">:</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">review.my-test.com</span><span class="w">               </span><span class="c1"># MUST match the DNS in the certificate</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hotel</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">sectionName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
-</code></pre></div>
-<h4 id="manual-certificate-arn">Manual Certificate ARN<a class="headerlink" href="#manual-certificate-arn" title="Permanent link">&para;</a></h4>
-<p>If you want to explicitly specify which certificate to use, add the ARN to the listener configuration. This takes priority over automatic discovery.</p>
-<div class="highlight"><span class="filename">my-hotel-gateway.yaml</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gateway</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hotel</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/lattice-vpc-association</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">gatewayClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">amazon-vpc-lattice</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">listeners</span><span class="p">:</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPS</span><span class="w">      </span><span class="c1"># This is required</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">443</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="hll"><span class="w">    </span><span class="nt">tls</span><span class="p">:</span>
-</span><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="hll"><span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Terminate</span><span class="w">    </span><span class="c1"># This is required</span>
-</span><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="hll"><span class="w">      </span><span class="nt">certificateRefs</span><span class="p">:</span><span class="w">   </span><span class="c1"># This is required per API spec, but currently not used by the controller</span>
-</span><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="hll"><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unused</span>
-</span><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">      </span><span class="nt">options</span><span class="p">:</span><span class="w">           </span><span class="c1"># Instead, we specify ACM certificate ARN under this section</span>
-<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">        </span><span class="nt">application-networking.k8s.aws/certificate-arn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arn:aws:acm:us-west-2:&lt;account&gt;:certificate/&lt;certificate-id&gt;</span>
-</code></pre></div>
-<p>Next, associate the HTTPRoute to the listener configuration you just configured:</p>
-<div class="highlight"><span class="filename">rate-route-path.yaml</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPRoute</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rates</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">hostnames</span><span class="p">:</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="hll"><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">review.my-test.com</span><span class="w">               </span><span class="c1"># MUST match the DNS in the certificate</span>
-</span><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hotel</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">sectionName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span><span class="w"> </span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-hotel</span><span class="w">                     </span><span class="c1"># Use the listener defined above as parentRef</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="nt">sectionName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="nn">...</span>
-</code></pre></div>
-<h3 id="enabling-tls-connection-on-the-backend">Enabling TLS connection on the backend<a class="headerlink" href="#enabling-tls-connection-on-the-backend" title="Permanent link">&para;</a></h3>
-<p>Currently, TLS Passthrough mode is not supported in the controller, but it allows TLS re-encryption to support backends that only allow TLS connections.
-To handle this use case, you need to configure your service to receive HTTPs traffic instead:</p>
-<div class="highlight"><span class="filename">target-group.yaml</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupPolicy</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">test-policy</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nt">targetRef</span><span class="p">:</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">        </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">        </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-parking-service</span><span class="w"> </span><span class="c1"># Put service name here</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="hll"><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPS</span>
-</span><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="nt">protocolVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP1</span>
-</code></pre></div>
-<p>This will create VPC Lattice TargetGroup with HTTPs protocol option, which can receive TLS traffic.
-Note that certificate validation is not supported.</p>
-<p>For more details, please refer to <a href="../../api-types/target-group-policy/">TargetGroupPolicy API reference</a>.</p>
+<h2 id="important-considerations">Important considerations<a class="headerlink" href="#important-considerations" title="Permanent link">&para;</a></h2>
+<h3 id="dns-domain-changes-on-service-recreation">DNS domain changes on service recreation<a class="headerlink" href="#dns-domain-changes-on-service-recreation" title="Permanent link">&para;</a></h3>
+<p>When a VPC Lattice service is deleted and recreated by drift detection, the new service receives a different ID and a new auto-generated DNS domain name. Any external DNS records (such as CNAME or alias records) pointing to the old Lattice-generated domain will need to be updated to point to the new domain.</p>
+<p>If you use custom domain names with your Lattice services, the custom domain configuration will be restored by the controller, but the underlying Lattice-generated domain will still change.</p>
+<h3 id="ram-sharing">RAM sharing<a class="headerlink" href="#ram-sharing" title="Permanent link">&para;</a></h3>
+<p>Cross-account RAM sharing associations tied to the original service will not carry over to a recreated service. If your setup relies on RAM sharing, be aware that a service recreation will require re-establishing the sharing configuration.</p>
+<h3 id="api-usage">API usage<a class="headerlink" href="#api-usage" title="Permanent link">&para;</a></h3>
+<p>Each periodic reconciliation makes multiple VPC Lattice API calls per resource (FindService, ListListeners, ListRules, ListTargetGroups, etc.). For clusters with many routes, shorter intervals will result in higher API call volume. Choose an interval that balances recovery time against API usage for your environment.</p>
+<h3 id="controller-coverage">Controller coverage<a class="headerlink" href="#controller-coverage" title="Permanent link">&para;</a></h3>
+<p>Drift detection applies to all controllers that use the shared <code>HandleReconcileError</code> function. The route controller provides the most comprehensive coverage, reconciling services, listeners, rules, target groups, targets, and service network associations on each pass. The access log policy controller also benefits, restoring access log subscriptions.</p>
+<p>The gateway controller receives periodic requeues but only verifies service network existence — it does not create or modify service networks. The IAM auth policy and VPC association policy controllers use a different reconciliation path and are not currently covered.</p>
 
 
 
@@ -2009,7 +1965,7 @@ Note that certificate validation is not supported.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../advanced-configurations/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Advanced Configurations">
+          <a href="../environment/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuration">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2019,20 +1975,20 @@ Note that certificate validation is not supported.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Advanced Configurations
+                Configuration
               </div>
             </div>
           </a>
         
         
           
-          <a href="../custom-domain-name/" class="md-footer__link md-footer__link--next" aria-label="Next: Custom Domain Name">
+          <a href="../additional-tags/" class="md-footer__link md-footer__link--next" aria-label="Next: Additional Tags">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Custom Domain Name
+                Additional Tags
               </div>
             </div>
             <div class="md-footer__button md-icon">
