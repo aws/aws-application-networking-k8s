@@ -4,7 +4,7 @@
 
 image:
   repository: public.ecr.aws/aws-application-networking-k8s/aws-gateway-controller
-  tag: v2.0.2
+  tag: v2.1.0
   pullPolicy: IfNotPresent
   pullSecrets: []
 
@@ -102,6 +102,7 @@ latticeEndpoint:
 webhookEnabled: true
 disableTaggingServiceApi: false
 routeMaxConcurrentReconciles:
+reconcileDefaultResyncSeconds:
 
 # TLS cert/key for the webhook. If specified, values must be base64 encoded
 webhookTLS:

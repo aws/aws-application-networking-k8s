@@ -127,6 +127,24 @@ jobs:
           make e2e-test
           make webhook-e2e-test
 
+      - name: Upgrade controller for drift detection
+        run: |
+          helm upgrade gateway-api-controller ./helm \
+            --namespace aws-application-networking-system \
+            --set=reconcileDefaultResyncSeconds=60 \
+            --reuse-values
+
+      - name: Wait for controller rollout
+        run: |
+          kubectl rollout status deployment \
+            -l app.kubernetes.io/instance=gateway-api-controller \
+            --namespace aws-application-networking-system \
+            --timeout=120s
+
+      - name: Run drift detection tests
+        run: |
+          RECONCILE_DEFAULT_RESYNC_SECONDS=60 make drift-e2e-test
+
       - name: Cleanup
         if: always()
         run: |

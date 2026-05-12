@@ -170,6 +170,7 @@ func main() {
 		"ClusterName", config.ClusterName,
 		"LogLevel", logLevel,
 		"DisableTaggingServiceAPI", config.DisableTaggingServiceAPI,
+		"ReconcileDefaultResyncInterval", config.ReconcileDefaultResyncInterval,
 	)
 
 	cloud, err := aws.NewCloud(log.Named("cloud"), aws.CloudConfig{
