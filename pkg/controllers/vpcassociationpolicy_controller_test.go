@@ -5,16 +5,12 @@ import (
 	"testing"
 	"time"
 
-	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
-	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
-	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	policy "github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,14 +23,15 @@ import (
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-// Test_IAMAuthPolicy_PeriodicRequeue verifies that on a successful reconcile of
-// an accepted IAMAuthPolicy, the controller flows through HandleReconcileError
-// and schedules a periodic requeue at the configured drift-detection interval.
+// Test_VpcAssociationPolicy_PeriodicRequeue verifies that on a successful
+// reconcile of an accepted VpcAssociationPolicy, the controller flows through
+// HandleReconcileError and schedules a periodic requeue at the configured
+// drift-detection interval.
 //
 // This protects against future regressions where the reconcile flow stops
 // going through HandleReconcileError, which would silently disable drift
-// detection for IAMAuthPolicy.
-func Test_IAMAuthPolicy_PeriodicRequeue(t *testing.T) {
+// detection for VpcAssociationPolicy.
+func Test_VpcAssociationPolicy_PeriodicRequeue(t *testing.T) {
 	originalInterval := config.ReconcileDefaultResyncInterval
 	defer func() { config.ReconcileDefaultResyncInterval = originalInterval }()
 	interval := 5 * time.Minute
@@ -59,13 +56,12 @@ func Test_IAMAuthPolicy_PeriodicRequeue(t *testing.T) {
 		},
 	}
 
-	iap := &anv1alpha1.IAMAuthPolicy{
+	vap := &anv1alpha1.VpcAssociationPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-policy",
 			Namespace: "test-namespace",
 		},
-		Spec: anv1alpha1.IAMAuthPolicySpec{
-			Policy: `{"Version":"2012-10-17","Statement":[]}`,
+		Spec: anv1alpha1.VpcAssociationPolicySpec{
 			TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
 				Group: gwv1.GroupName,
 				Kind:  "Gateway",
@@ -76,40 +72,24 @@ func Test_IAMAuthPolicy_PeriodicRequeue(t *testing.T) {
 
 	k8sClient := testclient.NewClientBuilder().
 		WithScheme(k8sScheme).
-		WithObjects(iap, gw).
-		WithStatusSubresource(&anv1alpha1.IAMAuthPolicy{}).
+		WithObjects(vap, gw).
+		WithStatusSubresource(&anv1alpha1.VpcAssociationPolicy{}).
 		Build()
 
-	mockLattice := mocks.NewMockLattice(c)
-	mockCloud := pkg_aws.NewMockCloud(c)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+	// Stub the manager so UpsertVpcAssociation returns a successful ARN.
+	mockSNManager := deploy.NewMockServiceNetworkManager(c)
+	mockSNManager.EXPECT().UpsertVpcAssociation(gomock.Any(), "test-gateway", gomock.Any(), gomock.Any()).Return(
+		"arn:aws:vpc-lattice:us-west-2:123456789012:servicenetworkvpcassociation/snva-1234", nil)
 
-	// Stub the manager's Lattice calls so Put() returns a successful status.
-	// For a Gateway target, Put() routes through putSn and calls:
-	//   FindServiceNetwork -> PutAuthPolicyWithContext -> UpdateServiceNetworkWithContext
-	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-gateway").Return(
-		&mocks.ServiceNetworkInfo{
-			SvcNetwork: vpclattice.ServiceNetworkSummary{
-				Id:   aws.String("sn-1234"),
-				Name: aws.String("test-gateway"),
-				Arn:  aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-1234"),
-			},
-		}, nil)
-	mockLattice.EXPECT().PutAuthPolicyWithContext(gomock.Any(), gomock.Any()).Return(
-		&vpclattice.PutAuthPolicyOutput{}, nil)
-	mockLattice.EXPECT().UpdateServiceNetworkWithContext(gomock.Any(), gomock.Any()).Return(
-		&vpclattice.UpdateServiceNetworkOutput{}, nil)
+	mockFinalizer := k8s.NewMockFinalizerManager(c)
+	mockFinalizer.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	mockEventRecorder := mock_client.NewMockEventRecorder(c)
-	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-
-	r := &IAMAuthPolicyController{
-		log:           gwlog.FallbackLogger,
-		client:        k8sClient,
-		pm:            deploy.NewIAMAuthPolicyManager(mockCloud),
-		ph:            policy.NewIAMAuthPolicyHandler(gwlog.FallbackLogger, k8sClient),
-		cloud:         mockCloud,
-		eventRecorder: mockEventRecorder,
+	r := &vpcAssociationPolicyReconciler{
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		finalizerManager: mockFinalizer,
+		manager:          mockSNManager,
+		ph:               policy.NewVpcAssociationPolicyHandler(gwlog.FallbackLogger, k8sClient),
 	}
 
 	result, err := r.Reconcile(ctx, reconcile.Request{
