@@ -450,7 +450,7 @@ var _ = Describe("IAMAuthPolicy Drift detection", Ordered, func() {
 	})
 })
 
-var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
+var _ = Describe("VpcAssociationPolicy Drift detection", Serial, Ordered, func() {
 	const (
 		driftVapName      = "drift-vpc-association-policy"
 		driftVapSGName    = "k8s-test-drift-vap-sg"
