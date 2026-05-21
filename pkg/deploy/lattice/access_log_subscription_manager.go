@@ -143,6 +143,21 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 		return m.replaceAccessLogSubscription(ctx, accessLogSubscription)
 	}
 
+	// Skip the rewrite if Lattice already reports the desired destination ARN.
+	// Tags still need to be reconciled in case they have drifted, but
+	// Tagging.UpdateTags itself diffs and only writes when needed.
+	// This avoids a steady-state UpdateAccessLogSubscription call on every
+	// drift-detection pass when nothing has actually drifted.
+	if aws.StringValue(getALSOutput.DestinationArn) == accessLogSubscription.Spec.DestinationArn {
+		err = m.cloud.Tagging().UpdateTags(ctx, *getALSOutput.Arn, accessLogSubscription.Spec.AdditionalTags, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update tags for access log subscription %s: %w", *getALSOutput.Arn, err)
+		}
+		return &lattice.AccessLogSubscriptionStatus{
+			Arn: *getALSOutput.Arn,
+		}, nil
+	}
+
 	// Source is not modified, try to update destinationArn in the existing ALS
 	updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
 		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscription.Status.Arn),
