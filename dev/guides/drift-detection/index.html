@@ -1142,6 +1142,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#policy-controllers-and-target-resource-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Policy controllers and target-resource lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1892,12 +1903,12 @@
 <li><strong>Targets</strong> (pod registrations) — re-registered if deregistered out-of-band</li>
 <li><strong>Service network service associations</strong> — restored if removed</li>
 <li><strong>Access log subscriptions</strong> — restored if removed</li>
+<li><strong>IAM auth policies</strong> — restored if deleted, <code>AWS_IAM</code> auth type re-applied if reverted</li>
+<li><strong>VPC associations</strong> — recreated if deleted, security-group drift reverted</li>
 </ul>
 <p>The following resources are <strong>not</strong> currently covered by drift detection:</p>
 <ul>
 <li><strong>Service networks</strong> — the gateway controller checks for existence but does not create or modify service networks</li>
-<li><strong>IAM auth policies</strong> — uses a different reconciliation path</li>
-<li><strong>VPC association policies</strong> — uses a different reconciliation path</li>
 </ul>
 <p>A random jitter of 0-20% is added to each requeue interval to prevent all resources from reconciling at the same instant (thundering herd), particularly at controller startup.</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
@@ -1926,8 +1937,10 @@
 <h3 id="api-usage">API usage<a class="headerlink" href="#api-usage" title="Permanent link">&para;</a></h3>
 <p>Each periodic reconciliation makes multiple VPC Lattice API calls per resource (FindService, ListListeners, ListRules, ListTargetGroups, etc.). For clusters with many routes, shorter intervals will result in higher API call volume. Choose an interval that balances recovery time against API usage for your environment.</p>
 <h3 id="controller-coverage">Controller coverage<a class="headerlink" href="#controller-coverage" title="Permanent link">&para;</a></h3>
-<p>Drift detection applies to all controllers that use the shared <code>HandleReconcileError</code> function. The route controller provides the most comprehensive coverage, reconciling services, listeners, rules, target groups, targets, and service network associations on each pass. The access log policy controller also benefits, restoring access log subscriptions.</p>
-<p>The gateway controller receives periodic requeues but only verifies service network existence — it does not create or modify service networks. The IAM auth policy and VPC association policy controllers use a different reconciliation path and are not currently covered.</p>
+<p>Drift detection applies to all controllers that use the shared <code>HandleReconcileError</code> function. The route controller provides the most comprehensive coverage, reconciling services, listeners, rules, target groups, targets, and service network associations on each pass. The access log policy controller restores access log subscriptions. The IAM auth policy controller restores deleted auth policies and re-applies the <code>AWS_IAM</code> auth type if reverted. The VPC association policy controller recreates the VPC association if deleted and reverts security-group drift.</p>
+<p>The gateway controller receives periodic requeues but only verifies service network existence — it does not create or modify service networks.</p>
+<h3 id="policy-controllers-and-target-resource-lifecycle">Policy controllers and target-resource lifecycle<a class="headerlink" href="#policy-controllers-and-target-resource-lifecycle" title="Permanent link">&para;</a></h3>
+<p>Drift detection on the IAM auth policy and VPC association policy controllers operates on the policy-managed Lattice resource (auth policy, SNVA). It does not extend to the underlying service network or service that the policy targets — those are owned by other controllers or by the user. If the target resource is deleted out-of-band, the policy controller will surface a status condition rather than recreate the target.</p>
 
 
 
