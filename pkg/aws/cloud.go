@@ -6,10 +6,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"maps"
+
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/vpclattice"
-	"maps"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/metrics"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -64,6 +65,8 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Re
 	if err != nil {
 		return nil, err
 	}
+
+	addUserAgentHandler(sess)
 
 	sess.Handlers.Complete.PushFront(func(r *request.Request) {
 		if r.Error != nil {
@@ -236,4 +239,9 @@ func (c *defaultCloud) isOwner(managedBy string) bool {
 
 func getManagedByTag(cfg CloudConfig) string {
 	return fmt.Sprintf("%s/%s/%s", cfg.AccountId, cfg.ClusterName, cfg.VpcId)
+}
+
+// addUserAgentHandler appends the controller identifier to the User-Agent header on all AWS API calls.
+func addUserAgentHandler(sess *session.Session) {
+	sess.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("amazon-vpc-lattice-gateway-api-controller"))
 }
