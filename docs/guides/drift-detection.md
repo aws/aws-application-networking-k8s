@@ -15,12 +15,12 @@ When drift detection is enabled, the controller schedules a periodic re-reconcil
 - **Targets** (pod registrations) — re-registered if deregistered out-of-band
 - **Service network service associations** — restored if removed
 - **Access log subscriptions** — restored if removed
+- **IAM auth policies** — restored if deleted, `AWS_IAM` auth type re-applied if reverted
+- **VPC associations** — recreated if deleted, security-group drift reverted
 
 The following resources are **not** currently covered by drift detection:
 
 - **Service networks** — the gateway controller checks for existence but does not create or modify service networks
-- **IAM auth policies** — uses a different reconciliation path
-- **VPC association policies** — uses a different reconciliation path
 
 A random jitter of 0-20% is added to each requeue interval to prevent all resources from reconciling at the same instant (thundering herd), particularly at controller startup.
 
@@ -72,6 +72,10 @@ Each periodic reconciliation makes multiple VPC Lattice API calls per resource (
 
 ### Controller coverage
 
-Drift detection applies to all controllers that use the shared `HandleReconcileError` function. The route controller provides the most comprehensive coverage, reconciling services, listeners, rules, target groups, targets, and service network associations on each pass. The access log policy controller also benefits, restoring access log subscriptions.
+Drift detection applies to all controllers that use the shared `HandleReconcileError` function. The route controller provides the most comprehensive coverage, reconciling services, listeners, rules, target groups, targets, and service network associations on each pass. The access log policy controller restores access log subscriptions. The IAM auth policy controller restores deleted auth policies and re-applies the `AWS_IAM` auth type if reverted. The VPC association policy controller recreates the VPC association if deleted and reverts security-group drift.
 
-The gateway controller receives periodic requeues but only verifies service network existence — it does not create or modify service networks. The IAM auth policy and VPC association policy controllers use a different reconciliation path and are not currently covered.
+The gateway controller receives periodic requeues but only verifies service network existence — it does not create or modify service networks.
+
+### Policy controllers and target-resource lifecycle
+
+Drift detection on the IAM auth policy and VPC association policy controllers operates on the policy-managed Lattice resource (auth policy, SNVA). It does not extend to the underlying service network or service that the policy targets — those are owned by other controllers or by the user. If the target resource is deleted out-of-band, the policy controller will surface a status condition rather than recreate the target.
