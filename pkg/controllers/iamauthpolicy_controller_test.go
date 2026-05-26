@@ -13,8 +13,9 @@ import (
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	policy "github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	latticetypes "github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,15 +90,15 @@ func Test_IAMAuthPolicy_PeriodicRequeue(t *testing.T) {
 	//   FindServiceNetwork -> PutAuthPolicyWithContext -> UpdateServiceNetworkWithContext
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-gateway").Return(
 		&mocks.ServiceNetworkInfo{
-			SvcNetwork: vpclattice.ServiceNetworkSummary{
+			SvcNetwork: latticetypes.ServiceNetworkSummary{
 				Id:   aws.String("sn-1234"),
 				Name: aws.String("test-gateway"),
 				Arn:  aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-1234"),
 			},
 		}, nil)
-	mockLattice.EXPECT().PutAuthPolicyWithContext(gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().PutAuthPolicy(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.PutAuthPolicyOutput{}, nil)
-	mockLattice.EXPECT().UpdateServiceNetworkWithContext(gomock.Any(), gomock.Any()).Return(
+	mockLattice.EXPECT().UpdateServiceNetwork(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.UpdateServiceNetworkOutput{}, nil)
 
 	mockEventRecorder := mock_client.NewMockEventRecorder(c)
