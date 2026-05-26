@@ -132,6 +132,7 @@ func (s *defaultTargetsManager) registerTargets(
 		resp, err := s.cloud.Lattice().RegisterTargets(ctx, &registerTargetsInput)
 		if err != nil {
 			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("failed to register targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
+			continue
 		}
 		if len(resp.Unsuccessful) > 0 {
 			registerTargetsError = errors.Join(registerTargetsError, fmt.Errorf("failed to register targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
@@ -166,6 +167,7 @@ func (s *defaultTargetsManager) deregisterTargets(
 		resp, err := s.cloud.Lattice().DeregisterTargets(ctx, &deregisterTargetsInput)
 		if err != nil {
 			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
+			continue
 		}
 		if len(resp.Unsuccessful) > 0 {
 			deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",

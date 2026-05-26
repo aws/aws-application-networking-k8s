@@ -240,6 +240,7 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 			deregisterResponse, err := lattice.DeregisterTargets(ctx, &deregisterInput)
 			if err != nil {
 				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s due to %s", modelTg.Status.Id, err))
+				continue
 			}
 			if len(deregisterResponse.Unsuccessful) > 0 {
 				deregisterTargetsError = errors.Join(deregisterTargetsError, fmt.Errorf("failed to deregister targets from VPC Lattice Target Group %s for chunk %d/%d, unsuccessful targets %v",
