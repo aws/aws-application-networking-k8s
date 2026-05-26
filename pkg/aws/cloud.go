@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 
+	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/smithy-go/middleware"
@@ -18,6 +19,8 @@ import (
 const (
 	TagBase      = "application-networking.k8s.aws/"
 	TagManagedBy = TagBase + "ManagedBy"
+
+	userAgent = "amazon-vpc-lattice-gateway-api-controller"
 )
 
 //go:generate mockgen -destination cloud_mocks.go -package aws github.com/aws/aws-application-networking-k8s/pkg/aws Cloud
@@ -65,6 +68,9 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Re
 	if err != nil {
 		return nil, err
 	}
+
+	// Add user agent to all API calls
+	awsCfg.APIOptions = append(awsCfg.APIOptions, awsmiddleware.AddUserAgentKeyValue(userAgent, ""))
 
 	// Add logging middleware
 	awsCfg.APIOptions = append(awsCfg.APIOptions, func(stack *middleware.Stack) error {

@@ -1,16 +1,15 @@
 package aws
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-
-	"context"
-	"fmt"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 )
@@ -59,12 +58,11 @@ func TestIsArnManaged(t *testing.T) {
 	})
 
 	t.Run("is managed", func(t *testing.T) {
-		arn := "arn"
 		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
 			Return(&vpclattice.ListTagsForResourceOutput{
 				Tags: cl.DefaultTags(),
 			}, nil)
-		managed, err := cl.IsArnManaged(context.Background(), arn)
+		managed, err := cl.IsArnManaged(context.Background(), "arn")
 		assert.Nil(t, err)
 		assert.True(t, managed)
 	})
@@ -194,4 +192,8 @@ func Test_TryOwnFromTags(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUserAgentConstant(t *testing.T) {
+	assert.Equal(t, "amazon-vpc-lattice-gateway-api-controller", userAgent)
 }

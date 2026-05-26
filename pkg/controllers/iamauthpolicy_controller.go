@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -11,6 +12,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	policy "github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	corev1 "k8s.io/api/core/v1"
@@ -89,10 +91,26 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 		gwlog.EndReconcileTrace(ctx, c.log)
 	}()
 
+	recErr := c.reconcile(ctx, req)
+	if recErr != nil {
+		c.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
+	}
+	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
+	if res.RequeueAfter != 0 {
+		c.log.Infow(ctx, "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
+	} else if retryErr != nil && !errors.Is(retryErr, reconcile.TerminalError(nil)) {
+		c.log.Infow(ctx, "requeue request using exponential backoff", "name", req.Name)
+	} else if retryErr == nil {
+		c.log.Infow(ctx, "reconciled", "name", req.Name)
+	}
+	return res, retryErr
+}
+
+func (c *IAMAuthPolicyController) reconcile(ctx context.Context, req ctrl.Request) error {
 	k8sPolicy := &anv1alpha1.IAMAuthPolicy{}
 	err := c.client.Get(ctx, req.NamespacedName, k8sPolicy)
 	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return client.IgnoreNotFound(err)
 	}
 
 	c.eventRecorder.Event(k8sPolicy, corev1.EventTypeNormal, k8s.ReconcilingEvent, "Started reconciling")
@@ -100,20 +118,19 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 	c.log.Infow(ctx, "reconcile IAM policy", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
 	isDelete := !k8sPolicy.DeletionTimestamp.IsZero()
 
-	var res ctrl.Result
 	if isDelete {
-		res, err = c.reconcileDelete(ctx, k8sPolicy)
+		err = c.reconcileDelete(ctx, k8sPolicy)
 	} else {
-		res, err = c.reconcileUpsert(ctx, k8sPolicy)
+		err = c.reconcileUpsert(ctx, k8sPolicy)
 	}
 	if err != nil {
 		c.eventRecorder.Event(k8sPolicy, corev1.EventTypeWarning, k8s.FailedReconcileEvent, fmt.Sprintf("Reconcile failed: %s", err))
-		return ctrl.Result{}, err
+		return err
 	}
 
 	err = c.client.Update(ctx, k8sPolicy)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	c.eventRecorder.Event(k8sPolicy, corev1.EventTypeNormal, k8s.ReconciledEvent, "Successfully reconciled")
@@ -123,10 +140,10 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 		"targetRef", k8sPolicy.Spec.TargetRef,
 		"isDeleted", isDelete,
 	)
-	return res, nil
+	return nil
 }
 
-func (c *IAMAuthPolicyController) reconcileDelete(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) (ctrl.Result, error) {
+func (c *IAMAuthPolicyController) reconcileDelete(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) error {
 	err := c.ph.ValidateTargetRef(ctx, k8sPolicy)
 	if err == nil {
 		existingModel, _ := c.getLatticeAnnotation(k8sPolicy)
@@ -134,35 +151,35 @@ func (c *IAMAuthPolicyController) reconcileDelete(ctx context.Context, k8sPolicy
 
 		_, err := c.pm.Delete(ctx, modelPolicy)
 		if err != nil {
-			return ctrl.Result{}, services.IgnoreNotFound(err)
+			return services.IgnoreNotFound(err)
 		}
 	}
 	err = c.handleLatticeResourceChange(ctx, k8sPolicy, model.IAMAuthPolicyStatus{})
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	c.removeFinalizer(k8sPolicy)
-	return ctrl.Result{}, nil
+	return nil
 }
 
-func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) (ctrl.Result, error) {
+func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) error {
 	reason, err := c.ph.ValidateAndUpdateCondition(ctx, k8sPolicy)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	if reason != policy.ReasonAccepted {
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	resourceName, err := c.targetRefToResourceName(ctx, k8sPolicy)
 	if err != nil {
 		if k8s.IsInvalidServiceNameOverrideError(err) {
 			if statusErr := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, gwv1.PolicyReasonInvalid, err.Error()); statusErr != nil {
-				return ctrl.Result{}, statusErr
+				return statusErr
 			}
-			return ctrl.Result{}, nil
+			return nil
 		}
-		return ctrl.Result{}, err
+		return err
 	}
 
 	modelPolicy := model.NewIAMAuthPolicy(k8sPolicy, resourceName)
@@ -170,18 +187,18 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 	c.addFinalizer(k8sPolicy)
 	err = c.client.Update(ctx, k8sPolicy)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 	statusPolicy, err := c.pm.Put(ctx, modelPolicy)
 	if err != nil {
-		return reconcile.Result{}, services.IgnoreNotFound(err)
+		return services.IgnoreNotFound(err)
 	}
 	err = c.handleLatticeResourceChange(ctx, k8sPolicy, statusPolicy)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	c.updateLatticeAnnotaion(k8sPolicy, statusPolicy.ResourceId, modelPolicy.Type, modelPolicy.Name)
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (c *IAMAuthPolicyController) removeFinalizer(k8sPolicy *anv1alpha1.IAMAuthPolicy) {
