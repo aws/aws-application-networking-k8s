@@ -56,11 +56,20 @@ var _ = Describe("Drift detection", Ordered, func() {
 		originalId := aws.ToString(svc.Id)
 
 		// Delete the service out-of-band: disassociate then delete
-		associations, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
-			&vpclattice.ListServiceNetworkServiceAssociationsInput{
-				ServiceIdentifier: svc.Id,
-			})
-		Expect(err).ToNot(HaveOccurred())
+		// First wait for associations to be ACTIVE (they may still be CREATE_IN_PROGRESS)
+		var associations []types.ServiceNetworkServiceAssociationSummary
+		Eventually(func(g Gomega) {
+			var err error
+			associations, err = testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
+				&vpclattice.ListServiceNetworkServiceAssociationsInput{
+					ServiceIdentifier: svc.Id,
+				})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(associations).ToNot(BeEmpty())
+			for _, assoc := range associations {
+				g.Expect(assoc.Status).To(Equal(types.ServiceNetworkServiceAssociationStatusActive))
+			}
+		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
 		for _, assoc := range associations {
 			_, err := testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx,
@@ -78,9 +87,9 @@ var _ = Describe("Drift detection", Ordered, func() {
 				})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(resp).To(BeEmpty())
-		}).WithTimeout(2 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+		}).WithTimeout(4 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
-		_, err = testFramework.LatticeClient.DeleteService(ctx, &vpclattice.DeleteServiceInput{
+		_, err := testFramework.LatticeClient.DeleteService(ctx, &vpclattice.DeleteServiceInput{
 			ServiceIdentifier: svc.Id,
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -457,7 +466,7 @@ var _ = Describe("IAMAuthPolicy Drift detection", Ordered, func() {
 	})
 })
 
-var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
+var _ = Describe("VpcAssociationPolicy Drift detection", Serial, Ordered, func() {
 	const (
 		driftVapName      = "drift-vpc-association-policy"
 		driftVapSGName    = "k8s-test-drift-vap-sg"
@@ -541,7 +550,9 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
 		})
 		Expect(err).To(BeNil())
 
-		// Wait for the original SNVA to be fully gone.
+		// Wait for the original SNVA to be fully gone. Lattice does not
+		// expose a "DELETED" status: deletion completes when the SNVA no
+		// longer appears in the list of associations for this VPC.
 		Eventually(func(g Gomega) {
 			list, err := testFramework.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
 				ServiceNetworkIdentifier: testServiceNetwork.Id,
