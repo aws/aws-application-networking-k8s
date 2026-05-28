@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -70,5 +71,12 @@ func TestIntegration(t *testing.T) {
 }
 
 var _ = SynchronizedAfterSuite(func() {}, func() {
+	// Reset service network auth to NONE to prevent leaking AWS_IAM state
+	if testServiceNetwork != nil && testServiceNetwork.Id != nil {
+		testFramework.LatticeClient.UpdateServiceNetwork(ctx, &vpclattice.UpdateServiceNetworkInput{
+			ServiceNetworkIdentifier: testServiceNetwork.Id,
+			AuthType:                 types.AuthTypeNone,
+		})
+	}
 	testFramework.ExpectDeletedThenNotFound(ctx, testGateway, testFramework.GrpcurlRunner)
 })

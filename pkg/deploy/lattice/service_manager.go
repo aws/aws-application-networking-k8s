@@ -2,7 +2,9 @@ package lattice
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
@@ -92,6 +94,10 @@ func (m *defaultServiceManager) createAssociation(ctx context.Context, svcId *st
 	}
 	assocResp, err := m.cloud.Lattice().CreateServiceNetworkServiceAssociation(ctx, assocReq)
 	if err != nil {
+		var ce *types.ConflictException
+		if errors.As(err, &ce) && strings.Contains(aws.ToString(ce.Message), "CREATE_IN_PROGRESS") {
+			return fmt.Errorf("%w: %s", lattice_runtime.NewRetryError(), aws.ToString(ce.Message))
+		}
 		return fmt.Errorf("failed CreateServiceNetworkServiceAssociation %s %s due to %s",
 			aws.ToString(assocReq.ServiceNetworkIdentifier), aws.ToString(assocReq.ServiceIdentifier), err)
 	}

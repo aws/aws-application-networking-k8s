@@ -136,7 +136,7 @@ func NewFramework(ctx context.Context, log gwlog.Logger, testNamespace string) *
 	framework := &Framework{
 		Client:                  lo.Must(client.New(controllerRuntimeConfig, client.Options{Scheme: testScheme})),
 		LatticeClient:           services.NewDefaultLattice(awsCfg, config.AccountID, config.Region),
-		TaggingClient:           services.NewDefaultTagging(awsCfg, config.Region),
+		TaggingClient:           services.NewDefaultTagging(awsCfg),
 		Ec2Client:               ec2.NewFromConfig(awsCfg),
 		GrpcurlRunner:           &corev1.Pod{},
 		ctx:                     ctx,

@@ -92,10 +92,10 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Re
 	if cfg.TaggingServiceAPIDisabled {
 		tagging = services.NewLatticeTagging(awsCfg, cfg.AccountId, cfg.Region, cfg.VpcId)
 	} else {
-		tagging = services.NewDefaultTagging(awsCfg, cfg.Region)
+		tagging = services.NewDefaultTagging(awsCfg)
 	}
 
-	acmClient := services.NewDefaultACM(awsCfg, cfg.Region)
+	acmClient := services.NewDefaultACM(awsCfg)
 
 	return &defaultCloud{
 		cfg:          cfg,

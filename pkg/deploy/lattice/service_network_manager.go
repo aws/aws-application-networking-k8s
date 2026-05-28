@@ -170,9 +170,9 @@ func (m *defaultServiceNetworkManager) DeleteVpcAssociation(ctx context.Context,
 		deleteServiceNetworkVpcAssociationInput := vpclattice.DeleteServiceNetworkVpcAssociationInput{
 			ServiceNetworkVpcAssociationIdentifier: snva.Id,
 		}
-		resp, err := m.cloud.Lattice().DeleteServiceNetworkVpcAssociation(ctx, &deleteServiceNetworkVpcAssociationInput)
+		_, err = m.cloud.Lattice().DeleteServiceNetworkVpcAssociation(ctx, &deleteServiceNetworkVpcAssociationInput)
 		if err != nil {
-			m.log.Infof(ctx, "Failed to delete association %s for %s, with response %v and err %s", *snva.Arn, snName, resp, err.Error())
+			m.log.Infof(ctx, "Failed to delete association %s for %s, err: %s", *snva.Arn, snName, err.Error())
 		}
 		return lattice_runtime.NewRetryError()
 	}

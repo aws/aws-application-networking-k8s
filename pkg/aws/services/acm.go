@@ -21,10 +21,9 @@ type defaultACM struct {
 	client *acm.Client
 }
 
-func NewDefaultACM(cfg aws.Config, region string) *defaultACM {
+func NewDefaultACM(cfg aws.Config) *defaultACM {
 	return &defaultACM{
 		client: acm.NewFromConfig(cfg, func(o *acm.Options) {
-			o.Region = region
 			o.RetryMaxAttempts = 20
 		}),
 	}

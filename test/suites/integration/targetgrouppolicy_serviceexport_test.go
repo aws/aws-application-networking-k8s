@@ -755,6 +755,9 @@ var _ = Describe("TargetGroupPolicy ServiceExport Integration Tests", Ordered, f
 				g.Expect(err).Should(HaveOccurred())
 			}).Within(120 * time.Second).WithPolling(3 * time.Second).Should(Succeed())
 
+			// Wait for K8s ServiceExport to be fully deleted (finalizer removed)
+			testFramework.EventuallyExpectNotFound(ctx, serviceExport)
+
 			// Recreate ServiceExport
 			serviceExport = testFramework.CreateServiceExport(service)
 			testFramework.ExpectCreated(ctx, serviceExport)

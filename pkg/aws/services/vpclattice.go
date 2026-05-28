@@ -180,7 +180,6 @@ func NewDefaultLattice(cfg aws.Config, acc string, region string) *defaultLattic
 	}
 
 	client := vpclattice.NewFromConfig(cfg, func(o *vpclattice.Options) {
-		o.Region = region
 		o.BaseEndpoint = &endpoint
 		o.RetryMaxAttempts = 20
 	})

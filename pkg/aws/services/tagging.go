@@ -86,11 +86,9 @@ func (t *defaultTagging) FindResourcesByTags(ctx context.Context, resourceType R
 	return matchingArns, nil
 }
 
-func NewDefaultTagging(cfg aws.Config, region string) *defaultTagging {
+func NewDefaultTagging(cfg aws.Config) *defaultTagging {
 	return &defaultTagging{
-		client: resourcegroupstaggingapi.NewFromConfig(cfg, func(o *resourcegroupstaggingapi.Options) {
-			o.Region = region
-		}),
+		client: resourcegroupstaggingapi.NewFromConfig(cfg),
 	}
 }
 
