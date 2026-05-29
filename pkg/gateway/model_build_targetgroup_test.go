@@ -16,7 +16,7 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -404,9 +404,9 @@ func Test_TGModelByServiceExportBuild(t *testing.T) {
 			assert.False(t, stackTg.IsDeleted)
 
 			if tt.wantIPv6TargetGroup {
-				assert.Equal(t, vpclattice.IpAddressTypeIpv6, stackTg.Spec.IpAddressType)
+				assert.Equal(t, string(types.IpAddressTypeIpv6), stackTg.Spec.IpAddressType)
 			} else {
-				assert.Equal(t, vpclattice.IpAddressTypeIpv4, stackTg.Spec.IpAddressType)
+				assert.Equal(t, string(types.IpAddressTypeIpv4), stackTg.Spec.IpAddressType)
 			}
 
 			assert.Equal(t, config.ClusterName, stackTg.Spec.K8SClusterName)
@@ -687,9 +687,9 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 			}
 
 			if tt.wantIPv6TargetGroup {
-				assert.Equal(t, vpclattice.IpAddressTypeIpv6, stackTg.Spec.IpAddressType)
+				assert.Equal(t, string(types.IpAddressTypeIpv6), stackTg.Spec.IpAddressType)
 			} else {
-				assert.Equal(t, vpclattice.IpAddressTypeIpv4, stackTg.Spec.IpAddressType)
+				assert.Equal(t, string(types.IpAddressTypeIpv4), stackTg.Spec.IpAddressType)
 			}
 
 			assert.Equal(t, config.ClusterName, stackTg.Spec.K8SClusterName)
@@ -843,7 +843,7 @@ func Test_TGModelByServiceExportWithExportedPorts(t *testing.T) {
 			wantErrIsNil:         true,
 			wantTargetGroupCount: 3,
 			wantPorts:            []int32{80, 8081, 443},
-			wantRouteTypes:       []string{vpclattice.TargetGroupProtocolVersionHttp1, vpclattice.TargetGroupProtocolVersionGrpc, ""},
+			wantRouteTypes:       []string{string(types.TargetGroupProtocolVersionHttp1), string(types.TargetGroupProtocolVersionGrpc), ""},
 		},
 		{
 			name: "ServiceExport with single exportedPort",
@@ -881,7 +881,7 @@ func Test_TGModelByServiceExportWithExportedPorts(t *testing.T) {
 			wantErrIsNil:         true,
 			wantTargetGroupCount: 1,
 			wantPorts:            []int32{80},
-			wantRouteTypes:       []string{vpclattice.TargetGroupProtocolVersionHttp1},
+			wantRouteTypes:       []string{string(types.TargetGroupProtocolVersionHttp1)},
 		},
 		{
 			name: "ServiceExport with no exportedPorts (legacy behavior)",
@@ -914,7 +914,7 @@ func Test_TGModelByServiceExportWithExportedPorts(t *testing.T) {
 			wantErrIsNil:         true,
 			wantTargetGroupCount: 1,
 			wantPorts:            []int32{80},
-			wantRouteTypes:       []string{vpclattice.TargetGroupProtocolVersionHttp1},
+			wantRouteTypes:       []string{string(types.TargetGroupProtocolVersionHttp1)},
 		},
 	}
 
@@ -964,15 +964,15 @@ func Test_TGModelByServiceExportWithExportedPorts(t *testing.T) {
 
 				// Check protocol and protocolVersion based on K8SProtocolVersion
 				switch tg.Spec.K8SProtocolVersion {
-				case vpclattice.TargetGroupProtocolVersionHttp1:
-					assert.Equal(t, vpclattice.TargetGroupProtocolHttp, tg.Spec.Protocol)
-					assert.Equal(t, vpclattice.TargetGroupProtocolVersionHttp1, tg.Spec.ProtocolVersion)
-				case vpclattice.TargetGroupProtocolVersionGrpc:
-					assert.Equal(t, vpclattice.TargetGroupProtocolHttp, tg.Spec.Protocol)
-					assert.Equal(t, vpclattice.TargetGroupProtocolVersionGrpc, tg.Spec.ProtocolVersion)
+				case string(types.TargetGroupProtocolVersionHttp1):
+					assert.Equal(t, string(types.TargetGroupProtocolHttp), tg.Spec.Protocol)
+					assert.Equal(t, string(types.TargetGroupProtocolVersionHttp1), tg.Spec.ProtocolVersion)
+				case string(types.TargetGroupProtocolVersionGrpc):
+					assert.Equal(t, string(types.TargetGroupProtocolHttp), tg.Spec.Protocol)
+					assert.Equal(t, string(types.TargetGroupProtocolVersionGrpc), tg.Spec.ProtocolVersion)
 				case "":
 					// TLS case - no protocol version for TCP
-					assert.Equal(t, vpclattice.TargetGroupProtocolTcp, tg.Spec.Protocol)
+					assert.Equal(t, string(types.TargetGroupProtocolTcp), tg.Spec.Protocol)
 					assert.Equal(t, "", tg.Spec.ProtocolVersion)
 				}
 			}
@@ -1009,7 +1009,7 @@ func Test_buildTargetGroupIpAddressType(t *testing.T) {
 					},
 				},
 			},
-			want:    vpclattice.IpAddressTypeIpv4,
+			want:    string(types.IpAddressTypeIpv4),
 			wantErr: false,
 		},
 		{
@@ -1021,7 +1021,7 @@ func Test_buildTargetGroupIpAddressType(t *testing.T) {
 					},
 				},
 			},
-			want:    vpclattice.IpAddressTypeIpv6,
+			want:    string(types.IpAddressTypeIpv6),
 			wantErr: false,
 		},
 		{
@@ -1107,9 +1107,9 @@ func Test_TGModelByServiceExportBuild_AdditionalTags(t *testing.T) {
 				},
 			},
 			expectedAdditionalTags: k8s.Tags{
-				"Environment": &[]string{"Dev"}[0],
-				"Project":     &[]string{"MyApp"}[0],
-				"Team":        &[]string{"Platform"}[0],
+				"Environment": "Dev",
+				"Project":     "MyApp",
+				"Team":        "Platform",
 			},
 			description: "should set additional tags from ServiceExport annotations",
 		},
@@ -1213,8 +1213,8 @@ func Test_TGModelByServiceExportBuildLegacy_AdditionalTags(t *testing.T) {
 				},
 			},
 			expectedAdditionalTags: k8s.Tags{
-				"Environment": &[]string{"Legacy"}[0],
-				"Project":     &[]string{"TestApp"}[0],
+				"Environment": "Legacy",
+				"Project":     "TestApp",
 			},
 			description: "should set additional tags from ServiceExport annotations in legacy mode",
 		},
@@ -1332,9 +1332,9 @@ func Test_TGModelByHTTPRouteBuild_AdditionalTags(t *testing.T) {
 				},
 			}),
 			expectedAdditionalTags: k8s.Tags{
-				"Environment": &[]string{"Prod"}[0],
-				"Project":     &[]string{"TestApp"}[0],
-				"Team":        &[]string{"Backend"}[0],
+				"Environment": "Prod",
+				"Project":     "TestApp",
+				"Team":        "Backend",
 			},
 			description: "should set additional tags from HTTPRoute annotations",
 		},
@@ -1424,7 +1424,7 @@ func Test_TGModelByServiceExportWithExportedPorts_TargetGroupPolicy(t *testing.T
 		wantErrIsNil         bool
 		wantProtocol         string
 		wantProtocolVersion  string
-		wantHealthCheckProto *string
+		wantHealthCheckProto string
 		description          string
 	}{
 		{
@@ -1466,8 +1466,8 @@ func Test_TGModelByServiceExportWithExportedPorts_TargetGroupPolicy(t *testing.T
 						Kind:  "ServiceExport",
 						Name:  "https-override",
 					},
-					Protocol:        func() *string { s := vpclattice.TargetGroupProtocolHttps; return &s }(),
-					ProtocolVersion: func() *string { s := vpclattice.TargetGroupProtocolVersionHttp2; return &s }(),
+					Protocol:        func() *string { s := string(types.TargetGroupProtocolHttps); return &s }(),
+					ProtocolVersion: func() *string { s := string(types.TargetGroupProtocolVersionHttp2); return &s }(),
 					HealthCheck: &anv1alpha1.HealthCheckConfig{
 						Enabled:  func() *bool { b := true; return &b }(),
 						Protocol: func() *anv1alpha1.HealthCheckProtocol { p := anv1alpha1.HealthCheckProtocolHTTPS; return &p }(),
@@ -1486,9 +1486,9 @@ func Test_TGModelByServiceExportWithExportedPorts_TargetGroupPolicy(t *testing.T
 				},
 			},
 			wantErrIsNil:         true,
-			wantProtocol:         vpclattice.TargetGroupProtocolHttps,
-			wantProtocolVersion:  vpclattice.TargetGroupProtocolVersionHttp2,
-			wantHealthCheckProto: func() *string { s := vpclattice.TargetGroupProtocolHttps; return &s }(),
+			wantProtocol:         string(types.TargetGroupProtocolHttps),
+			wantProtocolVersion:  string(types.TargetGroupProtocolVersionHttp2),
+			wantHealthCheckProto: string(types.TargetGroupProtocolHttps),
 			description:          "should use HTTPS protocol and HTTP2 from TargetGroupPolicy when specified",
 		},
 		{
@@ -1520,8 +1520,8 @@ func Test_TGModelByServiceExportWithExportedPorts_TargetGroupPolicy(t *testing.T
 				},
 			},
 			wantErrIsNil:        true,
-			wantProtocol:        vpclattice.TargetGroupProtocolHttp,
-			wantProtocolVersion: vpclattice.TargetGroupProtocolVersionGrpc,
+			wantProtocol:        string(types.TargetGroupProtocolHttp),
+			wantProtocolVersion: string(types.TargetGroupProtocolVersionGrpc),
 			description:         "should use default GRPC protocol when no TargetGroupPolicy",
 		},
 		{
@@ -1563,11 +1563,11 @@ func Test_TGModelByServiceExportWithExportedPorts_TargetGroupPolicy(t *testing.T
 						Kind:  "ServiceExport",
 						Name:  "tls-tcp",
 					},
-					Protocol: func() *string { s := vpclattice.TargetGroupProtocolTcp; return &s }(),
+					Protocol: func() *string { s := string(types.TargetGroupProtocolTcp); return &s }(),
 				},
 			},
 			wantErrIsNil:        true,
-			wantProtocol:        vpclattice.TargetGroupProtocolTcp,
+			wantProtocol:        string(types.TargetGroupProtocolTcp),
 			wantProtocolVersion: "",
 			description:         "should use TCP protocol with empty protocolVersion",
 		},
@@ -1610,13 +1610,13 @@ func Test_TGModelByServiceExportWithExportedPorts_TargetGroupPolicy(t *testing.T
 						Kind:  "ServiceExport",
 						Name:  "https-http1",
 					},
-					Protocol:        func() *string { s := vpclattice.TargetGroupProtocolHttps; return &s }(),
-					ProtocolVersion: func() *string { s := vpclattice.TargetGroupProtocolVersionHttp1; return &s }(),
+					Protocol:        func() *string { s := string(types.TargetGroupProtocolHttps); return &s }(),
+					ProtocolVersion: func() *string { s := string(types.TargetGroupProtocolVersionHttp1); return &s }(),
 				},
 			},
 			wantErrIsNil:        true,
-			wantProtocol:        vpclattice.TargetGroupProtocolHttps,
-			wantProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+			wantProtocol:        string(types.TargetGroupProtocolHttps),
+			wantProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 			description:         "should use HTTPS protocol with HTTP1 from TargetGroupPolicy",
 		},
 	}
@@ -1654,9 +1654,9 @@ func Test_TGModelByServiceExportWithExportedPorts_TargetGroupPolicy(t *testing.T
 			assert.Equal(t, tt.wantProtocol, tg.Spec.Protocol, tt.description)
 			assert.Equal(t, tt.wantProtocolVersion, tg.Spec.ProtocolVersion, tt.description)
 
-			if tt.wantHealthCheckProto != nil {
+			if tt.wantHealthCheckProto != "" {
 				assert.NotNil(t, tg.Spec.HealthCheckConfig, tt.description)
-				assert.Equal(t, *tt.wantHealthCheckProto, *tg.Spec.HealthCheckConfig.Protocol, tt.description)
+				assert.Equal(t, tt.wantHealthCheckProto, string(tg.Spec.HealthCheckConfig.Protocol), tt.description)
 			}
 		})
 	}

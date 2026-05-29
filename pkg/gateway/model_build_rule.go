@@ -7,16 +7,14 @@ import (
 	"strconv"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
-	"github.com/aws/aws-sdk-go/aws"
-
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -244,14 +242,12 @@ func (t *latticeServiceModelBuildTask) updateRuleSpecWithHeaderMatches(match cor
 			return errors.New(LATTICE_UNSUPPORTED_HEADER_MATCH_TYPE)
 		}
 
-		matchType := vpclattice.HeaderMatchType{
-			Exact: aws.String(header.Value()),
-		}
 		headerName := header.Name()
 
-		headerMatch := vpclattice.HeaderMatch{}
-		headerMatch.Match = &matchType
-		headerMatch.Name = &headerName
+		headerMatch := types.HeaderMatch{
+			Match: &types.HeaderMatchTypeMemberExact{Value: header.Value()},
+			Name:  &headerName,
+		}
 
 		ruleSpec.MatchedHeaders = append(ruleSpec.MatchedHeaders, headerMatch)
 	}
@@ -279,7 +275,7 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 
 		if string(*backendRef.Kind()) == "ServiceImport" {
 			// if there's a matching top-level service import, we can get additional fields
-			svcImportName := types.NamespacedName{
+			svcImportName := apitypes.NamespacedName{
 				Namespace: namespace,
 				Name:      string(backendRef.Name()),
 			}

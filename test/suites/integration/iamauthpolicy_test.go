@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
@@ -83,25 +84,25 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 	}
 
 	testLatticePolicy := func(resId, policy string) {
-		out, _ := lattice.GetAuthPolicy(&vpclattice.GetAuthPolicyInput{
+		out, _ := lattice.GetAuthPolicy(ctx, &vpclattice.GetAuthPolicyInput{
 			ResourceIdentifier: &resId,
 		})
-		Expect(aws.StringValue(out.Policy)).To(Equal(policy))
+		Expect(aws.ToString(out.Policy)).To(Equal(policy))
 	}
 
 	testLatticeSnPolicy := func(snId, authType, jsonPolicy string) {
-		sn, _ := lattice.GetServiceNetwork(&vpclattice.GetServiceNetworkInput{
+		sn, _ := lattice.GetServiceNetwork(ctx, &vpclattice.GetServiceNetworkInput{
 			ServiceNetworkIdentifier: &snId,
 		})
-		Expect(aws.StringValue(sn.AuthType)).To(Equal(authType))
+		Expect(string(sn.AuthType)).To(Equal(authType))
 		testLatticePolicy(snId, jsonPolicy)
 	}
 
 	testLatticeSvcPolicy := func(svcId, authType, jsonPolicy string) {
-		svc, _ := lattice.GetService(&vpclattice.GetServiceInput{
+		svc, _ := lattice.GetService(ctx, &vpclattice.GetServiceInput{
 			ServiceIdentifier: &svcId,
 		})
-		Expect(*svc.AuthType).To(Equal(authType))
+		Expect(string(svc.AuthType)).To(Equal(authType))
 		testLatticePolicy(svcId, jsonPolicy)
 	}
 
@@ -195,12 +196,12 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		log.Infof(ctx, "policy accepted: %+v", wantResults)
 
 		// applied
-		testLatticeSnPolicy(snId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		testLatticeSnPolicy(snId, string(types.AuthTypeAwsIam), policy.Spec.Policy)
 		log.Infof(ctx, "policy applied for SN=%s", snId)
 
 		// removed
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
-		testLatticeSnPolicy(snId, vpclattice.AuthTypeNone, NoPolicy)
+		testLatticeSnPolicy(snId, string(types.AuthTypeNone), NoPolicy)
 		log.Infof(ctx, "policy removed from SN=%s", snId)
 	})
 
@@ -219,12 +220,12 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		log.Infof(ctx, "policy accepted: %+v", wantResults)
 
 		// applied
-		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		testLatticeSvcPolicy(svcId, string(types.AuthTypeAwsIam), policy.Spec.Policy)
 		log.Infof(ctx, "policy applied for Svc=%s", svcId)
 
 		// removed
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
-		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
+		testLatticeSvcPolicy(svcId, string(types.AuthTypeNone), NoPolicy)
 		log.Infof(ctx, "policy removed from Svc=%s", svcId)
 	})
 
@@ -254,7 +255,7 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 			annotationResId:   firstSvcId,
 		}
 		testK8sPolicy(policy, wantResults)
-		testLatticeSvcPolicy(firstSvcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		testLatticeSvcPolicy(firstSvcId, string(types.AuthTypeAwsIam), policy.Spec.Policy)
 		log.Infof(ctx, "policy initially applied for first Svc=%s", firstSvcId)
 
 		// Change targetRef to second route
@@ -271,15 +272,15 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		testK8sPolicy(policy, wantResults)
 
 		// Verify new service has auth policy
-		testLatticeSvcPolicy(secondSvcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		testLatticeSvcPolicy(secondSvcId, string(types.AuthTypeAwsIam), policy.Spec.Policy)
 		log.Infof(ctx, "policy moved to second Svc=%s", secondSvcId)
 
 		// Verify auth policy removed from  old service
-		testLatticeSvcPolicy(firstSvcId, vpclattice.AuthTypeNone, NoPolicy)
+		testLatticeSvcPolicy(firstSvcId, string(types.AuthTypeNone), NoPolicy)
 		log.Infof(ctx, "old policy cleaned up from first Svc=%s", firstSvcId)
 
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
-		testLatticeSvcPolicy(secondSvcId, vpclattice.AuthTypeNone, NoPolicy)
+		testLatticeSvcPolicy(secondSvcId, string(types.AuthTypeNone), NoPolicy)
 		testFramework.ExpectDeletedThenNotFound(ctx, secondHttpDep, secondHttpSvc, secondHttpRoute)
 	})
 
@@ -297,10 +298,10 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		}
 		testK8sPolicy(policy, wantResults)
 
-		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		testLatticeSvcPolicy(svcId, string(types.AuthTypeAwsIam), policy.Spec.Policy)
 
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
-		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
+		testLatticeSvcPolicy(svcId, string(types.AuthTypeNone), NoPolicy)
 	})
 
 	It("supports targetRef HTTPRoute change from invalid to valid service name override", func() {
@@ -324,10 +325,10 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 		}
 
 		testK8sPolicy(policy, wantResults)
-		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeAwsIam, policy.Spec.Policy)
+		testLatticeSvcPolicy(svcId, string(types.AuthTypeAwsIam), policy.Spec.Policy)
 
 		testFramework.ExpectDeletedThenNotFound(ctx, policy)
-		testLatticeSvcPolicy(svcId, vpclattice.AuthTypeNone, NoPolicy)
+		testLatticeSvcPolicy(svcId, string(types.AuthTypeNone), NoPolicy)
 	})
 })
 
