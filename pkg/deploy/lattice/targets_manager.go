@@ -76,8 +76,58 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 	}
 
 	err1 := s.deregisterTargets(ctx, modelTg, staleTargets)
-	err2 := s.registerTargets(ctx, modelTg, modelTargets.Spec.TargetList)
+
+	// Skip RegisterTargets when every desired target is already registered in
+	// a non-draining state. RegisterTargets is idempotent server-side, so
+	// re-registering already-present targets is a no-op that nonetheless emits
+	// a mutation API call (and CloudTrail event) on every reconcile. With
+	// drift detection enabled this fires on every periodic pass. A desired
+	// target that is currently Draining is treated as "needs registration" so
+	// it gets resurrected.
+	var err2 error
+	if s.needToRegisterTargets(modelTargets, latticeTargets) {
+		err2 = s.registerTargets(ctx, modelTg, modelTargets.Spec.TargetList)
+	} else {
+		s.log.Debugf(ctx, "All %d desired targets already registered for target group %s, skipping RegisterTargets",
+			len(modelTargets.Spec.TargetList), modelTg.Status.Id)
+	}
 	return errors.Join(err1, err2)
+}
+
+// needToRegisterTargets reports whether RegisterTargets must be called. It
+// returns true if any desired target is not already present in the live set
+// in a non-draining state. A desired target that is present but Draining is
+// considered to need registration so that it is resurrected.
+//
+// Note the deliberate asymmetry with findStaleTargets: stale detection
+// *excludes* draining targets (Lattice is already removing them, no need to
+// deregister again), whereas registration *includes* desired-but-draining
+// targets (we want them back).
+func (s *defaultTargetsManager) needToRegisterTargets(
+	modelTargets *model.Targets,
+	listTargetsOutput []*vpclattice.TargetSummary) bool {
+
+	nonDrainingLive := utils.NewSet[model.Target]()
+	for _, target := range listTargetsOutput {
+		if aws.StringValue(target.Status) == vpclattice.TargetStatusDraining {
+			continue
+		}
+		nonDrainingLive.Put(model.Target{
+			TargetIP: aws.StringValue(target.Id),
+			Port:     aws.Int64Value(target.Port),
+		})
+	}
+
+	for _, target := range modelTargets.Spec.TargetList {
+		ipPort := model.Target{
+			TargetIP: target.TargetIP,
+			Port:     target.Port,
+		}
+		if !nonDrainingLive.Contains(ipPort) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *defaultTargetsManager) findStaleTargets(
