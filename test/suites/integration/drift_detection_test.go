@@ -450,7 +450,7 @@ var _ = Describe("IAMAuthPolicy Drift detection", Ordered, func() {
 	})
 })
 
-var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
+var _ = Describe("VpcAssociationPolicy Drift detection", Serial, Ordered, func() {
 	const (
 		driftVapName      = "drift-vpc-association-policy"
 		driftVapSGName    = "k8s-test-drift-vap-sg"
@@ -625,16 +625,34 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
 			Expect(err).To(BeNil())
 		}
 
-		// Recreate the SNVA manually to restore the cluster's network state
-		// without the policy. Mirrors the cleanup pattern in
-		// vpc_association_policy_test.go.
+		// Restore the cluster's baseline network state: test-gateway must end
+		// up associated with the cluster VPC (other suites rely on this).
+		// With drift detection enabled, the controller may have already
+		// recreated the association by the time this runs, and VPC Lattice
+		// permits only one association per VPC/service-network pair. So make
+		// this idempotent: only create the association if one does not already
+		// exist, and tolerate a ConflictException from a check-then-create
+		// race.
 		if testServiceNetwork != nil {
-			_, err := testFramework.Cloud.Lattice().CreateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
+			existing, err := testFramework.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
 				ServiceNetworkIdentifier: testServiceNetwork.Id,
 				VpcIdentifier:            &config.VpcID,
-				Tags:                     testFramework.Cloud.DefaultTags(),
 			})
 			Expect(err).To(BeNil())
+
+			if len(existing) == 0 {
+				_, err := testFramework.Cloud.Lattice().CreateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
+					ServiceNetworkIdentifier: testServiceNetwork.Id,
+					VpcIdentifier:            &config.VpcID,
+					Tags:                     testFramework.Cloud.DefaultTags(),
+				})
+				// A concurrent reconcile may have created the association
+				// between our list check and this create; that is the desired
+				// end state, so tolerate the conflict.
+				if _, isConflict := err.(*vpclattice.ConflictException); err != nil && !isConflict {
+					Expect(err).To(BeNil())
+				}
+			}
 
 			Eventually(func(g Gomega) {
 				associated, _, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)

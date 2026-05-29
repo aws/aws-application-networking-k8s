@@ -316,13 +316,42 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		assert.True(t, services.IsNotFoundError(err))
 	})
 
-	t.Run("Update_ALSWithSameDestinationType_UpdatesALSAndReturnsSuccess", func(t *testing.T) {
+	t.Run("Update_ALSAlreadyInSync_SkipsUpdateAndReturnsSuccess", func(t *testing.T) {
+		// When the live destination ARN matches the desired one, the manager
+		// should skip UpdateAccessLogSubscription entirely and only reconcile
+		// tags. This avoids a redundant mutation call on every reconcile when
+		// nothing has drifted.
 		accessLogSubscription := simpleAccessLogSubscription(core.UpdateEvent)
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
 
 		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
+		// UpdateAccessLogSubscriptionWithContext must not be called.
+
+		mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, gomock.Any(), nil).Return(nil)
+
+		mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+		resp, err := mgr.Update(ctx, accessLogSubscription)
+		assert.Nil(t, err)
+		assert.Equal(t, accessLogSubscriptionArn, resp.Arn)
+	})
+
+	t.Run("Update_ALSWithDifferentDestination_UpdatesALSAndReturnsSuccess", func(t *testing.T) {
+		// Live destination differs from desired: UpdateAccessLogSubscription
+		// must be called.
+		accessLogSubscription := simpleAccessLogSubscription(core.UpdateEvent)
+		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
+			Arn: accessLogSubscriptionArn,
+		}
+		driftedGetALSOutput := &vpclattice.GetAccessLogSubscriptionOutput{
+			Arn:            aws.String(accessLogSubscriptionArn),
+			ResourceArn:    aws.String(serviceNetworkArn),
+			DestinationArn: aws.String(cloudWatchDestinationArn),
+		}
+
+		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(driftedGetALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
 
@@ -340,6 +369,14 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
+		// Live destination differs from desired so the diff check passes
+		// and we reach the UpdateAccessLogSubscription call that returns
+		// ConflictException, triggering the create-then-delete flow.
+		driftedGetALSOutput := &vpclattice.GetAccessLogSubscriptionOutput{
+			Arn:            aws.String(accessLogSubscriptionArn),
+			ResourceArn:    aws.String(serviceNetworkArn),
+			DestinationArn: aws.String(cloudWatchDestinationArn),
+		}
 		updateALSErr := &vpclattice.ConflictException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
@@ -347,7 +384,7 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 			Arn: aws.String(newAccessLogSubscriptionArn),
 		}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(driftedGetALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSErr)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
@@ -423,12 +460,19 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
+		// Drifted live destination so the diff check passes and we reach
+		// the UpdateAccessLogSubscription call that returns NotFound.
+		driftedGetALSOutput := &vpclattice.GetAccessLogSubscriptionOutput{
+			Arn:            aws.String(accessLogSubscriptionArn),
+			ResourceArn:    aws.String(serviceNetworkArn),
+			DestinationArn: aws.String(cloudWatchDestinationArn),
+		}
 		updateALSError := &vpclattice.ResourceNotFoundException{
 			ResourceType: aws.String("ACCESS_LOG_SUBSCRIPTION"),
 		}
 		createALSOutput.Arn = aws.String(newAccessLogSubscriptionArn)
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(driftedGetALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
@@ -460,9 +504,16 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
+		// Drifted live destination so the diff check passes and we reach
+		// the UpdateAccessLogSubscription call that returns AccessDenied.
+		driftedGetALSOutput := &vpclattice.GetAccessLogSubscriptionOutput{
+			Arn:            aws.String(accessLogSubscriptionArn),
+			ResourceArn:    aws.String(serviceNetworkArn),
+			DestinationArn: aws.String(cloudWatchDestinationArn),
+		}
 		updateALSError := &vpclattice.AccessDeniedException{}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(driftedGetALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
 
@@ -477,11 +528,18 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
+		// Drifted live destination so the diff check passes and we reach
+		// the UpdateAccessLogSubscription call that returns NotFound.
+		driftedGetALSOutput := &vpclattice.GetAccessLogSubscriptionOutput{
+			Arn:            aws.String(accessLogSubscriptionArn),
+			ResourceArn:    aws.String(serviceNetworkArn),
+			DestinationArn: aws.String(cloudWatchDestinationArn),
+		}
 		updateALSError := &vpclattice.ResourceNotFoundException{
 			ResourceType: aws.String("SERVICE_NETWORK"),
 		}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(driftedGetALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
 
@@ -496,11 +554,18 @@ func TestAccessLogSubscriptionManager(t *testing.T) {
 		accessLogSubscription.Status = &lattice.AccessLogSubscriptionStatus{
 			Arn: accessLogSubscriptionArn,
 		}
+		// Drifted live destination so the diff check passes and we reach
+		// the UpdateAccessLogSubscription call that returns NotFound.
+		driftedGetALSOutput := &vpclattice.GetAccessLogSubscriptionOutput{
+			Arn:            aws.String(accessLogSubscriptionArn),
+			ResourceArn:    aws.String(serviceNetworkArn),
+			DestinationArn: aws.String(cloudWatchDestinationArn),
+		}
 		updateALSError := &vpclattice.ResourceNotFoundException{
 			ResourceType: aws.String("SERVICE"),
 		}
 
-		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+		mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(driftedGetALSOutput, nil)
 		mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 		mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(nil, updateALSError)
 
@@ -618,10 +683,12 @@ func Test_AccessLogSubscriptionManager_WithAdditionalTags_Update(t *testing.T) {
 	getALSInput := &vpclattice.GetAccessLogSubscriptionInput{
 		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
 	}
+	// Drifted live destination so the diff check passes and the test
+	// continues to exercise the UpdateAccessLogSubscription path.
 	getALSOutput := &vpclattice.GetAccessLogSubscriptionOutput{
 		Arn:            aws.String(accessLogSubscriptionArn),
 		ResourceArn:    aws.String(serviceNetworkArn),
-		DestinationArn: aws.String(s3DestinationArn),
+		DestinationArn: aws.String(cloudWatchDestinationArn),
 	}
 	updateALSInput := &vpclattice.UpdateAccessLogSubscriptionInput{
 		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
@@ -635,6 +702,65 @@ func Test_AccessLogSubscriptionManager_WithAdditionalTags_Update(t *testing.T) {
 	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
 	mockLattice.EXPECT().UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput).Return(updateALSOutput, nil)
 
+	mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, accessLogSubscription.Spec.AdditionalTags, nil).Return(nil)
+
+	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
+	resp, err := mgr.Update(ctx, accessLogSubscription)
+	assert.Nil(t, err)
+	assert.Equal(t, accessLogSubscriptionArn, resp.Arn)
+}
+
+// Test_AccessLogSubscriptionManager_AlreadyInSync_TagsStillReconciled covers
+// the in-sync skip path: when the live destination matches the desired one,
+// UpdateAccessLogSubscription is skipped but tag drift is still reconciled
+// via Tagging.UpdateTags. This protects the contract that operator-managed
+// tags continue to converge even when the access log subscription itself is
+// already in sync.
+func Test_AccessLogSubscriptionManager_AlreadyInSync_TagsStillReconciled(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := services.NewMockLattice(c)
+	mockTagging := services.NewMockTagging(c)
+	cloud := an_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	accessLogSubscription := &lattice.AccessLogSubscription{
+		Spec: lattice.AccessLogSubscriptionSpec{
+			SourceType:        lattice.ServiceNetworkSourceType,
+			SourceName:        sourceName,
+			DestinationArn:    s3DestinationArn,
+			ALPNamespacedName: accessLogPolicyNamespacedName,
+			EventType:         core.UpdateEvent,
+			AdditionalTags: services.Tags{
+				"Environment": &[]string{"Prod"}[0],
+			},
+		},
+		Status: &lattice.AccessLogSubscriptionStatus{
+			Arn: accessLogSubscriptionArn,
+		},
+	}
+
+	serviceNetworkInfo := &services.ServiceNetworkInfo{
+		SvcNetwork: vpclattice.ServiceNetworkSummary{
+			Arn:  aws.String(serviceNetworkArn),
+			Name: aws.String(sourceName),
+		},
+	}
+
+	getALSInput := &vpclattice.GetAccessLogSubscriptionInput{
+		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
+	}
+	// Live destination matches desired: no UpdateAccessLogSubscription should
+	// be called.
+	getALSOutput := &vpclattice.GetAccessLogSubscriptionOutput{
+		Arn:            aws.String(accessLogSubscriptionArn),
+		ResourceArn:    aws.String(serviceNetworkArn),
+		DestinationArn: aws.String(s3DestinationArn),
+	}
+
+	mockLattice.EXPECT().GetAccessLogSubscriptionWithContext(ctx, getALSInput).Return(getALSOutput, nil)
+	mockLattice.EXPECT().FindServiceNetwork(ctx, sourceName).Return(serviceNetworkInfo, nil)
+	// UpdateAccessLogSubscriptionWithContext must not be called.
 	mockTagging.EXPECT().UpdateTags(ctx, accessLogSubscriptionArn, accessLogSubscription.Spec.AdditionalTags, nil).Return(nil)
 
 	mgr := NewAccessLogSubscriptionManager(gwlog.FallbackLogger, cloud)
