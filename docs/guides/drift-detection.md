@@ -70,7 +70,7 @@ Cross-account RAM sharing associations tied to the original service will not car
 
 Each periodic reconciliation makes multiple VPC Lattice API calls per resource. For clusters with many routes or policies, shorter intervals will result in higher API call volume. Choose an interval that balances recovery time against API usage for your environment.
 
-Most managers diff the live state against the desired state on each pass and skip mutation calls when nothing has drifted. In the common case where a resource is already in sync, a periodic reconcile makes only read calls (e.g. `GetAuthPolicy`, `GetServiceNetworkVpcAssociation`); the corresponding `Put`/`Update` calls only fire when drift is detected. There are two known exceptions where a mutation fires on every pass regardless of drift: target registration (the route controller calls `RegisterTargets` with the full desired set each time) and access log subscriptions (the access log policy controller calls `UpdateAccessLogSubscription` once the source matches). These are pre-existing patterns and may be tightened in follow-up work.
+Most managers diff the live state against the desired state on each pass and skip mutation calls when nothing has drifted. In the common case where a resource is already in sync, a periodic reconcile makes only read calls (e.g. `GetAuthPolicy`, `GetServiceNetworkVpcAssociation`, `ListTargets`); the corresponding `Put`/`Update`/`Register` calls only fire when drift is detected.
 
 ### Controller coverage
 
