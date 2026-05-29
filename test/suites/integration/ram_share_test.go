@@ -82,8 +82,12 @@ var _ = Describe("RAM Share", Ordered, func() {
 		clients = &testClients{
 			ramClient1:     ram.NewFromConfig(primaryCfg),
 			ramClient2:     ram.NewFromConfig(secondaryCfg),
-			latticeClient1: vpclattice.NewFromConfig(primaryCfg),
-			latticeClient2: vpclattice.NewFromConfig(secondaryCfg),
+			latticeClient1: vpclattice.NewFromConfig(primaryCfg, func(o *vpclattice.Options) {
+				o.RetryMaxAttempts = 20
+			}),
+			latticeClient2: vpclattice.NewFromConfig(secondaryCfg, func(o *vpclattice.Options) {
+				o.RetryMaxAttempts = 20
+			}),
 			rgClient1:      resourcegroupstaggingapi.NewFromConfig(primaryCfg),
 			rgClient2:      resourcegroupstaggingapi.NewFromConfig(secondaryCfg),
 		}
