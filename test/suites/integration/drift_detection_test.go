@@ -69,7 +69,37 @@ var _ = Describe("Drift detection", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		// Wait for all associations to be fully deleted
+		// Wait for original associations to be fully deleted (controller may recreate new ones via resync)
+		originalAssocIds := make(map[string]bool)
+		for _, assoc := range associations {
+			originalAssocIds[aws.ToString(assoc.Id)] = true
+		}
+		Eventually(func(g Gomega) {
+			resp, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
+				&vpclattice.ListServiceNetworkServiceAssociationsInput{
+					ServiceIdentifier: svc.Id,
+				})
+			g.Expect(err).ToNot(HaveOccurred())
+			for _, a := range resp {
+				g.Expect(originalAssocIds).ToNot(HaveKey(aws.ToString(a.Id)))
+			}
+		}).WithTimeout(4 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+
+		// Delete any new associations created by resync before deleting the service
+		newAssocs, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
+			&vpclattice.ListServiceNetworkServiceAssociationsInput{
+				ServiceIdentifier: svc.Id,
+			})
+		Expect(err).ToNot(HaveOccurred())
+		for _, assoc := range newAssocs {
+			_, err := testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx,
+				&vpclattice.DeleteServiceNetworkServiceAssociationInput{
+					ServiceNetworkServiceAssociationIdentifier: assoc.Id,
+				})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		// Wait for all associations to be gone before deleting service
 		Eventually(func(g Gomega) {
 			resp, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociations(
 				&vpclattice.ListServiceNetworkServiceAssociationsInput{

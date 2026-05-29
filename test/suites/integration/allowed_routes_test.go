@@ -16,7 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/vpclattice"
 )
 
-var _ = Describe("AllowedRoutes Test", Ordered, func() {
+var _ = Describe("AllowedRoutes Test", Serial, Ordered, func() {
 	var (
 		diffNS    = "diff-namespace"
 		labeledNS = "labeled-namespace"

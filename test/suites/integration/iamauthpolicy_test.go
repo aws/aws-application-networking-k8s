@@ -151,7 +151,16 @@ var _ = Describe("IAM Auth Policy", Ordered, func() {
 			httpDep, httpSvc, httpRoute,
 			httpDepWithServiceNameOverride, httpSvcWithServiceNameOverride, httpRouteWithServiceNameOverride,
 			httpDepWithInvalidServiceNameOverride, httpSvcWithInvalidServiceNameOverride, httpRouteWithInvalidServiceNameOverride)
-		testFramework.ExpectDeleteAllToSucceed(ctx, &anv1alpha1.IAMAuthPolicy{}, k8snamespace)
+		// Clean up any IAMAuthPolicy resources created by this test that weren't
+		// already deleted (e.g., due to mid-test failures). Use targeted deletes
+		// to avoid interfering with policies from parallel tests.
+		policyNames := []string{"group-name-err", "kind-err", "not-found", "conflict-1", "conflict-2", "gw", "http", "target-change", "http-override", "recovery-test"}
+		for _, name := range policyNames {
+			p := &anv1alpha1.IAMAuthPolicy{}
+			p.Name = name
+			p.Namespace = k8snamespace
+			_ = testFramework.Delete(ctx, p)
+		}
 	})
 
 	It("GroupName Error", func() {

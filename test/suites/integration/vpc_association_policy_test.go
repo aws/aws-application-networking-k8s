@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -120,14 +121,17 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 	})
 
 	It("Update VpcAssociationPolicy with additional tags changed and attempting to override aws managed tags", func() {
-		testFramework.Get(ctx, types.NamespacedName{
-			Namespace: vpcAssociationPolicy.Namespace,
-			Name:      vpcAssociationPolicy.Name,
-		}, vpcAssociationPolicy)
-
-		vpcAssociationPolicy.ObjectMeta.Annotations["application-networking.k8s.aws/tags"] = "Environment=Prod,Project=MyApp-v2,Team=DevOps,application-networking.k8s.aws/ManagedBy=test-override"
-
-		testFramework.ExpectUpdated(ctx, vpcAssociationPolicy)
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := testFramework.Get(ctx, types.NamespacedName{
+				Namespace: vpcAssociationPolicy.Namespace,
+				Name:      vpcAssociationPolicy.Name,
+			}, vpcAssociationPolicy); err != nil {
+				return err
+			}
+			vpcAssociationPolicy.ObjectMeta.Annotations["application-networking.k8s.aws/tags"] = "Environment=Prod,Project=MyApp-v2,Team=DevOps,application-networking.k8s.aws/ManagedBy=test-override"
+			return testFramework.Client.Update(ctx, vpcAssociationPolicy)
+		})
+		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func(g Gomega) {
 			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)

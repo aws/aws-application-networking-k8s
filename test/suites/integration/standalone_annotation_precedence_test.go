@@ -21,7 +21,7 @@ const (
 	LatticeServiceArnKey    = "application-networking.k8s.aws/lattice-service-arn"
 )
 
-var _ = Describe("Standalone Annotation Precedence and Inheritance", Ordered, func() {
+var _ = Describe("Standalone Annotation Precedence and Inheritance", Serial, Ordered, func() {
 
 	Context("Gateway-level annotation inheritance", func() {
 		var (
