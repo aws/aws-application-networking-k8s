@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"errors"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -621,15 +622,35 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Serial, Ordered, func()
 			Expect(err).To(BeNil())
 		}
 
-		// Recreate the SNVA manually to restore the cluster's network state
-		// without the policy.
+		// Restore the cluster's baseline network state: test-gateway must end
+		// up associated with the cluster VPC (other suites rely on this).
+		// With drift detection enabled, the controller may have already
+		// recreated the association by the time this runs, and VPC Lattice
+		// permits only one association per VPC/service-network pair. So make
+		// this idempotent: only create the association if one does not already
+		// exist, and tolerate a ConflictException from a check-then-create
+		// race.
 		if testServiceNetwork != nil {
-			_, err := testFramework.Cloud.Lattice().CreateServiceNetworkVpcAssociation(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
+			existing, err := testFramework.LatticeClient.ListServiceNetworkVpcAssociationsAsList(ctx, &vpclattice.ListServiceNetworkVpcAssociationsInput{
 				ServiceNetworkIdentifier: testServiceNetwork.Id,
 				VpcIdentifier:            &config.VpcID,
-				Tags:                     testFramework.Cloud.DefaultTags(),
 			})
 			Expect(err).To(BeNil())
+
+			if len(existing) == 0 {
+				_, err := testFramework.Cloud.Lattice().CreateServiceNetworkVpcAssociation(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
+					ServiceNetworkIdentifier: testServiceNetwork.Id,
+					VpcIdentifier:            &config.VpcID,
+					Tags:                     testFramework.Cloud.DefaultTags(),
+				})
+				// A concurrent reconcile may have created the association
+				// between our list check and this create; that is the desired
+				// end state, so tolerate the conflict.
+				var ce *types.ConflictException
+				if err != nil && !errors.As(err, &ce) {
+					Expect(err).To(BeNil())
+				}
+			}
 
 			Eventually(func(g Gomega) {
 				associated, _, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
