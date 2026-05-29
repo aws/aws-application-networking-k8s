@@ -218,23 +218,15 @@ func (d *defaultListenerManager) List(ctx context.Context, serviceID string) ([]
 	var sdkListeners []*types.ListenerSummary
 
 	d.log.Debugf(ctx, "Listing listeners for service %s", serviceID)
-	listenerListInput := vpclattice.ListListenersInput{
+	listeners, err := d.cloud.Lattice().ListListenersAsList(ctx, &vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(serviceID),
-	}
-
-	resp, err := d.cloud.Lattice().ListListeners(ctx, &listenerListInput)
+	})
 	if err != nil {
 		return sdkListeners, err
 	}
 
-	for _, r := range resp.Items {
-		listener := types.ListenerSummary{
-			Arn:      r.Arn,
-			Id:       r.Id,
-			Port:     r.Port,
-			Protocol: r.Protocol,
-			Name:     r.Name,
-		}
+	for _, r := range listeners {
+		listener := r
 		sdkListeners = append(sdkListeners, &listener)
 	}
 
@@ -263,16 +255,14 @@ func (d *defaultListenerManager) findListenerByPort(
 	latticeSvcId string,
 	port int64,
 ) (*types.ListenerSummary, error) {
-	listenerListInput := vpclattice.ListListenersInput{
+	listeners, err := d.cloud.Lattice().ListListenersAsList(ctx, &vpclattice.ListListenersInput{
 		ServiceIdentifier: aws.String(latticeSvcId),
-	}
-
-	resp, err := d.cloud.Lattice().ListListeners(ctx, &listenerListInput)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, r := range resp.Items {
+	for _, r := range listeners {
 		if aws.ToInt32(r.Port) == int32(port) {
 			d.log.Debugf(ctx, "Port %d already in use by listener %s for service %s", port, *r.Arn, latticeSvcId)
 			return &r, nil

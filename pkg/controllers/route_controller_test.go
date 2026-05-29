@@ -272,11 +272,8 @@ func TestRouteReconciler_ReconcileCreates(t *testing.T) {
 			Status: types.TargetGroupStatusActive,
 		}, nil)
 
-	mockLattice.EXPECT().ListListeners(gomock.Any(), gomock.Any()).Return(
-		&vpclattice.ListListenersOutput{
-			Items:     []types.ListenerSummary{},
-			NextToken: nil,
-		}, nil).AnyTimes()
+	mockLattice.EXPECT().ListListenersAsList(gomock.Any(), gomock.Any()).Return(
+		[]types.ListenerSummary{}, nil).AnyTimes()
 	mockLattice.EXPECT().CreateListener(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.CreateListenerOutput{
 			Arn:        aws.String("listener-arn"),

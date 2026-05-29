@@ -69,7 +69,7 @@ var _ = Describe("Drift detection", Ordered, func() {
 			for _, assoc := range associations {
 				g.Expect(assoc.Status).To(Equal(types.ServiceNetworkServiceAssociationStatusActive))
 			}
-		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+		}).WithPolling(10 * time.Second).Should(Succeed())
 
 		for _, assoc := range associations {
 			_, err := testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx,

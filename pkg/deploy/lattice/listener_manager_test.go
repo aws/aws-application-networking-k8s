@@ -94,8 +94,8 @@ func Test_UpsertListener_NewListener(t *testing.T) {
 				Status: &model.ServiceStatus{Id: "svc-id"},
 			}
 			assert.NoError(t, ml.Spec.Validate())
-			mockLattice.EXPECT().ListListeners(ctx, gomock.Any()).Return(
-				&vpclattice.ListListenersOutput{Items: []types.ListenerSummary{}}, nil)
+			mockLattice.EXPECT().ListListenersAsList(ctx, gomock.Any()).Return(
+				[]types.ListenerSummary{}, nil)
 
 			mockLattice.EXPECT().CreateListener(ctx, gomock.Any()).DoAndReturn(
 				func(ctx context.Context, input *vpclattice.CreateListenerInput, opts ...interface{}) (*vpclattice.CreateListenerOutput, error) {
@@ -134,15 +134,15 @@ func Test_UpsertListener_DoNotNeedToUpdateExistingHTTPAndHTTPSListener(t *testin
 			mockLattice := mocks.NewMockLattice(c)
 			mockTagging := mocks.NewMockTagging(c)
 			cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
-			mockLattice.EXPECT().ListListeners(ctx, gomock.Any()).Return(
-				&vpclattice.ListListenersOutput{Items: []types.ListenerSummary{
+			mockLattice.EXPECT().ListListenersAsList(ctx, gomock.Any()).Return(
+				[]types.ListenerSummary{
 					{
 						Arn:  aws.String("existing-arn"),
 						Id:   aws.String("existing-listener-id"),
 						Name: aws.String("existing-name"),
 						Port: aws.Int32(8181),
 					},
-				}}, nil)
+				}, nil)
 
 			mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
 
@@ -268,8 +268,8 @@ func Test_UpsertListener_Update_TLS_PASSTHROUGHListener(t *testing.T) {
 			ms := &model.Service{
 				Status: &model.ServiceStatus{Id: "svc-id"},
 			}
-			mockLattice.EXPECT().ListListeners(ctx, gomock.Any()).Return(
-				&vpclattice.ListListenersOutput{Items: []types.ListenerSummary{
+			mockLattice.EXPECT().ListListenersAsList(ctx, gomock.Any()).Return(
+				[]types.ListenerSummary{
 					{
 						Arn:      aws.String("existing-arn"),
 						Id:       aws.String("existing-listener-id"),
@@ -277,7 +277,7 @@ func Test_UpsertListener_Update_TLS_PASSTHROUGHListener(t *testing.T) {
 						Protocol: types.ListenerProtocolTlsPassthrough,
 						Port:     aws.Int32(8181),
 					},
-				}}, nil)
+				}, nil)
 
 			mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
 
@@ -686,8 +686,8 @@ func Test_ListenerManager_WithAdditionalTags_Create(t *testing.T) {
 		Status: &model.ServiceStatus{Id: "svc-id"},
 	}
 
-	mockLattice.EXPECT().ListListeners(ctx, gomock.Any()).Return(
-		&vpclattice.ListListenersOutput{Items: []types.ListenerSummary{}}, nil)
+	mockLattice.EXPECT().ListListenersAsList(ctx, gomock.Any()).Return(
+		[]types.ListenerSummary{}, nil)
 
 	expectedTags := cloud.MergeTags(cloud.DefaultTags(), ml.Spec.AdditionalTags)
 
@@ -738,15 +738,15 @@ func Test_ListenerManager_WithAdditionalTags_UpdateHTTP(t *testing.T) {
 		Status: &model.ServiceStatus{Id: "svc-id"},
 	}
 
-	mockLattice.EXPECT().ListListeners(ctx, gomock.Any()).Return(
-		&vpclattice.ListListenersOutput{Items: []types.ListenerSummary{
+	mockLattice.EXPECT().ListListenersAsList(ctx, gomock.Any()).Return(
+		[]types.ListenerSummary{
 			{
 				Arn:  aws.String("existing-arn"),
 				Id:   aws.String("existing-id"),
 				Name: aws.String("existing-name"),
 				Port: aws.Int32(8080),
 			},
-		}}, nil)
+		}, nil)
 
 	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", ml.Spec.AdditionalTags, nil).Return(nil)
 
@@ -796,8 +796,8 @@ func Test_ListenerManager_WithAdditionalTags_UpdateTLSPassthrough(t *testing.T) 
 	}
 
 	// Existing TLS_PASSTHROUGH listener found
-	mockLattice.EXPECT().ListListeners(ctx, gomock.Any()).Return(
-		&vpclattice.ListListenersOutput{Items: []types.ListenerSummary{
+	mockLattice.EXPECT().ListListenersAsList(ctx, gomock.Any()).Return(
+		[]types.ListenerSummary{
 			{
 				Arn:      aws.String("existing-tls-arn"),
 				Id:       aws.String("existing-tls-id"),
@@ -805,7 +805,7 @@ func Test_ListenerManager_WithAdditionalTags_UpdateTLSPassthrough(t *testing.T) 
 				Port:     aws.Int32(443),
 				Protocol: types.ListenerProtocolTlsPassthrough,
 			},
-		}}, nil)
+		}, nil)
 
 	mockTagging.EXPECT().UpdateTags(ctx, "existing-tls-arn", ml.Spec.AdditionalTags, nil).Return(nil)
 
@@ -864,15 +864,15 @@ func Test_ListenerManager_WithTakeoverAnnotation_UpdateTags(t *testing.T) {
 		Status: &model.ServiceStatus{Id: "svc-id"},
 	}
 
-	mockLattice.EXPECT().ListListeners(ctx, gomock.Any()).Return(
-		&vpclattice.ListListenersOutput{Items: []types.ListenerSummary{
+	mockLattice.EXPECT().ListListenersAsList(ctx, gomock.Any()).Return(
+		[]types.ListenerSummary{
 			{
 				Arn:  aws.String("existing-arn"),
 				Id:   aws.String("existing-id"),
 				Name: aws.String("existing-name"),
 				Port: aws.Int32(8080),
 			},
-		}}, nil)
+		}, nil)
 
 	expectedAwsManagedTags := mocks.Tags{
 		pkg_aws.TagManagedBy: cloud.DefaultTags()[pkg_aws.TagManagedBy],

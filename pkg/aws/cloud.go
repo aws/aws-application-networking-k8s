@@ -253,11 +253,13 @@ func (m *loggingMiddleware) HandleInitialize(ctx context.Context, in middleware.
 			"error", err.Error(),
 			"serviceName", service,
 			"operation", operation,
+			"params", in.Parameters,
 		)
 	} else {
 		m.log.Debugw(ctx, "response",
 			"serviceName", service,
 			"operation", operation,
+			"params", in.Parameters,
 		)
 	}
 	return out, metadata, err
