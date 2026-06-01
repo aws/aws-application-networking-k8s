@@ -55,44 +55,28 @@ var _ = Describe("Drift detection", Ordered, func() {
 		Expect(svc).ToNot(BeNil())
 		originalId := aws.ToString(svc.Id)
 
-		// Delete the service out-of-band: disassociate then delete
-		// First wait for associations to be ACTIVE (they may still be CREATE_IN_PROGRESS)
-		var associations []types.ServiceNetworkServiceAssociationSummary
+		// Delete the service out-of-band: delete associations then the service.
+		// The controller's resync may recreate associations, so we keep deleting
+		// until the service itself is successfully deleted.
 		Eventually(func(g Gomega) {
-			var err error
-			associations, err = testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
-				&vpclattice.ListServiceNetworkServiceAssociationsInput{
-					ServiceIdentifier: svc.Id,
-				})
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(associations).ToNot(BeEmpty())
-			for _, assoc := range associations {
-				g.Expect(assoc.Status).To(Equal(types.ServiceNetworkServiceAssociationStatusActive))
-			}
-		}).WithPolling(10 * time.Second).Should(Succeed())
-
-		for _, assoc := range associations {
-			_, err := testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx,
-				&vpclattice.DeleteServiceNetworkServiceAssociationInput{
-					ServiceNetworkServiceAssociationIdentifier: assoc.Id,
-				})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		// Wait for all associations to be fully deleted
-		Eventually(func(g Gomega) {
+			// Delete any associations first (required before service deletion)
 			resp, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
 				&vpclattice.ListServiceNetworkServiceAssociationsInput{
 					ServiceIdentifier: svc.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(resp).To(BeEmpty())
+			for _, a := range resp {
+				testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx,
+					&vpclattice.DeleteServiceNetworkServiceAssociationInput{
+						ServiceNetworkServiceAssociationIdentifier: a.Id,
+					})
+			}
+			// Attempt to delete the service; fails if associations still exist
+			_, err = testFramework.LatticeClient.DeleteService(ctx, &vpclattice.DeleteServiceInput{
+				ServiceIdentifier: svc.Id,
+			})
+			g.Expect(err).ToNot(HaveOccurred())
 		}).WithTimeout(4 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
-
-		_, err := testFramework.LatticeClient.DeleteService(ctx, &vpclattice.DeleteServiceInput{
-			ServiceIdentifier: svc.Id,
-		})
-		Expect(err).ToNot(HaveOccurred())
 
 		// Wait for drift detection to recreate it with a new ID
 		Eventually(func(g Gomega) {
