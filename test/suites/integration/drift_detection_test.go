@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"errors"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -78,12 +79,19 @@ var _ = Describe("Drift detection", Ordered, func() {
 			g.Expect(err).ToNot(HaveOccurred())
 		}).WithTimeout(4 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
-		// Wait for drift detection to recreate it with a new ID
+		// Wait for drift detection to recreate the service and its association
 		Eventually(func(g Gomega) {
 			recreated := testFramework.GetVpcLatticeService(ctx, route)
 			g.Expect(recreated).ToNot(BeNil())
 			g.Expect(recreated.Status).To(Equal(types.ServiceStatusActive))
 			g.Expect(aws.ToString(recreated.Id)).ToNot(Equal(originalId))
+
+			assocResp, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
+				&vpclattice.ListServiceNetworkServiceAssociationsInput{
+					ServiceIdentifier: recreated.Id,
+				})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(assocResp).ToNot(BeEmpty())
 		}).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
 	})
 
@@ -602,6 +610,9 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Serial, Ordered, func()
 	})
 
 	AfterAll(func() {
+		if vap == nil && sgId == "" {
+			return
+		}
 		// Delete the VAP first. The controller will tear down the SNVA and
 		// only remove the finalizer once the SNVA is fully gone, so the test
 		// SGs become safe to delete after the VAP is NotFound.
@@ -629,7 +640,10 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Serial, Ordered, func()
 				VpcIdentifier:            &config.VpcID,
 				Tags:                     testFramework.Cloud.DefaultTags(),
 			})
-			Expect(err).To(BeNil())
+			var ce *types.ConflictException
+			if err != nil && !errors.As(err, &ce) {
+				Expect(err).ToNot(HaveOccurred())
+			}
 
 			Eventually(func(g Gomega) {
 				associated, _, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
