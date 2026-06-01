@@ -7,6 +7,7 @@ import (
 
 	"slices"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -25,7 +26,7 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-var _ = Describe("ACM certificate discovery", Ordered, func() {
+var _ = Describe("ACM certificate discovery", Serial, Ordered, func() {
 
 	const (
 		hostedZoneName = "cert-discovery-e2e.com"
@@ -143,11 +144,25 @@ var _ = Describe("ACM certificate discovery", Ordered, func() {
 
 		testFramework.ExpectDeletedThenNotFound(context.TODO(), httpRoute, service, deployment)
 
+		// Wait for the Lattice service to be deleted before removing the gateway listener.
+		Eventually(func() error {
+			_, err := testFramework.LatticeClient.FindService(ctx, fmt.Sprintf("%s-%s", httpRoute.Name, httpRoute.Namespace))
+			if err != nil {
+				if services.IsNotFoundError(err) {
+					return nil // confirmed deleted
+				}
+				return err // transient error — retry
+			}
+			return fmt.Errorf("lattice service for route %s still exists", httpRoute.Name)
+		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+		log.Infof(ctx, "lattice service deleted")
+
 		removeGatewayCertDiscoveryListener()
 		log.Infof(ctx, "removed cert-discovery listener from gateway")
 
-		err = deleteCert(acmClient, certArn)
-		Expect(err).To(BeNil())
+		Eventually(func() error {
+			return deleteCert(acmClient, certArn)
+		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 		log.Infof(ctx, "removed cert from acm, arn: %s", certArn)
 	})
 })
