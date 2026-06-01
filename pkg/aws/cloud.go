@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/smithy-go/middleware"
@@ -64,6 +67,11 @@ type Cloud interface {
 func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
 	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
 		awsconfig.WithRegion(cfg.Region),
+		awsconfig.WithRetryer(func() aws.Retryer {
+			return retry.NewStandard(func(o *retry.StandardOptions) {
+				o.RateLimiter = ratelimit.None
+			})
+		}),
 	)
 	if err != nil {
 		return nil, err
