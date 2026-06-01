@@ -384,6 +384,13 @@ func (m *defaultServiceManager) deleteAssociation(ctx context.Context, assocArn 
 	delReq := &DelSnSvcAssocReq{ServiceNetworkServiceAssociationIdentifier: assocArn}
 	_, err := m.cloud.Lattice().DeleteServiceNetworkServiceAssociation(ctx, delReq)
 	if err != nil {
+		// Any ConflictException on delete is transient — it means the association is in a
+		// mutating state (CREATE_IN_PROGRESS, UPDATE_IN_PROGRESS). Retry is always correct.
+		var ce *types.ConflictException
+		if errors.As(err, &ce) {
+			return fmt.Errorf("%w: failed DeleteServiceNetworkServiceAssociation %s due to %s",
+				lattice_runtime.NewRetryError(), aws.ToString(assocArn), err)
+		}
 		return fmt.Errorf("failed DeleteServiceNetworkServiceAssociation %s due to %s",
 			aws.ToString(assocArn), err)
 	}
@@ -398,6 +405,12 @@ func (m *defaultServiceManager) deleteService(ctx context.Context, svc *SvcSumma
 	}
 	_, err := m.cloud.Lattice().DeleteService(ctx, &delInput)
 	if err != nil {
+		// Any ConflictException on delete is transient — it means associations are still
+		// being removed or the service is in a mutating state. Retry is always correct.
+		var ce *types.ConflictException
+		if errors.As(err, &ce) {
+			return fmt.Errorf("%w: failed DeleteService %s due to %s", lattice_runtime.NewRetryError(), aws.ToString(svc.Id), err)
+		}
 		return fmt.Errorf("failed DeleteService %s due to %s", aws.ToString(svc.Id), err)
 	}
 

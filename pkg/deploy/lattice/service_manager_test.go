@@ -975,3 +975,162 @@ func Test_ServiceManager_ServiceTakeover_NotAllowed(t *testing.T) {
 	assert.Contains(t, err.Error(), "svc-arn")
 	assert.Equal(t, "", status.Arn)
 }
+
+func TestCreateAssociation_ConflictCreateInProgress_ReturnsRetryError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := &Service{
+		Spec: model.ServiceSpec{
+			ServiceTagFields:    model.ServiceTagFields{RouteName: "rt", RouteNamespace: "ns", RouteType: core.HttpRouteType},
+			ServiceNetworkNames: []string{"sn"},
+		},
+	}
+
+	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).
+		Return(nil, mocks.NewNotFoundError("", ""))
+	mockLattice.EXPECT().CreateService(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&vpclattice.CreateServiceOutput{
+			Id: aws.String("svc-id"), Arn: aws.String("svc-arn"), Name: aws.String("svc"),
+		}, nil)
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "sn").
+		Return(&mocks.ServiceNetworkInfo{SvcNetwork: types.ServiceNetworkSummary{Id: aws.String("sn-id")}}, nil)
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociation(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, &types.ConflictException{
+			Message: aws.String("Invalid resource status for this operation, resource id svc-id, status: CREATE_IN_PROGRESS."),
+		})
+
+	_, err := m.Upsert(ctx, svc)
+	assert.NotNil(t, err)
+	var retryErr *lattice_runtime.RequeueNeededAfter
+	assert.True(t, errors.As(err, &retryErr))
+}
+
+func TestCreateAssociation_ConflictNonTransient_ReturnsRegularError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := &Service{
+		Spec: model.ServiceSpec{
+			ServiceTagFields:    model.ServiceTagFields{RouteName: "rt", RouteNamespace: "ns", RouteType: core.HttpRouteType},
+			ServiceNetworkNames: []string{"sn"},
+		},
+	}
+
+	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).
+		Return(nil, mocks.NewNotFoundError("", ""))
+	mockLattice.EXPECT().CreateService(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&vpclattice.CreateServiceOutput{
+			Id: aws.String("svc-id"), Arn: aws.String("svc-arn"), Name: aws.String("svc"),
+		}, nil)
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "sn").
+		Return(&mocks.ServiceNetworkInfo{SvcNetwork: types.ServiceNetworkSummary{Id: aws.String("sn-id")}}, nil)
+	mockLattice.EXPECT().CreateServiceNetworkServiceAssociation(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, &types.ConflictException{
+			Message: aws.String("Association already exists."),
+		})
+
+	_, err := m.Upsert(ctx, svc)
+	assert.NotNil(t, err)
+	var retryErr *lattice_runtime.RequeueNeededAfter
+	assert.False(t, errors.As(err, &retryErr))
+	assert.Contains(t, err.Error(), "failed CreateServiceNetworkServiceAssociation")
+}
+
+func TestDeleteService_ConflictException_ReturnsRetryError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id", ClusterName: "cluster"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := &Service{
+		Spec: model.ServiceSpec{
+			ServiceTagFields:    model.ServiceTagFields{RouteName: "rt", RouteNamespace: "ns", RouteType: core.HttpRouteType},
+			ServiceNetworkNames: []string{},
+		},
+		IsDeleted: true,
+	}
+
+	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).
+		Return(&types.ServiceSummary{
+			Id: aws.String("svc-id"), Arn: aws.String("svc-arn"), Name: aws.String("svc"),
+		}, nil)
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ListTagsForResourceOutput{
+			Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+		}, nil)
+	mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
+		Return([]types.ServiceNetworkServiceAssociationSummary{}, nil)
+	mockLattice.EXPECT().ListListenersAsList(gomock.Any(), gomock.Any()).
+		Return([]types.ListenerSummary{}, nil)
+	mockLattice.EXPECT().DeleteService(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, &types.ConflictException{
+			Message: aws.String("Service svc-id has one or more associated service networks."),
+		})
+
+	err := m.Delete(ctx, svc)
+	assert.NotNil(t, err)
+	var retryErr *lattice_runtime.RequeueNeededAfter
+	assert.True(t, errors.As(err, &retryErr))
+}
+
+func TestDeleteAssociation_ConflictException_ReturnsRetryError(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id", ClusterName: "cluster"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := &Service{
+		Spec: model.ServiceSpec{
+			ServiceTagFields:    model.ServiceTagFields{RouteName: "rt", RouteNamespace: "ns", RouteType: core.HttpRouteType},
+			ServiceNetworkNames: []string{},
+		},
+		IsDeleted: true,
+	}
+
+	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).
+		Return(&types.ServiceSummary{
+			Id: aws.String("svc-id"), Arn: aws.String("svc-arn"), Name: aws.String("svc"),
+		}, nil)
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&vpclattice.ListTagsForResourceOutput{
+			Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+		}, nil)
+	mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
+		Return([]types.ServiceNetworkServiceAssociationSummary{
+			{Arn: aws.String("assoc-arn"), Id: aws.String("snsa-123")},
+		}, nil)
+	mockLattice.EXPECT().DeleteServiceNetworkServiceAssociation(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, &types.ConflictException{
+			Message: aws.String("Creation is in progress."),
+		})
+
+	err := m.Delete(ctx, svc)
+	assert.NotNil(t, err)
+	var retryErr *lattice_runtime.RequeueNeededAfter
+	assert.True(t, errors.As(err, &retryErr))
+}
