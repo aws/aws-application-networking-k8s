@@ -2,17 +2,19 @@ package integration
 
 import (
 	"fmt"
+	"log"
+	"os"
+
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"log"
-	"os"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -63,25 +65,25 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 			log.Println("Verifying Target Groups")
 			retrievedTg0 := testFramework.GetTargetGroup(ctx, service0)
 			retrievedTg1 := testFramework.GetTargetGroup(ctx, service1)
-			for i, retrievedTargetGroupSummary := range []*vpclattice.TargetGroupSummary{retrievedTg0, retrievedTg1} {
+			for i, retrievedTargetGroupSummary := range []*types.TargetGroupSummary{retrievedTg0, retrievedTg1} {
 				Expect(retrievedTargetGroupSummary).NotTo(BeNil())
 				Expect(*retrievedTargetGroupSummary.VpcIdentifier).To(Equal(os.Getenv("CLUSTER_VPC_ID")))
-				Expect(*retrievedTargetGroupSummary.Protocol).To(Equal("HTTP"))
+				Expect(string(retrievedTargetGroupSummary.Protocol)).To(Equal("HTTP"))
 				targets := testFramework.GetTargets(ctx, retrievedTargetGroupSummary, deployments[i])
 				Expect(len(targets)).To(BeEquivalentTo(1))
 				Expect(*retrievedTargetGroupSummary.Port).To(BeEquivalentTo(80))
 				for _, target := range targets {
 					Expect(*target.Port).To(BeEquivalentTo(service1.Spec.Ports[0].TargetPort.IntVal))
-					Expect(*target.Status).To(Or(
-						Equal(vpclattice.TargetStatusInitial),
-						Equal(vpclattice.TargetStatusHealthy),
+					Expect(string(target.Status)).To(Or(
+						Equal(string(types.TargetStatusInitial)),
+						Equal(string(types.TargetStatusHealthy)),
 					))
 				}
 			}
 
 			Eventually(func(g Gomega) {
 				log.Println("Verifying VPC lattice service listeners and rules")
-				listListenerResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx, &vpclattice.ListListenersInput{
+				listListenerResp, err := testFramework.LatticeClient.ListListeners(ctx, &vpclattice.ListListenersInput{
 					ServiceIdentifier: vpcLatticeService.Id,
 				})
 				g.Expect(err).To(BeNil())
@@ -91,22 +93,23 @@ var _ = Describe("Test 2 listeners with weighted httproute rules and service exp
 					//listener protocol should be 443 or 80
 					g.Expect(*listener.Port).To(Or(BeEquivalentTo(80), BeEquivalentTo(443)))
 					listenerId := listener.Id
-					listRulesResp, _ := testFramework.LatticeClient.ListRulesWithContext(ctx, &vpclattice.ListRulesInput{
+					listRulesResp, _ := testFramework.LatticeClient.ListRulesAsList(ctx, &vpclattice.ListRulesInput{
 						ListenerIdentifier: listenerId,
 						ServiceIdentifier:  vpcLatticeService.Id,
 					})
-					g.Expect(listRulesResp.Items).To(HaveLen(2)) // one default rule, one Weighted rule
-					nonDefaultRule := lo.Filter(listRulesResp.Items, func(rule *vpclattice.RuleSummary, _ int) bool {
+					g.Expect(listRulesResp).To(HaveLen(2)) // one default rule, one Weighted rule
+					nonDefaultRule := lo.Filter(listRulesResp, func(rule types.RuleSummary, _ int) bool {
 						return *rule.IsDefault == false
 					})
 					Expect(nonDefaultRule).To(HaveLen(1))
-					retrievedWeightedTGRule, _ := testFramework.LatticeClient.GetRuleWithContext(ctx, &vpclattice.GetRuleInput{
+					retrievedWeightedTGRule, _ := testFramework.LatticeClient.GetRule(ctx, &vpclattice.GetRuleInput{
 						ServiceIdentifier:  vpcLatticeService.Id,
 						ListenerIdentifier: listenerId,
 						RuleIdentifier:     nonDefaultRule[0].Id,
 					})
-					retrievedWeightedTargetGroup0InRule := retrievedWeightedTGRule.Action.Forward.TargetGroups[0]
-					retrievedWeightedTargetGroup1InRule := retrievedWeightedTGRule.Action.Forward.TargetGroups[1]
+					forwardAction := retrievedWeightedTGRule.Action.(*types.RuleActionMemberForward)
+					retrievedWeightedTargetGroup0InRule := forwardAction.Value.TargetGroups[0]
+					retrievedWeightedTargetGroup1InRule := forwardAction.Value.TargetGroups[1]
 					g.Expect(*retrievedWeightedTargetGroup0InRule.TargetGroupIdentifier).To(Equal(*retrievedTg0.Id))
 					g.Expect(*retrievedWeightedTargetGroup0InRule.Weight).To(BeEquivalentTo(20))
 					g.Expect(*retrievedWeightedTargetGroup1InRule.TargetGroupIdentifier).To(Equal(*retrievedTg1.Id))

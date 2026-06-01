@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -114,16 +114,16 @@ var _ = Describe("ServiceExport service-name Annotation Test", Ordered, func() {
 				K8SServiceName:      serviceExport.Name,
 				K8SServiceNamespace: k8snamespace,
 			},
-			Protocol:        vpclattice.TargetGroupProtocolHttp,
-			ProtocolVersion: vpclattice.TargetGroupProtocolVersionHttp1,
+			Protocol:        string(types.TargetGroupProtocolHttp),
+			ProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 		}
 
-		var tgSummary *vpclattice.TargetGroupSummary
+		var tgSummary *types.TargetGroupSummary
 		Eventually(func(g Gomega) {
 			tg, err := testFramework.FindTargetGroupFromSpec(ctx, tgSpec)
 			g.Expect(err).To(BeNil())
 			g.Expect(tg).ToNot(BeNil())
-			g.Expect(*tg.Status).To(Equal(vpclattice.TargetGroupStatusActive))
+			g.Expect(string(tg.Status)).To(Equal(string(types.TargetGroupStatusActive)))
 			tgSummary = tg
 		}).Should(Succeed())
 

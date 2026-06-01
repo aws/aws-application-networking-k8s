@@ -2,10 +2,12 @@ package lattice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	an_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -48,7 +50,7 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 	}
 
 	tags := m.cloud.DefaultTagsMergedWith(services.Tags{
-		lattice.AccessLogPolicyTagKey: aws.String(accessLogSubscription.Spec.ALPNamespacedName.String()),
+		lattice.AccessLogPolicyTagKey: accessLogSubscription.Spec.ALPNamespacedName.String(),
 	})
 
 	tags = m.cloud.MergeTags(tags, accessLogSubscription.Spec.AdditionalTags)
@@ -59,22 +61,26 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 		Tags:               tags,
 	}
 
-	createALSOutput, err := vpcLatticeSess.CreateAccessLogSubscriptionWithContext(ctx, createALSInput)
+	createALSOutput, err := vpcLatticeSess.CreateAccessLogSubscription(ctx, createALSInput)
 	if err == nil {
 		return &lattice.AccessLogSubscriptionStatus{
 			Arn: *createALSOutput.Arn,
 		}, nil
 	}
 
-	switch e := err.(type) {
-	case *vpclattice.AccessDeniedException:
-		return nil, services.NewInvalidError(e.Message())
-	case *vpclattice.ResourceNotFoundException:
-		if *e.ResourceType == "SERVICE_NETWORK" || *e.ResourceType == "SERVICE" {
+	var ade *types.AccessDeniedException
+	var rnfe *types.ResourceNotFoundException
+	var ce *types.ConflictException
+
+	switch {
+	case errors.As(err, &ade):
+		return nil, services.NewInvalidError(aws.ToString(ade.Message))
+	case errors.As(err, &rnfe):
+		if aws.ToString(rnfe.ResourceType) == "SERVICE_NETWORK" || aws.ToString(rnfe.ResourceType) == "SERVICE" {
 			return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
 		}
-		return nil, services.NewInvalidError(e.Message())
-	case *vpclattice.ConflictException:
+		return nil, services.NewInvalidError(aws.ToString(rnfe.Message))
+	case errors.As(err, &ce):
 		/*
 		 * Conflict may arise if we retry creation due to a failure elsewhere in the controller,
 		 * so we check if the conflicting ALS was created for the same ALP via its tags.
@@ -83,7 +89,7 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 		listALSInput := &vpclattice.ListAccessLogSubscriptionsInput{
 			ResourceIdentifier: sourceArn,
 		}
-		listALSOutput, err := vpcLatticeSess.ListAccessLogSubscriptionsWithContext(ctx, listALSInput)
+		listALSOutput, err := vpcLatticeSess.ListAccessLogSubscriptions(ctx, listALSInput)
 		if err != nil {
 			return nil, err
 		}
@@ -92,12 +98,12 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 				listTagsInput := &vpclattice.ListTagsForResourceInput{
 					ResourceArn: als.Arn,
 				}
-				listTagsOutput, err := vpcLatticeSess.ListTagsForResourceWithContext(ctx, listTagsInput)
+				listTagsOutput, err := vpcLatticeSess.ListTagsForResource(ctx, listTagsInput)
 				if err != nil {
 					return nil, err
 				}
 				value, exists := listTagsOutput.Tags[lattice.AccessLogPolicyTagKey]
-				if exists && *value == accessLogSubscription.Spec.ALPNamespacedName.String() {
+				if exists && value == accessLogSubscription.Spec.ALPNamespacedName.String() {
 					return &lattice.AccessLogSubscriptionStatus{
 						Arn: *als.Arn,
 					}, nil
@@ -107,7 +113,7 @@ func (m *defaultAccessLogSubscriptionManager) Create(
 		return nil, services.NewConflictError(
 			string(accessLogSubscription.Spec.SourceType),
 			accessLogSubscription.Spec.SourceName,
-			e.Message(),
+			aws.ToString(ce.Message),
 		)
 	default:
 		return nil, err
@@ -124,12 +130,14 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 	getALSInput := &vpclattice.GetAccessLogSubscriptionInput{
 		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscription.Status.Arn),
 	}
-	getALSOutput, err := vpcLatticeSess.GetAccessLogSubscriptionWithContext(ctx, getALSInput)
+	getALSOutput, err := vpcLatticeSess.GetAccessLogSubscription(ctx, getALSInput)
 	if err != nil {
-		switch e := err.(type) {
-		case *vpclattice.AccessDeniedException:
-			return nil, services.NewInvalidError(e.Message())
-		case *vpclattice.ResourceNotFoundException:
+		var ade2 *types.AccessDeniedException
+		var rnfe2 *types.ResourceNotFoundException
+		switch {
+		case errors.As(err, &ade2):
+			return nil, services.NewInvalidError(aws.ToString(ade2.Message))
+		case errors.As(err, &rnfe2):
 			return m.Create(ctx, accessLogSubscription)
 		default:
 			return nil, err
@@ -148,7 +156,7 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscription.Status.Arn),
 		DestinationArn:                  aws.String(accessLogSubscription.Spec.DestinationArn),
 	}
-	updateALSOutput, err := vpcLatticeSess.UpdateAccessLogSubscriptionWithContext(ctx, updateALSInput)
+	updateALSOutput, err := vpcLatticeSess.UpdateAccessLogSubscription(ctx, updateALSInput)
 	if err == nil {
 		err = m.cloud.Tagging().UpdateTags(ctx, *updateALSOutput.Arn, accessLogSubscription.Spec.AdditionalTags, nil)
 		if err != nil {
@@ -160,19 +168,18 @@ func (m *defaultAccessLogSubscriptionManager) Update(
 		}, nil
 	}
 
-	switch e := err.(type) {
-	case *vpclattice.AccessDeniedException:
-		return nil, services.NewInvalidError(e.Message())
-	case *vpclattice.ResourceNotFoundException:
-		if *e.ResourceType == "SERVICE_NETWORK" || *e.ResourceType == "SERVICE" {
+	var ade3 *types.AccessDeniedException
+	var rnfe3 *types.ResourceNotFoundException
+	var ce3 *types.ConflictException
+	switch {
+	case errors.As(err, &ade3):
+		return nil, services.NewInvalidError(aws.ToString(ade3.Message))
+	case errors.As(err, &rnfe3):
+		if aws.ToString(rnfe3.ResourceType) == "SERVICE_NETWORK" || aws.ToString(rnfe3.ResourceType) == "SERVICE" {
 			return nil, services.NewNotFoundError(string(accessLogSubscription.Spec.SourceType), accessLogSubscription.Spec.SourceName)
 		}
 		return m.Create(ctx, accessLogSubscription)
-	case *vpclattice.ConflictException:
-		/*
-		 * A conflict can happen when the destination type of the new ALS is different from the original.
-		 * To gracefully handle this, we create a new ALS with the new destination, then delete the old one.
-		 */
+	case errors.As(err, &ce3):
 		return m.replaceAccessLogSubscription(ctx, accessLogSubscription)
 	default:
 		return nil, err
@@ -187,9 +194,10 @@ func (m *defaultAccessLogSubscriptionManager) Delete(
 	deleteALSInput := &vpclattice.DeleteAccessLogSubscriptionInput{
 		AccessLogSubscriptionIdentifier: aws.String(accessLogSubscriptionArn),
 	}
-	_, err := vpcLatticeSess.DeleteAccessLogSubscriptionWithContext(ctx, deleteALSInput)
+	_, err := vpcLatticeSess.DeleteAccessLogSubscription(ctx, deleteALSInput)
 	if err != nil {
-		if _, ok := err.(*vpclattice.ResourceNotFoundException); !ok {
+		var rnfe *types.ResourceNotFoundException
+		if !errors.As(err, &rnfe) {
 			return err
 		}
 	}

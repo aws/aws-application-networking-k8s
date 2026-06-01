@@ -3,9 +3,10 @@ package integration
 import (
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -52,44 +53,37 @@ var _ = Describe("Drift detection", Ordered, func() {
 	It("recreates a Lattice service deleted out-of-band", func() {
 		svc := testFramework.GetVpcLatticeService(ctx, route)
 		Expect(svc).ToNot(BeNil())
-		originalId := aws.StringValue(svc.Id)
+		originalId := aws.ToString(svc.Id)
 
-		// Delete the service out-of-band: disassociate then delete
-		assocResp, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociations(
-			&vpclattice.ListServiceNetworkServiceAssociationsInput{
-				ServiceIdentifier: svc.Id,
-			})
-		Expect(err).ToNot(HaveOccurred())
-
-		for _, assoc := range assocResp.Items {
-			_, err := testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(
-				&vpclattice.DeleteServiceNetworkServiceAssociationInput{
-					ServiceNetworkServiceAssociationIdentifier: assoc.Id,
-				})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		// Wait for all associations to be fully deleted
+		// Delete the service out-of-band: delete associations then the service.
+		// The controller's resync may recreate associations, so we keep deleting
+		// until the service itself is successfully deleted.
 		Eventually(func(g Gomega) {
-			resp, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociations(
+			// Delete any associations first (required before service deletion)
+			resp, err := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
 				&vpclattice.ListServiceNetworkServiceAssociationsInput{
 					ServiceIdentifier: svc.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(resp.Items).To(BeEmpty())
-		}).WithTimeout(2 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
-
-		_, err = testFramework.LatticeClient.DeleteService(&vpclattice.DeleteServiceInput{
-			ServiceIdentifier: svc.Id,
-		})
-		Expect(err).ToNot(HaveOccurred())
+			for _, a := range resp {
+				testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx,
+					&vpclattice.DeleteServiceNetworkServiceAssociationInput{
+						ServiceNetworkServiceAssociationIdentifier: a.Id,
+					})
+			}
+			// Attempt to delete the service; fails if associations still exist
+			_, err = testFramework.LatticeClient.DeleteService(ctx, &vpclattice.DeleteServiceInput{
+				ServiceIdentifier: svc.Id,
+			})
+			g.Expect(err).ToNot(HaveOccurred())
+		}).WithTimeout(4 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
 		// Wait for drift detection to recreate it with a new ID
 		Eventually(func(g Gomega) {
 			recreated := testFramework.GetVpcLatticeService(ctx, route)
 			g.Expect(recreated).ToNot(BeNil())
-			g.Expect(*recreated.Status).To(Equal(vpclattice.ServiceStatusActive))
-			g.Expect(aws.StringValue(recreated.Id)).ToNot(Equal(originalId))
+			g.Expect(recreated.Status).To(Equal(types.ServiceStatusActive))
+			g.Expect(aws.ToString(recreated.Id)).ToNot(Equal(originalId))
 		}).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
 	})
 
@@ -98,42 +92,42 @@ var _ = Describe("Drift detection", Ordered, func() {
 		Expect(svc).ToNot(BeNil())
 
 		// Wait for an HTTP listener on port 80 to exist
-		var listener *vpclattice.ListenerSummary
+		var listener *types.ListenerSummary
 		Eventually(func(g Gomega) {
-			listenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx,
+			listenersResp, err := testFramework.LatticeClient.ListListeners(ctx,
 				&vpclattice.ListListenersInput{
 					ServiceIdentifier: svc.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
-			for _, l := range listenersResp.Items {
-				if aws.Int64Value(l.Port) == 80 {
-					listener = l
+			for i, l := range listenersResp.Items {
+				if aws.ToInt32(l.Port) == 80 {
+					listener = &listenersResp.Items[i]
 				}
 			}
 			g.Expect(listener).ToNot(BeNil())
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
 		// Delete the listener out-of-band
-		_, err := testFramework.LatticeClient.DeleteListenerWithContext(ctx,
+		_, err := testFramework.LatticeClient.DeleteListener(ctx,
 			&vpclattice.DeleteListenerInput{
 				ServiceIdentifier:  svc.Id,
 				ListenerIdentifier: listener.Id,
 			})
 		Expect(err).ToNot(HaveOccurred())
 
-		originalListenerId := aws.StringValue(listener.Id)
+		originalListenerId := aws.ToString(listener.Id)
 
 		// Wait for drift detection to recreate a listener on port 80 with a new ID
 		Eventually(func(g Gomega) {
-			listenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx,
+			listenersResp, err := testFramework.LatticeClient.ListListeners(ctx,
 				&vpclattice.ListListenersInput{
 					ServiceIdentifier: svc.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
-			var found *vpclattice.ListenerSummary
-			for _, l := range listenersResp.Items {
-				if aws.Int64Value(l.Port) == 80 && aws.StringValue(l.Id) != originalListenerId {
-					found = l
+			var found *types.ListenerSummary
+			for i, l := range listenersResp.Items {
+				if aws.ToInt32(l.Port) == 80 && aws.ToString(l.Id) != originalListenerId {
+					found = &listenersResp.Items[i]
 				}
 			}
 			g.Expect(found).ToNot(BeNil())
@@ -145,39 +139,39 @@ var _ = Describe("Drift detection", Ordered, func() {
 		Expect(svc).ToNot(BeNil())
 
 		// Wait for listener to exist
-		var listener *vpclattice.ListenerSummary
+		var listener *types.ListenerSummary
 		Eventually(func(g Gomega) {
-			listenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx,
+			listenersResp, err := testFramework.LatticeClient.ListListeners(ctx,
 				&vpclattice.ListListenersInput{
 					ServiceIdentifier: svc.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(listenersResp.Items).ToNot(BeEmpty())
-			listener = listenersResp.Items[0]
+			listener = &listenersResp.Items[0]
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
 		// Wait for non-default rules to exist
-		var nonDefaultRules []*vpclattice.RuleSummary
+		var nonDefaultRules []types.RuleSummary
 		Eventually(func(g Gomega) {
-			rulesResp, err := testFramework.LatticeClient.ListRulesWithContext(ctx,
+			rules, err := testFramework.LatticeClient.ListRulesAsList(ctx,
 				&vpclattice.ListRulesInput{
 					ServiceIdentifier:  svc.Id,
 					ListenerIdentifier: listener.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
 			nonDefaultRules = nil
-			for _, rule := range rulesResp.Items {
-				if !aws.BoolValue(rule.IsDefault) {
+			for _, rule := range rules {
+				if !aws.ToBool(rule.IsDefault) {
 					nonDefaultRules = append(nonDefaultRules, rule)
 				}
 			}
 			g.Expect(nonDefaultRules).ToNot(BeEmpty())
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
-		originalRuleId := aws.StringValue(nonDefaultRules[0].Id)
+		originalRuleId := aws.ToString(nonDefaultRules[0].Id)
 
 		// Delete the rule out-of-band
-		_, err := testFramework.LatticeClient.DeleteRuleWithContext(ctx,
+		_, err := testFramework.LatticeClient.DeleteRule(ctx,
 			&vpclattice.DeleteRuleInput{
 				ServiceIdentifier:  svc.Id,
 				ListenerIdentifier: listener.Id,
@@ -187,22 +181,22 @@ var _ = Describe("Drift detection", Ordered, func() {
 
 		// Wait for drift detection to recreate the rule with a new ID
 		Eventually(func(g Gomega) {
-			resp, err := testFramework.LatticeClient.ListRulesWithContext(ctx,
+			rules, err := testFramework.LatticeClient.ListRulesAsList(ctx,
 				&vpclattice.ListRulesInput{
 					ServiceIdentifier:  svc.Id,
 					ListenerIdentifier: listener.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
-			var newNonDefault []*vpclattice.RuleSummary
-			for _, rule := range resp.Items {
-				if !aws.BoolValue(rule.IsDefault) {
+			var newNonDefault []types.RuleSummary
+			for _, rule := range rules {
+				if !aws.ToBool(rule.IsDefault) {
 					newNonDefault = append(newNonDefault, rule)
 				}
 			}
 			g.Expect(newNonDefault).To(HaveLen(len(nonDefaultRules)))
 			// The recreated rule should have a different ID
-			ids := lo.Map(newNonDefault, func(r *vpclattice.RuleSummary, _ int) string {
-				return aws.StringValue(r.Id)
+			ids := lo.Map(newNonDefault, func(r types.RuleSummary, _ int) string {
+				return aws.ToString(r.Id)
 			})
 			g.Expect(ids).ToNot(ContainElement(originalRuleId))
 		}).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
@@ -213,29 +207,29 @@ var _ = Describe("Drift detection", Ordered, func() {
 		Expect(svc).ToNot(BeNil())
 
 		// Wait for listener to exist
-		var listener *vpclattice.ListenerSummary
+		var listener *types.ListenerSummary
 		Eventually(func(g Gomega) {
-			listenersResp, err := testFramework.LatticeClient.ListListenersWithContext(ctx,
+			listenersResp, err := testFramework.LatticeClient.ListListeners(ctx,
 				&vpclattice.ListListenersInput{
 					ServiceIdentifier: svc.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(listenersResp.Items).ToNot(BeEmpty())
-			listener = listenersResp.Items[0]
+			listener = &listenersResp.Items[0]
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
 		// Wait for non-default rules to exist
-		var targetRule *vpclattice.RuleSummary
+		var targetRule *types.RuleSummary
 		Eventually(func(g Gomega) {
-			rulesResp, err := testFramework.LatticeClient.ListRulesWithContext(ctx,
+			rules, err := testFramework.LatticeClient.ListRulesAsList(ctx,
 				&vpclattice.ListRulesInput{
 					ServiceIdentifier:  svc.Id,
 					ListenerIdentifier: listener.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
-			for _, rule := range rulesResp.Items {
-				if !aws.BoolValue(rule.IsDefault) {
-					targetRule = rule
+			for i, rule := range rules {
+				if !aws.ToBool(rule.IsDefault) {
+					targetRule = &rules[i]
 					break
 				}
 			}
@@ -243,7 +237,7 @@ var _ = Describe("Drift detection", Ordered, func() {
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
 		// Get the full rule to capture the original action
-		originalRule, err := testFramework.LatticeClient.GetRuleWithContext(ctx,
+		originalRule, err := testFramework.LatticeClient.GetRule(ctx,
 			&vpclattice.GetRuleInput{
 				ServiceIdentifier:  svc.Id,
 				ListenerIdentifier: listener.Id,
@@ -251,47 +245,51 @@ var _ = Describe("Drift detection", Ordered, func() {
 			})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(originalRule.Action).ToNot(BeNil())
-		Expect(originalRule.Action.Forward).ToNot(BeNil())
-		Expect(originalRule.Action.Forward.TargetGroups).ToNot(BeEmpty())
+		forwardAction, ok := originalRule.Action.(*types.RuleActionMemberForward)
+		Expect(ok).To(BeTrue())
+		Expect(forwardAction.Value.TargetGroups).ToNot(BeEmpty())
 
-		originalTargetGroupArn := aws.StringValue(originalRule.Action.Forward.TargetGroups[0].TargetGroupIdentifier)
+		originalTargetGroupArn := aws.ToString(forwardAction.Value.TargetGroups[0].TargetGroupIdentifier)
 
 		// Modify the rule out-of-band: replace the action with a fixed 404 response
-		_, err = testFramework.LatticeClient.UpdateRuleWithContext(ctx,
+		statusCode := int32(404)
+		_, err = testFramework.LatticeClient.UpdateRule(ctx,
 			&vpclattice.UpdateRuleInput{
 				ServiceIdentifier:  svc.Id,
 				ListenerIdentifier: listener.Id,
 				RuleIdentifier:     targetRule.Id,
-				Action: &vpclattice.RuleAction{
-					FixedResponse: &vpclattice.FixedResponseAction{
-						StatusCode: aws.Int64(404),
+				Action: &types.RuleActionMemberFixedResponse{
+					Value: types.FixedResponseAction{
+						StatusCode: &statusCode,
 					},
 				},
 			})
 		Expect(err).ToNot(HaveOccurred())
 
 		// Verify the rule was modified
-		modifiedRule, err := testFramework.LatticeClient.GetRuleWithContext(ctx,
+		modifiedRule, err := testFramework.LatticeClient.GetRule(ctx,
 			&vpclattice.GetRuleInput{
 				ServiceIdentifier:  svc.Id,
 				ListenerIdentifier: listener.Id,
 				RuleIdentifier:     targetRule.Id,
 			})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(modifiedRule.Action.FixedResponse).ToNot(BeNil())
+		_, isFixed := modifiedRule.Action.(*types.RuleActionMemberFixedResponse)
+		Expect(isFixed).To(BeTrue())
 
 		// Wait for drift detection to revert the action back to the original forward
 		Eventually(func(g Gomega) {
-			revertedRule, err := testFramework.LatticeClient.GetRuleWithContext(ctx,
+			revertedRule, err := testFramework.LatticeClient.GetRule(ctx,
 				&vpclattice.GetRuleInput{
 					ServiceIdentifier:  svc.Id,
 					ListenerIdentifier: listener.Id,
 					RuleIdentifier:     targetRule.Id,
 				})
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(revertedRule.Action.Forward).ToNot(BeNil())
-			g.Expect(revertedRule.Action.Forward.TargetGroups).ToNot(BeEmpty())
-			g.Expect(aws.StringValue(revertedRule.Action.Forward.TargetGroups[0].TargetGroupIdentifier)).
+			fwd, ok := revertedRule.Action.(*types.RuleActionMemberForward)
+			g.Expect(ok).To(BeTrue())
+			g.Expect(fwd.Value.TargetGroups).ToNot(BeEmpty())
+			g.Expect(aws.ToString(fwd.Value.TargetGroups[0].TargetGroupIdentifier)).
 				To(Equal(originalTargetGroupArn))
 		}).WithTimeout(5 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
 	})
@@ -338,7 +336,7 @@ var _ = Describe("IAMAuthPolicy Drift detection", Ordered, func() {
 
 		// Wait for the Lattice service backing the route to be active.
 		latticeSvc := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
-		latticeSvcId = aws.StringValue(latticeSvc.Id)
+		latticeSvcId = aws.ToString(latticeSvc.Id)
 
 		// Create the IAMAuthPolicy targeting the route. The controller will
 		// flip the service's auth type to AWS_IAM and put the policy doc.
@@ -378,30 +376,32 @@ var _ = Describe("IAMAuthPolicy Drift detection", Ordered, func() {
 		Expect(resourceId).ToNot(BeEmpty())
 
 		// Sanity check: auth policy doc is set on the lattice service.
-		existing, err := testFramework.LatticeClient.GetAuthPolicy(
+		existing, err := testFramework.LatticeClient.GetAuthPolicy(ctx,
 			&vpclattice.GetAuthPolicyInput{ResourceIdentifier: &resourceId})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(aws.StringValue(existing.Policy)).To(Equal(allowAllInvoke))
+		Expect(aws.ToString(existing.Policy)).To(Equal(allowAllInvoke))
 
 		// Delete the auth policy out-of-band.
-		_, err = testFramework.LatticeClient.DeleteAuthPolicy(
+		_, err = testFramework.LatticeClient.DeleteAuthPolicy(ctx,
 			&vpclattice.DeleteAuthPolicyInput{ResourceIdentifier: &resourceId})
 		Expect(err).ToNot(HaveOccurred())
 
 		// Verify deletion took effect. The Lattice GetAuthPolicy API may
 		// return either a not-found error or an output with an empty Policy
 		// when no policy is attached, so accept both.
-		deleted, _ := testFramework.LatticeClient.GetAuthPolicy(
+		deleted, _ := testFramework.LatticeClient.GetAuthPolicy(ctx,
 			&vpclattice.GetAuthPolicyInput{ResourceIdentifier: &resourceId})
-		Expect(aws.StringValue(deleted.Policy)).To(BeEmpty())
+		if deleted != nil {
+			Expect(aws.ToString(deleted.Policy)).To(BeEmpty())
+		}
 
 		// Wait for drift detection to restore the auth policy.
 		timeout := 2*config.ReconcileDefaultResyncInterval + 60*time.Second
 		Eventually(func(g Gomega) {
-			out, err := testFramework.LatticeClient.GetAuthPolicy(
+			out, err := testFramework.LatticeClient.GetAuthPolicy(ctx,
 				&vpclattice.GetAuthPolicyInput{ResourceIdentifier: &resourceId})
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(aws.StringValue(out.Policy)).To(Equal(allowAllInvoke))
+			g.Expect(aws.ToString(out.Policy)).To(Equal(allowAllInvoke))
 		}).WithTimeout(timeout).WithPolling(15 * time.Second).Should(Succeed())
 	})
 
@@ -409,31 +409,31 @@ var _ = Describe("IAMAuthPolicy Drift detection", Ordered, func() {
 		Expect(latticeSvcId).ToNot(BeEmpty())
 
 		// Sanity check: service auth type is AWS_IAM.
-		svc, err := testFramework.LatticeClient.GetService(
+		svc, err := testFramework.LatticeClient.GetService(ctx,
 			&vpclattice.GetServiceInput{ServiceIdentifier: &latticeSvcId})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(aws.StringValue(svc.AuthType)).To(Equal(vpclattice.AuthTypeAwsIam))
+		Expect(svc.AuthType).To(Equal(types.AuthTypeAwsIam))
 
 		// Flip the service auth type to NONE out-of-band.
-		_, err = testFramework.LatticeClient.UpdateService(&vpclattice.UpdateServiceInput{
+		_, err = testFramework.LatticeClient.UpdateService(ctx, &vpclattice.UpdateServiceInput{
 			ServiceIdentifier: &latticeSvcId,
-			AuthType:          aws.String(vpclattice.AuthTypeNone),
+			AuthType:          types.AuthTypeNone,
 		})
 		Expect(err).ToNot(HaveOccurred())
 
 		// Verify the change took effect.
-		flipped, err := testFramework.LatticeClient.GetService(
+		flipped, err := testFramework.LatticeClient.GetService(ctx,
 			&vpclattice.GetServiceInput{ServiceIdentifier: &latticeSvcId})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(aws.StringValue(flipped.AuthType)).To(Equal(vpclattice.AuthTypeNone))
+		Expect(flipped.AuthType).To(Equal(types.AuthTypeNone))
 
 		// Wait for drift detection to restore AWS_IAM.
 		timeout := 2*config.ReconcileDefaultResyncInterval + 60*time.Second
 		Eventually(func(g Gomega) {
-			s, err := testFramework.LatticeClient.GetService(
+			s, err := testFramework.LatticeClient.GetService(ctx,
 				&vpclattice.GetServiceInput{ServiceIdentifier: &latticeSvcId})
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(aws.StringValue(s.AuthType)).To(Equal(vpclattice.AuthTypeAwsIam))
+			g.Expect(s.AuthType).To(Equal(types.AuthTypeAwsIam))
 		}).WithTimeout(timeout).WithPolling(15 * time.Second).Should(Succeed())
 	})
 
@@ -450,7 +450,7 @@ var _ = Describe("IAMAuthPolicy Drift detection", Ordered, func() {
 	})
 })
 
-var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
+var _ = Describe("VpcAssociationPolicy Drift detection", Serial, Ordered, func() {
 	const (
 		driftVapName      = "drift-vpc-association-policy"
 		driftVapSGName    = "k8s-test-drift-vap-sg"
@@ -470,21 +470,21 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
 
 		// Create two test security groups in the cluster VPC: one used by the
 		// VAP and one used to exercise SG drift out-of-band.
-		createSg, err := testFramework.Ec2Client.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
+		createSg, err := testFramework.Ec2Client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
 			Description: aws.String(driftVapSGName),
 			GroupName:   aws.String(driftVapSGName),
 			VpcId:       aws.String(test.CurrentClusterVpcId),
 		})
 		Expect(err).To(BeNil())
-		sgId = anv1alpha1.SecurityGroupId(aws.StringValue(createSg.GroupId))
+		sgId = anv1alpha1.SecurityGroupId(aws.ToString(createSg.GroupId))
 
-		createAltSg, err := testFramework.Ec2Client.CreateSecurityGroupWithContext(ctx, &ec2.CreateSecurityGroupInput{
+		createAltSg, err := testFramework.Ec2Client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
 			Description: aws.String(driftVapSGAltName),
 			GroupName:   aws.String(driftVapSGAltName),
 			VpcId:       aws.String(test.CurrentClusterVpcId),
 		})
 		Expect(err).To(BeNil())
-		altSgId = anv1alpha1.SecurityGroupId(aws.StringValue(createAltSg.GroupId))
+		altSgId = anv1alpha1.SecurityGroupId(aws.ToString(createAltSg.GroupId))
 
 		// Create the VpcAssociationPolicy targeting the test gateway. The
 		// controller drives the SNVA to be active with our SG.
@@ -511,12 +511,12 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
 			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
 			g.Expect(err).To(BeNil())
 			g.Expect(associated).To(BeTrue())
-			out, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+			out, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 				ServiceNetworkVpcAssociationIdentifier: snva.Id,
 			})
 			g.Expect(err).To(BeNil())
 			g.Expect(out.SecurityGroupIds).To(HaveLen(1))
-			g.Expect(aws.StringValue(out.SecurityGroupIds[0])).To(Equal(string(sgId)))
+			g.Expect(out.SecurityGroupIds[0]).To(Equal(string(sgId)))
 		}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 	})
 
@@ -525,11 +525,11 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
 		associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
 		Expect(err).To(BeNil())
 		Expect(associated).To(BeTrue())
-		originalId := aws.StringValue(snva.Id)
+		originalId := aws.ToString(snva.Id)
 		Expect(originalId).ToNot(BeEmpty())
 
 		// Delete the SNVA out-of-band.
-		_, err = testFramework.LatticeClient.DeleteServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.DeleteServiceNetworkVpcAssociationInput{
+		_, err = testFramework.LatticeClient.DeleteServiceNetworkVpcAssociation(ctx, &vpclattice.DeleteServiceNetworkVpcAssociationInput{
 			ServiceNetworkVpcAssociationIdentifier: snva.Id,
 		})
 		Expect(err).To(BeNil())
@@ -544,7 +544,7 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
 			})
 			g.Expect(err).To(BeNil())
 			for _, a := range list {
-				g.Expect(aws.StringValue(a.Id)).ToNot(Equal(originalId))
+				g.Expect(aws.ToString(a.Id)).ToNot(Equal(originalId))
 			}
 		}).WithTimeout(2 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 
@@ -554,54 +554,50 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
 			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
 			g.Expect(err).To(BeNil())
 			g.Expect(associated).To(BeTrue())
-			g.Expect(aws.StringValue(snva.Id)).ToNot(Equal(originalId))
+			g.Expect(aws.ToString(snva.Id)).ToNot(Equal(originalId))
 		}).WithTimeout(timeout).WithPolling(15 * time.Second).Should(Succeed())
 	})
 
 	It("restores security groups drifted out-of-band", func() {
-		// Make sure the SNVA currently reflects the policy's SG. The previous
-		// test may have just recreated the SNVA, so wait for convergence.
+		// Make sure the SNVA currently reflects the policy's SG.
 		var snvaId *string
 		Eventually(func(g Gomega) {
 			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
 			g.Expect(err).To(BeNil())
 			g.Expect(associated).To(BeTrue())
-			out, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+			out, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 				ServiceNetworkVpcAssociationIdentifier: snva.Id,
 			})
 			g.Expect(err).To(BeNil())
-			ids := lo.Map(out.SecurityGroupIds, func(s *string, _ int) string { return aws.StringValue(s) })
-			g.Expect(ids).To(ConsistOf(string(sgId)))
+			g.Expect(out.SecurityGroupIds).To(ConsistOf(string(sgId)))
 			snvaId = snva.Id
 		}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		Expect(snvaId).ToNot(BeNil())
 
 		// Drift the SG list out-of-band.
-		_, err := testFramework.LatticeClient.UpdateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.UpdateServiceNetworkVpcAssociationInput{
+		_, err := testFramework.LatticeClient.UpdateServiceNetworkVpcAssociation(ctx, &vpclattice.UpdateServiceNetworkVpcAssociationInput{
 			ServiceNetworkVpcAssociationIdentifier: snvaId,
-			SecurityGroupIds:                       []*string{aws.String(string(altSgId))},
+			SecurityGroupIds:                       []string{string(altSgId)},
 		})
 		Expect(err).To(BeNil())
 
 		// Verify the drift took effect (the SNVA now reflects the alt SG).
 		Eventually(func(g Gomega) {
-			out, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+			out, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 				ServiceNetworkVpcAssociationIdentifier: snvaId,
 			})
 			g.Expect(err).To(BeNil())
-			ids := lo.Map(out.SecurityGroupIds, func(s *string, _ int) string { return aws.StringValue(s) })
-			g.Expect(ids).To(ConsistOf(string(altSgId)))
+			g.Expect(out.SecurityGroupIds).To(ConsistOf(string(altSgId)))
 		}).WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
 		// Wait for drift detection to restore the policy's SG list.
 		timeout := 2*config.ReconcileDefaultResyncInterval + 60*time.Second
 		Eventually(func(g Gomega) {
-			out, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+			out, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 				ServiceNetworkVpcAssociationIdentifier: snvaId,
 			})
 			g.Expect(err).To(BeNil())
-			ids := lo.Map(out.SecurityGroupIds, func(s *string, _ int) string { return aws.StringValue(s) })
-			g.Expect(ids).To(ConsistOf(string(sgId)))
+			g.Expect(out.SecurityGroupIds).To(ConsistOf(string(sgId)))
 		}).WithTimeout(timeout).WithPolling(15 * time.Second).Should(Succeed())
 	})
 
@@ -613,23 +609,22 @@ var _ = Describe("VpcAssociationPolicy Drift detection", Ordered, func() {
 			testFramework.ExpectDeletedThenNotFound(ctx, vap)
 		}
 		if sgId != "" {
-			_, err := testFramework.Ec2Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
+			_, err := testFramework.Ec2Client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
 				GroupId: aws.String(string(sgId)),
 			})
 			Expect(err).To(BeNil())
 		}
 		if altSgId != "" {
-			_, err := testFramework.Ec2Client.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
+			_, err := testFramework.Ec2Client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
 				GroupId: aws.String(string(altSgId)),
 			})
 			Expect(err).To(BeNil())
 		}
 
 		// Recreate the SNVA manually to restore the cluster's network state
-		// without the policy. Mirrors the cleanup pattern in
-		// vpc_association_policy_test.go.
+		// without the policy.
 		if testServiceNetwork != nil {
-			_, err := testFramework.Cloud.Lattice().CreateServiceNetworkVpcAssociationWithContext(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
+			_, err := testFramework.Cloud.Lattice().CreateServiceNetworkVpcAssociation(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
 				ServiceNetworkIdentifier: testServiceNetwork.Id,
 				VpcIdentifier:            &config.VpcID,
 				Tags:                     testFramework.Cloud.DefaultTags(),
