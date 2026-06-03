@@ -935,6 +935,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Enabling TLS connection on the backend">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#certificate-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -1882,7 +1899,7 @@ The following modifications to the <code>files/examples/my-hotel-gateway.yaml</c
 <p>In this case, the VPC Lattice service automatically generates a managed ACM certificate and uses it for encrypting client to service traffic.</p>
 <h3 id="bring-your-own-certificate-byoc">Bring Your Own Certificate (BYOC)<a class="headerlink" href="#bring-your-own-certificate-byoc" title="Permanent link">&para;</a></h3>
 <p>If you want to use a custom domain name along with its own certificate, follow instructions on <a href="https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html">Requesting a public certificate</a> to create a certificate for your custom domain name in ACM. </p>
-<p>Note that only <code>Terminate</code> mode is supported (Passthrough is not supported).</p>
+<p>Note that only <code>Terminate</code> mode is supported for HTTPS listeners. For TLS Passthrough, use a <code>protocol: TLS</code> listener with a <a href="../../api-types/tls-route/">TLSRoute</a> instead.</p>
 <h4 id="automatic-certificate-discovery">Automatic Certificate Discovery<a class="headerlink" href="#automatic-certificate-discovery" title="Permanent link">&para;</a></h4>
 <p>If you have an ACM certificate matching your route's hostname, the controller can automatically discover and use it. Configure an HTTPS listener without the <code>certificate-arn</code> option:</p>
 <div class="highlight"><span class="filename">my-hotel-gateway.yaml</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
@@ -1955,9 +1972,13 @@ The following modifications to the <code>files/examples/my-hotel-gateway.yaml</c
 <a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="nn">...</span>
 </code></pre></div>
 <h3 id="enabling-tls-connection-on-the-backend">Enabling TLS connection on the backend<a class="headerlink" href="#enabling-tls-connection-on-the-backend" title="Permanent link">&para;</a></h3>
-<p>Currently, TLS Passthrough mode is not supported in the controller, but it allows TLS re-encryption to support backends that only allow TLS connections.
-To handle this use case, you need to configure your service to receive HTTPs traffic instead:</p>
-<div class="highlight"><span class="filename">target-group.yaml</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
+<p>If your backend pods require TLS connections, you can configure VPC Lattice to re-encrypt traffic before forwarding it to your pods. This is useful when you want VPC Lattice to terminate client-facing TLS (for HTTP routing and inspection) while still encrypting the connection from VPC Lattice to your pods.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you want end-to-end passthrough without TLS termination, use a <a href="../../api-types/tls-route/">TLSRoute</a> with a <code>protocol: TLS</code>, <code>mode: Passthrough</code> Gateway listener instead. The approach below is for re-encryption, where VPC Lattice terminates and then re-establishes TLS to the backend.</p>
+</div>
+<p>To configure TLS re-encryption, create a <code>TargetGroupPolicy</code> with <code>protocol: HTTPS</code>:</p>
+<div class="highlight"><span class="filename">target-group-policy.yaml</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupPolicy</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nt">metadata</span><span class="p">:</span>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">test-policy</span>
@@ -1969,9 +1990,19 @@ To handle this use case, you need to configure your service to receive HTTPs tra
 <a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="hll"><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPS</span>
 </span><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="nt">protocolVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP1</span>
 </code></pre></div>
-<p>This will create VPC Lattice TargetGroup with HTTPs protocol option, which can receive TLS traffic.
-Note that certificate validation is not supported.</p>
-<p>For more details, please refer to <a href="../../api-types/target-group-policy/">TargetGroupPolicy API reference</a>.</p>
+<p>This creates a VPC Lattice target group with HTTPS protocol. Lattice will use TLS when forwarding traffic to your pods.</p>
+<div class="admonition warning">
+<p class="admonition-title">Health check protocol</p>
+<p>If your pods only accept TLS connections, you <strong>must</strong> also set <code>healthCheck.protocol: HTTPS</code> in the TargetGroupPolicy. Health checks default to HTTP, so without this setting they will fail and targets will never become healthy.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">healthCheck</span><span class="p">:</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPS</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/healthz</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">statusMatch</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200&quot;</span>
+</code></pre></div>
+</div>
+<h4 id="certificate-requirements">Certificate requirements<a class="headerlink" href="#certificate-requirements" title="Permanent link">&para;</a></h4>
+<p>VPC Lattice does not validate backend certificates, so self-signed certificates work without any CA or trust bundle configuration. Re-encryption provides transport-level encryption between VPC Lattice and your pods, but does not authenticate the backend server's identity.</p>
+<p>For more details on TargetGroupPolicy fields, see the <a href="../../api-types/target-group-policy/">TargetGroupPolicy API reference</a>.</p>
 
 
 
