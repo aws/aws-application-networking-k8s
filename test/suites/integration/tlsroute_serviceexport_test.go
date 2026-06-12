@@ -37,7 +37,7 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 	)
 
 	It("Create k8s resource", func() {
-		httpsDeployment1, httpsSvc1 = testFramework.NewHttpsApp(test.HTTPsAppOptions{Name: "my-https-1", Namespace: k8snamespace})
+		httpsDeployment1, httpsSvc1 = testFramework.NewHttpsApp(test.HTTPsAppOptions{Name: "my-https-export-1", Namespace: k8snamespace})
 		policy = createTCPTargetGroupPolicy(httpsSvc1)
 		testFramework.ExpectCreated(ctx, policy)
 		serviceImport = testFramework.CreateServiceImport(httpsSvc1)
@@ -110,7 +110,7 @@ var _ = Describe("TLSRoute Service Export/Import Test", Ordered, func() {
 			log.Printf("Executing command [%s] \n", cmd)
 			stdout, _, err := testFramework.PodExec(pod, cmd)
 			g.Expect(err).To(BeNil())
-			g.Expect(stdout).To(ContainSubstring("my-https-1 handler pod"))
+			g.Expect(stdout).To(ContainSubstring("my-https-export-1 handler pod"))
 		}).Should(Succeed())
 	})
 

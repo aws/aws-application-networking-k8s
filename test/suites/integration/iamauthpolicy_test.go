@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("IAM Auth Policy", Ordered, func() {
+var _ = Describe("IAM Auth Policy", Serial, Ordered, func() {
 
 	const (
 		AllowAllInvoke = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"vpc-lattice-svcs:Invoke","Resource":"*"}]}`
