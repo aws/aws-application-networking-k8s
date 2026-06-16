@@ -32,7 +32,7 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-var _ = Describe("Bring your own certificate (BYOC)", Ordered, func() {
+var _ = Describe("Bring your own certificate (BYOC)", Serial, Ordered, func() {
 
 	const (
 		hostedZoneName = "e2e-test.com"

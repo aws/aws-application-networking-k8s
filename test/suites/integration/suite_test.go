@@ -51,6 +51,14 @@ var _ = SynchronizedBeforeSuite(func() {
 	testServiceNetwork = testFramework.GetServiceNetwork(ctx, testGateway)
 
 	testFramework.Log.Infof(ctx, "Expecting VPC %s and service network %s association", vpcId, *testServiceNetwork.Id)
+	// Create VPC association if it doesn't exist (idempotent — ignores ConflictException)
+	_, err := testFramework.LatticeClient.CreateServiceNetworkVpcAssociation(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
+		ServiceNetworkIdentifier: testServiceNetwork.Id,
+		VpcIdentifier:            &vpcId,
+	})
+	if err != nil {
+		testFramework.Log.Infof(ctx, "CreateServiceNetworkVpcAssociation returned: %v (may be expected ConflictException)", err)
+	}
 	Eventually(func(g Gomega) {
 		associated, _, _ := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, vpcId, testServiceNetwork)
 		g.Expect(associated).To(BeTrue())

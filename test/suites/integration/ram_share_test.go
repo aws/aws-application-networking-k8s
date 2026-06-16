@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -48,6 +47,7 @@ var _ = Describe("RAM Share", Ordered, func() {
 	var (
 		clients              *testClients
 		secondaryTestRoleArn string
+		createdGateways      []string
 	)
 
 	BeforeAll(func() {
@@ -116,6 +116,7 @@ var _ = Describe("RAM Share", Ordered, func() {
 		}
 		err := testFramework.Create(ctx, gateway)
 		Expect(err).ToNot(HaveOccurred())
+		createdGateways = append(createdGateways, gateway.Name)
 
 		Eventually(func(g Gomega) {
 			// Policy status should be Accepted
@@ -157,6 +158,7 @@ var _ = Describe("RAM Share", Ordered, func() {
 		}
 		err := testFramework.Create(ctx, gateway)
 		Expect(err).ToNot(HaveOccurred())
+		createdGateways = append(createdGateways, gateway.Name)
 
 		Eventually(func(g Gomega) {
 			// Policy status should be Accepted
@@ -206,6 +208,7 @@ var _ = Describe("RAM Share", Ordered, func() {
 		}
 		err = testFramework.Create(ctx, gateway)
 		Expect(err).ToNot(HaveOccurred())
+		createdGateways = append(createdGateways, gateway.Name)
 
 		Eventually(func(g Gomega) {
 			// Policy status should be Accepted
@@ -224,15 +227,14 @@ var _ = Describe("RAM Share", Ordered, func() {
 	})
 
 	AfterEach(func() {
-		// Delete gateways in test namespace except the framework gateway
-		gws := &gwv1.GatewayList{}
-		err := testFramework.Client.List(ctx, gws, client.InNamespace(k8snamespace))
-		Expect(err).To(BeNil())
-		for _, gw := range gws.Items {
-			if gw.Name != testGateway.Name {
-				testFramework.ExpectDeletedThenNotFound(ctx, &gw)
-			}
+		// Delete only gateways created by this test suite
+		for _, name := range createdGateways {
+			gw := &gwv1.Gateway{}
+			gw.Name = name
+			gw.Namespace = k8snamespace
+			testFramework.ExpectDeletedThenNotFound(ctx, gw)
 		}
+		createdGateways = nil
 	})
 
 	AfterAll(func() {
