@@ -1598,9 +1598,9 @@ func Test_LatticeServiceModelBuild_HTTPRouteWithAndWithoutAdditionalTagsAnnotati
 				return route
 			}(),
 			expectedAdditionalTags: k8s.Tags{
-				"Environment": &[]string{"Prod"}[0],
-				"Project":     &[]string{"ServiceTest"}[0],
-				"Team":        &[]string{"Platform"}[0],
+				"Environment": "Prod",
+				"Project":     "ServiceTest",
+				"Team":        "Platform",
 			},
 			description: "should set additional tags from HTTPRoute annotations in service spec",
 		},

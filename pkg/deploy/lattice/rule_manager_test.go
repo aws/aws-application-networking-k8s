@@ -8,8 +8,9 @@ import (
 	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -131,7 +132,7 @@ func Test_Create(t *testing.T) {
 		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
 			[]*vpclattice.GetRuleOutput{}, nil)
 
-		mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).Return(
+		mockLattice.EXPECT().CreateRule(ctx, gomock.Any()).Return(
 			&vpclattice.CreateRuleOutput{
 				Arn:  aws.String("arn"),
 				Id:   aws.String("id"),
@@ -153,22 +154,22 @@ func Test_Create(t *testing.T) {
 				{
 					Id:  aws.String("existing-id"),
 					Arn: aws.String("existing-arn"),
-					Match: &vpclattice.RuleMatch{
-						HttpMatch: &vpclattice.HttpMatch{
+					Match: &types.RuleMatchMemberHttpMatch{
+						Value: types.HttpMatch{
 							Method: aws.String("POST"),
 						},
 					},
-					Action: &vpclattice.RuleAction{
-						FixedResponse: &vpclattice.FixedResponseAction{}, // <-- this will trigger update
+					Action: &types.RuleActionMemberFixedResponse{
+						Value: types.FixedResponseAction{}, // <-- this will trigger update
 					},
 					Name:     aws.String("existing-name"),
-					Priority: aws.Int64(1),
+					Priority: aws.Int32(1),
 				},
 			}, nil)
 
 		mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
 
-		mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Return(
+		mockLattice.EXPECT().UpdateRule(ctx, gomock.Any()).Return(
 			&vpclattice.UpdateRuleOutput{
 				Arn:  aws.String("existing-arn"),
 				Id:   aws.String("existing-id"),
@@ -190,28 +191,28 @@ func Test_Create(t *testing.T) {
 				{
 					Id:  aws.String("existing-id"),
 					Arn: aws.String("existing-arn"),
-					Match: &vpclattice.RuleMatch{
-						HttpMatch: &vpclattice.HttpMatch{
-							HeaderMatches: make([]*vpclattice.HeaderMatch, 0), // this is what's returned in the Lattice API, not nil
-							PathMatch: &vpclattice.PathMatch{
+					Match: &types.RuleMatchMemberHttpMatch{
+						Value: types.HttpMatch{
+							HeaderMatches: make([]types.HeaderMatch, 0), // this is what's returned in the Lattice API, not nil
+							PathMatch: &types.PathMatch{
 								CaseSensitive: aws.Bool(true), // default value
-								Match: &vpclattice.PathMatchType{
-									Prefix: aws.String("/foo"),
+								Match: &types.PathMatchTypeMemberPrefix{
+									Value: "/foo",
 								},
 							},
 						},
 					},
-					Action: &vpclattice.RuleAction{
-						FixedResponse: &vpclattice.FixedResponseAction{}, // <-- this will trigger update
+					Action: &types.RuleActionMemberFixedResponse{
+						Value: types.FixedResponseAction{}, // <-- this will trigger update
 					},
 					Name:     aws.String("existing-name"),
-					Priority: aws.Int64(1),
+					Priority: aws.Int32(1),
 				},
 			}, nil)
 
 		mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
 
-		mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Return(
+		mockLattice.EXPECT().UpdateRule(ctx, gomock.Any()).Return(
 			&vpclattice.UpdateRuleOutput{
 				Arn:  aws.String("existing-arn"),
 				Id:   aws.String("existing-id"),
@@ -233,23 +234,23 @@ func Test_Create(t *testing.T) {
 				{
 					Id:  aws.String("existing-id"),
 					Arn: aws.String("existing-arn"),
-					Match: &vpclattice.RuleMatch{
-						HttpMatch: &vpclattice.HttpMatch{
+					Match: &types.RuleMatchMemberHttpMatch{
+						Value: types.HttpMatch{
 							Method: aws.String("POST"),
 						},
 					},
-					Action: &vpclattice.RuleAction{
-						Forward: &vpclattice.ForwardAction{
-							TargetGroups: []*vpclattice.WeightedTargetGroup{
+					Action: &types.RuleActionMemberForward{
+						Value: types.ForwardAction{
+							TargetGroups: []types.WeightedTargetGroup{
 								{
 									TargetGroupIdentifier: aws.String("tg-id"),
-									Weight:                aws.Int64(1),
+									Weight:                aws.Int32(1),
 								},
 							},
 						},
 					},
 					Name:     aws.String("existing-name"),
-					Priority: aws.Int64(1),
+					Priority: aws.Int32(1),
 				},
 			}, nil) // <-- should be an exact match, no update required
 
@@ -265,9 +266,9 @@ func Test_Create(t *testing.T) {
 		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
 			[]*vpclattice.GetRuleOutput{}, nil).Times(2)
 
-		mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
+		mockLattice.EXPECT().CreateRule(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, input *vpclattice.CreateRuleInput, i ...interface{}) (*vpclattice.CreateRuleOutput, error) {
-				assert.Equal(t, int64(500), aws.Int64Value(input.Action.FixedResponse.StatusCode))
+				assert.Equal(t, int32(500), *input.Action.(*types.RuleActionMemberFixedResponse).Value.StatusCode)
 
 				return &vpclattice.CreateRuleOutput{
 					Arn:  aws.String("arn"),
@@ -291,11 +292,12 @@ func Test_Create(t *testing.T) {
 		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
 			[]*vpclattice.GetRuleOutput{}, nil)
 
-		mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
+		mockLattice.EXPECT().CreateRule(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, input *vpclattice.CreateRuleInput, i ...interface{}) (*vpclattice.CreateRuleOutput, error) {
-				assert.Equal(t, "POST", aws.StringValue(input.Match.HttpMatch.Method))
-				assert.Equal(t, 1, len(input.Action.Forward.TargetGroups))
-				assert.Equal(t, "tg-id", aws.StringValue(input.Action.Forward.TargetGroups[0].TargetGroupIdentifier))
+				assert.Equal(t, "POST", aws.ToString(input.Match.(*types.RuleMatchMemberHttpMatch).Value.Method))
+				fwd := input.Action.(*types.RuleActionMemberForward).Value
+				assert.Equal(t, 1, len(fwd.TargetGroups))
+				assert.Equal(t, "tg-id", aws.ToString(fwd.TargetGroups[0].TargetGroupIdentifier))
 
 				return &vpclattice.CreateRuleOutput{
 					Arn:  aws.String("arn"),
@@ -342,28 +344,28 @@ func Test_CreateWithTempPriority(t *testing.T) {
 			{
 				Id:  aws.String("existing-id"),
 				Arn: aws.String("existing-arn"),
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
+				Match: &types.RuleMatchMemberHttpMatch{
+					Value: types.HttpMatch{
 						Method: aws.String("GET"), // <-- will be considered a different rule
 					},
 				},
 				Name:     aws.String("existing-name"),
-				Priority: aws.Int64(1), // <-- we have the same priority
+				Priority: aws.Int32(1), // <-- we have the same priority
 			},
 		}, nil)
 
-	expectedPriority := int64(2)
+	expectedPriority := int32(2)
 
-	mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
+	mockLattice.EXPECT().CreateRule(ctx, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, input *vpclattice.CreateRuleInput, i ...interface{}) (*vpclattice.CreateRuleOutput, error) {
 			// 2 is the "next" available priority
-			assert.Equal(t, expectedPriority, aws.Int64Value(input.Priority))
+			assert.Equal(t, expectedPriority, aws.ToInt32(input.Priority))
 
 			return &vpclattice.CreateRuleOutput{
 				Arn:      aws.String("new-arn"),
 				Id:       aws.String("new-id"),
 				Name:     aws.String("new-name"),
-				Priority: aws.Int64(expectedPriority),
+				Priority: aws.Int32(expectedPriority),
 			}, nil
 		})
 
@@ -371,7 +373,7 @@ func Test_CreateWithTempPriority(t *testing.T) {
 	ruleStatus, err := rm.Upsert(ctx, r, l, svc)
 	assert.Nil(t, err)
 	assert.Equal(t, "new-arn", ruleStatus.Arn)
-	assert.Equal(t, expectedPriority, ruleStatus.Priority)
+	assert.Equal(t, int64(expectedPriority), ruleStatus.Priority)
 }
 
 func Test_UpdatePriorities(t *testing.T) {
@@ -394,15 +396,15 @@ func Test_UpdatePriorities(t *testing.T) {
 		},
 	}
 
-	mockLattice.EXPECT().BatchUpdateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
+	mockLattice.EXPECT().BatchUpdateRule(ctx, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, input *vpclattice.BatchUpdateRuleInput, i ...interface{}) (*vpclattice.BatchUpdateRuleOutput, error) {
 			for _, rule := range input.Rules {
 				if *rule.RuleIdentifier == "rule-0" {
-					assert.Equal(t, int64(2), *rule.Priority)
+					assert.Equal(t, int32(2), *rule.Priority)
 					continue
 				}
 				if *rule.RuleIdentifier == "rule-1" {
-					assert.Equal(t, int64(1), *rule.Priority)
+					assert.Equal(t, int32(1), *rule.Priority)
 					continue
 				}
 				assert.Fail(t, "should not reach this point")
@@ -449,8 +451,8 @@ func Test_RuleManager_WithAdditionalTags_Create(t *testing.T) {
 				},
 			},
 			AdditionalTags: mocks.Tags{
-				"Environment": &[]string{"Test"}[0],
-				"Project":     &[]string{"RuleManager"}[0],
+				"Environment": "Test",
+				"Project":     "RuleManager",
 			},
 		},
 	}
@@ -459,7 +461,7 @@ func Test_RuleManager_WithAdditionalTags_Create(t *testing.T) {
 
 	expectedTags := cloud.MergeTags(cloud.DefaultTags(), r.Spec.AdditionalTags)
 
-	mockLattice.EXPECT().CreateRuleWithContext(ctx, gomock.Any()).DoAndReturn(
+	mockLattice.EXPECT().CreateRule(ctx, gomock.Any()).DoAndReturn(
 		func(ctx context.Context, input *vpclattice.CreateRuleInput, i ...interface{}) (*vpclattice.CreateRuleOutput, error) {
 			assert.Equal(t, expectedTags, input.Tags, "Rule tags should include additional tags")
 
@@ -509,8 +511,8 @@ func Test_RuleManager_WithAdditionalTags_Update(t *testing.T) {
 				},
 			},
 			AdditionalTags: mocks.Tags{
-				"Environment": &[]string{"Prod"}[0],
-				"Project":     &[]string{"RuleUpdate"}[0],
+				"Environment": "Prod",
+				"Project":     "RuleUpdate",
 			},
 		},
 	}
@@ -520,22 +522,22 @@ func Test_RuleManager_WithAdditionalTags_Update(t *testing.T) {
 			{
 				Id:  aws.String("existing-id"),
 				Arn: aws.String("existing-arn"),
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
+				Match: &types.RuleMatchMemberHttpMatch{
+					Value: types.HttpMatch{
 						Method: aws.String("POST"),
 					},
 				},
-				Action: &vpclattice.RuleAction{
-					FixedResponse: &vpclattice.FixedResponseAction{}, // Different action will trigger update
+				Action: &types.RuleActionMemberFixedResponse{
+					Value: types.FixedResponseAction{}, // Different action will trigger update
 				},
 				Name:     aws.String("existing-name"),
-				Priority: aws.Int64(1),
+				Priority: aws.Int32(1),
 			},
 		}, nil)
 
 	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", r.Spec.AdditionalTags, nil).Return(nil)
 
-	mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Return(
+	mockLattice.EXPECT().UpdateRule(ctx, gomock.Any()).Return(
 		&vpclattice.UpdateRuleOutput{
 			Arn:  aws.String("existing-arn"),
 			Id:   aws.String("existing-id"),
@@ -582,8 +584,8 @@ func Test_RuleManager_WithAdditionalTags_UpdateNoActionChange(t *testing.T) {
 				},
 			},
 			AdditionalTags: mocks.Tags{
-				"Environment": &[]string{"Staging"}[0],
-				"Project":     &[]string{"RuleNoUpdate"}[0],
+				"Environment": "Staging",
+				"Project":     "RuleNoUpdate",
 			},
 		},
 	}
@@ -594,23 +596,23 @@ func Test_RuleManager_WithAdditionalTags_UpdateNoActionChange(t *testing.T) {
 			{
 				Id:  aws.String("existing-id"),
 				Arn: aws.String("existing-arn"),
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
+				Match: &types.RuleMatchMemberHttpMatch{
+					Value: types.HttpMatch{
 						Method: aws.String("POST"),
 					},
 				},
-				Action: &vpclattice.RuleAction{
-					Forward: &vpclattice.ForwardAction{
-						TargetGroups: []*vpclattice.WeightedTargetGroup{
+				Action: &types.RuleActionMemberForward{
+					Value: types.ForwardAction{
+						TargetGroups: []types.WeightedTargetGroup{
 							{
 								TargetGroupIdentifier: aws.String("tg-id"),
-								Weight:                aws.Int64(1),
+								Weight:                aws.Int32(1),
 							},
 						},
 					},
 				},
 				Name:     aws.String("existing-name"),
-				Priority: aws.Int64(1),
+				Priority: aws.Int32(1),
 			},
 		}, nil)
 
@@ -618,7 +620,7 @@ func Test_RuleManager_WithAdditionalTags_UpdateNoActionChange(t *testing.T) {
 	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", r.Spec.AdditionalTags, nil).Return(nil)
 
 	// No UpdateRule call expected since action matches
-	mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateRule(ctx, gomock.Any()).Times(0)
 
 	rm := NewRuleManager(gwlog.FallbackLogger, cloud)
 	ruleStatus, err := rm.Upsert(ctx, r, l, svc)
@@ -662,7 +664,7 @@ func Test_RuleManager_WithTakeoverAnnotation_UpdateTags(t *testing.T) {
 				},
 			},
 			AdditionalTags: mocks.Tags{
-				"Environment": &[]string{"Takeover"}[0],
+				"Environment": "Takeover",
 			},
 		},
 	}
@@ -672,23 +674,23 @@ func Test_RuleManager_WithTakeoverAnnotation_UpdateTags(t *testing.T) {
 			{
 				Id:  aws.String("existing-id"),
 				Arn: aws.String("existing-arn"),
-				Match: &vpclattice.RuleMatch{
-					HttpMatch: &vpclattice.HttpMatch{
+				Match: &types.RuleMatchMemberHttpMatch{
+					Value: types.HttpMatch{
 						Method: aws.String("POST"),
 					},
 				},
-				Action: &vpclattice.RuleAction{
-					Forward: &vpclattice.ForwardAction{
-						TargetGroups: []*vpclattice.WeightedTargetGroup{
+				Action: &types.RuleActionMemberForward{
+					Value: types.ForwardAction{
+						TargetGroups: []types.WeightedTargetGroup{
 							{
 								TargetGroupIdentifier: aws.String("tg-id"),
-								Weight:                aws.Int64(1),
+								Weight:                aws.Int32(1),
 							},
 						},
 					},
 				},
 				Name:     aws.String("existing-name"),
-				Priority: aws.Int64(1),
+				Priority: aws.Int32(1),
 			},
 		}, nil)
 
@@ -697,7 +699,7 @@ func Test_RuleManager_WithTakeoverAnnotation_UpdateTags(t *testing.T) {
 	}
 	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", r.Spec.AdditionalTags, expectedAwsManagedTags).Return(nil)
 
-	mockLattice.EXPECT().UpdateRuleWithContext(ctx, gomock.Any()).Times(0)
+	mockLattice.EXPECT().UpdateRule(ctx, gomock.Any()).Times(0)
 
 	rm := NewRuleManager(gwlog.FallbackLogger, cloud)
 	ruleStatus, err := rm.Upsert(ctx, r, l, svc)

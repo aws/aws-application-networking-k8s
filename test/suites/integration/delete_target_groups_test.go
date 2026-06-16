@@ -1,14 +1,15 @@
 package integration
 
 import (
-	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
-	"github.com/aws/aws-sdk-go/aws"
 	"log"
 	"time"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -21,7 +22,7 @@ var _ = Describe("Delete Unused Target Groups", Ordered, func() {
 	var (
 		deployments        = make([]*appsv1.Deployment, 2)
 		services           = make([]*v1.Service, 2)
-		targetGroups       = make([]*vpclattice.TargetGroupSummary, 2)
+		targetGroups       = make([]*types.TargetGroupSummary, 2)
 		pathMatchHttpRoute *gwv1.HTTPRoute
 	)
 
@@ -60,7 +61,7 @@ var _ = Describe("Delete Unused Target Groups", Ordered, func() {
 				g.Expect(len(targets)).To(BeEquivalentTo(*deployments[i].Spec.Replicas))
 				for _, target := range targets {
 					g.Expect(*target.Port).To(BeEquivalentTo(service.Spec.Ports[0].TargetPort.IntVal))
-					g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusHealthy))
+					g.Expect(string(target.Status)).To(Equal(string(types.TargetStatusHealthy)))
 				}
 			}).WithTimeout(3 * time.Minute).WithPolling(3 * time.Second).Should(Succeed())
 
@@ -90,10 +91,10 @@ var _ = Describe("Delete Unused Target Groups", Ordered, func() {
 	})
 })
 
-func verifyTargetGroupDeleted(targetGroup *vpclattice.TargetGroupSummary) {
+func verifyTargetGroupDeleted(targetGroup *types.TargetGroupSummary) {
 	Eventually(func(g Gomega) {
 		log.Println("Verifying VPC lattice target group deleted ", *targetGroup.Id)
-		tg, err := testFramework.LatticeClient.GetTargetGroupWithContext(ctx, &vpclattice.GetTargetGroupInput{
+		tg, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: targetGroup.Id,
 		})
 		if err != nil && services.IsNotFoundError(err) {
@@ -101,7 +102,7 @@ func verifyTargetGroupDeleted(targetGroup *vpclattice.TargetGroupSummary) {
 		}
 
 		// showing up as "deleting" is also fine
-		if aws.StringValue(tg.Status) == vpclattice.TargetGroupStatusDeleteInProgress {
+		if string(tg.Status) == string(types.TargetGroupStatusDeleteInProgress) {
 			return
 		}
 
@@ -109,7 +110,7 @@ func verifyTargetGroupDeleted(targetGroup *vpclattice.TargetGroupSummary) {
 	}).Should(Succeed())
 }
 
-func verifyNoTargetsForTargetGroup(targetGroup *vpclattice.TargetGroupSummary) {
+func verifyNoTargetsForTargetGroup(targetGroup *types.TargetGroupSummary) {
 	Eventually(func(g Gomega) {
 		log.Println("Verifying VPC lattice Targets deregistered")
 		targets, err := testFramework.LatticeClient.ListTargetsAsList(ctx, &vpclattice.ListTargetsInput{
@@ -118,7 +119,7 @@ func verifyNoTargetsForTargetGroup(targetGroup *vpclattice.TargetGroupSummary) {
 		g.Expect(err).To(BeNil())
 		log.Println("targets:", targets)
 		for _, target := range targets {
-			g.Expect(*target.Status).To(Equal(vpclattice.TargetStatusDraining))
+			g.Expect(string(target.Status)).To(Equal(string(types.TargetStatusDraining)))
 		}
 	}).Should(Succeed())
 }

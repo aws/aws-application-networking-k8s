@@ -11,8 +11,8 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -762,12 +762,10 @@ func Test_RuleModelBuild(t *testing.T) {
 				{
 					StackListenerId: "listener-id",
 					Priority:        1,
-					MatchedHeaders: []vpclattice.HeaderMatch{
+					MatchedHeaders: []types.HeaderMatch{
 						{
-							Name: &hdr1,
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value,
-							},
+							Name:  &hdr1,
+							Match: &types.HeaderMatchTypeMemberExact{Value: hdr1Value},
 						},
 					},
 					Action: model.RuleAction{
@@ -829,18 +827,14 @@ func Test_RuleModelBuild(t *testing.T) {
 				{
 					StackListenerId: "listener-id",
 					Priority:        1,
-					MatchedHeaders: []vpclattice.HeaderMatch{
+					MatchedHeaders: []types.HeaderMatch{
 						{
-							Name: &hdr1,
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value,
-							},
+							Name:  &hdr1,
+							Match: &types.HeaderMatchTypeMemberExact{Value: hdr1Value},
 						},
 						{
-							Name: &hdr2,
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr2Value,
-							},
+							Name:  &hdr2,
+							Match: &types.HeaderMatchTypeMemberExact{Value: hdr2Value},
 						},
 					},
 					Action: model.RuleAction{
@@ -909,18 +903,14 @@ func Test_RuleModelBuild(t *testing.T) {
 					PathMatchExact:  true,
 					PathMatchValue:  path1,
 					Priority:        1,
-					MatchedHeaders: []vpclattice.HeaderMatch{
+					MatchedHeaders: []types.HeaderMatch{
 						{
-							Name: &hdr1,
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value,
-							},
+							Name:  &hdr1,
+							Match: &types.HeaderMatchTypeMemberExact{Value: hdr1Value},
 						},
 						{
-							Name: &hdr2,
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr2Value,
-							},
+							Name:  &hdr2,
+							Match: &types.HeaderMatchTypeMemberExact{Value: hdr2Value},
 						},
 					},
 					Action: model.RuleAction{
@@ -989,18 +979,14 @@ func Test_RuleModelBuild(t *testing.T) {
 					PathMatchPrefix: true,
 					PathMatchValue:  path1,
 					Priority:        1,
-					MatchedHeaders: []vpclattice.HeaderMatch{
+					MatchedHeaders: []types.HeaderMatch{
 						{
-							Name: &hdr1,
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr1Value,
-							},
+							Name:  &hdr1,
+							Match: &types.HeaderMatchTypeMemberExact{Value: hdr1Value},
 						},
 						{
-							Name: &hdr2,
-							Match: &vpclattice.HeaderMatchType{
-								Exact: &hdr2Value,
-							},
+							Name:  &hdr2,
+							Match: &types.HeaderMatchTypeMemberExact{Value: hdr2Value},
 						},
 					},
 					Action: model.RuleAction{
@@ -1370,36 +1356,26 @@ func Test_RuleModelBuild(t *testing.T) {
 							},
 						},
 					},
-					MatchedHeaders: []vpclattice.HeaderMatch{
+					MatchedHeaders: []types.HeaderMatch{
 						{
-							Name: aws.String("foo1"),
-							Match: &vpclattice.HeaderMatchType{
-								Exact: aws.String("bar1"),
-							},
+							Name:  aws.String("foo1"),
+							Match: &types.HeaderMatchTypeMemberExact{Value: "bar1"},
 						},
 						{
-							Name: aws.String("foo2"),
-							Match: &vpclattice.HeaderMatchType{
-								Exact: aws.String("bar2"),
-							},
+							Name:  aws.String("foo2"),
+							Match: &types.HeaderMatchTypeMemberExact{Value: "bar2"},
 						},
 						{
-							Name: aws.String("foo3"),
-							Match: &vpclattice.HeaderMatchType{
-								Exact: aws.String("bar3"),
-							},
+							Name:  aws.String("foo3"),
+							Match: &types.HeaderMatchTypeMemberExact{Value: "bar3"},
 						},
 						{
-							Name: aws.String("foo4"),
-							Match: &vpclattice.HeaderMatchType{
-								Exact: aws.String("bar4"),
-							},
+							Name:  aws.String("foo4"),
+							Match: &types.HeaderMatchTypeMemberExact{Value: "bar4"},
 						},
 						{
-							Name: aws.String("foo5"),
-							Match: &vpclattice.HeaderMatchType{
-								Exact: aws.String("bar5"),
-							},
+							Name:  aws.String("foo5"),
+							Match: &types.HeaderMatchTypeMemberExact{Value: "bar5"},
 						},
 					},
 				},
@@ -1789,9 +1765,9 @@ func Test_RuleModelBuild_WithAndWithoutAdditionalTagsAnnotation(t *testing.T) {
 				},
 			}),
 			expectedAdditionalTags: k8s.Tags{
-				"Environment": &[]string{"Prod"}[0],
-				"Project":     &[]string{"RuleTest"}[0],
-				"Team":        &[]string{"Backend"}[0],
+				"Environment": "Prod",
+				"Project":     "RuleTest",
+				"Team":        "Backend",
 			},
 			description: "should set additional tags from HTTPRoute annotations in rule spec",
 		},

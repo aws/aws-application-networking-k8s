@@ -3,7 +3,8 @@ package integration
 import (
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -24,7 +25,7 @@ var _ = Describe("ServiceExport Mutation Test", Ordered, func() {
 			deployment    *appsv1.Deployment
 			service       *v1.Service
 			serviceExport *anv1alpha1.ServiceExport
-			targetGroup   *vpclattice.TargetGroupSummary
+			targetGroup   *types.TargetGroupSummary
 		)
 
 		BeforeEach(func() {
@@ -40,7 +41,7 @@ var _ = Describe("ServiceExport Mutation Test", Ordered, func() {
 			targetGroup = testFramework.GetTargetGroup(ctx, service)
 			Expect(targetGroup).To(Not(BeNil()))
 			Expect(*targetGroup.VpcIdentifier).To(Equal(test.CurrentClusterVpcId))
-			Expect(*targetGroup.Protocol).To(Equal("HTTP"))
+			Expect(string(targetGroup.Protocol)).To(Equal("HTTP"))
 			Eventually(func(g Gomega) {
 				_, retrievedTargets := testFramework.GetAllTargets(ctx, targetGroup, deployment)
 				g.Expect(len(retrievedTargets)).To(Equal(numOfServiceExportAnnotationsDefinedPorts * int(*deployment.Spec.Replicas)))
@@ -67,7 +68,7 @@ var _ = Describe("ServiceExport Mutation Test", Ordered, func() {
 				Expect(len(retrievedTargets)).To(Equal(2))
 				Expect(len(enpoints.Subsets[0].Addresses)).To(Equal(2))
 				ipsFromK8sEndpoints := utils.SliceMap(enpoints.Subsets[0].Addresses, func(addr v1.EndpointAddress) string { return addr.IP })
-				ipsFromLatticeTargets := utils.SliceMap(retrievedTargets, func(target *vpclattice.TargetSummary) string { return *target.Id })
+				ipsFromLatticeTargets := utils.SliceMap(retrievedTargets, func(target types.TargetSummary) string { return *target.Id })
 				Expect(ipsFromK8sEndpoints).To(ConsistOf(ipsFromLatticeTargets))
 
 				//Update Deployment Replicas number to 3
@@ -84,7 +85,7 @@ var _ = Describe("ServiceExport Mutation Test", Ordered, func() {
 					g.Expect(len(retrievedTargets)).To(Equal(3))
 					g.Expect(len(enpoints.Subsets[0].Addresses)).To(Equal(3))
 					ipsFromK8sEndpoints = utils.SliceMap(enpoints.Subsets[0].Addresses, func(addr v1.EndpointAddress) string { return addr.IP })
-					ipsFromLatticeTargets = utils.SliceMap(retrievedTargets, func(target *vpclattice.TargetSummary) string { return *target.Id })
+					ipsFromLatticeTargets = utils.SliceMap(retrievedTargets, func(target types.TargetSummary) string { return *target.Id })
 					g.Expect(ipsFromK8sEndpoints).To(ConsistOf(ipsFromLatticeTargets))
 				}).Should(Succeed())
 

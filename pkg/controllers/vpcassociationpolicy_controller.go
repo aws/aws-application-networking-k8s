@@ -2,12 +2,13 @@ package controllers
 
 import (
 	"context"
-	"time"
+	"errors"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -17,6 +18,7 @@ import (
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	policy "github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
@@ -61,10 +63,26 @@ func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 		gwlog.EndReconcileTrace(ctx, c.log)
 	}()
 
+	recErr := c.reconcile(ctx, req)
+	if recErr != nil {
+		c.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
+	}
+	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
+	if res.RequeueAfter != 0 {
+		c.log.Infow(ctx, "requeue request", "name", req.Name, "requeueAfter", res.RequeueAfter)
+	} else if retryErr != nil && !errors.Is(retryErr, reconcile.TerminalError(nil)) {
+		c.log.Infow(ctx, "requeue request using exponential backoff", "name", req.Name)
+	} else if retryErr == nil {
+		c.log.Infow(ctx, "reconciled", "name", req.Name)
+	}
+	return res, retryErr
+}
+
+func (c *vpcAssociationPolicyReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	k8sPolicy := &anv1alpha1.VpcAssociationPolicy{}
 	err := c.client.Get(ctx, req.NamespacedName, k8sPolicy)
 	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		return client.IgnoreNotFound(err)
 	}
 	c.log.Infow(ctx, "reconcile", "req", req, "targetRef", k8sPolicy.Spec.TargetRef)
 
@@ -77,8 +95,7 @@ func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 		err = c.upsert(ctx, k8sPolicy)
 	}
 	if err != nil {
-		c.log.Infof(ctx, "reconcile error, retry in 30 sec: %s", err)
-		return ctrl.Result{RequeueAfter: time.Second * 30}, nil
+		return err
 	}
 
 	c.log.Infow(ctx, "reconciled vpc association policy",
@@ -86,7 +103,7 @@ func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 		"targetRef", k8sPolicy.Spec.TargetRef,
 		"isDeleted", isDelete,
 	)
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *anv1alpha1.VpcAssociationPolicy) error {
@@ -103,9 +120,8 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 		return err
 	}
 	snName := string(k8sPolicy.Spec.TargetRef.Name)
-	sgIds := utils.SliceMap(k8sPolicy.Spec.SecurityGroupIds, func(sg anv1alpha1.SecurityGroupId) *string {
-		str := string(sg)
-		return &str
+	sgIds := utils.SliceMap(k8sPolicy.Spec.SecurityGroupIds, func(sg anv1alpha1.SecurityGroupId) string {
+		return string(sg)
 	})
 
 	additionalTags := k8s.GetAdditionalTagsFromAnnotations(ctx, k8sPolicy)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
-	"github.com/aws/aws-sdk-go/aws"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -56,7 +55,7 @@ var (
 	tagPattern = regexp.MustCompile(`^([\p{L}\p{Z}\p{N}_.:\/=+\-@]*)$`)
 )
 
-type Tags = map[string]*string
+type Tags = map[string]string
 
 // NamespacedName returns the namespaced name for k8s objects
 func NamespacedName(obj client.Object) types.NamespacedName {
@@ -403,23 +402,23 @@ func ParseTagsFromAnnotation(annotationValue string) Tags {
 			break
 		}
 
-		tags[key] = aws.String(value)
+		tags[key] = value
 	}
 	return tags
 }
 
-func CalculateTagDifference(currentTags Tags, desiredTags Tags) (tagsToAdd Tags, tagsToRemove []*string) {
+func CalculateTagDifference(currentTags Tags, desiredTags Tags) (tagsToAdd Tags, tagsToRemove []string) {
 	tagsToAdd = make(Tags)
-	tagsToRemove = make([]*string, 0)
+	tagsToRemove = make([]string, 0)
 
 	for key := range currentTags {
 		if _, exists := desiredTags[key]; !exists {
-			tagsToRemove = append(tagsToRemove, aws.String(key))
+			tagsToRemove = append(tagsToRemove, key)
 		}
 	}
 
 	for key, value := range desiredTags {
-		if currentValue, exists := currentTags[key]; !exists || *currentValue != *value {
+		if currentValue, exists := currentTags[key]; !exists || currentValue != value {
 			tagsToAdd[key] = value
 		}
 	}
