@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -26,7 +26,7 @@ func TestHealthCheckConfigResolver_ResolveHealthCheckConfig(t *testing.T) {
 	tests := []struct {
 		name           string
 		targetGroup    *model.TargetGroup
-		expectedConfig *vpclattice.HealthCheckConfig
+		expectedConfig *types.HealthCheckConfig
 	}{
 		{
 			name: "ServiceExport target group with no applicable policy",
@@ -119,7 +119,7 @@ func TestHealthCheckConfigResolver_convertPolicyToHealthCheckConfig(t *testing.T
 	tests := []struct {
 		name           string
 		policy         *anv1alpha1.TargetGroupPolicy
-		expectedConfig *vpclattice.HealthCheckConfig
+		expectedConfig *types.HealthCheckConfig
 	}{
 		{
 			name:           "nil policy should return nil",
@@ -153,17 +153,17 @@ func TestHealthCheckConfigResolver_convertPolicyToHealthCheckConfig(t *testing.T
 					},
 				},
 			},
-			expectedConfig: &vpclattice.HealthCheckConfig{
+			expectedConfig: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
-				HealthCheckIntervalSeconds: aws.Int64(15),
-				HealthCheckTimeoutSeconds:  aws.Int64(10),
-				HealthyThresholdCount:      aws.Int64(5),
-				UnhealthyThresholdCount:    aws.Int64(3),
+				HealthCheckIntervalSeconds: aws.Int32(15),
+				HealthCheckTimeoutSeconds:  aws.Int32(10),
+				HealthyThresholdCount:      aws.Int32(5),
+				UnhealthyThresholdCount:    aws.Int32(3),
 				Path:                       aws.String("/api/health"),
-				Port:                       aws.Int64(9090),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200")},
-				Protocol:                   aws.String("HTTPS"),
-				ProtocolVersion:            aws.String("HTTP2"),
+				Port:                       aws.Int32(9090),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200"},
+				Protocol:                   types.TargetGroupProtocol("HTTPS"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP2"),
 			},
 		},
 		{
@@ -177,7 +177,7 @@ func TestHealthCheckConfigResolver_convertPolicyToHealthCheckConfig(t *testing.T
 					},
 				},
 			},
-			expectedConfig: &vpclattice.HealthCheckConfig{
+			expectedConfig: &types.HealthCheckConfig{
 				Enabled: aws.Bool(false),
 				Path:    aws.String("/status"),
 				// Other fields should be nil
@@ -194,7 +194,7 @@ func TestHealthCheckConfigResolver_convertPolicyToHealthCheckConfig(t *testing.T
 					},
 				},
 			},
-			expectedConfig: &vpclattice.HealthCheckConfig{
+			expectedConfig: &types.HealthCheckConfig{
 				Enabled: aws.Bool(true),
 				Path:    aws.String("/health"),
 				Matcher: nil, // Should be nil when StatusMatch is not provided
@@ -219,7 +219,7 @@ func Test_ResolveHealthCheckConfig_WithPolicies(t *testing.T) {
 		name           string
 		targetGroup    *model.TargetGroup
 		policies       []anv1alpha1.TargetGroupPolicy
-		expectedConfig *vpclattice.HealthCheckConfig
+		expectedConfig *types.HealthCheckConfig
 		expectError    bool
 	}{
 		{
@@ -259,16 +259,16 @@ func Test_ResolveHealthCheckConfig_WithPolicies(t *testing.T) {
 					},
 				},
 			},
-			expectedConfig: &vpclattice.HealthCheckConfig{
+			expectedConfig: &types.HealthCheckConfig{
 				Enabled:                    aws.Bool(true),
 				Path:                       aws.String("/api/health"),
-				HealthCheckIntervalSeconds: aws.Int64(15),
-				HealthCheckTimeoutSeconds:  aws.Int64(10),
-				HealthyThresholdCount:      aws.Int64(3),
-				UnhealthyThresholdCount:    aws.Int64(2),
-				Matcher:                    &vpclattice.Matcher{HttpCode: aws.String("200-299")},
-				Protocol:                   aws.String("HTTP"),
-				ProtocolVersion:            aws.String("HTTP1"),
+				HealthCheckIntervalSeconds: aws.Int32(15),
+				HealthCheckTimeoutSeconds:  aws.Int32(10),
+				HealthyThresholdCount:      aws.Int32(3),
+				UnhealthyThresholdCount:    aws.Int32(2),
+				Matcher:                    &types.MatcherMemberHttpCode{Value: "200-299"},
+				Protocol:                   types.TargetGroupProtocol("HTTP"),
+				ProtocolVersion:            types.HealthCheckProtocolVersion("HTTP1"),
 			},
 			expectError: false,
 		},
@@ -303,10 +303,10 @@ func Test_ResolveHealthCheckConfig_WithPolicies(t *testing.T) {
 					},
 				},
 			},
-			expectedConfig: &vpclattice.HealthCheckConfig{
+			expectedConfig: &types.HealthCheckConfig{
 				Enabled: aws.Bool(false),
 				Path:    aws.String("/custom/health"),
-				Port:    aws.Int64(9090),
+				Port:    aws.Int32(9090),
 			},
 			expectError: false,
 		},
@@ -357,7 +357,7 @@ func Test_ResolveHealthCheckConfig_WithPolicies(t *testing.T) {
 					},
 				},
 			},
-			expectedConfig: &vpclattice.HealthCheckConfig{
+			expectedConfig: &types.HealthCheckConfig{
 				Enabled: aws.Bool(true),
 				Path:    aws.String("/service/health"),
 			},
@@ -522,43 +522,43 @@ func Test_ResolveHealthCheckConfig_ProtocolConversion(t *testing.T) {
 		name             string
 		policyProtocol   *anv1alpha1.HealthCheckProtocol
 		policyVersion    *anv1alpha1.HealthCheckProtocolVersion
-		expectedProtocol *string
-		expectedVersion  *string
+		expectedProtocol types.TargetGroupProtocol
+		expectedVersion  types.HealthCheckProtocolVersion
 	}{
 		{
 			name:             "HTTP protocol conversion",
 			policyProtocol:   (*anv1alpha1.HealthCheckProtocol)(aws.String("HTTP")),
 			policyVersion:    (*anv1alpha1.HealthCheckProtocolVersion)(aws.String("HTTP1")),
-			expectedProtocol: aws.String("HTTP"),
-			expectedVersion:  aws.String("HTTP1"),
+			expectedProtocol: types.TargetGroupProtocol("HTTP"),
+			expectedVersion:  types.HealthCheckProtocolVersion("HTTP1"),
 		},
 		{
 			name:             "HTTPS protocol conversion",
 			policyProtocol:   (*anv1alpha1.HealthCheckProtocol)(aws.String("HTTPS")),
 			policyVersion:    (*anv1alpha1.HealthCheckProtocolVersion)(aws.String("HTTP2")),
-			expectedProtocol: aws.String("HTTPS"),
-			expectedVersion:  aws.String("HTTP2"),
+			expectedProtocol: types.TargetGroupProtocol("HTTPS"),
+			expectedVersion:  types.HealthCheckProtocolVersion("HTTP2"),
 		},
 		{
-			name:             "nil protocol should result in nil",
+			name:             "nil protocol should result in empty",
 			policyProtocol:   nil,
 			policyVersion:    nil,
-			expectedProtocol: nil,
-			expectedVersion:  nil,
+			expectedProtocol: "",
+			expectedVersion:  "",
 		},
 		{
 			name:             "only protocol specified",
 			policyProtocol:   (*anv1alpha1.HealthCheckProtocol)(aws.String("HTTP")),
 			policyVersion:    nil,
-			expectedProtocol: aws.String("HTTP"),
-			expectedVersion:  nil,
+			expectedProtocol: types.TargetGroupProtocol("HTTP"),
+			expectedVersion:  "",
 		},
 		{
 			name:             "only version specified",
 			policyProtocol:   nil,
 			policyVersion:    (*anv1alpha1.HealthCheckProtocolVersion)(aws.String("HTTP1")),
-			expectedProtocol: nil,
-			expectedVersion:  aws.String("HTTP1"),
+			expectedProtocol: "",
+			expectedVersion:  types.HealthCheckProtocolVersion("HTTP1"),
 		},
 	}
 

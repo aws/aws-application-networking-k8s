@@ -5,25 +5,28 @@ import (
 	"fmt"
 	"time"
 
+	"slices"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/acm"
-	"github.com/aws/aws-sdk-go/service/route53"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	acm "github.com/aws/aws-sdk-go-v2/service/acm"
+	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
+	route53 "github.com/aws/aws-sdk-go-v2/service/route53"
+	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"slices"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-var _ = Describe("ACM certificate discovery", Ordered, func() {
+var _ = Describe("ACM certificate discovery", Serial, Ordered, func() {
 
 	const (
 		hostedZoneName = "cert-discovery-e2e.com"
@@ -33,10 +36,9 @@ var _ = Describe("ACM certificate discovery", Ordered, func() {
 
 	var (
 		log       = testFramework.Log.Named("cert-discovery")
-		awsCfg    = aws.NewConfig().WithRegion(config.Region)
-		sess, _   = session.NewSession(awsCfg)
-		acmClient = acm.New(sess, awsCfg)
-		r53Client = route53.New(sess)
+		awsCfg = lo.Must(awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(config.Region)))
+		acmClient = acm.NewFromConfig(awsCfg)
+		r53Client = route53.NewFromConfig(awsCfg)
 
 		certArn       string
 		hostedZoneId  string
@@ -56,13 +58,13 @@ var _ = Describe("ACM certificate discovery", Ordered, func() {
 
 		// Wait for cert to appear in ListCertificates
 		Eventually(func(g Gomega) {
-			out, err := acmClient.ListCertificates(&acm.ListCertificatesInput{
-				CertificateStatuses: []*string{aws.String(acm.CertificateStatusIssued)},
+			out, err := acmClient.ListCertificates(context.TODO(), &acm.ListCertificatesInput{
+				CertificateStatuses: []acmtypes.CertificateStatus{acmtypes.CertificateStatusIssued},
 			})
 			g.Expect(err).To(BeNil())
 			found := false
 			for _, c := range out.CertificateSummaryList {
-				if aws.StringValue(c.CertificateArn) == certArn {
+				if aws.ToString(c.CertificateArn) == certArn {
 					found = true
 					break
 				}
@@ -109,7 +111,7 @@ var _ = Describe("ACM certificate discovery", Ordered, func() {
 		// Verify the controller attached the discovered cert to the Lattice service
 		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(gwv1.HTTPRoute(*httpRoute)))
 		Eventually(func(g Gomega) {
-			out, err := testFramework.LatticeClient.GetService(&vpclattice.GetServiceInput{
+			out, err := testFramework.LatticeClient.GetService(ctx, &vpclattice.GetServiceInput{
 				ServiceIdentifier: svc.Id,
 			})
 			g.Expect(err).To(BeNil())
@@ -142,11 +144,25 @@ var _ = Describe("ACM certificate discovery", Ordered, func() {
 
 		testFramework.ExpectDeletedThenNotFound(context.TODO(), httpRoute, service, deployment)
 
+		// Wait for the Lattice service to be deleted before removing the gateway listener.
+		Eventually(func() error {
+			_, err := testFramework.LatticeClient.FindService(ctx, fmt.Sprintf("%s-%s", httpRoute.Name, httpRoute.Namespace))
+			if err != nil {
+				if services.IsNotFoundError(err) {
+					return nil // confirmed deleted
+				}
+				return err // transient error — retry
+			}
+			return fmt.Errorf("lattice service for route %s still exists", httpRoute.Name)
+		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+		log.Infof(ctx, "lattice service deleted")
+
 		removeGatewayCertDiscoveryListener()
 		log.Infof(ctx, "removed cert-discovery listener from gateway")
 
-		err = deleteCert(acmClient, certArn)
-		Expect(err).To(BeNil())
+		Eventually(func() error {
+			return deleteCert(acmClient, certArn)
+		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 		log.Infof(ctx, "removed cert from acm, arn: %s", certArn)
 	})
 })

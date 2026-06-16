@@ -26,9 +26,9 @@ type ServiceNetworkSpec struct {
 }
 
 type ServiceNetworkStatus struct {
-	ServiceNetworkARN    string    `json:"servicenetworkARN"`
-	ServiceNetworkID     string    `json:"servicenetworkID"`
-	SnvaSecurityGroupIds []*string `json:"securityGroupIds"`
+	ServiceNetworkARN    string   `json:"servicenetworkARN"`
+	ServiceNetworkID     string   `json:"servicenetworkID"`
+	SnvaSecurityGroupIds []string `json:"securityGroupIds"`
 }
 
 func NewServiceNetwork(stack core.Stack, id string, spec ServiceNetworkSpec) *ServiceNetwork {

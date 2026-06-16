@@ -1,14 +1,16 @@
 package integration
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strings"
 
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -39,126 +41,126 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 	)
 
 	It("Create lattice resources simulating HttpRoute created by blue controller", func() {
-		serviceResp, err := testFramework.LatticeClient.CreateService(&vpclattice.CreateServiceInput{
+		serviceResp, err := testFramework.LatticeClient.CreateService(ctx, &vpclattice.CreateServiceInput{
 			Name: aws.String(serviceName),
-			Tags: map[string]*string{
-				"application-networking.k8s.aws/ManagedBy":      aws.String(originalManagedBy),
-				"application-networking.k8s.aws/RouteName":      aws.String("inventory"),
-				"application-networking.k8s.aws/RouteNamespace": aws.String(k8snamespace),
-				"application-networking.k8s.aws/RouteType":      aws.String("http"),
-				"application-networking.k8s.aws/ClusterName":    aws.String("blue-cluster"),
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy":      originalManagedBy,
+				"application-networking.k8s.aws/RouteName":      "inventory",
+				"application-networking.k8s.aws/RouteNamespace": k8snamespace,
+				"application-networking.k8s.aws/RouteType":      "http",
+				"application-networking.k8s.aws/ClusterName":    "blue-cluster",
 			},
 		})
 		Expect(err).To(BeNil())
 		preCreatedServiceArn = serviceResp.Arn
 
 		Eventually(func(g Gomega) {
-			getServiceResp, err := testFramework.LatticeClient.GetService(&vpclattice.GetServiceInput{
+			getServiceResp, err := testFramework.LatticeClient.GetService(ctx, &vpclattice.GetServiceInput{
 				ServiceIdentifier: preCreatedServiceArn,
 			})
 			g.Expect(err).To(BeNil())
-			g.Expect(*getServiceResp.Status).To(Equal("ACTIVE"))
+			g.Expect(string(getServiceResp.Status)).To(Equal("ACTIVE"))
 		}).Should(Succeed())
 
-		listenerResp, err := testFramework.LatticeClient.CreateListener(&vpclattice.CreateListenerInput{
+		listenerResp, err := testFramework.LatticeClient.CreateListener(ctx, &vpclattice.CreateListenerInput{
 			ServiceIdentifier: preCreatedServiceArn,
 			Name:              aws.String("inventory-listener"),
-			Protocol:          aws.String("HTTP"),
-			Port:              aws.Int64(80),
-			DefaultAction: &vpclattice.RuleAction{
-				FixedResponse: &vpclattice.FixedResponseAction{
-					StatusCode: aws.Int64(404),
+			Protocol:          types.ListenerProtocolHttp,
+			Port:              aws.Int32(80),
+			DefaultAction: &types.RuleActionMemberFixedResponse{
+				Value: types.FixedResponseAction{
+					StatusCode: aws.Int32(404),
 				},
 			},
-			Tags: map[string]*string{
-				"application-networking.k8s.aws/ManagedBy": aws.String(originalManagedBy),
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": originalManagedBy,
 			},
 		})
 		Expect(err).To(BeNil())
 		preCreatedListenerArn = listenerResp.Arn
 
-		targetGroupResp, err := testFramework.LatticeClient.CreateTargetGroup(&vpclattice.CreateTargetGroupInput{
+		targetGroupResp, err := testFramework.LatticeClient.CreateTargetGroup(ctx, &vpclattice.CreateTargetGroupInput{
 			Name: aws.String("inventory-takeover-tg"),
-			Type: aws.String("IP"),
-			Config: &vpclattice.TargetGroupConfig{
-				Protocol:      aws.String("HTTP"),
-				Port:          aws.Int64(80),
+			Type: types.TargetGroupTypeIp,
+			Config: &types.TargetGroupConfig{
+				Protocol:      types.TargetGroupProtocolHttp,
+				Port:          aws.Int32(80),
 				VpcIdentifier: aws.String(testFramework.Cloud.Config().VpcId),
 			},
-			Tags: map[string]*string{
-				"application-networking.k8s.aws/ManagedBy": aws.String(originalManagedBy),
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": originalManagedBy,
 			},
 		})
 		Expect(err).To(BeNil())
 		preCreatedTargetGroupArn = targetGroupResp.Arn
 
 		Eventually(func(g Gomega) {
-			getTargetGroupResp, err := testFramework.LatticeClient.GetTargetGroup(&vpclattice.GetTargetGroupInput{
+			getTargetGroupResp, err := testFramework.LatticeClient.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 				TargetGroupIdentifier: preCreatedTargetGroupArn,
 			})
 			g.Expect(err).To(BeNil())
-			g.Expect(*getTargetGroupResp.Status).To(Equal("ACTIVE"))
+			g.Expect(string(getTargetGroupResp.Status)).To(Equal("ACTIVE"))
 		}).Should(Succeed())
 
-		_, err = testFramework.LatticeClient.RegisterTargets(&vpclattice.RegisterTargetsInput{
+		_, err = testFramework.LatticeClient.RegisterTargets(ctx, &vpclattice.RegisterTargetsInput{
 			TargetGroupIdentifier: preCreatedTargetGroupArn,
-			Targets: []*vpclattice.Target{
+			Targets: []types.Target{
 				{
 					Id:   aws.String("192.168.1.100"),
-					Port: aws.Int64(8090),
+					Port: aws.Int32(8090),
 				},
 			},
 		})
 		Expect(err).To(BeNil())
 
-		ruleResp, err := testFramework.LatticeClient.CreateRule(&vpclattice.CreateRuleInput{
+		ruleResp, err := testFramework.LatticeClient.CreateRule(ctx, &vpclattice.CreateRuleInput{
 			ServiceIdentifier:  preCreatedServiceArn,
 			ListenerIdentifier: preCreatedListenerArn,
 			Name:               aws.String("inventory-rule"),
-			Priority:           aws.Int64(1),
-			Match: &vpclattice.RuleMatch{
-				HttpMatch: &vpclattice.HttpMatch{
-					PathMatch: &vpclattice.PathMatch{
-						Match: &vpclattice.PathMatchType{
-							Prefix: aws.String("/"),
+			Priority:           aws.Int32(1),
+			Match: &types.RuleMatchMemberHttpMatch{
+				Value: types.HttpMatch{
+					PathMatch: &types.PathMatch{
+						Match: &types.PathMatchTypeMemberPrefix{
+							Value: "/",
 						},
 						CaseSensitive: aws.Bool(true),
 					},
 				},
 			},
-			Action: &vpclattice.RuleAction{
-				Forward: &vpclattice.ForwardAction{
-					TargetGroups: []*vpclattice.WeightedTargetGroup{
+			Action: &types.RuleActionMemberForward{
+				Value: types.ForwardAction{
+					TargetGroups: []types.WeightedTargetGroup{
 						{
 							TargetGroupIdentifier: preCreatedTargetGroupArn,
-							Weight:                aws.Int64(100),
+							Weight:                aws.Int32(100),
 						},
 					},
 				},
 			},
-			Tags: map[string]*string{
-				"application-networking.k8s.aws/ManagedBy": aws.String(originalManagedBy),
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": originalManagedBy,
 			},
 		})
 		Expect(err).To(BeNil())
 		preCreatedRuleArn = ruleResp.Arn
 
-		associationResp, err := testFramework.LatticeClient.CreateServiceNetworkServiceAssociation(&vpclattice.CreateServiceNetworkServiceAssociationInput{
+		associationResp, err := testFramework.LatticeClient.CreateServiceNetworkServiceAssociation(ctx, &vpclattice.CreateServiceNetworkServiceAssociationInput{
 			ServiceIdentifier:        preCreatedServiceArn,
 			ServiceNetworkIdentifier: testServiceNetwork.Id,
-			Tags: map[string]*string{
-				"application-networking.k8s.aws/ManagedBy": aws.String(originalManagedBy),
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": originalManagedBy,
 			},
 		})
 		Expect(err).To(BeNil())
 		preCreatedAssociationArn = associationResp.Arn
 
 		Eventually(func(g Gomega) {
-			getAssocResp, err := testFramework.LatticeClient.GetServiceNetworkServiceAssociation(&vpclattice.GetServiceNetworkServiceAssociationInput{
+			getAssocResp, err := testFramework.LatticeClient.GetServiceNetworkServiceAssociation(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
 				ServiceNetworkServiceAssociationIdentifier: preCreatedAssociationArn,
 			})
 			g.Expect(err).To(BeNil())
-			g.Expect(*getAssocResp.Status).To(Equal("ACTIVE"))
+			g.Expect(string(getAssocResp.Status)).To(Equal("ACTIVE"))
 		}).Should(Succeed())
 	})
 
@@ -260,7 +262,7 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 			testFramework.Cloud.Config().VpcId)
 
 		Eventually(func(g Gomega) {
-			getRuleResp, err := testFramework.LatticeClient.GetRule(&vpclattice.GetRuleInput{
+			getRuleResp, err := testFramework.LatticeClient.GetRule(ctx, &vpclattice.GetRuleInput{
 				ServiceIdentifier:  preCreatedServiceArn,
 				ListenerIdentifier: preCreatedListenerArn,
 				RuleIdentifier:     preCreatedRuleArn,
@@ -268,47 +270,48 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 			g.Expect(err).To(BeNil())
 
 			// Verify service ManagedBy tag updated
-			serviceTags, err := testFramework.LatticeClient.ListTagsForResource(&vpclattice.ListTagsForResourceInput{
+			serviceTags, err := testFramework.LatticeClient.ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{
 				ResourceArn: preCreatedServiceArn,
 			})
 			g.Expect(err).To(BeNil())
 			managedByTag := serviceTags.Tags["application-networking.k8s.aws/ManagedBy"]
-			g.Expect(*managedByTag).To(Equal(currentManagedBy))
+			g.Expect(managedByTag).To(Equal(currentManagedBy))
 
 			// Verify rule now has 2 target groups
-			g.Expect(getRuleResp.Action.Forward).ToNot(BeNil())
-			g.Expect(len(getRuleResp.Action.Forward.TargetGroups)).To(Equal(2))
-			g.Expect(*getRuleResp.Action.Forward.TargetGroups[0].Weight).To(Equal(int64(50)))
-			g.Expect(*getRuleResp.Action.Forward.TargetGroups[1].Weight).To(Equal(int64(50)))
+			forwardAction, ok := getRuleResp.Action.(*types.RuleActionMemberForward)
+			g.Expect(ok).To(BeTrue())
+			g.Expect(len(forwardAction.Value.TargetGroups)).To(Equal(2))
+			g.Expect(*forwardAction.Value.TargetGroups[0].Weight).To(Equal(int32(50)))
+			g.Expect(*forwardAction.Value.TargetGroups[1].Weight).To(Equal(int32(50)))
 
 			// Verify original target group is no longer referenced in the rule
-			for _, tg := range getRuleResp.Action.Forward.TargetGroups {
+			for _, tg := range forwardAction.Value.TargetGroups {
 				g.Expect(*tg.TargetGroupIdentifier).ToNot(Equal(*preCreatedTargetGroupArn))
 			}
 
 			// Verify rule ManagedBy tag updated
-			ruleTags, err := testFramework.LatticeClient.ListTagsForResource(&vpclattice.ListTagsForResourceInput{
+			ruleTags, err := testFramework.LatticeClient.ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{
 				ResourceArn: preCreatedRuleArn,
 			})
 			g.Expect(err).To(BeNil())
 			ruleManagedByTag := ruleTags.Tags["application-networking.k8s.aws/ManagedBy"]
-			g.Expect(*ruleManagedByTag).To(Equal(currentManagedBy))
+			g.Expect(ruleManagedByTag).To(Equal(currentManagedBy))
 
 			// Verify listener ManagedBy tag updated
-			listenerTags, err := testFramework.LatticeClient.ListTagsForResource(&vpclattice.ListTagsForResourceInput{
+			listenerTags, err := testFramework.LatticeClient.ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{
 				ResourceArn: preCreatedListenerArn,
 			})
 			g.Expect(err).To(BeNil())
 			listenerManagedByTag := listenerTags.Tags["application-networking.k8s.aws/ManagedBy"]
-			g.Expect(*listenerManagedByTag).To(Equal(currentManagedBy))
+			g.Expect(listenerManagedByTag).To(Equal(currentManagedBy))
 
 			// Verify service network service association ManagedBy tag updated
-			assocTags, err := testFramework.LatticeClient.ListTagsForResource(&vpclattice.ListTagsForResourceInput{
+			assocTags, err := testFramework.LatticeClient.ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{
 				ResourceArn: preCreatedAssociationArn,
 			})
 			g.Expect(err).To(BeNil())
 			assocManagedByTag := assocTags.Tags["application-networking.k8s.aws/ManagedBy"]
-			g.Expect(*assocManagedByTag).To(Equal(currentManagedBy))
+			g.Expect(assocManagedByTag).To(Equal(currentManagedBy))
 
 		}).Should(Succeed())
 	})
@@ -321,41 +324,44 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 			testFramework.ExpectDeletedThenNotFound(ctx, deployment1, service1, deployment2, service2)
 		}
 		if preCreatedRuleArn != nil {
-			_, err := testFramework.LatticeClient.DeleteRule(&vpclattice.DeleteRuleInput{
+			_, err := testFramework.LatticeClient.DeleteRule(ctx, &vpclattice.DeleteRuleInput{
 				ServiceIdentifier:  preCreatedServiceArn,
 				ListenerIdentifier: preCreatedListenerArn,
 				RuleIdentifier:     preCreatedRuleArn,
 			})
 			if err != nil {
-				if reqErr, ok := err.(awserr.RequestFailure); !ok || reqErr.StatusCode() != 404 {
+				var respErr *smithyhttp.ResponseError
+				if !errors.As(err, &respErr) || respErr.HTTPStatusCode() != 404 {
 					log.Printf("Failed to delete rule %s: %v", *preCreatedRuleArn, err)
 				}
 			}
 		}
 
 		if preCreatedListenerArn != nil {
-			_, err := testFramework.LatticeClient.DeleteListener(&vpclattice.DeleteListenerInput{
+			_, err := testFramework.LatticeClient.DeleteListener(ctx, &vpclattice.DeleteListenerInput{
 				ServiceIdentifier:  preCreatedServiceArn,
 				ListenerIdentifier: preCreatedListenerArn,
 			})
 			if err != nil {
-				if reqErr, ok := err.(awserr.RequestFailure); !ok || reqErr.StatusCode() != 404 {
+				var respErr *smithyhttp.ResponseError
+				if !errors.As(err, &respErr) || respErr.HTTPStatusCode() != 404 {
 					log.Printf("Failed to delete listener %s: %v", *preCreatedListenerArn, err)
 				}
 			}
 		}
 
 		if preCreatedAssociationArn != nil {
-			_, err := testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(&vpclattice.DeleteServiceNetworkServiceAssociationInput{
+			_, err := testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx, &vpclattice.DeleteServiceNetworkServiceAssociationInput{
 				ServiceNetworkServiceAssociationIdentifier: preCreatedAssociationArn,
 			})
 			if err != nil {
-				if reqErr, ok := err.(awserr.RequestFailure); !ok || reqErr.StatusCode() != 404 {
+				var respErr *smithyhttp.ResponseError
+				if !errors.As(err, &respErr) || respErr.HTTPStatusCode() != 404 {
 					log.Printf("Failed to delete association %s: %v", *preCreatedAssociationArn, err)
 				}
 			} else {
 				Eventually(func(g Gomega) {
-					_, err := testFramework.LatticeClient.GetServiceNetworkServiceAssociation(&vpclattice.GetServiceNetworkServiceAssociationInput{
+					_, err := testFramework.LatticeClient.GetServiceNetworkServiceAssociation(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
 						ServiceNetworkServiceAssociationIdentifier: preCreatedAssociationArn,
 					})
 					g.Expect(err).To(HaveOccurred())
@@ -364,37 +370,40 @@ var _ = Describe("Service Takeover Test", Ordered, func() {
 		}
 
 		if preCreatedServiceArn != nil {
-			_, err := testFramework.LatticeClient.DeleteService(&vpclattice.DeleteServiceInput{
+			_, err := testFramework.LatticeClient.DeleteService(ctx, &vpclattice.DeleteServiceInput{
 				ServiceIdentifier: preCreatedServiceArn,
 			})
 			if err != nil {
-				if reqErr, ok := err.(awserr.RequestFailure); !ok || reqErr.StatusCode() != 404 {
+				var respErr *smithyhttp.ResponseError
+				if !errors.As(err, &respErr) || respErr.HTTPStatusCode() != 404 {
 					log.Printf("Failed to delete service %s: %v", *preCreatedServiceArn, err)
 				}
 			}
 		}
 
 		if preCreatedTargetGroupArn != nil {
-			_, err := testFramework.LatticeClient.DeregisterTargets(&vpclattice.DeregisterTargetsInput{
+			_, err := testFramework.LatticeClient.DeregisterTargets(ctx, &vpclattice.DeregisterTargetsInput{
 				TargetGroupIdentifier: preCreatedTargetGroupArn,
-				Targets: []*vpclattice.Target{
+				Targets: []types.Target{
 					{
 						Id:   aws.String("192.168.1.100"),
-						Port: aws.Int64(8090),
+						Port: aws.Int32(8090),
 					},
 				},
 			})
 			if err != nil {
-				if reqErr, ok := err.(awserr.RequestFailure); !ok || reqErr.StatusCode() != 404 {
+				var respErr *smithyhttp.ResponseError
+				if !errors.As(err, &respErr) || respErr.HTTPStatusCode() != 404 {
 					log.Printf("Failed to deregister targets from %s: %v", *preCreatedTargetGroupArn, err)
 				}
 			}
 
-			_, err = testFramework.LatticeClient.DeleteTargetGroup(&vpclattice.DeleteTargetGroupInput{
+			_, err = testFramework.LatticeClient.DeleteTargetGroup(ctx, &vpclattice.DeleteTargetGroupInput{
 				TargetGroupIdentifier: preCreatedTargetGroupArn,
 			})
 			if err != nil {
-				if reqErr, ok := err.(awserr.RequestFailure); !ok || reqErr.StatusCode() != 404 {
+				var respErr *smithyhttp.ResponseError
+				if !errors.As(err, &respErr) || respErr.HTTPStatusCode() != 404 {
 					log.Printf("Failed to delete target group %s: %v", *preCreatedTargetGroupArn, err)
 				}
 			}

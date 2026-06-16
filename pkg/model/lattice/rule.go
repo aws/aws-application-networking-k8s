@@ -3,7 +3,7 @@ package lattice
 import (
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -23,16 +23,16 @@ const (
 )
 
 type RuleSpec struct {
-	StackListenerId string                   `json:"stacklistenerid"`
-	PathMatchValue  string                   `json:"pathmatchvalue"`
-	PathMatchExact  bool                     `json:"pathmatchexact"`
-	PathMatchPrefix bool                     `json:"pathmatchprefix"`
-	MatchedHeaders  []vpclattice.HeaderMatch `json:"matchedheaders"`
-	Method          string                   `json:"method"`
-	Priority        int64                    `json:"priority"`
-	Action          RuleAction               `json:"action"`
-	CreateTime      time.Time                `json:"createtime"`
-	AdditionalTags  services.Tags            `json:"additionaltags,omitempty"`
+	StackListenerId string              `json:"stacklistenerid"`
+	PathMatchValue  string              `json:"pathmatchvalue"`
+	PathMatchExact  bool                `json:"pathmatchexact"`
+	PathMatchPrefix bool                `json:"pathmatchprefix"`
+	MatchedHeaders  []types.HeaderMatch `json:"matchedheaders"`
+	Method          string              `json:"method"`
+	Priority        int64               `json:"priority"`
+	Action          RuleAction          `json:"action"`
+	CreateTime      time.Time           `json:"createtime"`
+	AdditionalTags  services.Tags       `json:"additionaltags,omitempty"`
 }
 
 type RuleAction struct {
