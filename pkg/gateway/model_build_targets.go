@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	discoveryv1 "k8s.io/api/discovery/v1"
 )
 
@@ -188,30 +188,30 @@ func (t *latticeTargetsModelBuildTask) getTargetListFromEndpoints(ctx context.Co
 		for _, port := range epSlice.Ports {
 			// Note that the Endpoint's port name is from ServicePort, but the actual registered port
 			// is from Pods(targets).
-			if _, ok := servicePortNames[aws.StringValue(port.Name)]; ok || skipMatch {
+			if _, ok := servicePortNames[aws.ToString(port.Name)]; ok || skipMatch {
 				for _, ep := range epSlice.Endpoints {
 					// Log endpoint conditions for debugging
 					t.log.Debugf(ctx, "Endpoint conditions - Ready: %v, Serving: %v, Terminating: %v",
-						aws.BoolValue(ep.Conditions.Ready),
-						aws.BoolValue(ep.Conditions.Serving),
-						aws.BoolValue(ep.Conditions.Terminating))
+						aws.ToBool(ep.Conditions.Ready),
+						aws.ToBool(ep.Conditions.Serving),
+						aws.ToBool(ep.Conditions.Terminating))
 
 					for _, address := range ep.Addresses {
 						// Do not model terminating endpoints so that they can deregister.
-						if aws.BoolValue(ep.Conditions.Terminating) {
+						if aws.ToBool(ep.Conditions.Terminating) {
 							t.log.Debugf(ctx, "Skipping terminating endpoint %s", address)
 							continue
 						}
 						target := model.Target{
 							TargetIP: address,
-							Port:     int64(aws.Int32Value(port.Port)),
-							Ready:    aws.BoolValue(ep.Conditions.Ready),
+							Port:     int64(aws.ToInt32(port.Port)),
+							Ready:    aws.ToBool(ep.Conditions.Ready),
 						}
 						if ep.TargetRef != nil && ep.TargetRef.Kind == "Pod" {
 							target.TargetRef = types.NamespacedName{Namespace: ep.TargetRef.Namespace, Name: ep.TargetRef.Name}
-							t.log.Debugf(ctx, "Adding target %s:%d for pod %s/%s", address, aws.Int32Value(port.Port), ep.TargetRef.Namespace, ep.TargetRef.Name)
+							t.log.Debugf(ctx, "Adding target %s:%d for pod %s/%s", address, aws.ToInt32(port.Port), ep.TargetRef.Namespace, ep.TargetRef.Name)
 						} else {
-							t.log.Debugf(ctx, "Adding target %s:%d (no pod reference)", address, aws.Int32Value(port.Port))
+							t.log.Debugf(ctx, "Adding target %s:%d (no pod reference)", address, aws.ToInt32(port.Port))
 						}
 						targetList = append(targetList, target)
 					}

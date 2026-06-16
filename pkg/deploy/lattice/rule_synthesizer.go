@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
@@ -118,13 +118,13 @@ func (r *ruleSynthesizer) deleteStaleLatticeRules(ctx context.Context, snlRules 
 
 		activeRules := snlRules[snl]
 		for _, lr := range allLatticeRules {
-			if aws.BoolValue(lr.IsDefault) {
+			if aws.ToBool(lr.IsDefault) {
 				continue
 			}
 
 			// if the rule is not in our list of ids, we need to remove it
 			// make sure to skip the default
-			ruleId := aws.StringValue(lr.Id)
+			ruleId := aws.ToString(lr.Id)
 			if _, ok := activeRules[ruleId]; !ok {
 				err := r.ruleManager.Delete(ctx, ruleId, snl.SvcId, snl.ListenerId)
 				if err != nil {

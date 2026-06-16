@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
@@ -165,7 +165,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx
 
 	// Use annotation-based service lookup
 	serviceName := k8s.GetServiceNameFromServiceExport(t.serviceExport)
-	serviceKey := types.NamespacedName{
+	serviceKey := apitypes.NamespacedName{
 		Namespace: t.serviceExport.Namespace,
 		Name:      serviceName,
 	}
@@ -206,13 +206,13 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx
 	var protocol, protocolVersion string
 	switch exportedPort.RouteType {
 	case "HTTP":
-		protocol = vpclattice.TargetGroupProtocolHttp
-		protocolVersion = vpclattice.TargetGroupProtocolVersionHttp1
+		protocol = string(types.TargetGroupProtocolHttp)
+		protocolVersion = string(types.TargetGroupProtocolVersionHttp1)
 	case "GRPC":
-		protocol = vpclattice.TargetGroupProtocolHttp
-		protocolVersion = vpclattice.TargetGroupProtocolVersionGrpc
+		protocol = string(types.TargetGroupProtocolHttp)
+		protocolVersion = string(types.TargetGroupProtocolVersionGrpc)
 	case "TLS":
-		protocol = vpclattice.TargetGroupProtocolTcp
+		protocol = string(types.TargetGroupProtocolTcp)
 		protocolVersion = ""
 	default:
 		return nil, fmt.Errorf("unsupported route type: %s", exportedPort.RouteType)
@@ -224,11 +224,11 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroupForExportedPort(ctx
 			protocol = policyProtocol
 		}
 		// Only override protocolVersion if protocol is not TCP
-		if tgp.Spec.ProtocolVersion != nil && protocol != vpclattice.TargetGroupProtocolTcp {
+		if tgp.Spec.ProtocolVersion != nil && protocol != string(types.TargetGroupProtocolTcp) {
 			protocolVersion = policyProtocolVersion
 		}
 		// For TCP protocol, ensure protocolVersion is empty
-		if protocol == vpclattice.TargetGroupProtocolTcp {
+		if protocol == string(types.TargetGroupProtocolTcp) {
 			protocolVersion = ""
 		}
 	}
@@ -284,7 +284,7 @@ func (t *svcExportTargetGroupModelBuildTask) buildTargetGroup(ctx context.Contex
 
 	// Use annotation-based service lookup
 	serviceName := k8s.GetServiceNameFromServiceExport(t.serviceExport)
-	serviceKey := types.NamespacedName{
+	serviceKey := apitypes.NamespacedName{
 		Namespace: t.serviceExport.Namespace,
 		Name:      serviceName,
 	}
@@ -486,11 +486,11 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		parentRefType = model.SourceTypeHTTPRoute
 	case *core.GRPCRoute:
 		// protocolVersion:GRPC takes precedence over other protocolVersions for k8s svc backendref by GRPCRoutes
-		protocolVersion = vpclattice.TargetGroupProtocolVersionGrpc
+		protocolVersion = string(types.TargetGroupProtocolVersionGrpc)
 		parentRefType = model.SourceTypeGRPCRoute
 	case *core.TLSRoute:
 		// protocol:TCP takes precedence over other protocol for k8s svc backendref by TLSRoutes
-		protocol = vpclattice.TargetGroupProtocolTcp
+		protocol = string(types.TargetGroupProtocolTcp)
 		protocolVersion = ""
 		parentRefType = model.SourceTypeTLSRoute
 	default:
@@ -519,13 +519,13 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 	return spec, nil
 }
 
-func getBackendRefNsName(route core.Route, backendRef core.BackendRef) types.NamespacedName {
+func getBackendRefNsName(route core.Route, backendRef core.BackendRef) apitypes.NamespacedName {
 	var namespace = route.Namespace()
 	if backendRef.Namespace() != nil {
 		namespace = string(*backendRef.Namespace())
 	}
 
-	backendRefNsName := types.NamespacedName{
+	backendRefNsName := apitypes.NamespacedName{
 		Namespace: namespace,
 		Name:      string(backendRef.Name()),
 	}
@@ -533,13 +533,13 @@ func getBackendRefNsName(route core.Route, backendRef core.BackendRef) types.Nam
 }
 
 func parseTargetGroupConfig(tgp *anv1alpha1.TargetGroupPolicy) (
-	protocol string, protocolVersion string, healthCheckConfig *vpclattice.HealthCheckConfig, err error) {
+	protocol string, protocolVersion string, healthCheckConfig *types.HealthCheckConfig, err error) {
 	protocol = "HTTP"
-	protocolVersion = vpclattice.TargetGroupProtocolVersionHttp1
+	protocolVersion = string(types.TargetGroupProtocolVersionHttp1)
 	if tgp == nil {
 		return protocol, protocolVersion, nil, nil
 	}
-	if tgp.Spec.Protocol != nil && *tgp.Spec.Protocol == vpclattice.TargetGroupProtocolTcp {
+	if tgp.Spec.Protocol != nil && *tgp.Spec.Protocol == string(types.TargetGroupProtocolTcp) {
 		if tgp.Spec.ProtocolVersion != nil {
 			return "", "", nil, fmt.Errorf("protocolVersion is not supported for TCP protocol TargetGroupPolicy")
 		}
@@ -550,34 +550,54 @@ func parseTargetGroupConfig(tgp *anv1alpha1.TargetGroupPolicy) (
 		protocol = *tgp.Spec.Protocol
 	}
 	// Override protocolVersion if specified in the TargetGroupPolicy for non-TCP protocol
-	if tgp.Spec.ProtocolVersion != nil && protocol != vpclattice.TargetGroupProtocolTcp {
+	if tgp.Spec.ProtocolVersion != nil && protocol != string(types.TargetGroupProtocolTcp) {
 		protocolVersion = *tgp.Spec.ProtocolVersion
 	}
 	healthCheckConfig = parseHealthCheckConfig(tgp)
 	return protocol, protocolVersion, healthCheckConfig, nil
 }
 
-func parseHealthCheckConfig(tgp *anv1alpha1.TargetGroupPolicy) *vpclattice.HealthCheckConfig {
+func parseHealthCheckConfig(tgp *anv1alpha1.TargetGroupPolicy) *types.HealthCheckConfig {
 	hc := tgp.Spec.HealthCheck
 	if hc == nil {
 		return nil
 	}
-	var matcher *vpclattice.Matcher
+	var matcher types.Matcher
 	if hc.StatusMatch != nil {
-		matcher = &vpclattice.Matcher{HttpCode: hc.StatusMatch}
+		matcher = &types.MatcherMemberHttpCode{Value: *hc.StatusMatch}
 	}
-	return &vpclattice.HealthCheckConfig{
-		Enabled:                    hc.Enabled,
-		HealthCheckIntervalSeconds: hc.IntervalSeconds,
-		HealthCheckTimeoutSeconds:  hc.TimeoutSeconds,
-		HealthyThresholdCount:      hc.HealthyThresholdCount,
-		UnhealthyThresholdCount:    hc.UnhealthyThresholdCount,
-		Matcher:                    matcher,
-		Path:                       hc.Path,
-		Port:                       hc.Port,
-		Protocol:                   (*string)(hc.Protocol),
-		ProtocolVersion:            (*string)(hc.ProtocolVersion),
+	cfg := &types.HealthCheckConfig{
+		Enabled: hc.Enabled,
+		Matcher: matcher,
+		Path:    hc.Path,
 	}
+	if hc.IntervalSeconds != nil {
+		v := int32(*hc.IntervalSeconds)
+		cfg.HealthCheckIntervalSeconds = &v
+	}
+	if hc.TimeoutSeconds != nil {
+		v := int32(*hc.TimeoutSeconds)
+		cfg.HealthCheckTimeoutSeconds = &v
+	}
+	if hc.HealthyThresholdCount != nil {
+		v := int32(*hc.HealthyThresholdCount)
+		cfg.HealthyThresholdCount = &v
+	}
+	if hc.UnhealthyThresholdCount != nil {
+		v := int32(*hc.UnhealthyThresholdCount)
+		cfg.UnhealthyThresholdCount = &v
+	}
+	if hc.Port != nil {
+		v := int32(*hc.Port)
+		cfg.Port = &v
+	}
+	if hc.Protocol != nil {
+		cfg.Protocol = types.TargetGroupProtocol(*hc.Protocol)
+	}
+	if hc.ProtocolVersion != nil {
+		cfg.ProtocolVersion = types.HealthCheckProtocolVersion(*hc.ProtocolVersion)
+	}
+	return cfg
 }
 
 func buildTargetGroupIpAddressType(svc *corev1.Service) (string, error) {
@@ -592,9 +612,9 @@ func buildTargetGroupIpAddressType(svc *corev1.Service) (string, error) {
 
 	switch ipFamily {
 	case corev1.IPv4Protocol:
-		return vpclattice.IpAddressTypeIpv4, nil
+		return string(types.IpAddressTypeIpv4), nil
 	case corev1.IPv6Protocol:
-		return vpclattice.IpAddressTypeIpv6, nil
+		return string(types.IpAddressTypeIpv6), nil
 	default:
 		return "", fmt.Errorf("unknown ipFamily: %s", ipFamily)
 	}
@@ -602,7 +622,7 @@ func buildTargetGroupIpAddressType(svc *corev1.Service) (string, error) {
 
 func GetServiceForBackendRef(ctx context.Context, client client.Client, route core.Route, backendRef core.BackendRef) (*corev1.Service, error) {
 	svc := &corev1.Service{}
-	key := types.NamespacedName{
+	key := apitypes.NamespacedName{
 		Name: string(backendRef.Name()),
 	}
 

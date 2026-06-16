@@ -35,20 +35,19 @@ type ServiceTagFields struct {
 	RouteType      core.RouteType
 }
 
-func ServiceTagFieldsFromTags(tags map[string]*string) ServiceTagFields {
+func ServiceTagFieldsFromTags(tags map[string]string) ServiceTagFields {
 	return ServiceTagFields{
-		RouteName:      getMapValue(tags, K8SRouteNameKey),
-		RouteNamespace: getMapValue(tags, K8SRouteNamespaceKey),
-		RouteType:      core.RouteType(getMapValue(tags, K8SRouteTypeKey)),
+		RouteName:      tags[K8SRouteNameKey],
+		RouteNamespace: tags[K8SRouteNamespaceKey],
+		RouteType:      core.RouteType(tags[K8SRouteTypeKey]),
 	}
 }
 
 func (t *ServiceTagFields) ToTags() services.Tags {
-	rt := string(t.RouteType)
 	return services.Tags{
-		K8SRouteNameKey:      &t.RouteName,
-		K8SRouteNamespaceKey: &t.RouteNamespace,
-		K8SRouteTypeKey:      &rt,
+		K8SRouteNameKey:      t.RouteName,
+		K8SRouteNamespaceKey: t.RouteNamespace,
+		K8SRouteTypeKey:      string(t.RouteType),
 	}
 }
 

@@ -2,6 +2,8 @@ package webhook
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/webhook"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -10,7 +12,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"time"
 )
 
 var _ = Describe("Readiness Gate Inject", Ordered, func() {

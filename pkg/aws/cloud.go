@@ -3,13 +3,16 @@ package aws
 import (
 	"context"
 	"fmt"
-
-	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/vpclattice"
 	"maps"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/smithy-go/middleware"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/metrics"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
@@ -19,6 +22,8 @@ import (
 const (
 	TagBase      = "application-networking.k8s.aws/"
 	TagManagedBy = TagBase + "ManagedBy"
+
+	userAgent = "amazon-vpc-lattice-gateway-api-controller"
 )
 
 //go:generate mockgen -destination cloud_mocks.go -package aws github.com/aws/aws-application-networking-k8s/pkg/aws Cloud
@@ -60,46 +65,45 @@ type Cloud interface {
 
 // NewCloud constructs new Cloud implementation.
 func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
-	sess, err := session.NewSession()
+	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(),
+		awsconfig.WithRegion(cfg.Region),
+		awsconfig.WithRetryer(func() aws.Retryer {
+			return retry.NewStandard(func(o *retry.StandardOptions) {
+				o.RateLimiter = ratelimit.None
+			})
+		}),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	sess.Handlers.Complete.PushFront(func(r *request.Request) {
-		if r.Error != nil {
-			log.Debugw(context.TODO(), "error",
-				"error", r.Error.Error(),
-				"serviceName", r.ClientInfo.ServiceName,
-				"operation", r.Operation.Name,
-				"params", r.Params,
-			)
-		} else {
-			log.Debugw(context.TODO(), "response",
-				"serviceName", r.ClientInfo.ServiceName,
-				"operation", r.Operation.Name,
-				"params", r.Params,
-			)
-		}
+	// Add user agent to all API calls
+	awsCfg.APIOptions = append(awsCfg.APIOptions, awsmiddleware.AddUserAgentKeyValue(userAgent, ""))
+
+	// Add logging middleware
+	awsCfg.APIOptions = append(awsCfg.APIOptions, func(stack *middleware.Stack) error {
+		return stack.Initialize.Add(&loggingMiddleware{log: log}, middleware.After)
 	})
 
+	// Add metrics middleware
 	if metricsRegisterer != nil {
 		metricsCollector, err := metrics.NewCollector(metricsRegisterer)
 		if err != nil {
 			return nil, err
 		}
-		metricsCollector.InjectHandlers(&sess.Handlers)
+		awsCfg.APIOptions = append(awsCfg.APIOptions, metricsCollector.APIOptions()...)
 	}
 
-	lattice := services.NewDefaultLattice(sess, cfg.AccountId, cfg.Region)
+	lattice := services.NewDefaultLattice(awsCfg, cfg.AccountId, cfg.Region)
 	var tagging services.Tagging
 
 	if cfg.TaggingServiceAPIDisabled {
-		tagging = services.NewLatticeTagging(sess, cfg.AccountId, cfg.Region, cfg.VpcId)
+		tagging = services.NewLatticeTagging(awsCfg, cfg.AccountId, cfg.Region, cfg.VpcId)
 	} else {
-		tagging = services.NewDefaultTagging(sess, cfg.Region)
+		tagging = services.NewDefaultTagging(awsCfg)
 	}
 
-	acmClient := services.NewDefaultACM(sess, cfg.Region)
+	acmClient := services.NewDefaultACM(awsCfg)
 
 	return &defaultCloud{
 		cfg:          cfg,
@@ -153,9 +157,9 @@ func (c *defaultCloud) Config() CloudConfig {
 }
 
 func (c *defaultCloud) DefaultTags() services.Tags {
-	tags := services.Tags{}
-	tags[TagManagedBy] = &c.managedByTag
-	return tags
+	return services.Tags{
+		TagManagedBy: c.managedByTag,
+	}
 }
 
 func (c *defaultCloud) DefaultTagsMergedWith(tags services.Tags) services.Tags {
@@ -176,8 +180,7 @@ func (c *defaultCloud) MergeTags(baseTags services.Tags, additionalTags services
 }
 
 func (c *defaultCloud) getTags(ctx context.Context, arn string) (services.Tags, error) {
-	tagsReq := &vpclattice.ListTagsForResourceInput{ResourceArn: &arn}
-	resp, err := c.lattice.ListTagsForResourceWithContext(ctx, tagsReq)
+	resp, err := c.lattice.ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{ResourceArn: &arn})
 	if err != nil {
 		return nil, err
 	}
@@ -186,10 +189,10 @@ func (c *defaultCloud) getTags(ctx context.Context, arn string) (services.Tags, 
 
 func (c *defaultCloud) GetManagedByFromTags(tags services.Tags) string {
 	tag, ok := tags[TagManagedBy]
-	if !ok || tag == nil {
+	if !ok {
 		return ""
 	}
-	return *tag
+	return tag
 }
 
 func (c *defaultCloud) IsArnManaged(ctx context.Context, arn string) (bool, error) {
@@ -223,7 +226,7 @@ func (c *defaultCloud) TryOwnFromTags(ctx context.Context, arn string, tags serv
 }
 
 func (c *defaultCloud) ownResource(ctx context.Context, arn string) error {
-	_, err := c.Lattice().TagResourceWithContext(ctx, &vpclattice.TagResourceInput{
+	_, err := c.Lattice().TagResource(ctx, &vpclattice.TagResourceInput{
 		ResourceArn: &arn,
 		Tags:        c.DefaultTags(),
 	})
@@ -236,4 +239,36 @@ func (c *defaultCloud) isOwner(managedBy string) bool {
 
 func getManagedByTag(cfg CloudConfig) string {
 	return fmt.Sprintf("%s/%s/%s", cfg.AccountId, cfg.ClusterName, cfg.VpcId)
+}
+
+// loggingMiddleware logs API call results
+type loggingMiddleware struct {
+	log gwlog.Logger
+}
+
+func (m *loggingMiddleware) ID() string { return "ControllerLogging" }
+
+func (m *loggingMiddleware) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	out, metadata, err = next.HandleInitialize(ctx, in)
+
+	service := middleware.GetServiceID(ctx)
+	operation := middleware.GetOperationName(ctx)
+
+	if err != nil {
+		m.log.Debugw(ctx, "error",
+			"error", err.Error(),
+			"serviceName", service,
+			"operation", operation,
+			"params", in.Parameters,
+		)
+	} else {
+		m.log.Debugw(ctx, "response",
+			"serviceName", service,
+			"operation", operation,
+			"params", in.Parameters,
+		)
+	}
+	return out, metadata, err
 }
