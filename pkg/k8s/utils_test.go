@@ -1671,3 +1671,239 @@ func TestGetServiceNameOverrideWithValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestTargetGroupIdFromArn(t *testing.T) {
+	tests := []struct {
+		name    string
+		arn     string
+		wantID  string
+		wantErr bool
+	}{
+		{
+			name:    "valid lattice target group arn",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0123456789abcdef0",
+			wantID:  "tg-0123456789abcdef0",
+			wantErr: false,
+		},
+		{
+			name:    "valid arn in another partition",
+			arn:     "arn:aws-us-gov:vpc-lattice:us-gov-west-1:123456789012:targetgroup/tg-00112233445566778",
+			wantID:  "tg-00112233445566778",
+			wantErr: false,
+		},
+		{
+			name:    "not an arn",
+			arn:     "tg-0123456789abcdef0",
+			wantErr: true,
+		},
+		{
+			name:    "empty string",
+			arn:     "",
+			wantErr: true,
+		},
+		{
+			name:    "wrong service",
+			arn:     "arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/my-tg/abc",
+			wantErr: true,
+		},
+		{
+			name:    "lattice arn but wrong resource type (service)",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012:service/svc-0123456789abcdef0",
+			wantErr: true,
+		},
+		{
+			name:    "lattice targetgroup resource without tg- prefix",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/notatg",
+			wantErr: true,
+		},
+		{
+			name:    "missing resource section",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012",
+			wantErr: true,
+		},
+		{
+			name:    "degenerate empty target group id",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-",
+			wantErr: true,
+		},
+		{
+			name:    "id too short",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-abc123",
+			wantErr: true,
+		},
+		{
+			name:    "id too long",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0123456789abcdef01",
+			wantErr: true,
+		},
+		{
+			name:    "uppercase in target group id",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-ABCDEF01234567890",
+			wantErr: true,
+		},
+		{
+			name:    "trailing path segment in resource",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0123456789abcdef0/extra",
+			wantErr: true,
+		},
+		{
+			name:    "colon-bearing resource",
+			arn:     "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0123456789abcdef0:foo",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id, err := TargetGroupIdFromArn(tt.arn)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Empty(t, id, "id must be empty on error")
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantID, id)
+			}
+		})
+	}
+}
+
+func TestHasTagDiscoveryAnnotation(t *testing.T) {
+	tests := []struct {
+		name string
+		ann  map[string]string
+		want bool
+	}{
+		{
+			name: "nil annotations",
+			ann:  nil,
+			want: false,
+		},
+		{
+			name: "empty annotations",
+			ann:  map[string]string{},
+			want: false,
+		},
+		{
+			name: "export-name set",
+			ann:  map[string]string{ExportNameAnnotation: "my-export"},
+			want: true,
+		},
+		{
+			name: "aws-vpc set",
+			ann:  map[string]string{AwsVpcAnnotation: "vpc-0123456789abcdef0"},
+			want: true,
+		},
+		{
+			name: "aws-eks-cluster-name set",
+			ann:  map[string]string{AwsEksClusterNameAnnotation: "my-cluster"},
+			want: true,
+		},
+		{
+			name: "all three tag-discovery annotations set",
+			ann: map[string]string{
+				ExportNameAnnotation:        "my-export",
+				AwsVpcAnnotation:            "vpc-0123456789abcdef0",
+				AwsEksClusterNameAnnotation: "my-cluster",
+			},
+			want: true,
+		},
+		{
+			name: "all three tag-discovery annotations plus target-group-arn",
+			ann: map[string]string{
+				ExportNameAnnotation:        "my-export",
+				AwsVpcAnnotation:            "vpc-0123456789abcdef0",
+				AwsEksClusterNameAnnotation: "my-cluster",
+				TargetGroupArnAnnotation:    "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0123456789abcdef0",
+			},
+			want: true,
+		},
+		{
+			name: "only unrelated annotation",
+			ann:  map[string]string{TargetGroupArnAnnotation: "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0123456789abcdef0"},
+			want: false,
+		},
+		{
+			name: "blank-but-set export-name still counts",
+			ann:  map[string]string{ExportNameAnnotation: ""},
+			want: true,
+		},
+		{
+			name: "blank-but-set aws-vpc still counts",
+			ann:  map[string]string{AwsVpcAnnotation: ""},
+			want: true,
+		},
+		{
+			name: "whitespace-only aws-vpc still counts",
+			ann:  map[string]string{AwsVpcAnnotation: "   "},
+			want: true,
+		},
+		{
+			name: "blank tag-discovery alongside a real target-group-arn counts",
+			ann: map[string]string{
+				AwsVpcAnnotation:         "",
+				TargetGroupArnAnnotation: "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0123456789abcdef0",
+			},
+			want: true,
+		},
+		{
+			name: "real aws-vpc alongside target-group-arn counts",
+			ann: map[string]string{
+				AwsVpcAnnotation:         "vpc-0123456789abcdef0",
+				TargetGroupArnAnnotation: "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0123456789abcdef0",
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ServiceImportHasTagDiscoveryAnnotation(tt.ann))
+		})
+	}
+}
+
+func TestExternalTargetGroupTypedErrors(t *testing.T) {
+	invalid := NewInvalidExternalTargetGroupError("tg-bad", errors.New("boom"))
+	notFound := NewExternalTargetGroupNotFoundError("arn:tg", "us-west-2", errors.New("404"))
+	conflict := NewConflictingServiceImportAnnotationsError("target-group-arn + export-name")
+
+	t.Run("each Is matches its own type", func(t *testing.T) {
+		assert.True(t, IsInvalidExternalTargetGroupError(invalid))
+		assert.True(t, IsExternalTargetGroupNotFoundError(notFound))
+		assert.True(t, IsConflictingServiceImportAnnotationsError(conflict))
+	})
+
+	t.Run("each Is matches through a %w wrap", func(t *testing.T) {
+		assert.True(t, IsInvalidExternalTargetGroupError(fmt.Errorf("wrap: %w", invalid)))
+		assert.True(t, IsExternalTargetGroupNotFoundError(fmt.Errorf("wrap: %w", notFound)))
+		assert.True(t, IsConflictingServiceImportAnnotationsError(fmt.Errorf("wrap: %w", conflict)))
+	})
+
+	t.Run("each Is does NOT match the other types", func(t *testing.T) {
+		assert.False(t, IsInvalidExternalTargetGroupError(notFound))
+		assert.False(t, IsInvalidExternalTargetGroupError(conflict))
+		assert.False(t, IsExternalTargetGroupNotFoundError(invalid))
+		assert.False(t, IsExternalTargetGroupNotFoundError(conflict))
+		assert.False(t, IsConflictingServiceImportAnnotationsError(invalid))
+		assert.False(t, IsConflictingServiceImportAnnotationsError(notFound))
+	})
+
+	t.Run("none match nil or a plain error", func(t *testing.T) {
+		plain := errors.New("plain")
+		for _, is := range []func(error) bool{
+			IsInvalidExternalTargetGroupError,
+			IsExternalTargetGroupNotFoundError,
+			IsConflictingServiceImportAnnotationsError,
+		} {
+			assert.False(t, is(nil))
+			assert.False(t, is(plain))
+		}
+	})
+
+	t.Run("messages carry context", func(t *testing.T) {
+		assert.Contains(t, invalid.Error(), "tg-bad")
+		assert.Contains(t, notFound.Error(), "arn:tg")
+		assert.Contains(t, notFound.Error(), "us-west-2")
+		assert.Contains(t, conflict.Error(), "export-name")
+	})
+}

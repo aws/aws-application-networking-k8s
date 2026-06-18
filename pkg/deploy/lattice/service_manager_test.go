@@ -1134,3 +1134,52 @@ func TestDeleteAssociation_ConflictException_ReturnsRetryError(t *testing.T) {
 	var retryErr *lattice_runtime.RequeueNeededAfter
 	assert.True(t, errors.As(err, &retryErr))
 }
+
+func Test_Delete_SkipsServiceNotOwnedByController(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id", ClusterName: "cluster"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := &Service{
+		Spec: model.ServiceSpec{
+			ServiceTagFields: model.ServiceTagFields{
+				RouteName:      "claim-target",
+				RouteNamespace: "ns",
+				RouteType:      core.HttpRouteType,
+			},
+			ServiceNetworkNames: []string{"sn"},
+		},
+	}
+
+	mockLattice.EXPECT().
+		FindService(gomock.Any(), gomock.Any()).
+		Return(&types.ServiceSummary{
+			Arn:    aws.String("arn:aws:vpc-lattice:us-east-2:123456789012:service/svc-claim-target"),
+			Id:     aws.String("svc-id"),
+			Name:   aws.String(svc.LatticeServiceName()),
+			Status: types.ServiceStatusActive,
+		}, nil).
+		Times(1)
+
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+			return &vpclattice.ListTagsForResourceOutput{Tags: map[string]string{}}, nil
+		}).
+		Times(1)
+
+	mockLattice.EXPECT().DeleteService(gomock.Any(), gomock.Any()).Times(0)
+	mockLattice.EXPECT().DeleteServiceNetworkServiceAssociation(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	mockLattice.EXPECT().DeleteListener(gomock.Any(), gomock.Any()).Times(0)
+	mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).Times(0)
+	mockLattice.EXPECT().ListListenersAsList(gomock.Any(), gomock.Any()).Times(0)
+	mockLattice.EXPECT().TagResource(gomock.Any(), gomock.Any()).Times(0)
+
+	err := m.Delete(ctx, svc)
+	assert.Nil(t, err)
+}

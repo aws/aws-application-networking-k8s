@@ -143,7 +143,7 @@ func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceInfo {
 	return svcInfo
 }
 
-func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
+func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Service, svcSum *SvcSummary, isDeleting bool) error {
 	tagsResp, err := m.cloud.Lattice().ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{
 		ResourceArn: svcSum.Arn,
 	})
@@ -151,7 +151,7 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 		return err
 	}
 
-	owned, err := m.cloud.TryOwnFromTags(ctx, *svcSum.Arn, tagsResp.Tags)
+	owned, err := m.cloud.TryOwnFromTags(ctx, *svcSum.Arn, tagsResp.Tags, isDeleting)
 	if err != nil {
 		return err
 	}
@@ -429,7 +429,7 @@ func (m *defaultServiceManager) Upsert(ctx context.Context, svc *Service) (Servi
 	if svcSum == nil {
 		svcInfo, err = m.createServiceAndAssociate(ctx, svc)
 	} else {
-		err = m.checkAndUpdateTags(ctx, svc, svcSum)
+		err = m.checkAndUpdateTags(ctx, svc, svcSum, false)
 		if err != nil {
 			return ServiceInfo{}, err
 		}
@@ -451,7 +451,7 @@ func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error 
 		}
 	}
 
-	err = m.checkAndUpdateTags(ctx, svc, svcSum)
+	err = m.checkAndUpdateTags(ctx, svc, svcSum, true)
 	if err != nil {
 		m.log.Infof(ctx, "Service %s is either invalid or not owned. Skipping VPC Lattice resource deletion.", svc.LatticeServiceName())
 		return nil

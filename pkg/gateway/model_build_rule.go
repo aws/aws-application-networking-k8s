@@ -5,15 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apitypes "k8s.io/apimachinery/pkg/types"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -284,31 +289,68 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 				if !apierrors.IsNotFound(err) {
 					return nil, err
 				}
+
+				if override, _ := k8s.GetServiceNameOverrideWithValidation(t.route.K8sObject()); override != "" {
+					return nil, fmt.Errorf("ServiceImport %s/%s referenced by route %s/%s with service-name-override=%q does not exist; refusing to claim the existing service",
+						namespace, string(backendRef.Name()),
+						t.route.Namespace(), t.route.Name(), override)
+				}
 			}
 
-			// Use annotation-based export name resolution
-			exportName := k8s.GetExportNameFromServiceImport(svcImport)
-			if exportName == "" {
-				exportName = string(backendRef.Name())
-			}
+			tgArn := strings.TrimSpace(svcImport.Annotations[k8s.TargetGroupArnAnnotation])
+			if tgArn != "" {
+				isUpsert := t.lattice != nil && t.route.DeletionTimestamp().IsZero()
+				if !isUpsert {
+					id, _ := k8s.TargetGroupIdFromArn(tgArn)
+					ruleTG.LatticeTgId = id
+				} else {
+					if k8s.ServiceImportHasTagDiscoveryAnnotation(svcImport.GetAnnotations()) {
+						return nil, k8s.NewConflictingServiceImportAnnotationsError(
+							fmt.Sprintf("ServiceImport %s/%s sets %s together with a tag-discovery annotation "+
+								"(%s / %s / %s); set exactly one",
+								svcImportName.Namespace, svcImportName.Name, k8s.TargetGroupArnAnnotation,
+								k8s.ExportNameAnnotation, k8s.AwsVpcAnnotation, k8s.AwsEksClusterNameAnnotation))
+					}
+					if _, err := k8s.TargetGroupIdFromArn(tgArn); err != nil {
+						return nil, k8s.NewInvalidExternalTargetGroupError(tgArn, err)
+					}
+					out, rerr := t.lattice.GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
+						TargetGroupIdentifier: aws.String(tgArn),
+					})
+					if rerr != nil {
+						var ade *types.AccessDeniedException
+						if services.IsNotFoundError(rerr) || errors.As(rerr, &ade) {
+							return nil, k8s.NewExternalTargetGroupNotFoundError(tgArn, config.Region, rerr)
+						}
+						return nil, rerr
+					}
+					ruleTG.LatticeTgId = aws.ToString(out.Id)
+				}
+			} else {
+				// Use annotation-based export name resolution
+				exportName := k8s.GetExportNameFromServiceImport(svcImport)
+				if exportName == "" {
+					exportName = string(backendRef.Name())
+				}
 
-			// there needs to be a pre-existing target group, we fetch all the fields
-			// needed to identify it
-			svcImportTg := model.SvcImportTargetGroup{
-				K8SServiceNamespace: namespace,
-				K8SServiceName:      exportName,
-			}
+				// there needs to be a pre-existing target group, we fetch all the fields
+				// needed to identify it
+				svcImportTg := model.SvcImportTargetGroup{
+					K8SServiceNamespace: namespace,
+					K8SServiceName:      exportName,
+				}
 
-			vpc, ok := svcImport.Annotations["application-networking.k8s.aws/aws-vpc"]
-			if ok {
-				svcImportTg.VpcId = vpc
-			}
+				vpc, ok := svcImport.Annotations[k8s.AwsVpcAnnotation]
+				if ok {
+					svcImportTg.VpcId = vpc
+				}
 
-			eksCluster, ok := svcImport.Annotations["application-networking.k8s.aws/aws-eks-cluster-name"]
-			if ok {
-				svcImportTg.K8SClusterName = eksCluster
+				eksCluster, ok := svcImport.Annotations[k8s.AwsEksClusterNameAnnotation]
+				if ok {
+					svcImportTg.K8SClusterName = eksCluster
+				}
+				ruleTG.SvcImportTG = &svcImportTg
 			}
-			ruleTG.SvcImportTG = &svcImportTg
 		}
 
 		if string(*backendRef.Kind()) == "Service" {

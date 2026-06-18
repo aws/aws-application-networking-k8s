@@ -28,6 +28,7 @@ nav:
     - Drift Detection: guides/drift-detection.md
     - Additional Tags: guides/additional-tags.md
     - Service Name Override: guides/service-name-override.md
+    - Migrate to EKS: guides/migrate-to-eks.md
     - Controller Metrics: guides/metrics.md
   - API Specification: api-reference.md
   - API Reference:

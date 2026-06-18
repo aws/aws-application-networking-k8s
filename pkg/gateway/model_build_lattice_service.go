@@ -33,6 +33,7 @@ type LatticeServiceModelBuilder struct {
 	client        client.Client
 	brTgBuilder   BackendRefTargetGroupModelBuilder
 	certDiscovery services.CertificateDiscovery
+	lattice       services.Lattice
 }
 
 func NewLatticeServiceBuilder(
@@ -40,12 +41,14 @@ func NewLatticeServiceBuilder(
 	client client.Client,
 	brTgBuilder BackendRefTargetGroupModelBuilder,
 	certDiscovery services.CertificateDiscovery,
+	lattice services.Lattice,
 ) *LatticeServiceModelBuilder {
 	return &LatticeServiceModelBuilder{
 		log:           log,
 		client:        client,
 		brTgBuilder:   brTgBuilder,
 		certDiscovery: certDiscovery,
+		lattice:       lattice,
 	}
 }
 
@@ -62,6 +65,7 @@ func (b *LatticeServiceModelBuilder) Build(
 		client:        b.client,
 		brTgBuilder:   b.brTgBuilder,
 		certDiscovery: b.certDiscovery,
+		lattice:       b.lattice,
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -310,6 +314,7 @@ type latticeServiceModelBuildTask struct {
 	stack         core.Stack
 	brTgBuilder   BackendRefTargetGroupModelBuilder
 	certDiscovery services.CertificateDiscovery
+	lattice       services.Lattice
 }
 
 // isStandaloneMode determines if standalone mode should be enabled for the route.

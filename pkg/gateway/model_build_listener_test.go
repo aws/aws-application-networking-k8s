@@ -5,12 +5,14 @@ import (
 	"testing"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -1385,6 +1387,284 @@ func Test_BuildListeners_AllowedRoutesFilterIndividualListeners(t *testing.T) {
 				}
 				assert.ElementsMatch(t, tt.expectedListenerPorts, actualPorts, tt.description)
 			}
+		})
+	}
+}
+
+func Test_ListenerModelBuild_TLSPassthrough_ExternalTargetGroup(t *testing.T) {
+	const (
+		validArn = "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0df85aff983932f06"
+		bareId   = "tg-0df85aff983932f06"
+	)
+	var sectionName gwv1.SectionName = "my-gw-listener"
+	var serviceKind gwv1.Kind = "Service"
+	var serviceImportKind gwv1.Kind = "ServiceImport"
+	const svcImportName = "external-import"
+	tlsModePassthrough := gwv1.TLSModePassthrough
+
+	vpcLatticeGatewayClass := gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "gwClass"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	vpcLatticeGateway := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gateway1", Namespace: "default"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
+			Listeners: []gwv1.Listener{
+				{
+					Port:     443,
+					Protocol: "TLS",
+					Name:     sectionName,
+					TLS:      &gwv1.ListenerTLSConfig{Mode: &tlsModePassthrough},
+				},
+			},
+		},
+	}
+
+	newTLSRoute := func(backendRefs []gwv1.BackendRef, deleting bool) core.Route {
+		om := metav1.ObjectMeta{Name: "service1", Namespace: "default"}
+		if deleting {
+			now := metav1.Now()
+			om.DeletionTimestamp = &now
+			om.Finalizers = []string{"test-finalizer"}
+		}
+		route := core.NewTLSRoute(gwv1.TLSRoute{
+			ObjectMeta: om,
+			Spec: gwv1.TLSRouteSpec{
+				CommonRouteSpec: gwv1.CommonRouteSpec{
+					ParentRefs: []gwv1.ParentReference{
+						{Name: gwv1.ObjectName(vpcLatticeGateway.Name), SectionName: &sectionName},
+					},
+				},
+				Rules: []gwv1.TLSRouteRule{{BackendRefs: backendRefs}},
+			},
+		})
+		route.Status().SetParents([]gwv1.RouteParentStatus{
+			{
+				ParentRef: gwv1.ParentReference{
+					Name:        gwv1.ObjectName(vpcLatticeGateway.Name),
+					SectionName: &sectionName,
+				},
+				Conditions: []metav1.Condition{
+					{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue},
+				},
+			},
+		})
+		return route
+	}
+
+	externalImportRef := gwv1.BackendRef{
+		BackendObjectReference: gwv1.BackendObjectReference{
+			Name: gwv1.ObjectName(svcImportName),
+			Kind: &serviceImportKind,
+		},
+		Weight: aws.Int32(90),
+	}
+	eksServiceRef := gwv1.BackendRef{
+		BackendObjectReference: gwv1.BackendObjectReference{
+			Name: "k8s-service1",
+			Kind: &serviceKind,
+		},
+		Weight: aws.Int32(10),
+	}
+
+	tests := []struct {
+		name          string
+		backendRefs   []gwv1.BackendRef
+		annotations   map[string]string
+		mockLattice   func(m *services.MockLattice)
+		deleting      bool
+		eksStackTgIds []string
+		wantErr       bool
+		wantErrIs     func(error) bool
+		noListener    bool
+		expectedTGs   []*model.RuleTargetGroup
+	}{
+		{
+			name:        "single external-TG ServiceImport resolves to bare id in listener default action",
+			backendRefs: []gwv1.BackendRef{externalImportRef},
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), &vpclattice.GetTargetGroupInput{
+					TargetGroupIdentifier: aws.String(validArn),
+				}).Return(&vpclattice.GetTargetGroupOutput{
+					Id: aws.String(bareId), Arn: aws.String(validArn),
+				}, nil)
+			},
+			expectedTGs: []*model.RuleTargetGroup{
+				{LatticeTgId: bareId, Weight: 90},
+			},
+		},
+		{
+			name:          "weighted mix: external-TG ServiceImport + EKS Service in the single passthrough rule",
+			backendRefs:   []gwv1.BackendRef{externalImportRef, eksServiceRef},
+			annotations:   map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			eksStackTgIds: []string{"k8s-service1"},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Return(&vpclattice.GetTargetGroupOutput{
+					Id: aws.String(bareId), Arn: aws.String(validArn),
+				}, nil)
+			},
+			expectedTGs: []*model.RuleTargetGroup{
+				{LatticeTgId: bareId, Weight: 90},
+				{StackTargetGroupId: "k8s-service1", Weight: 10},
+			},
+		},
+		{
+			name:        "malformed ARN fails the TLS build with InvalidExternalTargetGroupError",
+			backendRefs: []gwv1.BackendRef{externalImportRef},
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: "not-an-arn"},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Times(0)
+			},
+			wantErr:   true,
+			wantErrIs: k8s.IsInvalidExternalTargetGroupError,
+		},
+		{
+			name:        "conflict: target-group-arn + export-name → ConflictingServiceImportAnnotationsError",
+			backendRefs: []gwv1.BackendRef{externalImportRef},
+			annotations: map[string]string{
+				k8s.TargetGroupArnAnnotation: validArn,
+				k8s.ExportNameAnnotation:     "some-export",
+			},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Times(0)
+			},
+			wantErr:   true,
+			wantErrIs: k8s.IsConflictingServiceImportAnnotationsError,
+		},
+		{
+			name:        "conflict: blank-but-set aws-vpc DOES trigger (key-presence semantics)",
+			backendRefs: []gwv1.BackendRef{externalImportRef},
+			annotations: map[string]string{
+				k8s.TargetGroupArnAnnotation: validArn,
+				k8s.AwsVpcAnnotation:         "", // blank but set still counts as present
+			},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Times(0)
+			},
+			wantErr:   true,
+			wantErrIs: k8s.IsConflictingServiceImportAnnotationsError,
+		},
+		{
+			name:        "nil client (GC path): skips existence check, LatticeTgId = bare id",
+			backendRefs: []gwv1.BackendRef{externalImportRef},
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: nil,
+			expectedTGs: []*model.RuleTargetGroup{
+				{LatticeTgId: bareId, Weight: 90},
+			},
+		},
+		{
+			name:        "nil client (GC path): skips conflict check → no error, LatticeTgId = bare id",
+			backendRefs: []gwv1.BackendRef{externalImportRef},
+			annotations: map[string]string{
+				k8s.TargetGroupArnAnnotation: validArn,
+				k8s.ExportNameAnnotation:     "some-export",
+			},
+			mockLattice: nil,
+			expectedTGs: []*model.RuleTargetGroup{
+				{LatticeTgId: bareId, Weight: 90},
+			},
+		},
+		{
+			name:        "nil client (GC path): malformed ARN tolerated → no error, id discarded",
+			backendRefs: []gwv1.BackendRef{externalImportRef},
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: "not-an-arn"},
+			mockLattice: nil,
+			expectedTGs: []*model.RuleTargetGroup{
+				{LatticeTgId: "", Weight: 90},
+			},
+		},
+		{
+			name:        "delete path: malformed ARN tolerated, no listener built, no error",
+			backendRefs: []gwv1.BackendRef{externalImportRef},
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: "not-an-arn"},
+			mockLattice: nil,
+			deleting:    true,
+			noListener:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
+			gwv1alpha2.Install(k8sSchema)
+			anv1alpha1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGatewayClass.DeepCopy()))
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGateway.DeepCopy()))
+			assert.NoError(t, k8sClient.Create(ctx, &anv1alpha1.ServiceImport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        svcImportName,
+					Namespace:   "default",
+					Annotations: tt.annotations,
+				},
+			}))
+
+			route := newTLSRoute(tt.backendRefs, tt.deleting)
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+
+			mockBrTgBuilder := NewMockBackendRefTargetGroupModelBuilder(c)
+			for _, id := range tt.eksStackTgIds {
+				id := id
+				mockBrTgBuilder.EXPECT().Build(ctx, route, gomock.Any(), gomock.Any()).
+					Return(nil, &model.TargetGroup{
+						ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", id),
+					}, nil)
+			}
+
+			var lattice services.Lattice
+			if tt.mockLattice != nil {
+				m := services.NewMockLattice(c)
+				tt.mockLattice(m)
+				lattice = m
+			}
+
+			task := &latticeServiceModelBuildTask{
+				log:         gwlog.FallbackLogger,
+				route:       route,
+				client:      k8sClient,
+				stack:       stack,
+				brTgBuilder: mockBrTgBuilder,
+				lattice:     lattice,
+			}
+
+			err := task.buildListeners(ctx, "svc-id")
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.wantErrIs != nil {
+					assert.True(t, tt.wantErrIs(err), "error did not match expected predicate: %v", err)
+				}
+				return
+			}
+			assert.NoError(t, err)
+
+			var resListener []*model.Listener
+			stack.ListResources(&resListener)
+
+			if tt.noListener {
+				assert.Equal(t, 0, len(resListener), "a deleting route must build no listener")
+				return
+			}
+			assert.Equal(t, 1, len(resListener), "expected exactly one TLS_PASSTHROUGH listener")
+
+			spec := resListener[0].Spec
+			assert.Equal(t, string(types.ListenerProtocolTlsPassthrough), spec.Protocol)
+			assert.NotNil(t, spec.DefaultAction, "TLS passthrough listener must carry a default action")
+			assert.NotNil(t, spec.DefaultAction.Forward, "TLS passthrough default action must be a Forward")
+			assert.Nil(t, spec.DefaultAction.FixedResponseStatusCode,
+				"TLS passthrough default action must not be a fixed response")
+			assert.Equal(t, tt.expectedTGs, spec.DefaultAction.Forward.TargetGroups,
+				"external target group must resolve to its id in the listener default action")
 		})
 	}
 }
