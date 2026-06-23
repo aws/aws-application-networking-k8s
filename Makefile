@@ -178,6 +178,10 @@ ifdef INSTALL_CONTROLLER
 		--set=defaultServiceNetwork=conformance-test \
 		--set=enableServiceNetworkOverride=true \
 		--set=log.level=debug \
+		--set=awsRegion=$(REGION) \
+		--set=awsAccountId=$(AWS_ACCOUNT_ID) \
+		--set=clusterVpcId=$(CLUSTER_VPC_ID) \
+		--set=clusterName=$(CLUSTER_NAME) \
 		--wait
 endif
 	kubectl apply -f files/controller-installation/gatewayclass.yaml

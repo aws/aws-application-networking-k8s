@@ -325,6 +325,10 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 			} else {
 				ruleTG.StackTargetGroupId = tg.ID()
 			}
+		} else if string(*backendRef.Kind()) != "ServiceImport" {
+			// Unknown kind - mark as invalid so rule returns 500 per Gateway API spec
+			t.log.Infof(ctx, "Unknown backendRef kind %s on route %s, marking as invalid", string(*backendRef.Kind()), t.route.Name())
+			ruleTG.StackTargetGroupId = model.InvalidBackendRefTgId
 		}
 
 		tgList = append(tgList, &ruleTG)

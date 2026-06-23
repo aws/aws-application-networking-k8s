@@ -413,7 +413,12 @@ func (r *routeReconciler) updateRouteStatusWithServiceInfo(ctx context.Context, 
 	}
 
 	if svc == nil {
-		r.log.Infof(ctx, "Service not found for route %s-%s", route.Name(), route.Namespace())
+		// Only requeue if the route has accepted parents (a service should have been created).
+		// Routes with all parents rejected won't have a Lattice service.
+		if !core.HasAllParentRefsRejected(route) {
+			r.log.Infof(ctx, "Service not found for route %s-%s, will retry", route.Name(), route.Namespace())
+			return lattice_runtime.NewRequeueNeededAfter("service DNS not yet available", 5*time.Second)
+		}
 		return nil
 	}
 
