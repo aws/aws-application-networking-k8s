@@ -2,10 +2,9 @@ package integration
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	vpclattice "github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -126,7 +125,7 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 				g.Expect(associationTagsMap).To(HaveKeyWithValue("Team", "Platform"))
 				g.Expect(associationTagsMap).To(HaveKeyWithValue("CostCenter", "12345"))
 			}
-		}).Within(1 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	It("Update HTTPRoute additional tags and verify AWS managed tags cannot be overridden", func() {
@@ -237,7 +236,7 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 				g.Expect(associationTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
 				g.Expect(associationTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
 			}
-		}).Within(1 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	It("Cleanup HTTPRoute resources", func() {
@@ -307,7 +306,7 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 			g.Expect(tgTagsMap).To(HaveKeyWithValue("CostCenter", "12345"))
 
 			g.Expect(tgTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
-		}).Within(1 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	It("Update ServiceExport additional tags and verify AWS managed tags cannot be overridden", func() {
@@ -338,7 +337,7 @@ var _ = Describe("Additional Tags test", Ordered, func() {
 
 			g.Expect(tgTagsMap).ToNot(HaveKeyWithValue(pkg_aws.TagManagedBy, "test-override"))
 			g.Expect(tgTagsMap).To(HaveKeyWithValue(pkg_aws.TagManagedBy, fmt.Sprintf("%s/%s/%s", testFramework.Cloud.Config().AccountId, testFramework.Cloud.Config().ClusterName, testFramework.Cloud.Config().VpcId)))
-		}).Within(1 * time.Minute).Should(Succeed())
+		}).Should(Succeed())
 	})
 
 	It("Cleanup ServiceExport resources", func() {
