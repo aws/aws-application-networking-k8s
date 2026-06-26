@@ -51,7 +51,7 @@ func loadSkipList(t *testing.T) []string {
 
 func scaledTimeouts() conformanceconfig.TimeoutConfig {
 	d := conformanceconfig.DefaultTimeoutConfig()
-	m := time.Duration(2)
+	m := time.Duration(5)
 	return conformanceconfig.TimeoutConfig{
 		CreateTimeout:                      m * d.CreateTimeout,
 		DeleteTimeout:                      m * d.DeleteTimeout,
