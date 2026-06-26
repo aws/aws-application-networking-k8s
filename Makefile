@@ -122,6 +122,7 @@ e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 		--timeout=120m \
 		--focus="${FOCUS}" \
 		--skip="${SKIP}" \
+		--label-filter="${LABEL}" \
 		-v \
 		./suites/integration/...
 

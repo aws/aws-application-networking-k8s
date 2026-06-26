@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
+
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,6 +47,12 @@ const (
 	// Export name annotation for ServiceImport to ServiceExport mapping
 	ExportNameAnnotation = AnnotationPrefix + "export-name"
 
+	// TargetGroupArnAnnotation references external target group by its full arn on a ServiceImport
+	TargetGroupArnAnnotation = AnnotationPrefix + "target-group-arn"
+
+	AwsVpcAnnotation            = AnnotationPrefix + "aws-vpc"
+	AwsEksClusterNameAnnotation = AnnotationPrefix + "aws-eks-cluster-name"
+
 	// AWS tag validation limits
 	maxTagKeyLength   = 128
 	maxTagValueLength = 256
@@ -52,7 +60,8 @@ const (
 )
 
 var (
-	tagPattern = regexp.MustCompile(`^([\p{L}\p{Z}\p{N}_.:\/=+\-@]*)$`)
+	tagPattern         = regexp.MustCompile(`^([\p{L}\p{Z}\p{N}_.:\/=+\-@]*)$`)
+	targetGroupIdRegex = regexp.MustCompile(`^targetgroup/tg-[0-9a-z]{17}$`)
 )
 
 type Tags = map[string]string
@@ -530,4 +539,81 @@ func GetExportNameFromServiceImport(serviceImport client.Object) string {
 		}
 	}
 	return ""
+}
+
+func TargetGroupIdFromArn(s string) (string, error) {
+	a, err := arn.Parse(s)
+	if err != nil {
+		return "", fmt.Errorf("not a valid ARN: %w", err)
+	}
+	if a.Service != "vpc-lattice" {
+		return "", fmt.Errorf("expected a vpc-lattice ARN, got service %q", a.Service)
+	}
+	if !targetGroupIdRegex.MatchString(a.Resource) {
+		return "", fmt.Errorf("expected a target group ARN (targetgroup/tg-...), got resource %q", a.Resource)
+	}
+	return strings.TrimPrefix(a.Resource, "targetgroup/"), nil
+}
+
+func ServiceImportHasTagDiscoveryAnnotation(annotations map[string]string) bool {
+	for _, key := range []string{ExportNameAnnotation, AwsVpcAnnotation, AwsEksClusterNameAnnotation} {
+		if _, ok := annotations[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+type InvalidExternalTargetGroupError struct {
+	Arn string
+	Err error
+}
+
+func (e *InvalidExternalTargetGroupError) Error() string {
+	return fmt.Sprintf("invalid external target group ARN %q: %v", e.Arn, e.Err)
+}
+
+func NewInvalidExternalTargetGroupError(arn string, err error) error {
+	return &InvalidExternalTargetGroupError{Arn: arn, Err: err}
+}
+
+func IsInvalidExternalTargetGroupError(err error) bool {
+	target := &InvalidExternalTargetGroupError{}
+	return errors.As(err, &target)
+}
+
+type ExternalTargetGroupNotFoundError struct {
+	Arn    string
+	Region string
+	Err    error
+}
+
+func (e *ExternalTargetGroupNotFoundError) Error() string {
+	return fmt.Sprintf("external target group %q could not be found in region %q: %v", e.Arn, e.Region, e.Err)
+}
+
+func NewExternalTargetGroupNotFoundError(arn, region string, err error) error {
+	return &ExternalTargetGroupNotFoundError{Arn: arn, Region: region, Err: err}
+}
+
+func IsExternalTargetGroupNotFoundError(err error) bool {
+	target := &ExternalTargetGroupNotFoundError{}
+	return errors.As(err, &target)
+}
+
+type ConflictingServiceImportAnnotationsError struct {
+	Detail string
+}
+
+func (e *ConflictingServiceImportAnnotationsError) Error() string {
+	return fmt.Sprintf("conflicting ServiceImport annotations: %s", e.Detail)
+}
+
+func NewConflictingServiceImportAnnotationsError(detail string) error {
+	return &ConflictingServiceImportAnnotationsError{Detail: detail}
+}
+
+func IsConflictingServiceImportAnnotationsError(err error) bool {
+	target := &ConflictingServiceImportAnnotationsError{}
+	return errors.As(err, &target)
 }

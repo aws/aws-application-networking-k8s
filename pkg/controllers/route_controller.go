@@ -110,7 +110,7 @@ func RegisterAllRouteControllers(
 			scheme:           mgr.GetScheme(),
 			finalizerManager: finalizerManager,
 			eventRecorder:    mgr.GetEventRecorderFor(string(routeInfo.routeType) + "route"),
-			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, brTgBuilder, certDiscovery),
+			modelBuilder:     gateway.NewLatticeServiceBuilder(log, mgrClient, brTgBuilder, certDiscovery, cloud.Lattice()),
 			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 			cloud:            cloud,
@@ -298,6 +298,20 @@ func (r *routeReconciler) findControlledParentRef(ctx context.Context, route cor
 	return gwv1.ParentReference{}, fmt.Errorf("parentRef not found for route %s", route.Name())
 }
 
+func (r *routeReconciler) setResolvedRefsFalse(ctx context.Context, route core.Route, reason, msg string) error {
+	parentRef, err := r.findControlledParentRef(ctx, route)
+	if err != nil {
+		return err
+	}
+	route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
+	route.Status().UpdateRouteCondition(parentRef,
+		r.newCondition(route, gwv1.RouteConditionResolvedRefs, gwv1.RouteConditionReason(reason), msg))
+	if err := r.client.Status().Update(ctx, route.K8sObject()); err != nil {
+		return fmt.Errorf("failed to update route status for %s: %w", reason, err)
+	}
+	return nil
+}
+
 func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request, route core.Route) error {
 	r.log.Infow(ctx, "reconcile, adding or updating", "name", req.Name)
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
@@ -378,6 +392,23 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 				return fmt.Errorf("failed to update route status: %w", statusErr)
 			}
 			return lattice_runtime.NewRequeueNeededAfter("certificate not found, retrying", 1*time.Minute)
+		}
+		switch {
+		case k8s.IsInvalidExternalTargetGroupError(err):
+			if statusErr := r.setResolvedRefsFalse(ctx, route, "InvalidExternalTargetGroup", err.Error()); statusErr != nil {
+				return statusErr
+			}
+			return ErrExternalTargetGroupInvalid
+		case k8s.IsConflictingServiceImportAnnotationsError(err):
+			if statusErr := r.setResolvedRefsFalse(ctx, route, "ConflictingServiceImportAnnotations", err.Error()); statusErr != nil {
+				return statusErr
+			}
+			return ErrConflictingServiceImportConfig
+		case k8s.IsExternalTargetGroupNotFoundError(err):
+			if statusErr := r.setResolvedRefsFalse(ctx, route, "ExternalTargetGroupNotFound", err.Error()); statusErr != nil {
+				return statusErr
+			}
+			return lattice_runtime.NewRequeueNeededAfter("external target group not found, retrying", 1*time.Minute)
 		}
 		return err
 	}
@@ -472,9 +503,11 @@ func (r *routeReconciler) validateBackendRefsIpFamilies(ctx context.Context, rou
 }
 
 var (
-	ErrValidation          = errors.New("validation")
-	ErrParentRefsNotFound  = errors.New("parentRefs are not found")
-	ErrRouteGKNotSupported = errors.New("route GroupKind is not supported")
+	ErrValidation                     = errors.New("validation")
+	ErrParentRefsNotFound             = errors.New("parentRefs are not found")
+	ErrRouteGKNotSupported            = errors.New("route GroupKind is not supported")
+	ErrExternalTargetGroupInvalid     = errors.New("external target group annotation invalid; see route ResolvedRefs status")
+	ErrConflictingServiceImportConfig = errors.New("conflicting ServiceImport annotations; see route ResolvedRefs status")
 )
 
 // Validation for route spec. Will validate and update route status. Returns error if not valid.

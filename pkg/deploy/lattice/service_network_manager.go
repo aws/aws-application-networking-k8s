@@ -68,7 +68,7 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 
 		if isLocal {
 			// For local networks, check ownership as before
-			owned, err := m.cloud.TryOwn(ctx, *snva.Arn)
+			owned, err := m.cloud.TryOwn(ctx, *snva.Arn, false)
 			if err != nil {
 				return "", err
 			}
@@ -298,7 +298,7 @@ func (m *defaultServiceNetworkManager) Upsert(ctx context.Context, name string, 
 
 	// SN exists, adopt it
 	snArn := aws.ToString(sn.SvcNetwork.Arn)
-	owned, err := m.cloud.TryOwn(ctx, snArn)
+	owned, err := m.cloud.TryOwn(ctx, snArn, false)
 	if err != nil {
 		return model.ServiceNetworkStatus{}, fmt.Errorf("failed to check ownership of ServiceNetwork %s: %w", name, err)
 	}

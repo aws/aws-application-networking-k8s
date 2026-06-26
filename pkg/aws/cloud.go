@@ -52,8 +52,11 @@ type Cloud interface {
 	IsArnManaged(ctx context.Context, arn string) (bool, error)
 
 	// check ownership and acquire if it is not owned by anyone.
-	TryOwn(ctx context.Context, arn string) (bool, error)
-	TryOwnFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error)
+	// When isDeleting=true, an untagged resource is treated as NOT owned
+	// instead of being auto adopted. This prevents teardown paths from claiming and then
+	// deleting customer created resources the controller never legitimately owned
+	TryOwn(ctx context.Context, arn string, isDeleting bool) (bool, error)
+	TryOwnFromTags(ctx context.Context, arn string, tags services.Tags, isDeleting bool) (bool, error)
 
 	// MergeTags creates a new tag map by merging baseTags and additionalTags.
 	// BaseTags will override additionalTags for any duplicate keys.
@@ -203,21 +206,23 @@ func (c *defaultCloud) IsArnManaged(ctx context.Context, arn string) (bool, erro
 	return c.isOwner(c.GetManagedByFromTags(tags)), nil
 }
 
-func (c *defaultCloud) TryOwn(ctx context.Context, arn string) (bool, error) {
-	// For resources that need backwards compatibility - not having managedBy is considered as owned by controller.
+func (c *defaultCloud) TryOwn(ctx context.Context, arn string, isDeleting bool) (bool, error) {
 	tags, err := c.getTags(ctx, arn)
 	if err != nil {
 		return false, err
 	}
-	return c.TryOwnFromTags(ctx, arn, tags)
+	return c.TryOwnFromTags(ctx, arn, tags, isDeleting)
 }
 
-func (c *defaultCloud) TryOwnFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error) {
+func (c *defaultCloud) TryOwnFromTags(ctx context.Context, arn string, tags services.Tags, isDeleting bool) (bool, error) {
 	// For resources that need backwards compatibility - not having managedBy is considered as owned by controller.
 	managedBy := c.GetManagedByFromTags(tags)
 	if managedBy == "" {
-		err := c.ownResource(ctx, arn)
-		if err != nil {
+		// skip own by controller if route is being delete to prevent invalid route from owning and deleting customer service
+		if isDeleting {
+			return false, nil
+		}
+		if err := c.ownResource(ctx, arn); err != nil {
 			return false, err
 		}
 		return true, nil
