@@ -1056,6 +1056,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guides/migrate-to-eks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migrate to EKS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guides/metrics/" class="md-nav__link">
         
   
@@ -1506,6 +1534,73 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Example Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mode-1-mode-2-importing-a-serviceexport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode 1 / Mode 2 — Importing a ServiceExport
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mode-3-direct-external-target-group-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode 3 — Direct external target group reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mode 3 — Direct external target group reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Annotation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example-configuration_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
 </li>
       
     </ul>
@@ -1820,34 +1915,64 @@
 
 <h1 id="serviceimport-api-reference">ServiceImport API Reference<a class="headerlink" href="#serviceimport-api-reference" title="Permanent link">&para;</a></h1>
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h2>
-<p><code>ServiceImport</code> is a resource referring to a Service outside the cluster, paired with <a href="../service-export/"><code>ServiceExport</code></a>
-resource defined in the other clusters.</p>
-<p>Just like Services, ServiceImports can be a backend reference of HTTPRoutes, GRPCRoutes, and TLSRoutes. Along with the
-cluster's own Services (and ServiceImports from even more clusters), you can distribute the traffic across multiple VPCs
-and clusters.</p>
-<p>Note that ServiceImport is not the implementation of Kubernetes <a href="https://multicluster.sigs.k8s.io/concepts/multicluster-services-api/">Multicluster Service APIs</a>;
-instead AWS Gateway API Controller uses its own version of the resource for the purpose of Gateway API integration.</p>
+<p><code>ServiceImport</code> is a resource referring to a Service or VPC Lattice target group outside the cluster. It can be paired with a <a href="../service-export/"><code>ServiceExport</code></a> resource defined in another cluster, or pointed directly at an externally owned VPC Lattice target group via annotation.</p>
+<p>Just like Services, ServiceImports can be a backend reference of HTTPRoutes, GRPCRoutes, and TLSRoutes. Along with the cluster's own Services (and ServiceImports from even more clusters), you can distribute traffic across multiple VPCs, multiple clusters, or between an EKS native backend and a pre existing VPC Lattice target group that points at non EKS workloads (ECS, Lambda, EC2, ALB).</p>
+<p>Note that ServiceImport is not the implementation of Kubernetes <a href="https://multicluster.sigs.k8s.io/concepts/multicluster-services-api/">Multicluster Service APIs</a>; instead AWS Gateway API Controller uses its own version of the resource for the purpose of Gateway API integration.</p>
+<p>The controller resolves a ServiceImport to a VPC Lattice target group in one of three mutually exclusive modes, selected by which annotations are present:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Annotations on ServiceImport</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mode 1 — Default name</td>
+<td><em>(none)</em></td>
+<td>The controller finds a target group created by a <code>ServiceExport</code>, matched by the exported service name and namespace carried in the target group's tags. The exported service name defaults to the ServiceImport's own name, so a matching <code>ServiceExport</code> must exist for that name.</td>
+</tr>
+<tr>
+<td>Mode 2 — Tag discovery</td>
+<td>Any of <code>export-name</code>, <code>aws-vpc</code>, <code>aws-eks-cluster-name</code></td>
+<td>Same <code>ServiceExport</code> tag matching as Mode 1. The difference is that <code>export-name</code> overrides which exported service name the controller looks up. It no longer has to equal the ServiceImport's own name (Mode 1's default) and can target a <code>ServiceExport</code> published under a different name. <code>aws-vpc</code> / <code>aws-eks-cluster-name</code> further narrow the match to a specific VPC or cluster (typically a <code>ServiceExport</code> in another cluster).</td>
+</tr>
+<tr>
+<td>Mode 3 — Direct external target group</td>
+<td><code>target-group-arn</code></td>
+<td>The controller resolves directly to the supplied target group ARN, regardless of who owns it. No <code>ServiceExport</code> is required.</td>
+</tr>
+</tbody>
+</table>
 <h3 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h3>
 <ul>
 <li>ServiceImport shares the limitations of <a href="../service-export/">ServiceExport</a>.</li>
 <li>ServiceImport can only be used as a backendRef in a route (HTTPRoute, GRPCRoute, or TLSRoute); sending traffic directly is not supported.</li>
-<li>BackendRef ports pointing to ServiceImport is not respected. Use <a href="../service-export/#annotations">port annotation</a> of ServiceExport instead.</li>
+<li>BackendRef ports pointing to ServiceImport are not respected. Use the <a href="../service-export/#annotations">port annotation</a> of ServiceExport instead.</li>
+<li>Under Mode 3, the external target group is treated as reference only: the controller never tags it with <code>ManagedBy</code>, never registers targets on it, and never deletes it. Lifecycle remains the responsibility of whoever originally created it.</li>
 </ul>
 <h3 id="annotations">Annotations<a class="headerlink" href="#annotations" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
-<p><code>application-networking.k8s.aws/export-name</code><br />
-  (Optional) When specified, the controller will find the target group created by the named ServiceExport instead of
-  matching by the ServiceImport's own name. See <a href="../service-export/">ServiceExport</a> for the corresponding <code>service-name</code> annotation.</p>
+<p><code>application-networking.k8s.aws/export-name</code><br>
+  (Optional, Mode 2) When specified, the controller will find the target group created by the named ServiceExport instead of matching by the ServiceImport's own name. See <a href="../service-export/">ServiceExport</a> for the corresponding <code>service-name</code> annotation.</p>
 </li>
 <li>
-<p><code>application-networking.k8s.aws/aws-eks-cluster-name</code><br />
-  (Optional) When specified, the controller will only find target groups exported from the cluster.</p>
+<p><code>application-networking.k8s.aws/aws-eks-cluster-name</code><br>
+  (Optional, Mode 2) When specified, the controller will only find target groups exported from the named cluster.</p>
 </li>
-<li><code>application-networking.k8s.aws/aws-vpc</code><br />
-  (Optional) When specified, the controller will only find target groups exported from the cluster with the provided VPC ID.</li>
+<li>
+<p><code>application-networking.k8s.aws/aws-vpc</code><br>
+  (Optional, Mode 2) When specified, the controller will only find target groups exported from the cluster with the provided VPC ID.</p>
+</li>
+<li>
+<p><code>application-networking.k8s.aws/target-group-arn</code><br>
+  (Optional, Mode 3) When specified, the controller resolves this ServiceImport directly to the supplied VPC Lattice target group ARN. Mutually exclusive with the Mode 2 annotations above. See <a href="#mode-3-direct-external-target-group-reference">Mode 3 — Direct external target group reference</a>.</p>
+</li>
 </ul>
 <h2 id="example-configuration">Example Configuration<a class="headerlink" href="#example-configuration" title="Permanent link">&para;</a></h2>
+<h3 id="mode-1-mode-2-importing-a-serviceexport">Mode 1 / Mode 2 — Importing a <code>ServiceExport</code><a class="headerlink" href="#mode-1-mode-2-importing-a-serviceexport" title="Permanent link">&para;</a></h3>
 <p>The following yaml imports <code>service-1</code> exported from the designated cluster.
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceImport</span>
@@ -1856,7 +1981,11 @@ instead AWS Gateway API Controller uses its own version of the resource for the 
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/aws-eks-cluster-name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;service-1-owner-cluster&quot;</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/aws-vpc</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;service-1-owner-vpc-id&quot;</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nt">spec</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
 </code></pre></div></p>
 <p>The following example HTTPRoute directs traffic to the above ServiceImport.
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
@@ -1917,6 +2046,35 @@ instead AWS Gateway API Controller uses its own version of the resource for the 
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
 </code></pre></div></p>
 <p>For a complete multi-cluster example, see <a href="../../guides/advanced-configurations/#cross-cluster-routing-with-same-service-names">Cross-Cluster Routing with Same Service Names</a>.</p>
+<h2 id="mode-3-direct-external-target-group-reference">Mode 3 — Direct external target group reference<a class="headerlink" href="#mode-3-direct-external-target-group-reference" title="Permanent link">&para;</a></h2>
+<p>When the <code>application-networking.k8s.aws/target-group-arn</code> annotation is present, the controller resolves the ServiceImport directly to the supplied VPC Lattice target group ARN. No <code>ServiceExport</code> is involved.</p>
+<p>Mode 3 exists mainly to migrate traffic from a non EKS workload to an EKS backend with weighted routing. For the full migration guide see <a href="../../guides/migrate-to-eks/">Migrate to EKS with weighted routing</a>.</p>
+<h3 id="annotation">Annotation<a class="headerlink" href="#annotation" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>application-networking.k8s.aws/target-group-arn</code><br>
+  Full ARN of the VPC Lattice target group, e.g. <code>arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0abc123def4567890</code>. <br> Region and account are not validated against the controller's running region/account by ARN parsing. However, the controller's Lattice client is pinned to its configured region, so a cross region ARN will not resolve today and surfaces as <code>ExternalTargetGroupNotFound</code>. A cross account target group only resolves if it is reachable by the controller (e.g. RAM shared) and the controller's IAM principal can read it.</li>
+</ul>
+<h3 id="example-configuration_1">Example Configuration<a class="headerlink" href="#example-configuration_1" title="Permanent link">&para;</a></h3>
+<p>The following yaml references a pre existing VPC Lattice target group by ARN.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">application-networking.k8s.aws/v1alpha1</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ServiceImport</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders-legacy-tg</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0abc123def4567890&quot;</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
+</code></pre></div></p>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../guides/migrate-to-eks/">Migrate to EKS with weighted routing</a> </li>
+<li><a href="../../guides/service-name-override/">Service Name Override</a></li>
+<li><a href="../service-export/">ServiceExport</a></li>
+</ul>
 
 
 
