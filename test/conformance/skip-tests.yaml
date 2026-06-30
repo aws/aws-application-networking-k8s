@@ -90,6 +90,4 @@
   category: controller-bug
   reason: "Flaky in partial runs, passes in full suite"
 
-- name: HTTPRouteInvalidBackendRefUnknownKind
-  category: controller-bug
-  reason: "Returns 404 instead of 500 for unknown kind backend refs, fix #899 only covers nonexistent backends"
+
