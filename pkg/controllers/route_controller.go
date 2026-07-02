@@ -284,6 +284,8 @@ func (r *routeReconciler) buildAndDeployModel(
 	return stack, err
 }
 
+// serviceStatusFromStack extracts the ServiceStatus from the deployed stack.
+// Each route produces exactly one Service in the stack, so we return the first with a non-nil Status.
 func serviceStatusFromStack(stack core.Stack) *latticemodel.ServiceStatus {
 	var resServices []*latticemodel.Service
 	if err := stack.ListResources(&resServices); err != nil {
