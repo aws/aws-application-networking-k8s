@@ -265,21 +265,19 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 			continue
 		}
 
-		if parentRef.SectionName == nil {
-			continue
+		matched, err := t.matchedListeners(ctx, gw, parentRef)
+		if err != nil {
+			return "", err
 		}
 
-		for _, section := range gw.Spec.Listeners {
-			if section.Name == *parentRef.SectionName && section.TLS != nil {
-				if section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModeTerminate {
-					hasTLSTerminateListener = true
-					curCertARN, ok := section.TLS.Options[awsCustomCertARN]
-					if ok {
-						t.log.Debugf(ctx, "Found certification %s under section %s", curCertARN, section.Name)
-						return string(curCertARN), nil
-					}
+		for _, section := range matched {
+			if section.TLS != nil && section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModeTerminate {
+				hasTLSTerminateListener = true
+				curCertARN, ok := section.TLS.Options[awsCustomCertARN]
+				if ok {
+					t.log.Debugf(ctx, "Found certification %s under section %s", curCertARN, section.Name)
+					return string(curCertARN), nil
 				}
-				break
 			}
 		}
 	}

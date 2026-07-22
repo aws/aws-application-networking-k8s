@@ -84,23 +84,12 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 		}
 
 		// Find all gateway listeners that match this parentRef
-		for _, gwListener := range gw.Spec.Listeners {
-			if parentRef.Port != nil && *parentRef.Port != gwListener.Port {
-				continue
-			}
-			if parentRef.SectionName != nil && *parentRef.SectionName != gwListener.Name {
-				continue
-			}
+		matched, err := t.matchedListeners(ctx, gw, parentRef)
+		if err != nil {
+			return err
+		}
 
-			allowed, err := core.IsRouteAllowedByListener(ctx, t.client, t.route, gw, gwListener)
-			if err != nil {
-				return fmt.Errorf("error checking allowedRoutes policy for listener %s: %w", gwListener.Name, err)
-			}
-			if !allowed {
-				t.log.Debugf(ctx, "Skipping listener %s due to allowedRoutes policy", gwListener.Name)
-				continue
-			}
-
+		for _, gwListener := range matched {
 			protocol := string(gwListener.Protocol)
 			if isTLSPassthroughGatewayListener(&gwListener) {
 				t.log.Debugf(ctx, "Found TLS passthrough listener %s", gwListener.Name)
@@ -168,4 +157,33 @@ func (t *latticeServiceModelBuildTask) getListenerDefaultAction(ctx context.Cont
 			TargetGroups: ruleTgList,
 		},
 	}, nil
+}
+
+// matchedListeners returns the Gateway listeners that a parentRef matches,
+// using the standard Gateway API matching logic: port filter, sectionName filter,
+// and IsRouteAllowedByListener (route kind, hostname intersection, allowedRoutes policy).
+func (t *latticeServiceModelBuildTask) matchedListeners(
+	ctx context.Context, gw *gwv1.Gateway, parentRef gwv1.ParentReference,
+) ([]gwv1.Listener, error) {
+	var matched []gwv1.Listener
+	for _, gwListener := range gw.Spec.Listeners {
+		if parentRef.Port != nil && *parentRef.Port != gwListener.Port {
+			continue
+		}
+		if parentRef.SectionName != nil && *parentRef.SectionName != gwListener.Name {
+			continue
+		}
+
+		allowed, err := core.IsRouteAllowedByListener(ctx, t.client, t.route, gw, gwListener)
+		if err != nil {
+			return nil, fmt.Errorf("error checking allowedRoutes policy for listener %s: %w", gwListener.Name, err)
+		}
+		if !allowed {
+			t.log.Debugf(ctx, "Skipping listener %s due to allowedRoutes policy", gwListener.Name)
+			continue
+		}
+
+		matched = append(matched, gwListener)
+	}
+	return matched, nil
 }
