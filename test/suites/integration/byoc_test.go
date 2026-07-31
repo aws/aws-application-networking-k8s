@@ -42,7 +42,7 @@ var _ = Describe("Bring your own certificate (BYOC)", Serial, Ordered, func() {
 
 	var (
 		log       = testFramework.Log.Named("byoc")
-		awsCfg = lo.Must(awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(config.Region)))
+		awsCfg    = lo.Must(awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(config.Region)))
 		acmClient = acm.NewFromConfig(awsCfg)
 		r53Client = route53.NewFromConfig(awsCfg)
 
@@ -106,6 +106,34 @@ var _ = Describe("Bring your own certificate (BYOC)", Serial, Ordered, func() {
 			g.Expect(stdout).To(ContainSubstring("byoc-app handler pod"))
 			g.Expect(stderr).To(ContainSubstring("issuer: O=byoc-e2e-test"))
 		}).Should(Succeed())
+	})
+
+	It("resolves cert when parentRef omits sectionName", func() {
+		log := log.Named("nil-sectionname")
+
+		// create a route WITHOUT sectionName
+		httpRoute2 := testFramework.NewHttpRoute(testGateway, service, "Service")
+		httpRoute2.Name = "byoc-no-section"
+		httpRoute2.Spec.Hostnames = []gwv1.Hostname{cname}
+		testFramework.ExpectCreated(context.TODO(), httpRoute2)
+
+		// verify the Lattice service is created with the correct cert
+		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(gwv1.HTTPRoute(*httpRoute2)))
+		log.Infof(ctx, "nil-sectionName route created lattice service: %s", *svc.Id)
+
+		// verify HTTPS traffic works with the discovered cert
+		pods := testFramework.GetPodsByDeploymentName(deployment.Name, deployment.Namespace)
+		pod := pods[0]
+		Eventually(func(g Gomega) {
+			cmd := fmt.Sprintf("curl -v -k https://%s/", cname)
+			log.Infof(ctx, "calling lattice service, cmd=%s, pod=%s/%s", cmd, pod.Namespace, pod.Name)
+			stdout, stderr, err := testFramework.PodExec(pod, cmd)
+			g.Expect(err).To(BeNil())
+			g.Expect(stdout).To(ContainSubstring("byoc-app handler pod"))
+			g.Expect(stderr).To(ContainSubstring("issuer: O=byoc-e2e-test"))
+		}).Should(Succeed())
+
+		testFramework.ExpectDeletedThenNotFound(context.TODO(), httpRoute2)
 	})
 
 	AfterAll(func() {
