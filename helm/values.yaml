@@ -98,6 +98,7 @@ awsAccountId:
 clusterVpcId:
 clusterName:
 defaultServiceNetwork:
+enableServiceNetworkOverride: false
 latticeEndpoint:
 webhookEnabled: true
 disableTaggingServiceApi: false

@@ -166,6 +166,9 @@
       "type": "string",
       "enum": ["cluster", "namespace"]
     },
+    "enableServiceNetworkOverride": {
+      "type": "boolean"
+    },
     "serviceAccount": {
       "description": "ServiceAccount settings",
       "properties": {
