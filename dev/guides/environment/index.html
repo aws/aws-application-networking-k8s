@@ -1972,6 +1972,7 @@ The created service network will be also associated with cluster VPC.</p>
 <p><strong>Type:</strong> <em>string</em></p>
 <p><strong>Default:</strong> ""</p>
 <p>When set as "true", the controller will run in "single service network" mode that will override all gateways to point to default service network, instead of searching for service network with the same name. Can be used for small setups and conformance tests.</p>
+<p>The Helm chart exposes this setting as <code>enableServiceNetworkOverride</code>.</p>
 <hr />
 <h4 id="webhook_enabled"><code>WEBHOOK_ENABLED</code><a class="headerlink" href="#webhook_enabled" title="Permanent link">&para;</a></h4>
 <p><strong>Type:</strong> <em>string</em></p>
