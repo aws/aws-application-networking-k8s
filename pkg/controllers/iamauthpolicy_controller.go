@@ -191,7 +191,21 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 	}
 	statusPolicy, err := c.pm.Put(ctx, modelPolicy)
 	if err != nil {
-		return services.IgnoreNotFound(err)
+		// The underlying VPC Lattice resource (Service or ServiceNetwork) does
+		// not exist. This can happen if it was deleted out-of-band, or — for
+		// Gateway-targeted policies — if the ServiceNetwork has not yet been
+		// created (the gateway controller does not create ServiceNetworks).
+		// Surface this as a non-Accepted condition rather than silently
+		// succeeding; preserve the existing resource-id annotation so any
+		// previously-tracked resource can still be cleaned up if it returns.
+		if services.IsNotFoundError(err) {
+			msg := fmt.Sprintf("VPC Lattice %s %q not found", modelPolicy.Type, resourceName)
+			if statusErr := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, gwv1.PolicyReasonInvalid, msg); statusErr != nil {
+				return statusErr
+			}
+			return nil
+		}
+		return err
 	}
 	err = c.handleLatticeResourceChange(ctx, k8sPolicy, statusPolicy)
 	if err != nil {
