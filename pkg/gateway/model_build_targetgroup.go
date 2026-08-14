@@ -497,9 +497,19 @@ func (t *backendRefTargetGroupModelBuildTask) buildTargetGroupSpec(ctx context.C
 		return model.TargetGroupSpec{}, fmt.Errorf("unsupported route type %T", t.route)
 	}
 
+	// Target group identity (its stack resource ID) is derived from a hash of this entire spec,
+	// so the port must reflect the backendRef's actual port. Otherwise, multiple backendRefs to
+	// the same Service on different ports would produce identical specs and collapse into a
+	// single target group. Default to 80 only when the backendRef omits a port (e.g. a Service
+	// with a single port), matching prior behavior for that case.
+	port := int32(80)
+	if t.backendRef.Port() != nil {
+		port = int32(*t.backendRef.Port())
+	}
+
 	spec := model.TargetGroupSpec{
 		Type:              model.TargetGroupTypeIP,
-		Port:              80,
+		Port:              port,
 		Protocol:          protocol,
 		ProtocolVersion:   protocolVersion,
 		IpAddressType:     ipAddressType,

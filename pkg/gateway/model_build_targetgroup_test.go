@@ -703,6 +703,223 @@ func Test_TGModelByHTTPRouteBuild(t *testing.T) {
 	}
 }
 
+// Regression test for https://github.com/aws/aws-application-networking-k8s/issues/985
+//
+// When an HTTPRoute has multiple backendRefs pointing at the same Service on different ports,
+// each backendRef must resolve to its own target group. Target group identity is a hash of the
+// full TargetGroupSpec (see model.NewTargetGroup / core.IdFromHash), so the port must be part of
+// that spec - otherwise two backendRefs that differ only by port would hash identically and
+// collapse into a single target group.
+func Test_TGModelByBackendRefBuild_MultiplePortsSameService(t *testing.T) {
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
+		return &p
+	}
+	kindPtr := func(k string) *gwv1.Kind {
+		p := gwv1.Kind(k)
+		return &p
+	}
+
+	// buildRoute constructs an HTTPRoute with one rule per given port, each rule containing a
+	// single backendRef to the same Service - mirroring the reproduction steps in issue #985.
+	buildRoute := func(ports []*gwv1.PortNumber) core.Route {
+		rules := make([]gwv1.HTTPRouteRule, 0, len(ports))
+		for _, port := range ports {
+			rules = append(rules, gwv1.HTTPRouteRule{
+				BackendRefs: []gwv1.HTTPBackendRef{
+					{
+						BackendRef: gwv1.BackendRef{
+							BackendObjectReference: gwv1.BackendObjectReference{
+								Name:      "shared-service",
+								Namespace: namespacePtr("ns1"),
+								Kind:      kindPtr("Service"),
+								Port:      port,
+							},
+						},
+					},
+				},
+			})
+		}
+
+		return core.NewHTTPRoute(gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "multiport-route",
+				Namespace: "ns1",
+			},
+			Spec: gwv1.HTTPRouteSpec{
+				CommonRouteSpec: gwv1.CommonRouteSpec{
+					ParentRefs: []gwv1.ParentReference{
+						{Name: "gateway1", Namespace: namespacePtr("ns1")},
+					},
+				},
+				Rules: rules,
+			},
+		})
+	}
+
+	// setup builds a route with one rule per port and returns everything needed to build a
+	// target group per rule/backendRef against a shared stack, mimicking how
+	// getTargetGroupsForRuleAction (model_build_rule.go) invokes the builder once per backendRef
+	// across all of a route's rules.
+	setup := func(t *testing.T, ports []*gwv1.PortNumber) (context.Context, core.Route, core.Stack, BackendRefTargetGroupModelBuilder) {
+		ctx := context.TODO()
+		route := buildRoute(ports)
+
+		k8sSchema := runtime.NewScheme()
+		clientgoscheme.AddToScheme(k8sSchema)
+		anv1alpha1.Install(k8sSchema)
+		gwv1.Install(k8sSchema)
+		k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+		svc := corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "shared-service",
+				Namespace: "ns1",
+			},
+			Spec: corev1.ServiceSpec{
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			},
+		}
+		assert.NoError(t, k8sClient.Create(ctx, &svc))
+
+		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+		builder := NewBackendRefTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
+		return ctx, route, stack, builder
+	}
+
+	t.Run("different ports on same service produce two distinct target groups", func(t *testing.T) {
+		ctx, route, stack, builder := setup(t, []*gwv1.PortNumber{PortNumberPtr(3000), PortNumberPtr(3001)})
+
+		_, tg1, err := builder.Build(ctx, route, route.Spec().Rules()[0].BackendRefs()[0], stack)
+		assert.NoError(t, err)
+		_, tg2, err := builder.Build(ctx, route, route.Spec().Rules()[1].BackendRefs()[0], stack)
+		assert.NoError(t, err)
+
+		assert.NotEqual(t, tg1.ID(), tg2.ID(), "backendRefs on different ports must produce distinct target group IDs")
+		assert.Equal(t, int32(3000), tg1.Spec.Port)
+		assert.Equal(t, int32(3001), tg2.Spec.Port)
+
+		var stackTgs []*model.TargetGroup
+		assert.NoError(t, stack.ListResources(&stackTgs))
+		assert.Equal(t, 2, len(stackTgs), "expected two separate target groups in the stack")
+	})
+
+	t.Run("same port on same service dedupes to a single target group", func(t *testing.T) {
+		ctx, route, stack, builder := setup(t, []*gwv1.PortNumber{PortNumberPtr(3000), PortNumberPtr(3000)})
+
+		_, tg1, err := builder.Build(ctx, route, route.Spec().Rules()[0].BackendRefs()[0], stack)
+		assert.NoError(t, err)
+		_, tg2, err := builder.Build(ctx, route, route.Spec().Rules()[1].BackendRefs()[0], stack)
+		assert.NoError(t, err)
+
+		assert.Equal(t, tg1.ID(), tg2.ID(), "identical backendRefs must share the same target group ID")
+
+		var stackTgs []*model.TargetGroup
+		assert.NoError(t, stack.ListResources(&stackTgs))
+		assert.Equal(t, 1, len(stackTgs), "expected the two identical backendRefs to be deduped into one target group")
+	})
+
+	t.Run("nil port on backendRef falls back to default port 80", func(t *testing.T) {
+		ctx, route, stack, builder := setup(t, []*gwv1.PortNumber{nil})
+
+		_, tg, err := builder.Build(ctx, route, route.Spec().Rules()[0].BackendRefs()[0], stack)
+		assert.NoError(t, err)
+		assert.Equal(t, int32(80), tg.Spec.Port)
+	})
+}
+
+// Same defect as Test_TGModelByBackendRefBuild_MultiplePortsSameService, but for GRPCRoute.
+// buildTargetGroupSpec is shared across HTTPRoute/GRPCRoute/TLSRoute and applies route-specific
+// protocol/protocolVersion overrides before the port is set, so the fix must be verified for
+// GRPCRoute explicitly rather than assumed to work by analogy with HTTPRoute.
+func Test_TGModelByBackendRefBuild_GRPCRouteMultiplePorts(t *testing.T) {
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
+		return &p
+	}
+	kindPtr := func(k string) *gwv1.Kind {
+		p := gwv1.Kind(k)
+		return &p
+	}
+
+	newRule := func(port *gwv1.PortNumber) gwv1.GRPCRouteRule {
+		return gwv1.GRPCRouteRule{
+			BackendRefs: []gwv1.GRPCBackendRef{
+				{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
+							Name:      "shared-grpc-service",
+							Namespace: namespacePtr("ns1"),
+							Kind:      kindPtr("Service"),
+							Port:      port,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	ctx := context.TODO()
+	route := core.NewGRPCRoute(gwv1.GRPCRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "multiport-grpc-route",
+			Namespace: "ns1",
+		},
+		Spec: gwv1.GRPCRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{Name: "gateway1", Namespace: namespacePtr("ns1")},
+				},
+			},
+			Rules: []gwv1.GRPCRouteRule{
+				newRule(PortNumberPtr(8080)),
+				newRule(PortNumberPtr(9090)),
+			},
+		},
+	})
+
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	anv1alpha1.Install(k8sSchema)
+	gwv1.Install(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "shared-grpc-service",
+			Namespace: "ns1",
+		},
+		Spec: corev1.ServiceSpec{
+			IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+		},
+	}
+	assert.NoError(t, k8sClient.Create(ctx, &svc))
+
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+	builder := NewBackendRefTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
+
+	_, tg1, err := builder.Build(ctx, route, route.Spec().Rules()[0].BackendRefs()[0], stack)
+	assert.NoError(t, err)
+	_, tg2, err := builder.Build(ctx, route, route.Spec().Rules()[1].BackendRefs()[0], stack)
+	assert.NoError(t, err)
+
+	assert.NotEqual(t, tg1.ID(), tg2.ID(), "GRPCRoute backendRefs on different ports must produce distinct target group IDs")
+	assert.Equal(t, int32(8080), tg1.Spec.Port)
+	assert.Equal(t, int32(9090), tg2.Spec.Port)
+	assert.Equal(t, string(types.TargetGroupProtocolVersionGrpc), tg1.Spec.ProtocolVersion)
+	assert.Equal(t, string(types.TargetGroupProtocolVersionGrpc), tg2.Spec.ProtocolVersion)
+
+	var stackTgs []*model.TargetGroup
+	assert.NoError(t, stack.ListResources(&stackTgs))
+	assert.Equal(t, 2, len(stackTgs))
+}
+
 // service imports do not do a full TG build, just a reference
 // see model_build_rule.go#getTargetGroupsForRuleAction
 func Test_ServiceImportToTGBuildReturnsError(t *testing.T) {
