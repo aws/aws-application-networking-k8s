@@ -1057,3 +1057,83 @@ func Test_Delete_ConflictException(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "ConflictException")
 }
+
+// Test that a permanent ConflictException (VPC already associated) returns a services.ConflictError.
+func Test_UpsertVpcAssociation_ConflictException_PermanentConflict(t *testing.T) {
+	snId := "sn-12345678912345678"
+	snArn := "arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-12345678912345678"
+	name := "test-sn"
+	item := types.ServiceNetworkSummary{
+		Arn:  &snArn,
+		Id:   &snId,
+		Name: &name,
+	}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
+		&mocks.ServiceNetworkInfo{
+			SvcNetwork: item,
+			Tags:       nil,
+		}, nil)
+	// No existing association for this SN+VPC pair
+	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(
+		[]types.ServiceNetworkVpcAssociationSummary{}, nil)
+	// CreateServiceNetworkVpcAssociation returns a permanent ConflictException
+	mockLattice.EXPECT().CreateServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(
+		nil, &types.ConflictException{
+			Message: aws.String("VPC has already been associated to a service network."),
+		})
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	_, err := snMgr.UpsertVpcAssociation(ctx, name, []string{}, nil)
+
+	assert.NotNil(t, err)
+	assert.True(t, mocks.IsConflictError(err))
+	assert.Contains(t, err.Error(), "VPC has already been associated")
+}
+
+// Test that a transient ConflictException (CREATE_IN_PROGRESS) returns a RetryError.
+func Test_UpsertVpcAssociation_ConflictException_TransientCreateInProgress(t *testing.T) {
+	snId := "sn-12345678912345678"
+	snArn := "arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-12345678912345678"
+	name := "test-sn"
+	item := types.ServiceNetworkSummary{
+		Arn:  &snArn,
+		Id:   &snId,
+		Name: &name,
+	}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	mockLattice.EXPECT().FindServiceNetwork(ctx, gomock.Any()).Return(
+		&mocks.ServiceNetworkInfo{
+			SvcNetwork: item,
+			Tags:       nil,
+		}, nil)
+	// No existing association for this SN+VPC pair
+	mockLattice.EXPECT().ListServiceNetworkVpcAssociationsAsList(ctx, gomock.Any()).Return(
+		[]types.ServiceNetworkVpcAssociationSummary{}, nil)
+	// CreateServiceNetworkVpcAssociation returns a transient ConflictException
+	mockLattice.EXPECT().CreateServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(
+		nil, &types.ConflictException{
+			Message: aws.String("Invalid resource status for this operation, resource id snva-xxx, status: CREATE_IN_PROGRESS."),
+		})
+
+	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
+	_, err := snMgr.UpsertVpcAssociation(ctx, name, []string{}, nil)
+
+	assert.NotNil(t, err)
+	// Should be a retry error, NOT a ConflictError
+	assert.False(t, mocks.IsConflictError(err))
+	var retryErr *lattice_runtime.RequeueNeededAfter
+	assert.True(t, errors.As(err, &retryErr))
+}

@@ -2,7 +2,9 @@ package lattice
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"slices"
 
@@ -101,6 +103,16 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 		}
 		resp, err := m.cloud.Lattice().CreateServiceNetworkVpcAssociation(ctx, &req)
 		if err != nil {
+			var ce *types.ConflictException
+			if errors.As(err, &ce) {
+				msg := aws.ToString(ce.Message)
+				if strings.Contains(msg, string(types.ServiceNetworkVpcAssociationStatusCreateInProgress)) {
+					// Transient conflict — the association is being created, retry later
+					return "", fmt.Errorf("%w: %s", lattice_runtime.NewRetryError(), msg)
+				}
+				// Permanent conflict — VPC already associated with another service network
+				return "", services.NewConflictError("ServiceNetworkVpcAssociation", snName, msg)
+			}
 			return "", err
 		}
 		switch status := string(resp.Status); status {
