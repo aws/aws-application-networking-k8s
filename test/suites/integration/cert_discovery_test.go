@@ -36,7 +36,7 @@ var _ = Describe("ACM certificate discovery", Serial, Ordered, func() {
 
 	var (
 		log       = testFramework.Log.Named("cert-discovery")
-		awsCfg = lo.Must(awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(config.Region)))
+		awsCfg    = lo.Must(awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(config.Region)))
 		acmClient = acm.NewFromConfig(awsCfg)
 		r53Client = route53.NewFromConfig(awsCfg)
 
@@ -130,6 +130,30 @@ var _ = Describe("ACM certificate discovery", Serial, Ordered, func() {
 			g.Expect(err).To(BeNil())
 			g.Expect(stdout).To(ContainSubstring("cert-discovery-app handler pod"))
 		}).Should(Succeed())
+	})
+
+	It("auto-discovers cert when parentRef omits sectionName", func() {
+		log := log.Named("nil-sectionname")
+
+		// create a route WITHOUT sectionName
+		httpRoute2 := testFramework.NewHttpRoute(testGateway, service, "Service")
+		httpRoute2.Name = "cert-disc-no-section"
+		httpRoute2.Spec.Hostnames = []gwv1.Hostname{cname}
+		testFramework.ExpectCreated(context.TODO(), httpRoute2)
+
+		// verify the Lattice service gets the auto-discovered cert
+		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(gwv1.HTTPRoute(*httpRoute2)))
+		Eventually(func(g Gomega) {
+			out, err := testFramework.LatticeClient.GetService(ctx, &vpclattice.GetServiceInput{
+				ServiceIdentifier: svc.Id,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(out.CertificateArn).ToNot(BeNil())
+			g.Expect(*out.CertificateArn).To(Equal(certArn))
+			log.Infof(ctx, "nil-sectionName route discovered cert: %s", *out.CertificateArn)
+		}).WithTimeout(3 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
+
+		testFramework.ExpectDeletedThenNotFound(context.TODO(), httpRoute2)
 	})
 
 	AfterAll(func() {
