@@ -16,7 +16,7 @@ When drift detection is enabled, the controller schedules a periodic re-reconcil
 - **Service network service associations** — restored if removed
 - **Access log subscriptions** — restored if removed
 - **IAM auth policies** — restored if deleted, `AWS_IAM` auth type re-applied if reverted
-- **VPC associations** — recreated if deleted, security-group drift reverted
+- **VPC associations** — recreated if deleted, security-group drift reverted; private DNS settings (`privateDnsEnabled`, `dnsOptions`) are create-only in VPC Lattice, so a mismatch is reported through the `Programmed` condition (reason `PrivateDnsMismatch`) and a Warning event instead of being reverted
 
 The following resources are **not** currently covered by drift detection:
 
@@ -74,7 +74,7 @@ Most managers diff the live state against the desired state on each pass and ski
 
 ### Controller coverage
 
-Drift detection applies to all controllers that use the shared `HandleReconcileError` function. The route controller provides the most comprehensive coverage, reconciling services, listeners, rules, target groups, targets, and service network associations on each pass. The access log policy controller restores access log subscriptions. The IAM auth policy controller restores deleted auth policies and re-applies the `AWS_IAM` auth type if reverted. The VPC association policy controller recreates the VPC association if deleted and reverts security-group drift.
+Drift detection applies to all controllers that use the shared `HandleReconcileError` function. The route controller provides the most comprehensive coverage, reconciling services, listeners, rules, target groups, targets, and service network associations on each pass. The access log policy controller restores access log subscriptions. The IAM auth policy controller restores deleted auth policies and re-applies the `AWS_IAM` auth type if reverted. The VPC association policy controller recreates the VPC association if deleted and reverts security-group drift; private DNS settings cannot be changed in place, so a mismatch is only reported (`Programmed` condition, reason `PrivateDnsMismatch`).
 
 The gateway controller receives periodic requeues but only verifies service network existence — it does not create or modify service networks.
 
