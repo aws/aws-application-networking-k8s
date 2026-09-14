@@ -19,6 +19,12 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.privateDnsEnabled
+      name: PrivateDNS
+      type: boolean
+    - jsonPath: .status.conditions[?(@.type=="Programmed")].status
+      name: Programmed
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -51,6 +57,72 @@ spec:
                   AssociateWithVpc indicates whether the VpcServiceNetworkAssociation should be created for the current VPC of k8s cluster.
 
                   This value will be considered true by default.
+                type: boolean
+              dnsOptions:
+                description: |-
+                  DnsOptions selects which custom domain names get private DNS in the cluster VPC.
+                  It can only be set when PrivateDnsEnabled is true and, like PrivateDnsEnabled, is only applied
+                  when the VpcServiceNetworkAssociation is created.
+                properties:
+                  privateDnsPreference:
+                    description: |-
+                      PrivateDnsPreference selects which custom domain names get private DNS in the cluster VPC.
+
+                      When unset, VPC Lattice applies its default, VERIFIED_DOMAINS_ONLY, which is also the value AWS
+                      recommends, and the controller does not compare the preference of an existing association.
+                    enum:
+                    - VERIFIED_DOMAINS_ONLY
+                    - ALL_DOMAINS
+                    - VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS
+                    - SPECIFIED_DOMAINS_ONLY
+                    type: string
+                  privateDnsSpecifiedDomains:
+                    description: |-
+                      PrivateDnsSpecifiedDomains lists custom domain names that get private DNS in addition to
+                      (VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS) or instead of (SPECIFIED_DOMAINS_ONLY) the verified domains.
+                      Wildcard names such as "*.example.com" are allowed.
+
+                      It is required for those two preferences and must not be set for the others.
+                    items:
+                      description: |-
+                        PrivateDnsDomain is a domain name that VPC Lattice resolves privately in the cluster VPC.
+                        Wildcards such as *.example.com are allowed; the syntax is validated by VPC Lattice.
+                      maxLength: 255
+                      minLength: 1
+                      type: string
+                    maxItems: 10
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
+                type: object
+                x-kubernetes-validations:
+                - fieldPath: .privateDnsSpecifiedDomains
+                  message: privateDnsSpecifiedDomains can only be set when privateDnsPreference
+                    is VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS or SPECIFIED_DOMAINS_ONLY
+                  rule: '!has(self.privateDnsSpecifiedDomains) || (has(self.privateDnsPreference)
+                    && self.privateDnsPreference in [''VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS'',
+                    ''SPECIFIED_DOMAINS_ONLY''])'
+                - fieldPath: .privateDnsSpecifiedDomains
+                  message: privateDnsSpecifiedDomains is required when privateDnsPreference
+                    is VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS or SPECIFIED_DOMAINS_ONLY
+                  rule: '!(has(self.privateDnsPreference) && self.privateDnsPreference
+                    in [''VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS'', ''SPECIFIED_DOMAINS_ONLY''])
+                    || has(self.privateDnsSpecifiedDomains)'
+              privateDnsEnabled:
+                description: |-
+                  PrivateDnsEnabled enables private DNS on the VpcServiceNetworkAssociation: VPC Lattice then
+                  provisions private hosted zones in the cluster VPC for the custom domain names of resource
+                  configurations associated with the service network, as selected by DnsOptions. The service
+                  network owner must also enable private DNS on the resource association.
+
+                  When unset, the association is created with private DNS disabled (the VPC Lattice default)
+                  and the setting is not compared on an existing association.
+
+                  VPC Lattice only accepts this setting when the association is created. If an existing
+                  association differs, the controller keeps it and reports the "Programmed" condition with
+                  reason "PrivateDnsMismatch"; set AssociateWithVpc to false and back to true to recreate it.
+
+                  For more details, please check the VPC Lattice documentation https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers
                 type: boolean
               securityGroupIds:
                 description: |-
@@ -105,6 +177,10 @@ spec:
             required:
             - targetRef
             type: object
+            x-kubernetes-validations:
+            - fieldPath: .dnsOptions
+              message: dnsOptions can only be set when privateDnsEnabled is true
+              rule: '!has(self.dnsOptions) || (has(self.privateDnsEnabled) && self.privateDnsEnabled)'
           status:
             description: VpcAssociationPolicyStatus defines the observed state of
               VpcAssociationPolicy.
@@ -116,6 +192,11 @@ spec:
                   reason: Pending
                   status: Unknown
                   type: Accepted
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Programmed
                 description: |-
                   Conditions describe the current conditions of the VpcAssociationPolicy.
 
@@ -127,6 +208,7 @@ spec:
                   Known condition types are:
 
                   * "Accepted"
+                  * "Programmed"
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
