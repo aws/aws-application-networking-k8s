@@ -76,8 +76,13 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 		}
 	}
 
+	newTargets := s.findNewTargets(modelTargets, latticeTargets)
+	if len(newTargets) > 0 {
+		s.log.Infof(ctx, "Found %d new targets to register to target group %s", len(newTargets), modelTg.Status.Id)
+	}
+
 	err1 := s.deregisterTargets(ctx, modelTg, staleTargets)
-	err2 := s.registerTargets(ctx, modelTg, modelTargets.Spec.TargetList)
+	err2 := s.registerTargets(ctx, modelTg, newTargets)
 	return errors.Join(err1, err2)
 }
 
@@ -108,6 +113,41 @@ func (s *defaultTargetsManager) findStaleTargets(
 		}
 	}
 	return staleTargets
+}
+
+// findNewTargets returns the desired targets that are not already registered in
+// VPC Lattice. Registering only the delta (rather than the entire desired list on
+// every reconcile) avoids exhausting the RegisterTargets throttle limit under high
+// target churn. Targets currently in DRAINING state are treated as NOT registered so
+// that they are re-registered and can serve traffic again.
+func (s *defaultTargetsManager) findNewTargets(
+	modelTargets *model.Targets,
+	listTargetsOutput []types.TargetSummary) []model.Target {
+
+	// Build the set of already-registered targets, keyed by IP/Port (readiness disregarded),
+	// excluding DRAINING targets so they are re-registered.
+	registeredSet := utils.NewSet[model.Target]()
+	for _, target := range listTargetsOutput {
+		if string(target.Status) == string(types.TargetStatusDraining) {
+			continue
+		}
+		registeredSet.Put(model.Target{
+			TargetIP: aws.ToString(target.Id),
+			Port:     int64(aws.ToInt32(target.Port)),
+		})
+	}
+
+	newTargets := make([]model.Target, 0)
+	for _, target := range modelTargets.Spec.TargetList {
+		ipPort := model.Target{
+			TargetIP: target.TargetIP,
+			Port:     target.Port,
+		}
+		if !registeredSet.Contains(ipPort) {
+			newTargets = append(newTargets, target)
+		}
+	}
+	return newTargets
 }
 
 func (s *defaultTargetsManager) registerTargets(

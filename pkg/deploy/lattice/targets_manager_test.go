@@ -245,7 +245,7 @@ func TestTargetsManager(t *testing.T) {
 		registerInput := &vpclattice.RegisterTargetsInput{
 			TargetGroupIdentifier: aws.String("tg-id"),
 			Targets: []types.Target{
-				{Id: aws.String(mt2.TargetIP), Port: aws.Int32(int32(mt2.Port))},
+				// mt2 is already registered, so only mt3 (the new target) should be registered.
 				{Id: aws.String(mt3.TargetIP), Port: aws.Int32(int32(mt3.Port))},
 			},
 		}
@@ -332,6 +332,65 @@ func TestTargetsManager(t *testing.T) {
 		mockLattice.EXPECT().DeregisterTargets(ctx, gomock.Any()).Return(&vpclattice.DeregisterTargetsOutput{}, nil).Times(3)
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
 		err := targetsManager.Update(ctx, &modelTargets, &modelTg)
+
+		assert.Nil(t, err)
+	})
+
+	t.Run("all desired targets already registered - no RegisterTargets call", func(t *testing.T) {
+		mt := model.Target{TargetIP: "192.0.2.10", Port: int64(8080), Ready: true}
+		alreadyRegistered := model.Targets{
+			Spec: model.TargetsSpec{
+				StackTargetGroupId: "tg-stack-id",
+				TargetList:         []model.Target{mt},
+			},
+		}
+		existingTargets := []types.TargetSummary{
+			{
+				Id:     aws.String(mt.TargetIP),
+				Port:   aws.Int32(int32(mt.Port)),
+				Status: types.TargetStatusHealthy,
+			},
+		}
+
+		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
+		// No RegisterTargets and no DeregisterTargets expected: nothing to change.
+
+		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
+		err := targetsManager.Update(ctx, &alreadyRegistered, &modelTg)
+
+		assert.Nil(t, err)
+	})
+
+	t.Run("draining target is re-registered", func(t *testing.T) {
+		mt := model.Target{TargetIP: "192.0.2.10", Port: int64(8080), Ready: true}
+		desired := model.Targets{
+			Spec: model.TargetsSpec{
+				StackTargetGroupId: "tg-stack-id",
+				TargetList:         []model.Target{mt},
+			},
+		}
+		// The desired target exists in Lattice but is DRAINING; it must be re-registered
+		// so it can serve traffic again, and it must NOT be treated as stale/deregistered.
+		existingTargets := []types.TargetSummary{
+			{
+				Id:     aws.String(mt.TargetIP),
+				Port:   aws.Int32(int32(mt.Port)),
+				Status: types.TargetStatusDraining,
+			},
+		}
+		expectedRegisterInput := &vpclattice.RegisterTargetsInput{
+			TargetGroupIdentifier: aws.String("tg-id"),
+			Targets: []types.Target{
+				{Id: aws.String(mt.TargetIP), Port: aws.Int32(int32(mt.Port))},
+			},
+		}
+
+		mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(existingTargets, nil)
+		mockLattice.EXPECT().RegisterTargets(ctx, expectedRegisterInput).Return(registerTargetsOutput, nil)
+		// No DeregisterTargets expected: the draining target is still desired.
+
+		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
+		err := targetsManager.Update(ctx, &desired, &modelTg)
 
 		assert.Nil(t, err)
 	})
