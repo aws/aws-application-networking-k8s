@@ -18,10 +18,12 @@ import (
 	latticetypes "github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -87,7 +89,9 @@ func Test_IAMAuthPolicy_PeriodicRequeue(t *testing.T) {
 
 	// Stub the manager's Lattice calls so Put() returns a successful status.
 	// For a Gateway target, Put() routes through putSn and calls:
-	//   FindServiceNetwork -> PutAuthPolicyWithContext -> UpdateServiceNetworkWithContext
+	//   FindServiceNetwork -> GetAuthPolicy -> PutAuthPolicy -> UpdateServiceNetwork
+	// We stub GetAuthPolicy to return State=Inactive so the manager's
+	// in-sync short-circuit does not fire and the rewrite path is exercised.
 	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-gateway").Return(
 		&mocks.ServiceNetworkInfo{
 			SvcNetwork: latticetypes.ServiceNetworkSummary{
@@ -95,6 +99,10 @@ func Test_IAMAuthPolicy_PeriodicRequeue(t *testing.T) {
 				Name: aws.String("test-gateway"),
 				Arn:  aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-1234"),
 			},
+		}, nil)
+	mockLattice.EXPECT().GetAuthPolicy(gomock.Any(), gomock.Any()).Return(
+		&vpclattice.GetAuthPolicyOutput{
+			State: latticetypes.AuthPolicyStateInactive,
 		}, nil)
 	mockLattice.EXPECT().PutAuthPolicy(gomock.Any(), gomock.Any()).Return(
 		&vpclattice.PutAuthPolicyOutput{}, nil)
@@ -121,4 +129,107 @@ func Test_IAMAuthPolicy_PeriodicRequeue(t *testing.T) {
 	// matching pkg/runtime/reconcile_test.go::Test_NilError_WithReconcileInterval.
 	assert.GreaterOrEqual(t, result.RequeueAfter, interval)
 	assert.LessOrEqual(t, result.RequeueAfter, time.Duration(float64(interval)*1.2))
+}
+
+// Test_IAMAuthPolicy_LatticeResourceNotFound verifies that when the underlying
+// VPC Lattice resource (Service or ServiceNetwork) is missing, reconcile sets
+// the policy's Accepted condition to Invalid with a descriptive message rather
+// than silently succeeding. It also verifies the resource-id annotation is
+// preserved (not stomped to empty), so that recovery is possible once the
+// upstream resource returns.
+//
+// This case is primarily reachable for Gateway-targeted policies, because
+// service networks are not recreated by drift detection. Without this branch,
+// the controller reports Accepted=True while not actually applying the policy.
+func Test_IAMAuthPolicy_LatticeResourceNotFound(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	anv1alpha1.Install(k8sScheme)
+
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-gateway",
+			Namespace: "test-namespace",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+		},
+	}
+
+	// Seed the policy with a previously-applied resource id so we can assert
+	// it is preserved across the NotFound branch.
+	const previouslyAppliedResId = "sn-previously-applied"
+	iap := &anv1alpha1.IAMAuthPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-policy",
+			Namespace: "test-namespace",
+			Annotations: map[string]string{
+				IAMAuthPolicyAnnotationResId:   previouslyAppliedResId,
+				IAMAuthPolicyAnnotationType:    "ServiceNetwork",
+				IAMAuthPolicyAnnotationResName: "test-gateway",
+			},
+		},
+		Spec: anv1alpha1.IAMAuthPolicySpec{
+			Policy: `{"Version":"2012-10-17","Statement":[]}`,
+			TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+				Group: gwv1.GroupName,
+				Kind:  "Gateway",
+				Name:  "test-gateway",
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(iap, gw).
+		WithStatusSubresource(&anv1alpha1.IAMAuthPolicy{}).
+		Build()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockCloud := pkg_aws.NewMockCloud(c)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	// Simulate the underlying ServiceNetwork being deleted out-of-band: the
+	// manager's Find* call returns a NotFound. PutAuthPolicy and
+	// UpdateServiceNetwork must not be called in this path.
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-gateway").Return(
+		nil, mocks.NewNotFoundError("Service network", "test-gateway"))
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	r := &IAMAuthPolicyController{
+		log:           gwlog.FallbackLogger,
+		client:        k8sClient,
+		pm:            deploy.NewIAMAuthPolicyManager(mockCloud),
+		ph:            policy.NewIAMAuthPolicyHandler(gwlog.FallbackLogger, k8sClient),
+		cloud:         mockCloud,
+		eventRecorder: mockEventRecorder,
+	}
+
+	_, err := r.Reconcile(ctx, reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "test-policy", Namespace: "test-namespace"},
+	})
+	assert.NoError(t, err)
+
+	// Reload and verify the policy's Accepted condition is False/Invalid with
+	// a message that names the missing resource type and resource name.
+	got := &anv1alpha1.IAMAuthPolicy{}
+	assert.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(iap), got))
+
+	cond := meta.FindStatusCondition(got.Status.Conditions, string(gwv1.PolicyConditionAccepted))
+	assert.NotNil(t, cond)
+	assert.Equal(t, metav1.ConditionFalse, cond.Status)
+	assert.Equal(t, string(gwv1.PolicyReasonInvalid), cond.Reason)
+	assert.Contains(t, cond.Message, "test-gateway")
+
+	// The previously-applied resource-id annotation must not be stomped to
+	// empty; otherwise the controller loses the handle to the resource it
+	// previously managed.
+	assert.Equal(t, previouslyAppliedResId, got.Annotations[IAMAuthPolicyAnnotationResId])
 }
