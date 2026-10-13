@@ -2098,6 +2098,8 @@ func (s *stubCertDiscovery) Discover(_ context.Context, _ string) (string, error
 func Test_getACMCertArn(t *testing.T) {
 	tlsSectionName := gwv1.SectionName("tls")
 	tlsModeTerminate := gwv1.TLSModeTerminate
+	exampleHostname := gwv1.Hostname("*.example.com")
+	otherHostname := gwv1.Hostname("*.other.com")
 
 	gwClass := gwv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "gwClass"},
@@ -2109,44 +2111,61 @@ func Test_getACMCertArn(t *testing.T) {
 		return &p
 	}
 
-	httpsGateway := gwv1.Gateway{
-		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
-		Spec: gwv1.GatewaySpec{
-			GatewayClassName: gwv1.ObjectName(gwClass.Name),
-			Listeners: []gwv1.Listener{
-				{
-					Name:     "tls",
-					Port:     443,
-					Protocol: "HTTPS",
-					TLS: &gwv1.ListenerTLSConfig{
-						Mode: &tlsModeTerminate,
-					},
-				},
+	makeGateway := func(listeners ...gwv1.Listener) gwv1.Gateway {
+		return gwv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
+			Spec: gwv1.GatewaySpec{
+				GatewayClassName: gwv1.ObjectName(gwClass.Name),
+				Listeners:        listeners,
+			},
+		}
+	}
+
+	httpsListener := gwv1.Listener{
+		Name:     "tls",
+		Port:     443,
+		Protocol: "HTTPS",
+		TLS: &gwv1.ListenerTLSConfig{
+			Mode: &tlsModeTerminate,
+		},
+	}
+
+	httpsListenerWithCert := gwv1.Listener{
+		Name:     "tls",
+		Port:     443,
+		Protocol: "HTTPS",
+		TLS: &gwv1.ListenerTLSConfig{
+			Mode: &tlsModeTerminate,
+			Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
+				"application-networking.k8s.aws/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/manual-cert",
 			},
 		},
 	}
 
-	httpsGatewayWithCert := gwv1.Gateway{
-		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
-		Spec: gwv1.GatewaySpec{
-			GatewayClassName: gwv1.ObjectName(gwClass.Name),
-			Listeners: []gwv1.Listener{
-				{
-					Name:     "tls",
-					Port:     443,
-					Protocol: "HTTPS",
-					TLS: &gwv1.ListenerTLSConfig{
-						Mode: &tlsModeTerminate,
-						Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
-							"application-networking.k8s.aws/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/manual-cert",
-						},
-					},
-				},
+	httpsListenerWithCertAndHostname := gwv1.Listener{
+		Name:     "tls",
+		Port:     443,
+		Protocol: "HTTPS",
+		Hostname: &exampleHostname,
+		TLS: &gwv1.ListenerTLSConfig{
+			Mode: &tlsModeTerminate,
+			Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
+				"application-networking.k8s.aws/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/manual-cert",
 			},
 		},
 	}
 
-	makeRoute := func(hostnames []gwv1.Hostname, deletionTimestamp *metav1.Time) core.Route {
+	httpsListenerWithHostname := gwv1.Listener{
+		Name:     "tls",
+		Port:     443,
+		Protocol: "HTTPS",
+		Hostname: &exampleHostname,
+		TLS: &gwv1.ListenerTLSConfig{
+			Mode: &tlsModeTerminate,
+		},
+	}
+
+	makeRoute := func(hostnames []gwv1.Hostname, deletionTimestamp *metav1.Time, sectionName *gwv1.SectionName) core.Route {
 		route := core.NewHTTPRoute(gwv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "route1",
@@ -2165,7 +2184,7 @@ func Test_getACMCertArn(t *testing.T) {
 						{
 							Name:        "gw",
 							Namespace:   namespacePtr("default"),
-							SectionName: &tlsSectionName,
+							SectionName: sectionName,
 						},
 					},
 				},
@@ -2177,7 +2196,7 @@ func Test_getACMCertArn(t *testing.T) {
 				ParentRef: gwv1.ParentReference{
 					Name:        "gw",
 					Namespace:   namespacePtr("default"),
-					SectionName: &tlsSectionName,
+					SectionName: sectionName,
 				},
 				Conditions: []metav1.Condition{
 					{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue},
@@ -2199,34 +2218,34 @@ func Test_getACMCertArn(t *testing.T) {
 	}{
 		{
 			name:                "manual cert annotation present returns manual ARN and skips discovery",
-			gw:                  httpsGatewayWithCert,
-			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			gw:                  makeGateway(httpsListenerWithCert),
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil, &tlsSectionName),
 			certDiscovery:       &stubCertDiscovery{arn: "should-not-be-used"},
 			wantArn:             "arn:aws:acm:us-west-2:123456789012:certificate/manual-cert",
 			wantDiscoveryCalled: false,
 		},
 		{
 			name:                "no annotation with hostname triggers discovery",
-			gw:                  httpsGateway,
-			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			gw:                  makeGateway(httpsListener),
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil, &tlsSectionName),
 			certDiscovery:       &stubCertDiscovery{arn: "arn:aws:acm:us-west-2:123456789012:certificate/discovered"},
 			wantArn:             "arn:aws:acm:us-west-2:123456789012:certificate/discovered",
 			wantDiscoveryCalled: true,
 		},
 		{
 			name:                "no hostnames skips discovery",
-			gw:                  httpsGateway,
-			route:               makeRoute(nil, nil),
+			gw:                  makeGateway(httpsListener),
+			route:               makeRoute(nil, nil, &tlsSectionName),
 			certDiscovery:       &stubCertDiscovery{arn: "should-not-be-used"},
 			wantArn:             "",
 			wantDiscoveryCalled: false,
 		},
 		{
 			name: "route being deleted skips discovery",
-			gw:   httpsGateway,
+			gw:   makeGateway(httpsListener),
 			route: func() core.Route {
 				now := metav1.Now()
-				return makeRoute([]gwv1.Hostname{"app.example.com"}, &now)
+				return makeRoute([]gwv1.Hostname{"app.example.com"}, &now, &tlsSectionName)
 			}(),
 			certDiscovery:       &stubCertDiscovery{arn: "should-not-be-used"},
 			wantArn:             "",
@@ -2234,8 +2253,8 @@ func Test_getACMCertArn(t *testing.T) {
 		},
 		{
 			name:                "discovery transient error propagates",
-			gw:                  httpsGateway,
-			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			gw:                  makeGateway(httpsListener),
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil, &tlsSectionName),
 			certDiscovery:       &stubCertDiscovery{err: fmt.Errorf("acm error")},
 			wantArn:             "",
 			wantErr:             true,
@@ -2243,8 +2262,8 @@ func Test_getACMCertArn(t *testing.T) {
 		},
 		{
 			name:                "discovery access denied returns error with permission message",
-			gw:                  httpsGateway,
-			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			gw:                  makeGateway(httpsListener),
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil, &tlsSectionName),
 			certDiscovery:       &stubCertDiscovery{err: services.ErrACMAccessDenied},
 			wantArn:             "",
 			wantErr:             true,
@@ -2253,13 +2272,109 @@ func Test_getACMCertArn(t *testing.T) {
 		},
 		{
 			name:                "no matching cert returns error",
-			gw:                  httpsGateway,
-			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil),
+			gw:                  makeGateway(httpsListener),
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil, &tlsSectionName),
 			certDiscovery:       &stubCertDiscovery{arn: ""},
 			wantArn:             "",
 			wantErr:             true,
 			wantErrIs:           ErrCertificateNotFound,
 			wantDiscoveryCalled: true,
+		},
+		{
+			name:                "nil sectionName with matching hostname resolves cert from listener annotation",
+			gw:                  makeGateway(httpsListenerWithCertAndHostname),
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil, nil),
+			certDiscovery:       &stubCertDiscovery{arn: "should-not-be-used"},
+			wantArn:             "arn:aws:acm:us-west-2:123456789012:certificate/manual-cert",
+			wantDiscoveryCalled: false,
+		},
+		{
+			name:                "nil sectionName with matching hostname triggers discovery when no cert annotation",
+			gw:                  makeGateway(httpsListenerWithHostname),
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil, nil),
+			certDiscovery:       &stubCertDiscovery{arn: "arn:aws:acm:us-west-2:123456789012:certificate/discovered"},
+			wantArn:             "arn:aws:acm:us-west-2:123456789012:certificate/discovered",
+			wantDiscoveryCalled: true,
+		},
+		{
+			name: "nil sectionName with non-intersecting hostname skips listener",
+			gw: makeGateway(gwv1.Listener{
+				Name:     "https",
+				Port:     443,
+				Protocol: "HTTPS",
+				Hostname: &otherHostname,
+				TLS: &gwv1.ListenerTLSConfig{
+					Mode: &tlsModeTerminate,
+					Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
+						"application-networking.k8s.aws/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/wrong-cert",
+					},
+				},
+			}),
+			route:               makeRoute([]gwv1.Hostname{"app.example.com"}, nil, nil),
+			certDiscovery:       &stubCertDiscovery{arn: "should-not-be-used"},
+			wantArn:             "",
+			wantDiscoveryCalled: false,
+		},
+		{
+			name: "nil sectionName with port filter only matches listener on correct port",
+			gw: makeGateway(
+				gwv1.Listener{
+					Name:     "https-8443",
+					Port:     8443,
+					Protocol: "HTTPS",
+					TLS: &gwv1.ListenerTLSConfig{
+						Mode: &tlsModeTerminate,
+						Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
+							"application-networking.k8s.aws/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/wrong-port-cert",
+						},
+					},
+				},
+				gwv1.Listener{
+					Name:     "https-443",
+					Port:     443,
+					Protocol: "HTTPS",
+					TLS: &gwv1.ListenerTLSConfig{
+						Mode: &tlsModeTerminate,
+						Options: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
+							"application-networking.k8s.aws/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/correct-port-cert",
+						},
+					},
+				},
+			),
+			route: func() core.Route {
+				port := gwv1.PortNumber(443)
+				route := core.NewHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "default"},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{
+							ParentRefs: []gwv1.ParentReference{
+								{
+									Name:      "gw",
+									Namespace: namespacePtr("default"),
+									Port:      &port,
+								},
+							},
+						},
+						Hostnames: []gwv1.Hostname{"app.example.com"},
+					},
+				})
+				route.Status().SetParents([]gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      "gw",
+							Namespace: namespacePtr("default"),
+							Port:      &port,
+						},
+						Conditions: []metav1.Condition{
+							{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue},
+						},
+					},
+				})
+				return route
+			}(),
+			certDiscovery:       &stubCertDiscovery{arn: "should-not-be-used"},
+			wantArn:             "arn:aws:acm:us-west-2:123456789012:certificate/correct-port-cert",
+			wantDiscoveryCalled: false,
 		},
 	}
 

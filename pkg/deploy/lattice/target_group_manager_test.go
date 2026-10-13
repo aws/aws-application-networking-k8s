@@ -1755,3 +1755,52 @@ func Test_fillDefaultHealthCheckConfig_PolicyIntegration(t *testing.T) {
 		})
 	}
 }
+
+func Test_ResolveRuleTgIds_KeepsResolvedExternalTargetGroupId(t *testing.T) {
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	mockCloud := pkg_aws.NewMockCloud(c)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+	mockCloud.EXPECT().Tagging().Return(mockTagging).AnyTimes()
+
+	mockLattice.EXPECT().ListTargetGroupsAsList(gomock.Any(), gomock.Any()).Times(0)
+	mockTagging.EXPECT().GetTagsForArns(gomock.Any(), gomock.Any()).Times(0)
+	mockLattice.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Times(0)
+	mockLattice.EXPECT().DeregisterTargets(gomock.Any(), gomock.Any()).Times(0)
+	mockLattice.EXPECT().DeleteTargetGroup(gomock.Any(), gomock.Any()).Times(0)
+
+	stack := core.NewDefaultStack(core.StackID{Name: "foo", Namespace: "bar"})
+	stackRule := &model.Rule{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::Rule", "rule-id"),
+		Spec: model.RuleSpec{
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{
+						LatticeTgId: "tg-0df85aff983932f06",
+						SvcImportTG: &model.SvcImportTargetGroup{
+							K8SClusterName:      "cluster-name",
+							K8SServiceName:      "svc-name",
+							K8SServiceNamespace: "ns",
+							VpcId:               "vpc-id",
+						},
+						Weight: 90,
+					},
+				},
+			},
+		},
+	}
+	assert.NoError(t, stack.AddResource(stackRule))
+
+	s := NewTargetGroupManager(gwlog.FallbackLogger, mockCloud, nil)
+	assert.NoError(t, s.ResolveRuleTgIds(ctx, &stackRule.Spec.Action, stack))
+
+	assert.Equal(t, "tg-0df85aff983932f06", stackRule.Spec.Action.TargetGroups[0].LatticeTgId)
+	assert.Empty(t, stackRule.Spec.Action.TargetGroups[0].StackTargetGroupId)
+}

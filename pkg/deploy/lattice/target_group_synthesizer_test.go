@@ -568,3 +568,71 @@ func Test_SynthesizeCreate_WithNonServiceExportTargetGroup(t *testing.T) {
 	err = synthesizer.SynthesizeCreate(ctx)
 	assert.NoError(t, err)
 }
+
+func Test_SynthesizeUnusedDelete_ExternalTgRouteRebuild(t *testing.T) {
+	ctx := context.TODO()
+
+	config.VpcID = "vpc-id"
+	config.ClusterName = "cluster-name"
+
+	orphanTg := copyTgOutput(getBaseTg())
+	orphanTg.tgSummary.Arn = aws.String("tg-orphan-arn")
+	orphanTg.tags[model.K8SSourceTypeKey] = string(model.SourceTypeHTTPRoute)
+	orphanTg.tags[model.K8SRouteNameKey] = "route"
+	orphanTg.tags[model.K8SRouteNamespaceKey] = "route-ns"
+	orphanTg.tags[model.K8SProtocolVersionKey] = "HTTP1"
+
+	t.Run("route rebuild succeeds and target group no longer matches, orphan deleted", func(t *testing.T) {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		mockTGManager := NewMockTargetGroupManager(c)
+		mockClient := mock_client.NewMockClient(c)
+		mockSvcBuilder := gateway.NewMockLatticeServiceBuilder(c)
+
+		mockTGManager.EXPECT().List(ctx).Return([]tgListOutput{orphanTg}, nil)
+		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, name apitypes.NamespacedName, route client.Object, _ ...interface{}) error {
+				route.SetName("route")
+				route.SetNamespace("route-ns")
+				return nil
+			},
+		)
+		emptyStack := core.NewDefaultStack(core.StackID{Name: "route", Namespace: "route-ns"})
+		nonMatchingTg := model.TargetGroup{
+			ResourceMeta: core.NewResourceMeta(emptyStack, "AWS:VPCServiceNetwork::TargetGroup", "tg-other"),
+		}
+		emptyStack.AddResource(&nonMatchingTg)
+		mockSvcBuilder.EXPECT().Build(ctx, gomock.Any()).Return(emptyStack, nil)
+		mockTGManager.EXPECT().IsTargetGroupMatch(ctx, gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(false, nil)
+		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
+
+		synthesizer := NewTargetGroupSynthesizer(
+			gwlog.FallbackLogger, nil, mockClient, mockTGManager, nil, mockSvcBuilder, nil)
+		_, err := synthesizer.SynthesizeUnusedDelete(ctx)
+		assert.Nil(t, err)
+	})
+
+	t.Run("route rebuild errors, orphan kept", func(t *testing.T) {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		mockTGManager := NewMockTargetGroupManager(c)
+		mockClient := mock_client.NewMockClient(c)
+		mockSvcBuilder := gateway.NewMockLatticeServiceBuilder(c)
+
+		mockTGManager.EXPECT().List(ctx).Return([]tgListOutput{orphanTg}, nil)
+		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, name apitypes.NamespacedName, route client.Object, _ ...interface{}) error {
+				route.SetName("route")
+				route.SetNamespace("route-ns")
+				return nil
+			},
+		)
+		mockSvcBuilder.EXPECT().Build(ctx, gomock.Any()).Return(nil, assert.AnError)
+
+		synthesizer := NewTargetGroupSynthesizer(
+			gwlog.FallbackLogger, nil, mockClient, mockTGManager, nil, mockSvcBuilder, nil)
+		_, err := synthesizer.SynthesizeUnusedDelete(ctx)
+		assert.Nil(t, err)
+	})
+}

@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -222,17 +223,27 @@ var _ = Describe("ServiceNetwork CRD delete blocked by association", Serial, Ord
 	const svcName = "test-svc-block-e2e"
 
 	AfterAll(func() {
-		// Clean up association first to unblock SN deletion
-		if snssaId != nil {
-			testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx, &vpclattice.DeleteServiceNetworkServiceAssociationInput{
-				ServiceNetworkServiceAssociationIdentifier: snssaId,
-			})
-			Eventually(func(g Gomega) {
-				_, err := testFramework.LatticeClient.GetServiceNetworkServiceAssociation(ctx, &vpclattice.GetServiceNetworkServiceAssociationInput{
-					ServiceNetworkServiceAssociationIdentifier: snssaId,
+		// Clean up all associations on the SN to unblock deletion
+		if snInfo, err := testFramework.LatticeClient.FindServiceNetwork(ctx, snName); err == nil && snInfo != nil {
+			assocs, _ := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
+				&vpclattice.ListServiceNetworkServiceAssociationsInput{
+					ServiceNetworkIdentifier: snInfo.SvcNetwork.Id,
 				})
-				g.Expect(err).To(HaveOccurred())
-			}).Should(Succeed())
+			for _, a := range assocs {
+				testFramework.LatticeClient.DeleteServiceNetworkServiceAssociation(ctx,
+					&vpclattice.DeleteServiceNetworkServiceAssociationInput{
+						ServiceNetworkServiceAssociationIdentifier: a.Id,
+					})
+			}
+			if len(assocs) > 0 {
+				Eventually(func(g Gomega) {
+					remaining, _ := testFramework.LatticeClient.ListServiceNetworkServiceAssociationsAsList(ctx,
+						&vpclattice.ListServiceNetworkServiceAssociationsInput{
+							ServiceNetworkIdentifier: snInfo.SvcNetwork.Id,
+						})
+					g.Expect(remaining).To(BeEmpty())
+				}).Should(Succeed())
+			}
 		}
 		if serviceId != nil {
 			Eventually(func() error {
@@ -280,12 +291,20 @@ var _ = Describe("ServiceNetwork CRD delete blocked by association", Serial, Ord
 			snId = updated.Status.ServiceNetworkID
 		}).Should(Succeed())
 
-		// Create a Lattice service via SDK and wait for it to be active
-		svcResp, err := testFramework.LatticeClient.CreateService(ctx, &vpclattice.CreateServiceInput{
-			Name: aws.String(svcName),
-		})
-		Expect(err).ToNot(HaveOccurred())
-		serviceId = svcResp.Id
+		// Create a Lattice service via SDK (or reuse existing from a previous failed run)
+		existingSvc, err := testFramework.LatticeClient.FindService(ctx, svcName)
+		if err != nil && !services.IsNotFoundError(err) {
+			Expect(err).ToNot(HaveOccurred(), "failed to look up existing service")
+		}
+		if existingSvc != nil {
+			serviceId = existingSvc.Id
+		} else {
+			svcResp, err := testFramework.LatticeClient.CreateService(ctx, &vpclattice.CreateServiceInput{
+				Name: aws.String(svcName),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			serviceId = svcResp.Id
+		}
 
 		Eventually(func(g Gomega) {
 			svc, err := testFramework.LatticeClient.FindService(ctx, svcName)

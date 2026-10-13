@@ -49,7 +49,7 @@ In this case, the VPC Lattice service automatically generates a managed ACM cert
 
 If you want to use a custom domain name along with its own certificate, follow instructions on [Requesting a public certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) to create a certificate for your custom domain name in ACM. 
 
-Note that only `Terminate` mode is supported (Passthrough is not supported).
+Note that only `Terminate` mode is supported for HTTPS listeners. For TLS Passthrough, use a `protocol: TLS` listener with a [TLSRoute](../api-types/tls-route.md) instead.
 
 #### Automatic Certificate Discovery
 
@@ -138,10 +138,14 @@ spec:
 
 ### Enabling TLS connection on the backend
 
-Currently, TLS Passthrough mode is not supported in the controller, but it allows TLS re-encryption to support backends that only allow TLS connections.
-To handle this use case, you need to configure your service to receive HTTPs traffic instead:
+If your backend pods require TLS connections, you can configure VPC Lattice to re-encrypt traffic before forwarding it to your pods. This is useful when you want VPC Lattice to terminate client-facing TLS (for HTTP routing and inspection) while still encrypting the connection from VPC Lattice to your pods.
 
-```yaml title="target-group.yaml" hl_lines="10"
+!!! note
+    If you want end-to-end passthrough without TLS termination, use a [TLSRoute](../api-types/tls-route.md) with a `protocol: TLS`, `mode: Passthrough` Gateway listener instead. The approach below is for re-encryption, where VPC Lattice terminates and then re-establishes TLS to the backend.
+
+To configure TLS re-encryption, create a `TargetGroupPolicy` with `protocol: HTTPS`:
+
+```yaml title="target-group-policy.yaml" hl_lines="10"
 apiVersion: application-networking.k8s.aws/v1alpha1
 kind: TargetGroupPolicy
 metadata:
@@ -155,7 +159,20 @@ spec:
     protocolVersion: HTTP1
 ```
 
-This will create VPC Lattice TargetGroup with HTTPs protocol option, which can receive TLS traffic.
-Note that certificate validation is not supported.
+This creates a VPC Lattice target group with HTTPS protocol. Lattice will use TLS when forwarding traffic to your pods.
 
-For more details, please refer to [TargetGroupPolicy API reference](../api-types/target-group-policy.md).
+!!! warning "Health check protocol"
+    If your pods only accept TLS connections, you **must** also set `healthCheck.protocol: HTTPS` in the TargetGroupPolicy. Health checks default to HTTP, so without this setting they will fail and targets will never become healthy.
+
+    ```yaml
+    healthCheck:
+        protocol: HTTPS
+        path: /healthz
+        statusMatch: "200"
+    ```
+
+#### Certificate requirements
+
+VPC Lattice does not validate backend certificates, so self-signed certificates work without any CA or trust bundle configuration. Re-encryption provides transport-level encryption between VPC Lattice and your pods, but does not authenticate the backend server's identity.
+
+For more details on TargetGroupPolicy fields, see the [TargetGroupPolicy API reference](../api-types/target-group-policy.md).

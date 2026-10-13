@@ -706,3 +706,112 @@ func Test_RuleManager_WithTakeoverAnnotation_UpdateTags(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "existing-arn", ruleStatus.Arn)
 }
+
+func Test_RuleManager_ExternalTargetGroupIdMatchesExistingRule_NoUpdate(t *testing.T) {
+	const bareId = "tg-0df85aff983932f06"
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	svc := &model.Service{Status: &model.ServiceStatus{Id: "svc-id"}}
+	l := &model.Listener{
+		Spec:   model.ListenerSpec{Port: 80, Protocol: "HTTP"},
+		Status: &model.ListenerStatus{Id: "listener-id"},
+	}
+	r := &model.Rule{
+		Spec: model.RuleSpec{
+			Priority: 1,
+			Method:   "POST",
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{LatticeTgId: bareId, Weight: 1},
+				},
+			},
+		},
+	}
+
+	mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+		[]*vpclattice.GetRuleOutput{
+			{
+				Id:    aws.String("existing-id"),
+				Arn:   aws.String("existing-arn"),
+				Match: &types.RuleMatchMemberHttpMatch{Value: types.HttpMatch{Method: aws.String("POST")}},
+				Action: &types.RuleActionMemberForward{
+					Value: types.ForwardAction{
+						TargetGroups: []types.WeightedTargetGroup{
+							{TargetGroupIdentifier: aws.String(bareId), Weight: aws.Int32(1)},
+						},
+					},
+				},
+				Name:     aws.String("existing-name"),
+				Priority: aws.Int32(1),
+			},
+		}, nil)
+
+	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Nil(), nil).Return(nil)
+
+	mockLattice.EXPECT().UpdateRule(ctx, gomock.Any()).Times(0)
+
+	rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+	ruleStatus, err := rm.Upsert(ctx, r, l, svc)
+	assert.Nil(t, err)
+	assert.Equal(t, "existing-arn", ruleStatus.Arn)
+}
+
+func Test_RuleManager_ExternalTargetGroupArnDiffersFromExistingRule_Updates(t *testing.T) {
+	const (
+		fullArn = "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0df85aff983932f06"
+		bareId  = "tg-0df85aff983932f06"
+	)
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	svc := &model.Service{Status: &model.ServiceStatus{Id: "svc-id"}}
+	l := &model.Listener{
+		Spec:   model.ListenerSpec{Port: 80, Protocol: "HTTP"},
+		Status: &model.ListenerStatus{Id: "listener-id"},
+	}
+	r := &model.Rule{
+		Spec: model.RuleSpec{
+			Priority: 1,
+			Method:   "POST",
+			Action: model.RuleAction{
+				TargetGroups: []*model.RuleTargetGroup{
+					{LatticeTgId: fullArn, Weight: 1},
+				},
+			},
+		},
+	}
+	mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+		[]*vpclattice.GetRuleOutput{
+			{
+				Id:    aws.String("existing-id"),
+				Arn:   aws.String("existing-arn"),
+				Match: &types.RuleMatchMemberHttpMatch{Value: types.HttpMatch{Method: aws.String("POST")}},
+				Action: &types.RuleActionMemberForward{
+					Value: types.ForwardAction{
+						TargetGroups: []types.WeightedTargetGroup{
+							{TargetGroupIdentifier: aws.String(bareId), Weight: aws.Int32(1)},
+						},
+					},
+				},
+				Name:     aws.String("existing-name"),
+				Priority: aws.Int32(1),
+			},
+		}, nil)
+
+	mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Nil(), nil).Return(nil)
+	mockLattice.EXPECT().UpdateRule(ctx, gomock.Any()).Return(
+		&vpclattice.UpdateRuleOutput{Id: aws.String("existing-id"), Arn: aws.String("existing-arn")}, nil).Times(1)
+
+	rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+	_, err := rm.Upsert(ctx, r, l, svc)
+	assert.Nil(t, err)
+}

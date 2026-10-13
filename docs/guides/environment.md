@@ -75,6 +75,8 @@ The created service network will be also associated with cluster VPC.
 
 When set as "true", the controller will run in "single service network" mode that will override all gateways to point to default service network, instead of searching for service network with the same name. Can be used for small setups and conformance tests.
 
+The Helm chart exposes this setting as `enableServiceNetworkOverride`.
+
 ---
 
 #### `WEBHOOK_ENABLED`

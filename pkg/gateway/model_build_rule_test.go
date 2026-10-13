@@ -2,16 +2,19 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -2044,6 +2047,354 @@ func Test_ServiceImportAnnotationMapping(t *testing.T) {
 				assert.Equal(t, tt.expectedVPC, targetGroup.SvcImportTG.VpcId,
 					"VPC ID should match expected value")
 			}
+		})
+	}
+}
+
+func Test_RuleModelBuild_ExternalTargetGroup(t *testing.T) {
+	const (
+		validArn = "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0df85aff983932f06"
+		bareId   = "tg-0df85aff983932f06"
+	)
+	var serviceImportKind gwv1.Kind = "ServiceImport"
+	var httpSectionName gwv1.SectionName = "http"
+	const svcImportName = "external-import"
+
+	newRoute := func(grpc, deleting bool) core.Route {
+		om := apimachineryv1.ObjectMeta{Name: "test-route", Namespace: "default"}
+		if deleting {
+			now := apimachineryv1.Now()
+			om.DeletionTimestamp = &now
+			om.Finalizers = []string{"test-finalizer"}
+		}
+		backendRef := gwv1.BackendRef{
+			BackendObjectReference: gwv1.BackendObjectReference{
+				Name: gwv1.ObjectName(svcImportName),
+				Kind: &serviceImportKind,
+			},
+		}
+		parentRefs := []gwv1.ParentReference{{Name: "gw1", SectionName: &httpSectionName}}
+		if grpc {
+			return core.NewGRPCRoute(gwv1.GRPCRoute{
+				ObjectMeta: om,
+				Spec: gwv1.GRPCRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: parentRefs},
+					Rules: []gwv1.GRPCRouteRule{{
+						BackendRefs: []gwv1.GRPCBackendRef{{BackendRef: backendRef}},
+					}},
+				},
+			})
+		}
+		return core.NewHTTPRoute(gwv1.HTTPRoute{
+			ObjectMeta: om,
+			Spec: gwv1.HTTPRouteSpec{
+				CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: parentRefs},
+				Rules: []gwv1.HTTPRouteRule{{
+					BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: backendRef}},
+				}},
+			},
+		})
+	}
+
+	tests := []struct {
+		name            string
+		grpc            bool
+		deleting        bool
+		annotations     map[string]string
+		mockLattice     func(m *services.MockLattice)
+		wantErr         bool
+		wantErrIs       func(error) bool
+		wantLatticeTgId string
+	}{
+		{
+			name:        "HTTPRoute with valid external target group resolves to its id",
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), &vpclattice.GetTargetGroupInput{
+					TargetGroupIdentifier: aws.String(validArn),
+				}).Return(&vpclattice.GetTargetGroupOutput{
+					Id: aws.String(bareId), Arn: aws.String(validArn),
+				}, nil)
+			},
+			wantLatticeTgId: bareId,
+		},
+		{
+			name:        "GRPCRoute with valid external target group resolves to its id",
+			grpc:        true,
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Return(&vpclattice.GetTargetGroupOutput{
+					Id: aws.String(bareId), Arn: aws.String(validArn),
+				}, nil)
+			},
+			wantLatticeTgId: bareId,
+		},
+		{
+			name: "target-group-arn with export-name is a conflict",
+			annotations: map[string]string{
+				k8s.TargetGroupArnAnnotation: validArn,
+				k8s.ExportNameAnnotation:     "some-export",
+			},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Times(0)
+			},
+			wantErr:   true,
+			wantErrIs: k8s.IsConflictingServiceImportAnnotationsError,
+		},
+		{
+			name: "target-group-arn with a blank but present aws-vpc is a conflict",
+			annotations: map[string]string{
+				k8s.TargetGroupArnAnnotation: validArn,
+				k8s.AwsVpcAnnotation:         "",
+			},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Times(0)
+			},
+			wantErr:   true,
+			wantErrIs: k8s.IsConflictingServiceImportAnnotationsError,
+		},
+		{
+			name:        "malformed ARN returns InvalidExternalTargetGroupError",
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: "not-an-arn"},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Times(0)
+			},
+			wantErr:   true,
+			wantErrIs: k8s.IsInvalidExternalTargetGroupError,
+		},
+		{
+			name:        "target group not found returns ExternalTargetGroupNotFoundError",
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).
+					Return(nil, &types.ResourceNotFoundException{Message: aws.String("nope")})
+			},
+			wantErr:   true,
+			wantErrIs: k8s.IsExternalTargetGroupNotFoundError,
+		},
+		{
+			name:        "access denied returns ExternalTargetGroupNotFoundError",
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).
+					Return(nil, &types.AccessDeniedException{Message: aws.String("denied")})
+			},
+			wantErr:   true,
+			wantErrIs: k8s.IsExternalTargetGroupNotFoundError,
+		},
+		{
+			name:        "transient error is returned as-is, not classified as not found",
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("throttled"))
+			},
+			wantErr: true,
+			wantErrIs: func(err error) bool {
+				return err != nil && !k8s.IsExternalTargetGroupNotFoundError(err) &&
+					!k8s.IsInvalidExternalTargetGroupError(err)
+			},
+		},
+		{
+			name:            "nil client resolves the id without an existence check",
+			annotations:     map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice:     nil,
+			wantLatticeTgId: bareId,
+		},
+		{
+			name: "nil client skips the conflict check and resolves the id",
+			annotations: map[string]string{
+				k8s.TargetGroupArnAnnotation: validArn,
+				k8s.ExportNameAnnotation:     "some-export",
+			},
+			mockLattice:     nil,
+			wantLatticeTgId: bareId,
+		},
+		{
+			name:            "nil client skips the ARN-format check and leaves the id empty",
+			annotations:     map[string]string{k8s.TargetGroupArnAnnotation: "not-an-arn"},
+			mockLattice:     nil,
+			wantLatticeTgId: "",
+		},
+		{
+			name:            "delete path with valid ARN skips the existence check and resolves the id",
+			deleting:        true,
+			annotations:     map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice:     nil,
+			wantLatticeTgId: bareId,
+		},
+		{
+			name:            "delete path tolerates a malformed ARN and leaves the id empty",
+			deleting:        true,
+			annotations:     map[string]string{k8s.TargetGroupArnAnnotation: "not-an-arn"},
+			mockLattice:     nil,
+			wantLatticeTgId: "",
+		},
+		{
+			name:     "delete path tolerates conflicting annotations",
+			deleting: true,
+			annotations: map[string]string{
+				k8s.TargetGroupArnAnnotation: validArn,
+				k8s.ExportNameAnnotation:     "some-export",
+			},
+			mockLattice:     nil,
+			wantLatticeTgId: bareId,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceImport{})
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			serviceImport := &anv1alpha1.ServiceImport{
+				ObjectMeta: apimachineryv1.ObjectMeta{
+					Name:        svcImportName,
+					Namespace:   "default",
+					Annotations: tt.annotations,
+				},
+			}
+			assert.NoError(t, k8sClient.Create(ctx, serviceImport))
+
+			route := newRoute(tt.grpc, tt.deleting)
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+
+			var lattice services.Lattice
+			if tt.mockLattice != nil {
+				m := services.NewMockLattice(c)
+				tt.mockLattice(m)
+				lattice = m
+			}
+
+			task := &latticeServiceModelBuildTask{
+				log:         gwlog.FallbackLogger,
+				route:       route,
+				stack:       stack,
+				client:      k8sClient,
+				brTgBuilder: &dummyTgBuilder{},
+				lattice:     lattice,
+			}
+
+			err := task.buildRules(ctx, "listener-id")
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.wantErrIs != nil {
+					assert.True(t, tt.wantErrIs(err), "error did not match expected predicate: %v", err)
+				}
+				return
+			}
+			assert.NoError(t, err)
+
+			var rtg *model.RuleTargetGroup
+			if tt.deleting {
+				ruleTgList, gErr := task.getTargetGroupsForRuleAction(ctx, route.Spec().Rules()[0])
+				assert.NoError(t, gErr)
+				assert.Equal(t, 1, len(ruleTgList), "expected exactly one rule target group")
+				rtg = ruleTgList[0]
+			} else {
+				var resRules []*model.Rule
+				stack.ListResources(&resRules)
+				assert.Equal(t, 1, len(resRules), "expected exactly one rule on the stack")
+				assert.Equal(t, 1, len(resRules[0].Spec.Action.TargetGroups), "expected exactly one target group")
+				rtg = resRules[0].Spec.Action.TargetGroups[0]
+			}
+
+			assert.Equal(t, tt.wantLatticeTgId, rtg.LatticeTgId)
+			assert.Nil(t, rtg.SvcImportTG)
+			assert.Empty(t, rtg.StackTargetGroupId)
+		})
+	}
+}
+
+func Test_RuleModelBuild_MissingServiceImport_WithClaim(t *testing.T) {
+	const missingSvcImportName = "does-not-exist"
+	var serviceImportKind gwv1.Kind = "ServiceImport"
+	var httpSectionName gwv1.SectionName = "http"
+
+	newRoute := func(serviceNameOverride string) core.Route {
+		om := apimachineryv1.ObjectMeta{Name: "test-route", Namespace: "default"}
+		if serviceNameOverride != "" {
+			om.Annotations = map[string]string{
+				"application-networking.k8s.aws/service-name-override": serviceNameOverride,
+			}
+		}
+		return core.NewHTTPRoute(gwv1.HTTPRoute{
+			ObjectMeta: om,
+			Spec: gwv1.HTTPRouteSpec{
+				CommonRouteSpec: gwv1.CommonRouteSpec{
+					ParentRefs: []gwv1.ParentReference{{Name: "gw1", SectionName: &httpSectionName}},
+				},
+				Rules: []gwv1.HTTPRouteRule{{
+					BackendRefs: []gwv1.HTTPBackendRef{{
+						BackendRef: gwv1.BackendRef{
+							BackendObjectReference: gwv1.BackendObjectReference{
+								Name: gwv1.ObjectName(missingSvcImportName),
+								Kind: &serviceImportKind,
+							},
+						},
+					}},
+				}},
+			},
+		})
+	}
+
+	tests := []struct {
+		name                string
+		serviceNameOverride string
+		wantErr             bool
+		wantErrSubstr       string
+	}{
+		{
+			name:                "without service-name-override a missing ServiceImport is tolerated",
+			serviceNameOverride: "",
+			wantErr:             false,
+		},
+		{
+			name:                "with service-name-override a missing ServiceImport fails the build",
+			serviceNameOverride: "claim-target",
+			wantErr:             true,
+			wantErrSubstr:       "does not exist; refusing to claim the existing service",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			defer c.Finish()
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceImport{})
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			route := newRoute(tt.serviceNameOverride)
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+			task := &latticeServiceModelBuildTask{
+				log:         gwlog.FallbackLogger,
+				route:       route,
+				stack:       stack,
+				client:      k8sClient,
+				brTgBuilder: &dummyTgBuilder{},
+			}
+
+			err := task.buildRules(ctx, "listener-id")
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.wantErrSubstr != "" {
+					assert.Contains(t, err.Error(), tt.wantErrSubstr)
+				}
+				return
+			}
+			assert.NoError(t, err)
 		})
 	}
 }

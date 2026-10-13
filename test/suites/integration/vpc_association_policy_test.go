@@ -13,6 +13,7 @@ import (
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -29,47 +30,60 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 	)
 
 	BeforeAll(func() {
-		// Create security group
-		describeVpcOutput, err := testFramework.Ec2Client.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{
-			VpcIds: []string{test.CurrentClusterVpcId},
-		})
-		Expect(err).To(BeNil())
-		sourceVPC := describeVpcOutput.Vpcs[0]
-		createSgOutput, err := testFramework.Ec2Client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
-			Description: aws.String("k8s-test-lattice-snva-sg"),
-			GroupName:   aws.String("k8s-test-lattice-snva-sg"),
-			VpcId:       aws.String(test.CurrentClusterVpcId),
-		})
-		Expect(err).To(BeNil())
-		sgId = v1alpha1.SecurityGroupId(*createSgOutput.GroupId)
-
-		// Create security group inbound rules
-		_, err = testFramework.Ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
-			GroupId: createSgOutput.GroupId,
-			IpPermissions: []ec2types.IpPermission{
-				{ // SG Rule to allow HTTP
-					IpProtocol: aws.String("tcp"),
-					IpRanges: []ec2types.IpRange{
-						{
-							CidrIp: sourceVPC.CidrBlock,
-						},
-					},
-					FromPort: aws.Int32(80),
-					ToPort:   aws.Int32(80),
-				},
-				{ // SG Rule to allow HTTPS
-					IpProtocol: aws.String("tcp"),
-					IpRanges: []ec2types.IpRange{
-						{
-							CidrIp: sourceVPC.CidrBlock,
-						},
-					},
-					FromPort: aws.Int32(443),
-					ToPort:   aws.Int32(443),
-				},
+		// Look up existing SG first (idempotent — handles leaked SG from prior failed run)
+		describeSgOutput, err := testFramework.Ec2Client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+			Filters: []ec2types.Filter{
+				{Name: aws.String("group-name"), Values: []string{"k8s-test-lattice-snva-sg"}},
+				{Name: aws.String("vpc-id"), Values: []string{test.CurrentClusterVpcId}},
 			},
 		})
 		Expect(err).To(BeNil())
+
+		if len(describeSgOutput.SecurityGroups) > 0 {
+			sgId = v1alpha1.SecurityGroupId(*describeSgOutput.SecurityGroups[0].GroupId)
+		} else {
+			describeVpcOutput, err := testFramework.Ec2Client.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{
+				VpcIds: []string{test.CurrentClusterVpcId},
+			})
+			Expect(err).To(BeNil())
+			sourceVPC := describeVpcOutput.Vpcs[0]
+
+			createSgOutput, err := testFramework.Ec2Client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
+				Description: aws.String("k8s-test-lattice-snva-sg"),
+				GroupName:   aws.String("k8s-test-lattice-snva-sg"),
+				VpcId:       aws.String(test.CurrentClusterVpcId),
+			})
+			Expect(err).To(BeNil())
+			sgId = v1alpha1.SecurityGroupId(*createSgOutput.GroupId)
+
+			// Create security group inbound rules only for newly created SG
+			_, err = testFramework.Ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+				GroupId: createSgOutput.GroupId,
+				IpPermissions: []ec2types.IpPermission{
+					{ // SG Rule to allow HTTP
+						IpProtocol: aws.String("tcp"),
+						IpRanges: []ec2types.IpRange{
+							{
+								CidrIp: sourceVPC.CidrBlock,
+							},
+						},
+						FromPort: aws.Int32(80),
+						ToPort:   aws.Int32(80),
+					},
+					{ // SG Rule to allow HTTPS
+						IpProtocol: aws.String("tcp"),
+						IpRanges: []ec2types.IpRange{
+							{
+								CidrIp: sourceVPC.CidrBlock,
+							},
+						},
+						FromPort: aws.Int32(443),
+						ToPort:   aws.Int32(443),
+					},
+				},
+			})
+			Expect(err).To(BeNil())
+		}
 	})
 
 	It("Create the VpcAssociationPolicy with a SecurityGroupId and additional tags, expecting the ServiceNetworkVpcAssociation with a security group and additional tags", func() {
@@ -121,14 +135,17 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 	})
 
 	It("Update VpcAssociationPolicy with additional tags changed and attempting to override aws managed tags", func() {
-		testFramework.Get(ctx, types.NamespacedName{
-			Namespace: vpcAssociationPolicy.Namespace,
-			Name:      vpcAssociationPolicy.Name,
-		}, vpcAssociationPolicy)
-
-		vpcAssociationPolicy.ObjectMeta.Annotations["application-networking.k8s.aws/tags"] = "Environment=Prod,Project=MyApp-v2,Team=DevOps,application-networking.k8s.aws/ManagedBy=test-override"
-
-		testFramework.ExpectUpdated(ctx, vpcAssociationPolicy)
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := testFramework.Get(ctx, types.NamespacedName{
+				Namespace: vpcAssociationPolicy.Namespace,
+				Name:      vpcAssociationPolicy.Name,
+			}, vpcAssociationPolicy); err != nil {
+				return err
+			}
+			vpcAssociationPolicy.ObjectMeta.Annotations["application-networking.k8s.aws/tags"] = "Environment=Prod,Project=MyApp-v2,Team=DevOps,application-networking.k8s.aws/ManagedBy=test-override"
+			return testFramework.Client.Update(ctx, vpcAssociationPolicy)
+		})
+		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func(g Gomega) {
 			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)

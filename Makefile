@@ -117,16 +117,14 @@ e2e-test-namespace := "e2e-test"
 e2e-test: ## Run e2e tests against cluster pointed to by ~/.kube/config
 	@kubectl create namespace $(e2e-test-namespace) > /dev/null 2>&1 || true # ignore already exists error
 	LOG_LEVEL=debug
-	cd test && go test \
-		-p 1 \
-		-count 1 \
-		-timeout 120m \
+	cd test && go run github.com/onsi/ginkgo/v2/ginkgo \
+		--procs=4 \
+		--timeout=120m \
+		--focus="${FOCUS}" \
+		--skip="${SKIP}" \
+		--label-filter="${LABEL}" \
 		-v \
-		./suites/integration/... \
-		--ginkgo.focus="${FOCUS}" \
-		--ginkgo.skip="${SKIP}" \
-		--ginkgo.timeout=120m \
-		--ginkgo.v
+		./suites/integration/...
 
 .SILENT:
 .PHONY: e2e-clean
@@ -181,6 +179,10 @@ ifdef INSTALL_CONTROLLER
 		--set=defaultServiceNetwork=conformance-test \
 		--set=enableServiceNetworkOverride=true \
 		--set=log.level=debug \
+		--set=awsRegion=$(REGION) \
+		--set=awsAccountId=$(AWS_ACCOUNT_ID) \
+		--set=clusterVpcId=$(CLUSTER_VPC_ID) \
+		--set=clusterName=$(CLUSTER_NAME) \
 		--wait
 endif
 	kubectl apply -f files/controller-installation/gatewayclass.yaml

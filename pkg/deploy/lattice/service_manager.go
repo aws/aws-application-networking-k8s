@@ -143,7 +143,7 @@ func svcStatusFromCreateSvcResp(resp *CreateSvcResp) ServiceInfo {
 	return svcInfo
 }
 
-func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
+func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Service, svcSum *SvcSummary, isDeleting bool) error {
 	tagsResp, err := m.cloud.Lattice().ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{
 		ResourceArn: svcSum.Arn,
 	})
@@ -151,7 +151,7 @@ func (m *defaultServiceManager) checkAndUpdateTags(ctx context.Context, svc *Ser
 		return err
 	}
 
-	owned, err := m.cloud.TryOwnFromTags(ctx, *svcSum.Arn, tagsResp.Tags)
+	owned, err := m.cloud.TryOwnFromTags(ctx, *svcSum.Arn, tagsResp.Tags, isDeleting)
 	if err != nil {
 		return err
 	}
@@ -384,6 +384,13 @@ func (m *defaultServiceManager) deleteAssociation(ctx context.Context, assocArn 
 	delReq := &DelSnSvcAssocReq{ServiceNetworkServiceAssociationIdentifier: assocArn}
 	_, err := m.cloud.Lattice().DeleteServiceNetworkServiceAssociation(ctx, delReq)
 	if err != nil {
+		// Any ConflictException on delete is transient — it means the association is in a
+		// mutating state (CREATE_IN_PROGRESS, UPDATE_IN_PROGRESS). Retry is always correct.
+		var ce *types.ConflictException
+		if errors.As(err, &ce) {
+			return fmt.Errorf("%w: failed DeleteServiceNetworkServiceAssociation %s due to %s",
+				lattice_runtime.NewRetryError(), aws.ToString(assocArn), err)
+		}
 		return fmt.Errorf("failed DeleteServiceNetworkServiceAssociation %s due to %s",
 			aws.ToString(assocArn), err)
 	}
@@ -398,6 +405,12 @@ func (m *defaultServiceManager) deleteService(ctx context.Context, svc *SvcSumma
 	}
 	_, err := m.cloud.Lattice().DeleteService(ctx, &delInput)
 	if err != nil {
+		// Any ConflictException on delete is transient — it means associations are still
+		// being removed or the service is in a mutating state. Retry is always correct.
+		var ce *types.ConflictException
+		if errors.As(err, &ce) {
+			return fmt.Errorf("%w: failed DeleteService %s due to %s", lattice_runtime.NewRetryError(), aws.ToString(svc.Id), err)
+		}
 		return fmt.Errorf("failed DeleteService %s due to %s", aws.ToString(svc.Id), err)
 	}
 
@@ -416,7 +429,7 @@ func (m *defaultServiceManager) Upsert(ctx context.Context, svc *Service) (Servi
 	if svcSum == nil {
 		svcInfo, err = m.createServiceAndAssociate(ctx, svc)
 	} else {
-		err = m.checkAndUpdateTags(ctx, svc, svcSum)
+		err = m.checkAndUpdateTags(ctx, svc, svcSum, false)
 		if err != nil {
 			return ServiceInfo{}, err
 		}
@@ -438,7 +451,7 @@ func (m *defaultServiceManager) Delete(ctx context.Context, svc *Service) error 
 		}
 	}
 
-	err = m.checkAndUpdateTags(ctx, svc, svcSum)
+	err = m.checkAndUpdateTags(ctx, svc, svcSum, true)
 	if err != nil {
 		m.log.Infof(ctx, "Service %s is either invalid or not owned. Skipping VPC Lattice resource deletion.", svc.LatticeServiceName())
 		return nil

@@ -33,6 +33,7 @@ type LatticeServiceModelBuilder struct {
 	client        client.Client
 	brTgBuilder   BackendRefTargetGroupModelBuilder
 	certDiscovery services.CertificateDiscovery
+	lattice       services.Lattice
 }
 
 func NewLatticeServiceBuilder(
@@ -40,12 +41,14 @@ func NewLatticeServiceBuilder(
 	client client.Client,
 	brTgBuilder BackendRefTargetGroupModelBuilder,
 	certDiscovery services.CertificateDiscovery,
+	lattice services.Lattice,
 ) *LatticeServiceModelBuilder {
 	return &LatticeServiceModelBuilder{
 		log:           log,
 		client:        client,
 		brTgBuilder:   brTgBuilder,
 		certDiscovery: certDiscovery,
+		lattice:       lattice,
 	}
 }
 
@@ -62,6 +65,7 @@ func (b *LatticeServiceModelBuilder) Build(
 		client:        b.client,
 		brTgBuilder:   b.brTgBuilder,
 		certDiscovery: b.certDiscovery,
+		lattice:       b.lattice,
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -261,21 +265,19 @@ func (t *latticeServiceModelBuildTask) getACMCertArn(ctx context.Context) (strin
 			continue
 		}
 
-		if parentRef.SectionName == nil {
-			continue
+		matched, err := t.matchedListeners(ctx, gw, parentRef)
+		if err != nil {
+			return "", err
 		}
 
-		for _, section := range gw.Spec.Listeners {
-			if section.Name == *parentRef.SectionName && section.TLS != nil {
-				if section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModeTerminate {
-					hasTLSTerminateListener = true
-					curCertARN, ok := section.TLS.Options[awsCustomCertARN]
-					if ok {
-						t.log.Debugf(ctx, "Found certification %s under section %s", curCertARN, section.Name)
-						return string(curCertARN), nil
-					}
+		for _, section := range matched {
+			if section.TLS != nil && section.TLS.Mode != nil && *section.TLS.Mode == gwv1.TLSModeTerminate {
+				hasTLSTerminateListener = true
+				curCertARN, ok := section.TLS.Options[awsCustomCertARN]
+				if ok {
+					t.log.Debugf(ctx, "Found certification %s under section %s", curCertARN, section.Name)
+					return string(curCertARN), nil
 				}
-				break
 			}
 		}
 	}
@@ -310,6 +312,7 @@ type latticeServiceModelBuildTask struct {
 	stack         core.Stack
 	brTgBuilder   BackendRefTargetGroupModelBuilder
 	certDiscovery services.CertificateDiscovery
+	lattice       services.Lattice
 }
 
 // isStandaloneMode determines if standalone mode should be enabled for the route.

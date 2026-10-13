@@ -122,6 +122,13 @@ jobs:
         run: |
           kubectl apply -f files/controller-installation/gatewayclass.yaml
 
+      - name: Wait for controller to be ready
+        run: |
+          kubectl rollout status deployment \
+            -l app.kubernetes.io/instance=gateway-api-controller \
+            --namespace aws-application-networking-system \
+            --timeout=120s
+
       - name: Run test
         run: |
           make e2e-test
@@ -144,6 +151,16 @@ jobs:
       - name: Run drift detection tests
         run: |
           RECONCILE_DEFAULT_RESYNC_SECONDS=60 make drift-e2e-test
+
+      - name: Dump controller logs on failure
+        if: failure()
+        run: |
+          echo "=== Controller pods ==="
+          kubectl get pods -n aws-application-networking-system -o wide || true
+          echo "=== Controller logs ==="
+          kubectl logs -n aws-application-networking-system -l app.kubernetes.io/instance=gateway-api-controller --tail=200 || true
+          echo "=== Previous container logs (if crashed) ==="
+          kubectl logs -n aws-application-networking-system -l app.kubernetes.io/instance=gateway-api-controller --previous --tail=50 || true
 
       - name: Cleanup
         if: always()

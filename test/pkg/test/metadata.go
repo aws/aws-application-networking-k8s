@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/onsi/ginkgo/v2"
 	randomdata "github.com/Pallinder/go-randomdata"
 	"github.com/imdario/mergo"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,5 +44,5 @@ func RandomName() string {
 	sequentialNumberLock.Lock()
 	defer sequentialNumberLock.Unlock()
 	sequentialNumber++
-	return strings.ToLower(fmt.Sprintf("%s-%d-%s", randomdata.SillyName()[:5], sequentialNumber, randomdata.Alphanumeric(10)))
+	return strings.ToLower(fmt.Sprintf("%s-p%d-%d-%s", randomdata.SillyName()[:5], ginkgo.GinkgoParallelProcess(), sequentialNumber, randomdata.Alphanumeric(10)))
 }

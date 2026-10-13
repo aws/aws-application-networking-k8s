@@ -142,29 +142,59 @@ func Test_TryOwnFromTags(t *testing.T) {
 	tcs := []struct {
 		name       string
 		tags       services.Tags
+		isDeleting bool
 		owned      bool
 		tryAcquire bool
 		isErr      bool
 	}{
 		{
-			name:       "no ownership tag acquires ownership",
+			name:       "upsert + no ownership tag acquires ownership",
 			tags:       services.Tags{},
+			isDeleting: false,
 			owned:      true,
 			tryAcquire: true,
 			isErr:      false,
 		},
 		{
-			name:       "proper ownership tag considered valid",
+			name:       "delete + no ownership tag does not acquire ownership",
+			tags:       services.Tags{},
+			isDeleting: true,
+			owned:      false,
+			tryAcquire: false,
+			isErr:      false,
+		},
+		{
+			name:       "upsert + proper ownership tag acquires ownership",
 			tags:       cloud.DefaultTags(),
+			isDeleting: false,
 			owned:      true,
 			tryAcquire: false,
 			isErr:      false,
 		},
 		{
-			name: "improper ownership tag considered invalid",
+			name:       "delete + proper ownership tag acquires ownership",
+			tags:       cloud.DefaultTags(),
+			isDeleting: true,
+			owned:      true,
+			tryAcquire: false,
+			isErr:      false,
+		},
+		{
+			name: "upsert + improper ownership tag doesn't acquire ownership",
 			tags: services.Tags{
 				TagManagedBy: "not/this/owner",
 			},
+			isDeleting: false,
+			owned:      false,
+			tryAcquire: false,
+			isErr:      false,
+		},
+		{
+			name: "delete + improper ownership tag doesn't acquire ownership",
+			tags: services.Tags{
+				TagManagedBy: "not/this/owner",
+			},
+			isDeleting: true,
 			owned:      false,
 			tryAcquire: false,
 			isErr:      false,
@@ -182,7 +212,7 @@ func Test_TryOwnFromTags(t *testing.T) {
 			mockLattice.EXPECT().TagResource(gomock.Any(), &vpclattice.TagResourceInput{ResourceArn: aws.String(arn), Tags: cloud.DefaultTags()}).
 				Return(&vpclattice.TagResourceOutput{}, nil).Times(tagResourceCallCount)
 
-			res, err := cloud.TryOwnFromTags(context.Background(), arn, tc.tags)
+			res, err := cloud.TryOwnFromTags(context.Background(), arn, tc.tags, tc.isDeleting)
 
 			assert.Equal(t, tc.owned, res)
 			if tc.isErr {

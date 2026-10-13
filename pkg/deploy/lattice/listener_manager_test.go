@@ -248,6 +248,62 @@ func Test_UpsertListener_Update_TLS_PASSTHROUGHListener(t *testing.T) {
 			},
 			expectUpdateListenerCall: true,
 		},
+		{
+			name: "External target group id matches existing listener, listener not updated",
+			oldLatticeListenerDefaultAction: &types.RuleActionMemberForward{
+				Value: types.ForwardAction{
+					TargetGroups: []types.WeightedTargetGroup{
+						{TargetGroupIdentifier: aws.String("tg-0df85aff983932f06"), Weight: aws.Int32(90)},
+					},
+				},
+			},
+			newLatticeListenerDefaultAction: &types.RuleActionMemberForward{
+				Value: types.ForwardAction{
+					TargetGroups: []types.WeightedTargetGroup{
+						{TargetGroupIdentifier: aws.String("tg-0df85aff983932f06"), Weight: aws.Int32(90)},
+					},
+				},
+			},
+			newModelListenerDefaultAction: &model.DefaultAction{
+				Forward: &model.RuleAction{
+					TargetGroups: []*model.RuleTargetGroup{
+						{LatticeTgId: "tg-0df85aff983932f06", Weight: 90},
+					},
+				},
+			},
+			expectUpdateListenerCall: false,
+		},
+		{
+			name: "External target group ARN differs from existing listener, listener updated every reconcile",
+			oldLatticeListenerDefaultAction: &types.RuleActionMemberForward{
+				Value: types.ForwardAction{
+					TargetGroups: []types.WeightedTargetGroup{
+						{TargetGroupIdentifier: aws.String("tg-0df85aff983932f06"), Weight: aws.Int32(90)},
+					},
+				},
+			},
+			newLatticeListenerDefaultAction: &types.RuleActionMemberForward{
+				Value: types.ForwardAction{
+					TargetGroups: []types.WeightedTargetGroup{
+						{
+							TargetGroupIdentifier: aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0df85aff983932f06"),
+							Weight:                aws.Int32(90),
+						},
+					},
+				},
+			},
+			newModelListenerDefaultAction: &model.DefaultAction{
+				Forward: &model.RuleAction{
+					TargetGroups: []*model.RuleTargetGroup{
+						{
+							LatticeTgId: "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0df85aff983932f06",
+							Weight:      90,
+						},
+					},
+				},
+			},
+			expectUpdateListenerCall: true,
+		},
 	}
 
 	c := gomock.NewController(t)

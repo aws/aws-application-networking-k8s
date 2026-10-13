@@ -7,6 +7,7 @@ import (
 
 	"slices"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -25,7 +26,7 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-var _ = Describe("ACM certificate discovery", Ordered, func() {
+var _ = Describe("ACM certificate discovery", Serial, Ordered, func() {
 
 	const (
 		hostedZoneName = "cert-discovery-e2e.com"
@@ -35,7 +36,7 @@ var _ = Describe("ACM certificate discovery", Ordered, func() {
 
 	var (
 		log       = testFramework.Log.Named("cert-discovery")
-		awsCfg = lo.Must(awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(config.Region)))
+		awsCfg    = lo.Must(awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(config.Region)))
 		acmClient = acm.NewFromConfig(awsCfg)
 		r53Client = route53.NewFromConfig(awsCfg)
 
@@ -131,6 +132,30 @@ var _ = Describe("ACM certificate discovery", Ordered, func() {
 		}).Should(Succeed())
 	})
 
+	It("auto-discovers cert when parentRef omits sectionName", func() {
+		log := log.Named("nil-sectionname")
+
+		// create a route WITHOUT sectionName
+		httpRoute2 := testFramework.NewHttpRoute(testGateway, service, "Service")
+		httpRoute2.Name = "cert-disc-no-section"
+		httpRoute2.Spec.Hostnames = []gwv1.Hostname{cname}
+		testFramework.ExpectCreated(context.TODO(), httpRoute2)
+
+		// verify the Lattice service gets the auto-discovered cert
+		svc := testFramework.GetVpcLatticeService(context.TODO(), core.NewHTTPRoute(gwv1.HTTPRoute(*httpRoute2)))
+		Eventually(func(g Gomega) {
+			out, err := testFramework.LatticeClient.GetService(ctx, &vpclattice.GetServiceInput{
+				ServiceIdentifier: svc.Id,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(out.CertificateArn).ToNot(BeNil())
+			g.Expect(*out.CertificateArn).To(Equal(certArn))
+			log.Infof(ctx, "nil-sectionName route discovered cert: %s", *out.CertificateArn)
+		}).WithTimeout(3 * time.Minute).WithPolling(15 * time.Second).Should(Succeed())
+
+		testFramework.ExpectDeletedThenNotFound(context.TODO(), httpRoute2)
+	})
+
 	AfterAll(func() {
 		log := log.Named("after-all")
 		err = deleteHostedZoneRecords(r53Client, hostedZoneId)
@@ -143,11 +168,25 @@ var _ = Describe("ACM certificate discovery", Ordered, func() {
 
 		testFramework.ExpectDeletedThenNotFound(context.TODO(), httpRoute, service, deployment)
 
+		// Wait for the Lattice service to be deleted before removing the gateway listener.
+		Eventually(func() error {
+			_, err := testFramework.LatticeClient.FindService(ctx, fmt.Sprintf("%s-%s", httpRoute.Name, httpRoute.Namespace))
+			if err != nil {
+				if services.IsNotFoundError(err) {
+					return nil // confirmed deleted
+				}
+				return err // transient error — retry
+			}
+			return fmt.Errorf("lattice service for route %s still exists", httpRoute.Name)
+		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
+		log.Infof(ctx, "lattice service deleted")
+
 		removeGatewayCertDiscoveryListener()
 		log.Infof(ctx, "removed cert-discovery listener from gateway")
 
-		err = deleteCert(acmClient, certArn)
-		Expect(err).To(BeNil())
+		Eventually(func() error {
+			return deleteCert(acmClient, certArn)
+		}).WithTimeout(3 * time.Minute).WithPolling(10 * time.Second).Should(Succeed())
 		log.Infof(ctx, "removed cert from acm, arn: %s", certArn)
 	})
 })

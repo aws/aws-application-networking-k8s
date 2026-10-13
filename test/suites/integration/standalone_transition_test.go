@@ -22,7 +22,7 @@ const (
 	LatticeServiceArnAnnotation    = "application-networking.k8s.aws/lattice-service-arn"
 )
 
-var _ = Describe("Standalone Service Transition Scenarios", Ordered, func() {
+var _ = Describe("Standalone Service Transition Scenarios", Serial, Ordered, func() {
 
 	Context("Transition from standalone to service network mode", func() {
 		var (

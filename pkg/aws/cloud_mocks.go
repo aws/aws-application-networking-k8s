@@ -169,31 +169,31 @@ func (mr *MockCloudMockRecorder) Tagging() *gomock.Call {
 }
 
 // TryOwn mocks base method.
-func (m *MockCloud) TryOwn(ctx context.Context, arn string) (bool, error) {
+func (m *MockCloud) TryOwn(ctx context.Context, arn string, isDeleting bool) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TryOwn", ctx, arn)
+	ret := m.ctrl.Call(m, "TryOwn", ctx, arn, isDeleting)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // TryOwn indicates an expected call of TryOwn.
-func (mr *MockCloudMockRecorder) TryOwn(ctx, arn any) *gomock.Call {
+func (mr *MockCloudMockRecorder) TryOwn(ctx, arn, isDeleting any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryOwn", reflect.TypeOf((*MockCloud)(nil).TryOwn), ctx, arn)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryOwn", reflect.TypeOf((*MockCloud)(nil).TryOwn), ctx, arn, isDeleting)
 }
 
 // TryOwnFromTags mocks base method.
-func (m *MockCloud) TryOwnFromTags(ctx context.Context, arn string, tags services.Tags) (bool, error) {
+func (m *MockCloud) TryOwnFromTags(ctx context.Context, arn string, tags services.Tags, isDeleting bool) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TryOwnFromTags", ctx, arn, tags)
+	ret := m.ctrl.Call(m, "TryOwnFromTags", ctx, arn, tags, isDeleting)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // TryOwnFromTags indicates an expected call of TryOwnFromTags.
-func (mr *MockCloudMockRecorder) TryOwnFromTags(ctx, arn, tags any) *gomock.Call {
+func (mr *MockCloudMockRecorder) TryOwnFromTags(ctx, arn, tags, isDeleting any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryOwnFromTags", reflect.TypeOf((*MockCloud)(nil).TryOwnFromTags), ctx, arn, tags)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryOwnFromTags", reflect.TypeOf((*MockCloud)(nil).TryOwnFromTags), ctx, arn, tags, isDeleting)
 }

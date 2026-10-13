@@ -138,7 +138,11 @@ You can route gRPC traffic to services running in other clusters using `ServiceE
      name: greeter-grpc-server
      annotations:
        application-networking.k8s.aws/aws-eks-cluster-name: "exporting-cluster-name"
-   spec: {}
+   spec:
+     type: ClusterSetIP
+     ports:
+       - port: 50051
+         protocol: TCP
    ```
 
 2. *Create a GRPCRoute* referencing the ServiceImport:
