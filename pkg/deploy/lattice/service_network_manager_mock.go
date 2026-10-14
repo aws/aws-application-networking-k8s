@@ -101,16 +101,16 @@ func (mr *MockServiceNetworkManagerMockRecorder) Upsert(ctx, name, additionalTag
 }
 
 // UpsertVpcAssociation mocks base method.
-func (m *MockServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, sgIds []string, additionalTags services.Tags) (string, error) {
+func (m *MockServiceNetworkManager) UpsertVpcAssociation(ctx context.Context, snName string, req VpcAssociationRequest) (VpcAssociationResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertVpcAssociation", ctx, snName, sgIds, additionalTags)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "UpsertVpcAssociation", ctx, snName, req)
+	ret0, _ := ret[0].(VpcAssociationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpsertVpcAssociation indicates an expected call of UpsertVpcAssociation.
-func (mr *MockServiceNetworkManagerMockRecorder) UpsertVpcAssociation(ctx, snName, sgIds, additionalTags any) *gomock.Call {
+func (mr *MockServiceNetworkManagerMockRecorder) UpsertVpcAssociation(ctx, snName, req any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertVpcAssociation", reflect.TypeOf((*MockServiceNetworkManager)(nil).UpsertVpcAssociation), ctx, snName, sgIds, additionalTags)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertVpcAssociation", reflect.TypeOf((*MockServiceNetworkManager)(nil).UpsertVpcAssociation), ctx, snName, req)
 }
