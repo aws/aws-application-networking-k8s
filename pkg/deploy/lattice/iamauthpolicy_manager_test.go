@@ -155,19 +155,25 @@ func Test_IAMAuthPolicyManager_Put_ServiceNetwork_InSync(t *testing.T) {
 	assert.Equal(t, "sn-1234", status.ResourceId)
 }
 
-// Test_IAMAuthPolicyManager_Put_Service_InSync mirrors the ServiceNetwork
-// test for an HTTPRoute/GRPCRoute-targeted (Service) policy.
+// Test_IAMAuthPolicyManager_Put_Service_InSync uses the real defaultCloud over
+// a mocked Lattice client so putSvc's ownership check runs its real logic.
 func Test_IAMAuthPolicyManager_Put_Service_InSync(t *testing.T) {
 	c := gomock.NewController(t)
 	defer c.Finish()
 	ctx := context.TODO()
 
-	mockCloud := mocks_aws.NewMockCloud(c)
 	mockLattice := mocks.NewMockLattice(c)
-	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+	cloud := mocks_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
 
+	svcArn := "arn:aws:vpc-lattice:region:account-id:service/svc-5678"
 	mockLattice.EXPECT().FindService(ctx, "test-service").Return(
-		&types.ServiceSummary{Id: aws.String("svc-5678")}, nil)
+		&types.ServiceSummary{Arn: aws.String(svcArn), Id: aws.String("svc-5678")}, nil)
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(
+		&vpclattice.ListTagsForResourceOutput{
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": "account-id/cluster/vpc-id",
+			},
+		}, nil)
 	mockLattice.EXPECT().GetAuthPolicy(ctx, gomock.Any()).Return(
 		&vpclattice.GetAuthPolicyOutput{
 			Policy: aws.String(testPolicyDoc),
@@ -175,7 +181,73 @@ func Test_IAMAuthPolicyManager_Put_Service_InSync(t *testing.T) {
 		}, nil)
 	// PutAuthPolicy and UpdateService must not be called.
 
-	mgr := NewIAMAuthPolicyManager(mockCloud)
+	mgr := NewIAMAuthPolicyManager(cloud)
+	status, err := mgr.Put(ctx, model.IAMAuthPolicy{
+		Type:   model.ServiceType,
+		Name:   "test-service",
+		Policy: testPolicyDoc,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "svc-5678", status.ResourceId)
+}
+
+func Test_IAMAuthPolicyManager_PutSvc_ForeignOwned_Rejected(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := mocks_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	svcArn := "arn:aws:vpc-lattice:region:999999999999:service/svc-other"
+	mockLattice.EXPECT().FindService(ctx, "foreign-service").Return(
+		&types.ServiceSummary{Arn: aws.String(svcArn), Id: aws.String("svc-other")}, nil)
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(
+		&vpclattice.ListTagsForResourceOutput{
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": "other-account/other-cluster/other-vpc",
+			},
+		}, nil)
+	// GetAuthPolicy, PutAuthPolicy, and UpdateService must not be called.
+
+	mgr := NewIAMAuthPolicyManager(cloud)
+	_, err := mgr.Put(ctx, model.IAMAuthPolicy{
+		Type:   model.ServiceType,
+		Name:   "foreign-service",
+		Policy: testPolicyDoc,
+	})
+	assert.Error(t, err)
+	assert.True(t, mocks.IsConflictError(err), "expected ConflictError, got: %v", err)
+}
+
+func Test_IAMAuthPolicyManager_PutSvc_Owned_Writes(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := mocks_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	svcArn := "arn:aws:vpc-lattice:region:account-id:service/svc-5678"
+	mockLattice.EXPECT().FindService(ctx, "test-service").Return(
+		&types.ServiceSummary{Arn: aws.String(svcArn), Id: aws.String("svc-5678")}, nil)
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(
+		&vpclattice.ListTagsForResourceOutput{
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": "account-id/cluster/vpc-id",
+			},
+		}, nil)
+	mockLattice.EXPECT().GetAuthPolicy(ctx, gomock.Any()).Return(
+		&vpclattice.GetAuthPolicyOutput{
+			Policy: aws.String(`{"Version":"2012-10-17","Statement":[]}`), // different from desired
+			State:  types.AuthPolicyStateActive,
+		}, nil)
+	mockLattice.EXPECT().PutAuthPolicy(ctx, gomock.Any()).Return(
+		&vpclattice.PutAuthPolicyOutput{}, nil)
+	mockLattice.EXPECT().UpdateService(ctx, gomock.Any()).Return(
+		&vpclattice.UpdateServiceOutput{}, nil)
+
+	mgr := NewIAMAuthPolicyManager(cloud)
 	status, err := mgr.Put(ctx, model.IAMAuthPolicy{
 		Type:   model.ServiceType,
 		Name:   "test-service",
