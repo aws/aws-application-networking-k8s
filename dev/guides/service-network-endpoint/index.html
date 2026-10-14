@@ -2055,7 +2055,7 @@ VPC cannot reach services on that service network because the VPC association is
 <p>Retrieve the endpoint DNS name and point callers at it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>aws<span class="w"> </span>ec2<span class="w"> </span>describe-vpc-endpoint-associations<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--vpc-endpoint-ids<span class="w"> </span>&lt;vpce-id&gt;<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--query<span class="w"> </span><span class="s1">&#39;VpcEndpointAssociations[].DnsEntry.DnsName&#39;</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--query<span class="w"> </span><span class="s1">'VpcEndpointAssociations[].DnsEntry.DnsName'</span>
 </code></pre></div>
 <p>The name has the form <code>vpce-&lt;endpoint-id&gt;-snsa-&lt;assoc-id&gt;.&lt;hash&gt;.vpc-lattice-svcs.&lt;region&gt;.on.aws</code>.
 Inject it into your workloads via environment variables or ConfigMaps.</p>
@@ -2073,7 +2073,7 @@ annotation on your HTTPRoute (for example,
 <p>Get the endpoint DNS name and its hosted zone ID:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>aws<span class="w"> </span>ec2<span class="w"> </span>describe-vpc-endpoint-associations<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--vpc-endpoint-ids<span class="w"> </span>&lt;vpce-id&gt;<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>--query<span class="w"> </span><span class="s1">&#39;VpcEndpointAssociations[].{name:DnsEntry.DnsName,zone:DnsEntry.HostedZoneId}&#39;</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>--query<span class="w"> </span><span class="s1">'VpcEndpointAssociations[].{name:DnsEntry.DnsName,zone:DnsEntry.HostedZoneId}'</span>
 </code></pre></div>
 </li>
 <li>
@@ -2091,26 +2091,26 @@ annotation on your HTTPRoute (for example,
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>aws<span class="w"> </span>route53<span class="w"> </span>create-hosted-zone<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>--name<span class="w"> </span>&lt;service-name&gt;-svc-&lt;id&gt;.&lt;hash&gt;.vpc-lattice-svcs.&lt;region&gt;.on.aws<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>--caller-reference<span class="w"> </span>&lt;unique-string&gt;<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span>--hosted-zone-config<span class="w"> </span><span class="nv">Comment</span><span class="o">=</span><span class="s2">&quot;lattice sne override&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span>--hosted-zone-config<span class="w"> </span><span class="nv">Comment</span><span class="o">=</span><span class="s2">"lattice sne override"</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span>--vpc<span class="w"> </span><span class="nv">VPCRegion</span><span class="o">=</span>&lt;region&gt;,VPCId<span class="o">=</span>&lt;vpc-id&gt;
 <a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
 <a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="c1"># Create alias A record</span>
 <a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>aws<span class="w"> </span>route53<span class="w"> </span>change-resource-record-sets<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span>--hosted-zone-id<span class="w"> </span>&lt;phz-id&gt;<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span>--change-batch<span class="w"> </span><span class="s1">&#39;{</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="s1">    &quot;Changes&quot;: [{</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="s1">      &quot;Action&quot;: &quot;UPSERT&quot;,</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="s1">      &quot;ResourceRecordSet&quot;: {</span>
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="s1">        &quot;Name&quot;: &quot;&lt;service-fqdn&gt;&quot;,</span>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="s1">        &quot;Type&quot;: &quot;A&quot;,</span>
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="s1">        &quot;AliasTarget&quot;: {</span>
-<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="s1">          &quot;HostedZoneId&quot;: &quot;&lt;endpoint-dns-hosted-zone-id&gt;&quot;,</span>
-<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="s1">          &quot;DNSName&quot;: &quot;&lt;endpoint-dns-name&gt;&quot;,</span>
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="s1">          &quot;EvaluateTargetHealth&quot;: false</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span>--change-batch<span class="w"> </span><span class="s1">'{</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="s1">    "Changes": [{</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="s1">      "Action": "UPSERT",</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="s1">      "ResourceRecordSet": {</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="s1">        "Name": "&lt;service-fqdn&gt;",</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="s1">        "Type": "A",</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="s1">        "AliasTarget": {</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="s1">          "HostedZoneId": "&lt;endpoint-dns-hosted-zone-id&gt;",</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="s1">          "DNSName": "&lt;endpoint-dns-name&gt;",</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="s1">          "EvaluateTargetHealth": false</span>
 <a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="s1">        }</span>
 <a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="s1">      }</span>
 <a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="s1">    }]</span>
-<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="s1">  }&#39;</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="s1">  }'</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">

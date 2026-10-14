@@ -1932,12 +1932,12 @@
 <h3 id="optional-clean-up-storedversions">Optional: Clean up storedVersions<a class="headerlink" href="#optional-clean-up-storedversions" title="Permanent link">&para;</a></h3>
 <p>After the controller has reconciled all TLSRoutes, you can remove <code>v1alpha2</code> from the CRD's <code>storedVersions</code>. This is not required for v1.5 but prevents potential issues if a future Gateway API release removes <code>v1alpha2</code> from the CRD spec entirely. Ensure all TLSRoutes have been reconciled by the new controller before running this step.</p>
 <p>Check current stored versions:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl get crd tlsroutes.gateway.networking.k8s.io -o jsonpath=&#39;{.status.storedVersions}&#39;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl get crd tlsroutes.gateway.networking.k8s.io -o jsonpath='{.status.storedVersions}'
 </code></pre></div>
 <p>If the result includes <code>v1alpha2</code>, patch it to only include <code>v1</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl patch crd tlsroutes.gateway.networking.k8s.io \
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  --subresource=&#39;status&#39; --type=&#39;merge&#39; \
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -p &#39;{&quot;status&quot;:{&quot;storedVersions&quot;:[&quot;v1&quot;]}}&#39;
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  --subresource='status' --type='merge' \
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -p '{"status":{"storedVersions":["v1"]}}'
 </code></pre></div>
 
 

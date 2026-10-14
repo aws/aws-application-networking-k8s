@@ -2134,7 +2134,7 @@
 <p>Open <a href="http://localhost:9090/query">http://localhost:9090/query</a> in your browser to execute queries.</p>
 <p>Example query:</p>
 <p>Total number of successful HTTPRoute reconciliations:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">controller_runtime_reconcile_total</span><span class="p">{</span><span class="nl">controller</span><span class="o">=</span><span class="p">&quot;</span><span class="s">httproute</span><span class="p">&quot;,</span><span class="nl">result</span><span class="o">=</span><span class="p">&quot;</span><span class="s">success</span><span class="p">&quot;}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">controller_runtime_reconcile_total</span><span class="p">{</span><span class="nl">controller</span><span class="o">=</span><span class="p">"</span><span class="s">httproute</span><span class="p">",</span><span class="nl">result</span><span class="o">=</span><span class="p">"</span><span class="s">success</span><span class="p">"}</span>
 </code></pre></div></p>
 <p><img alt="Prometheus Query Interface" src="../../images/prometheus_query.jpg" width="800" /></p>
 <h3 id="step-9-access-grafana">Step 9: Access Grafana<a class="headerlink" href="#step-9-access-grafana" title="Permanent link">&para;</a></h3>
@@ -2152,10 +2152,10 @@
 </ol>
 <p><strong>Example queries for Grafana dashboards:</strong></p>
 <p>Total number of successful HTTPRoute reconciliations:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">controller_runtime_reconcile_total</span><span class="p">{</span><span class="nl">controller</span><span class="o">=</span><span class="p">&quot;</span><span class="s">httproute</span><span class="p">&quot;,</span><span class="nl">result</span><span class="o">=</span><span class="p">&quot;</span><span class="s">success</span><span class="p">&quot;}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">controller_runtime_reconcile_total</span><span class="p">{</span><span class="nl">controller</span><span class="o">=</span><span class="p">"</span><span class="s">httproute</span><span class="p">",</span><span class="nl">result</span><span class="o">=</span><span class="p">"</span><span class="s">success</span><span class="p">"}</span>
 </code></pre></div></p>
 <p>P99 latency for HTTPRoute reconciliations:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kr">histogram_quantile</span><span class="o">(</span><span class="mf">0.99</span><span class="p">,</span><span class="w"> </span><span class="nv">controller_runtime_reconcile_time_seconds_bucket</span><span class="p">{</span><span class="nl">controller</span><span class="o">=</span><span class="p">&quot;</span><span class="s">httproute</span><span class="p">&quot;}</span><span class="o">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kr">histogram_quantile</span><span class="o">(</span><span class="mf">0.99</span><span class="p">,</span><span class="w"> </span><span class="nv">controller_runtime_reconcile_time_seconds_bucket</span><span class="p">{</span><span class="nl">controller</span><span class="o">=</span><span class="p">"</span><span class="s">httproute</span><span class="p">"}</span><span class="o">)</span>
 </code></pre></div></p>
 <p><img alt="Grafana Dashboard" src="../../images/grafana_dashboard.jpg" width="800" /></p>
 <h2 id="available-metrics-reference">Available Metrics Reference<a class="headerlink" href="#available-metrics-reference" title="Permanent link">&para;</a></h2>

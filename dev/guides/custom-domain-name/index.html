@@ -1896,7 +1896,7 @@ The Amazon VPC Lattice Gateway API Controller supports ExternalDNS integration t
 <li>Run ExternalDNS controller watching <code>crd</code> source. 
    The following example command runs ExternalDNS compiled from source, using AWS Route53 provider:
    <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>build/external-dns<span class="w"> </span>--source<span class="w"> </span>crd<span class="w"> </span>--crd-source-apiversion<span class="w"> </span>externaldns.k8s.io/v1alpha1<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>--crd-source-kind<span class="w"> </span>DNSEndpoint<span class="w"> </span>--provider<span class="w"> </span>aws<span class="w"> </span>--txt-prefix<span class="w"> </span><span class="s2">&quot;prefix.&quot;</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>--crd-source-kind<span class="w"> </span>DNSEndpoint<span class="w"> </span>--provider<span class="w"> </span>aws<span class="w"> </span>--txt-prefix<span class="w"> </span><span class="s2">"prefix."</span>
 </code></pre></div></li>
 <li>Create HTTPRoutes and Services. The controller should create <code>DNSEndpoint</code> resource owned by the HTTPRoute you created.</li>
 <li>ExternalDNS will watch the changes and create DNS record on the configured DNS provider.</li>

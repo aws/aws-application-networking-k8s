@@ -1939,7 +1939,7 @@
 <p>VPC Lattice can split traffic across several target groups on one listener rule, and those target groups can point at any compute type. The controller adds an EKS target group alongside your existing one and shifts the weights over time. You keep control of the existing target group the whole way, because the controller never modifies it.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>   Before                  During migration            After - Cutover done
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a> service &quot;orders&quot;          service &quot;orders&quot;             service &quot;orders&quot;
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a> service "orders"          service "orders"             service "orders"
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        |                    |          |                      |
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        v                    v          v                      v
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  external TG @100     external TG @90  EKS TG @10         EKS TG @100
@@ -1991,7 +1991,7 @@
 <h2 id="example-1-service-with-single-listener-and-single-rule">Example 1: service with single listener and single rule<a class="headerlink" href="#example-1-service-with-single-listener-and-single-rule" title="Permanent link">&para;</a></h2>
 <p>The simplest shape is a service with one listener and one rule that forwards to a single target group. The example adds the EKS workload as a second backend at 10 percent and claims the service named <code>orders</code>. Apply it, confirm the split, then raise the EKS weight in steps.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Before                              After
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>service &quot;orders&quot;                    service &quot;orders&quot;
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>service "orders"                    service "orders"
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  listener :80                        listener :80
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    / -&gt; legacy TG @100                 / -&gt; legacy TG @90 + EKS @10
 </code></pre></div>
@@ -2017,7 +2017,7 @@
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders-legacy-tg</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0abc123def4567890&quot;</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">"arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0abc123def4567890"</span>
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
 <a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
@@ -2031,7 +2031,7 @@
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;orders&quot;</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">"orders"</span>
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service-network</span>
@@ -2050,7 +2050,7 @@
 <h2 id="example-2-service-with-single-listener-and-multiple-rules">Example 2: service with single listener and multiple rules<a class="headerlink" href="#example-2-service-with-single-listener-and-multiple-rules" title="Permanent link">&para;</a></h2>
 <p>A service that routes by path can migrate each path on its own timeline. Give each path its own rule, its own external target group through a separate <code>ServiceImport</code>, and its own weights. The example below migrates <code>/api/users</code> and <code>/api/orders</code> independently, so one can reach 100 percent on EKS while the other stays at 90/10.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Before                              After
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>service &quot;orders&quot;                    service &quot;orders&quot;
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>service "orders"                    service "orders"
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  listener :80                        listener :80
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    /api/users  -&gt; users TG @100        /api/users  -&gt; users TG @90 + users EKS @10
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    /api/orders -&gt; orders TG @100       /api/orders -&gt; orders TG @90 + orders EKS @10
@@ -2075,7 +2075,7 @@
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">users-legacy-tg</span>
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0aaa111aaa111aaaa&quot;</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">"arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0aaa111aaa111aaaa"</span>
 <a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
 <a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
@@ -2088,7 +2088,7 @@
 <a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders-legacy-tg</span>
 <a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0bbb222bbb222bbbb&quot;</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">"arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0bbb222bbb222bbbb"</span>
 <a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
 <a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
@@ -2102,7 +2102,7 @@
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;orders&quot;</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">"orders"</span>
 <a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
 <a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service-network</span>
@@ -2136,7 +2136,7 @@
 <h2 id="example-3-service-with-multiple-listeners">Example 3: service with multiple listeners<a class="headerlink" href="#example-3-service-with-multiple-listeners" title="Permanent link">&para;</a></h2>
 <p>When your existing service has more than one listener, use a single Route that sets no <code>sectionName</code>. Such a Route attaches to every Gateway listener, which puts every listener in the Route's stack and protects them all from deletion. The Gateway must declare every listener your service has. The controller writes the same rules onto every listener, so this shape fits when your listeners serve the same routing.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Before                              After
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>service &quot;orders&quot;                    service &quot;orders&quot;
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>service "orders"                    service "orders"
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>  listener :80                        listener :80
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    /v1 -&gt; v1 TG @100                   /v1 -&gt; v1 TG @90 + v1 EKS @10
 <a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    /v2 -&gt; v2 TG @100                   /v2 -&gt; v2 TG @90 + v2 EKS @10
@@ -2167,7 +2167,7 @@
 <a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders-v1-tg</span>
 <a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0aaa111aaa111aaaa&quot;</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">"arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0aaa111aaa111aaaa"</span>
 <a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
 <a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
@@ -2180,7 +2180,7 @@
 <a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders-v2-tg</span>
 <a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0bbb222bbb222bbbb&quot;</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">"arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0bbb222bbb222bbbb"</span>
 <a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
 <a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
@@ -2194,7 +2194,7 @@
 <a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders</span>
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;orders&quot;</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">"orders"</span>
 <a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
 <a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service-network</span>
@@ -2228,7 +2228,7 @@
 <h2 id="example-4-grpc-service">Example 4: gRPC service<a class="headerlink" href="#example-4-grpc-service" title="Permanent link">&para;</a></h2>
 <p>A GRPCRoute migration follows the same weighted backend pattern as the HTTP examples, with two protocol differences. Your gRPC listeners on Lattice use the HTTPS protocol, so the Gateway listeners are HTTPS. Lattice has no native gRPC match, so the controller translates a gRPC method match into an HTTP match: it sets the method to <code>POST</code> and the path to <code>/&lt;service&gt;/&lt;method&gt;</code>, matched case sensitively. Your existing rules must already use that shape.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>Before                              After
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>service &quot;echo&quot; (HTTPS)              service &quot;echo&quot; (HTTPS)
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>service "echo" (HTTPS)              service "echo" (HTTPS)
 <a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>  listener :443                       listener :443
 <a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    EchoService/V1 -&gt; v1 TG @100        EchoService/V1 -&gt; v1 TG @90 + v1 EKS @10
 <a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    EchoService/V2 -&gt; v2 TG @100        EchoService/V2 -&gt; v2 TG @90 + v2 EKS @10
@@ -2253,7 +2253,7 @@
 <a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echo-v1-tg</span>
 <a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0aaa111aaa111aaaa&quot;</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">"arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0aaa111aaa111aaaa"</span>
 <a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
 <a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
@@ -2266,7 +2266,7 @@
 <a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echo-v2-tg</span>
 <a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0bbb222bbb222bbbb&quot;</span>
+<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">"arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0bbb222bbb222bbbb"</span>
 <a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
 <a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
@@ -2280,7 +2280,7 @@
 <a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echo</span>
 <a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;echo&quot;</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">"echo"</span>
 <a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
 <a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service-network</span>
@@ -2314,7 +2314,7 @@
 <h2 id="example-5-tls-passthrough-service">Example 5: TLS passthrough service<a class="headerlink" href="#example-5-tls-passthrough-service" title="Permanent link">&para;</a></h2>
 <p>TLS passthrough has no rules, so the weighted forward lives on the listener's default action, and claiming the service updates that default action. TLS passthrough has three setup requirements. Your Lattice service needs a <code>CustomDomainName</code>, since Lattice requires one for a TLS passthrough listener. The Route's <code>spec.hostnames</code> must be set and match that domain; a TLSRoute without hostnames also cannot be deleted (see the <a href="#limitations">Limitations</a>). The existing default action must be a forward, not a fixed response.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>Before                              After
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>service &quot;orders&quot; (TLS)              service &quot;orders&quot; (TLS)
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>service "orders" (TLS)              service "orders" (TLS)
 <a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>  listener :443                       listener :443
 <a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    default -&gt; legacy TG @100           default -&gt; legacy TG @90 + EKS @10
 </code></pre></div>
@@ -2340,7 +2340,7 @@
 <a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders-legacy-tg</span>
 <a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0abc123def4567890&quot;</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/target-group-arn</span><span class="p">:</span><span class="w"> </span><span class="s">"arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0abc123def4567890"</span>
 <a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ClusterSetIP</span>
 <a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
@@ -2354,7 +2354,7 @@
 <a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orders</span>
 <a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">production</span>
 <a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;orders&quot;</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">    </span><span class="nt">application-networking.k8s.aws/service-name-override</span><span class="p">:</span><span class="w"> </span><span class="s">"orders"</span>
 <a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="nt">spec</span><span class="p">:</span>
 <a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
 <a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service-network</span>

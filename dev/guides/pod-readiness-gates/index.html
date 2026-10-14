@@ -2026,7 +2026,7 @@ This prevents the rolling update of a deployment from terminating old pods until
 <h3 id="manual-deployment-non-helm">Manual deployment (non-Helm)<a class="headerlink" href="#manual-deployment-non-helm" title="Permanent link">&para;</a></h3>
 <p>If you are manually deploying the controller using the <code>deploy.yaml</code> file, you will need to either patch the <code>deploy.yaml</code> file (see <code>scripts/patch-deploy-yaml.sh</code>) or generate the secret following installation (see <code>scripts/gen-webhook-secret.sh</code>) and manually enable the webhook via the <code>WEBHOOK_ENABLED</code> environment variable.</p>
 <p>Note that, without the secret in place, the controller cannot start successfully, and you will see an error message like the following:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>{&quot;level&quot;:&quot;error&quot;,&quot;ts&quot;:&quot;...&quot;,&quot;logger&quot;:&quot;setup&quot;,&quot;caller&quot;:&quot;workspace/main.go:240&quot;,&quot;msg&quot;:&quot;tls: failed to find any PEM data in certificate inputproblem running manager&quot;}
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>{"level":"error","ts":"...","logger":"setup","caller":"workspace/main.go:240","msg":"tls: failed to find any PEM data in certificate inputproblem running manager"}
 </code></pre></div>
 For this reason, the webhook is <code>DISABLED</code> by default in the controller for the non-Helm install. You can enable the webhook by setting the <code>WEBHOOK_ENABLED</code> environment variable to "true" in the <code>deploy.yaml</code> file.
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">apps/v1</span>
@@ -2054,7 +2054,7 @@ For this reason, the webhook is <code>DISABLED</code> by default in the controll
 <a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 <a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">        </span><span class="nt">env</span><span class="p">:</span>
 <a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">WEBHOOK_ENABLED</span>
-<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">            </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span><span class="w">   </span><span class="c1"># &lt;-- value of &quot;true&quot; enables the webhook in the controller</span>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">            </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span><span class="w">   </span><span class="c1"># &lt;-- value of "true" enables the webhook in the controller</span>
 </code></pre></div>
 If you run <code>scripts/patch-deploy-yaml.sh</code> prior to installing <code>deploy.yaml</code>, the script will create the necessary TLS certificates and configuration and will enable the webhook in the controller. Note that, even with the webhook enabled, the webhook will only run for namespaces labeled with <code>application-networking.k8s.aws/pod-readiness-gate-inject: enabled</code>.  </p>
 <h2 id="enabling-the-readiness-gate">Enabling the readiness gate<a class="headerlink" href="#enabling-the-readiness-gate" title="Permanent link">&para;</a></h2>
@@ -2106,13 +2106,13 @@ When you specify multiple selectors, pods matching all the conditions will get m
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   1/1
 </code></pre></div></p>
 <p>If a readiness gate doesn't get ready, you can check the reason via:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gp">$ </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nginx-test-545d8f4d89-l7rcl<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-B7<span class="w"> </span><span class="s1">&#39;type: application-networking.k8s.aws/pod-readiness-gate&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="gp">$ </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nginx-test-545d8f4d89-l7rcl<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-B7<span class="w"> </span><span class="s1">'type: application-networking.k8s.aws/pod-readiness-gate'</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="go">status:</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="go">  conditions:</span>
 <a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="go">  - lastProbeTime: null</span>
 <a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="go">    lastTransitionTime: null</span>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="go">    reason: HEALTHY</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="go">    status: &quot;True&quot;</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="go">    status: "True"</span>
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="go">    type: application-networking.k8s.aws/pod-readiness-gate</span>
 </code></pre></div>
 

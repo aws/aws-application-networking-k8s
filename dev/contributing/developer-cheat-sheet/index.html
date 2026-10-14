@@ -1943,23 +1943,23 @@ A typical part of model synthesis (though it is also present in ) is checking al
 <h3 id="imports">Imports<a class="headerlink" href="#imports" title="Permanent link">&para;</a></h3>
 <p>Common imports should all use the same alias (or lack of alias) so that when we see <code>aws.</code> or <code>vpclattice.</code> or <code>sdk.</code> in the code we know what they refer to without having to double-check. Here are the conventions:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="s">&quot;github.com/aws/aws-sdk-go/service/vpclattice&quot;</span><span class="w"> </span><span class="c1">// no alias</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="s">&quot;github.com/aws/aws-sdk-go/aws&quot;</span><span class="w"> </span><span class="c1">// no alias</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="s">"github.com/aws/aws-sdk-go/service/vpclattice"</span><span class="w"> </span><span class="c1">// no alias</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="s">"github.com/aws/aws-sdk-go/aws"</span><span class="w"> </span><span class="c1">// no alias</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nx">corev1</span><span class="w"> </span><span class="s">&quot;k8s.io/api/core/v1&quot;</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nx">gwv1</span><span class="w"> </span><span class="s">&quot;sigs.k8s.io/gateway-api/apis/v1&quot;</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nx">ctrl</span><span class="w"> </span><span class="s">&quot;sigs.k8s.io/controller-runtime&quot;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nx">corev1</span><span class="w"> </span><span class="s">"k8s.io/api/core/v1"</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nx">gwv1</span><span class="w"> </span><span class="s">"sigs.k8s.io/gateway-api/apis/v1"</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nx">ctrl</span><span class="w"> </span><span class="s">"sigs.k8s.io/controller-runtime"</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nx">pkg_aws</span><span class="w"> </span><span class="s">&quot;github.com/aws/aws-application-networking-k8s/pkg/aws&quot;</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="nx">model</span><span class="w"> </span><span class="s">&quot;github.com/aws/aws-application-networking-k8s/pkg/model/lattice&quot;</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="nx">anv1alpha1</span><span class="w"> </span><span class="s">&quot;github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1&quot;</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nx">pkg_aws</span><span class="w"> </span><span class="s">"github.com/aws/aws-application-networking-k8s/pkg/aws"</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="nx">model</span><span class="w"> </span><span class="s">"github.com/aws/aws-application-networking-k8s/pkg/model/lattice"</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="nx">anv1alpha1</span><span class="w"> </span><span class="s">"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span>
 </code></pre></div>
 <p>For unit tests, this changes slightly for more readability when using the imports strictly for mocking
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nx">mocks_aws</span><span class="w"> </span><span class="s">&quot;github.com/aws/aws-application-networking-k8s/pkg/aws&quot;</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nx">mocks</span><span class="w"> </span><span class="s">&quot;github.com/aws/aws-application-networking-k8s/pkg/aws/services&quot;</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nx">mock_client</span><span class="w"> </span><span class="s">&quot;github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client&quot;</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nx">mocks_aws</span><span class="w"> </span><span class="s">"github.com/aws/aws-application-networking-k8s/pkg/aws"</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nx">mocks</span><span class="w"> </span><span class="s">"github.com/aws/aws-application-networking-k8s/pkg/aws/services"</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nx">mock_client</span><span class="w"> </span><span class="s">"github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
 </code></pre></div></p>
 <h3 id="service-service-or-service">Service, Service, or Service?<a class="headerlink" href="#service-service-or-service" title="Permanent link">&para;</a></h3>

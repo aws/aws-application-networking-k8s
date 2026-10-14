@@ -2045,7 +2045,7 @@
 </code></pre></div>
 <h3 id="run-individual-conformance-test">Run individual conformance test<a class="headerlink" href="#run-individual-conformance-test" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>conformance-runner<span class="w"> </span>--<span class="w"> </span>/conformance.test<span class="w"> </span>-test.v<span class="w"> </span>-test.timeout<span class="w"> </span>15m<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>-test.run<span class="w"> </span><span class="s2">&quot;TestConformance/HTTPRouteCrossNamespace</span>$<span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span>-test.run<span class="w"> </span><span class="s2">"TestConformance/HTTPRouteCrossNamespace</span>$<span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>--gateway-class<span class="o">=</span>amazon-vpc-lattice<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span>--supported-features<span class="o">=</span>Gateway,HTTPRoute
 </code></pre></div>
