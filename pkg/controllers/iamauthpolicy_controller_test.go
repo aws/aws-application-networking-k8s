@@ -233,3 +233,87 @@ func Test_IAMAuthPolicy_LatticeResourceNotFound(t *testing.T) {
 	// previously managed.
 	assert.Equal(t, previouslyAppliedResId, got.Annotations[IAMAuthPolicyAnnotationResId])
 }
+
+func Test_IAMAuthPolicy_ForeignOwnedService_Conflicted(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	anv1alpha1.Install(k8sScheme)
+
+	route := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-namespace",
+		},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{Name: "test-gateway"},
+				},
+			},
+		},
+	}
+
+	iap := &anv1alpha1.IAMAuthPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-policy",
+			Namespace: "test-namespace",
+		},
+		Spec: anv1alpha1.IAMAuthPolicySpec{
+			Policy: `{"Version":"2012-10-17","Statement":[]}`,
+			TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+				Group: gwv1.GroupName,
+				Kind:  "HTTPRoute",
+				Name:  "test-route",
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(iap, route).
+		WithStatusSubresource(&anv1alpha1.IAMAuthPolicy{}).
+		Build()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockCloud := pkg_aws.NewMockCloud(c)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	svcArn := "arn:aws:vpc-lattice:us-west-2:999999999999:service/svc-foreign"
+	mockLattice.EXPECT().FindService(gomock.Any(), gomock.Any()).Return(
+		&latticetypes.ServiceSummary{
+			Id:  aws.String("svc-foreign"),
+			Arn: aws.String(svcArn),
+		}, nil)
+	// Write APIs must not be called once ownership is rejected.
+	mockCloud.EXPECT().IsArnManaged(gomock.Any(), svcArn).Return(false, nil)
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	r := &IAMAuthPolicyController{
+		log:           gwlog.FallbackLogger,
+		client:        k8sClient,
+		pm:            deploy.NewIAMAuthPolicyManager(mockCloud),
+		ph:            policy.NewIAMAuthPolicyHandler(gwlog.FallbackLogger, k8sClient),
+		cloud:         mockCloud,
+		eventRecorder: mockEventRecorder,
+	}
+
+	_, err := r.Reconcile(ctx, reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "test-policy", Namespace: "test-namespace"},
+	})
+	assert.NoError(t, err)
+
+	got := &anv1alpha1.IAMAuthPolicy{}
+	assert.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(iap), got))
+
+	cond := meta.FindStatusCondition(got.Status.Conditions, string(gwv1.PolicyConditionAccepted))
+	assert.NotNil(t, cond)
+	assert.Equal(t, metav1.ConditionFalse, cond.Status)
+	assert.Equal(t, string(gwv1.PolicyReasonConflicted), cond.Reason)
+}

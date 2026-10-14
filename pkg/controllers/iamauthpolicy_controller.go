@@ -205,6 +205,13 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 			}
 			return nil
 		}
+		// Foreign-owned target: mark Conflicted and stop retrying (return nil).
+		if services.IsConflictError(err) {
+			if statusErr := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, gwv1.PolicyReasonConflicted, err.Error()); statusErr != nil {
+				return statusErr
+			}
+			return nil
+		}
 		return err
 	}
 	err = c.handleLatticeResourceChange(ctx, k8sPolicy, statusPolicy)

@@ -71,6 +71,17 @@ func (m *IAMAuthPolicyManager) putSvc(ctx context.Context, policy model.IAMAuthP
 	}
 	resourceId := *svc.Id
 
+	// The Service name is user-controllable (service-name-override annotation),
+	// so require ownership before mutating a foreign-owned Service's auth policy.
+	owned, err := m.cloud.IsArnManaged(ctx, *svc.Arn)
+	if err != nil {
+		return model.IAMAuthPolicyStatus{}, err
+	}
+	if !owned {
+		return model.IAMAuthPolicyStatus{}, services.NewConflictError("service", policy.Name,
+			"Found existing resource not owned by controller")
+	}
+
 	// See putSn for the rationale; same skip-if-already-in-sync logic.
 	inSync, err := m.isAuthPolicyInSync(ctx, resourceId, policy.Policy)
 	if err != nil {
