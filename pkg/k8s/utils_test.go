@@ -1907,3 +1907,116 @@ func TestExternalTargetGroupTypedErrors(t *testing.T) {
 		assert.Contains(t, conflict.Error(), "export-name")
 	})
 }
+
+func TestGetIdleTimeoutSecondsWithValidation(t *testing.T) {
+	route := func(annotations map[string]string) metav1.Object {
+		return &gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-route",
+				Namespace:   "default",
+				Annotations: annotations,
+			},
+		}
+	}
+	i32 := func(v int32) *int32 { return &v }
+
+	tests := []struct {
+		name        string
+		obj         metav1.Object
+		expected    *int32
+		expectError bool
+	}{
+		{
+			name:     "no annotations",
+			obj:      route(nil),
+			expected: nil,
+		},
+		{
+			name:     "empty annotations map",
+			obj:      route(map[string]string{}),
+			expected: nil,
+		},
+		{
+			name:     "annotation not present",
+			obj:      route(map[string]string{"other": "value"}),
+			expected: nil,
+		},
+		{
+			name:     "empty value",
+			obj:      route(map[string]string{IdleTimeoutSecondsAnnotation: ""}),
+			expected: nil,
+		},
+		{
+			name:     "whitespace value treated as empty",
+			obj:      route(map[string]string{IdleTimeoutSecondsAnnotation: "  "}),
+			expected: nil,
+		},
+		{
+			name:     "valid mid-range value",
+			obj:      route(map[string]string{IdleTimeoutSecondsAnnotation: "120"}),
+			expected: i32(120),
+		},
+		{
+			name:     "valid value with surrounding whitespace",
+			obj:      route(map[string]string{IdleTimeoutSecondsAnnotation: " 300 "}),
+			expected: i32(300),
+		},
+		{
+			name:     "boundary minimum 60",
+			obj:      route(map[string]string{IdleTimeoutSecondsAnnotation: "60"}),
+			expected: i32(60),
+		},
+		{
+			name:     "boundary maximum 600",
+			obj:      route(map[string]string{IdleTimeoutSecondsAnnotation: "600"}),
+			expected: i32(600),
+		},
+		{
+			name:        "below minimum",
+			obj:         route(map[string]string{IdleTimeoutSecondsAnnotation: "59"}),
+			expectError: true,
+		},
+		{
+			name:        "above maximum",
+			obj:         route(map[string]string{IdleTimeoutSecondsAnnotation: "601"}),
+			expectError: true,
+		},
+		{
+			name:        "non-integer",
+			obj:         route(map[string]string{IdleTimeoutSecondsAnnotation: "abc"}),
+			expectError: true,
+		},
+		{
+			name:        "float not accepted",
+			obj:         route(map[string]string{IdleTimeoutSecondsAnnotation: "120.5"}),
+			expectError: true,
+		},
+		{
+			name:        "huge value rejected by range not truncated",
+			obj:         route(map[string]string{IdleTimeoutSecondsAnnotation: "3000000000"}),
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := GetIdleTimeoutSecondsWithValidation(tt.obj)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.True(t, IsInvalidIdleTimeoutSecondsError(err),
+					"should return InvalidIdleTimeoutSeconds error")
+				assert.Nil(t, result)
+				return
+			}
+
+			assert.NoError(t, err)
+			if tt.expected == nil {
+				assert.Nil(t, result)
+			} else {
+				assert.NotNil(t, result)
+				assert.Equal(t, *tt.expected, *result)
+			}
+		})
+	}
+}

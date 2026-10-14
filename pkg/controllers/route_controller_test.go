@@ -1077,3 +1077,175 @@ func TestRouteReconciler_UpsertRoute_ExternalTgClientReachesGetTargetGroup(t *te
 	assert.Equal(t, metav1.ConditionFalse, resolvedRefsCond.Status)
 	assert.Equal(t, "ExternalTargetGroupNotFound", resolvedRefsCond.Reason)
 }
+
+// A static annotation misconfiguration (invalid idle-timeout-seconds) must surface on the route's
+// Accepted condition as UnsupportedValue and must NOT be retried (returns nil, no requeue): a
+// corrected value re-triggers reconciliation via the annotation-changed predicate.
+func TestRouteReconciler_InvalidIdleTimeout(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	gwv1alpha2.Install(k8sScheme)
+	discoveryv1.AddToScheme(k8sScheme)
+	addOptionalCRDs(k8sScheme)
+
+	gwClass := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "amazon-vpc-lattice"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-gateway", Namespace: "ns1"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+			Listeners: []gwv1.Listener{
+				{Name: "http", Protocol: "HTTP", Port: 80},
+			},
+		},
+	}
+	route := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-route",
+			Namespace: "ns1",
+			Annotations: map[string]string{
+				k8s.IdleTimeoutSecondsAnnotation: "10",
+			},
+		},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{{Name: "my-gateway"}},
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(gwClass, gw, route).
+		WithStatusSubresource(&gwv1.HTTPRoute{}).
+		Build()
+
+	mockBuilder := gateway.NewMockLatticeServiceBuilder(c)
+	mockBuilder.EXPECT().Build(gomock.Any(), gomock.Any()).Return(
+		nil, k8s.NewInvalidIdleTimeoutSecondsError("10", "value must be between 60 and 600 seconds"))
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	mockFinalizer := k8s.NewMockFinalizerManager(c)
+	mockFinalizer.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	rc := routeReconciler{
+		routeType:        core.HttpRouteType,
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		scheme:           k8sScheme,
+		finalizerManager: mockFinalizer,
+		eventRecorder:    mockEventRecorder,
+		modelBuilder:     mockBuilder,
+	}
+
+	routeName := k8s.NamespacedName(route)
+	result, err := rc.Reconcile(ctx, reconcile.Request{NamespacedName: routeName})
+	assert.Nil(t, err)
+	assert.Equal(t, time.Duration(0), result.RequeueAfter)
+
+	updatedRoute := &gwv1.HTTPRoute{}
+	assert.NoError(t, k8sClient.Get(ctx, routeName, updatedRoute))
+
+	var acceptedCond *metav1.Condition
+	for _, parent := range updatedRoute.Status.Parents {
+		for i, cond := range parent.Conditions {
+			if cond.Type == string(gwv1.RouteConditionAccepted) {
+				acceptedCond = &parent.Conditions[i]
+				break
+			}
+		}
+	}
+	assert.NotNil(t, acceptedCond)
+	assert.Equal(t, metav1.ConditionFalse, acceptedCond.Status)
+	assert.Equal(t, string(gwv1.RouteReasonUnsupportedValue), acceptedCond.Reason)
+	assert.Contains(t, acceptedCond.Message, "invalid idle-timeout-seconds")
+}
+
+// An invalid idle-timeout-seconds annotation must not block route deletion/cleanup: the finalizer
+// must still be removed so the route is not stuck Terminating. Mirrors the existing tolerance for
+// an invalid service-name-override on the delete path.
+func TestRouteReconciler_InvalidIdleTimeout_DeleteNotBlocked(t *testing.T) {
+	const finalizer = "httproute.k8s.aws/resources"
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	gwv1alpha2.Install(k8sScheme)
+	discoveryv1.AddToScheme(k8sScheme)
+	addOptionalCRDs(k8sScheme)
+
+	gwClass := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "amazon-vpc-lattice"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-gateway", Namespace: "ns1"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+			Listeners:        []gwv1.Listener{{Name: "http", Protocol: "HTTP", Port: 80}},
+		},
+	}
+	now := metav1.Now()
+	route := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "my-route",
+			Namespace:         "ns1",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{finalizer},
+			Annotations:       map[string]string{k8s.IdleTimeoutSecondsAnnotation: "10"},
+		},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{{Name: "my-gateway"}},
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(gwClass, gw, route).
+		WithStatusSubresource(&gwv1.HTTPRoute{}, &gwv1.Gateway{}).
+		Build()
+
+	mockBuilder := gateway.NewMockLatticeServiceBuilder(c)
+	mockBuilder.EXPECT().Build(gomock.Any(), gomock.Any()).Return(
+		nil, k8s.NewInvalidIdleTimeoutSecondsError("10", "value must be between 60 and 600 seconds")).AnyTimes()
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	// The assertion: cleanup must reach finalizer removal despite the invalid annotation.
+	// If the invalid-annotation error wrongly aborted reconcileDelete, this call never happens
+	// and gomock fails the test.
+	mockFinalizer := k8s.NewMockFinalizerManager(c)
+	mockFinalizer.EXPECT().RemoveFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	rc := routeReconciler{
+		routeType:        core.HttpRouteType,
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		scheme:           k8sScheme,
+		finalizerManager: mockFinalizer,
+		eventRecorder:    mockEventRecorder,
+		modelBuilder:     mockBuilder,
+	}
+
+	routeName := k8s.NamespacedName(route)
+	result, err := rc.Reconcile(ctx, reconcile.Request{NamespacedName: routeName})
+
+	assert.NoError(t, err)
+	assert.Equal(t, time.Duration(0), result.RequeueAfter)
+}

@@ -236,6 +236,12 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	}
 	spec.ServiceNameOverride = serviceNameOverride
 
+	idleTimeoutSeconds, err := k8s.GetIdleTimeoutSecondsWithValidation(t.route.K8sObject())
+	if err != nil {
+		return nil, err
+	}
+	spec.IdleTimeoutSeconds = idleTimeoutSeconds
+
 	svc, err := model.NewLatticeService(t.stack, spec)
 	if err != nil {
 		return nil, err

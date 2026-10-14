@@ -21,6 +21,7 @@ type ServiceSpec struct {
 	AdditionalTags      services.Tags `json:"additionaltags,omitempty"`
 	AllowTakeoverFrom   string        `json:"allowtakeoverfrom,omitempty"`
 	ServiceNameOverride string        `json:"servicenameoverride,omitempty"`
+	IdleTimeoutSeconds  *int32        `json:"idletimeoutseconds,omitempty"`
 }
 
 type ServiceStatus struct {
