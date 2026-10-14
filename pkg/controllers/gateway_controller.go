@@ -213,6 +213,14 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1.Gatewa
 		return err
 	}
 
+	if k8s.IsStandaloneAnnotationEnabled(gw) {
+		err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonProgrammed, "Standalone Gateway, no VPC Lattice Service Network required")
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
 	snInfo, err := r.cloud.Lattice().FindServiceNetwork(ctx, gw.Name)
 	if err != nil {
 		if services.IsNotFoundError(err) {
