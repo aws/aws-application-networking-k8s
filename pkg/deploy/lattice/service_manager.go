@@ -197,13 +197,21 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 	}
 
 	if svc.Spec.CustomerCertARN != "" {
-		updReq := &UpdateSvcReq{
-			CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
+		getResp, err := m.cloud.Lattice().GetService(ctx, &GetSvcReq{
 			ServiceIdentifier: svcSum.Id,
-		}
-		_, err := m.cloud.Lattice().UpdateService(ctx, updReq)
+		})
 		if err != nil {
 			return ServiceInfo{}, err
+		}
+		if aws.ToString(getResp.CertificateArn) != svc.Spec.CustomerCertARN {
+			updReq := &UpdateSvcReq{
+				CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
+				ServiceIdentifier: svcSum.Id,
+			}
+			_, err := m.cloud.Lattice().UpdateService(ctx, updReq)
+			if err != nil {
+				return ServiceInfo{}, err
+			}
 		}
 	}
 

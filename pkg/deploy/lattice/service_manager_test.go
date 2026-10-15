@@ -1183,3 +1183,178 @@ func Test_Delete_SkipsServiceNotOwnedByController(t *testing.T) {
 	err := m.Delete(ctx, svc)
 	assert.Nil(t, err)
 }
+
+// setupCertUpdateMocks wires the mock chain for an Upsert that reaches
+// updateServiceAndAssociations for an existing, owned service. Callers add the
+// GetService (and, on drift, UpdateService) expectations.
+func setupCertUpdateMocks(
+	t *testing.T,
+	mockLattice *mocks.MockLattice,
+	mockTagging *mocks.MockTagging,
+	cl pkg_aws.Cloud,
+	ctx context.Context,
+	svc *Service,
+) {
+	t.Helper()
+
+	mockLattice.EXPECT().
+		FindService(gomock.Any(), gomock.Any()).
+		Return(&types.ServiceSummary{
+			Arn:  aws.String("svc-arn"),
+			Id:   aws.String("svc-id"),
+			Name: aws.String(svc.LatticeServiceName()),
+		}, nil).
+		Times(1)
+
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+			return &vpclattice.ListTagsForResourceOutput{
+				Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+			}, nil
+		}).
+		Times(1)
+
+	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
+
+	mockLattice.EXPECT().
+		ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]SnSvcAssocSummary, error) {
+			return []SnSvcAssocSummary{
+				{
+					Arn:                aws.String("assoc-arn"),
+					Id:                 aws.String("assoc-id"),
+					ServiceNetworkName: aws.String("sn-keep"),
+					Status:             types.ServiceNetworkServiceAssociationStatusActive,
+				},
+			}, nil
+		}).
+		Times(1)
+
+	mockTagging.EXPECT().UpdateTags(ctx, "assoc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
+}
+
+func certUpdateService(additionalTags mocks.Tags) *Service {
+	return &Service{
+		Spec: model.ServiceSpec{
+			ServiceTagFields: model.ServiceTagFields{
+				RouteName:      "svc-cert",
+				RouteNamespace: "ns",
+				RouteType:      core.HttpRouteType,
+			},
+			ServiceNetworkNames: []string{"sn-keep"},
+			CustomerCertARN:     "cert-arn",
+			AdditionalTags:      additionalTags,
+		},
+	}
+}
+
+func Test_ServiceManager_CertInSync_SkipsUpdateService(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := certUpdateService(mocks.Tags{"Environment": "Prod"})
+	setupCertUpdateMocks(t, mockLattice, mockTagging, cl, ctx, svc)
+
+	mockLattice.EXPECT().
+		GetService(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.GetServiceOutput{
+			Arn:            aws.String("svc-arn"),
+			Id:             aws.String("svc-id"),
+			CertificateArn: aws.String("cert-arn"),
+		}, nil).
+		Times(1)
+	// No UpdateService expectation: a call to it fails the test under strict mock.
+
+	status, err := m.Upsert(ctx, svc)
+	assert.Nil(t, err)
+	assert.Equal(t, "svc-arn", status.Arn)
+}
+
+func Test_ServiceManager_CertDrifted_CallsUpdateService(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := certUpdateService(mocks.Tags{"Environment": "Prod"})
+	setupCertUpdateMocks(t, mockLattice, mockTagging, cl, ctx, svc)
+
+	// Live cert is nil (first-apply case), so it differs from the desired ARN.
+	mockLattice.EXPECT().
+		GetService(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.GetServiceOutput{
+			Arn: aws.String("svc-arn"),
+			Id:  aws.String("svc-id"),
+		}, nil).
+		Times(1)
+
+	mockLattice.EXPECT().
+		UpdateService(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, req *UpdateSvcReq, _ ...interface{}) (*UpdateSvcResp, error) {
+			assert.Equal(t, "cert-arn", aws.ToString(req.CertificateArn))
+			assert.Equal(t, "svc-id", aws.ToString(req.ServiceIdentifier))
+			return &UpdateSvcResp{}, nil
+		}).
+		Times(1)
+
+	status, err := m.Upsert(ctx, svc)
+	assert.Nil(t, err)
+	assert.Equal(t, "svc-arn", status.Arn)
+}
+
+func Test_ServiceManager_GetServiceError_Propagates(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+	cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+	ctx := context.Background()
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svc := certUpdateService(mocks.Tags{"Environment": "Prod"})
+
+	// Can't reuse setupCertUpdateMocks: GetService fails before the
+	// association mocks would be reached, so strict mode would flag them.
+	mockLattice.EXPECT().
+		FindService(gomock.Any(), gomock.Any()).
+		Return(&types.ServiceSummary{
+			Arn:  aws.String("svc-arn"),
+			Id:   aws.String("svc-id"),
+			Name: aws.String(svc.LatticeServiceName()),
+		}, nil).
+		Times(1)
+
+	mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+			return &vpclattice.ListTagsForResourceOutput{
+				Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+			}, nil
+		}).
+		Times(1)
+
+	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
+
+	getErr := errors.New("throttled")
+	mockLattice.EXPECT().
+		GetService(gomock.Any(), gomock.Any()).
+		Return(nil, getErr).
+		Times(1)
+	// No UpdateService expectation: a call to it fails the test under strict mock.
+
+	_, err := m.Upsert(ctx, svc)
+	assert.ErrorIs(t, err, getErr)
+}
