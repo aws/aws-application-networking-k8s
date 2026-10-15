@@ -192,61 +192,45 @@ func TestTargetsManager(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
-	t.Run("overlapping target sets does the right thing", func(t *testing.T) {
-		mt1 := model.Target{
-			TargetIP: "192.0.2.10",
-			Port:     int64(8080),
-			Ready:    true,
-		}
-		mt2 := model.Target{
-			TargetIP: "192.0.2.20",
-			Port:     int64(8080),
-			Ready:    true,
-		}
-		mt3 := model.Target{
-			TargetIP: "192.0.2.30",
-			Port:     int64(8080),
-			Ready:    true,
-		}
+	t.Run("deregisters stale, skips already-registered, registers only new", func(t *testing.T) {
+		// Live set: A, B, C. Desired set: B, C, D, E.
+		// Expected: deregister A (stale), skip B and C (already registered),
+		// register only D and E (new) -- NOT the full desired list.
+		a := model.Target{TargetIP: "192.0.2.10", Port: int64(8080), Ready: true}
+		b := model.Target{TargetIP: "192.0.2.20", Port: int64(8080), Ready: true}
+		cc := model.Target{TargetIP: "192.0.2.30", Port: int64(8080), Ready: true}
+		d := model.Target{TargetIP: "192.0.2.40", Port: int64(8080), Ready: true}
+		e := model.Target{TargetIP: "192.0.2.50", Port: int64(8080), Ready: true}
 
 		existingTargets := []types.TargetSummary{
-			{
-				Id:   aws.String(mt1.TargetIP),
-				Port: aws.Int32(int32(mt1.Port)),
-			},
-			{
-				Id:   aws.String(mt2.TargetIP),
-				Port: aws.Int32(int32(mt2.Port)),
-			},
+			{Id: aws.String(a.TargetIP), Port: aws.Int32(int32(a.Port)), Status: types.TargetStatusHealthy},
+			{Id: aws.String(b.TargetIP), Port: aws.Int32(int32(b.Port)), Status: types.TargetStatusHealthy},
+			{Id: aws.String(cc.TargetIP), Port: aws.Int32(int32(cc.Port)), Status: types.TargetStatusHealthy},
 		}
 
-		newTargets := model.Targets{
+		desiredTargets := model.Targets{
 			Spec: model.TargetsSpec{
 				StackTargetGroupId: "tg-stack-id",
-				TargetList:         []model.Target{mt2, mt3},
-			},
-		}
-
-		deregisterTargets := []types.Target{
-			{
-				Id:   aws.String(mt1.TargetIP),
-				Port: aws.Int32(int32(mt1.Port)),
+				// Order matters: registerTargets preserves TargetList order.
+				TargetList: []model.Target{b, cc, d, e},
 			},
 		}
 
 		deregisterInput := &vpclattice.DeregisterTargetsInput{
 			TargetGroupIdentifier: aws.String(modelTg.Status.Id),
-			Targets:               deregisterTargets,
+			Targets: []types.Target{
+				{Id: aws.String(a.TargetIP), Port: aws.Int32(int32(a.Port))},
+			},
 		}
 		deregisterOutput := &vpclattice.DeregisterTargetsOutput{
-			Successful: deregisterTargets,
+			Successful: deregisterInput.Targets,
 		}
 
 		registerInput := &vpclattice.RegisterTargetsInput{
 			TargetGroupIdentifier: aws.String("tg-id"),
 			Targets: []types.Target{
-				{Id: aws.String(mt2.TargetIP), Port: aws.Int32(int32(mt2.Port))},
-				{Id: aws.String(mt3.TargetIP), Port: aws.Int32(int32(mt3.Port))},
+				{Id: aws.String(d.TargetIP), Port: aws.Int32(int32(d.Port))},
+				{Id: aws.String(e.TargetIP), Port: aws.Int32(int32(e.Port))},
 			},
 		}
 
@@ -255,10 +239,9 @@ func TestTargetsManager(t *testing.T) {
 		mockLattice.EXPECT().DeregisterTargets(ctx, deregisterInput).Return(deregisterOutput, nil)
 
 		targetsManager := NewTargetsManager(gwlog.FallbackLogger, mockCloud)
-		err := targetsManager.Update(ctx, &newTargets, &modelTg)
+		err := targetsManager.Update(ctx, &desiredTargets, &modelTg)
 
 		assert.Nil(t, err)
-
 	})
 
 	t.Run("port difference handled correctly", func(t *testing.T) {
