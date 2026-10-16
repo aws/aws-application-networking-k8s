@@ -20,6 +20,10 @@ import (
 
 //go:generate mockgen -destination service_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ServiceManager
 
+// defaultIdleTimeoutSeconds is the VPC Lattice service idle timeout applied when the
+// idle-timeout-seconds annotation is absent.
+const defaultIdleTimeoutSeconds = 60
+
 type Service = model.Service
 type ServiceInfo = model.ServiceStatus
 type CreateSvcReq = vpclattice.CreateServiceInput
@@ -126,6 +130,9 @@ func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 	if svc.Spec.CustomerCertARN != "" {
 		req.CertificateArn = &svc.Spec.CustomerCertARN
 	}
+	if svc.Spec.IdleTimeoutSeconds != nil {
+		req.IdleTimeoutSeconds = svc.Spec.IdleTimeoutSeconds
+	}
 
 	return req
 }
@@ -196,15 +203,8 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 		return ServiceInfo{}, fmt.Errorf("failed to update tags for service %s: %w", aws.ToString(svcSum.Id), err)
 	}
 
-	if svc.Spec.CustomerCertARN != "" {
-		updReq := &UpdateSvcReq{
-			CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
-			ServiceIdentifier: svcSum.Id,
-		}
-		_, err := m.cloud.Lattice().UpdateService(ctx, updReq)
-		if err != nil {
-			return ServiceInfo{}, err
-		}
+	if err := m.reconcileServiceAttributes(ctx, svc, svcSum); err != nil {
+		return ServiceInfo{}, err
 	}
 
 	err = m.updateAssociations(ctx, svc, svcSum)
@@ -220,6 +220,52 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 		svcInfo.Dns = aws.ToString(svcSum.DnsEntry.DomainName)
 	}
 	return svcInfo, nil
+}
+
+// reconcileServiceAttributes diffs via GetService before calling UpdateService, because
+// UpdateService has a low throttle limit and FindService's summary omits these fields.
+func (m *defaultServiceManager) reconcileServiceAttributes(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
+	wantCert := svc.Spec.CustomerCertARN != ""
+
+	// Idle timeout is reconciled declaratively: the desired value is the annotation when set, or
+	// the VPC Lattice default of 60 when absent. Removing the annotation therefore reverts the
+	// service to 60 (like the tags and standalone annotations), rather than leaving the last value.
+	desiredIdleTimeout := int32(defaultIdleTimeoutSeconds)
+	if svc.Spec.IdleTimeoutSeconds != nil {
+		desiredIdleTimeout = *svc.Spec.IdleTimeoutSeconds
+	}
+
+	getResp, err := m.cloud.Lattice().GetService(ctx, &GetSvcReq{ServiceIdentifier: svcSum.Id})
+	if err != nil {
+		return fmt.Errorf("failed to get service %s for attribute diff: %w", aws.ToString(svcSum.Id), err)
+	}
+
+	updReq := &UpdateSvcReq{ServiceIdentifier: svcSum.Id}
+	needsUpdate := false
+
+	if wantCert && aws.ToString(getResp.CertificateArn) != svc.Spec.CustomerCertARN {
+		updReq.CertificateArn = aws.String(svc.Spec.CustomerCertARN)
+		needsUpdate = true
+	}
+
+	if aws.ToInt32(getResp.IdleTimeoutSeconds) != desiredIdleTimeout {
+		updReq.IdleTimeoutSeconds = aws.Int32(desiredIdleTimeout)
+		needsUpdate = true
+	}
+
+	if !needsUpdate {
+		return nil
+	}
+
+	if _, err := m.cloud.Lattice().UpdateService(ctx, updReq); err != nil {
+		var ce *types.ConflictException
+		if errors.As(err, &ce) {
+			return fmt.Errorf("%w: failed UpdateService %s due to %s",
+				lattice_runtime.NewRetryError(), aws.ToString(svcSum.Id), err)
+		}
+		return err
+	}
+	return nil
 }
 
 func (m *defaultServiceManager) getAllAssociations(ctx context.Context, svcSum *SvcSummary) ([]SnSvcAssocSummary, error) {

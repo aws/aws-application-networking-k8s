@@ -145,6 +145,10 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", gomock.Any(), gomock.Any()).Return(nil)
 
+		// idle-timeout reconcile reads current state; service already at the default -> no update
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).AnyTimes()
+
 		// 3 associations exist in lattice: keep, delete, and foreign
 		mockLattice.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
@@ -473,6 +477,7 @@ func TestCreateSvcReq(t *testing.T) {
 		},
 		CustomerDomainName: "dns",
 		CustomerCertARN:    "cert-arn",
+		IdleTimeoutSeconds: aws.Int32(120),
 	}
 
 	svcModel := &model.Service{
@@ -485,7 +490,8 @@ func TestCreateSvcReq(t *testing.T) {
 	assert.Equal(t, *req.Name, svcModel.LatticeServiceName())
 	assert.Equal(t, *req.CustomDomainName, spec.CustomerDomainName)
 	assert.Equal(t, *req.CertificateArn, spec.CustomerCertARN)
-
+	assert.NotNil(t, req.IdleTimeoutSeconds)
+	assert.Equal(t, int32(120), *req.IdleTimeoutSeconds)
 }
 
 func TestSvcStatusFromCreateSvcResp(t *testing.T) {
@@ -713,6 +719,9 @@ func Test_ServiceManager_WithAdditionalTags_UpdateService(t *testing.T) {
 
 	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
 
+	mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).AnyTimes()
+
 	mockLattice.EXPECT().
 		ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]SnSvcAssocSummary, error) {
@@ -778,6 +787,9 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 		Times(1)
 
 	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
+
+	mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).AnyTimes()
 
 	mockLattice.EXPECT().
 		ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
@@ -901,6 +913,9 @@ func Test_ServiceManager_ServiceTakeover(t *testing.T) {
 	})).Times(1)
 
 	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
+
+	mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).AnyTimes()
 
 	mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 		Return([]SnSvcAssocSummary{
@@ -1182,4 +1197,276 @@ func Test_Delete_SkipsServiceNotOwnedByController(t *testing.T) {
 
 	err := m.Delete(ctx, svc)
 	assert.Nil(t, err)
+}
+
+func Test_ServiceManager_IdleTimeout_UpdatePath(t *testing.T) {
+	newManager := func(c *gomock.Controller) (*defaultServiceManager, *mocks.MockLattice, *mocks.MockTagging, pkg_aws.Cloud) {
+		mockLattice := mocks.NewMockLattice(c)
+		mockTagging := mocks.NewMockTagging(c)
+		cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+		cl := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, cfg)
+		return NewServiceManager(gwlog.FallbackLogger, cl), mockLattice, mockTagging, cl
+	}
+
+	setupExisting := func(ctx context.Context, mockLattice *mocks.MockLattice, mockTagging *mocks.MockTagging, cl pkg_aws.Cloud, svc *Service) {
+		mockLattice.EXPECT().
+			FindService(gomock.Any(), gomock.Any()).
+			Return(&types.ServiceSummary{
+				Arn:  aws.String("svc-arn"),
+				Id:   aws.String("svc-id"),
+				Name: aws.String(svc.LatticeServiceName()),
+			}, nil).
+			Times(1)
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+				return &vpclattice.ListTagsForResourceOutput{
+					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+				}, nil
+			}).Times(1)
+		mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", gomock.Any(), gomock.Any()).Return(nil).Times(1)
+		mockLattice.EXPECT().
+			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
+			Return([]SnSvcAssocSummary{}, nil).Times(1)
+	}
+
+	baseSpec := func() model.ServiceSpec {
+		return model.ServiceSpec{
+			ServiceTagFields: model.ServiceTagFields{
+				RouteName:      "svc",
+				RouteNamespace: "ns",
+				RouteType:      core.HttpRouteType,
+			},
+			ServiceNetworkNames: []string{},
+		}
+	}
+
+	t.Run("idle timeout differs -> UpdateService called with new value", func(t *testing.T) {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		m, mockLattice, mockTagging, cl := newManager(c)
+		ctx := context.Background()
+
+		spec := baseSpec()
+		spec.IdleTimeoutSeconds = aws.Int32(300)
+		svc := &Service{Spec: spec}
+		setupExisting(ctx, mockLattice, mockTagging, cl, svc)
+
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *GetSvcReq, _ ...interface{}) (*vpclattice.GetServiceOutput, error) {
+				assert.Equal(t, "svc-id", *req.ServiceIdentifier)
+				return &vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil
+			}).Times(1)
+
+		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *UpdateSvcReq, _ ...interface{}) (*UpdateSvcResp, error) {
+				assert.Equal(t, "svc-id", *req.ServiceIdentifier)
+				assert.NotNil(t, req.IdleTimeoutSeconds)
+				assert.Equal(t, int32(300), *req.IdleTimeoutSeconds)
+				assert.Nil(t, req.CertificateArn)
+				return &UpdateSvcResp{}, nil
+			}).Times(1)
+
+		_, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+	})
+
+	t.Run("idle timeout equal -> no UpdateService", func(t *testing.T) {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		m, mockLattice, mockTagging, cl := newManager(c)
+		ctx := context.Background()
+
+		spec := baseSpec()
+		spec.IdleTimeoutSeconds = aws.Int32(120)
+		svc := &Service{Spec: spec}
+		setupExisting(ctx, mockLattice, mockTagging, cl, svc)
+
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(120)}, nil).Times(1)
+
+		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).Times(0)
+
+		_, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+	})
+
+	t.Run("annotation removed (desired nil) reverts non-default value to 60", func(t *testing.T) {
+		// Declarative behavior: a nil model field means "annotation absent", whose desired value
+		// is the default 60. If the service currently has a non-default value, revert it.
+		c := gomock.NewController(t)
+		defer c.Finish()
+		m, mockLattice, mockTagging, cl := newManager(c)
+		ctx := context.Background()
+
+		svc := &Service{Spec: baseSpec()} // IdleTimeoutSeconds nil, no cert
+		setupExisting(ctx, mockLattice, mockTagging, cl, svc)
+
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(300)}, nil).Times(1)
+
+		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *UpdateSvcReq, _ ...interface{}) (*UpdateSvcResp, error) {
+				assert.NotNil(t, req.IdleTimeoutSeconds)
+				assert.Equal(t, int32(60), *req.IdleTimeoutSeconds)
+				return &UpdateSvcResp{}, nil
+			}).Times(1)
+
+		_, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+	})
+
+	t.Run("desired nil and already at default -> no UpdateService", func(t *testing.T) {
+		// Annotation absent and the service is already at 60: nothing to revert.
+		c := gomock.NewController(t)
+		defer c.Finish()
+		m, mockLattice, mockTagging, cl := newManager(c)
+		ctx := context.Background()
+
+		svc := &Service{Spec: baseSpec()} // IdleTimeoutSeconds nil, no cert
+		setupExisting(ctx, mockLattice, mockTagging, cl, svc)
+
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).Times(1)
+
+		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).Times(0)
+
+		_, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+	})
+
+	t.Run("UpdateService ConflictException becomes a retryable error", func(t *testing.T) {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		m, mockLattice, mockTagging, cl := newManager(c)
+		ctx := context.Background()
+
+		spec := baseSpec()
+		spec.IdleTimeoutSeconds = aws.Int32(300)
+		svc := &Service{Spec: spec}
+
+		// No ListServiceNetworkServiceAssociationsAsList: the conflict error short-circuits
+		// updateServiceAndAssociations before updateAssociations runs.
+		mockLattice.EXPECT().
+			FindService(gomock.Any(), gomock.Any()).
+			Return(&types.ServiceSummary{
+				Arn:  aws.String("svc-arn"),
+				Id:   aws.String("svc-id"),
+				Name: aws.String(svc.LatticeServiceName()),
+			}, nil).Times(1)
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+				return &vpclattice.ListTagsForResourceOutput{
+					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+				}, nil
+			}).Times(1)
+		mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).Times(1)
+		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).
+			Return(nil, &types.ConflictException{Message: aws.String("service is in a mutating state")}).
+			Times(1)
+		mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).Times(0)
+
+		_, err := m.Upsert(ctx, svc)
+		assert.Error(t, err)
+		var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
+		assert.True(t, errors.As(err, &requeueNeededAfter),
+			"ConflictException from UpdateService should become a retryable RequeueNeededAfter")
+	})
+
+	t.Run("GetService error is propagated", func(t *testing.T) {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		m, mockLattice, mockTagging, cl := newManager(c)
+		ctx := context.Background()
+
+		spec := baseSpec()
+		spec.IdleTimeoutSeconds = aws.Int32(120)
+		svc := &Service{Spec: spec}
+
+		// No ListServiceNetworkServiceAssociationsAsList: the GetService error short-circuits
+		// updateServiceAndAssociations before updateAssociations runs.
+		mockLattice.EXPECT().
+			FindService(gomock.Any(), gomock.Any()).
+			Return(&types.ServiceSummary{
+				Arn:  aws.String("svc-arn"),
+				Id:   aws.String("svc-id"),
+				Name: aws.String(svc.LatticeServiceName()),
+			}, nil).Times(1)
+		mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *vpclattice.ListTagsForResourceInput, _ ...interface{}) (*vpclattice.ListTagsForResourceOutput, error) {
+				return &vpclattice.ListTagsForResourceOutput{
+					Tags: cl.DefaultTagsMergedWith(svc.Spec.ToTags()),
+				}, nil
+			}).Times(1)
+		mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("throttled")).Times(1)
+		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).Times(0)
+		mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).Times(0)
+
+		_, err := m.Upsert(ctx, svc)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "for attribute diff")
+	})
+
+	t.Run("cert and idle both differ -> single UpdateService with both fields", func(t *testing.T) {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		m, mockLattice, mockTagging, cl := newManager(c)
+		ctx := context.Background()
+
+		spec := baseSpec()
+		spec.CustomerCertARN = "new-cert"
+		spec.IdleTimeoutSeconds = aws.Int32(600)
+		svc := &Service{Spec: spec}
+		setupExisting(ctx, mockLattice, mockTagging, cl, svc)
+
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.GetServiceOutput{
+				CertificateArn:     aws.String("old-cert"),
+				IdleTimeoutSeconds: aws.Int32(60),
+			}, nil).Times(1)
+
+		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *UpdateSvcReq, _ ...interface{}) (*UpdateSvcResp, error) {
+				assert.Equal(t, "new-cert", *req.CertificateArn)
+				assert.Equal(t, int32(600), *req.IdleTimeoutSeconds)
+				return &UpdateSvcResp{}, nil
+			}).Times(1)
+
+		_, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+	})
+
+	t.Run("cert differs idle equal -> UpdateService with cert only", func(t *testing.T) {
+		c := gomock.NewController(t)
+		defer c.Finish()
+		m, mockLattice, mockTagging, cl := newManager(c)
+		ctx := context.Background()
+
+		spec := baseSpec()
+		spec.CustomerCertARN = "new-cert"
+		spec.IdleTimeoutSeconds = aws.Int32(120)
+		svc := &Service{Spec: spec}
+		setupExisting(ctx, mockLattice, mockTagging, cl, svc)
+
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.GetServiceOutput{
+				CertificateArn:     aws.String("old-cert"),
+				IdleTimeoutSeconds: aws.Int32(120),
+			}, nil).Times(1)
+
+		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *UpdateSvcReq, _ ...interface{}) (*UpdateSvcResp, error) {
+				assert.Equal(t, "new-cert", *req.CertificateArn)
+				assert.Nil(t, req.IdleTimeoutSeconds)
+				return &UpdateSvcResp{}, nil
+			}).Times(1)
+
+		_, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+	})
 }

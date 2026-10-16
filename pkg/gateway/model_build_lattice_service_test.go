@@ -2413,3 +2413,126 @@ func Test_getACMCertArn(t *testing.T) {
 		})
 	}
 }
+
+func Test_LatticeServiceModelBuild_IdleTimeoutAnnotation(t *testing.T) {
+	vpcLatticeGatewayClass := gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "gwClass"},
+		Spec: gwv1.GatewayClassSpec{
+			ControllerName: config.LatticeGatewayControllerName,
+		},
+	}
+	vpcLatticeGateway := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gateway1", Namespace: "default"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name),
+		},
+	}
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
+		return &p
+	}
+	makeRoute := func(name string, annotations map[string]string) core.Route {
+		route := core.NewHTTPRoute(gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Namespace:   "default",
+				Annotations: annotations,
+			},
+			Spec: gwv1.HTTPRouteSpec{
+				CommonRouteSpec: gwv1.CommonRouteSpec{
+					ParentRefs: []gwv1.ParentReference{
+						{
+							Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+							Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+						},
+					},
+				},
+			},
+		})
+		route.Status().SetParents([]gwv1.RouteParentStatus{
+			{
+				ParentRef: gwv1.ParentReference{
+					Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+					Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+				},
+				Conditions: []metav1.Condition{
+					{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue},
+				},
+			},
+		})
+		return route
+	}
+
+	i32 := func(v int32) *int32 { return &v }
+
+	tests := []struct {
+		name            string
+		annotations     map[string]string
+		expectErr       bool
+		expectInvalid   bool
+		expectedTimeout *int32
+	}{
+		{
+			name:            "valid idle timeout annotation",
+			annotations:     map[string]string{k8s.IdleTimeoutSecondsAnnotation: "120"},
+			expectedTimeout: i32(120),
+		},
+		{
+			name:            "no annotation -> nil",
+			annotations:     nil,
+			expectedTimeout: nil,
+		},
+		{
+			// Proves the model builder wires the getter in and propagates the typed error
+			// rather than swallowing it. The parsing/range branches themselves are covered by
+			// TestGetIdleTimeoutSecondsWithValidation, so one invalid case suffices here.
+			name:          "invalid value -> typed error propagated",
+			annotations:   map[string]string{k8s.IdleTimeoutSecondsAnnotation: "10"},
+			expectErr:     true,
+			expectInvalid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
+			gwv1alpha2.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGatewayClass.DeepCopy()))
+			assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGateway.DeepCopy()))
+
+			route := makeRoute(tt.name, tt.annotations)
+			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+			task := &latticeServiceModelBuildTask{
+				log:    gwlog.FallbackLogger,
+				route:  route,
+				stack:  stack,
+				client: k8sClient,
+			}
+
+			svc, err := task.buildLatticeService(ctx)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				if tt.expectInvalid {
+					assert.True(t, k8s.IsInvalidIdleTimeoutSecondsError(err),
+						"error should be InvalidIdleTimeoutSeconds")
+				}
+				return
+			}
+
+			assert.NoError(t, err)
+			if tt.expectedTimeout == nil {
+				assert.Nil(t, svc.Spec.IdleTimeoutSeconds)
+			} else {
+				assert.NotNil(t, svc.Spec.IdleTimeoutSeconds)
+				assert.Equal(t, *tt.expectedTimeout, *svc.Spec.IdleTimeoutSeconds)
+			}
+		})
+	}
+}

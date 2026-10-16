@@ -120,7 +120,7 @@ func RegisterAllRouteControllers(
 		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
-			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.Or(predicates.NewRouteChangedPredicate(), predicates.AdditionalTagsAnnotationChangedPredicate, predicates.AllowTakeoverFromAnnotationChangedPredicate))).
+			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.Or(predicates.NewRouteChangedPredicate(), predicates.AdditionalTagsAnnotationChangedPredicate, predicates.AllowTakeoverFromAnnotationChangedPredicate, predicates.IdleTimeoutSecondsAnnotationChangedPredicate))).
 			Watches(&gwv1.Gateway{}, gwEventHandler).
 			Watches(&corev1.Service{}, svcEventHandler.MapToRoute(routeInfo.routeType)).
 			Watches(&anv1alpha1.ServiceImport{}, svcImportEventHandler.MapToRoute(routeInfo.routeType)).
@@ -196,7 +196,7 @@ func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request,
 		k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 
 	if _, err := r.buildAndDeployModel(ctx, route); err != nil {
-		if k8s.IsInvalidServiceNameOverrideError(err) {
+		if k8s.IsInvalidServiceNameOverrideError(err) || k8s.IsInvalidIdleTimeoutSecondsError(err) {
 			r.log.Infof(ctx, "Route %s deletion proceeding, no VPC Lattice resources created due to error: %v", route.Name(), err)
 		} else {
 			return fmt.Errorf("failed to cleanup route %s, %s: %w", route.Name(), route.Namespace(), err)
@@ -411,6 +411,24 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 			return lattice_runtime.NewRequeueNeededAfter("certificate not found, retrying", 1*time.Minute)
 		}
 		switch {
+		case k8s.IsInvalidIdleTimeoutSecondsError(err):
+			parentRef, parentRefErr := r.findControlledParentRef(ctx, route)
+			if parentRefErr != nil {
+				return parentRefErr
+			}
+			route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
+			route.Status().UpdateRouteCondition(parentRef, metav1.Condition{
+				Type:               string(gwv1.RouteConditionAccepted),
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: route.K8sObject().GetGeneration(),
+				Reason:             string(gwv1.RouteReasonUnsupportedValue),
+				Message:            err.Error(),
+			})
+			if statusErr := r.client.Status().Update(ctx, route.K8sObject()); statusErr != nil {
+				return fmt.Errorf("failed to update route status for invalid idle timeout: %w", statusErr)
+			}
+			// return nil to stop retrying
+			return nil
 		case k8s.IsInvalidExternalTargetGroupError(err):
 			if statusErr := r.setResolvedRefsFalse(ctx, route, "InvalidExternalTargetGroup", err.Error()); statusErr != nil {
 				return statusErr
