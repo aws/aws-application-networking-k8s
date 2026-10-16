@@ -20,8 +20,10 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"strings"
 	"time"
 
+	dto "github.com/prometheus/client_model/go"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -64,16 +66,17 @@ var routeTypeToFinalizer = map[core.RouteType]string{
 }
 
 type routeReconciler struct {
-	routeType        core.RouteType
-	log              gwlog.Logger
-	client           client.Client
-	scheme           *runtime.Scheme
-	finalizerManager k8s.FinalizerManager
-	eventRecorder    record.EventRecorder
-	modelBuilder     gateway.LatticeServiceBuilder
-	stackDeployer    deploy.StackDeployer
-	stackMarshaller  deploy.StackMarshaller
-	cloud            aws.Cloud
+	routeType               core.RouteType
+	log                     gwlog.Logger
+	client                  client.Client
+	scheme                  *runtime.Scheme
+	finalizerManager        k8s.FinalizerManager
+	eventRecorder           record.EventRecorder
+	modelBuilder            gateway.LatticeServiceBuilder
+	stackDeployer           deploy.StackDeployer
+	stackMarshaller         deploy.StackMarshaller
+	cloud                   aws.Cloud
+	referenceGrantSupported bool
 }
 
 const (
@@ -118,6 +121,7 @@ func RegisterAllRouteControllers(
 		}
 
 		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
+		rgEventHandler := eventhandlers.NewReferenceGrantEventHandler(log, mgrClient)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.Or(predicates.NewRouteChangedPredicate(), predicates.AdditionalTagsAnnotationChangedPredicate, predicates.AllowTakeoverFromAnnotationChangedPredicate))).
@@ -128,6 +132,16 @@ func RegisterAllRouteControllers(
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: config.RouteMaxConcurrentReconciles,
 			})
+
+		if ok, err := k8s.IsGVKSupported(mgr, gwv1.GroupVersion.String(), "ReferenceGrant"); ok {
+			builder.Watches(&gwv1.ReferenceGrant{}, rgEventHandler.MapToRoute(routeInfo.routeType))
+			reconciler.referenceGrantSupported = true
+		} else {
+			if err != nil {
+				return err
+			}
+			log.Infof(context.TODO(), "ReferenceGrant %s CRD is not served, skipping watch and cross-namespace warnings", gwv1.GroupVersion.String())
+		}
 
 		if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
 			builder.Watches(&anv1alpha1.TargetGroupPolicy{}, svcEventHandler.MapToRoute(routeInfo.routeType))
@@ -172,14 +186,21 @@ func (r *routeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 func (r *routeReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	route, err := r.getRoute(ctx, req)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.clearCrossNamespaceRefGauge(routeKindFromType(r.routeType), req.Namespace, req.Name)
+		}
 		return client.IgnoreNotFound(err)
 	}
 
 	if err = r.client.Get(ctx, req.NamespacedName, route.K8sObject()); err != nil {
+		if apierrors.IsNotFound(err) {
+			r.clearCrossNamespaceRefGauge(routeKindFromType(r.routeType), req.Namespace, req.Name)
+		}
 		return client.IgnoreNotFound(err)
 	}
 
 	if !r.isRouteRelevant(ctx, route) {
+		r.clearCrossNamespaceRefGauge(route.GroupKind().Kind, route.Namespace(), route.Name())
 		return nil
 	}
 
@@ -208,6 +229,7 @@ func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request,
 	}
 
 	r.log.Infow(ctx, "reconciled", "name", req.Name)
+	r.clearCrossNamespaceRefGauge(route.GroupKind().Kind, route.Namespace(), route.Name())
 	return r.finalizerManager.RemoveFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType])
 }
 
@@ -344,6 +366,8 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		// error.
 		r.log.Infof(ctx, "route: %s: %s", route.Name(), err)
 	}
+
+	r.warnOnUnpermittedCrossNamespaceRefs(ctx, route)
 
 	backendRefIPFamiliesErr := r.validateBackendRefsIpFamilies(ctx, route)
 
@@ -504,6 +528,121 @@ func (r *routeReconciler) validateBackendRefsIpFamilies(ctx context.Context, rou
 	}
 
 	return nil
+}
+
+// warnOnUnpermittedCrossNamespaceRefs emits a warning signal for cross-namespace
+// backendRefs with no matching ReferenceGrant without changing route status or blocking
+// the reference, which is still accepted and routed during the warn phase.
+func (r *routeReconciler) warnOnUnpermittedCrossNamespaceRefs(ctx context.Context, route core.Route) {
+	if !r.referenceGrantSupported {
+		return
+	}
+
+	countsByKind := map[string]int{}
+	var targets []string
+	evalFailed := false
+	for _, rule := range route.Spec().Rules() {
+		for _, backendRef := range rule.BackendRefs() {
+			if backendRef.Namespace() == nil || string(*backendRef.Namespace()) == route.Namespace() {
+				continue
+			}
+
+			allowed, err := gateway.IsBackendRefAllowedByReferenceGrant(ctx, r.client, route, backendRef)
+			if err != nil {
+				evalFailed = true
+				r.log.Warnw(ctx, "failed to evaluate ReferenceGrant for cross-namespace backendRef; skipping warning",
+					"route", route.Namespace()+"/"+route.Name(),
+					"backendRef", string(*backendRef.Namespace())+"/"+string(backendRef.Name()),
+					"error", err)
+				continue
+			}
+			if allowed {
+				continue
+			}
+
+			kind := "Service"
+			if backendRef.Kind() != nil {
+				kind = string(*backendRef.Kind())
+			}
+			countsByKind[bucketBackendKind(kind)]++
+			targets = append(targets, string(*backendRef.Namespace())+"/"+string(backendRef.Name())+" ("+kind+")")
+		}
+	}
+
+	// On an evaluation error, record confirmed violations as a lower bound but do not
+	// delete other buckets: a transient failure must not be read as a fixed reference.
+	if evalFailed {
+		r.raiseCrossNamespaceRefGauge(route, countsByKind)
+	} else {
+		r.setCrossNamespaceRefGauge(route, countsByKind)
+	}
+
+	if len(targets) == 0 {
+		return
+	}
+
+	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
+		k8s.RouteEventReasonCrossNamespaceRefNotPermitted,
+		fmt.Sprintf("backendRefs %s are in a different namespace than route %s/%s and no "+
+			"ReferenceGrant permits them; this will be blocked in a future release",
+			summarizeTargets(targets), route.Namespace(), route.Name()))
+	r.log.Warnw(ctx, "cross-namespace backendRefs not permitted by any ReferenceGrant",
+		"route", route.Namespace()+"/"+route.Name(),
+		"backendRefs", strings.Join(targets, ", "))
+}
+
+func summarizeTargets(targets []string) string {
+	const max = 10
+	if len(targets) <= max {
+		return strings.Join(targets, ", ")
+	}
+	return fmt.Sprintf("%s and %d more", strings.Join(targets[:max], ", "), len(targets)-max)
+}
+
+func (r *routeReconciler) setCrossNamespaceRefGauge(route core.Route, countsByKind map[string]int) {
+	routeKind := route.GroupKind().Kind
+	for _, kind := range backendKindBuckets {
+		if n := countsByKind[kind]; n > 0 {
+			crossNamespaceRefsNotPermitted.WithLabelValues(routeKind, route.Namespace(), route.Name(), kind).Set(float64(n))
+		} else {
+			crossNamespaceRefsNotPermitted.DeleteLabelValues(routeKind, route.Namespace(), route.Name(), kind)
+		}
+	}
+}
+
+// raiseCrossNamespaceRefGauge records confirmed violation counts without lowering or
+// deleting any bucket, used when some references could not be evaluated this pass so a
+// transient failure cannot be read as references having been fixed.
+func (r *routeReconciler) raiseCrossNamespaceRefGauge(route core.Route, countsByKind map[string]int) {
+	routeKind := route.GroupKind().Kind
+	for kind, n := range countsByKind {
+		if n <= 0 {
+			continue
+		}
+		g := crossNamespaceRefsNotPermitted.WithLabelValues(routeKind, route.Namespace(), route.Name(), kind)
+		var m dto.Metric
+		if err := g.Write(&m); err == nil && m.GetGauge().GetValue() >= float64(n) {
+			continue
+		}
+		g.Set(float64(n))
+	}
+}
+
+func (r *routeReconciler) clearCrossNamespaceRefGauge(routeKind, namespace, name string) {
+	for _, kind := range backendKindBuckets {
+		crossNamespaceRefsNotPermitted.DeleteLabelValues(routeKind, namespace, name, kind)
+	}
+}
+
+func routeKindFromType(routeType core.RouteType) string {
+	switch routeType {
+	case core.GrpcRouteType:
+		return "GRPCRoute"
+	case core.TlsRouteType:
+		return core.TlsRouteKind
+	default:
+		return "HTTPRoute"
+	}
 }
 
 var (
