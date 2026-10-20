@@ -112,7 +112,7 @@ func (r *accessLogPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	recErr := r.reconcile(ctx, req)
 	if recErr != nil {
-		r.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
+		r.log.Errorw(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
