@@ -1425,6 +1425,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Annotations
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1885,6 +1896,29 @@ This allows you to define and manage end-to-end TLS encrypted traffic routing to
 <li>Each rule must have at least one <code>backendRef</code>.</li>
 <li><code>TLSRoute</code> does not support any rule matching condition.</li>
 <li>The <code>hostnames</code> field with exactly one host name is required. IP addresses are not allowed.</li>
+</ul>
+<h3 id="annotations">Annotations<a class="headerlink" href="#annotations" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><code>application-networking.k8s.aws/idle-timeout-seconds</code><br />
+  Sets the idle connection timeout, in seconds, for the VPC Lattice Service that this route maps to.
+  The idle timeout is the amount of time a connection can remain idle (no data sent) before VPC Lattice
+  closes it. Valid range is <code>60</code>–<code>600</code>. If the annotation has never been set, VPC Lattice applies
+  its default of <code>60</code> seconds. The value must be quoted, e.g. <code>"120"</code>. An out-of-range or non-integer value is ignored (left unset) and logged as a warning.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The idle timeout is distinct from the fixed maximum connection duration (10 minutes) enforced by
+VPC Lattice, which is not configurable. Raising the idle timeout only affects connections that are
+idle, not long-lived active connections.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The controller manages this value only while the annotation is present. Removing the
+annotation leaves the last applied value on the VPC Lattice Service rather than reverting it,
+so a value set out-of-band is preserved. To change it back, set the annotation to the desired
+value (e.g. <code>"60"</code>).</p>
+</div>
+</li>
 </ul>
 <h2 id="example-configuration">Example Configuration<a class="headerlink" href="#example-configuration" title="Permanent link">&para;</a></h2>
 <p>Here is a sample configuration that demonstrates how to set up  a <code>TLSRoute</code> resource to route end-to-end TLS encrypted traffic to a nginx service:</p>
