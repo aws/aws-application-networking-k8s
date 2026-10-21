@@ -79,12 +79,21 @@ var _ = Describe("Idle Timeout", Ordered, func() {
 		expectIdleTimeout(300)
 	})
 
-	It("reverts to the default when the annotation is removed", func() {
+	It("leaves the last value when the annotation is removed", func() {
 		Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(httpRoute), httpRoute)).To(Succeed())
 		delete(httpRoute.Annotations, "application-networking.k8s.aws/idle-timeout-seconds")
 		testFramework.ExpectUpdated(ctx, httpRoute)
 
-		expectIdleTimeout(60)
+		// Manage-only-when-set: removing the annotation does not revert; the service keeps 300.
+		Consistently(func(g Gomega) {
+			summary := testFramework.GetVpcLatticeService(ctx, core.NewHTTPRoute(*httpRoute))
+			out, err := testFramework.LatticeClient.GetService(ctx, &vpclattice.GetServiceInput{
+				ServiceIdentifier: summary.Id,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(out.IdleTimeoutSeconds).ToNot(BeNil())
+			g.Expect(*out.IdleTimeoutSeconds).To(Equal(int32(300)))
+		}).WithTimeout(30 * time.Second).WithPolling(10 * time.Second).Should(Succeed())
 	})
 
 	AfterAll(func() {

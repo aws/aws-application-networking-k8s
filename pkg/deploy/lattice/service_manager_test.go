@@ -145,10 +145,6 @@ func TestServiceManagerInteg(t *testing.T) {
 
 		mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", gomock.Any(), gomock.Any()).Return(nil)
 
-		// idle-timeout reconcile reads current state; service already at the default -> no update
-		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
-			Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).AnyTimes()
-
 		// 3 associations exist in lattice: keep, delete, and foreign
 		mockLattice.EXPECT().
 			ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
@@ -494,6 +490,26 @@ func TestCreateSvcReq(t *testing.T) {
 	assert.Equal(t, int32(120), *req.IdleTimeoutSeconds)
 }
 
+func TestCreateSvcReq_IdleTimeoutUnset_OmitsField(t *testing.T) {
+	cfg := pkg_aws.CloudConfig{VpcId: "vpc-id", AccountId: "account-id"}
+	cl := pkg_aws.NewDefaultCloud(nil, cfg)
+	m := NewServiceManager(gwlog.FallbackLogger, cl)
+
+	svcModel := &model.Service{
+		Spec: model.ServiceSpec{
+			ServiceTagFields: model.ServiceTagFields{
+				RouteName:      "svc",
+				RouteNamespace: "ns",
+				RouteType:      core.HttpRouteType,
+			},
+			// IdleTimeoutSeconds nil -> field must be omitted so Lattice applies its default.
+		},
+	}
+
+	req := m.newCreateSvcReq(svcModel)
+	assert.Nil(t, req.IdleTimeoutSeconds)
+}
+
 func TestSvcStatusFromCreateSvcResp(t *testing.T) {
 	resp := &CreateSvcResp{
 		Arn: aws.String("arn"),
@@ -719,9 +735,6 @@ func Test_ServiceManager_WithAdditionalTags_UpdateService(t *testing.T) {
 
 	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
 
-	mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
-		Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).AnyTimes()
-
 	mockLattice.EXPECT().
 		ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, req *ListSnSvcAssocsReq) ([]SnSvcAssocSummary, error) {
@@ -787,9 +800,6 @@ func Test_ServiceManager_WithAdditionalTags_UpdateAssociations(t *testing.T) {
 		Times(1)
 
 	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
-
-	mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
-		Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).AnyTimes()
 
 	mockLattice.EXPECT().
 		ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
@@ -913,9 +923,6 @@ func Test_ServiceManager_ServiceTakeover(t *testing.T) {
 	})).Times(1)
 
 	mockTagging.EXPECT().UpdateTags(ctx, "svc-arn", svc.Spec.AdditionalTags, gomock.Any()).Return(nil)
-
-	mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
-		Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).AnyTimes()
 
 	mockLattice.EXPECT().ListServiceNetworkServiceAssociationsAsList(gomock.Any(), gomock.Any()).
 		Return([]SnSvcAssocSummary{
@@ -1290,9 +1297,9 @@ func Test_ServiceManager_IdleTimeout_UpdatePath(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
-	t.Run("annotation removed (desired nil) reverts non-default value to 60", func(t *testing.T) {
-		// Declarative behavior: a nil model field means "annotation absent", whose desired value
-		// is the default 60. If the service currently has a non-default value, revert it.
+	t.Run("annotation absent and no cert -> no GetService, no UpdateService", func(t *testing.T) {
+		// Manage-only-when-set: a nil idle-timeout field means "not managed", so the controller
+		// must not read or update the service (values set out-of-band are preserved).
 		c := gomock.NewController(t)
 		defer c.Finish()
 		m, mockLattice, mockTagging, cl := newManager(c)
@@ -1301,33 +1308,7 @@ func Test_ServiceManager_IdleTimeout_UpdatePath(t *testing.T) {
 		svc := &Service{Spec: baseSpec()} // IdleTimeoutSeconds nil, no cert
 		setupExisting(ctx, mockLattice, mockTagging, cl, svc)
 
-		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
-			Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(300)}, nil).Times(1)
-
-		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, req *UpdateSvcReq, _ ...interface{}) (*UpdateSvcResp, error) {
-				assert.NotNil(t, req.IdleTimeoutSeconds)
-				assert.Equal(t, int32(60), *req.IdleTimeoutSeconds)
-				return &UpdateSvcResp{}, nil
-			}).Times(1)
-
-		_, err := m.Upsert(ctx, svc)
-		assert.Nil(t, err)
-	})
-
-	t.Run("desired nil and already at default -> no UpdateService", func(t *testing.T) {
-		// Annotation absent and the service is already at 60: nothing to revert.
-		c := gomock.NewController(t)
-		defer c.Finish()
-		m, mockLattice, mockTagging, cl := newManager(c)
-		ctx := context.Background()
-
-		svc := &Service{Spec: baseSpec()} // IdleTimeoutSeconds nil, no cert
-		setupExisting(ctx, mockLattice, mockTagging, cl, svc)
-
-		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
-			Return(&vpclattice.GetServiceOutput{IdleTimeoutSeconds: aws.Int32(60)}, nil).Times(1)
-
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).Times(0)
 		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).Times(0)
 
 		_, err := m.Upsert(ctx, svc)
@@ -1463,6 +1444,37 @@ func Test_ServiceManager_IdleTimeout_UpdatePath(t *testing.T) {
 			DoAndReturn(func(_ context.Context, req *UpdateSvcReq, _ ...interface{}) (*UpdateSvcResp, error) {
 				assert.Equal(t, "new-cert", *req.CertificateArn)
 				assert.Nil(t, req.IdleTimeoutSeconds)
+				return &UpdateSvcResp{}, nil
+			}).Times(1)
+
+		_, err := m.Upsert(ctx, svc)
+		assert.Nil(t, err)
+	})
+
+	t.Run("cert set, idle-timeout unset -> cert updated, idle timeout untouched", func(t *testing.T) {
+		// Regression guard for existing cert users who never set idle-timeout: a non-nil current
+		// idle timeout must NOT be reverted, and UpdateService must omit the idle timeout field.
+		c := gomock.NewController(t)
+		defer c.Finish()
+		m, mockLattice, mockTagging, cl := newManager(c)
+		ctx := context.Background()
+
+		spec := baseSpec()
+		spec.CustomerCertARN = "new-cert"
+		// IdleTimeoutSeconds intentionally left nil (annotation never set)
+		svc := &Service{Spec: spec}
+		setupExisting(ctx, mockLattice, mockTagging, cl, svc)
+
+		mockLattice.EXPECT().GetService(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.GetServiceOutput{
+				CertificateArn:     aws.String("old-cert"),
+				IdleTimeoutSeconds: aws.Int32(300), // non-default, set out-of-band
+			}, nil).Times(1)
+
+		mockLattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, req *UpdateSvcReq, _ ...interface{}) (*UpdateSvcResp, error) {
+				assert.Equal(t, "new-cert", *req.CertificateArn)
+				assert.Nil(t, req.IdleTimeoutSeconds, "idle timeout must not be touched when unset")
 				return &UpdateSvcResp{}, nil
 			}).Times(1)
 

@@ -20,10 +20,6 @@ import (
 
 //go:generate mockgen -destination service_manager_mock.go -package lattice github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice ServiceManager
 
-// defaultIdleTimeoutSeconds is the VPC Lattice service idle timeout applied when the
-// idle-timeout-seconds annotation is absent.
-const defaultIdleTimeoutSeconds = 60
-
 type Service = model.Service
 type ServiceInfo = model.ServiceStatus
 type CreateSvcReq = vpclattice.CreateServiceInput
@@ -226,13 +222,13 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 // UpdateService has a low throttle limit and FindService's summary omits these fields.
 func (m *defaultServiceManager) reconcileServiceAttributes(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
 	wantCert := svc.Spec.CustomerCertARN != ""
+	wantIdleTimeout := svc.Spec.IdleTimeoutSeconds != nil
 
-	// Idle timeout is reconciled declaratively: the desired value is the annotation when set, or
-	// the VPC Lattice default of 60 when absent. Removing the annotation therefore reverts the
-	// service to 60 (like the tags and standalone annotations), rather than leaving the last value.
-	desiredIdleTimeout := int32(defaultIdleTimeoutSeconds)
-	if svc.Spec.IdleTimeoutSeconds != nil {
-		desiredIdleTimeout = *svc.Spec.IdleTimeoutSeconds
+	// Both fields are managed only while explicitly set (nil/"" = not managed), matching the
+	// certificate-arn convention: clearing the annotation leaves the last applied value on the
+	// service rather than reverting it, so values set out-of-band are preserved.
+	if !wantCert && !wantIdleTimeout {
+		return nil
 	}
 
 	getResp, err := m.cloud.Lattice().GetService(ctx, &GetSvcReq{ServiceIdentifier: svcSum.Id})
@@ -248,8 +244,8 @@ func (m *defaultServiceManager) reconcileServiceAttributes(ctx context.Context, 
 		needsUpdate = true
 	}
 
-	if aws.ToInt32(getResp.IdleTimeoutSeconds) != desiredIdleTimeout {
-		updReq.IdleTimeoutSeconds = aws.Int32(desiredIdleTimeout)
+	if wantIdleTimeout && aws.ToInt32(getResp.IdleTimeoutSeconds) != *svc.Spec.IdleTimeoutSeconds {
+		updReq.IdleTimeoutSeconds = svc.Spec.IdleTimeoutSeconds
 		needsUpdate = true
 	}
 

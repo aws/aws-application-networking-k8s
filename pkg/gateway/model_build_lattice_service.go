@@ -236,11 +236,16 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 	}
 	spec.ServiceNameOverride = serviceNameOverride
 
+	// idle-timeout-seconds is an optional tuning annotation. On an invalid value, warn and leave it
+	// unset rather than failing the build: failing would abort the whole model (including target
+	// reconciliation), risking stale targets / 503s during pod churn for a non-routing setting.
 	idleTimeoutSeconds, err := k8s.GetIdleTimeoutSecondsWithValidation(t.route.K8sObject())
 	if err != nil {
-		return nil, err
+		t.log.Warnf(ctx, "Ignoring invalid idle-timeout-seconds annotation on route %s/%s: %v",
+			t.route.Namespace(), t.route.Name(), err)
+	} else {
+		spec.IdleTimeoutSeconds = idleTimeoutSeconds
 	}
-	spec.IdleTimeoutSeconds = idleTimeoutSeconds
 
 	svc, err := model.NewLatticeService(t.stack, spec)
 	if err != nil {

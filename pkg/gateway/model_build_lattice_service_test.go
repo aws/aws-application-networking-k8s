@@ -2468,8 +2468,6 @@ func Test_LatticeServiceModelBuild_IdleTimeoutAnnotation(t *testing.T) {
 	tests := []struct {
 		name            string
 		annotations     map[string]string
-		expectErr       bool
-		expectInvalid   bool
 		expectedTimeout *int32
 	}{
 		{
@@ -2483,13 +2481,12 @@ func Test_LatticeServiceModelBuild_IdleTimeoutAnnotation(t *testing.T) {
 			expectedTimeout: nil,
 		},
 		{
-			// Proves the model builder wires the getter in and propagates the typed error
-			// rather than swallowing it. The parsing/range branches themselves are covered by
-			// TestGetIdleTimeoutSecondsWithValidation, so one invalid case suffices here.
-			name:          "invalid value -> typed error propagated",
-			annotations:   map[string]string{k8s.IdleTimeoutSecondsAnnotation: "10"},
-			expectErr:     true,
-			expectInvalid: true,
+			// An invalid value is warned-and-ignored (not fatal): the service still builds with
+			// idle timeout left unset. Parsing/range validation itself is covered by
+			// TestGetIdleTimeoutSecondsWithValidation.
+			name:            "invalid value -> warned and ignored (unset)",
+			annotations:     map[string]string{k8s.IdleTimeoutSecondsAnnotation: "10"},
+			expectedTimeout: nil,
 		},
 	}
 
@@ -2517,15 +2514,6 @@ func Test_LatticeServiceModelBuild_IdleTimeoutAnnotation(t *testing.T) {
 
 			svc, err := task.buildLatticeService(ctx)
 
-			if tt.expectErr {
-				assert.Error(t, err)
-				if tt.expectInvalid {
-					assert.True(t, k8s.IsInvalidIdleTimeoutSecondsError(err),
-						"error should be InvalidIdleTimeoutSeconds")
-				}
-				return
-			}
-
 			assert.NoError(t, err)
 			if tt.expectedTimeout == nil {
 				assert.Nil(t, svc.Spec.IdleTimeoutSeconds)
@@ -2535,4 +2523,78 @@ func Test_LatticeServiceModelBuild_IdleTimeoutAnnotation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A route being deleted with an invalid idle-timeout annotation must still build its service
+// (marked for deletion) rather than failing validation, so the Lattice service is not orphaned.
+func Test_LatticeServiceModelBuild_IdleTimeoutInvalidOnDeleteDoesNotBlockTeardown(t *testing.T) {
+	vpcLatticeGatewayClass := gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "gwClass"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	vpcLatticeGateway := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gateway1", Namespace: "default"},
+		Spec:       gwv1.GatewaySpec{GatewayClassName: gwv1.ObjectName(vpcLatticeGatewayClass.Name)},
+	}
+	namespacePtr := func(ns string) *gwv1.Namespace {
+		p := gwv1.Namespace(ns)
+		return &p
+	}
+	now := metav1.Now()
+	route := core.NewHTTPRoute(gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "deleting-route",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{"x"}, // a finalizer is required for a non-nil DeletionTimestamp
+			Annotations:       map[string]string{k8s.IdleTimeoutSecondsAnnotation: "not-a-number"},
+		},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{
+						Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+						Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+					},
+				},
+			},
+		},
+	})
+	route.Status().SetParents([]gwv1.RouteParentStatus{
+		{
+			ParentRef: gwv1.ParentReference{
+				Name:      gwv1.ObjectName(vpcLatticeGateway.Name),
+				Namespace: namespacePtr(vpcLatticeGateway.Namespace),
+			},
+			Conditions: []metav1.Condition{
+				{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue},
+			},
+		},
+	})
+
+	ctx := context.TODO()
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	gwv1.Install(k8sSchema)
+	gwv1alpha2.Install(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+	assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGatewayClass.DeepCopy()))
+	assert.NoError(t, k8sClient.Create(ctx, vpcLatticeGateway.DeepCopy()))
+
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+	task := &latticeServiceModelBuildTask{
+		log:    gwlog.FallbackLogger,
+		route:  route,
+		stack:  stack,
+		client: k8sClient,
+	}
+
+	svc, err := task.buildLatticeService(ctx)
+
+	// Build must succeed despite the invalid annotation, and the service must be marked for
+	// deletion so the synthesizer tears it down (no orphaned Lattice service).
+	assert.NoError(t, err)
+	assert.NotNil(t, svc)
+	assert.True(t, svc.IsDeleted)
+	assert.Nil(t, svc.Spec.IdleTimeoutSeconds)
 }

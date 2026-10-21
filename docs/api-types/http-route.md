@@ -33,13 +33,19 @@ This allows you to define and manage the routing of HTTP and HTTPS traffic withi
 - `application-networking.k8s.aws/idle-timeout-seconds`  
   Sets the idle connection timeout, in seconds, for the VPC Lattice Service that this route maps to.
   The idle timeout is the amount of time a connection can remain idle (no data sent) before VPC Lattice
-  closes it. Valid range is `60`–`600`. If the annotation is not set (or is removed), VPC Lattice
-  applies its default of `60` seconds. The value must be quoted, e.g. `"120"`.
+  closes it. Valid range is `60`–`600`. If the annotation has never been set, VPC Lattice applies
+  its default of `60` seconds. The value must be quoted, e.g. `"120"`. An out-of-range or non-integer value is ignored (left unset) and logged as a warning.
 
     !!! note
         The idle timeout is distinct from the fixed maximum connection duration (10 minutes) enforced by
         VPC Lattice, which is not configurable. Raising the idle timeout only affects connections that are
         idle, not long-lived active connections.
+
+    !!! note
+        The controller manages this value only while the annotation is present. Removing the
+        annotation leaves the last applied value on the VPC Lattice Service rather than reverting it,
+        so a value set out-of-band is preserved. To change it back, set the annotation to the desired
+        value (e.g. `"60"`).
 
     Example:
 
