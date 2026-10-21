@@ -126,6 +126,9 @@ func (m *defaultServiceManager) newCreateSvcReq(svc *Service) *CreateSvcReq {
 	if svc.Spec.CustomerCertARN != "" {
 		req.CertificateArn = &svc.Spec.CustomerCertARN
 	}
+	if svc.Spec.IdleTimeoutSeconds != nil {
+		req.IdleTimeoutSeconds = svc.Spec.IdleTimeoutSeconds
+	}
 
 	return req
 }
@@ -196,15 +199,8 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 		return ServiceInfo{}, fmt.Errorf("failed to update tags for service %s: %w", aws.ToString(svcSum.Id), err)
 	}
 
-	if svc.Spec.CustomerCertARN != "" {
-		updReq := &UpdateSvcReq{
-			CertificateArn:    aws.String(svc.Spec.CustomerCertARN),
-			ServiceIdentifier: svcSum.Id,
-		}
-		_, err := m.cloud.Lattice().UpdateService(ctx, updReq)
-		if err != nil {
-			return ServiceInfo{}, err
-		}
+	if err := m.reconcileServiceAttributes(ctx, svc, svcSum); err != nil {
+		return ServiceInfo{}, err
 	}
 
 	err = m.updateAssociations(ctx, svc, svcSum)
@@ -220,6 +216,52 @@ func (m *defaultServiceManager) updateServiceAndAssociations(ctx context.Context
 		svcInfo.Dns = aws.ToString(svcSum.DnsEntry.DomainName)
 	}
 	return svcInfo, nil
+}
+
+// reconcileServiceAttributes diffs via GetService before calling UpdateService, because
+// UpdateService has a low throttle limit and FindService's summary omits these fields.
+func (m *defaultServiceManager) reconcileServiceAttributes(ctx context.Context, svc *Service, svcSum *SvcSummary) error {
+	wantCert := svc.Spec.CustomerCertARN != ""
+	wantIdleTimeout := svc.Spec.IdleTimeoutSeconds != nil
+
+	// Both fields are managed only while explicitly set (nil/"" = not managed), matching the
+	// certificate-arn convention: clearing the annotation leaves the last applied value on the
+	// service rather than reverting it, so values set out-of-band are preserved.
+	if !wantCert && !wantIdleTimeout {
+		return nil
+	}
+
+	getResp, err := m.cloud.Lattice().GetService(ctx, &GetSvcReq{ServiceIdentifier: svcSum.Id})
+	if err != nil {
+		return fmt.Errorf("failed to get service %s for attribute diff: %w", aws.ToString(svcSum.Id), err)
+	}
+
+	updReq := &UpdateSvcReq{ServiceIdentifier: svcSum.Id}
+	needsUpdate := false
+
+	if wantCert && aws.ToString(getResp.CertificateArn) != svc.Spec.CustomerCertARN {
+		updReq.CertificateArn = aws.String(svc.Spec.CustomerCertARN)
+		needsUpdate = true
+	}
+
+	if wantIdleTimeout && aws.ToInt32(getResp.IdleTimeoutSeconds) != *svc.Spec.IdleTimeoutSeconds {
+		updReq.IdleTimeoutSeconds = svc.Spec.IdleTimeoutSeconds
+		needsUpdate = true
+	}
+
+	if !needsUpdate {
+		return nil
+	}
+
+	if _, err := m.cloud.Lattice().UpdateService(ctx, updReq); err != nil {
+		var ce *types.ConflictException
+		if errors.As(err, &ce) {
+			return fmt.Errorf("%w: failed UpdateService %s due to %s",
+				lattice_runtime.NewRetryError(), aws.ToString(svcSum.Id), err)
+		}
+		return err
+	}
+	return nil
 }
 
 func (m *defaultServiceManager) getAllAssociations(ctx context.Context, svcSum *SvcSummary) ([]SnSvcAssocSummary, error) {
