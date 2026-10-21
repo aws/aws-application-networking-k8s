@@ -257,6 +257,71 @@ func Test_IAMAuthPolicyManager_PutSvc_Owned_Writes(t *testing.T) {
 	assert.Equal(t, "svc-5678", status.ResourceId)
 }
 
+// Test_IAMAuthPolicyManager_DeleteSvc_ForeignOwned_Skipped covers a tenant
+// forging the IAMAuthPolicy resource-id annotation to point delete at a
+// foreign-owned Service. deleteSvc must verify ownership and skip without
+// disabling IAM auth or deleting the auth policy on that Service.
+func Test_IAMAuthPolicyManager_DeleteSvc_ForeignOwned_Skipped(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := mocks_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	svcArn := "arn:aws:vpc-lattice:region:999999999999:service/svc-foreign"
+	mockLattice.EXPECT().GetService(ctx, gomock.Any()).Return(
+		&vpclattice.GetServiceOutput{Arn: aws.String(svcArn), Id: aws.String("svc-foreign")}, nil)
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(
+		&vpclattice.ListTagsForResourceOutput{
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": "other-account/other-cluster/other-vpc",
+			},
+		}, nil)
+	// UpdateService and DeleteAuthPolicy must not be called for a foreign Service.
+
+	mgr := NewIAMAuthPolicyManager(cloud)
+	status, err := mgr.Delete(ctx, model.IAMAuthPolicy{
+		Type:       model.ServiceType,
+		ResourceId: "svc-foreign", // forged annotation value
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "svc-foreign", status.ResourceId)
+}
+
+// Test_IAMAuthPolicyManager_DeleteSvc_Owned covers deleting an owned Service's
+// auth policy: ownership verified, then IAM auth disabled and policy deleted.
+func Test_IAMAuthPolicyManager_DeleteSvc_Owned(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := mocks_aws.NewDefaultCloud(mockLattice, TestCloudConfig)
+
+	svcArn := "arn:aws:vpc-lattice:region:account-id:service/svc-5678"
+	mockLattice.EXPECT().GetService(ctx, gomock.Any()).Return(
+		&vpclattice.GetServiceOutput{Arn: aws.String(svcArn), Id: aws.String("svc-5678")}, nil)
+	mockLattice.EXPECT().ListTagsForResource(ctx, gomock.Any()).Return(
+		&vpclattice.ListTagsForResourceOutput{
+			Tags: map[string]string{
+				"application-networking.k8s.aws/ManagedBy": "account-id/cluster/vpc-id",
+			},
+		}, nil)
+	mockLattice.EXPECT().UpdateService(ctx, gomock.Any()).Return(
+		&vpclattice.UpdateServiceOutput{}, nil)
+	mockLattice.EXPECT().DeleteAuthPolicy(ctx, gomock.Any()).Return(
+		&vpclattice.DeleteAuthPolicyOutput{}, nil)
+
+	mgr := NewIAMAuthPolicyManager(cloud)
+	status, err := mgr.Delete(ctx, model.IAMAuthPolicy{
+		Type:       model.ServiceType,
+		ResourceId: "svc-5678",
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "svc-5678", status.ResourceId)
+}
+
 // Test_IAMAuthPolicyManager_Put_Drifted_PolicyDoc covers the case where the
 // resource has AuthType=AWS_IAM (State=Active) but the attached policy
 // document differs from the desired one. The rewrite path must still fire.
