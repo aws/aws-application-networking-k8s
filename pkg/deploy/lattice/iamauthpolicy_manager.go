@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -34,6 +35,9 @@ func (m *IAMAuthPolicyManager) Put(ctx context.Context, policy model.IAMAuthPoli
 }
 
 func (m *IAMAuthPolicyManager) putSn(ctx context.Context, policy model.IAMAuthPolicy) (model.IAMAuthPolicyStatus, error) {
+	// No ownership check here (unlike putSvc): ServiceNetworks are commonly
+	// created and shared outside this controller, and the name comes from the
+	// Gateway, not a tenant-controllable annotation.
 	sn, err := m.cloud.Lattice().FindServiceNetwork(ctx, policy.Name)
 	if err != nil {
 		return model.IAMAuthPolicyStatus{}, err
@@ -70,6 +74,17 @@ func (m *IAMAuthPolicyManager) putSvc(ctx context.Context, policy model.IAMAuthP
 		return model.IAMAuthPolicyStatus{}, err
 	}
 	resourceId := *svc.Id
+
+	// The Service name is user-controllable (service-name-override annotation),
+	// so require ownership before mutating a foreign-owned Service's auth policy.
+	owned, err := m.cloud.IsArnManaged(ctx, *svc.Arn)
+	if err != nil {
+		return model.IAMAuthPolicyStatus{}, err
+	}
+	if !owned {
+		return model.IAMAuthPolicyStatus{}, services.NewConflictError("service", policy.Name,
+			"Found existing resource not owned by controller")
+	}
 
 	// See putSn for the rationale; same skip-if-already-in-sync logic.
 	inSync, err := m.isAuthPolicyInSync(ctx, resourceId, policy.Policy)
@@ -162,7 +177,7 @@ func (m *IAMAuthPolicyManager) Delete(ctx context.Context, policy model.IAMAuthP
 	case model.ServiceType:
 		return m.deleteSvc(ctx, policy)
 	default:
-		panic("unknown policy resource type: " + policy.Type)
+		return model.IAMAuthPolicyStatus{}, fmt.Errorf("unknown policy resource type: %q", policy.Type)
 	}
 }
 
@@ -193,7 +208,30 @@ func (m *IAMAuthPolicyManager) deleteSvc(ctx context.Context, policy model.IAMAu
 		}
 		policy.ResourceId = *svc.Id
 	}
-	err := m.disableSvcIAMAuth(ctx, policy.ResourceId)
+
+	// ResourceId/Name come from the IAMAuthPolicy's own annotations, which a
+	// tenant can forge to point at a foreign-owned Service. Resolve the ARN and
+	// verify ownership before mutating, so a forged annotation cannot make the
+	// controller disable IAM auth / delete the auth policy on another cluster's
+	// Service. If the Service is gone or not ours, treat delete as a no-op.
+	svc, err := m.cloud.Lattice().GetService(ctx, &vpclattice.GetServiceInput{
+		ServiceIdentifier: &policy.ResourceId,
+	})
+	if err != nil {
+		if services.IsNotFoundError(err) {
+			return model.IAMAuthPolicyStatus{ResourceId: policy.ResourceId}, nil
+		}
+		return model.IAMAuthPolicyStatus{}, err
+	}
+	owned, err := m.cloud.IsArnManaged(ctx, *svc.Arn)
+	if err != nil {
+		return model.IAMAuthPolicyStatus{}, err
+	}
+	if !owned {
+		return model.IAMAuthPolicyStatus{ResourceId: policy.ResourceId}, nil
+	}
+
+	err = m.disableSvcIAMAuth(ctx, policy.ResourceId)
 	if err != nil {
 		return model.IAMAuthPolicyStatus{}, err
 	}
