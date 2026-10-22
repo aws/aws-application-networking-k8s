@@ -456,3 +456,17 @@ func Test_IAMAuthPolicyManager_Put_GetAuthPolicy_OtherError(t *testing.T) {
 	})
 	assert.ErrorIs(t, err, getErr)
 }
+
+// Test_IAMAuthPolicyManager_Delete_UnknownType verifies that an unknown
+// resource type returns an error rather than panicking.
+func Test_IAMAuthPolicyManager_Delete_UnknownType(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	mockCloud := mocks_aws.NewMockCloud(c)
+	mgr := NewIAMAuthPolicyManager(mockCloud)
+
+	_, err := mgr.Delete(ctx, model.IAMAuthPolicy{Type: "bogus"})
+	assert.Error(t, err)
+}

@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -176,7 +177,7 @@ func (m *IAMAuthPolicyManager) Delete(ctx context.Context, policy model.IAMAuthP
 	case model.ServiceType:
 		return m.deleteSvc(ctx, policy)
 	default:
-		panic("unknown policy resource type: " + policy.Type)
+		return model.IAMAuthPolicyStatus{}, fmt.Errorf("unknown policy resource type: %q", policy.Type)
 	}
 }
 
