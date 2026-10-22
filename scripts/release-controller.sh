@@ -81,6 +81,7 @@ if [[ "$SKIP_BUILD_IMAGE" != "true" ]]; then
   if [[ $CI = "true" ]]; then
     docker buildx build -t "$IMG" \
       -f "$CONTROLLER_IMAGE_DOCKERFILE_PATH" \
+      --build-arg VERSION="$RELEASE_VERSION" \
       --cache-from type=gha \
       --cache-to type=gha,mode=max \
       --push \
@@ -88,6 +89,7 @@ if [[ "$SKIP_BUILD_IMAGE" != "true" ]]; then
   else
     docker buildx build -t "$IMG" \
       -f "$CONTROLLER_IMAGE_DOCKERFILE_PATH" \
+      --build-arg VERSION="$RELEASE_VERSION" \
       --platform linux/amd64,linux/arm64 \
       --push \
       "${DOCKER_BUILD_CONTEXT}"

@@ -26,6 +26,8 @@ const (
 	userAgent = "amazon-vpc-lattice-gateway-api-controller"
 )
 
+var Version = "unknown"
+
 //go:generate mockgen -destination cloud_mocks.go -package aws github.com/aws/aws-application-networking-k8s/pkg/aws Cloud
 
 type CloudConfig struct {
@@ -81,7 +83,7 @@ func NewCloud(log gwlog.Logger, cfg CloudConfig, metricsRegisterer prometheus.Re
 	}
 
 	// Add user agent to all API calls
-	awsCfg.APIOptions = append(awsCfg.APIOptions, awsmiddleware.AddUserAgentKeyValue(userAgent, ""))
+	awsCfg.APIOptions = append(awsCfg.APIOptions, awsmiddleware.AddUserAgentKeyValue(userAgent, Version))
 
 	// Add logging middleware
 	awsCfg.APIOptions = append(awsCfg.APIOptions, func(stack *middleware.Stack) error {
