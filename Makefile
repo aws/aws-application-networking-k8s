@@ -92,7 +92,7 @@ setup:
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	sudo docker build -t ${IMG} .
+	sudo docker build --build-arg VERSION=${VERSION} -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

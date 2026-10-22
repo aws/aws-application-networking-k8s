@@ -18,9 +18,11 @@ COPY scripts scripts
 
 ARG TARGETOS
 ARG TARGETARCH
+ARG VERSION=unknown
 
-# Build
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a \
+    -ldflags="-X github.com/aws/aws-application-networking-k8s/pkg/aws.Version=${VERSION:-unknown}" \
+    -o manager main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
