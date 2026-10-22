@@ -78,35 +78,20 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 
 	err1 := s.deregisterTargets(ctx, modelTg, staleTargets)
 
-	// Skip RegisterTargets when every desired target is already registered in
-	// a non-draining state. RegisterTargets is idempotent server-side, so
-	// re-registering already-present targets is a no-op that nonetheless emits
-	// a mutation API call (and CloudTrail event) on every reconcile. With
-	// drift detection enabled this fires on every periodic pass. A desired
-	// target that is currently Draining is treated as "needs registration" so
-	// it gets resurrected.
-	var err2 error
-	if s.needToRegisterTargets(modelTargets, latticeTargets) {
-		err2 = s.registerTargets(ctx, modelTg, modelTargets.Spec.TargetList)
-	} else {
-		s.log.Debugf(ctx, "All %d desired targets already registered for target group %s, skipping RegisterTargets",
-			len(modelTargets.Spec.TargetList), modelTg.Status.Id)
-	}
+	// Register only the delta, not the full desired list. When a few targets
+	// change in a large set, this sends one small RegisterTargets call instead
+	// of re-chunking and re-sending every target.
+	newTargets := s.findNewTargets(modelTargets, latticeTargets)
+	err2 := s.registerTargets(ctx, modelTg, newTargets)
 	return errors.Join(err1, err2)
 }
 
-// needToRegisterTargets reports whether RegisterTargets must be called. It
-// returns true if any desired target is not already present in the live set
-// in a non-draining state. A desired target that is present but Draining is
-// considered to need registration so that it is resurrected.
-//
-// Note the deliberate asymmetry with findStaleTargets: stale detection
-// *excludes* draining targets (Lattice is already removing them, no need to
-// deregister again), whereas registration *includes* desired-but-draining
-// targets (we want them back).
-func (s *defaultTargetsManager) needToRegisterTargets(
+// findNewTargets returns desired targets not already live in a non-draining
+// state. A desired-but-Draining target is included so it gets resurrected
+// (the inverse of findStaleTargets, which excludes draining targets).
+func (s *defaultTargetsManager) findNewTargets(
 	modelTargets *model.Targets,
-	listTargetsOutput []types.TargetSummary) bool {
+	listTargetsOutput []types.TargetSummary) []model.Target {
 
 	nonDrainingLive := utils.NewSet[model.Target]()
 	for _, target := range listTargetsOutput {
@@ -119,16 +104,17 @@ func (s *defaultTargetsManager) needToRegisterTargets(
 		})
 	}
 
+	newTargets := make([]model.Target, 0)
 	for _, target := range modelTargets.Spec.TargetList {
 		ipPort := model.Target{
 			TargetIP: target.TargetIP,
 			Port:     target.Port,
 		}
 		if !nonDrainingLive.Contains(ipPort) {
-			return true
+			newTargets = append(newTargets, ipPort)
 		}
 	}
-	return false
+	return newTargets
 }
 
 func (s *defaultTargetsManager) findStaleTargets(
