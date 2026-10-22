@@ -128,6 +128,14 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 
 	snva, err := c.manager.UpsertVpcAssociation(ctx, snName, sgIds, additionalTags)
 	if err != nil {
+		if services.IsConflictError(err) {
+			c.log.Infow(ctx, "permanent conflict, setting Accepted=False",
+				"name", k8sPolicy.Name, "message", err.Error())
+			if updateErr := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, policy.ReasonConflicted, err.Error()); updateErr != nil {
+				return updateErr
+			}
+			return nil
+		}
 		return err
 	}
 	err = c.updateLatticeAnnotation(ctx, k8sPolicy, snva)
