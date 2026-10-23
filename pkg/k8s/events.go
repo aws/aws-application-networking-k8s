@@ -29,6 +29,9 @@ const (
 	ServiceExportEventReasonFailedBuildModel   = "FailedBuildModel"
 	ServiceExportEventReasonFailedDeployModel  = "FailedDeployModel"
 
+	// VpcAssociationPolicy events
+	VpcAssociationPolicyEventReasonPrivateDnsMismatch = "PrivateDnsMismatch"
+
 	// ServiceImport events
 	ServiceImportEventReasonFailedAddFinalizer = "FailedAddFinalizer"
 	ServiceImportEventReasonFailedBuildModel   = "FailedBuildModel"
