@@ -14,6 +14,13 @@ import (
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	core "github.com/aws/aws-application-networking-k8s/pkg/model/core"
+
+	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"go.uber.org/mock/gomock"
 )
 
 func TestUpdateGWListenerStatus_RemovesStaleListeners(t *testing.T) {
@@ -835,4 +842,131 @@ func TestUpdateGWListenerStatus_OverrideRoute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGatewayReconciler_Standalone_Programmed(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-gw",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"application-networking.k8s.aws/standalone": "true",
+			},
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(gw).
+		WithStatusSubresource(gw).
+		Build()
+
+	mockCloud := aws.NewMockCloud(c)
+	mockFinalizer := k8s.NewMockFinalizerManager(c)
+	mockFinalizer.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	r := &gatewayReconciler{
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		finalizerManager: mockFinalizer,
+		eventRecorder:    mockEventRecorder,
+		cloud:            mockCloud,
+		scheme:           scheme,
+	}
+
+	err := r.reconcileUpsert(ctx, gw)
+	assert.NoError(t, err)
+
+	updatedGw := &gwv1.Gateway{}
+	k8sClient.Get(ctx, types.NamespacedName{Name: "test-gw", Namespace: "default"}, updatedGw)
+
+	var programmedCond *metav1.Condition
+	for _, cond := range updatedGw.Status.Conditions {
+		if cond.Type == string(gwv1.GatewayConditionProgrammed) {
+			programmedCond = &cond
+			break
+		}
+	}
+	assert.NotNil(t, programmedCond)
+	assert.Equal(t, metav1.ConditionTrue, programmedCond.Status)
+	assert.Equal(t, string(gwv1.GatewayReasonProgrammed), programmedCond.Reason)
+	assert.Contains(t, programmedCond.Message, "Standalone Gateway")
+}
+
+func TestGatewayReconciler_NonStandalone_Programmed(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-gw",
+			Namespace: "default",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(gw).
+		WithStatusSubresource(gw).
+		Build()
+
+	mockCloud := aws.NewMockCloud(c)
+	mockLattice := services.NewMockLattice(c)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-gw").Return(nil, services.NewNotFoundError("", ""))
+
+	mockFinalizer := k8s.NewMockFinalizerManager(c)
+	mockFinalizer.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	r := &gatewayReconciler{
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		finalizerManager: mockFinalizer,
+		eventRecorder:    mockEventRecorder,
+		cloud:            mockCloud,
+		scheme:           scheme,
+	}
+
+	err := r.reconcileUpsert(ctx, gw)
+	assert.NoError(t, err)
+
+	updatedGw := &gwv1.Gateway{}
+	k8sClient.Get(ctx, types.NamespacedName{Name: "test-gw", Namespace: "default"}, updatedGw)
+
+	var programmedCond *metav1.Condition
+	for _, cond := range updatedGw.Status.Conditions {
+		if cond.Type == string(gwv1.GatewayConditionProgrammed) {
+			programmedCond = &cond
+			break
+		}
+	}
+	assert.NotNil(t, programmedCond)
+	assert.Equal(t, metav1.ConditionFalse, programmedCond.Status)
+	assert.Equal(t, string(gwv1.GatewayReasonPending), programmedCond.Reason)
+	assert.Contains(t, programmedCond.Message, "VPC Lattice Service Network not found")
 }

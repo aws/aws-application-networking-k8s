@@ -24,6 +24,7 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
+	"github.com/aws/aws-application-networking-k8s/pkg/controllers/predicates"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -46,7 +47,6 @@ import (
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	pkg_builder "sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 const (
@@ -99,7 +99,7 @@ func RegisterGatewayController(
 	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(log, mgrClient)
 	vpcAssociationPolicyEventHandler := eventhandlers.NewVpcAssociationPolicyEventHandler(log, mgrClient)
 	builder := ctrl.NewControllerManagedBy(mgr).
-		For(&gwv1.Gateway{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+		For(&gwv1.Gateway{}, pkg_builder.WithPredicates(predicates.NewRouteChangedPredicate()))
 	builder.Watches(&gwv1.GatewayClass{}, gwClassEventHandler)
 
 	//Watch VpcAssociationPolicy CRD if it is installed
@@ -211,6 +211,14 @@ func (r *gatewayReconciler) reconcileUpsert(ctx context.Context, gw *gwv1.Gatewa
 	err = r.updateGatewayAcceptStatus(ctx, gw, true)
 	if err != nil {
 		return err
+	}
+
+	if k8s.IsStandaloneAnnotationEnabled(gw) {
+		err = r.updateGatewayProgrammedStatus(ctx, gw, gwv1.GatewayReasonProgrammed, "Standalone Gateway, no VPC Lattice Service Network required")
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	snInfo, err := r.cloud.Lattice().FindServiceNetwork(ctx, gw.Name)
