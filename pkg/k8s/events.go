@@ -19,6 +19,8 @@ const (
 	RouteEventReasonFailedDeployModel  = "FailedDeployModel"
 	RouteEventReasonRetryReconcile     = "Retry-Reconcile"
 
+	RouteEventReasonCrossNamespaceRefNotPermitted = "CrossNamespaceRefNotPermitted"
+
 	// Service events
 	ServiceEventReasonFailedAddFinalizer = "FailedAddFinalizer"
 	ServiceEventReasonFailedBuildModel   = "FailedBuildModel"

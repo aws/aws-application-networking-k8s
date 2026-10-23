@@ -53,9 +53,9 @@
 | | [HTTPRouteListenerHostnameMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-listener-hostname-matching.go) | N/A | Listener hostname not supported |
 | | [HTTPRouteQueryParamMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-query-param-matching.go) | N/A | Not supported by Lattice |
 | | [HTTPRouteMethodMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-method-matching.go) | N/A | Not supported by Lattice |
-| | [HTTPRouteReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-reference-grant.go) | N/A | |
+| | [HTTPRouteReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-reference-grant.go) | N/A | Cross-namespace refs are warned but not yet blocked |
 | | [HTTPRouteDisallowedKind](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-disallowed-kind.go) | N/A | Only HTTPRoute is supported |
-| | [HTTPRouteInvalidCrossNamespaceBackendRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-backend-ref.go) | N/A | Not supported |
+| | [HTTPRouteInvalidCrossNamespaceBackendRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-backend-ref.go) | N/A | Cross-namespace refs are warned but not yet blocked |
 | | [HTTPRouteInvalidParentRefNotMatchingListenerPort](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-parentref-not-matching-listener-port.go) | N/A | Not supported |
 
 ## Running Gateway API Conformance

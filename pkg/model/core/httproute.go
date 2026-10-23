@@ -14,6 +14,7 @@ import (
 
 const (
 	HttpRouteType RouteType = "http"
+	HttpRouteKind string    = "HTTPRoute"
 )
 
 type HTTPRoute struct {
