@@ -57,6 +57,10 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
+const (
+	RouteReasonServiceNetworkNotFound gwv1.RouteConditionReason = "ServiceNetworkNotFound"
+)
+
 var routeTypeToFinalizer = map[core.RouteType]string{
 	core.HttpRouteType: "httproute.k8s.aws/resources",
 	core.GrpcRouteType: "grpcroute.k8s.aws/resources",
@@ -345,6 +349,11 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		r.log.Infof(ctx, "route: %s: %s", route.Name(), err)
 	}
 
+	if hasServiceNetworkNotFoundCondition(route) {
+		r.log.Infof(ctx, "route %s has ServiceNetworkNotFound condition, skipping model build and deploy", route.Name())
+		return nil
+	}
+
 	backendRefIPFamiliesErr := r.validateBackendRefsIpFamilies(ctx, route)
 
 	if backendRefIPFamiliesErr != nil {
@@ -372,6 +381,24 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 
 	stack, err := r.buildAndDeployModel(ctx, route)
 	if err != nil {
+		if services.IsNotFoundError(err) {
+			parentRef, parentRefErr := r.findControlledParentRef(ctx, route)
+			if parentRefErr != nil {
+				return parentRefErr
+			}
+			route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
+			route.Status().UpdateRouteCondition(parentRef, metav1.Condition{
+				Type:               string(gwv1.RouteConditionAccepted),
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: route.K8sObject().GetGeneration(),
+				Reason:             string(RouteReasonServiceNetworkNotFound),
+				Message:            err.Error(),
+			})
+			if statusErr := r.client.Status().Update(ctx, route.K8sObject()); statusErr != nil {
+				return fmt.Errorf("failed to update route status: %w", statusErr)
+			}
+			return nil
+		}
 		if services.IsConflictError(err) {
 			// Stop reconciliation of this route if the route cannot be owned / has conflict
 			parentRef, parentRefErr := r.findControlledParentRef(ctx, route)
@@ -562,6 +589,17 @@ func (r *routeReconciler) validateRoute(ctx context.Context, route core.Route) e
 	return nil
 }
 
+func hasServiceNetworkNotFoundCondition(route core.Route) bool {
+	for _, ps := range route.Status().Parents() {
+		for _, cnd := range ps.Conditions {
+			if cnd.Type == string(gwv1.RouteConditionAccepted) && cnd.Reason == string(RouteReasonServiceNetworkNotFound) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // checks if route has at least single condition with status = false
 func (r *routeReconciler) hasNotAcceptedCondition(route core.Route) bool {
 	rps := route.Status().Parents()
@@ -602,7 +640,18 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 		noMatchingHostname := false
 		notAllowedByAnyMatchingListener := true
 
-		for _, listener := range gw.Spec.Listeners {
+		var targetGw *gwv1.Gateway
+		for _, g := range gws {
+			if g.Name == string(parentRef.Name) {
+				targetGw = g
+				break
+			}
+		}
+		if targetGw == nil {
+			targetGw = gw
+		}
+
+		for _, listener := range targetGw.Spec.Listeners {
 			if parentRef.Port != nil && *parentRef.Port != listener.Port {
 				continue
 			}
@@ -616,7 +665,7 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 				continue
 			}
 
-			allowed, err := core.IsRouteAllowedByListener(ctx, r.client, route, gw, listener)
+			allowed, err := core.IsRouteAllowedByListener(ctx, r.client, route, targetGw, listener)
 			if err != nil {
 				return nil, err
 			}
@@ -624,6 +673,24 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 			if allowed {
 				notAllowedByAnyMatchingListener = false
 				break
+			}
+		}
+
+		serviceNetworkNotFound := false
+		if k8s.IsStandaloneAnnotationEnabled(targetGw) {
+			if routeAnnotations := route.K8sObject().GetAnnotations(); routeAnnotations != nil {
+				if val, exists := routeAnnotations[k8s.StandaloneAnnotation]; exists && !k8s.ParseBoolAnnotation(val) {
+					if r.cloud != nil && r.cloud.Lattice() != nil {
+						snName := targetGw.Name
+						if config.ServiceNetworkOverrideMode && config.DefaultServiceNetwork != "" {
+							snName = config.DefaultServiceNetwork
+						}
+						_, err := r.cloud.Lattice().FindServiceNetwork(ctx, snName)
+						if err != nil && services.IsNotFoundError(err) {
+							serviceNetworkNotFound = true
+						}
+					}
+				}
 			}
 		}
 
@@ -643,6 +710,9 @@ func (r *routeReconciler) validateRouteParentRefs(ctx context.Context, route cor
 		case notAllowedByAnyMatchingListener:
 			cnd = r.newCondition(route, gwv1.RouteConditionAccepted, gwv1.RouteReasonNotAllowedByListeners,
 				"No matching listeners allow this route. Check Gateway listener allowedRoutes policies")
+		case serviceNetworkNotFound:
+			cnd = r.newCondition(route, gwv1.RouteConditionAccepted, RouteReasonServiceNetworkNotFound,
+				fmt.Sprintf("VPC Lattice Service Network %s not found for standalone gateway %s", targetGw.Name, targetGw.Name))
 		default:
 			cnd = r.newCondition(route, gwv1.RouteConditionAccepted, gwv1.RouteReasonAccepted, "")
 		}

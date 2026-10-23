@@ -215,3 +215,98 @@ func TestGetStandaloneAnnotation(t *testing.T) {
 		})
 	}
 }
+
+func TestRouteChangedPredicate_GatewayUpdate(t *testing.T) {
+	predicate := NewRouteChangedPredicate()
+
+	tests := []struct {
+		name     string
+		oldGw    *gwv1.Gateway
+		newGw    *gwv1.Gateway
+		expected bool
+	}{
+		{
+			name: "gateway standalone annotation added without generation change should trigger reconcile",
+			oldGw: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+				},
+			},
+			newGw: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "true",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "gateway standalone annotation changed should trigger reconcile",
+			oldGw: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "true",
+					},
+				},
+			},
+			newGw: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+					Annotations: map[string]string{
+						k8s.StandaloneAnnotation: "false",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "gateway other annotation change without generation change should not trigger reconcile",
+			oldGw: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+					Annotations: map[string]string{
+						"other-annotation": "value1",
+					},
+				},
+			},
+			newGw: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+					Annotations: map[string]string{
+						"other-annotation": "value2",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "gateway generation changed should trigger reconcile",
+			oldGw: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+				},
+			},
+			newGw: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			updateEvent := event.UpdateEvent{
+				ObjectOld: tt.oldGw,
+				ObjectNew: tt.newGw,
+			}
+
+			result := predicate.Update(updateEvent)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
