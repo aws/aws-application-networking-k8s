@@ -65,7 +65,7 @@ func (c *vpcAssociationPolicyReconciler) Reconcile(ctx context.Context, req ctrl
 
 	recErr := c.reconcile(ctx, req)
 	if recErr != nil {
-		c.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
+		c.log.Errorw(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
