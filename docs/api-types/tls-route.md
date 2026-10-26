@@ -16,6 +16,13 @@ This allows you to define and manage end-to-end TLS encrypted traffic routing to
 
 ### Annotations
 
+- `application-networking.k8s.aws/dns-endpoint`  
+  Set to `disabled` to stop the controller from managing a `DNSEndpoint` for this route. Use it when DNS
+  records for the route's hostname are managed outside the controller. If a `DNSEndpoint` created by the
+  controller for this route already exists, it is deleted. A `DNSEndpoint` with the same name that is not
+  owned by the route is left untouched. Removing the annotation makes the controller create the `DNSEndpoint` again.
+  See [Managing DNS records using ExternalDNS](../guides/custom-domain-name.md#managing-dns-records-using-externaldns).
+
 - `application-networking.k8s.aws/idle-timeout-seconds`  
   Sets the idle connection timeout, in seconds, for the VPC Lattice Service that this route maps to.
   The idle timeout is the amount of time a connection can remain idle (no data sent) before VPC Lattice
