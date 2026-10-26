@@ -247,6 +247,8 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 		spec.IdleTimeoutSeconds = idleTimeoutSeconds
 	}
 
+	spec.DnsEndpointDisabled = k8s.IsDnsEndpointDisabled(t.route.K8sObject())
+
 	svc, err := model.NewLatticeService(t.stack, spec)
 	if err != nil {
 		return nil, err

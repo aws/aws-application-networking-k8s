@@ -2020,3 +2020,25 @@ func TestGetIdleTimeoutSecondsWithValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestIsDnsEndpointDisabled(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		expected    bool
+	}{
+		{name: "nil annotations", annotations: nil, expected: false},
+		{name: "annotation absent", annotations: map[string]string{"other": "disabled"}, expected: false},
+		{name: "disabled", annotations: map[string]string{DnsEndpointAnnotation: "disabled"}, expected: true},
+		{name: "disabled with case and whitespace", annotations: map[string]string{DnsEndpointAnnotation: " Disabled "}, expected: true},
+		{name: "empty value", annotations: map[string]string{DnsEndpointAnnotation: ""}, expected: false},
+		{name: "other value", annotations: map[string]string{DnsEndpointAnnotation: "enabled"}, expected: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			route := &gwv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+			assert.Equal(t, tt.expected, IsDnsEndpointDisabled(route))
+		})
+	}
+}
