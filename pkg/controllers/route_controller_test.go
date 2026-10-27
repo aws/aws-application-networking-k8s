@@ -2,7 +2,9 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -1076,4 +1079,248 @@ func TestRouteReconciler_UpsertRoute_ExternalTgClientReachesGetTargetGroup(t *te
 	assert.NotNil(t, resolvedRefsCond, "ResolvedRefs condition must be persisted")
 	assert.Equal(t, metav1.ConditionFalse, resolvedRefsCond.Status)
 	assert.Equal(t, "ExternalTargetGroupNotFound", resolvedRefsCond.Reason)
+}
+
+type errStackDeployer struct{ err error }
+
+func (d *errStackDeployer) Deploy(ctx context.Context, stack core.Stack) error { return d.err }
+
+func TestRouteReconciler_ServiceQuotaExceeded(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	gwv1alpha2.Install(k8sScheme)
+	discoveryv1.AddToScheme(k8sScheme)
+	addOptionalCRDs(k8sScheme)
+
+	gwClass := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "amazon-vpc-lattice"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-gateway", Namespace: "ns1"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+			Listeners:        []gwv1.Listener{{Name: "http", Protocol: "HTTP", Port: 80}},
+		},
+	}
+	route := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-route", Namespace: "ns1"},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{{Name: "my-gateway"}}},
+		},
+	}
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(gwClass, gw, route).
+		WithStatusSubresource(&gwv1.HTTPRoute{}).
+		Build()
+
+	mockBuilder := gateway.NewMockLatticeServiceBuilder(c)
+	mockBuilder.EXPECT().Build(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(context.Context, core.Route) (core.Stack, error) {
+			stack := core.NewDefaultStack(core.StackID{Name: "my-route", Namespace: "ns1"})
+			svc, err := latticemodel.NewLatticeService(stack, latticemodel.ServiceSpec{
+				ServiceTagFields: latticemodel.ServiceTagFields{RouteName: "my-route", RouteNamespace: "ns1"},
+			})
+			assert.NoError(t, err)
+			svc.Status = &latticemodel.ServiceStatus{Arn: "svc-arn", Dns: "svc.dns"}
+			return stack, nil
+		}).AnyTimes()
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), corev1.EventTypeWarning, k8s.RouteEventReasonServiceQuotaExceeded,
+		gomock.Any()).Times(1)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockFinalizer := k8s.NewMockFinalizerManager(c)
+	mockFinalizer.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	// the real chain: stack deployer wraps the synthesizer's RuleQuotaExceededError, which wraps the Upsert/CreateRule error
+	quotaErr := &types.ServiceQuotaExceededException{Message: aws.String("rules per listener limit reached")}
+	quotaDeployErr := fmt.Errorf("error during rule synthesis %w",
+		&mocks.RuleQuotaExceededError{
+			Dropped: []mocks.DroppedRule{{RuleIndex: 10, RuleName: "checkout", Priority: 11, ListenerPort: 80, ListenerProtocol: "HTTP"}},
+			Err:     fmt.Errorf("failed RuleManager.Upsert due to %w", fmt.Errorf("failed CreateRule due to %w", quotaErr)),
+		})
+	deployer := &errStackDeployer{err: quotaDeployErr}
+
+	rc := routeReconciler{
+		routeType:        core.HttpRouteType,
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		scheme:           k8sScheme,
+		finalizerManager: mockFinalizer,
+		eventRecorder:    mockEventRecorder,
+		modelBuilder:     mockBuilder,
+		stackDeployer:    deployer,
+		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
+	}
+
+	findCond := func(condType gwv1.RouteConditionType) *metav1.Condition {
+		got := &gwv1.HTTPRoute{}
+		assert.NoError(t, k8sClient.Get(ctx, k8s.NamespacedName(route), got))
+		for _, parent := range got.Status.Parents {
+			for i := range parent.Conditions {
+				if parent.Conditions[i].Type == string(condType) {
+					return &parent.Conditions[i]
+				}
+			}
+		}
+		return nil
+	}
+
+	req := reconcile.Request{NamespacedName: k8s.NamespacedName(route)}
+	result, err := rc.Reconcile(ctx, req)
+	assert.NoError(t, err)
+	assert.Equal(t, 1*time.Minute, result.RequeueAfter)
+
+	// the service is live, so its ARN/DNS are still published from the partially deployed stack
+	published := &gwv1.HTTPRoute{}
+	assert.NoError(t, k8sClient.Get(ctx, k8s.NamespacedName(route), published))
+	assert.Equal(t, "svc-arn", published.Annotations[LatticeServiceArn])
+	assert.Equal(t, "svc.dns", published.Annotations[LatticeAssignedDomainName])
+
+	partial := findCond(gwv1.RouteConditionPartiallyInvalid)
+	if assert.NotNil(t, partial) {
+		assert.Equal(t, metav1.ConditionTrue, partial.Status)
+		assert.Equal(t, k8s.RouteEventReasonServiceQuotaExceeded, partial.Reason)
+		assert.Contains(t, partial.Message, "rules per listener limit reached")
+		// required by the Gateway API spec for the "drop rule" approach
+		assert.True(t, strings.HasPrefix(partial.Message, "Dropped Rule"))
+		assert.Contains(t, partial.Message, `rules[10] "checkout" (priority 11, listener HTTP:80)`)
+		assert.Contains(t, partial.Message, "All other rules were applied")
+	}
+	// the route still serves its last programmed state, so Accepted must not be flipped
+	accepted := findCond(gwv1.RouteConditionAccepted)
+	if assert.NotNil(t, accepted) {
+		assert.Equal(t, metav1.ConditionTrue, accepted.Status)
+	}
+
+	// an unrelated failure must not hide that rules are still missing
+	deployer.err = errors.New("throttled")
+	_, err = rc.Reconcile(ctx, req)
+	assert.Error(t, err)
+	assert.NotNil(t, findCond(gwv1.RouteConditionPartiallyInvalid))
+
+	// a quota error from a step other than rule creation is not reported as dropped rules
+	deployer.err = fmt.Errorf("error during service synthesis %w", quotaErr)
+	_, err = rc.Reconcile(ctx, req)
+	assert.Error(t, err)
+
+	// once the deploy succeeds the condition goes away
+	deployer.err = nil
+	_, err = rc.Reconcile(ctx, req)
+	assert.NoError(t, err)
+	assert.Nil(t, findCond(gwv1.RouteConditionPartiallyInvalid))
+}
+
+func TestRouteReconciler_ConflictRemovesPartiallyInvalid(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	gwv1alpha2.Install(k8sScheme)
+	discoveryv1.AddToScheme(k8sScheme)
+	addOptionalCRDs(k8sScheme)
+
+	gwClass := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "amazon-vpc-lattice"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-gateway", Namespace: "ns1"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+			Listeners:        []gwv1.Listener{{Name: "http", Protocol: "HTTP", Port: 80}},
+		},
+	}
+	parentRef := gwv1.ParentReference{Name: "my-gateway"}
+	route := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-route", Namespace: "ns1"},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{parentRef}},
+		},
+		Status: gwv1.HTTPRouteStatus{RouteStatus: gwv1.RouteStatus{Parents: []gwv1.RouteParentStatus{{
+			ParentRef:      parentRef,
+			ControllerName: config.LatticeGatewayControllerName,
+			Conditions: []metav1.Condition{{
+				Type:               string(gwv1.RouteConditionPartiallyInvalid),
+				Status:             metav1.ConditionTrue,
+				Reason:             k8s.RouteEventReasonServiceQuotaExceeded,
+				LastTransitionTime: metav1.Now(),
+			}},
+		}}}},
+	}
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(gwClass, gw, route).
+		WithStatusSubresource(&gwv1.HTTPRoute{}).
+		Build()
+
+	mockBuilder := gateway.NewMockLatticeServiceBuilder(c)
+	mockBuilder.EXPECT().Build(gomock.Any(), gomock.Any()).
+		Return(nil, mocks.NewConflictError("service", "ns1/my-route", "owned elsewhere"))
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockFinalizer := k8s.NewMockFinalizerManager(c)
+	mockFinalizer.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	rc := routeReconciler{
+		routeType:        core.HttpRouteType,
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		scheme:           k8sScheme,
+		finalizerManager: mockFinalizer,
+		eventRecorder:    mockEventRecorder,
+		modelBuilder:     mockBuilder,
+	}
+	_, err := rc.Reconcile(ctx, reconcile.Request{NamespacedName: k8s.NamespacedName(route)})
+	assert.NoError(t, err)
+
+	got := &gwv1.HTTPRoute{}
+	assert.NoError(t, k8sClient.Get(ctx, k8s.NamespacedName(route), got))
+	if assert.Len(t, got.Status.Parents, 1) {
+		conds := got.Status.Parents[0].Conditions
+		accepted := meta.FindStatusCondition(conds, string(gwv1.RouteConditionAccepted))
+		if assert.NotNil(t, accepted) {
+			assert.Equal(t, metav1.ConditionFalse, accepted.Status)
+		}
+		// the spec forbids PartiallyInvalid on a route that is not accepted
+		assert.Nil(t, meta.FindStatusCondition(conds, string(gwv1.RouteConditionPartiallyInvalid)))
+	}
+}
+
+func TestDroppedRulesMessage(t *testing.T) {
+	// an HTTPRoute has at most 16 rules; all of them must be named, in order
+	var dropped []mocks.DroppedRule
+	for i := 15; i >= 0; i-- { // out of order on purpose
+		dropped = append(dropped, mocks.DroppedRule{RuleIndex: i, Priority: int64(i + 1), ListenerPort: 80, ListenerProtocol: "HTTP"})
+	}
+	msg := droppedRulesMessage(dropped)
+
+	assert.True(t, strings.HasPrefix(msg, "Dropped Rule: 16 rule(s)"))
+	last := -1
+	for i := 0; i < 16; i++ {
+		idx := strings.Index(msg, fmt.Sprintf("rules[%d] (priority %d, listener HTTP:80)", i, i+1))
+		assert.Greater(t, idx, last, "rules[%d] missing or out of order", i)
+		last = idx
+	}
+	assert.NotContains(t, msg, "more")
+}
+
+func TestDroppedRulesMessage_SameRuleOnTwoListeners(t *testing.T) {
+	msg := droppedRulesMessage([]mocks.DroppedRule{
+		{RuleIndex: 3, RuleName: "api", Priority: 4, ListenerPort: 80, ListenerProtocol: "HTTP"},
+		{RuleIndex: 3, RuleName: "api", Priority: 4, ListenerPort: 443, ListenerProtocol: "HTTPS"},
+	})
+
+	assert.Contains(t, msg, "Dropped Rule: 1 rule(s)")
+	assert.Contains(t, msg, `rules[3] "api" (priority 4, listener HTTP:80, HTTPS:443)`)
 }

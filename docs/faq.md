@@ -172,3 +172,11 @@ env:
 ```
 
 This bypasses the need for IMDS access for VPC discovery.
+
+**Why does my Route have a `PartiallyInvalid` condition with reason `ServiceQuotaExceeded`?**
+
+VPC Lattice refused to create one or more rules because a quota was reached: rules per listener, or target groups per service. The controller still creates every rule it can and deletes rules that are no longer in the Route. It then sets `PartiallyInvalid=True`, with a message that lists the rules it could not create (by position in `spec.rules`, and by name if set) plus the VPC Lattice error, and emits a `ServiceQuotaExceeded` warning event. It retries every minute. `Accepted` stays `True`.
+
+Requests that would have matched a dropped rule go to the next rule that matches them, which can be a broader rule, or to the listener's default action (a 404 on listeners the controller created).
+
+To fix it, use fewer rules or backends, or request a higher quota in Service Quotas. The condition is removed after the next successful reconcile.

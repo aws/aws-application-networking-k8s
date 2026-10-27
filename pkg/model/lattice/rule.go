@@ -30,6 +30,8 @@ type RuleSpec struct {
 	MatchedHeaders  []types.HeaderMatch `json:"matchedheaders"`
 	Method          string              `json:"method"`
 	Priority        int64               `json:"priority"`
+	RuleIndex       int                 `json:"ruleindex"`
+	RuleName        string              `json:"rulename,omitempty"`
 	Action          RuleAction          `json:"action"`
 	CreateTime      time.Time           `json:"createtime"`
 	AdditionalTags  services.Tags       `json:"additionaltags,omitempty"`

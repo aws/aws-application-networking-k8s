@@ -297,7 +297,7 @@ func (r *defaultRuleManager) create(
 
 	res, err := r.cloud.Lattice().CreateRule(ctx, &cri)
 	if err != nil {
-		return model.RuleStatus{}, fmt.Errorf("failed CreateRule %s, %s due to %s", latticeListenerId, latticeSvcId, err)
+		return model.RuleStatus{}, fmt.Errorf("failed CreateRule %s, %s due to %w", latticeListenerId, latticeSvcId, err)
 	}
 
 	r.log.Infof(ctx, "Success CreateRule %s, %s", aws.ToString(res.Name), aws.ToString(res.Id))
