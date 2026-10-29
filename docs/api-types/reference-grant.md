@@ -25,11 +25,14 @@ spec:
   to:
     - group: ""
       kind: Service
+    - group: application-networking.k8s.aws
+      kind: ServiceImport
 ```
 
 With the grant above, an `HTTPRoute` in namespace `foo` may use a `backendRef` to a
-`Service` in namespace `bar`. To permit a cross-namespace `ServiceImport`, set the `to`
-entry to `group: application-networking.k8s.aws`, `kind: ServiceImport`.
+`Service` or a `ServiceImport` in namespace `bar`. For a `ServiceImport`, the grant must
+name `group: application-networking.k8s.aws`, even if the route's `backendRef` leaves the
+group out. A grant with `group: ""` matches only `Service`.
 
 Same-namespace references never require a `ReferenceGrant`.
 
