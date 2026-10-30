@@ -70,6 +70,32 @@ type IAMAuthPolicyStatus struct {
 	// +kubebuilder:validation:MaxItems=8
 	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// LatticeResource records the VPC Lattice resource this policy currently
+	// controls. The controller sets it after a successful Put, and reads it
+	// (instead of a value a client could set directly) to find the resource
+	// to clean up on delete or retarget. Stored in status rather than an
+	// annotation because status is a separate subresource: a client with
+	// edit access to this object's spec/metadata does not get status-write
+	// access unless an operator explicitly also grants the {resource}/status
+	// subresource.
+	//
+	// +optional
+	LatticeResource *IAMAuthPolicyLatticeResource `json:"latticeResource,omitempty"`
+}
+
+// IAMAuthPolicyLatticeResource identifies the VPC Lattice Service or
+// ServiceNetwork an IAMAuthPolicy has applied its auth policy to.
+type IAMAuthPolicyLatticeResource struct {
+	// ResourceType is either "Service" or "ServiceNetwork".
+	ResourceType string `json:"resourceType"`
+	// ResourceId is the VPC Lattice resource's id, e.g. "svc-xxxx" or "sn-xxxx".
+	ResourceId string `json:"resourceId"`
+	// ResourceName is the VPC Lattice resource's name. Used to re-resolve
+	// ResourceId on delete paths that don't already have it.
+	//
+	// +optional
+	ResourceName string `json:"resourceName,omitempty"`
 }
 
 func (p *IAMAuthPolicy) GetTargetRef() *gwv1alpha2.NamespacedPolicyTargetReference {

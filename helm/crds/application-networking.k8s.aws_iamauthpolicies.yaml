@@ -188,6 +188,33 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              latticeResource:
+                description: |-
+                  LatticeResource records the VPC Lattice resource this policy currently
+                  controls. The controller sets it after a successful Put, and reads it
+                  (instead of a value a client could set directly) to find the resource
+                  to clean up on delete or retarget. Stored in status rather than an
+                  annotation because status is a separate subresource: a client with
+                  edit access to this object's spec/metadata does not get status-write
+                  access unless an operator explicitly also grants the {resource}/status
+                  subresource.
+                properties:
+                  resourceId:
+                    description: ResourceId is the VPC Lattice resource's id, e.g.
+                      "svc-xxxx" or "sn-xxxx".
+                    type: string
+                  resourceName:
+                    description: |-
+                      ResourceName is the VPC Lattice resource's name. Used to re-resolve
+                      ResourceId on delete paths that don't already have it.
+                    type: string
+                  resourceType:
+                    description: ResourceType is either "Service" or "ServiceNetwork".
+                    type: string
+                required:
+                - resourceId
+                - resourceType
+                type: object
             type: object
         required:
         - spec

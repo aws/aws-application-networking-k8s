@@ -28,11 +28,8 @@ import (
 )
 
 const (
-	IAMAuthPolicyAnnotation        = "iam-auth-policy"
-	IAMAuthPolicyAnnotationResId   = k8s.AnnotationPrefix + IAMAuthPolicyAnnotation + "-resource-id"
-	IAMAuthPolicyAnnotationType    = k8s.AnnotationPrefix + IAMAuthPolicyAnnotation + "-resource-type"
-	IAMAuthPolicyFinalizer         = k8s.AnnotationPrefix + IAMAuthPolicyAnnotation
-	IAMAuthPolicyAnnotationResName = k8s.AnnotationPrefix + IAMAuthPolicyAnnotation + "-resource-name"
+	IAMAuthPolicyAnnotation = "iam-auth-policy"
+	IAMAuthPolicyFinalizer  = k8s.AnnotationPrefix + IAMAuthPolicyAnnotation
 )
 
 type (
@@ -146,7 +143,7 @@ func (c *IAMAuthPolicyController) reconcile(ctx context.Context, req ctrl.Reques
 func (c *IAMAuthPolicyController) reconcileDelete(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) error {
 	err := c.ph.ValidateTargetRef(ctx, k8sPolicy)
 	if err == nil {
-		existingModel, _ := c.getLatticeAnnotation(k8sPolicy)
+		existingModel, _ := c.getLatticeResourceStatus(k8sPolicy)
 		modelPolicy := model.NewIAMAuthPolicy(k8sPolicy, existingModel.Name)
 
 		_, err := c.pm.Delete(ctx, modelPolicy)
@@ -218,7 +215,9 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 	if err != nil {
 		return err
 	}
-	c.updateLatticeAnnotaion(k8sPolicy, statusPolicy.ResourceId, modelPolicy.Type, modelPolicy.Name)
+	if err := c.updateLatticeResourceStatus(ctx, k8sPolicy, statusPolicy.ResourceId, modelPolicy.Type, modelPolicy.Name); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -235,9 +234,9 @@ func (c *IAMAuthPolicyController) addFinalizer(k8sPolicy *anv1alpha1.IAMAuthPoli
 }
 
 // cleanup lattice resources after targetRef changes
-// compares old ResourceId from k8s annotation vs new ResourceId from model
+// compares old ResourceId from status vs new ResourceId from model
 func (c *IAMAuthPolicyController) handleLatticeResourceChange(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy, statusPolicy model.IAMAuthPolicyStatus) error {
-	prevModel, ok := c.getLatticeAnnotation(k8sPolicy)
+	prevModel, ok := c.getLatticeResourceStatus(k8sPolicy)
 	if !ok {
 		return nil
 	}
@@ -250,29 +249,25 @@ func (c *IAMAuthPolicyController) handleLatticeResourceChange(ctx context.Contex
 	return nil
 }
 
-func (c *IAMAuthPolicyController) updateLatticeAnnotaion(k8sPolicy *anv1alpha1.IAMAuthPolicy, resId, resType string, resName string) {
-	if k8sPolicy.Annotations == nil {
-		k8sPolicy.Annotations = make(map[string]string)
+func (c *IAMAuthPolicyController) updateLatticeResourceStatus(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy, resId, resType string, resName string) error {
+	old := k8sPolicy.DeepCopy()
+	k8sPolicy.Status.LatticeResource = &anv1alpha1.IAMAuthPolicyLatticeResource{
+		ResourceId:   resId,
+		ResourceType: resType,
+		ResourceName: resName,
 	}
-	k8sPolicy.Annotations[IAMAuthPolicyAnnotationResId] = resId
-	k8sPolicy.Annotations[IAMAuthPolicyAnnotationType] = resType
-	k8sPolicy.Annotations[IAMAuthPolicyAnnotationResName] = resName
+	return c.client.Status().Patch(ctx, k8sPolicy, client.MergeFrom(old))
 }
 
-func (c *IAMAuthPolicyController) getLatticeAnnotation(k8sPolicy *anv1alpha1.IAMAuthPolicy) (model.IAMAuthPolicy, bool) {
-	if k8sPolicy.Annotations == nil {
-		return model.IAMAuthPolicy{}, false
-	}
-	resourceId := k8sPolicy.Annotations[IAMAuthPolicyAnnotationResId]
-	resourceType := k8sPolicy.Annotations[IAMAuthPolicyAnnotationType]
-	resourceName := k8sPolicy.Annotations[IAMAuthPolicyAnnotationResName]
-	if resourceId == "" || resourceType == "" {
+func (c *IAMAuthPolicyController) getLatticeResourceStatus(k8sPolicy *anv1alpha1.IAMAuthPolicy) (model.IAMAuthPolicy, bool) {
+	res := k8sPolicy.Status.LatticeResource
+	if res == nil || res.ResourceId == "" || res.ResourceType == "" {
 		return model.IAMAuthPolicy{}, false
 	}
 	return model.IAMAuthPolicy{
-		Type:       resourceType,
-		ResourceId: resourceId,
-		Name:       resourceName,
+		Type:       res.ResourceType,
+		ResourceId: res.ResourceId,
+		Name:       res.ResourceName,
 	}, true
 }
 

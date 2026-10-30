@@ -168,11 +168,6 @@ func Test_IAMAuthPolicy_LatticeResourceNotFound(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-policy",
 			Namespace: "test-namespace",
-			Annotations: map[string]string{
-				IAMAuthPolicyAnnotationResId:   previouslyAppliedResId,
-				IAMAuthPolicyAnnotationType:    "ServiceNetwork",
-				IAMAuthPolicyAnnotationResName: "test-gateway",
-			},
 		},
 		Spec: anv1alpha1.IAMAuthPolicySpec{
 			Policy: `{"Version":"2012-10-17","Statement":[]}`,
@@ -189,6 +184,15 @@ func Test_IAMAuthPolicy_LatticeResourceNotFound(t *testing.T) {
 		WithObjects(iap, gw).
 		WithStatusSubresource(&anv1alpha1.IAMAuthPolicy{}).
 		Build()
+
+	// WithObjects seeds spec/metadata only; status must be set through the
+	// status subresource, matching how a real API server enforces it.
+	iap.Status.LatticeResource = &anv1alpha1.IAMAuthPolicyLatticeResource{
+		ResourceId:   previouslyAppliedResId,
+		ResourceType: "ServiceNetwork",
+		ResourceName: "test-gateway",
+	}
+	assert.NoError(t, k8sClient.Status().Update(ctx, iap))
 
 	mockLattice := mocks.NewMockLattice(c)
 	mockCloud := pkg_aws.NewMockCloud(c)
@@ -228,10 +232,11 @@ func Test_IAMAuthPolicy_LatticeResourceNotFound(t *testing.T) {
 	assert.Equal(t, string(gwv1.PolicyReasonInvalid), cond.Reason)
 	assert.Contains(t, cond.Message, "test-gateway")
 
-	// The previously-applied resource-id annotation must not be stomped to
+	// The previously-applied resource-id status must not be stomped to
 	// empty; otherwise the controller loses the handle to the resource it
 	// previously managed.
-	assert.Equal(t, previouslyAppliedResId, got.Annotations[IAMAuthPolicyAnnotationResId])
+	assert.NotNil(t, got.Status.LatticeResource)
+	assert.Equal(t, previouslyAppliedResId, got.Status.LatticeResource.ResourceId)
 }
 
 func Test_IAMAuthPolicy_ForeignOwnedService_Conflicted(t *testing.T) {
@@ -316,4 +321,136 @@ func Test_IAMAuthPolicy_ForeignOwnedService_Conflicted(t *testing.T) {
 	assert.NotNil(t, cond)
 	assert.Equal(t, metav1.ConditionFalse, cond.Status)
 	assert.Equal(t, string(gwv1.PolicyReasonConflicted), cond.Reason)
+}
+
+// Test_IAMAuthPolicy_ForgedAnnotation_NoEffect covers the fix for the
+// ServiceNetwork delete-misdirection bypass: a tenant can always set
+// arbitrary annotations on their own IAMAuthPolicy object (annotations carry
+// no separate RBAC from the object itself), so the controller must not use
+// annotations as its source of truth for which Lattice resource to clean up.
+//
+// This seeds a policy with a forged resource-id annotation naming a
+// ServiceNetwork the policy's own targetRef never pointed at, then runs a
+// delete reconcile. If the controller still read annotations, it would call
+// Delete on the forged, unrelated resource-id. Since it no longer does,
+// Delete must be called with the real resource-id resolved from the
+// targetRef's own Gateway, matched here by mock expectation: any call with
+// the forged id fails the test (no matching mock), while the real one succeeds.
+func Test_IAMAuthPolicy_ForgedAnnotation_NoEffect(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	anv1alpha1.Install(k8sScheme)
+
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-gateway",
+			Namespace: "test-namespace",
+		},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+		},
+	}
+
+	const forgedResId = "sn-forged-victim"
+
+	now := metav1.Now()
+	iap := &anv1alpha1.IAMAuthPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-policy",
+			Namespace: "test-namespace",
+			// A tenant can set this directly with ordinary edit rights; it
+			// must have no effect on which resource gets deleted.
+			Annotations: map[string]string{
+				"application-networking.k8s.aws/iam-auth-policy-resource-id":   forgedResId,
+				"application-networking.k8s.aws/iam-auth-policy-resource-type": "ServiceNetwork",
+				"application-networking.k8s.aws/iam-auth-policy-resource-name": "forged-victim-sn",
+			},
+			Finalizers:        []string{IAMAuthPolicyFinalizer},
+			DeletionTimestamp: &now,
+		},
+		Spec: anv1alpha1.IAMAuthPolicySpec{
+			Policy: `{"Version":"2012-10-17","Statement":[]}`,
+			TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+				Group: gwv1.GroupName,
+				Kind:  "Gateway",
+				Name:  "test-gateway",
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(iap, gw).
+		WithStatusSubresource(&anv1alpha1.IAMAuthPolicy{}).
+		Build()
+
+	// The policy's own legitimate, previously-applied resource (what
+	// status.latticeResource would hold if the controller had put it there
+	// itself) is the real ServiceNetwork behind test-gateway, not the forged id.
+	iap.Status.LatticeResource = &anv1alpha1.IAMAuthPolicyLatticeResource{
+		ResourceId:   "sn-real",
+		ResourceType: "ServiceNetwork",
+		ResourceName: "test-gateway",
+	}
+	assert.NoError(t, k8sClient.Status().Update(ctx, iap))
+
+	mockLattice := mocks.NewMockLattice(c)
+	mockCloud := pkg_aws.NewMockCloud(c)
+	mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+
+	// reconcileDelete's own call constructs a fresh model via
+	// NewIAMAuthPolicy, which never carries a ResourceId — so it always
+	// re-resolves by name (the real Gateway name, not the forged annotation)
+	// via FindServiceNetwork first.
+	mockLattice.EXPECT().FindServiceNetwork(gomock.Any(), "test-gateway").Return(
+		&mocks.ServiceNetworkInfo{
+			SvcNetwork: latticetypes.ServiceNetworkSummary{
+				Id:   aws.String("sn-real"),
+				Name: aws.String("test-gateway"),
+				Arn:  aws.String("arn:aws:vpc-lattice:us-west-2:123456789012:servicenetwork/sn-real"),
+			},
+		}, nil)
+
+	// The delete call must use "sn-real" (resolved from the live targetRef's
+	// Gateway name), never "sn-forged-victim" (from the annotation). No mock
+	// expectation exists for the forged id, so the test fails if the
+	// controller still reads it.
+	//
+	// Called twice: once from reconcileDelete's own Delete call, and once
+	// more from handleLatticeResourceChange's unconditional post-delete
+	// cleanup (it compares status's prior ResourceId against the empty
+	// post-delete status and re-deletes since they differ) — this is
+	// existing, unrelated redundant behavior, not something this fix changes.
+	mockLattice.EXPECT().UpdateServiceNetwork(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(
+		func(_ context.Context, input *vpclattice.UpdateServiceNetworkInput, _ ...func(*vpclattice.Options)) (*vpclattice.UpdateServiceNetworkOutput, error) {
+			assert.Equal(t, "sn-real", aws.ToString(input.ServiceNetworkIdentifier))
+			return &vpclattice.UpdateServiceNetworkOutput{}, nil
+		})
+	mockLattice.EXPECT().DeleteAuthPolicy(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(
+		func(_ context.Context, input *vpclattice.DeleteAuthPolicyInput, _ ...func(*vpclattice.Options)) (*vpclattice.DeleteAuthPolicyOutput, error) {
+			assert.Equal(t, "sn-real", aws.ToString(input.ResourceIdentifier))
+			return &vpclattice.DeleteAuthPolicyOutput{}, nil
+		})
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	r := &IAMAuthPolicyController{
+		log:           gwlog.FallbackLogger,
+		client:        k8sClient,
+		pm:            deploy.NewIAMAuthPolicyManager(mockCloud),
+		ph:            policy.NewIAMAuthPolicyHandler(gwlog.FallbackLogger, k8sClient),
+		cloud:         mockCloud,
+		eventRecorder: mockEventRecorder,
+	}
+
+	_, err := r.Reconcile(ctx, reconcile.Request{
+		NamespacedName: types.NamespacedName{Name: "test-policy", Namespace: "test-namespace"},
+	})
+	assert.NoError(t, err)
 }
