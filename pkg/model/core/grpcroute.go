@@ -172,6 +172,13 @@ type GRPCRouteRule struct {
 	r gwv1.GRPCRouteRule
 }
 
+func (r *GRPCRouteRule) Name() string {
+	if r.r.Name == nil {
+		return ""
+	}
+	return string(*r.r.Name)
+}
+
 func (r *GRPCRouteRule) BackendRefs() []BackendRef {
 	var backendRefs []BackendRef
 	for _, backendRef := range r.r.BackendRefs {

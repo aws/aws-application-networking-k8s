@@ -72,6 +72,50 @@ func IsConflictError(err error) bool {
 	return errors.As(err, &conflictErr)
 }
 
+// AsServiceQuotaExceeded returns the VPC Lattice quota exception in err's chain, if any.
+func AsServiceQuotaExceeded(err error) (*types.ServiceQuotaExceededException, bool) {
+	var quotaErr *types.ServiceQuotaExceededException
+	if errors.As(err, &quotaErr) {
+		return quotaErr, true
+	}
+	return nil, false
+}
+
+func IsServiceQuotaExceededError(err error) bool {
+	_, ok := AsServiceQuotaExceeded(err)
+	return ok
+}
+
+// DroppedRule identifies a route rule that could not be created in a VPC Lattice listener.
+type DroppedRule struct {
+	RuleIndex        int // position in the Route spec
+	RuleName         string
+	Priority         int64
+	ListenerPort     int64
+	ListenerProtocol string
+}
+
+// RuleQuotaExceededError marks VPC Lattice quota failures while creating listener rules, as opposed to
+// a quota failure in some other deploy step. Err is the first quota exception returned by VPC Lattice.
+type RuleQuotaExceededError struct {
+	Dropped []DroppedRule
+	Err     error
+}
+
+func (e *RuleQuotaExceededError) Error() string {
+	return fmt.Sprintf("%d rule(s) could not be created: %s", len(e.Dropped), e.Err)
+}
+
+func (e *RuleQuotaExceededError) Unwrap() error { return e.Err }
+
+func AsRuleQuotaExceeded(err error) (*RuleQuotaExceededError, bool) {
+	var ruleErr *RuleQuotaExceededError
+	if errors.As(err, &ruleErr) {
+		return ruleErr, true
+	}
+	return nil, false
+}
+
 type InvalidError struct {
 	Message string
 }

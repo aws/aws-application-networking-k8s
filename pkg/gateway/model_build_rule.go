@@ -34,12 +34,18 @@ const (
 	LATTICE_MAX_HEADER_MATCHES              = 5
 )
 
+// indexedRule keeps a rule's position in the Route spec, which is lost once rules are ordered by priority.
+type indexedRule struct {
+	rule  core.RouteRule
+	index int
+}
+
 func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackListenerId string) error {
 	// note we only build rules for non-deleted routes
 	t.log.Debugf(ctx, "Processing %d rules", len(t.route.Spec().Rules()))
 
 	// Track rules with and without priority
-	rulesWithoutPriority := make([]core.RouteRule, 0)
+	rulesWithoutPriority := make([]indexedRule, 0)
 	priorityQueue := make(utils.PriorityQueue, 0)
 
 	// First pass: build all rules and add them to priority queue
@@ -57,12 +63,12 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 			}
 
 			priorityQueue.Push(&utils.Item{
-				Value:    rule,
+				Value:    indexedRule{rule: rule, index: i},
 				Priority: int32(priority),
 			})
 
 		} else {
-			rulesWithoutPriority = append(rulesWithoutPriority, rule)
+			rulesWithoutPriority = append(rulesWithoutPriority, indexedRule{rule: rule, index: i})
 		}
 	}
 
@@ -87,10 +93,13 @@ func (t *latticeServiceModelBuildTask) buildRules(ctx context.Context, stackList
 	}
 
 	for _, item := range priorityQueue {
-		rule := item.Value.(core.RouteRule)
+		idxRule := item.Value.(indexedRule)
+		rule := idxRule.rule
 		ruleSpec := model.RuleSpec{
 			StackListenerId: stackListenerId,
 			Priority:        int64(item.Priority),
+			RuleIndex:       idxRule.index,
+			RuleName:        rule.Name(),
 		}
 
 		if len(rule.Matches()) > 1 {

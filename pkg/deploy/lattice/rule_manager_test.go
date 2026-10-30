@@ -288,6 +288,18 @@ func Test_Create(t *testing.T) {
 		assert.Equal(t, "arn", ruleStatus.Arn)
 	})
 
+	t.Run("test create - quota exceeded keeps error type", func(t *testing.T) {
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{}, nil)
+		mockLattice.EXPECT().CreateRule(ctx, gomock.Any()).Return(
+			nil, &types.ServiceQuotaExceededException{Message: aws.String("quota")})
+
+		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+		_, err := rm.Upsert(ctx, rInvalidBR, l, svc)
+		assert.Error(t, err)
+		assert.True(t, mocks.IsServiceQuotaExceededError(err))
+	})
+
 	t.Run("test create - one valid backendRef, two invalid", func(t *testing.T) {
 		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
 			[]*vpclattice.GetRuleOutput{}, nil)

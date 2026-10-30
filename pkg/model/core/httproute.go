@@ -172,6 +172,13 @@ type HTTPRouteRule struct {
 	r gwv1.HTTPRouteRule
 }
 
+func (r *HTTPRouteRule) Name() string {
+	if r.r.Name == nil {
+		return ""
+	}
+	return string(*r.r.Name)
+}
+
 func (r *HTTPRouteRule) BackendRefs() []BackendRef {
 	var backendRefs []BackendRef
 	for _, backendRef := range r.r.BackendRefs {

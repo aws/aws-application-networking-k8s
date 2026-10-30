@@ -12,12 +12,13 @@ const (
 	GatewayEventReasonFailedDeployModel  = "FailedDeployModel"
 
 	// Route events
-	RouteEventReasonReconcile          = "Reconcile"
-	RouteEventReasonDeploySucceed      = "DeploySucceed"
-	RouteEventReasonFailedAddFinalizer = "FailedAddFinalizer"
-	RouteEventReasonFailedBuildModel   = "FailedBuildModel"
-	RouteEventReasonFailedDeployModel  = "FailedDeployModel"
-	RouteEventReasonRetryReconcile     = "Retry-Reconcile"
+	RouteEventReasonReconcile            = "Reconcile"
+	RouteEventReasonDeploySucceed        = "DeploySucceed"
+	RouteEventReasonFailedAddFinalizer   = "FailedAddFinalizer"
+	RouteEventReasonFailedBuildModel     = "FailedBuildModel"
+	RouteEventReasonFailedDeployModel    = "FailedDeployModel"
+	RouteEventReasonRetryReconcile       = "Retry-Reconcile"
+	RouteEventReasonServiceQuotaExceeded = "ServiceQuotaExceeded"
 
 	// Service events
 	ServiceEventReasonFailedAddFinalizer = "FailedAddFinalizer"

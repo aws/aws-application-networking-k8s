@@ -2398,3 +2398,64 @@ func Test_RuleModelBuild_MissingServiceImport_WithClaim(t *testing.T) {
 		})
 	}
 }
+
+func Test_RuleModelBuild_RuleIndexAndName(t *testing.T) {
+	ctx := context.TODO()
+	serviceKind := gwv1.Kind("Service")
+	backend := gwv1.HTTPBackendRef{BackendRef: gwv1.BackendRef{
+		BackendObjectReference: gwv1.BackendObjectReference{Name: "targetgroup1", Kind: &serviceKind},
+	}}
+	name := gwv1.SectionName("checkout")
+
+	// rule 0 has a priority annotation, so it is processed before rules 1 and 2; its spec position must survive that
+	route := core.NewHTTPRoute(gwv1.HTTPRoute{
+		ObjectMeta: apimachineryv1.ObjectMeta{
+			Name:        "route",
+			Namespace:   "default",
+			Annotations: map[string]string{"application-networking.k8s.aws/rule-0-priority": "50"},
+		},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{{Name: "gw1"}}},
+			Rules: []gwv1.HTTPRouteRule{
+				{BackendRefs: []gwv1.HTTPBackendRef{backend}},
+				{Name: &name, BackendRefs: []gwv1.HTTPBackendRef{backend}},
+				{BackendRefs: []gwv1.HTTPBackendRef{backend}},
+			},
+		},
+	})
+
+	k8sSchema := runtime.NewScheme()
+	k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceImport{})
+	clientgoscheme.AddToScheme(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+	assert.NoError(t, k8sClient.Create(ctx, &corev1.Service{
+		ObjectMeta: apimachineryv1.ObjectMeta{Name: "targetgroup1", Namespace: "default"},
+	}))
+
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+	task := &latticeServiceModelBuildTask{
+		log:         gwlog.FallbackLogger,
+		route:       route,
+		stack:       stack,
+		client:      k8sClient,
+		brTgBuilder: &dummyTgBuilder{},
+	}
+	assert.NoError(t, task.buildRules(ctx, "listener-id"))
+
+	var rules []*model.Rule
+	assert.NoError(t, stack.ListResources(&rules))
+	type ident struct {
+		index    int
+		name     string
+		priority int64
+	}
+	got := map[int]ident{}
+	for _, r := range rules {
+		got[r.Spec.RuleIndex] = ident{r.Spec.RuleIndex, r.Spec.RuleName, r.Spec.Priority}
+	}
+	assert.Equal(t, map[int]ident{
+		0: {0, "", 50},
+		1: {1, "checkout", 51},
+		2: {2, "", 52},
+	}, got)
+}

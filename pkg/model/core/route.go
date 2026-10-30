@@ -76,6 +76,8 @@ type RouteStatus interface {
 }
 
 type RouteRule interface {
+	// Name is the optional user-provided rule name, empty if unset.
+	Name() string
 	BackendRefs() []BackendRef
 	Matches() []RouteMatch
 	Equals(routeRule RouteRule) bool
