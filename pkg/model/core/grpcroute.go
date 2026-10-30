@@ -14,6 +14,7 @@ import (
 
 const (
 	GrpcRouteType RouteType = "grpc"
+	GrpcRouteKind string    = "GRPCRoute"
 )
 
 type GRPCRoute struct {

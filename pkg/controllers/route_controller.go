@@ -20,6 +20,9 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -64,16 +67,22 @@ var routeTypeToFinalizer = map[core.RouteType]string{
 }
 
 type routeReconciler struct {
-	routeType        core.RouteType
-	log              gwlog.Logger
-	client           client.Client
-	scheme           *runtime.Scheme
-	finalizerManager k8s.FinalizerManager
-	eventRecorder    record.EventRecorder
-	modelBuilder     gateway.LatticeServiceBuilder
-	stackDeployer    deploy.StackDeployer
-	stackMarshaller  deploy.StackMarshaller
-	cloud            aws.Cloud
+	routeType               core.RouteType
+	log                     gwlog.Logger
+	client                  client.Client
+	scheme                  *runtime.Scheme
+	finalizerManager        k8s.FinalizerManager
+	eventRecorder           record.EventRecorder
+	modelBuilder            gateway.LatticeServiceBuilder
+	stackDeployer           deploy.StackDeployer
+	stackMarshaller         deploy.StackMarshaller
+	cloud                   aws.Cloud
+	referenceGrantSupported bool
+	// lastCrossNamespaceWarning records, per route (kind/namespace/name), the last
+	// cross-namespace warning message emitted, so the Warning event is only re-emitted
+	// when the set of unpermitted references changes. This avoids exhausting the route's
+	// client-go event budget, which is shared across all Warning reasons on that object.
+	lastCrossNamespaceWarning *sync.Map
 }
 
 const (
@@ -115,9 +124,12 @@ func RegisterAllRouteControllers(
 			stackDeployer:    deploy.NewLatticeServiceStackDeploy(log, cloud, mgrClient),
 			stackMarshaller:  deploy.NewDefaultStackMarshaller(),
 			cloud:            cloud,
+
+			lastCrossNamespaceWarning: &sync.Map{},
 		}
 
 		svcImportEventHandler := eventhandlers.NewServiceImportEventHandler(log, mgrClient)
+		rgEventHandler := eventhandlers.NewReferenceGrantEventHandler(log, mgrClient)
 
 		builder := ctrl.NewControllerManagedBy(mgr).
 			For(routeInfo.gatewayApiType, builder.WithPredicates(predicate.Or(predicates.NewRouteChangedPredicate(), predicates.AdditionalTagsAnnotationChangedPredicate, predicates.AllowTakeoverFromAnnotationChangedPredicate, predicates.IdleTimeoutSecondsAnnotationChangedPredicate))).
@@ -128,6 +140,16 @@ func RegisterAllRouteControllers(
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: config.RouteMaxConcurrentReconciles,
 			})
+
+		if ok, err := k8s.IsGVKSupported(mgr, gwv1.GroupVersion.String(), "ReferenceGrant"); ok {
+			builder.Watches(&gwv1.ReferenceGrant{}, rgEventHandler.MapToRoute(routeInfo.routeType))
+			reconciler.referenceGrantSupported = true
+		} else {
+			if err != nil {
+				return err
+			}
+			log.Infof(context.TODO(), "ReferenceGrant %s CRD is not served, skipping watch and cross-namespace warnings", gwv1.GroupVersion.String())
+		}
 
 		if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
 			builder.Watches(&anv1alpha1.TargetGroupPolicy{}, svcEventHandler.MapToRoute(routeInfo.routeType))
@@ -172,14 +194,21 @@ func (r *routeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 func (r *routeReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
 	route, err := r.getRoute(ctx, req)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			r.clearCrossNamespaceWarning(core.RouteKindForType(r.routeType), req.Namespace, req.Name)
+		}
 		return client.IgnoreNotFound(err)
 	}
 
 	if err = r.client.Get(ctx, req.NamespacedName, route.K8sObject()); err != nil {
+		if apierrors.IsNotFound(err) {
+			r.clearCrossNamespaceWarning(core.RouteKindForType(r.routeType), req.Namespace, req.Name)
+		}
 		return client.IgnoreNotFound(err)
 	}
 
 	if !r.isRouteRelevant(ctx, route) {
+		r.clearCrossNamespaceWarning(route.GroupKind().Kind, route.Namespace(), route.Name())
 		return nil
 	}
 
@@ -208,6 +237,7 @@ func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request,
 	}
 
 	r.log.Infow(ctx, "reconciled", "name", req.Name)
+	r.clearCrossNamespaceWarning(route.GroupKind().Kind, route.Namespace(), route.Name())
 	return r.finalizerManager.RemoveFinalizers(ctx, route.K8sObject(), routeTypeToFinalizer[r.routeType])
 }
 
@@ -344,6 +374,8 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		// error.
 		r.log.Infof(ctx, "route: %s: %s", route.Name(), err)
 	}
+
+	r.warnOnUnpermittedCrossNamespaceRefs(ctx, route)
 
 	backendRefIPFamiliesErr := r.validateBackendRefsIpFamilies(ctx, route)
 
@@ -504,6 +536,100 @@ func (r *routeReconciler) validateBackendRefsIpFamilies(ctx context.Context, rou
 	}
 
 	return nil
+}
+
+// warnOnUnpermittedCrossNamespaceRefs emits a warning signal for cross-namespace
+// backendRefs with no matching ReferenceGrant without changing route status or blocking
+// the reference, which is still accepted and routed during the warn phase.
+func (r *routeReconciler) warnOnUnpermittedCrossNamespaceRefs(ctx context.Context, route core.Route) {
+	if !r.referenceGrantSupported || r.lastCrossNamespaceWarning == nil {
+		return
+	}
+
+	var targets []string
+	seen := map[string]bool{}
+	evalFailed := false
+	for _, rule := range route.Spec().Rules() {
+		for _, backendRef := range rule.BackendRefs() {
+			if backendRef.Namespace() == nil || string(*backendRef.Namespace()) == route.Namespace() {
+				continue
+			}
+
+			allowed, err := gateway.IsBackendRefAllowedByReferenceGrant(ctx, r.client, route, backendRef)
+			if err != nil {
+				evalFailed = true
+				r.log.Warnw(ctx, "failed to evaluate ReferenceGrant for cross-namespace backendRef; skipping warning",
+					"route", route.Namespace()+"/"+route.Name(),
+					"backendRef", string(*backendRef.Namespace())+"/"+string(backendRef.Name()),
+					"error", err)
+				continue
+			}
+			if allowed {
+				continue
+			}
+
+			kind := "Service"
+			if backendRef.Kind() != nil {
+				kind = string(*backendRef.Kind())
+			}
+			target := string(*backendRef.Namespace()) + "/" + string(backendRef.Name()) + " (" + kind + ")"
+			if seen[target] {
+				continue
+			}
+			seen[target] = true
+			targets = append(targets, target)
+		}
+	}
+	sort.Strings(targets)
+
+	warnKey := route.GroupKind().Kind + "/" + route.Namespace() + "/" + route.Name()
+	fullTargets := strings.Join(targets, ", ")
+
+	if len(targets) == 0 {
+		// Only forget the route once we are sure it has no unpermitted reference; a
+		// transient evaluation error must not look like a fix.
+		if !evalFailed {
+			r.lastCrossNamespaceWarning.Delete(warnKey)
+		}
+		return
+	}
+
+	// The log line carries the complete target list on every reconcile; the event is only
+	// re-emitted when the set of unpermitted references changes, so repeated reconciles do
+	// not exhaust the route's shared Warning event budget.
+	r.log.Warnw(ctx, "cross-namespace backendRefs not permitted by any ReferenceGrant",
+		"route", route.Namespace()+"/"+route.Name(),
+		"backendRefs", fullTargets)
+
+	// A partial evaluation error must not rewrite the remembered set: a transient failure
+	// must not look like a change. Still record it once if nothing is stored yet, so a
+	// persistent error does not re-emit on every reconcile.
+	if prev, known := r.lastCrossNamespaceWarning.Load(warnKey); known && (prev == fullTargets || evalFailed) {
+		return
+	}
+	r.lastCrossNamespaceWarning.Store(warnKey, fullTargets)
+	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
+		k8s.RouteEventReasonCrossNamespaceRefNotPermitted,
+		fmt.Sprintf("backendRefs %s are in a different namespace than route %s/%s and no "+
+			"ReferenceGrant permits them; this will be blocked in a future release",
+			summarizeTargets(targets), route.Namespace(), route.Name()))
+}
+
+func summarizeTargets(targets []string) string {
+	const max = 10
+	if len(targets) <= max {
+		return strings.Join(targets, ", ")
+	}
+	return fmt.Sprintf("%s and %d more", strings.Join(targets[:max], ", "), len(targets)-max)
+}
+
+// clearCrossNamespaceWarning forgets the remembered warning for a route so a later
+// unpermitted reference re-emits the event. Called when a route is deleted, becomes
+// irrelevant, or no longer exists.
+func (r *routeReconciler) clearCrossNamespaceWarning(routeKind, namespace, name string) {
+	if r.lastCrossNamespaceWarning != nil {
+		r.lastCrossNamespaceWarning.Delete(routeKind + "/" + namespace + "/" + name)
+	}
 }
 
 var (
