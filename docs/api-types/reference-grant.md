@@ -57,7 +57,12 @@ GRPCRoute, or TLSRoute).
 
 A future release will block these references. To prepare, review the controller logs and
 route Events for `CrossNamespaceRefNotPermitted` and, for each flagged reference, either
-create a `ReferenceGrant` in the target namespace or repoint the `backendRef`.
+create a `ReferenceGrant` in the target namespace or repoint the `backendRef`. To list
+recent Events across all namespaces:
+
+```bash
+kubectl get events -A --field-selector reason=CrossNamespaceRefNotPermitted
+```
 
 The warning signal requires the `gateway.networking.k8s.io/v1` `ReferenceGrant` CRD to be
 installed when the controller starts. If it is not, the controller logs that it is
