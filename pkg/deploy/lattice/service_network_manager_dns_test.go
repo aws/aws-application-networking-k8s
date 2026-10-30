@@ -109,6 +109,26 @@ func (e *dnsTestEnv) expectCreate(assertInput func(input *vpclattice.CreateServi
 		})
 }
 
+// expectUpdate asserts the update input and answers with the given status.
+func (e *dnsTestEnv) expectUpdate(status types.ServiceNetworkVpcAssociationStatus, assertInput func(input *vpclattice.UpdateServiceNetworkVpcAssociationInput)) {
+	e.mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).DoAndReturn(
+		func(ctx context.Context, input *vpclattice.UpdateServiceNetworkVpcAssociationInput, opts ...func(*vpclattice.Options)) (*vpclattice.UpdateServiceNetworkVpcAssociationOutput, error) {
+			assertInput(input)
+			return &vpclattice.UpdateServiceNetworkVpcAssociationOutput{Arn: aws.String(dnsTestSnvaArn), Status: status}, nil
+		})
+}
+
+// expectSharedGet stubs the read of an association on a RAM-shared service network.
+func (e *dnsTestEnv) expectSharedGet(enabled *bool, opts *types.DnsOptions) {
+	e.mockLattice.EXPECT().GetServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
+		Arn:               aws.String(dnsTestSnvaArn),
+		Id:                aws.String(dnsTestSnvaId),
+		Status:            types.ServiceNetworkVpcAssociationStatusActive,
+		PrivateDnsEnabled: enabled,
+		DnsOptions:        opts,
+	}, nil)
+}
+
 func Test_UpsertVpcAssociation_Create_PrivateDnsUnmanaged_SendsNoDnsFields(t *testing.T) {
 	e := newDnsTestEnv(t, dnsTestLocalSnArn)
 	e.expectNoAssociation()
@@ -190,49 +210,80 @@ func Test_UpsertVpcAssociation_Create_PrivateDnsExplicitlyDisabled(t *testing.T)
 	assert.Nil(t, err)
 }
 
-func Test_UpsertVpcAssociation_LocalExisting_PrivateDnsMismatch_ReportedWithoutUpdate(t *testing.T) {
+func Test_UpsertVpcAssociation_LocalExisting_PrivateDnsDiffers_UpdatedInPlace(t *testing.T) {
 	e := newDnsTestEnv(t, dnsTestLocalSnArn)
 	sgIds := []string{"sg-123456789"}
 	e.expectActiveAssociation(dnsTestLocalSnArn, nil, nil)
 	e.expectOwnedLocalAssociation(sgIds, aws.Bool(false), &types.DnsOptions{})
-	e.mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Times(0)
+	e.expectUpdate(types.ServiceNetworkVpcAssociationStatusActive, func(input *vpclattice.UpdateServiceNetworkVpcAssociationInput) {
+		assert.True(t, aws.ToBool(input.PrivateDnsEnabled))
+		assert.Equal(t, types.PrivateDnsPreferenceAllDomains, input.DnsOptions.PrivateDnsPreference)
+		assert.Nil(t, input.SecurityGroupIds, "unchanged security groups must not be sent")
+	})
 	e.mockLattice.EXPECT().CreateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Times(0)
 	e.mockLattice.EXPECT().DeleteServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Times(0)
 
 	resp, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
 		SecurityGroupIds: sgIds,
-		Dns:              VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true)},
+		Dns:              VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true), PrivateDnsPreference: string(types.PrivateDnsPreferenceAllDomains)},
 	})
 
-	assert.Nil(t, err, "a private DNS mismatch is reported, not returned as an error")
+	assert.Nil(t, err)
 	assert.Equal(t, dnsTestSnvaArn, resp.Arn)
-	assert.False(t, resp.RamShared)
-	assert.Equal(t, []VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}}, resp.DnsMismatch)
+	assert.Nil(t, resp.DnsMismatch)
 }
 
-func Test_UpsertVpcAssociation_LocalExisting_PrivateDnsMismatch_DoesNotBlockSecurityGroupUpdate(t *testing.T) {
+func Test_UpsertVpcAssociation_LocalExisting_PrivateDnsDisabled_SendsFalseWithoutOptions(t *testing.T) {
+	e := newDnsTestEnv(t, dnsTestLocalSnArn)
+	e.expectActiveAssociation(dnsTestLocalSnArn, nil, nil)
+	e.expectOwnedLocalAssociation(nil, aws.Bool(true), &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceAllDomains})
+	e.expectUpdate(types.ServiceNetworkVpcAssociationStatusActive, func(input *vpclattice.UpdateServiceNetworkVpcAssociationInput) {
+		if assert.NotNil(t, input.PrivateDnsEnabled) {
+			assert.False(t, *input.PrivateDnsEnabled)
+		}
+		assert.Nil(t, input.DnsOptions)
+	})
+
+	_, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
+		Dns: VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(false)},
+	})
+
+	assert.Nil(t, err)
+}
+
+func Test_UpsertVpcAssociation_LocalExisting_PrivateDnsAndSecurityGroupsDiffer_SentTogether(t *testing.T) {
 	e := newDnsTestEnv(t, dnsTestLocalSnArn)
 	newSgIds := []string{"sg-new"}
 	e.expectActiveAssociation(dnsTestLocalSnArn, nil, nil)
 	e.expectOwnedLocalAssociation([]string{"sg-old"}, aws.Bool(false), nil)
-	e.mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, input *vpclattice.UpdateServiceNetworkVpcAssociationInput, opts ...func(*vpclattice.Options)) (*vpclattice.UpdateServiceNetworkVpcAssociationOutput, error) {
-			assert.Equal(t, newSgIds, input.SecurityGroupIds)
-			return &vpclattice.UpdateServiceNetworkVpcAssociationOutput{
-				Arn:              aws.String(dnsTestSnvaArn),
-				SecurityGroupIds: newSgIds,
-				Status:           types.ServiceNetworkVpcAssociationStatusActive,
-			}, nil
-		}).Times(1)
+	e.expectUpdate(types.ServiceNetworkVpcAssociationStatusActive, func(input *vpclattice.UpdateServiceNetworkVpcAssociationInput) {
+		assert.Equal(t, newSgIds, input.SecurityGroupIds)
+		assert.True(t, aws.ToBool(input.PrivateDnsEnabled))
+	})
 
-	resp, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
+	_, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
 		SecurityGroupIds: newSgIds,
 		Dns:              VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true)},
 	})
 
 	assert.Nil(t, err)
-	assert.Equal(t, dnsTestSnvaArn, resp.Arn)
-	assert.Len(t, resp.DnsMismatch, 1)
+}
+
+func Test_UpsertVpcAssociation_LocalExisting_EmptySecurityGroupsDoNotBlockPrivateDnsUpdate(t *testing.T) {
+	e := newDnsTestEnv(t, dnsTestLocalSnArn)
+	e.expectActiveAssociation(dnsTestLocalSnArn, nil, nil)
+	e.expectOwnedLocalAssociation([]string{"sg-old"}, aws.Bool(false), nil)
+	e.expectUpdate(types.ServiceNetworkVpcAssociationStatusActive, func(input *vpclattice.UpdateServiceNetworkVpcAssociationInput) {
+		assert.Nil(t, input.SecurityGroupIds, "VPC Lattice rejects an empty list, which would also reject the private DNS change")
+		assert.True(t, aws.ToBool(input.PrivateDnsEnabled))
+	})
+
+	_, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
+		SecurityGroupIds: []string{},
+		Dns:              VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true)},
+	})
+
+	assert.Nil(t, err)
 }
 
 func Test_UpsertVpcAssociation_LocalExisting_PrivateDnsUnmanaged_NoMismatch(t *testing.T) {
@@ -265,18 +316,17 @@ func Test_UpsertVpcAssociation_LocalExisting_PrivateDnsMatchesServerDefault_NoMi
 	assert.Empty(t, resp.DnsMismatch)
 }
 
-func Test_UpsertVpcAssociation_RAMSharedExisting_PrivateDnsMismatch_UsesGetOutput(t *testing.T) {
+func Test_UpsertVpcAssociation_RAMSharedExisting_ControllerCreated_UpdatesOnlyPrivateDns(t *testing.T) {
 	e := newDnsTestEnv(t, dnsTestSharedSnArn)
 	e.expectActiveAssociation(dnsTestSharedSnArn, aws.Bool(true), nil) // stale or partial summary
-	e.mockLattice.EXPECT().GetServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Return(&vpclattice.GetServiceNetworkVpcAssociationOutput{
-		Arn:               aws.String(dnsTestSnvaArn),
-		Id:                aws.String(dnsTestSnvaId),
-		Status:            types.ServiceNetworkVpcAssociationStatusActive,
-		PrivateDnsEnabled: aws.Bool(false),
+	e.expectSharedGet(aws.Bool(false), nil)
+	e.mockLattice.EXPECT().ListTagsForResource(e.ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
+		Tags: e.cloud.DefaultTags(),
 	}, nil)
-	// RAM-shared associations are never owned, tagged or updated by the controller.
-	e.mockLattice.EXPECT().ListTagsForResource(e.ctx, gomock.Any()).Times(0)
-	e.mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Times(0)
+	e.expectUpdate(types.ServiceNetworkVpcAssociationStatusActive, func(input *vpclattice.UpdateServiceNetworkVpcAssociationInput) {
+		assert.True(t, aws.ToBool(input.PrivateDnsEnabled))
+		assert.Nil(t, input.SecurityGroupIds, "security groups of RAM-shared associations are not managed")
+	})
 	e.mockLattice.EXPECT().CreateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Times(0)
 
 	resp, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
@@ -287,7 +337,89 @@ func Test_UpsertVpcAssociation_RAMSharedExisting_PrivateDnsMismatch_UsesGetOutpu
 	assert.Nil(t, err)
 	assert.Equal(t, dnsTestSnvaArn, resp.Arn)
 	assert.True(t, resp.RamShared)
-	assert.Equal(t, []VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}}, resp.DnsMismatch)
+	assert.Nil(t, resp.DnsMismatch)
+}
+
+func Test_UpsertVpcAssociation_RAMSharedExisting_ControllerCreated_UpdateInProgress_ReturnsRetryError(t *testing.T) {
+	e := newDnsTestEnv(t, dnsTestSharedSnArn)
+	e.expectActiveAssociation(dnsTestSharedSnArn, nil, nil)
+	e.expectSharedGet(aws.Bool(false), nil)
+	e.mockLattice.EXPECT().ListTagsForResource(e.ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
+		Tags: e.cloud.DefaultTags(),
+	}, nil)
+	e.expectUpdate(types.ServiceNetworkVpcAssociationStatusUpdateInProgress, func(input *vpclattice.UpdateServiceNetworkVpcAssociationInput) {})
+
+	_, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
+		Dns: VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true)},
+	})
+
+	var requeue *lattice_runtime.RequeueNeededAfter
+	assert.True(t, errors.As(err, &requeue))
+}
+
+func Test_UpsertVpcAssociation_RAMSharedExisting_NotManaged_ReportsMismatchWithoutUpdate(t *testing.T) {
+	e := newDnsTestEnv(t, dnsTestSharedSnArn)
+	e.expectActiveAssociation(dnsTestSharedSnArn, nil, nil)
+	e.expectSharedGet(aws.Bool(false), nil)
+	e.mockLattice.EXPECT().ListTagsForResource(e.ctx, gomock.Any()).Return(&vpclattice.ListTagsForResourceOutput{
+		Tags: map[string]string{},
+	}, nil)
+	e.mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Times(0)
+
+	resp, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
+		Dns: VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true)},
+	})
+
+	assert.Nil(t, err)
+	assert.Equal(t, &VpcAssociationDnsMismatch{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}, resp.DnsMismatch)
+}
+
+func Test_UpsertVpcAssociation_RAMSharedExisting_TagReadError(t *testing.T) {
+	tests := []struct {
+		name         string
+		tagErr       error
+		wantMismatch bool
+	}{
+		{name: "access denied means another account created it", tagErr: &types.AccessDeniedException{Message: aws.String("denied")}, wantMismatch: true},
+		{name: "not found means another account created it", tagErr: &types.ResourceNotFoundException{Message: aws.String("missing")}, wantMismatch: true},
+		{name: "throttling is returned, not reported as a mismatch", tagErr: &types.ThrottlingException{Message: aws.String("slow down")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := newDnsTestEnv(t, dnsTestSharedSnArn)
+			e.expectActiveAssociation(dnsTestSharedSnArn, nil, nil)
+			e.expectSharedGet(aws.Bool(false), nil)
+			e.mockLattice.EXPECT().ListTagsForResource(e.ctx, gomock.Any()).Return(nil, tt.tagErr)
+			e.mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Times(0)
+
+			resp, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
+				Dns: VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true)},
+			})
+
+			if tt.wantMismatch {
+				assert.Nil(t, err)
+				assert.NotNil(t, resp.DnsMismatch)
+			} else {
+				assert.ErrorIs(t, err, tt.tagErr)
+				assert.Nil(t, resp.DnsMismatch)
+			}
+		})
+	}
+}
+
+func Test_UpsertVpcAssociation_RAMSharedExisting_PrivateDnsMatches_NoTagRead(t *testing.T) {
+	e := newDnsTestEnv(t, dnsTestSharedSnArn)
+	e.expectActiveAssociation(dnsTestSharedSnArn, aws.Bool(true), nil)
+	e.expectSharedGet(aws.Bool(true), nil)
+	e.mockLattice.EXPECT().ListTagsForResource(e.ctx, gomock.Any()).Times(0)
+	e.mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Times(0)
+
+	resp, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
+		Dns: VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true)},
+	})
+
+	assert.Nil(t, err)
+	assert.Nil(t, resp.DnsMismatch)
 }
 
 func Test_UpsertVpcAssociation_RAMSharedExisting_PrivateDnsUnmanaged_NoGet(t *testing.T) {
@@ -307,6 +439,7 @@ func Test_UpsertVpcAssociation_RAMSharedExisting_GetFails_FallsBackToSummary(t *
 	e := newDnsTestEnv(t, dnsTestSharedSnArn)
 	e.expectActiveAssociation(dnsTestSharedSnArn, aws.Bool(true), &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceAllDomains})
 	e.mockLattice.EXPECT().GetServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Return(nil, errors.New("AccessDeniedException"))
+	e.mockLattice.EXPECT().ListTagsForResource(e.ctx, gomock.Any()).Return(nil, &types.AccessDeniedException{Message: aws.String("denied")})
 	e.mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Times(0)
 
 	resp, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
@@ -317,11 +450,11 @@ func Test_UpsertVpcAssociation_RAMSharedExisting_GetFails_FallsBackToSummary(t *
 	})
 
 	assert.Nil(t, err)
-	assert.Equal(t, []VpcAssociationDnsMismatch{{
+	assert.Equal(t, &VpcAssociationDnsMismatch{
 		Field:  "dnsOptions.privateDnsPreference",
 		Policy: "VERIFIED_DOMAINS_ONLY",
 		Actual: "ALL_DOMAINS",
-	}}, resp.DnsMismatch)
+	}, resp.DnsMismatch)
 }
 
 func Test_dnsMismatch(t *testing.T) {
@@ -337,21 +470,21 @@ func Test_dnsMismatch(t *testing.T) {
 		desired       VpcAssociationDnsConfig
 		actualEnabled *bool
 		actual        *types.DnsOptions
-		want          []VpcAssociationDnsMismatch
+		want          *VpcAssociationDnsMismatch
 	}{
 		{name: "unmanaged ignores an enabled association", desired: VpcAssociationDnsConfig{}, actualEnabled: aws.Bool(true), actual: &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceAllDomains}},
 		{name: "disabled on both sides ignores leftover options", desired: VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(false)}, actualEnabled: nil, actual: &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceAllDomains}},
-		{name: "desired enabled, actual disabled", desired: enabled(""), actualEnabled: aws.Bool(false), want: []VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}}},
-		{name: "desired enabled, actual nil counts as disabled", desired: enabled(""), actualEnabled: nil, want: []VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}}},
-		{name: "desired disabled, actual enabled", desired: VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(false)}, actualEnabled: aws.Bool(true), want: []VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: "false", Actual: "true"}}},
+		{name: "desired enabled, actual disabled", desired: enabled(""), actualEnabled: aws.Bool(false), want: &VpcAssociationDnsMismatch{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}},
+		{name: "desired enabled, actual nil counts as disabled", desired: enabled(""), actualEnabled: nil, want: &VpcAssociationDnsMismatch{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}},
+		{name: "desired disabled, actual enabled", desired: VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(false)}, actualEnabled: aws.Bool(true), want: &VpcAssociationDnsMismatch{Field: "privateDnsEnabled", Policy: "false", Actual: "true"}},
 		{name: "enabled without preference does not compare the preference", desired: enabled(""), actualEnabled: aws.Bool(true), actual: &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceAllDomains}},
 		{name: "explicit default matches nil options", desired: enabled(verified), actualEnabled: aws.Bool(true), actual: nil},
 		{name: "explicit default matches empty options", desired: enabled(verified), actualEnabled: aws.Bool(true), actual: &types.DnsOptions{}},
-		{name: "preference differs", desired: enabled(all), actualEnabled: aws.Bool(true), actual: nil, want: []VpcAssociationDnsMismatch{{Field: "dnsOptions.privateDnsPreference", Policy: all, Actual: verified}}},
+		{name: "preference differs", desired: enabled(all), actualEnabled: aws.Bool(true), actual: nil, want: &VpcAssociationDnsMismatch{Field: "dnsOptions.privateDnsPreference", Policy: all, Actual: verified}},
 		{name: "domains equal ignoring order, case and trailing dot", desired: enabled(specified, "B.Example.com", "a.example.com."), actualEnabled: aws.Bool(true), actual: &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceSpecifiedDomainsOnly, PrivateDnsSpecifiedDomains: []string{"a.example.com", "b.example.com"}}},
-		{name: "domains differ", desired: enabled(specified, "a.example.com", "b.example.com"), actualEnabled: aws.Bool(true), actual: &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceSpecifiedDomainsOnly, PrivateDnsSpecifiedDomains: []string{"a.example.com"}}, want: []VpcAssociationDnsMismatch{{Field: "dnsOptions.privateDnsSpecifiedDomains", Policy: "[a.example.com,b.example.com]", Actual: "[a.example.com]"}}},
+		{name: "domains differ", desired: enabled(specified, "a.example.com", "b.example.com"), actualEnabled: aws.Bool(true), actual: &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceSpecifiedDomainsOnly, PrivateDnsSpecifiedDomains: []string{"a.example.com"}}, want: &VpcAssociationDnsMismatch{Field: "dnsOptions.privateDnsSpecifiedDomains", Policy: "[a.example.com,b.example.com]", Actual: "[a.example.com]"}},
 		{name: "domains ignored for preferences that do not use them", desired: enabled(all), actualEnabled: aws.Bool(true), actual: &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceAllDomains, PrivateDnsSpecifiedDomains: []string{"leftover.example.com"}}},
-		{name: "enabled mismatch wins over preference mismatch", desired: enabled(all), actualEnabled: aws.Bool(false), actual: &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceVerifiedDomainsOnly}, want: []VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}}},
+		{name: "enabled mismatch wins over preference mismatch", desired: enabled(all), actualEnabled: aws.Bool(false), actual: &types.DnsOptions{PrivateDnsPreference: types.PrivateDnsPreferenceVerifiedDomainsOnly}, want: &VpcAssociationDnsMismatch{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -381,14 +514,9 @@ func Test_latticeDnsOptions(t *testing.T) {
 	}
 }
 
-func Test_FormatDnsMismatch(t *testing.T) {
-	assert.Equal(t, "", FormatDnsMismatch(nil))
-	assert.Equal(t,
-		"privateDnsEnabled (policy: true, association: false); dnsOptions.privateDnsPreference (policy: ALL_DOMAINS, association: VERIFIED_DOMAINS_ONLY)",
-		FormatDnsMismatch([]VpcAssociationDnsMismatch{
-			{Field: "privateDnsEnabled", Policy: "true", Actual: "false"},
-			{Field: "dnsOptions.privateDnsPreference", Policy: "ALL_DOMAINS", Actual: "VERIFIED_DOMAINS_ONLY"},
-		}))
+func Test_VpcAssociationDnsMismatch_String(t *testing.T) {
+	d := &VpcAssociationDnsMismatch{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}
+	assert.Equal(t, "privateDnsEnabled (policy: true, association: false)", d.String())
 }
 
 func Test_unorderedStringSlicesEqual(t *testing.T) {
@@ -413,23 +541,18 @@ func Test_UpsertVpcAssociation_Create_RAMShared_SetsRamShared(t *testing.T) {
 	assert.True(t, resp.RamShared)
 }
 
-func Test_UpsertVpcAssociation_LocalExisting_MismatchWithSecurityGroupUpdateInProgress_ReturnsRetryError(t *testing.T) {
+func Test_UpsertVpcAssociation_LocalExisting_PrivateDnsUpdateInProgress_ReturnsRetryError(t *testing.T) {
 	e := newDnsTestEnv(t, dnsTestLocalSnArn)
 	e.expectActiveAssociation(dnsTestLocalSnArn, nil, nil)
-	e.expectOwnedLocalAssociation([]string{"sg-old"}, aws.Bool(false), nil)
-	e.mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(e.ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{
-		Arn:    aws.String(dnsTestSnvaArn),
-		Status: types.ServiceNetworkVpcAssociationStatusUpdateInProgress,
-	}, nil)
+	e.expectOwnedLocalAssociation(nil, aws.Bool(false), nil)
+	e.expectUpdate(types.ServiceNetworkVpcAssociationStatusUpdateInProgress, func(input *vpclattice.UpdateServiceNetworkVpcAssociationInput) {})
 
-	resp, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
-		SecurityGroupIds: []string{"sg-new"},
-		Dns:              VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true)},
+	_, err := e.snMgr.UpsertVpcAssociation(e.ctx, dnsTestSnName, VpcAssociationRequest{
+		Dns: VpcAssociationDnsConfig{PrivateDnsEnabled: aws.Bool(true)},
 	})
 
 	var requeue *lattice_runtime.RequeueNeededAfter
-	assert.True(t, errors.As(err, &requeue), "an in-progress update is retried; the mismatch is re-evaluated on the next pass")
-	assert.Empty(t, resp.DnsMismatch)
+	assert.True(t, errors.As(err, &requeue), "an in-progress update is retried until the association is active again")
 }
 
 func Test_DeleteVpcAssociation_DeleteFails_ReturnsCauseNotRetryError(t *testing.T) {

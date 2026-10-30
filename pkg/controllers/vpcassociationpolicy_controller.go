@@ -38,14 +38,8 @@ type (
 const (
 	finalizer = "vpcassociationpolicies.application-networking.k8s.aws/resources"
 
-	recreateSteps = "VPC Lattice only accepts privateDnsEnabled and dnsOptions when an association is created. " +
-		"To apply the policy, set spec.associateWithVpc to false, wait until the association is deleted, then set it back to true; " +
-		"traffic from this VPC to the service network is interrupted while the association is recreated."
-
-	recreateStepsRamShared = "VPC Lattice only accepts privateDnsEnabled and dnsOptions when an association is created, " +
-		"and the controller never deletes an association it did not create on a RAM-shared service network. " +
-		"If this association was created by the controller, set spec.associateWithVpc to false, wait until the association is deleted, then set it back to true; " +
-		"otherwise delete and recreate the association with the desired private DNS settings, or align the policy with the existing association."
+	foreignDnsMismatchSteps = "The controller only changes private DNS settings of associations it created on a RAM-shared service network. " +
+		"Update the association with the desired settings out of band, or align the policy with it."
 )
 
 type vpcAssociationPolicyReconciler struct {
@@ -172,15 +166,9 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 		return err
 	}
 
-	if len(res.DnsMismatch) > 0 {
-		// Private DNS settings cannot be changed in place and recreating the association would
-		// interrupt traffic, so the mismatch is reported and the decision left to the user.
-		steps := recreateSteps
-		if res.RamShared {
-			steps = recreateStepsRamShared
-		}
+	if res.DnsMismatch != nil {
 		msg := fmt.Sprintf("VPC association %s has private DNS settings that differ from this policy: %s. %s",
-			res.Arn, deploy.FormatDnsMismatch(res.DnsMismatch), steps)
+			res.Arn, res.DnsMismatch, foreignDnsMismatchSteps)
 		return c.setProgrammed(ctx, k8sPolicy, metav1.ConditionFalse, anv1alpha1.VpcAssociationPolicyReasonPrivateDnsMismatch, msg,
 			k8s.VpcAssociationPolicyEventReasonPrivateDnsMismatch)
 	}

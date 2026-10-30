@@ -67,7 +67,7 @@ The created service network will be also associated with cluster VPC.
 
 The association created at start-up has private DNS disabled. To resolve the custom domain names of resource
 configurations from the cluster VPC, attach a [VpcAssociationPolicy](../api-types/vpc-association-policy.md#private-dns-for-custom-domain-names)
-with `privateDnsEnabled: true` to the Gateway and, if the association already exists, recreate it as described there.
+with `privateDnsEnabled: true` to the Gateway; an existing association is updated in place.
 
 ---
 

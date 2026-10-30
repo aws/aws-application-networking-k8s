@@ -13,18 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
-	pkg_k8s "github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -256,65 +253,18 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 		}).WithTimeout(5 * time.Minute).Should(Succeed())
 	})
 
-	It("Disable private DNS on the existing association, expecting Programmed=False with reason PrivateDnsMismatch and the association left unchanged", func() {
+	It("Change dnsOptions on the existing association, expecting it updated in place", func() {
 		updatePolicy(func(spec *v1alpha1.VpcAssociationPolicySpec) {
-			spec.PrivateDnsEnabled = lo.ToPtr(false)
-			spec.DnsOptions = nil
-		})
-
-		Eventually(func(g Gomega) {
-			cnd := programmedCondition(g)
-			g.Expect(cnd.Status).To(Equal(metav1.ConditionFalse))
-			g.Expect(cnd.Reason).To(Equal(string(v1alpha1.VpcAssociationPolicyReasonPrivateDnsMismatch)))
-			g.Expect(cnd.Message).To(ContainSubstring("privateDnsEnabled (policy: false, association: true)"))
-			g.Expect(cnd.Message).To(ContainSubstring("set spec.associateWithVpc to false"))
-
-			// The association is never recreated automatically.
-			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
-			g.Expect(err).To(BeNil())
-			g.Expect(associated).To(BeTrue())
-			g.Expect(aws.ToString(snva.Id)).To(Equal(privateDnsSnvaId))
-			output, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
-				ServiceNetworkVpcAssociationIdentifier: snva.Id,
-			})
-			g.Expect(err).To(BeNil())
-			g.Expect(aws.ToBool(output.PrivateDnsEnabled)).To(BeTrue())
-
-			events := &corev1.EventList{}
-			g.Expect(testFramework.List(ctx, events, client.InNamespace(k8snamespace))).To(Succeed())
-			found := false
-			for _, event := range events.Items {
-				if event.InvolvedObject.UID == vpcAssociationPolicy.UID &&
-					event.Reason == pkg_k8s.VpcAssociationPolicyEventReasonPrivateDnsMismatch &&
-					event.Type == corev1.EventTypeWarning {
-					found = true
-					break
-				}
-			}
-			g.Expect(found).To(BeTrue(), "expected a PrivateDnsMismatch warning event on the policy")
-		}).WithTimeout(3 * time.Minute).Should(Succeed())
-	})
-
-	It("Recreate the association through associateWithVpc false then true, expecting the new private DNS settings", func() {
-		updatePolicy(func(spec *v1alpha1.VpcAssociationPolicySpec) {
-			spec.AssociateWithVpc = lo.ToPtr(false)
-		})
-		Eventually(func(g Gomega) {
-			expectNoAssociation(g)
-		}).WithTimeout(5 * time.Minute).Should(Succeed())
-
-		updatePolicy(func(spec *v1alpha1.VpcAssociationPolicySpec) {
-			spec.AssociateWithVpc = lo.ToPtr(true)
-			spec.PrivateDnsEnabled = lo.ToPtr(true)
 			spec.DnsOptions = &v1alpha1.VpcAssociationDnsOptions{
 				PrivateDnsPreference: lo.ToPtr(v1alpha1.PrivateDnsPreferenceVerifiedDomainsOnly),
 			}
 		})
+
 		Eventually(func(g Gomega) {
 			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
 			g.Expect(err).To(BeNil())
 			g.Expect(associated).To(BeTrue())
-			g.Expect(aws.ToString(snva.Id)).ToNot(Equal(privateDnsSnvaId))
+			g.Expect(aws.ToString(snva.Id)).To(Equal(privateDnsSnvaId), "the association must not be recreated")
 
 			output, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 				ServiceNetworkVpcAssociationIdentifier: snva.Id,
@@ -323,6 +273,31 @@ var _ = Describe("Test vpc association policy", Serial, Ordered, func() {
 			g.Expect(aws.ToBool(output.PrivateDnsEnabled)).To(BeTrue())
 			g.Expect(output.DnsOptions).ToNot(BeNil())
 			g.Expect(output.DnsOptions.PrivateDnsPreference).To(Equal(vpclatticetypes.PrivateDnsPreferenceVerifiedDomainsOnly))
+			g.Expect(output.SecurityGroupIds).To(ConsistOf(string(sgId)))
+
+			cnd := programmedCondition(g)
+			g.Expect(cnd.Status).To(Equal(metav1.ConditionTrue))
+			g.Expect(cnd.Reason).To(Equal(string(v1alpha1.VpcAssociationPolicyReasonProgrammed)))
+		}).WithTimeout(5 * time.Minute).Should(Succeed())
+	})
+
+	It("Disable private DNS on the existing association, expecting it updated in place", func() {
+		updatePolicy(func(spec *v1alpha1.VpcAssociationPolicySpec) {
+			spec.PrivateDnsEnabled = lo.ToPtr(false)
+			spec.DnsOptions = nil
+		})
+
+		Eventually(func(g Gomega) {
+			associated, snva, err := testFramework.IsVpcAssociatedWithServiceNetwork(ctx, test.CurrentClusterVpcId, testServiceNetwork)
+			g.Expect(err).To(BeNil())
+			g.Expect(associated).To(BeTrue())
+			g.Expect(aws.ToString(snva.Id)).To(Equal(privateDnsSnvaId), "the association must not be recreated")
+
+			output, err := testFramework.LatticeClient.GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
+				ServiceNetworkVpcAssociationIdentifier: snva.Id,
+			})
+			g.Expect(err).To(BeNil())
+			g.Expect(aws.ToBool(output.PrivateDnsEnabled)).To(BeFalse())
 
 			cnd := programmedCondition(g)
 			g.Expect(cnd.Status).To(Equal(metav1.ConditionTrue))

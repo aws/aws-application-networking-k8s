@@ -42,10 +42,9 @@ The security group and private DNS settings will not take effect if:
 
 Additionally:
 
-* `privateDnsEnabled` and `dnsOptions` are applied only when the association is created. VPC Lattice cannot change them
-  on an existing association; see [Private DNS for custom domain names](#private-dns-for-custom-domain-names).
 * On a RAM-shared service network the controller creates a missing association with the policy's settings, but it
-  never updates security groups or tags of an existing association and never deletes an association it did not create.
+  never updates security groups or tags of an existing association, and never updates private DNS settings of or
+  deletes an association it did not create.
 * The association created at controller start-up for `DEFAULT_SERVICE_NETWORK` is created without private DNS.
 
 ### Private DNS for custom domain names
@@ -78,42 +77,40 @@ without domains. See the
 [VPC Lattice documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers)
 for the semantics of each preference.
 
-!!! warning "Private DNS settings are applied only when the association is created"
-    VPC Lattice accepts `privateDnsEnabled` and `dnsOptions` only on `CreateServiceNetworkVpcAssociation`. If the
-    association already exists with different settings, the controller keeps it, sets the `Programmed` condition to
-    `False` with reason `PrivateDnsMismatch` and emits a `Warning` event with the same message. It never recreates the
-    association on its own, because that interrupts traffic between the cluster VPC and the service network.
+!!! warning "Changes apply to the existing association"
+    If the association already exists with different settings, the controller updates it in place, including when the
+    settings were changed outside the controller: a policy with `privateDnsEnabled: false` turns off private DNS that
+    was enabled by other means. Private hosted zones are added to or removed from the cluster VPC accordingly, which
+    changes how those names resolve.
 
-    To apply the new settings follow the steps in [Recreating the VPC association](#recreating-the-vpc-association).
+    When `privateDnsEnabled` is unset nothing is sent or compared. When `privateDnsPreference` is unset the preference
+    of an existing association is not compared, so removing `dnsOptions` does not reset it: set the preference you want
+    explicitly.
 
-Associations created by earlier controller versions, by the `DEFAULT_SERVICE_NETWORK` start-up path or with the CLI
-without `--private-dns-enabled` have private DNS disabled and must be recreated to enable it.
+On a RAM-shared service network the controller only updates associations it created. Any other association is left
+unchanged: the `Programmed` condition is set to `False` with reason `PrivateDnsMismatch` and a `Warning` event is emitted
+with the same message. Update the association out of band, or align the policy with it.
 
 ### Recreating the VPC association
 
-Two kinds of changes cannot be applied in place by the VPC Lattice `UpdateServiceNetworkVpcAssociation` API:
-
-* Removing all security groups: if you have a VpcAssociationPolicy attached to a gateway that already has security
-  groups applied, updating the VpcAssociationPolicy with empty security group ids or deleting the VpcAssociationPolicy
-  will NOT remove the security groups from the gateway.
-* Changing `privateDnsEnabled` or `dnsOptions`.
+Removing all security groups cannot be applied in place by the VPC Lattice `UpdateServiceNetworkVpcAssociation` API: if
+you have a VpcAssociationPolicy attached to a gateway that already has security groups applied, updating the
+VpcAssociationPolicy with empty security group ids or deleting the VpcAssociationPolicy will NOT remove the security
+groups from the gateway.
 
 To apply such a change, delete the VPC association and re-create it by following these steps:
 
 1. Update the VpcAssociationPolicy by setting `associateWithVpc` to `false`, together with the desired security group
-   ids and private DNS settings.
+   ids.
 2. Wait until the association is gone: `kubectl describe vap <name>` shows the `Programmed` condition `True` with the
    message `No VPC association is managed`, and `aws vpc-lattice list-service-network-vpc-associations --vpc-identifier <vpc-id>`
    no longer lists the association.
 3. Update the VpcAssociationPolicy by setting `associateWithVpc` back to `true`.
 
 Note: Setting `associateWithVpc` to false will disable traffic from the current cluster workloads to the gateway until the
-association is recreated. If the controller runs with `DEFAULT_SERVICE_NETWORK` set to this service network, do not
-restart it between steps 1 and 3: the start-up path would recreate the association without private DNS.
+association is recreated.
 
-On a RAM-shared service network the controller only deletes associations it created. An association created with the
-CLI or console must be deleted and recreated with the desired settings out of band, or the policy must be aligned with
-it.
+On a RAM-shared service network the controller only deletes associations it created.
 
 ### Upgrading the CRD
 
@@ -129,8 +126,7 @@ kubectl explain vpcassociationpolicy.spec.privateDnsEnabled
 The controller logs a warning at start-up when the installed CRD does not define `spec.privateDnsEnabled`.
 With a stale CRD, `kubectl apply` rejects the policy with `unknown field "spec.privateDnsEnabled"`. Clients that skip
 field validation (Helm-rendered resources, GitOps tools, raw API clients) get the fields pruned instead: `kubectl get vap
-<name> -o yaml` shows no `privateDnsEnabled`, the association is created with private DNS disabled and no
-`PrivateDnsMismatch` condition ever appears. Installations that apply the release `deploy.yaml` get the CRD with it.
+<name> -o yaml` shows no `privateDnsEnabled` and the association keeps private DNS disabled. Installations that apply the release `deploy.yaml` get the CRD with it.
 
 ## Status
 
@@ -141,12 +137,13 @@ field validation (Helm-rendered resources, GitOps tools, raw API clients) get th
 |---|---|---|
 | `Accepted` | `True` / `Accepted` | The `targetRef` is valid and this policy wins conflict resolution. Other reasons follow the Gateway API policy attachment conventions (`Invalid`, `TargetNotFound`, `Conflicted`). |
 | `Programmed` | `True` / `Programmed` | The association is active and matches the policy (on a RAM-shared service network only the private DNS settings are compared), or `associateWithVpc` is `false` and no association is managed. |
-| `Programmed` | `Unknown` / `Pending` | VPC Lattice is still creating or deleting the association, the service network does not exist yet, or a transient VPC Lattice error (throttling, internal error, conflict) is being retried. |
+| `Programmed` | `Unknown` / `Pending` | VPC Lattice is still creating, updating or deleting the association, the service network does not exist yet, or a transient VPC Lattice error (throttling, internal error, conflict) is being retried. |
 | `Programmed` | `Unknown` / `NotAccepted` | The policy is not accepted; see the `Accepted` condition. Nothing is created or deleted for it. |
-| `Programmed` | `False` / `PrivateDnsMismatch` | The association exists with private DNS settings that differ from the policy. The message lists the difference and the recreate steps. |
+| `Programmed` | `False` / `PrivateDnsMismatch` | An association the controller did not create on a RAM-shared service network has private DNS settings that differ from the policy. The message lists the difference. |
 | `Programmed` | `False` / `ReconcileFailed` | The last create, update or delete failed: a VPC Lattice error (for example `ValidationException`), or an existing association that is not owned by the controller. The message carries the cause. |
 
-Example after changing `dnsOptions` on an existing association:
+Example after changing `dnsOptions` on a policy whose association was created outside the controller on a RAM-shared
+service network:
 
 ```yaml
 status:
@@ -157,7 +154,7 @@ status:
   - type: Programmed
     status: "False"
     reason: PrivateDnsMismatch
-    message: 'VPC association arn:aws:vpc-lattice:...:servicenetworkvpcassociation/snva-0123 has private DNS settings that differ from this policy: dnsOptions.privateDnsPreference (policy: ALL_DOMAINS, association: VERIFIED_DOMAINS_ONLY). VPC Lattice only accepts privateDnsEnabled and dnsOptions when an association is created. ...'
+    message: 'VPC association arn:aws:vpc-lattice:...:servicenetworkvpcassociation/snva-0123 has private DNS settings that differ from this policy: dnsOptions.privateDnsPreference (policy: ALL_DOMAINS, association: VERIFIED_DOMAINS_ONLY). The controller only changes private DNS settings of associations it created on a RAM-shared service network. ...'
 ```
 
 ## Example Configuration

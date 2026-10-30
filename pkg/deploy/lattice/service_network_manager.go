@@ -2,6 +2,7 @@ package lattice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
+	"github.com/aws/smithy-go"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
@@ -25,7 +27,8 @@ import (
 
 type ServiceNetworkManager interface {
 	// UpsertVpcAssociation creates or updates the association between the service network and the
-	// cluster VPC. Private DNS settings are create-only; differences are reported, not applied.
+	// cluster VPC. Private DNS differences are applied in place, except on associations the controller
+	// did not create on a RAM-shared service network, where they are reported.
 	UpsertVpcAssociation(ctx context.Context, snName string, req VpcAssociationRequest) (VpcAssociationResult, error)
 	DeleteVpcAssociation(ctx context.Context, snName string) error
 
@@ -53,7 +56,7 @@ type VpcAssociationRequest struct {
 	Dns              VpcAssociationDnsConfig
 }
 
-// VpcAssociationDnsMismatch is one private DNS setting whose live value differs from the policy.
+// VpcAssociationDnsMismatch is a private DNS setting whose live value differs from the policy.
 type VpcAssociationDnsMismatch struct {
 	Field  string // "privateDnsEnabled", "dnsOptions.privateDnsPreference" or "dnsOptions.privateDnsSpecifiedDomains"
 	Policy string
@@ -63,9 +66,9 @@ type VpcAssociationDnsMismatch struct {
 type VpcAssociationResult struct {
 	Arn       string
 	RamShared bool // the service network belongs to another account
-	// DnsMismatch is set when an existing association has private DNS settings that differ from the
-	// request; VPC Lattice cannot change them in place, so the association is left as is.
-	DnsMismatch []VpcAssociationDnsMismatch
+	// DnsMismatch is set when an association the controller did not create on a RAM-shared service
+	// network has private DNS settings that differ from the request; it is left as is.
+	DnsMismatch *VpcAssociationDnsMismatch
 }
 
 func NewDefaultServiceNetworkManager(log gwlog.Logger, cloud pkg_aws.Cloud) *defaultServiceNetworkManager {
@@ -97,7 +100,7 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 		return m.createVpcAssociation(ctx, sn.SvcNetwork.Id, req, !isLocal)
 	}
 
-	var mismatch []VpcAssociationDnsMismatch
+	var mismatch *VpcAssociationDnsMismatch
 	if isLocal {
 		owned, err := m.cloud.TryOwn(ctx, *snva.Arn, false)
 		if err != nil {
@@ -107,17 +110,19 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 			return VpcAssociationResult{}, services.NewConflictError("snva", snName,
 				fmt.Sprintf("Found existing vpc association not owned by controller: %s", *snva.Arn))
 		}
-		mismatch, err = m.updateServiceNetworkVpcAssociation(ctx, req, snva.Id)
-		if err != nil {
+		if err := m.updateServiceNetworkVpcAssociation(ctx, req, snva.Id); err != nil {
 			return VpcAssociationResult{}, err
 		}
 	} else {
-		// associations on RAM-shared service networks are only observed, never modified
+		// security groups and tags of associations on RAM-shared service networks are never modified
 		m.log.Infof(ctx, "Using existing VPC association for RAM-shared service network %s: %s", snName, *snva.Arn)
-		mismatch = m.ramSharedDnsMismatch(ctx, req.Dns, snva)
+		mismatch, err = m.reconcileRamSharedDns(ctx, req.Dns, snva)
+		if err != nil {
+			return VpcAssociationResult{}, err
+		}
 	}
-	if len(mismatch) > 0 {
-		m.log.Infof(ctx, "vpc association %s has private DNS settings that differ from the policy: %s", *snva.Arn, FormatDnsMismatch(mismatch))
+	if mismatch != nil {
+		m.log.Infof(ctx, "vpc association %s has private DNS settings that differ from the policy: %s", *snva.Arn, mismatch)
 	}
 	return VpcAssociationResult{Arn: *snva.Arn, RamShared: !isLocal, DnsMismatch: mismatch}, nil
 }
@@ -141,20 +146,47 @@ func (m *defaultServiceNetworkManager) createVpcAssociation(ctx context.Context,
 	return res, nil
 }
 
-// ramSharedDnsMismatch reads the association (falling back to the List summary when the read fails,
-// for example when another account created it) and compares its private DNS settings with the policy.
-func (m *defaultServiceNetworkManager) ramSharedDnsMismatch(ctx context.Context, desired VpcAssociationDnsConfig, snva *types.ServiceNetworkVpcAssociationSummary) []VpcAssociationDnsMismatch {
+// reconcileRamSharedDns compares the association's private DNS settings with the policy, reading it
+// (falling back to the List summary when the read fails, for example when another account created it).
+// Differences are applied when the controller created the association and returned otherwise.
+func (m *defaultServiceNetworkManager) reconcileRamSharedDns(ctx context.Context, desired VpcAssociationDnsConfig, snva *types.ServiceNetworkVpcAssociationSummary) (*VpcAssociationDnsMismatch, error) {
 	if desired.PrivateDnsEnabled == nil {
-		return nil
+		return nil, nil
 	}
+	actualEnabled, actualOptions := snva.PrivateDnsEnabled, snva.DnsOptions
 	live, err := m.cloud.Lattice().GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 		ServiceNetworkVpcAssociationIdentifier: snva.Id,
 	})
 	if err != nil {
 		m.log.Debugf(ctx, "falling back to the association summary for private DNS comparison of %s: %s", aws.ToString(snva.Arn), err)
-		return dnsMismatch(desired, snva.PrivateDnsEnabled, snva.DnsOptions)
+	} else {
+		actualEnabled, actualOptions = live.PrivateDnsEnabled, live.DnsOptions
 	}
-	return dnsMismatch(desired, live.PrivateDnsEnabled, live.DnsOptions)
+	mismatch := dnsMismatch(desired, actualEnabled, actualOptions)
+	if mismatch == nil {
+		return nil, nil
+	}
+	managed, err := m.cloud.IsArnManaged(ctx, *snva.Arn)
+	if err != nil && !isForeignAssociationError(err) {
+		return nil, err
+	}
+	if !managed {
+		return mismatch, nil
+	}
+	input := &vpclattice.UpdateServiceNetworkVpcAssociationInput{ServiceNetworkVpcAssociationIdentifier: snva.Id}
+	desired.applyTo(input)
+	return nil, m.sendVpcAssociationUpdate(ctx, input)
+}
+
+// isForeignAssociationError reports the errors returned when reading the tags of an association
+// created by another account.
+func isForeignAssociationError(err error) bool {
+	var apiErr smithy.APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	code := apiErr.ErrorCode()
+	return code == "AccessDeniedException" || code == "NotFoundException" || code == "ResourceNotFoundException"
 }
 
 // isLocalServiceNetwork determines if a service network belongs to the current AWS account
@@ -395,37 +427,52 @@ func (m *defaultServiceNetworkManager) Delete(ctx context.Context, snName string
 	return nil
 }
 
-// updateServiceNetworkVpcAssociation updates tags and security groups in place and reports private
-// DNS settings that differ, since those cannot be updated.
-func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx context.Context, req VpcAssociationRequest, existingSnvaId *string) ([]VpcAssociationDnsMismatch, error) {
+// updateServiceNetworkVpcAssociation updates tags, security groups and private DNS settings in place.
+func (m *defaultServiceNetworkManager) updateServiceNetworkVpcAssociation(ctx context.Context, req VpcAssociationRequest, existingSnvaId *string) error {
 	snva, err := m.cloud.Lattice().GetServiceNetworkVpcAssociation(ctx, &vpclattice.GetServiceNetworkVpcAssociationInput{
 		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	mismatch := dnsMismatch(req.Dns, snva.PrivateDnsEnabled, snva.DnsOptions)
 
 	err = m.cloud.Tagging().UpdateTags(ctx, aws.ToString(snva.Arn), req.AdditionalTags, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update tags for service network vpc association %s: %w", aws.ToString(snva.Id), err)
+		return fmt.Errorf("failed to update tags for service network vpc association %s: %w", aws.ToString(snva.Id), err)
 	}
 
-	if unorderedStringSlicesEqual(req.SecurityGroupIds, snva.SecurityGroupIds) {
-		// desired security group ids are the same as the association's, no update needed
-		return mismatch, nil
+	sgChanged := !unorderedStringSlicesEqual(req.SecurityGroupIds, snva.SecurityGroupIds)
+	dnsChanged := dnsMismatch(req.Dns, snva.PrivateDnsEnabled, snva.DnsOptions) != nil
+	if !sgChanged && !dnsChanged {
+		return nil
 	}
-	updateSnvaResp, err := m.cloud.Lattice().UpdateServiceNetworkVpcAssociation(ctx, &vpclattice.UpdateServiceNetworkVpcAssociationInput{
-		ServiceNetworkVpcAssociationIdentifier: existingSnvaId,
-		SecurityGroupIds:                       req.SecurityGroupIds,
-	})
+	input := &vpclattice.UpdateServiceNetworkVpcAssociationInput{ServiceNetworkVpcAssociationIdentifier: existingSnvaId}
+	if dnsChanged {
+		req.Dns.applyTo(input)
+	}
+	// VPC Lattice rejects an empty list. It must not block a private DNS change: the rejection is
+	// surfaced on the next reconcile, once private DNS matches.
+	if sgChanged && (len(req.SecurityGroupIds) > 0 || !dnsChanged) {
+		input.SecurityGroupIds = req.SecurityGroupIds
+	}
+	return m.sendVpcAssociationUpdate(ctx, input)
+}
+
+func (m *defaultServiceNetworkManager) sendVpcAssociationUpdate(ctx context.Context, input *vpclattice.UpdateServiceNetworkVpcAssociationInput) error {
+	updateSnvaResp, err := m.cloud.Lattice().UpdateServiceNetworkVpcAssociation(ctx, input)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if string(updateSnvaResp.Status) == string(types.ServiceNetworkVpcAssociationStatusActive) {
-		return mismatch, nil
+		return nil
 	}
-	return nil, fmt.Errorf("%w, update snva status: %s", lattice_runtime.NewRetryError(), string(updateSnvaResp.Status))
+	return fmt.Errorf("%w, update snva status: %s", lattice_runtime.NewRetryError(), string(updateSnvaResp.Status))
+}
+
+// applyTo sets the private DNS fields of an update, leaving security groups untouched.
+func (d VpcAssociationDnsConfig) applyTo(input *vpclattice.UpdateServiceNetworkVpcAssociationInput) {
+	input.PrivateDnsEnabled = d.PrivateDnsEnabled
+	input.DnsOptions = d.latticeDnsOptions()
 }
 
 // latticeDnsOptions is nil unless private DNS is enabled and an option is set, so VPC Lattice applies its defaults.
@@ -447,14 +494,14 @@ func usesSpecifiedDomains(preference string) bool {
 // dnsMismatch compares the policy's private DNS settings with an existing association. Only settings
 // the policy sets are compared, VPC Lattice defaults are normalised (nil enabled == false, empty
 // preference == VERIFIED_DOMAINS_ONLY) and only the most significant difference is returned, since
-// every difference has the same remedy: recreating the association.
-func dnsMismatch(desired VpcAssociationDnsConfig, actualEnabled *bool, actual *types.DnsOptions) []VpcAssociationDnsMismatch {
+// an update sends all the settings anyway.
+func dnsMismatch(desired VpcAssociationDnsConfig, actualEnabled *bool, actual *types.DnsOptions) *VpcAssociationDnsMismatch {
 	if desired.PrivateDnsEnabled == nil {
 		return nil
 	}
 	want, got := *desired.PrivateDnsEnabled, aws.ToBool(actualEnabled)
 	if want != got {
-		return []VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: strconv.FormatBool(want), Actual: strconv.FormatBool(got)}}
+		return &VpcAssociationDnsMismatch{Field: "privateDnsEnabled", Policy: strconv.FormatBool(want), Actual: strconv.FormatBool(got)}
 	}
 	if !want {
 		return nil
@@ -467,21 +514,17 @@ func dnsMismatch(desired VpcAssociationDnsConfig, actualEnabled *bool, actual *t
 		}
 	}
 	if desired.PrivateDnsPreference != "" && desired.PrivateDnsPreference != actualPref {
-		return []VpcAssociationDnsMismatch{{Field: "dnsOptions.privateDnsPreference", Policy: desired.PrivateDnsPreference, Actual: actualPref}}
+		return &VpcAssociationDnsMismatch{Field: "dnsOptions.privateDnsPreference", Policy: desired.PrivateDnsPreference, Actual: actualPref}
 	}
 	if usesSpecifiedDomains(desired.PrivateDnsPreference) && !slices.Equal(normalizedDomains(desired.PrivateDnsSpecifiedDomains), normalizedDomains(actualDomains)) {
-		return []VpcAssociationDnsMismatch{{Field: "dnsOptions.privateDnsSpecifiedDomains", Policy: formatDomains(desired.PrivateDnsSpecifiedDomains), Actual: formatDomains(actualDomains)}}
+		return &VpcAssociationDnsMismatch{Field: "dnsOptions.privateDnsSpecifiedDomains", Policy: formatDomains(desired.PrivateDnsSpecifiedDomains), Actual: formatDomains(actualDomains)}
 	}
 	return nil
 }
 
-// FormatDnsMismatch renders mismatches as "field (policy: X, association: Y)" entries joined by "; ".
-func FormatDnsMismatch(mismatch []VpcAssociationDnsMismatch) string {
-	parts := make([]string, 0, len(mismatch))
-	for _, d := range mismatch {
-		parts = append(parts, fmt.Sprintf("%s (policy: %s, association: %s)", d.Field, d.Policy, d.Actual))
-	}
-	return strings.Join(parts, "; ")
+// String renders the mismatch as "field (policy: X, association: Y)".
+func (d *VpcAssociationDnsMismatch) String() string {
+	return fmt.Sprintf("%s (policy: %s, association: %s)", d.Field, d.Policy, d.Actual)
 }
 
 // normalizedDomains lower-cases, trims trailing dots and sorts, so lists compare regardless of order or spelling.

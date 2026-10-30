@@ -266,7 +266,8 @@ func Test_VpcAssociationPolicy_PrivateDnsMismatch_SetsProgrammedFalse_EmitsWarni
 	e.manager.EXPECT().UpsertVpcAssociation(gomock.Any(), vapTestGateway, gomock.Any()).
 		Return(deploy.VpcAssociationResult{
 			Arn:         vapTestSnvaArn,
-			DnsMismatch: []deploy.VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}},
+			RamShared:   true,
+			DnsMismatch: &deploy.VpcAssociationDnsMismatch{Field: "privateDnsEnabled", Policy: "true", Actual: "false"},
 		}, nil).Times(2)
 
 	for i := 0; i < 2; i++ {
@@ -282,33 +283,11 @@ func Test_VpcAssociationPolicy_PrivateDnsMismatch_SetsProgrammedFalse_EmitsWarni
 		assert.Equal(t, metav1.ConditionFalse, programmed.Status)
 		assert.Equal(t, string(anv1alpha1.VpcAssociationPolicyReasonPrivateDnsMismatch), programmed.Reason)
 		assert.Contains(t, programmed.Message, "privateDnsEnabled (policy: true, association: false)")
-		assert.Contains(t, programmed.Message, "set spec.associateWithVpc to false")
-		assert.NotContains(t, programmed.Message, "RAM-shared")
+		assert.Contains(t, programmed.Message, "out of band")
 	}
 	events := e.drainEvents()
 	if assert.Len(t, events, 1, "the warning is emitted only when the condition changes") {
 		assert.True(t, strings.HasPrefix(events[0], "Warning "+k8s.VpcAssociationPolicyEventReasonPrivateDnsMismatch), events[0])
-	}
-}
-
-func Test_VpcAssociationPolicy_PrivateDnsMismatch_RamShared_UsesSharedRemediation(t *testing.T) {
-	e := newVapTestEnv(t, newVapTestPolicy(func(spec *anv1alpha1.VpcAssociationPolicySpec) {
-		spec.PrivateDnsEnabled = aws.Bool(true)
-	}), newVapTestGateway())
-	e.manager.EXPECT().UpsertVpcAssociation(gomock.Any(), vapTestGateway, gomock.Any()).
-		Return(deploy.VpcAssociationResult{
-			Arn:         vapTestSnvaArn,
-			RamShared:   true,
-			DnsMismatch: []deploy.VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}},
-		}, nil)
-
-	_, err := e.reconcile(t)
-	assert.NoError(t, err)
-	programmed := e.programmed(t)
-	if assert.NotNil(t, programmed) {
-		assert.Equal(t, metav1.ConditionFalse, programmed.Status)
-		assert.Contains(t, programmed.Message, "RAM-shared")
-		assert.Contains(t, programmed.Message, "delete and recreate the association")
 	}
 }
 
@@ -320,7 +299,8 @@ func Test_VpcAssociationPolicy_MismatchResolved_FlipsProgrammedBackToTrue(t *tes
 		e.manager.EXPECT().UpsertVpcAssociation(gomock.Any(), vapTestGateway, gomock.Any()).
 			Return(deploy.VpcAssociationResult{
 				Arn:         vapTestSnvaArn,
-				DnsMismatch: []deploy.VpcAssociationDnsMismatch{{Field: "privateDnsEnabled", Policy: "true", Actual: "false"}},
+				RamShared:   true,
+				DnsMismatch: &deploy.VpcAssociationDnsMismatch{Field: "privateDnsEnabled", Policy: "true", Actual: "false"},
 			}, nil),
 		e.manager.EXPECT().UpsertVpcAssociation(gomock.Any(), vapTestGateway, gomock.Any()).
 			Return(deploy.VpcAssociationResult{Arn: vapTestSnvaArn + "-new"}, nil),

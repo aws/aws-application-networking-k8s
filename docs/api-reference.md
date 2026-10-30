@@ -783,9 +783,9 @@ configurations associated with the service network, as selected by DnsOptions. T
 network owner must also enable private DNS on the resource association.</p>
 <p>When unset, the association is created with private DNS disabled (the VPC Lattice default)
 and the setting is not compared on an existing association.</p>
-<p>VPC Lattice only accepts this setting when the association is created. If an existing
-association differs, the controller keeps it and reports the &ldquo;Programmed&rdquo; condition with
-reason &ldquo;PrivateDnsMismatch&rdquo;; set AssociateWithVpc to false and back to true to recreate it.</p>
+<p>If an existing association differs, the controller updates it in place. On a RAM-shared service
+network it only does so for associations it created; for any other association it reports the
+&ldquo;Programmed&rdquo; condition with reason &ldquo;PrivateDnsMismatch&rdquo; and leaves the association unchanged.</p>
 <p>For more details, please check the VPC Lattice documentation <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers">https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers</a></p>
 </td>
 </tr>
@@ -801,8 +801,8 @@ VpcAssociationDnsOptions
 <td>
 <em>(Optional)</em>
 <p>DnsOptions selects which custom domain names get private DNS in the cluster VPC.
-It can only be set when PrivateDnsEnabled is true and, like PrivateDnsEnabled, is only applied
-when the VpcServiceNetworkAssociation is created.</p>
+It can only be set when PrivateDnsEnabled is true. Removing it does not reset an existing
+association to the VPC Lattice defaults: set the desired privateDnsPreference explicitly instead.</p>
 </td>
 </tr>
 <tr>
@@ -2008,9 +2008,9 @@ configurations associated with the service network, as selected by DnsOptions. T
 network owner must also enable private DNS on the resource association.</p>
 <p>When unset, the association is created with private DNS disabled (the VPC Lattice default)
 and the setting is not compared on an existing association.</p>
-<p>VPC Lattice only accepts this setting when the association is created. If an existing
-association differs, the controller keeps it and reports the &ldquo;Programmed&rdquo; condition with
-reason &ldquo;PrivateDnsMismatch&rdquo;; set AssociateWithVpc to false and back to true to recreate it.</p>
+<p>If an existing association differs, the controller updates it in place. On a RAM-shared service
+network it only does so for associations it created; for any other association it reports the
+&ldquo;Programmed&rdquo; condition with reason &ldquo;PrivateDnsMismatch&rdquo; and leaves the association unchanged.</p>
 <p>For more details, please check the VPC Lattice documentation <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers">https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers</a></p>
 </td>
 </tr>
@@ -2026,8 +2026,8 @@ VpcAssociationDnsOptions
 <td>
 <em>(Optional)</em>
 <p>DnsOptions selects which custom domain names get private DNS in the cluster VPC.
-It can only be set when PrivateDnsEnabled is true and, like PrivateDnsEnabled, is only applied
-when the VpcServiceNetworkAssociation is created.</p>
+It can only be set when PrivateDnsEnabled is true. Removing it does not reset an existing
+association to the VPC Lattice defaults: set the desired privateDnsPreference explicitly instead.</p>
 </td>
 </tr>
 <tr>
@@ -2090,5 +2090,5 @@ vocabulary to describe VpcAssociationPolicy state.</p>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>03d6abe</code>.
+on git commit <code>e46658d</code>.
 </em></p>

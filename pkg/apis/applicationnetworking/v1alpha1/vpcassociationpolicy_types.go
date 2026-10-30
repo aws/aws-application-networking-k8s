@@ -16,7 +16,7 @@ const (
 	VpcAssociationPolicyReasonProgrammed gwv1.PolicyConditionReason = "Programmed"
 	// Programmed=Unknown: the association is being created, updated or deleted.
 	VpcAssociationPolicyReasonPending gwv1.PolicyConditionReason = "Pending"
-	// Programmed=False: the association has different private DNS settings, which VPC Lattice only accepts at creation.
+	// Programmed=False: the association has different private DNS settings and the controller did not create it.
 	VpcAssociationPolicyReasonPrivateDnsMismatch gwv1.PolicyConditionReason = "PrivateDnsMismatch"
 	// Programmed=False: the last create, update or delete failed.
 	VpcAssociationPolicyReasonReconcileFailed gwv1.PolicyConditionReason = "ReconcileFailed"
@@ -138,9 +138,9 @@ type VpcAssociationPolicySpec struct {
 	// When unset, the association is created with private DNS disabled (the VPC Lattice default)
 	// and the setting is not compared on an existing association.
 	//
-	// VPC Lattice only accepts this setting when the association is created. If an existing
-	// association differs, the controller keeps it and reports the "Programmed" condition with
-	// reason "PrivateDnsMismatch"; set AssociateWithVpc to false and back to true to recreate it.
+	// If an existing association differs, the controller updates it in place. On a RAM-shared service
+	// network it only does so for associations it created; for any other association it reports the
+	// "Programmed" condition with reason "PrivateDnsMismatch" and leaves the association unchanged.
 	//
 	// For more details, please check the VPC Lattice documentation https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers
 	//
@@ -148,8 +148,8 @@ type VpcAssociationPolicySpec struct {
 	PrivateDnsEnabled *bool `json:"privateDnsEnabled,omitempty"`
 
 	// DnsOptions selects which custom domain names get private DNS in the cluster VPC.
-	// It can only be set when PrivateDnsEnabled is true and, like PrivateDnsEnabled, is only applied
-	// when the VpcServiceNetworkAssociation is created.
+	// It can only be set when PrivateDnsEnabled is true. Removing it does not reset an existing
+	// association to the VPC Lattice defaults: set the desired privateDnsPreference explicitly instead.
 	//
 	// +optional
 	DnsOptions *VpcAssociationDnsOptions `json:"dnsOptions,omitempty"`
