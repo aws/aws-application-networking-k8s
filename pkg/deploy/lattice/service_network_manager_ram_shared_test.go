@@ -138,10 +138,11 @@ func Test_UpsertVpcAssociation_RAMSharedNetwork_ExistingAssociation(t *testing.T
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, nil)
+	resp, err := snMgr.UpsertVpcAssociation(ctx, name, VpcAssociationRequest{SecurityGroupIds: securityGroupIds})
 
 	assert.Nil(t, err)
-	assert.Equal(t, snvaArn, resp, "Should return existing VPC association ARN for RAM-shared network")
+	assert.Equal(t, snvaArn, resp.Arn, "Should return existing VPC association ARN for RAM-shared network")
+	assert.True(t, resp.RamShared)
 }
 
 // Test_UpsertVpcAssociation_RAMSharedNetwork_ReadOnly tests that RAM-shared networks are read-only
@@ -191,10 +192,11 @@ func Test_UpsertVpcAssociation_RAMSharedNetwork_ReadOnly(t *testing.T) {
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	resp, err := snMgr.UpsertVpcAssociation(ctx, name, newSecurityGroupIds, nil)
+	resp, err := snMgr.UpsertVpcAssociation(ctx, name, VpcAssociationRequest{SecurityGroupIds: newSecurityGroupIds})
 
 	assert.Nil(t, err)
-	assert.Equal(t, snvaArn, resp, "Should return existing VPC association ARN without modifications")
+	assert.Equal(t, snvaArn, resp.Arn, "Should return existing VPC association ARN without modifications")
+	assert.True(t, resp.RamShared)
 }
 
 // Test_UpsertVpcAssociation_LocalNetwork_WithUpdates tests that local networks CAN be updated
@@ -263,8 +265,9 @@ func Test_UpsertVpcAssociation_LocalNetwork_WithUpdates(t *testing.T) {
 	}, nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	resp, err := snMgr.UpsertVpcAssociation(ctx, name, newSecurityGroupIds, nil)
+	resp, err := snMgr.UpsertVpcAssociation(ctx, name, VpcAssociationRequest{SecurityGroupIds: newSecurityGroupIds})
 
 	assert.Nil(t, err)
-	assert.Equal(t, snvaArn, resp, "Should return VPC association ARN after successful update")
+	assert.Equal(t, snvaArn, resp.Arn, "Should return VPC association ARN after successful update")
+	assert.False(t, resp.RamShared)
 }

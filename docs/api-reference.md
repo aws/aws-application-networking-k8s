@@ -770,6 +770,43 @@ bool
 </tr>
 <tr>
 <td>
+<code>privateDnsEnabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PrivateDnsEnabled enables private DNS on the VpcServiceNetworkAssociation: VPC Lattice then
+provisions private hosted zones in the cluster VPC for the custom domain names of resource
+configurations associated with the service network, as selected by DnsOptions. The service
+network owner must also enable private DNS on the resource association.</p>
+<p>When unset, the association is created with private DNS disabled (the VPC Lattice default)
+and the setting is not compared on an existing association.</p>
+<p>If an existing association differs, the controller updates it in place. On a RAM-shared service
+network it only does so for associations it created; for any other association it reports the
+&ldquo;Programmed&rdquo; condition with reason &ldquo;PrivateDnsMismatch&rdquo; and leaves the association unchanged.</p>
+<p>For more details, please check the VPC Lattice documentation <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers">https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dnsOptions</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationDnsOptions">
+VpcAssociationDnsOptions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DnsOptions selects which custom domain names get private DNS in the cluster VPC.
+It can only be set when PrivateDnsEnabled is true. Removing it does not reset an existing
+association to the VPC Lattice defaults: set the desired privateDnsPreference explicitly instead.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>targetRef</code><br/>
 <em>
 <a href="https://gateway-api.sigs.k8s.io/geps/gep-713/?h=policytargetreference#policy-targetref-api">
@@ -1224,6 +1261,48 @@ vocabulary to describe IAMAuthPolicy state.</p>
 </td>
 </tr>
 </tbody>
+</table>
+<h3 id="application-networking.k8s.aws/v1alpha1.PrivateDnsDomain">PrivateDnsDomain
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationDnsOptions">VpcAssociationDnsOptions</a>)
+</p>
+<div>
+<p>PrivateDnsDomain is a domain name that VPC Lattice resolves privately in the cluster VPC.
+Wildcards such as *.example.com are allowed; the syntax is validated by VPC Lattice.</p>
+</div>
+<h3 id="application-networking.k8s.aws/v1alpha1.PrivateDnsPreference">PrivateDnsPreference
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationDnsOptions">VpcAssociationDnsOptions</a>)
+</p>
+<div>
+<p>PrivateDnsPreference selects which custom domain names of the service network get private DNS
+in the associated VPC. Values map one-to-one to the VPC Lattice PrivateDnsPreference enum.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;ALL_DOMAINS&#34;</p></td>
+<td><p>PrivateDnsPreferenceAllDomains provisions private hosted zones for all custom domain names on the service network.</p>
+</td>
+</tr><tr><td><p>&#34;SPECIFIED_DOMAINS_ONLY&#34;</p></td>
+<td><p>PrivateDnsPreferenceSpecifiedDomainsOnly provisions private hosted zones only for the names listed in
+privateDnsSpecifiedDomains.</p>
+</td>
+</tr><tr><td><p>&#34;VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS&#34;</p></td>
+<td><p>PrivateDnsPreferenceVerifiedDomainsAndSpecifiedDomains provisions private hosted zones for verified custom
+domain names plus the names listed in privateDnsSpecifiedDomains.</p>
+</td>
+</tr><tr><td><p>&#34;VERIFIED_DOMAINS_ONLY&#34;</p></td>
+<td><p>PrivateDnsPreferenceVerifiedDomainsOnly provisions private hosted zones only for custom domain names
+verified by the resource owner. This is the VPC Lattice default and the value AWS recommends.</p>
+</td>
+</tr></tbody>
 </table>
 <h3 id="application-networking.k8s.aws/v1alpha1.SecurityGroupId">SecurityGroupId
 (<code>string</code> alias)</h3>
@@ -1817,6 +1896,58 @@ vocabulary to describe TargetGroupPolicy state.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="application-networking.k8s.aws/v1alpha1.VpcAssociationDnsOptions">VpcAssociationDnsOptions
+</h3>
+<p>
+(<em>Appears on:</em><a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationPolicySpec">VpcAssociationPolicySpec</a>)
+</p>
+<div>
+<p>VpcAssociationDnsOptions defines the private DNS options of the VpcServiceNetworkAssociation.</p>
+<p>For the detailed explanation and supported values, please check the VPC Lattice documentation <a href="https://docs.aws.amazon.com/vpc-lattice/latest/APIReference/API_DnsOptions.html">https://docs.aws.amazon.com/vpc-lattice/latest/APIReference/API_DnsOptions.html</a></p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>privateDnsPreference</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.PrivateDnsPreference">
+PrivateDnsPreference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PrivateDnsPreference selects which custom domain names get private DNS in the cluster VPC.</p>
+<p>When unset, VPC Lattice applies its default, VERIFIED_DOMAINS_ONLY, which is also the value AWS
+recommends, and the controller does not compare the preference of an existing association.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>privateDnsSpecifiedDomains</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.PrivateDnsDomain">
+[]PrivateDnsDomain
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PrivateDnsSpecifiedDomains lists custom domain names that get private DNS in addition to
+(VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS) or instead of (SPECIFIED_DOMAINS_ONLY) the verified domains.
+Wildcard names such as &ldquo;*.example.com&rdquo; are allowed.</p>
+<p>It is required for those two preferences and must not be set for the others.</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="application-networking.k8s.aws/v1alpha1.VpcAssociationPolicySpec">VpcAssociationPolicySpec
 </h3>
 <p>
@@ -1860,6 +1991,43 @@ bool
 <em>(Optional)</em>
 <p>AssociateWithVpc indicates whether the VpcServiceNetworkAssociation should be created for the current VPC of k8s cluster.</p>
 <p>This value will be considered true by default.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>privateDnsEnabled</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PrivateDnsEnabled enables private DNS on the VpcServiceNetworkAssociation: VPC Lattice then
+provisions private hosted zones in the cluster VPC for the custom domain names of resource
+configurations associated with the service network, as selected by DnsOptions. The service
+network owner must also enable private DNS on the resource association.</p>
+<p>When unset, the association is created with private DNS disabled (the VPC Lattice default)
+and the setting is not compared on an existing association.</p>
+<p>If an existing association differs, the controller updates it in place. On a RAM-shared service
+network it only does so for associations it created; for any other association it reports the
+&ldquo;Programmed&rdquo; condition with reason &ldquo;PrivateDnsMismatch&rdquo; and leaves the association unchanged.</p>
+<p>For more details, please check the VPC Lattice documentation <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers">https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dnsOptions</code><br/>
+<em>
+<a href="#application-networking.k8s.aws/v1alpha1.VpcAssociationDnsOptions">
+VpcAssociationDnsOptions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DnsOptions selects which custom domain names get private DNS in the cluster VPC.
+It can only be set when PrivateDnsEnabled is true. Removing it does not reset an existing
+association to the VPC Lattice defaults: set the desired privateDnsPreference explicitly instead.</p>
 </td>
 </tr>
 <tr>
@@ -1913,6 +2081,7 @@ vocabulary to describe VpcAssociationPolicy state.</p>
 <p>Known condition types are:</p>
 <ul>
 <li>&ldquo;Accepted&rdquo;</li>
+<li>&ldquo;Programmed&rdquo;</li>
 </ul>
 </td>
 </tr>
@@ -1921,5 +2090,5 @@ vocabulary to describe VpcAssociationPolicy state.</p>
 <hr/>
 <p><em>
 Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>bd64dcb</code>.
+on git commit <code>e46658d</code>.
 </em></p>
