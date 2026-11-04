@@ -112,14 +112,14 @@ func IsGVKSupported(mgr ctrl.Manager, groupVersion string, kind string) (bool, e
 }
 
 // validate if the gateway is managed by the lattice gateway controller
-func IsControlledByLatticeGatewayController(ctx context.Context, c client.Client, gw *gwv1.Gateway) bool {
+func IsControlledByLatticeGatewayController(ctx context.Context, c client.Client, gw *gwv1.Gateway) (bool, error) {
 	gwClass := &gwv1.GatewayClass{}
 	// GatewayClass is cluster-scoped resource, so we don't need to specify namespace
 	err := c.Get(ctx, client.ObjectKey{Name: string(gw.Spec.GatewayClassName)}, gwClass)
 	if err != nil {
-		return false
+		return false, client.IgnoreNotFound(err)
 	}
-	return gwClass.Spec.ControllerName == config.LatticeGatewayControllerName
+	return gwClass.Spec.ControllerName == config.LatticeGatewayControllerName, nil
 }
 
 // FindControlledParents returns parent gateways that are controlled by lattice gateway controller
@@ -140,7 +140,12 @@ func FindControlledParents(ctx context.Context, client client.Client, route core
 			misses = append(misses, gwName.String())
 			continue
 		}
-		if IsControlledByLatticeGatewayController(ctx, client, gw) {
+		controlled, err := IsControlledByLatticeGatewayController(ctx, client, gw)
+		if err != nil {
+			misses = append(misses, gwName.String())
+			continue
+		}
+		if controlled {
 			result = append(result, gw)
 		}
 	}

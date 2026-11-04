@@ -35,4 +35,7 @@ const (
 	ServiceImportEventReasonFailedAddFinalizer = "FailedAddFinalizer"
 	ServiceImportEventReasonFailedBuildModel   = "FailedBuildModel"
 	ServiceImportEventReasonFailedDeployModel  = "FailedDeployModel"
+
+	// IAMAuthPolicy events
+	IAMAuthPolicyEventReasonSkippedCleanup = "SkippedCleanup"
 )

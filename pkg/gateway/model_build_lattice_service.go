@@ -177,12 +177,20 @@ func (t *latticeServiceModelBuildTask) buildLatticeService(ctx context.Context) 
 			if parentRef.Namespace != nil {
 				parentNamespace = string(*parentRef.Namespace)
 			}
+			// Skipping a parent on a read error would drop its SN association on deploy.
 			err := t.client.Get(ctx, client.ObjectKey{Name: string(parentRef.Name), Namespace: parentNamespace}, gw)
-			if err != nil {
-				t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), gw.Spec.GatewayClassName, err)
+			if apierrors.IsNotFound(err) {
+				t.log.Infof(ctx, "Ignoring route %s because gateway %s was not found", t.route.Name(), parentRef.Name)
 				continue
 			}
-			if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
+			if err != nil {
+				return nil, err
+			}
+			controlled, err := k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw)
+			if err != nil {
+				return nil, err
+			}
+			if controlled {
 				serviceNetworkSet[string(parentRef.Name)] = struct{}{}
 			} else {
 				t.log.Infof(ctx, "Ignoring route %s because gateway %s is not managed by lattice gateway controller", t.route.Name(), gw.Name)

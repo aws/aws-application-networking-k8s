@@ -3,13 +3,21 @@ package controllers
 import (
 	"context"
 	"testing"
+	"time"
 
+	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/stretchr/testify/assert"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -835,4 +843,112 @@ func TestUpdateGWListenerStatus_OverrideRoute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGatewayReconcileDelete_WaitsForIAMAuthPolicies(t *testing.T) {
+	const ns = "tenant"
+	iap := func(namespace, targetGw string, finalizer bool, annotations map[string]string) *anv1alpha1.IAMAuthPolicy {
+		p := &anv1alpha1.IAMAuthPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "policy", Namespace: namespace, Annotations: annotations},
+			Spec: anv1alpha1.IAMAuthPolicySpec{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{Group: gwv1.GroupName, Kind: "Gateway", Name: gwv1.ObjectName(targetGw)},
+			},
+		}
+		if finalizer {
+			p.Finalizers = []string{IAMAuthPolicyFinalizer}
+		}
+		return p
+	}
+	svcRecord := map[string]string{
+		IAMAuthPolicyAnnotationResId:   "svc-1",
+		IAMAuthPolicyAnnotationType:    model.ServiceType,
+		IAMAuthPolicyAnnotationResName: "gw",
+	}
+
+	tests := []struct {
+		name    string
+		policy  *anv1alpha1.IAMAuthPolicy
+		blocked bool
+	}{
+		{name: "no policy", blocked: false},
+		{name: "policy targeting the gateway", policy: iap(ns, "gw", true, nil), blocked: true},
+		{name: "policy that last applied auth through the gateway", policy: iap(ns, "other", true, snAnnotations("sn-1", "gw")), blocked: true},
+		{name: "policy for another gateway", policy: iap(ns, "other", true, snAnnotations("sn-2", "other")), blocked: false},
+		{name: "policy that already removed its finalizer", policy: iap(ns, "gw", false, snAnnotations("sn-1", "gw")), blocked: false},
+		{name: "policy in another namespace", policy: iap("other-ns", "gw", true, snAnnotations("sn-1", "gw")), blocked: false},
+		{name: "service record with a matching name", policy: iap(ns, "other", true, svcRecord), blocked: false},
+		{name: "route target with a matching name", policy: func() *anv1alpha1.IAMAuthPolicy {
+			p := iap(ns, "gw", true, nil)
+			p.Spec.TargetRef.Kind = "HTTPRoute"
+			return p
+		}(), blocked: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+			scheme := runtime.NewScheme()
+			clientgoscheme.AddToScheme(scheme)
+			gwv1.Install(scheme)
+			gwv1alpha2.Install(scheme)
+			anv1alpha1.Install(scheme)
+
+			gw := &gwv1.Gateway{ObjectMeta: metav1.ObjectMeta{
+				Name: "gw", Namespace: ns, Finalizers: []string{gatewayFinalizer},
+				DeletionTimestamp: &metav1.Time{Time: time.Now()},
+			}}
+			objs := []client.Object{gw}
+			if tt.policy != nil {
+				objs = append(objs, tt.policy)
+			}
+			k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).
+				WithStatusSubresource(&gwv1.Gateway{}).Build()
+			r := &gatewayReconciler{
+				log:              gwlog.FallbackLogger,
+				client:           k8sClient,
+				finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient),
+			}
+
+			err := r.reconcileDelete(ctx, gw)
+
+			got := &gwv1.Gateway{}
+			getErr := k8sClient.Get(ctx, client.ObjectKeyFromObject(gw), got)
+			if tt.blocked {
+				assert.ErrorContains(t, err, "IAMAuthPolicy")
+				assert.NoError(t, getErr)
+				assert.Contains(t, got.Finalizers, gatewayFinalizer)
+			} else {
+				assert.NoError(t, err)
+				assert.True(t, apierrors.IsNotFound(getErr), "gateway should be gone, got %v", getErr)
+			}
+		})
+	}
+}
+
+func TestGatewayController_DeletingGatewaysForIAMAuthPolicy(t *testing.T) {
+	ctx := context.TODO()
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+	anv1alpha1.Install(scheme)
+
+	terminating := &gwv1.Gateway{ObjectMeta: metav1.ObjectMeta{
+		Name: "old", Namespace: "tenant", Finalizers: []string{gatewayFinalizer},
+		DeletionTimestamp: &metav1.Time{Time: time.Now()},
+	}}
+	live := &gwv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "new", Namespace: "tenant"}}
+	k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithObjects(terminating, live).Build()
+	r := &gatewayReconciler{log: gwlog.FallbackLogger, client: k8sClient}
+
+	policyFor := func(targetGw, recordedGw string) *anv1alpha1.IAMAuthPolicy {
+		return &anv1alpha1.IAMAuthPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "policy", Namespace: "tenant", Annotations: snAnnotations("sn-1", recordedGw)},
+			Spec: anv1alpha1.IAMAuthPolicySpec{
+				TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{Group: gwv1.GroupName, Kind: "Gateway", Name: gwv1.ObjectName(targetGw)},
+			},
+		}
+	}
+	oldReq := []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: "tenant", Name: "old"}}}
+	assert.Equal(t, oldReq, r.deletingGatewaysForIAMAuthPolicy(ctx, policyFor("new", "old")), "via record")
+	assert.Equal(t, oldReq, r.deletingGatewaysForIAMAuthPolicy(ctx, policyFor("old", "missing")), "via targetRef")
+	assert.Empty(t, r.deletingGatewaysForIAMAuthPolicy(ctx, policyFor("new", "missing")), "no terminating gateway")
 }

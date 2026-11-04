@@ -148,8 +148,14 @@ func (r *serviceNetworkReconciler) reconcileDelete(ctx context.Context, sn *anv1
 	}
 	for i := range gwList.Items {
 		gw := &gwList.Items[i]
-		if gw.Name == sn.Name && gw.DeletionTimestamp.IsZero() &&
-			k8s.IsControlledByLatticeGatewayController(ctx, r.client, gw) {
+		if gw.Name != sn.Name || !gw.DeletionTimestamp.IsZero() {
+			continue
+		}
+		controlled, err := k8s.IsControlledByLatticeGatewayController(ctx, r.client, gw)
+		if err != nil {
+			return err
+		}
+		if controlled {
 			msg := fmt.Sprintf("Cannot delete: Gateway %s/%s still references this service network", gw.Namespace, gw.Name)
 			r.updateStatus(ctx, sn, metav1.ConditionFalse, "DeleteBlocked", msg, sn.Status.ServiceNetworkARN, sn.Status.ServiceNetworkID)
 			return errors.New(msg)

@@ -44,7 +44,12 @@ func (t *latticeServiceModelBuildTask) findGateway(ctx context.Context) (*gwv1.G
 			t.log.Infof(ctx, "Ignoring route %s because failed to get gateway %s: %v", t.route.Name(), parentRef.Name, err)
 			continue
 		}
-		if k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw) {
+		controlled, err := k8s.IsControlledByLatticeGatewayController(ctx, t.client, gw)
+		if err != nil {
+			t.log.Infof(ctx, "Ignoring route %s because failed to get gatewayclass for gateway %s: %v", t.route.Name(), parentRef.Name, err)
+			continue
+		}
+		if controlled {
 			return gw, nil
 		}
 		fails = append(fails, gwName.String())

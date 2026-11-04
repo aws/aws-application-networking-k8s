@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"slices"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	deploy "github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	policy "github.com/aws/aws-application-networking-k8s/pkg/k8s/policyhelper"
@@ -15,7 +18,11 @@ import (
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -144,18 +151,7 @@ func (c *IAMAuthPolicyController) reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (c *IAMAuthPolicyController) reconcileDelete(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) error {
-	err := c.ph.ValidateTargetRef(ctx, k8sPolicy)
-	if err == nil {
-		existingModel, _ := c.getLatticeAnnotation(k8sPolicy)
-		modelPolicy := model.NewIAMAuthPolicy(k8sPolicy, existingModel.Name)
-
-		_, err := c.pm.Delete(ctx, modelPolicy)
-		if err != nil {
-			return services.IgnoreNotFound(err)
-		}
-	}
-	err = c.handleLatticeResourceChange(ctx, k8sPolicy, model.IAMAuthPolicyStatus{})
-	if err != nil {
+	if err := c.handleLatticeResourceChange(ctx, k8sPolicy, model.IAMAuthPolicyStatus{}); err != nil {
 		return err
 	}
 	c.removeFinalizer(k8sPolicy)
@@ -234,20 +230,112 @@ func (c *IAMAuthPolicyController) addFinalizer(k8sPolicy *anv1alpha1.IAMAuthPoli
 	}
 }
 
-// cleanup lattice resources after targetRef changes
-// compares old ResourceId from k8s annotation vs new ResourceId from model
+// handleLatticeResourceChange removes auth from the previously recorded
+// resource when it differs from the current one (retarget or delete).
 func (c *IAMAuthPolicyController) handleLatticeResourceChange(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy, statusPolicy model.IAMAuthPolicyStatus) error {
 	prevModel, ok := c.getLatticeAnnotation(k8sPolicy)
-	if !ok {
+	if !ok || prevModel.ResourceId == statusPolicy.ResourceId {
 		return nil
 	}
-	if prevModel.ResourceId != statusPolicy.ResourceId {
-		_, err := c.pm.Delete(ctx, prevModel)
-		if err != nil {
-			return services.IgnoreNotFound(err)
+	if prevModel.Type == model.ServiceNetworkType {
+		allowed, err := c.snCleanupAllowed(ctx, k8sPolicy, prevModel.ResourceId)
+		if err != nil || !allowed {
+			return err
 		}
 	}
-	return nil
+	_, err := c.pm.Delete(ctx, prevModel)
+	return services.IgnoreNotFound(err)
+}
+
+var snIdPattern = regexp.MustCompile(`^sn-[0-9a-z]{17}$`)
+
+// snCleanupAllowed checks a recorded service network ID before its auth is
+// removed. The annotations are user-editable, so cleanup is limited to SNs a
+// Gateway in the policy's namespace could also target with Put.
+func (c *IAMAuthPolicyController) snCleanupAllowed(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy, snId string) (bool, error) {
+	skip := func(reason string) (bool, error) {
+		c.eventRecorder.Event(k8sPolicy, corev1.EventTypeWarning, k8s.IAMAuthPolicyEventReasonSkippedCleanup,
+			fmt.Sprintf("Skipped removing IAM auth from VPC Lattice service network %s: %s. "+
+				"If it exists, it keeps AuthType AWS_IAM and its auth policy.", snId, reason))
+		return false, nil
+	}
+	if !snIdPattern.MatchString(snId) {
+		return skip("not a service network ID")
+	}
+	sn, err := c.cloud.Lattice().GetServiceNetwork(ctx, &vpclattice.GetServiceNetworkInput{ServiceNetworkIdentifier: &snId})
+	if err != nil {
+		if services.IsNotFoundError(err) {
+			c.log.Infow(ctx, "previously recorded service network not found, nothing to clean up", "resourceId", snId)
+			return false, nil
+		}
+		return false, err
+	}
+	allowed, err := c.hasControlledGateway(ctx, k8sPolicy.Namespace, aws.ToString(sn.Name), aws.ToString(sn.Id))
+	if err != nil || allowed {
+		return allowed, err
+	}
+	return skip(fmt.Sprintf("no Gateway in namespace %s managed by this controller maps to %q, for example because "+
+		"it was deleted first", k8sPolicy.Namespace, aws.ToString(sn.Name)))
+}
+
+// hasControlledGateway reports whether a controller-managed Gateway in the
+// namespace maps to the SN.
+func (c *IAMAuthPolicyController) hasControlledGateway(ctx context.Context, namespace, name, id string) (bool, error) {
+	// In override mode every Gateway maps to the default SN. The name rule below
+	// still covers SNs recorded before override mode was enabled.
+	if config.ServiceNetworkOverrideMode && (name == config.DefaultServiceNetwork || id == config.DefaultServiceNetwork) {
+		gws := &gwv1.GatewayList{}
+		if err := c.client.List(ctx, gws, client.InNamespace(namespace)); err != nil {
+			return false, err
+		}
+		for i := range gws.Items {
+			if controlled, err := k8s.IsControlledByLatticeGatewayController(ctx, c.client, &gws.Items[i]); controlled || err != nil {
+				return controlled, err
+			}
+		}
+	}
+
+	// FindServiceNetwork matches a Gateway name against both SN name and ID.
+	for _, gwName := range []string{name, id} {
+		if gwName == "" {
+			continue
+		}
+		gw := &gwv1.Gateway{}
+		err := c.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: gwName}, gw)
+		if apierrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return false, err
+		}
+		if controlled, err := k8s.IsControlledByLatticeGatewayController(ctx, c.client, gw); controlled || err != nil {
+			return controlled, err
+		}
+	}
+	return false, nil
+}
+
+// iamAuthPolicyNeedsGateway reports whether the policy may still need the
+// Gateway to exist to clean up, so the Gateway's deletion waits for it.
+func iamAuthPolicyNeedsGateway(p *anv1alpha1.IAMAuthPolicy, gwName string) bool {
+	return controllerutil.ContainsFinalizer(p, IAMAuthPolicyFinalizer) &&
+		slices.Contains(iamAuthPolicyGatewayNames(p), gwName)
+}
+
+// iamAuthPolicyGatewayNames returns the Gateways the policy targets or last
+// applied auth through. A forged annotation can only delay deleting a Gateway
+// in the policy's own namespace.
+func iamAuthPolicyGatewayNames(p *anv1alpha1.IAMAuthPolicy) []string {
+	var names []string
+	if tr := p.Spec.TargetRef; tr != nil && policy.TargetRefGroupKind(tr) == policy.ObjToGroupKind(&gwv1.Gateway{}) {
+		names = append(names, string(tr.Name))
+	}
+	if p.Annotations[IAMAuthPolicyAnnotationType] == model.ServiceNetworkType {
+		if name := p.Annotations[IAMAuthPolicyAnnotationResName]; name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 func (c *IAMAuthPolicyController) updateLatticeAnnotaion(k8sPolicy *anv1alpha1.IAMAuthPolicy, resId, resType string, resName string) {
@@ -265,14 +353,13 @@ func (c *IAMAuthPolicyController) getLatticeAnnotation(k8sPolicy *anv1alpha1.IAM
 	}
 	resourceId := k8sPolicy.Annotations[IAMAuthPolicyAnnotationResId]
 	resourceType := k8sPolicy.Annotations[IAMAuthPolicyAnnotationType]
-	resourceName := k8sPolicy.Annotations[IAMAuthPolicyAnnotationResName]
 	if resourceId == "" || resourceType == "" {
 		return model.IAMAuthPolicy{}, false
 	}
+	// Cleanup targets resources by ID only; the name annotation is user-editable.
 	return model.IAMAuthPolicy{
 		Type:       resourceType,
 		ResourceId: resourceId,
-		Name:       resourceName,
 	}, true
 }
 
