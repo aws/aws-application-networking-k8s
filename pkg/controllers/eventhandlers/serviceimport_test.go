@@ -30,7 +30,7 @@ func TestServiceImportEventHandler_MapToRoute(t *testing.T) {
 	}
 	mockClient := mock_client.NewMockClient(c)
 	h := NewServiceImportEventHandler(gwlog.FallbackLogger, mockClient)
-	mockClient.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
+	mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, routeList *gwv1.HTTPRouteList, _ ...interface{}) error {
 			routeList.Items = append(routeList.Items, routes...)
 			return nil

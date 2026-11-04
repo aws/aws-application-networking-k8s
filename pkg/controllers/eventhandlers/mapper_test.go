@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -45,81 +46,94 @@ func createHTTPRoute(name, namespace string, backendRef gwv1.BackendObjectRefere
 	}
 }
 
-func TestServiceToRoutes(t *testing.T) {
-	c := gomock.NewController(t)
-	defer c.Finish()
-
-	routes := []gwv1.HTTPRoute{
-		createHTTPRoute("invalid-kind", "ns1", gwv1.BackendObjectReference{
-			Kind: (*gwv1.Kind)(ptr.To("NotService")),
-			Name: "test-service",
-		}),
-		createHTTPRoute("invalid-nil-kind", "ns1", gwv1.BackendObjectReference{
-			Kind:      nil,
-			Namespace: nil,
-			Name:      "test-service",
-		}),
-		createHTTPRoute("valid-nil-group", "ns1", gwv1.BackendObjectReference{
-			Group:     nil,
+func TestBackendRefToRoutes(t *testing.T) {
+	svcRef := func(group *string, ns *string, name string) gwv1.BackendObjectReference {
+		return gwv1.BackendObjectReference{
+			Group:     (*gwv1.Group)(group),
 			Kind:      (*gwv1.Kind)(ptr.To("Service")),
-			Namespace: nil,
-			Name:      "test-service",
-		}),
-		createHTTPRoute("invalid-group", "ns1", gwv1.BackendObjectReference{
-			Group:     (*gwv1.Group)(ptr.To("not-core")),
-			Kind:      (*gwv1.Kind)(ptr.To("Service")),
-			Namespace: nil,
-			Name:      "test-service",
-		}),
-		createHTTPRoute("valid-inferred-namespace", "ns1", gwv1.BackendObjectReference{
-			Group:     (*gwv1.Group)(ptr.To("")),
-			Kind:      (*gwv1.Kind)(ptr.To("Service")),
-			Namespace: nil,
-			Name:      "test-service",
-		}),
-		createHTTPRoute("valid-explicit-namespace", "ns1", gwv1.BackendObjectReference{
-			Group:     (*gwv1.Group)(ptr.To("")),
-			Kind:      (*gwv1.Kind)(ptr.To("Service")),
-			Namespace: (*gwv1.Namespace)(ptr.To("ns1")),
-			Name:      "test-service",
-		}),
-		createHTTPRoute("invalid-different-namespace", "ns1", gwv1.BackendObjectReference{
-			Kind:      (*gwv1.Kind)(ptr.To("Service")),
-			Namespace: (*gwv1.Namespace)(ptr.To("ns2")),
-			Name:      "test-service",
-		}),
-		createHTTPRoute("invalid-different-name", "ns1", gwv1.BackendObjectReference{
-			Kind:      (*gwv1.Kind)(ptr.To("Service")),
-			Namespace: (*gwv1.Namespace)(ptr.To("ns1")),
-			Name:      "not-test-service",
-		}),
+			Namespace: (*gwv1.Namespace)(ns),
+			Name:      gwv1.ObjectName(name),
+		}
 	}
-	validRoutes := []string{
-		"valid-nil-group",
-		"valid-inferred-namespace",
-		"valid-explicit-namespace",
+	importRef := func(group *string) gwv1.BackendObjectReference {
+		return gwv1.BackendObjectReference{
+			Group: (*gwv1.Group)(group),
+			Kind:  (*gwv1.Kind)(ptr.To("ServiceImport")),
+			Name:  "test-service",
+		}
+	}
+	httpRoute := func(name, ns string, refs ...gwv1.BackendObjectReference) *gwv1.HTTPRoute {
+		route := createHTTPRoute(name, ns, refs[0])
+		for _, ref := range refs[1:] {
+			route.Spec.Rules = append(route.Spec.Rules, gwv1.HTTPRouteRule{
+				BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{BackendObjectReference: ref}}},
+			})
+		}
+		return &route
 	}
 
-	mockClient := mock_client.NewMockClient(c)
-	mockClient.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, routeList *gwv1.HTTPRouteList, _ ...interface{}) error {
-			routeList.Items = append(routeList.Items, routes...)
-			return nil
+	objs := []client.Object{
+		httpRoute("nil-group", "ns1", svcRef(nil, nil, "test-service")),
+		httpRoute("empty-group", "ns1", svcRef(ptr.To(""), nil, "test-service")),
+		httpRoute("non-core-group", "ns1", svcRef(ptr.To("not-core"), nil, "test-service")),
+		httpRoute("nil-kind", "ns1", gwv1.BackendObjectReference{Name: "test-service"}),
+		httpRoute("other-kind", "ns1", gwv1.BackendObjectReference{Kind: (*gwv1.Kind)(ptr.To("NotService")), Name: "test-service"}),
+		httpRoute("other-name", "ns1", svcRef(nil, nil, "not-test-service")),
+		httpRoute("cross-ns-in", "ns2", svcRef(nil, ptr.To("ns1"), "test-service")),
+		httpRoute("cross-ns-out", "ns1", svcRef(nil, ptr.To("ns2"), "test-service")),
+		httpRoute("duplicate", "ns1", svcRef(nil, nil, "test-service"), svcRef(ptr.To(""), ptr.To("ns1"), "test-service")),
+		httpRoute("import-nil-group", "ns1", importRef(nil)),
+		httpRoute("import-group", "ns1", importRef(ptr.To(anv1alpha1.GroupName))),
+		&gwv1.GRPCRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "grpc", Namespace: "ns1"},
+			Spec: gwv1.GRPCRouteSpec{Rules: []gwv1.GRPCRouteRule{{BackendRefs: []gwv1.GRPCBackendRef{
+				{BackendRef: gwv1.BackendRef{BackendObjectReference: svcRef(nil, nil, "test-service")}},
+			}}}},
 		},
-	)
-
-	mapper := &resourceMapper{log: gwlog.FallbackLogger, client: mockClient}
-	res := mapper.ServiceToRoutes(context.Background(), &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-service",
-			Namespace: "ns1",
+		&gwv1.TLSRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "tls", Namespace: "ns1"},
+			Spec: gwv1.TLSRouteSpec{Rules: []gwv1.TLSRouteRule{{BackendRefs: []gwv1.BackendRef{
+				{BackendObjectReference: svcRef(nil, nil, "test-service")},
+			}}}},
 		},
-	}, core.HttpRouteType)
-
-	assert.Len(t, res, len(validRoutes))
-	for i, r := range res {
-		assert.Equal(t, validRoutes[i], r.Name())
 	}
+
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+	builder := testclient.NewClientBuilder().WithScheme(scheme).WithObjects(objs...)
+	for _, obj := range []client.Object{&gwv1.HTTPRoute{}, &gwv1.GRPCRoute{}, &gwv1.TLSRoute{}} {
+		builder = builder.WithIndex(obj, routeBackendRefIndex, routeBackendRefKeys)
+	}
+	mapper := &resourceMapper{log: gwlog.FallbackLogger, client: builder.Build()}
+	objMeta := metav1.ObjectMeta{Name: "test-service", Namespace: "ns1"}
+
+	names := func(routes []core.Route) []string {
+		var res []string
+		for _, r := range routes {
+			res = append(res, r.Namespace()+"/"+r.Name())
+		}
+		return res
+	}
+	ctx := context.Background()
+	svc := &corev1.Service{ObjectMeta: objMeta}
+	svcImport := &anv1alpha1.ServiceImport{ObjectMeta: objMeta}
+	assert.ElementsMatch(t, []string{"ns1/nil-group", "ns1/empty-group", "ns2/cross-ns-in", "ns1/duplicate"},
+		names(mapper.ServiceToRoutes(ctx, svc, core.HttpRouteType)))
+	assert.ElementsMatch(t, []string{"ns1/grpc"}, names(mapper.ServiceToRoutes(ctx, svc, core.GrpcRouteType)))
+	assert.ElementsMatch(t, []string{"ns1/tls"}, names(mapper.ServiceToRoutes(ctx, svc, core.TlsRouteType)))
+	assert.ElementsMatch(t, []string{"ns1/import-nil-group", "ns1/import-group"},
+		names(mapper.ServiceImportToRoutes(ctx, svcImport, core.HttpRouteType)))
+}
+
+func TestBackendRefToRoutesListError(t *testing.T) {
+	scheme := runtime.NewScheme()
+	gwv1.Install(scheme)
+	k8sRoute := createHTTPRoute("route", "ns1", gwv1.BackendObjectReference{Kind: (*gwv1.Kind)(ptr.To("Service")), Name: "test-service"})
+	// No index registered, so the List by backendRef fails.
+	mapper := &resourceMapper{log: gwlog.FallbackLogger, client: testclient.NewClientBuilder().WithScheme(scheme).WithObjects(&k8sRoute).Build()}
+	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test-service", Namespace: "ns1"}}
+	assert.Nil(t, mapper.ServiceToRoutes(context.Background(), svc, core.HttpRouteType))
 }
 
 func TestTargetGroupPolicyToService(t *testing.T) {
