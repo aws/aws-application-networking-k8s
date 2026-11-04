@@ -16,6 +16,22 @@ import (
 
 type RouteType string
 
+// RouteKindForType returns the Gateway API Kind string for a RouteType, or "" if the
+// type is unknown. Use it where only the RouteType is available; when you have a Route
+// instance, prefer route.GroupKind().Kind.
+func RouteKindForType(routeType RouteType) string {
+	switch routeType {
+	case HttpRouteType:
+		return HttpRouteKind
+	case GrpcRouteType:
+		return GrpcRouteKind
+	case TlsRouteType:
+		return TlsRouteKind
+	default:
+		return ""
+	}
+}
+
 type Route interface {
 	Spec() RouteSpec
 	Status() RouteStatus

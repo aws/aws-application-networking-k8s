@@ -42,6 +42,82 @@ func (r *resourceMapper) ServiceImportToRoutes(ctx context.Context, svc *anv1alp
 	return r.backendRefToRoutes(ctx, svc, anv1alpha1.GroupName, serviceImportKind, routeType)
 }
 
+// ReferenceGrantToRoutes returns the routes of routeType that a change to grant may affect:
+// routes in a namespace named by one of the grant's From entries that have a backendRef
+// into the grant's namespace. It over-selects within those namespaces and lets each
+// route's reconcile recompute correctness.
+func (r *resourceMapper) ReferenceGrantToRoutes(ctx context.Context, grant *gwv1.ReferenceGrant, routeType core.RouteType) []core.Route {
+	if grant == nil {
+		return nil
+	}
+
+	var routes []core.Route
+	seen := map[types.NamespacedName]bool{}
+	for _, from := range grant.Spec.From {
+		if from.Kind != gwv1.Kind(core.RouteKindForType(routeType)) {
+			continue
+		}
+		fromNamespace := string(from.Namespace)
+		for _, route := range r.listRoutesInNamespace(ctx, routeType, fromNamespace) {
+			name := k8sutils.NamespacedName(route.K8sObject())
+			if seen[name] {
+				continue
+			}
+			if routeHasBackendRefIntoNamespace(route, grant.Namespace) {
+				seen[name] = true
+				routes = append(routes, route)
+			}
+		}
+	}
+	return routes
+}
+
+func (r *resourceMapper) listRoutesInNamespace(ctx context.Context, routeType core.RouteType, namespace string) []core.Route {
+	opts := &client.ListOptions{Namespace: namespace}
+	var routes []core.Route
+	switch routeType {
+	case core.HttpRouteType:
+		routeList := &gwv1.HTTPRouteList{}
+		if err := r.client.List(ctx, routeList, opts); err != nil {
+			r.log.Errorw(ctx, "failed to list HTTPRoutes for ReferenceGrant mapping", "namespace", namespace, "reason", err.Error())
+			return nil
+		}
+		for _, k8sRoute := range routeList.Items {
+			routes = append(routes, core.NewHTTPRoute(k8sRoute))
+		}
+	case core.GrpcRouteType:
+		routeList := &gwv1.GRPCRouteList{}
+		if err := r.client.List(ctx, routeList, opts); err != nil {
+			r.log.Errorw(ctx, "failed to list GRPCRoutes for ReferenceGrant mapping", "namespace", namespace, "reason", err.Error())
+			return nil
+		}
+		for _, k8sRoute := range routeList.Items {
+			routes = append(routes, core.NewGRPCRoute(k8sRoute))
+		}
+	case core.TlsRouteType:
+		routeList := &gwv1.TLSRouteList{}
+		if err := r.client.List(ctx, routeList, opts); err != nil {
+			r.log.Errorw(ctx, "failed to list TLSRoutes for ReferenceGrant mapping", "namespace", namespace, "reason", err.Error())
+			return nil
+		}
+		for _, k8sRoute := range routeList.Items {
+			routes = append(routes, core.NewTLSRoute(k8sRoute))
+		}
+	}
+	return routes
+}
+
+func routeHasBackendRefIntoNamespace(route core.Route, namespace string) bool {
+	for _, rule := range route.Spec().Rules() {
+		for _, backendRef := range rule.BackendRefs() {
+			if backendRef.Namespace() != nil && string(*backendRef.Namespace()) == namespace {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (r *resourceMapper) ServiceToServiceExport(ctx context.Context, svc *corev1.Service) *anv1alpha1.ServiceExport {
 	if svc == nil {
 		return nil
