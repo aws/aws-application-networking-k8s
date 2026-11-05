@@ -22,6 +22,7 @@ type ServiceSpec struct {
 	AllowTakeoverFrom   string        `json:"allowtakeoverfrom,omitempty"`
 	ServiceNameOverride string        `json:"servicenameoverride,omitempty"`
 	IdleTimeoutSeconds  *int32        `json:"idletimeoutseconds,omitempty"`
+	DnsEndpointDisabled bool          `json:"dnsendpointdisabled,omitempty"`
 }
 
 type ServiceStatus struct {

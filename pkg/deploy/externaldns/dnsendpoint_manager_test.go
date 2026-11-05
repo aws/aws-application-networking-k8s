@@ -9,13 +9,16 @@ import (
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/external-dns/endpoint"
 )
 
@@ -31,8 +34,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 		dnsGetErr        error
 		dnsCreateErr     error
 		dnsUpdateErr     error
+		dnsDeleteErr     error
 		created          bool
 		updated          bool
+		deleted          bool
 		errIsNil         bool
 	}{
 		{
@@ -246,6 +251,163 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			dnsGetErr: errors.New("Unhandled exception"),
 			errIsNil:  false,
 		},
+		{
+			name: "Disabled - skips creation when DNSEndpoint does not exist",
+			service: model.Service{
+				Spec: model.ServiceSpec{
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
+					CustomerDomainName:  "custom-domain",
+					DnsEndpointDisabled: true,
+				},
+				Status: &model.ServiceStatus{
+					Dns: "lattice-internal-domain",
+				},
+			},
+			dnsGetErr: apierrors.NewNotFound(schema.GroupResource{}, ""),
+			errIsNil:  true,
+		},
+		{
+			name: "Disabled - deletes DNSEndpoint controlled by route",
+			service: model.Service{
+				Spec: model.ServiceSpec{
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
+					CustomerDomainName:  "custom-domain",
+					DnsEndpointDisabled: true,
+				},
+				Status: &model.ServiceStatus{
+					Dns: "lattice-internal-domain",
+				},
+			},
+			existingEndpoint: endpoint.DNSEndpoint{
+				ObjectMeta: metav1.ObjectMeta{
+					OwnerReferences: []metav1.OwnerReference{
+						{UID: "route-uid", Controller: aws.Bool(true)},
+					},
+				},
+			},
+			deleted:  true,
+			errIsNil: true,
+		},
+		{
+			name: "Disabled - keeps DNSEndpoint not controlled by route",
+			service: model.Service{
+				Spec: model.ServiceSpec{
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
+					CustomerDomainName:  "custom-domain",
+					DnsEndpointDisabled: true,
+				},
+				Status: &model.ServiceStatus{
+					Dns: "lattice-internal-domain",
+				},
+			},
+			existingEndpoint: endpoint.DNSEndpoint{
+				ObjectMeta: metav1.ObjectMeta{
+					OwnerReferences: []metav1.OwnerReference{
+						{UID: "other-uid", Controller: aws.Bool(true)},
+					},
+				},
+			},
+			errIsNil: true,
+		},
+		{
+			name: "Disabled - keeps DNSEndpoint without owner",
+			service: model.Service{
+				Spec: model.ServiceSpec{
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
+					CustomerDomainName:  "custom-domain",
+					DnsEndpointDisabled: true,
+				},
+				Status: &model.ServiceStatus{
+					Dns: "lattice-internal-domain",
+				},
+			},
+			errIsNil: true,
+		},
+		{
+			name: "Disabled - ignores not found on delete",
+			service: model.Service{
+				Spec: model.ServiceSpec{
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
+					CustomerDomainName:  "custom-domain",
+					DnsEndpointDisabled: true,
+				},
+				Status: &model.ServiceStatus{
+					Dns: "lattice-internal-domain",
+				},
+			},
+			existingEndpoint: endpoint.DNSEndpoint{
+				ObjectMeta: metav1.ObjectMeta{
+					OwnerReferences: []metav1.OwnerReference{
+						{UID: "route-uid", Controller: aws.Bool(true)},
+					},
+				},
+			},
+			deleted:      true,
+			dnsDeleteErr: apierrors.NewNotFound(schema.GroupResource{}, ""),
+			errIsNil:     true,
+		},
+		{
+			name: "Disabled - returns error on delete failure",
+			service: model.Service{
+				Spec: model.ServiceSpec{
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
+					CustomerDomainName:  "custom-domain",
+					DnsEndpointDisabled: true,
+				},
+				Status: &model.ServiceStatus{
+					Dns: "lattice-internal-domain",
+				},
+			},
+			existingEndpoint: endpoint.DNSEndpoint{
+				ObjectMeta: metav1.ObjectMeta{
+					OwnerReferences: []metav1.OwnerReference{
+						{UID: "route-uid", Controller: aws.Bool(true)},
+					},
+				},
+			},
+			deleted:      true,
+			dnsDeleteErr: errors.New("DNS deletion failed"),
+			errIsNil:     false,
+		},
+		{
+			name: "Disabled - skips when DNSEndpoint CRD is not found",
+			service: model.Service{
+				Spec: model.ServiceSpec{
+					ServiceTagFields: model.ServiceTagFields{
+						RouteName:      "service",
+						RouteNamespace: "default",
+					},
+					CustomerDomainName:  "custom-domain",
+					DnsEndpointDisabled: true,
+				},
+				Status: &model.ServiceStatus{
+					Dns: "lattice-internal-domain",
+				},
+			},
+			dnsGetErr: &meta.NoKindMatchError{
+				GroupKind:        schema.GroupKind{},
+				SearchedVersions: []string{},
+			},
+			errIsNil: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -258,7 +420,10 @@ func TestCreateDnsEndpoint(t *testing.T) {
 			mockClient.EXPECT().Get(gomock.Any(), gomock.Eq(types.NamespacedName{
 				Namespace: tt.service.Spec.RouteNamespace,
 				Name:      tt.service.Spec.RouteName,
-			}), gomock.Any()).Return(tt.routeGetErr).AnyTimes()
+			}), gomock.Any()).DoAndReturn(func(ctx context.Context, name types.NamespacedName, route client.Object, _ ...interface{}) error {
+				route.SetUID("route-uid")
+				return tt.routeGetErr
+			}).AnyTimes()
 
 			mockClient.EXPECT().Get(gomock.Any(), gomock.Eq(types.NamespacedName{
 				Namespace: tt.service.Spec.RouteNamespace,
@@ -279,6 +444,12 @@ func TestCreateDnsEndpoint(t *testing.T) {
 				patchCall.Times(1)
 			} else {
 				patchCall.Times(0)
+			}
+			deleteCall := mockClient.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any()).Return(tt.dnsDeleteErr)
+			if tt.deleted {
+				deleteCall.Times(1)
+			} else {
+				deleteCall.Times(0)
 			}
 
 			err := mgr.Create(context.Background(), &tt.service)

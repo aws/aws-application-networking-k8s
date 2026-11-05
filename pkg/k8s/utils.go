@@ -46,6 +46,9 @@ const (
 	// Valid range is 60-600; if unset, VPC Lattice applies its default of 60.
 	IdleTimeoutSecondsAnnotation = AnnotationPrefix + "idle-timeout-seconds"
 
+	DnsEndpointAnnotation    = AnnotationPrefix + "dns-endpoint"
+	DnsEndpointDisabledValue = "disabled"
+
 	// Service name annotation for ServiceExport mapping
 	ServiceNameAnnotation = AnnotationPrefix + "service-name"
 
@@ -487,6 +490,14 @@ func GetIdleTimeoutSecondsWithValidation(route metav1.Object) (*int32, error) {
 
 	result := int32(v)
 	return &result, nil
+}
+
+func IsDnsEndpointDisabled(route metav1.Object) bool {
+	if route == nil {
+		return false
+	}
+	value := route.GetAnnotations()[DnsEndpointAnnotation]
+	return strings.EqualFold(strings.TrimSpace(value), DnsEndpointDisabledValue)
 }
 
 func GetServiceNameOverrideWithValidation(route metav1.Object) (string, error) {

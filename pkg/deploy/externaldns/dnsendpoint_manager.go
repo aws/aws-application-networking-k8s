@@ -72,6 +72,10 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 	ep := &endpoint.DNSEndpoint{}
 	if err := s.k8sClient.Get(ctx, namespacedName, ep); err != nil {
 		if apierrors.IsNotFound(err) {
+			if service.Spec.DnsEndpointDisabled {
+				s.log.Debugf(ctx, "Skipping creation of %s: disabled by annotation", namespacedName)
+				return nil
+			}
 			s.log.Debugf(ctx, "Attempting creation of DNSEndpoint for %s - %s -> %s",
 				namespacedName.String(), service.Spec.CustomerDomainName, service.Status.Dns)
 			ep = &endpoint.DNSEndpoint{
@@ -102,6 +106,13 @@ func (s *defaultDnsEndpointManager) Create(ctx context.Context, service *lattice
 		} else {
 			return err
 		}
+	} else if service.Spec.DnsEndpointDisabled {
+		if !metav1.IsControlledBy(ep, route.K8sObject()) {
+			s.log.Debugf(ctx, "Skipping deletion of %s: not controlled by route", namespacedName)
+			return nil
+		}
+		s.log.Infof(ctx, "Deleting DNSEndpoint %s: disabled by annotation", namespacedName)
+		return client.IgnoreNotFound(s.k8sClient.Delete(ctx, ep, client.Preconditions{UID: &ep.UID}))
 	} else {
 		s.log.Debugf(ctx, "Attempting update of DNSEndpoint for %s - %s -> %s",
 			namespacedName.String(), service.Spec.CustomerDomainName, service.Status.Dns)

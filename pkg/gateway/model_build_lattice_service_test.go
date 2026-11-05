@@ -2466,9 +2466,10 @@ func Test_LatticeServiceModelBuild_IdleTimeoutAnnotation(t *testing.T) {
 	i32 := func(v int32) *int32 { return &v }
 
 	tests := []struct {
-		name            string
-		annotations     map[string]string
-		expectedTimeout *int32
+		name                string
+		annotations         map[string]string
+		expectedTimeout     *int32
+		expectedDnsDisabled bool
 	}{
 		{
 			name:            "valid idle timeout annotation",
@@ -2487,6 +2488,12 @@ func Test_LatticeServiceModelBuild_IdleTimeoutAnnotation(t *testing.T) {
 			name:            "invalid value -> warned and ignored (unset)",
 			annotations:     map[string]string{k8s.IdleTimeoutSecondsAnnotation: "10"},
 			expectedTimeout: nil,
+		},
+		{
+			name:                "dns-endpoint disabled annotation",
+			annotations:         map[string]string{k8s.DnsEndpointAnnotation: "disabled"},
+			expectedTimeout:     nil,
+			expectedDnsDisabled: true,
 		},
 	}
 
@@ -2515,6 +2522,7 @@ func Test_LatticeServiceModelBuild_IdleTimeoutAnnotation(t *testing.T) {
 			svc, err := task.buildLatticeService(ctx)
 
 			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedDnsDisabled, svc.Spec.DnsEndpointDisabled)
 			if tt.expectedTimeout == nil {
 				assert.Nil(t, svc.Spec.IdleTimeoutSeconds)
 			} else {
