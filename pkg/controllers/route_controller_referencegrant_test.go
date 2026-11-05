@@ -9,8 +9,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
@@ -301,4 +303,38 @@ func TestWarnOnUnpermittedCrossNamespaceRefs_EvalErrorDoesNotRewriteDedup(t *tes
 	failBad = false
 	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
 	assert.Empty(t, drainEvents(recorder.Events))
+}
+
+func TestCheckReferenceGrantAccess(t *testing.T) {
+	gr := schema.GroupResource{Group: gwv1.GroupName, Resource: "referencegrants"}
+	tests := []struct {
+		name    string
+		listErr error
+		wantErr bool
+	}{
+		{name: "permitted"},
+		{name: "forbidden is reported", listErr: apierrors.NewForbidden(gr, "", errors.New("no rbac")), wantErr: true},
+		{name: "other errors are left to the watch", listErr: errors.New("connection refused")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := testclient.NewClientBuilder().
+				WithScheme(rgReconcilerScheme(t)).
+				WithInterceptorFuncs(interceptor.Funcs{
+					List: func(ctx context.Context, cl client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+						if tt.listErr != nil {
+							return tt.listErr
+						}
+						return cl.List(ctx, list, opts...)
+					},
+				}).Build()
+
+			err := checkReferenceGrantAccess(context.Background(), c)
+			if tt.wantErr {
+				assert.ErrorContains(t, err, "apply the controller ClusterRole")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

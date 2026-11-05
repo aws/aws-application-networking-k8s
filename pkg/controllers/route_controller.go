@@ -111,6 +111,17 @@ func RegisterAllRouteControllers(
 
 	certDiscovery := services.NewCertificateDiscovery(cloud.ACM())
 
+	referenceGrantServed, err := k8s.IsGVKSupported(mgr, gwv1.GroupVersion.String(), "ReferenceGrant")
+	if err != nil {
+		return err
+	}
+	if !referenceGrantServed {
+		log.Infof(context.TODO(), "ReferenceGrant %s CRD is not served, skipping watch and cross-namespace warnings", gwv1.GroupVersion.String())
+	} else if err := checkReferenceGrantAccess(context.TODO(), mgr.GetAPIReader()); err != nil {
+		log.Errorf(context.TODO(), "skipping ReferenceGrant watch and cross-namespace warnings: %s", err)
+		referenceGrantServed = false
+	}
+
 	for _, routeInfo := range routeInfos {
 		brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(log, mgrClient)
 		reconciler := routeReconciler{
@@ -141,14 +152,9 @@ func RegisterAllRouteControllers(
 				MaxConcurrentReconciles: config.RouteMaxConcurrentReconciles,
 			})
 
-		if ok, err := k8s.IsGVKSupported(mgr, gwv1.GroupVersion.String(), "ReferenceGrant"); ok {
+		if referenceGrantServed {
 			builder.Watches(&gwv1.ReferenceGrant{}, rgEventHandler.MapToRoute(routeInfo.routeType))
 			reconciler.referenceGrantSupported = true
-		} else {
-			if err != nil {
-				return err
-			}
-			log.Infof(context.TODO(), "ReferenceGrant %s CRD is not served, skipping watch and cross-namespace warnings", gwv1.GroupVersion.String())
 		}
 
 		if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
@@ -175,6 +181,19 @@ func RegisterAllRouteControllers(
 		}
 	}
 
+	return nil
+}
+
+// checkReferenceGrantAccess reports a missing permission to list ReferenceGrants. Without it
+// the ReferenceGrant watch never syncs, so the route controllers never start and the
+// controller crashloops. Only list is checked; the shipped ClusterRole grants list and watch
+// together. Other errors are left to the watch, which retries them.
+func checkReferenceGrantAccess(ctx context.Context, reader client.Reader) error {
+	err := reader.List(ctx, &gwv1.ReferenceGrantList{}, client.Limit(1))
+	if apierrors.IsForbidden(err) {
+		return fmt.Errorf("controller cannot list referencegrants.gateway.networking.k8s.io; "+
+			"apply the controller ClusterRole from this release: %w", err)
+	}
 	return nil
 }
 

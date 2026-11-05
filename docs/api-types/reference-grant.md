@@ -76,6 +76,7 @@ The warning signal reads `ReferenceGrant` resources, so the controller's `Cluste
 grants `get`/`list`/`watch` on `referencegrants`. This rule ships with the controller
 image that introduces the feature. When upgrading, apply the updated RBAC (Helm chart or
 manifests) together with the new image — do not point the new image at an older
-`ClusterRole`. If the CRD is installed but the controller lacks permission to watch it,
-the watch fails to start and the controller will not come up healthy.
+`ClusterRole`. If the CRD is installed but the controller cannot list ReferenceGrants, it
+logs an error naming the missing permission, skips the watch and emits no warnings. Routes
+keep working, but you will not see the references a future release will block.
 
