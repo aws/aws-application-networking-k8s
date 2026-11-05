@@ -1929,6 +1929,8 @@ The Amazon VPC Lattice Gateway API Controller supports ExternalDNS integration t
 <li>Create HTTPRoutes and Services. The controller should create <code>DNSEndpoint</code> resource owned by the HTTPRoute you created.</li>
 <li>ExternalDNS will watch the changes and create DNS record on the configured DNS provider.</li>
 </ol>
+<p>To opt a single route out of <code>DNSEndpoint</code> management, annotate it with <code>application-networking.k8s.aws/dns-endpoint: disabled</code>.
+See the <a href="../../api-types/http-route/">HTTPRoute</a> annotation reference for details.</p>
 <h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h2>
 <ul>
 <li>You MUST have a registered hosted zone (e.g. <code>my-test.com</code>) in Route53 and complete the <code>Prerequisites</code> mentioned in <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-custom-domain-name.html">this section</a> of the Amazon VPC Lattice documentation.</li>

@@ -1945,6 +1945,19 @@ This allows you to define and manage the routing of gRPC traffic within your Kub
   when a <code>GRPCRoute</code> is programmed and ready.</p>
 </li>
 <li>
+<p><code>application-networking.k8s.aws/dns-endpoint</code><br />
+  Set to <code>disabled</code> to stop the controller from managing a <code>DNSEndpoint</code> for this route. Use it when DNS
+  records for the route's hostname are managed outside the controller. If a <code>DNSEndpoint</code> created by the
+  controller for this route already exists, it is deleted. A <code>DNSEndpoint</code> with the same name that is not
+  owned by the route is left untouched. Removing the annotation makes the controller create the <code>DNSEndpoint</code> again.
+  See <a href="../../guides/custom-domain-name/#managing-dns-records-using-externaldns">Managing DNS records using ExternalDNS</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Deleting the <code>DNSEndpoint</code> removes the DNS record only if ExternalDNS runs with <code>--policy=sync</code>.
+With <code>upsert-only</code> or <code>create-only</code>, delete the record from your DNS provider manually.</p>
+</div>
+</li>
+<li>
 <p><code>application-networking.k8s.aws/idle-timeout-seconds</code><br />
   Sets the idle connection timeout, in seconds, for the VPC Lattice Service that this route maps to.
   The idle timeout is the amount of time a connection can remain idle (no data sent) before VPC Lattice
