@@ -93,7 +93,7 @@ func (c *IAMAuthPolicyController) Reconcile(ctx context.Context, req ctrl.Reques
 
 	recErr := c.reconcile(ctx, req)
 	if recErr != nil {
-		c.log.Infow(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
+		c.log.Errorw(ctx, "reconcile error", "name", req.Name, "message", recErr.Error())
 	}
 	res, retryErr := lattice_runtime.HandleReconcileError(recErr)
 	if res.RequeueAfter != 0 {
