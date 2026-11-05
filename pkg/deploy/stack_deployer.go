@@ -215,21 +215,36 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	}
 
 	//Handle latticeService listener's rules "reconciliation" request
+	// A rule quota failure leaves every other rule applied, so the remaining steps still run (e.g. pod
+	// readiness gates). Their errors, such as targets still pending, must not hide the quota error: it is what
+	// the route controller reports, and it requeues on its own interval.
+	var ruleQuotaErr error
 	if err := ruleSynthesizer.Synthesize(ctx); err != nil {
-		return fmt.Errorf("error during rule synthesis %w", err)
+		if _, ok := lattice.AsRuleQuotaExceeded(err); !ok {
+			return fmt.Errorf("error during rule synthesis %w", err)
+		}
+		ruleQuotaErr = fmt.Errorf("error during rule synthesis %w", err)
 	}
 
 	// Handle pod status update for targets.
 	if err := targetsSynthesizer.PostSynthesize(ctx); err != nil {
-		return fmt.Errorf("error during target post synthesis %w", err)
+		if ruleQuotaErr != nil {
+			d.log.Infof(ctx, "target post synthesis after rule quota error: %s", err)
+		} else {
+			return fmt.Errorf("error during target post synthesis %w", err)
+		}
 	}
 
 	//Handle targetGroup deletion request
 	if err := targetGroupSynthesizer.SynthesizeDelete(ctx); err != nil {
-		return fmt.Errorf("error during tg delete synthesis %w", err)
+		if ruleQuotaErr != nil {
+			d.log.Infof(ctx, "tg delete synthesis after rule quota error: %s", err)
+		} else {
+			return fmt.Errorf("error during tg delete synthesis %w", err)
+		}
 	}
 
-	return nil
+	return ruleQuotaErr
 }
 
 type latticeTargetGroupStackDeployer struct {

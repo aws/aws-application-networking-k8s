@@ -72,6 +72,20 @@ func IsConflictError(err error) bool {
 	return errors.As(err, &conflictErr)
 }
 
+// AsServiceQuotaExceeded returns the VPC Lattice quota exception in err's chain, if any.
+func AsServiceQuotaExceeded(err error) (*types.ServiceQuotaExceededException, bool) {
+	var quotaErr *types.ServiceQuotaExceededException
+	if errors.As(err, &quotaErr) {
+		return quotaErr, true
+	}
+	return nil, false
+}
+
+func IsServiceQuotaExceededError(err error) bool {
+	_, ok := AsServiceQuotaExceeded(err)
+	return ok
+}
+
 type InvalidError struct {
 	Message string
 }

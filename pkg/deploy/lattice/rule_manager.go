@@ -149,6 +149,17 @@ func (r *defaultRuleManager) buildLatticeRule(modelRule *model.Rule) (*vpclattic
 	return &gro, nil
 }
 
+// ruleQuotaError means VPC Lattice refused to create or update a rule because a service quota was reached.
+// When notUpdated is true the rule still exists with its previous action, and Upsert returns its status.
+type ruleQuotaError struct {
+	notUpdated bool
+	err        error
+}
+
+func (e *ruleQuotaError) Error() string { return e.err.Error() }
+
+func (e *ruleQuotaError) Unwrap() error { return e.err }
+
 func (r *defaultRuleManager) Upsert(
 	ctx context.Context,
 	modelRule *model.Rule,
@@ -256,11 +267,15 @@ func (r *defaultRuleManager) updateIfNeeded(
 
 	_, err = r.cloud.Lattice().UpdateRule(ctx, &uri)
 	if err != nil {
-		return model.RuleStatus{}, fmt.Errorf("failed UpdateRule %d for %s, %s due to %s",
-			ruleToUpdate.Priority, latticeListenerId, latticeSvcId, err)
+		err = fmt.Errorf("failed UpdateRule %d for %s, %s due to %w",
+			aws.ToInt32(ruleToUpdate.Priority), latticeListenerId, latticeSvcId, err)
+		if services.IsServiceQuotaExceededError(err) {
+			return updatedRuleStatus, &ruleQuotaError{notUpdated: true, err: err}
+		}
+		return model.RuleStatus{}, err
 	}
 
-	r.log.Infof(ctx, "Success UpdateRule %d for %s, %s", ruleToUpdate.Priority, latticeListenerId, latticeSvcId)
+	r.log.Infof(ctx, "Success UpdateRule %d for %s, %s", aws.ToInt32(ruleToUpdate.Priority), latticeListenerId, latticeSvcId)
 	return updatedRuleStatus, nil
 }
 
@@ -297,7 +312,11 @@ func (r *defaultRuleManager) create(
 
 	res, err := r.cloud.Lattice().CreateRule(ctx, &cri)
 	if err != nil {
-		return model.RuleStatus{}, fmt.Errorf("failed CreateRule %s, %s due to %s", latticeListenerId, latticeSvcId, err)
+		err = fmt.Errorf("failed CreateRule %s, %s due to %w", latticeListenerId, latticeSvcId, err)
+		if services.IsServiceQuotaExceededError(err) {
+			return model.RuleStatus{}, &ruleQuotaError{err: err}
+		}
+		return model.RuleStatus{}, err
 	}
 
 	r.log.Infof(ctx, "Success CreateRule %s, %s", aws.ToString(res.Name), aws.ToString(res.Id))
