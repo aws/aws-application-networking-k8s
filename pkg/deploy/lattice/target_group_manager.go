@@ -28,6 +28,7 @@ type TargetGroupManager interface {
 	Upsert(ctx context.Context, modelTg *model.TargetGroup) (model.TargetGroupStatus, error)
 	Delete(ctx context.Context, modelTg *model.TargetGroup) error
 	List(ctx context.Context) ([]tgListOutput, error)
+	ListInVpc(ctx context.Context, vpcId string) ([]tgListOutput, error)
 	IsTargetGroupMatch(ctx context.Context, modelTg *model.TargetGroup, latticeTg *types.TargetGroupSummary,
 		latticeTags *model.TargetGroupTagFields) (bool, error)
 	ResolveRuleTgIds(ctx context.Context, modelRuleAction *model.RuleAction, stack core.Stack) error
@@ -277,10 +278,20 @@ type tgListOutput struct {
 
 // Retrieve all TGs in the account, including tags. If individual tags fetch fails, tags will be nil for that tg
 func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, error) {
+	return s.list(ctx, &vpclattice.ListTargetGroupsInput{})
+}
+
+// Retrieve TGs in the given VPC, including tags. Tags are fetched for every listed TG,
+// one ListTagsForResource call each when the tagging service API is disabled, so callers
+// that only need one VPC should use this rather than List.
+func (s *defaultTargetGroupManager) ListInVpc(ctx context.Context, vpcId string) ([]tgListOutput, error) {
+	return s.list(ctx, &vpclattice.ListTargetGroupsInput{VpcIdentifier: aws.String(vpcId)})
+}
+
+func (s *defaultTargetGroupManager) list(ctx context.Context, input *vpclattice.ListTargetGroupsInput) ([]tgListOutput, error) {
 	lattice := s.awsCloud.Lattice()
 	var tgList []tgListOutput
-	targetGroupListInput := vpclattice.ListTargetGroupsInput{}
-	resp, err := lattice.ListTargetGroupsAsList(ctx, &targetGroupListInput)
+	resp, err := lattice.ListTargetGroupsAsList(ctx, input)
 	if err != nil {
 		return nil, err
 	}

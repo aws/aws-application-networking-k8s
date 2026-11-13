@@ -2,11 +2,13 @@ package lattice
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	mock_client "github.com/aws/aws-application-networking-k8s/mocks/controller-runtime/client"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	mocks "github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -145,7 +149,7 @@ func Test_SynthesizeUnusedDeleteIgnoreNotManagedByController(t *testing.T) {
 	tgMissingRouteNamespace.tags[model.K8SRouteNameKey] = "route-name"
 	nonManagedTgs = append(nonManagedTgs, tgMissingRouteNamespace)
 
-	mockTGManager.EXPECT().List(ctx).Return(nonManagedTgs, nil)
+	mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return(nonManagedTgs, nil)
 	synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, mockTGManager, nil, nil, nil)
 	_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 	assert.Nil(t, err)
@@ -214,7 +218,7 @@ func Test_DoNotDeleteCases(t *testing.T) {
 	tgSvcUpToDate.tags[model.K8SProtocolVersionKey] = "HTTP1"
 	noDeleteTgs = append(noDeleteTgs, tgSvcUpToDate)
 
-	mockTGManager.EXPECT().List(ctx).Return(noDeleteTgs, nil)
+	mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return(noDeleteTgs, nil)
 
 	mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, name apitypes.NamespacedName, routeOrSvcExport client.Object, _ ...interface{}) error {
@@ -284,7 +288,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 	deleteTgs = append(deleteTgs, tgSvcExport)
 
 	t.Run("Service Export does not exist", func(t *testing.T) {
-		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+		mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return(deleteTgs, nil)
 
 		// the important bit below - svc export get returns does-not-exist
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).Return(
@@ -304,7 +308,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 	})
 
 	t.Run("Service Export deleted", func(t *testing.T) {
-		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+		mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return(deleteTgs, nil)
 
 		// the important bit below - svc export get returns deleted
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -353,7 +357,7 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 
 		mockSvcExportTgBuilder.EXPECT().BuildTargetGroup(ctx, gomock.Any()).Return(&modelTg, nil)
 
-		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+		mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return(deleteTgs, nil)
 		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
 
 		synthesizer := NewTargetGroupSynthesizer(
@@ -387,7 +391,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 	deleteTgs = append(deleteTgs, tgSvc)
 
 	t.Run("Route does not exist", func(t *testing.T) {
-		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+		mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return(deleteTgs, nil)
 
 		// the important bit below - svc export get returns does-not-exist
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).Return(
@@ -407,7 +411,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 	})
 
 	t.Run("Route deleted", func(t *testing.T) {
-		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+		mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return(deleteTgs, nil)
 
 		// the important bit below - svc export get returns deleted
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -464,7 +468,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 			},
 		)
 
-		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
+		mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return(deleteTgs, nil)
 		// important bit below, return false for match
 		// this is actually what decides if the tgs are a match or not
 		mockTGManager.EXPECT().IsTargetGroupMatch(ctx, gomock.Any(), gomock.Any(), gomock.Any()).
@@ -589,7 +593,7 @@ func Test_SynthesizeUnusedDelete_ExternalTgRouteRebuild(t *testing.T) {
 		mockClient := mock_client.NewMockClient(c)
 		mockSvcBuilder := gateway.NewMockLatticeServiceBuilder(c)
 
-		mockTGManager.EXPECT().List(ctx).Return([]tgListOutput{orphanTg}, nil)
+		mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return([]tgListOutput{orphanTg}, nil)
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, name apitypes.NamespacedName, route client.Object, _ ...interface{}) error {
 				route.SetName("route")
@@ -620,7 +624,7 @@ func Test_SynthesizeUnusedDelete_ExternalTgRouteRebuild(t *testing.T) {
 		mockClient := mock_client.NewMockClient(c)
 		mockSvcBuilder := gateway.NewMockLatticeServiceBuilder(c)
 
-		mockTGManager.EXPECT().List(ctx).Return([]tgListOutput{orphanTg}, nil)
+		mockTGManager.EXPECT().ListInVpc(ctx, config.VpcID).Return([]tgListOutput{orphanTg}, nil)
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, name apitypes.NamespacedName, route client.Object, _ ...interface{}) error {
 				route.SetName("route")
@@ -635,4 +639,70 @@ func Test_SynthesizeUnusedDelete_ExternalTgRouteRebuild(t *testing.T) {
 		_, err := synthesizer.SynthesizeUnusedDelete(ctx)
 		assert.Nil(t, err)
 	})
+}
+
+// GC can only delete TGs in its own VPC (vpcMatchesConfig), so it should only list and
+// fetch tags for those. With DISABLE_TAGGING_SERVICE_API=true every TG it fetches tags
+// for costs one ListTagsForResource call, so in an account shared by clusters in several
+// VPCs, an account-wide scan costs each controller one call per TG in the account.
+func Test_SynthesizeUnusedDelete_OnlyFetchesTagsForOwnVpc(t *testing.T) {
+	const vpcCount, tgsPerVpc = 10, 100
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	prevVpc, prevCluster := config.VpcID, config.ClusterName
+	defer func() { config.VpcID, config.ClusterName = prevVpc, prevCluster }()
+	config.VpcID = "vpc-0"
+	config.ClusterName = "cluster-name"
+
+	var accountTgs []types.TargetGroupSummary
+	for v := 0; v < vpcCount; v++ {
+		for i := 0; i < tgsPerVpc; i++ {
+			accountTgs = append(accountTgs, types.TargetGroupSummary{
+				Arn:           aws.String(fmt.Sprintf("arn:tg-%d-%d", v, i)),
+				Id:            aws.String(fmt.Sprintf("tg-%d-%d", v, i)),
+				Name:          aws.String(fmt.Sprintf("tg-%d-%d", v, i)),
+				VpcIdentifier: aws.String(fmt.Sprintf("vpc-%d", v)),
+				Type:          types.TargetGroupTypeIp,
+			})
+		}
+	}
+
+	// apply the VpcIdentifier filter the way the ListTargetGroups API does
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).DoAndReturn(
+		func(_ context.Context, in *vpclattice.ListTargetGroupsInput) ([]types.TargetGroupSummary, error) {
+			if in.VpcIdentifier == nil {
+				return accountTgs, nil
+			}
+			var out []types.TargetGroupSummary
+			for _, tg := range accountTgs {
+				if aws.ToString(tg.VpcIdentifier) == aws.ToString(in.VpcIdentifier) {
+					out = append(out, tg)
+				}
+			}
+			return out, nil
+		})
+
+	tagLookups := 0
+	mockTagging := mocks.NewMockTagging(c)
+	mockTagging.EXPECT().GetTagsForArns(ctx, gomock.Any()).DoAndReturn(
+		func(_ context.Context, arns []string) (map[string]mocks.Tags, error) {
+			tagLookups += len(arns)
+			out := map[string]mocks.Tags{}
+			for _, arn := range arns {
+				out[arn] = mocks.Tags{}
+			}
+			return out, nil
+		})
+
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
+	synthesizer := NewTargetGroupSynthesizer(gwlog.FallbackLogger, nil, nil, tgManager, nil, nil, nil)
+
+	_, err := synthesizer.SynthesizeUnusedDelete(ctx)
+	assert.Nil(t, err)
+	assert.Equal(t, tgsPerVpc, tagLookups, "GC should fetch tags only for the TGs in its own VPC")
 }
