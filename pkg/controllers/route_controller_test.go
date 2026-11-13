@@ -1111,7 +1111,7 @@ func newQuotaTestReconciler(t *testing.T, c *gomock.Controller, route *gwv1.HTTP
 	k8sClient := testclient.NewClientBuilder().
 		WithScheme(k8sScheme).
 		WithObjects(gwClass, gw, route).
-		WithStatusSubresource(&gwv1.HTTPRoute{}).
+		WithStatusSubresource(&gwv1.HTTPRoute{}, &gwv1.Gateway{}).
 		Build()
 
 	if recorder == nil {
@@ -1221,6 +1221,12 @@ func TestRouteReconciler_ServiceQuotaExceeded(t *testing.T) {
 	assert.NoError(t, k8sClient.Get(ctx, k8s.NamespacedName(route), published))
 	assert.Equal(t, "svc-arn", published.Annotations[LatticeServiceArn])
 	assert.Equal(t, "svc.dns", published.Annotations[LatticeAssignedDomainName])
+	// and so is the Gateway listener status
+	gw := &gwv1.Gateway{}
+	assert.NoError(t, k8sClient.Get(ctx, client.ObjectKey{Namespace: "ns1", Name: "my-gateway"}, gw))
+	if assert.Len(t, gw.Status.Listeners, 1) {
+		assert.Equal(t, int32(1), gw.Status.Listeners[0].AttachedRoutes)
+	}
 
 	partial := findCond(gwv1.RouteConditionPartiallyInvalid)
 	if assert.NotNil(t, partial) {
@@ -1234,9 +1240,21 @@ func TestRouteReconciler_ServiceQuotaExceeded(t *testing.T) {
 		assert.Equal(t, metav1.ConditionTrue, accepted.Status)
 	}
 
-	// the same failure again is logged but not re-emitted as an event, and the generic event is not used
-	_, err = rc.Reconcile(ctx, req)
+	// the same failure again is logged but not re-emitted as an event, and the generic event is not used.
+	// The route has been over quota for 10 minutes by now, so the retry backs off.
+	stuck := &gwv1.HTTPRoute{}
+	assert.NoError(t, k8sClient.Get(ctx, k8s.NamespacedName(route), stuck))
+	for i := range stuck.Status.Parents {
+		for j := range stuck.Status.Parents[i].Conditions {
+			if stuck.Status.Parents[i].Conditions[j].Type == string(gwv1.RouteConditionPartiallyInvalid) {
+				stuck.Status.Parents[i].Conditions[j].LastTransitionTime = metav1.NewTime(time.Now().Add(-10 * time.Minute))
+			}
+		}
+	}
+	assert.NoError(t, k8sClient.Status().Update(ctx, stuck))
+	result, err = rc.Reconcile(ctx, req)
 	assert.NoError(t, err)
+	assert.InDelta(t, 10*time.Minute, result.RequeueAfter, float64(5*time.Second))
 	assert.Equal(t, 1, quotaEvents)
 	assert.Equal(t, 0, deployFailedEvents)
 
@@ -1260,11 +1278,31 @@ func TestRouteReconciler_ServiceQuotaExceeded(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, findCond(gwv1.RouteConditionPartiallyInvalid))
 
-	// a new failure after that is reported again
+	// a new failure after that is reported again, and the retry starts over at the minimum interval
 	deployer.err = quotaDeployErr
-	_, err = rc.Reconcile(ctx, req)
+	result, err = rc.Reconcile(ctx, req)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, quotaEvents)
+	assert.Equal(t, 1*time.Minute, result.RequeueAfter)
+}
+
+func TestQuotaRetryInterval(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		name  string
+		since time.Time
+		want  time.Duration
+	}{
+		{name: "first failure", want: time.Minute},
+		{name: "just over quota", since: now.Add(-10 * time.Second), want: time.Minute},
+		{name: "grows with time over quota", since: now.Add(-4 * time.Minute), want: 4 * time.Minute},
+		{name: "capped", since: now.Add(-3 * time.Hour), want: 15 * time.Minute},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, quotaRetryInterval(tt.since, now))
+		})
+	}
 }
 
 // The spec forbids PartiallyInvalid on a parent that did not accept the route.

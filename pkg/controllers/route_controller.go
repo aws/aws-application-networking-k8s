@@ -505,6 +505,7 @@ func (r *routeReconciler) handleRuleQuotaExceeded(ctx context.Context, route cor
 	r.log.Warnf(ctx, "route %s/%s: %s", route.Namespace(), route.Name(), msg)
 
 	alreadyReported := false
+	var quotaSince time.Time
 	// the spec forbids PartiallyInvalid on a parent that did not accept the route
 	parents := route.Status().Parents()
 	for i := range parents {
@@ -512,8 +513,14 @@ func (r *routeReconciler) handleRuleQuotaExceeded(ctx context.Context, route cor
 			!meta.IsStatusConditionTrue(parents[i].Conditions, string(gwv1.RouteConditionAccepted)) {
 			continue
 		}
-		if cnd := meta.FindStatusCondition(parents[i].Conditions, string(gwv1.RouteConditionPartiallyInvalid)); cnd != nil && cnd.Message == msg {
-			alreadyReported = true
+		if cnd := meta.FindStatusCondition(parents[i].Conditions, string(gwv1.RouteConditionPartiallyInvalid)); cnd != nil {
+			if cnd.Message == msg {
+				alreadyReported = true
+			}
+			if cnd.Status == metav1.ConditionTrue && cnd.Reason == k8s.RouteEventReasonServiceQuotaExceeded &&
+				(quotaSince.IsZero() || cnd.LastTransitionTime.Time.Before(quotaSince)) {
+				quotaSince = cnd.LastTransitionTime.Time
+			}
 		}
 		parents[i].Conditions = k8sutils.GetNewConditions(parents[i].Conditions, metav1.Condition{
 			Type:               string(gwv1.RouteConditionPartiallyInvalid),
@@ -542,8 +549,23 @@ func (r *routeReconciler) handleRuleQuotaExceeded(ctx context.Context, route cor
 			r.log.Warnf(ctx, "failed to update gateway listener status: %v", err)
 		}
 	}
-	// the quota can be raised out of band, so retry on a fixed interval instead of exponential backoff
-	return lattice_runtime.NewRequeueNeededAfter("service quota exceeded, retrying", 1*time.Minute)
+	// The quota can be raised out of band, so retry on a timer instead of waiting for a spec change. Each retry
+	// is a full deploy, so the interval grows with how long the route has been over quota.
+	return lattice_runtime.NewRequeueNeededAfter("service quota exceeded, retrying", quotaRetryInterval(quotaSince, time.Now()))
+}
+
+const (
+	quotaRetryMinInterval = 1 * time.Minute
+	quotaRetryMaxInterval = 15 * time.Minute
+)
+
+// quotaRetryInterval returns the time since the route went over quota, clamped to [1m, 15m]. Retries are
+// therefore about 1m, 1m, 2m, 4m, 8m, then every 15m, without keeping a counter.
+func quotaRetryInterval(since, now time.Time) time.Duration {
+	if since.IsZero() {
+		return quotaRetryMinInterval
+	}
+	return min(max(now.Sub(since), quotaRetryMinInterval), quotaRetryMaxInterval)
 }
 
 // droppedRulesMessage builds the PartiallyInvalid message. The Gateway API requires it to start with
