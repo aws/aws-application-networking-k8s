@@ -20,7 +20,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	latticetypes "github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
+	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -774,4 +777,232 @@ func Test_IAMAuthPolicy_NamespaceDeletionCleansUpBeforeGatewayGoes(t *testing.T)
 
 	assert.NoError(t, gwReconciler.reconcileDelete(ctx, gw.DeepCopy()))
 	assert.True(t, apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(gw), &gwv1.Gateway{})))
+}
+
+const iapTestSvcId = "svc-0123456789abcdef0"
+
+var iapTestReq = reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "ns", Name: "iap"}}
+
+type iapTestEnv struct {
+	controller *IAMAuthPolicyController
+	client     client.Client
+	lattice    *mocks.MockLattice
+	// Accepted condition reason of every IAMAuthPolicy status write, in order.
+	statusWrites []string
+}
+
+func newIAPTestEnv(t *testing.T) *iapTestEnv {
+	c := gomock.NewController(t)
+
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+	anv1alpha1.Install(scheme)
+
+	route := &gwv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "route"}}
+	iap := &anv1alpha1.IAMAuthPolicy{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "iap", Generation: 1},
+		Spec: anv1alpha1.IAMAuthPolicySpec{
+			Policy: `{"Version":"2012-10-17","Statement":[]}`,
+			TargetRef: &gwv1alpha2.NamespacedPolicyTargetReference{
+				Group: gwv1.GroupName,
+				Kind:  "HTTPRoute",
+				Name:  "route",
+			},
+		},
+	}
+
+	env := &iapTestEnv{}
+	env.client = testclient.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(route, iap).
+		WithStatusSubresource(&anv1alpha1.IAMAuthPolicy{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			SubResourceUpdate: func(ctx context.Context, cl client.Client, sub string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+				if p, ok := obj.(*anv1alpha1.IAMAuthPolicy); ok {
+					reason := ""
+					if cnd := meta.FindStatusCondition(p.Status.Conditions, string(policy.ConditionTypeAccepted)); cnd != nil {
+						reason = cnd.Reason
+					}
+					env.statusWrites = append(env.statusWrites, reason)
+				}
+				return cl.SubResource(sub).Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	env.lattice = mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewMockCloud(c)
+	cloud.EXPECT().Lattice().Return(env.lattice).AnyTimes()
+	svcArn := "arn:aws:vpc-lattice:us-west-2:123456789012:service/" + iapTestSvcId
+	env.lattice.EXPECT().FindService(gomock.Any(), gomock.Any()).
+		Return(&latticetypes.ServiceSummary{Id: aws.String(iapTestSvcId), Arn: aws.String(svcArn)}, nil).AnyTimes()
+	cloud.EXPECT().IsArnManaged(gomock.Any(), svcArn).Return(true, nil).AnyTimes()
+	// No active auth policy yet, so the manager does not skip the put as in sync.
+	env.lattice.EXPECT().GetAuthPolicy(gomock.Any(), gomock.Any()).
+		Return(&vpclattice.GetAuthPolicyOutput{}, nil).AnyTimes()
+
+	recorder := mock_client.NewMockEventRecorder(c)
+	recorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	env.controller = &IAMAuthPolicyController{
+		log:           gwlog.FallbackLogger,
+		client:        env.client,
+		pm:            deploy.NewIAMAuthPolicyManager(cloud),
+		ph:            policy.NewIAMAuthPolicyHandler(gwlog.FallbackLogger, env.client),
+		cloud:         cloud,
+		eventRecorder: recorder,
+	}
+	return env
+}
+
+func (env *iapTestEnv) reconcile() (reconcile.Result, error) {
+	return env.controller.Reconcile(context.TODO(), iapTestReq)
+}
+
+func (env *iapTestEnv) policy(t *testing.T) *anv1alpha1.IAMAuthPolicy {
+	p := &anv1alpha1.IAMAuthPolicy{}
+	assert.NoError(t, env.client.Get(context.TODO(), iapTestReq.NamespacedName, p))
+	return p
+}
+
+func (env *iapTestEnv) accepted(t *testing.T) *metav1.Condition {
+	return meta.FindStatusCondition(env.policy(t).Status.Conditions, string(policy.ConditionTypeAccepted))
+}
+
+// A policy document VPC Lattice rejects is reported as Accepted=False/Invalid
+// with the AWS message, the status is written once per reconcile and never
+// shows a transient Accepted=True, and the controller requeues on a fixed
+// interval instead of returning an error.
+func Test_IAMAuthPolicy_PutRejected_SetsInvalid(t *testing.T) {
+	long := strings.Repeat("x", 5000)
+	tests := []struct {
+		name    string
+		putErr  error
+		wantMsg string
+	}{
+		{
+			name:    "principal not found",
+			putErr:  &latticetypes.ValidationException{Message: aws.String("Policy principal is not found.")},
+			wantMsg: "VPC Lattice rejected the auth policy: ValidationException: Policy principal is not found.",
+		},
+		{
+			name: "document not valid, generic API error wrapped in an operation error",
+			putErr: &smithy.OperationError{ServiceID: "VPC Lattice", OperationName: "PutAuthPolicy",
+				Err: &smithy.GenericAPIError{Code: "ValidationException", Message: "Policy document is not valid."}},
+			wantMsg: "VPC Lattice rejected the auth policy: ValidationException: Policy document is not valid.",
+		},
+		{
+			name:    "long message is truncated",
+			putErr:  &latticetypes.ValidationException{Message: aws.String(long)},
+			wantMsg: ("VPC Lattice rejected the auth policy: ValidationException: " + long)[:iamAuthPolicyMaxMessageLen],
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newIAPTestEnv(t)
+			recorder := record.NewFakeRecorder(20)
+			env.controller.eventRecorder = recorder
+			// No UpdateService expectation: IAM auth must not be enabled after a rejected put.
+			env.lattice.EXPECT().PutAuthPolicy(gomock.Any(), gomock.Any()).Return(nil, tt.putErr).Times(2)
+
+			for i := 0; i < 2; i++ {
+				res, err := env.reconcile()
+				assert.NoError(t, err)
+				assert.Equal(t, iamAuthPolicyRejectedRequeueAfter, res.RequeueAfter)
+			}
+
+			// Each rejected reconcile emits a Warning event with the VPC Lattice message.
+			wantEvent := corev1.EventTypeWarning + " " + k8s.FailedReconcileEvent +
+				" Reconcile failed: requeue needed after " + iamAuthPolicyRejectedRequeueAfter.String() + ": " + tt.wantMsg
+			var warnings []string
+			for len(recorder.Events) > 0 {
+				if e := <-recorder.Events; strings.HasPrefix(e, corev1.EventTypeWarning) {
+					warnings = append(warnings, e)
+				}
+			}
+			assert.Equal(t, []string{wantEvent, wantEvent}, warnings)
+
+			assert.Equal(t, []string{string(policy.ReasonInvalid), string(policy.ReasonInvalid)}, env.statusWrites)
+			cnd := env.accepted(t)
+			require.NotNil(t, cnd)
+			assert.Equal(t, metav1.ConditionFalse, cnd.Status)
+			assert.Equal(t, string(policy.ReasonInvalid), cnd.Reason)
+			assert.Equal(t, tt.wantMsg, cnd.Message)
+			assert.Equal(t, int64(1), cnd.ObservedGeneration)
+			assert.Empty(t, env.policy(t).Annotations[IAMAuthPolicyAnnotationResId])
+		})
+	}
+}
+
+// Errors that can succeed on retry are returned to controller-runtime for
+// backoff, and the status is not set to Invalid.
+func Test_IAMAuthPolicy_PutRetryableError_ReturnsError(t *testing.T) {
+	tests := []struct {
+		name      string
+		putErr    error
+		updateErr error
+	}{
+		{name: "throttling", putErr: &latticetypes.ThrottlingException{Message: aws.String("Rate exceeded")}},
+		{name: "internal server error", putErr: &latticetypes.InternalServerException{Message: aws.String("boom")}},
+		{name: "service unavailable", putErr: &smithy.GenericAPIError{Code: "ServiceUnavailable", Message: "unavailable", Fault: smithy.FaultServer}},
+		{name: "access denied", putErr: &latticetypes.AccessDeniedException{Message: aws.String("not authorized")}},
+		{name: "context deadline", putErr: context.DeadlineExceeded},
+		{name: "network", putErr: &smithy.OperationError{ServiceID: "VPC Lattice", OperationName: "PutAuthPolicy",
+			Err: &smithyhttp.RequestSendError{Err: errors.New("connection reset")}}},
+		{name: "conflict enabling IAM auth", updateErr: &latticetypes.ConflictException{Message: aws.String("This resource has been modified")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newIAPTestEnv(t)
+			env.lattice.EXPECT().PutAuthPolicy(gomock.Any(), gomock.Any()).Return(nil, tt.putErr)
+			if tt.putErr == nil {
+				env.lattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).Return(nil, tt.updateErr)
+			}
+
+			res, err := env.reconcile()
+			assert.Error(t, err)
+			assert.Equal(t, reconcile.Result{}, res)
+			assert.Empty(t, env.statusWrites)
+			assert.Nil(t, env.accepted(t))
+		})
+	}
+}
+
+// A successful put after a rejection sets Accepted=True and stops requeueing.
+func Test_IAMAuthPolicy_PutSucceedsAfterRejection_SetsAccepted(t *testing.T) {
+	env := newIAPTestEnv(t)
+	gomock.InOrder(
+		env.lattice.EXPECT().PutAuthPolicy(gomock.Any(), gomock.Any()).
+			Return(nil, &latticetypes.ValidationException{Message: aws.String("Policy principal is not found.")}),
+		env.lattice.EXPECT().PutAuthPolicy(gomock.Any(), gomock.Any()).
+			Return(&vpclattice.PutAuthPolicyOutput{}, nil),
+	)
+	env.lattice.EXPECT().UpdateService(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, in *vpclattice.UpdateServiceInput, _ ...func(*vpclattice.Options)) (*vpclattice.UpdateServiceOutput, error) {
+			assert.Equal(t, latticetypes.AuthTypeAwsIam, in.AuthType)
+			assert.Equal(t, iapTestSvcId, aws.ToString(in.ServiceIdentifier))
+			return &vpclattice.UpdateServiceOutput{}, nil
+		})
+
+	_, err := env.reconcile()
+	assert.NoError(t, err)
+	require.NotNil(t, env.accepted(t))
+	assert.Equal(t, string(policy.ReasonInvalid), env.accepted(t).Reason)
+
+	res, err := env.reconcile()
+	assert.NoError(t, err)
+	assert.Equal(t, reconcile.Result{}, res)
+	assert.Equal(t, []string{string(policy.ReasonInvalid), string(policy.ReasonAccepted)}, env.statusWrites)
+
+	cnd := env.accepted(t)
+	require.NotNil(t, cnd)
+	assert.Equal(t, metav1.ConditionTrue, cnd.Status)
+	assert.Equal(t, string(policy.ReasonAccepted), cnd.Reason)
+	assert.Empty(t, cnd.Message)
+
+	// The status write must not drop the Lattice annotations set in the same reconcile.
+	p := env.policy(t)
+	assert.Equal(t, iapTestSvcId, p.Annotations[IAMAuthPolicyAnnotationResId])
+	assert.Contains(t, p.Finalizers, IAMAuthPolicyFinalizer)
 }

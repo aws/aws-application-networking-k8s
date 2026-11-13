@@ -24,6 +24,29 @@ The authorization will not take effect if the client directly sends traffic to t
 [This article](https://aws.amazon.com/blogs/containers/implement-aws-iam-authentication-with-amazon-vpc-lattice-and-amazon-eks/)
 is also a good reference on how to set up VPC Lattice Auth Policies in Kubernetes.
 
+## Status
+
+| Type | Status / Reason | Meaning |
+|---|---|---|
+| `Accepted` | `True` / `Accepted` | The `targetRef` is valid and VPC Lattice accepted the auth policy. Other reasons follow the Gateway API policy attachment conventions (`Invalid`, `TargetNotFound`, `Conflicted`). |
+| `Accepted` | `False` / `Invalid` | Also set when VPC Lattice rejects the policy document (`ValidationException`), for example invalid syntax or an IAM principal that does not exist. The message carries the VPC Lattice error, and the controller tries again every 15 minutes, since the cause can be outside the policy spec (such as an IAM role that is created later). |
+
+Example after VPC Lattice rejects a policy that names an IAM role that does not exist:
+
+```yaml
+status:
+  conditions:
+  - type: Accepted
+    status: "False"
+    reason: Invalid
+    message: 'VPC Lattice rejected the auth policy: ValidationException: Policy principal is not found.'
+```
+
+When VPC Lattice rejects an edit, the controller also records a `Warning` event with reason `FailedReconcile` on
+each attempt, and the previously accepted policy is not changed. If a policy was accepted before and is then edited
+to an invalid document, the last accepted policy stays in effect in VPC Lattice while the status shows `Invalid`.
+The status reports the result of the last attempt to apply the policy, not which policy is in effect. Fix the document to clear the `Invalid` status.
+
 ## Example Configuration
 
 ### Example 1

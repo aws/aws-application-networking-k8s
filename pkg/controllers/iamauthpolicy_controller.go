@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"time"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
@@ -40,6 +41,15 @@ const (
 	IAMAuthPolicyAnnotationType    = k8s.AnnotationPrefix + IAMAuthPolicyAnnotation + "-resource-type"
 	IAMAuthPolicyFinalizer         = k8s.AnnotationPrefix + IAMAuthPolicyAnnotation
 	IAMAuthPolicyAnnotationResName = k8s.AnnotationPrefix + IAMAuthPolicyAnnotation + "-resource-name"
+
+	// How often a policy rejected by VPC Lattice is retried. The rejection can be
+	// caused by something outside the policy spec, such as an IAM principal that
+	// does not exist yet, so it is checked again. This is close to the
+	// controller-runtime maximum backoff (1000s) that the error path used.
+	iamAuthPolicyRejectedRequeueAfter = 15 * time.Minute
+
+	// Limit on the AWS error text copied into the Accepted condition message.
+	iamAuthPolicyMaxMessageLen = 1024
 )
 
 type (
@@ -159,12 +169,10 @@ func (c *IAMAuthPolicyController) reconcileDelete(ctx context.Context, k8sPolicy
 }
 
 func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy *anv1alpha1.IAMAuthPolicy) error {
-	reason, err := c.ph.ValidateAndUpdateCondition(ctx, k8sPolicy)
-	if err != nil {
-		return err
-	}
-	if reason != policy.ReasonAccepted {
-		return nil
+	// Accepted=True is written only after VPC Lattice accepts the policy, so the
+	// condition reflects the PutAuthPolicy result and is written once per reconcile.
+	if reason, msg := c.ph.Validate(ctx, k8sPolicy); reason != policy.ReasonAccepted {
+		return c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, reason, msg)
 	}
 
 	resourceName, err := c.targetRefToResourceName(ctx, k8sPolicy)
@@ -208,9 +216,36 @@ func (c *IAMAuthPolicyController) reconcileUpsert(ctx context.Context, k8sPolicy
 			}
 			return nil
 		}
+		// VPC Lattice rejected the policy document: mark Invalid with the AWS
+		// message and recheck on a fixed interval instead of backing off.
+		var invalidErr *services.InvalidError
+		if errors.As(err, &invalidErr) {
+			msg := invalidErr.Message
+			if len(msg) > iamAuthPolicyMaxMessageLen {
+				msg = msg[:iamAuthPolicyMaxMessageLen]
+			}
+			c.log.Infow(ctx, "VPC Lattice rejected IAMAuthPolicy",
+				"namespace", k8sPolicy.Namespace,
+				"name", k8sPolicy.Name,
+				"targetRef", k8sPolicy.Spec.TargetRef,
+				"resourceType", modelPolicy.Type,
+				"resourceName", resourceName,
+				"message", msg,
+			)
+			if statusErr := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, gwv1.PolicyReasonInvalid, msg); statusErr != nil {
+				return statusErr
+			}
+			return lattice_runtime.NewRequeueNeededAfter(msg, iamAuthPolicyRejectedRequeueAfter)
+		}
 		return err
 	}
 	err = c.handleLatticeResourceChange(ctx, k8sPolicy, statusPolicy)
+	if err != nil {
+		return err
+	}
+	// Update status before setting annotations: the status update response
+	// replaces the in-memory object, which would drop unsaved annotations.
+	err = c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, policy.ReasonAccepted, "")
 	if err != nil {
 		return err
 	}
