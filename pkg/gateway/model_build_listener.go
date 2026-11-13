@@ -75,7 +75,9 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 		return err
 	}
 
-	listenersToCreate := make(map[string]ListenerConfig)
+	// a slice in Gateway spec order, not a map, so rules and their quota errors come out in the same order every pass
+	var listenersToCreate []ListenerConfig
+	seen := make(map[string]bool)
 
 	for _, parentRef := range t.route.Spec().ParentRefs() {
 		if string(parentRef.Name) != gw.Name {
@@ -102,11 +104,15 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 			}
 
 			listenerName := string(gwListener.Name)
-			listenersToCreate[listenerName] = ListenerConfig{
+			if seen[listenerName] {
+				continue
+			}
+			seen[listenerName] = true
+			listenersToCreate = append(listenersToCreate, ListenerConfig{
 				Name:     listenerName,
 				Port:     int64(gwListener.Port),
 				Protocol: protocol,
-			}
+			})
 		}
 	}
 

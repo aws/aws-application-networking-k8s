@@ -51,6 +51,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/eventhandlers"
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers/predicates"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -323,11 +324,13 @@ func (r *routeReconciler) buildAndDeployModel(
 		if errors.As(err, &requeueNeededAfter) {
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 				k8s.RouteEventReasonRetryReconcile, "retry reconcile...")
-		} else {
+		} else if _, isRuleQuota := lattice.AsRuleQuotaExceeded(err); !isRuleQuota {
+			// rule quota failures get their own, more specific event from handleRuleQuotaExceeded
 			r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
 				k8s.RouteEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %s", err))
 		}
-		return nil, err
+		// the partially deployed stack is returned so callers can still report what was created
+		return stack, err
 	}
 
 	return stack, err
@@ -406,6 +409,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		}
 
 		route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
+		removePartiallyInvalid(route, &parentRef)
 		route.Status().UpdateRouteCondition(parentRef, metav1.Condition{
 			Type:               string(gwv1.RouteConditionAccepted),
 			Status:             metav1.ConditionFalse,
@@ -431,6 +435,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 				return parentRefErr
 			}
 			route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
+			removePartiallyInvalid(route, &parentRef)
 			route.Status().UpdateRouteCondition(parentRef, metav1.Condition{
 				Type:               string(gwv1.RouteConditionAccepted),
 				Status:             metav1.ConditionFalse,
@@ -449,6 +454,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 				return parentRefErr
 			}
 			route.Status().UpdateParentRefs(parentRef, config.LatticeGatewayControllerName)
+			removePartiallyInvalid(route, &parentRef)
 			route.Status().UpdateRouteCondition(parentRef, metav1.Condition{
 				Type:               string(gwv1.RouteConditionAccepted),
 				Status:             metav1.ConditionFalse,
@@ -460,6 +466,9 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 				return fmt.Errorf("failed to update route status: %w", statusErr)
 			}
 			return lattice_runtime.NewRequeueNeededAfter("certificate not found, retrying", 1*time.Minute)
+		}
+		if ruleQuotaErr, ok := lattice.AsRuleQuotaExceeded(err); ok {
+			return r.handleRuleQuotaExceeded(ctx, route, stack, ruleQuotaErr)
 		}
 		switch {
 		case k8s.IsInvalidExternalTargetGroupError(err):
@@ -484,6 +493,13 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 		k8s.RouteEventReasonDeploySucceed, "Adding/Updating reconcile Done!")
 
+	// everything was applied, so a PartiallyInvalid condition from an earlier quota failure is stale
+	if removePartiallyInvalid(route, nil) {
+		if err := r.client.Status().Update(ctx, route.K8sObject()); err != nil {
+			return err
+		}
+	}
+
 	svcStatus := serviceStatusFromStack(stack)
 	if err := r.updateRouteStatusWithServiceInfo(ctx, route, svcStatus); err != nil {
 		return err
@@ -498,6 +514,149 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 
 	r.log.Infow(ctx, "reconciled", "name", req.Name)
 	return nil
+}
+
+func (r *routeReconciler) handleRuleQuotaExceeded(ctx context.Context, route core.Route, stack core.Stack, ruleErr *lattice.RuleQuotaExceededError) error {
+	msg := droppedRulesMessage(ruleErr)
+	if quotaErr, ok := services.AsServiceQuotaExceeded(ruleErr); ok && quotaErr.Message != nil {
+		msg = fmt.Sprintf("%s. VPC Lattice error: %s", msg, *quotaErr.Message)
+	}
+	r.log.Warnf(ctx, "route %s/%s: %s", route.Namespace(), route.Name(), msg)
+
+	alreadyReported := false
+	var quotaSince time.Time
+	// the spec forbids PartiallyInvalid on a parent that did not accept the route
+	parents := route.Status().Parents()
+	for i := range parents {
+		if parents[i].ControllerName != config.LatticeGatewayControllerName ||
+			!meta.IsStatusConditionTrue(parents[i].Conditions, string(gwv1.RouteConditionAccepted)) {
+			continue
+		}
+		if cnd := meta.FindStatusCondition(parents[i].Conditions, string(gwv1.RouteConditionPartiallyInvalid)); cnd != nil {
+			if cnd.Message == msg {
+				alreadyReported = true
+			}
+			if cnd.Status == metav1.ConditionTrue && cnd.Reason == k8s.RouteEventReasonServiceQuotaExceeded &&
+				(quotaSince.IsZero() || cnd.LastTransitionTime.Time.Before(quotaSince)) {
+				quotaSince = cnd.LastTransitionTime.Time
+			}
+		}
+		parents[i].Conditions = k8sutils.GetNewConditions(parents[i].Conditions, metav1.Condition{
+			Type:               string(gwv1.RouteConditionPartiallyInvalid),
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: route.K8sObject().GetGeneration(),
+			// same reason as the event on purpose, so both can be found by one name
+			Reason:  k8s.RouteEventReasonServiceQuotaExceeded,
+			Message: msg,
+		})
+	}
+	if err := r.client.Status().Update(ctx, route.K8sObject()); err != nil {
+		return fmt.Errorf("failed to update route status for quota exceeded: %w", err)
+	}
+	// Warning events on a route share one client-go spam budget, so repeating an unchanged one on every retry
+	// would crowd out other warnings, such as the ReferenceGrant one.
+	if !alreadyReported {
+		r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning, k8s.RouteEventReasonServiceQuotaExceeded, msg)
+	}
+
+	// the service itself is live, so still publish its ARN/DNS and the Gateway listener status
+	if stack != nil {
+		if err := r.updateRouteStatusWithServiceInfo(ctx, route, serviceStatusFromStack(stack)); err != nil {
+			return err
+		}
+		if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
+			r.log.Warnf(ctx, "failed to update gateway listener status: %v", err)
+		}
+	}
+	// The quota can be raised out of band, so retry on a timer instead of waiting for a spec change. Each retry
+	// is a full deploy, so the interval grows with how long the route has been over quota.
+	return lattice_runtime.NewRequeueNeededAfter("service quota exceeded, retrying", quotaRetryInterval(quotaSince, time.Now()))
+}
+
+const (
+	quotaRetryMinInterval = 1 * time.Minute
+	quotaRetryMaxInterval = 15 * time.Minute
+)
+
+// quotaRetryInterval returns the time since the route went over quota, clamped to [1m, 15m]. Retries are
+// therefore about 1m, 1m, 2m, 4m, 8m, then every 15m, without keeping a counter.
+func quotaRetryInterval(since, now time.Time) time.Duration {
+	if since.IsZero() {
+		return quotaRetryMinInterval
+	}
+	return min(max(now.Sub(since), quotaRetryMinInterval), quotaRetryMaxInterval)
+}
+
+// droppedRulesMessage builds the PartiallyInvalid message. The Gateway API requires it to start with
+// "Dropped Rule" and say which rules were dropped. A rule that could not be updated is listed separately,
+// because it keeps its previous backends.
+func droppedRulesMessage(ruleErr *lattice.RuleQuotaExceededError) string {
+	// a rule that is dropped on several listeners is listed once, with all of its listeners
+	type entry struct {
+		lattice.DroppedRule
+		listeners []string
+	}
+	type key struct {
+		index      int
+		notUpdated bool
+	}
+	byKey := map[key]*entry{}
+	var notCreated, notUpdated []*entry
+	for _, d := range ruleErr.Dropped {
+		k := key{d.RuleIndex, d.NotUpdated}
+		e, ok := byKey[k]
+		if !ok {
+			e = &entry{DroppedRule: d}
+			byKey[k] = e
+			if d.NotUpdated {
+				notUpdated = append(notUpdated, e)
+			} else {
+				notCreated = append(notCreated, e)
+			}
+		}
+		e.listeners = append(e.listeners, fmt.Sprintf("%s:%d", d.ListenerProtocol, d.ListenerPort))
+	}
+	list := func(entries []*entry) string {
+		sort.Slice(entries, func(i, j int) bool { return entries[i].RuleIndex < entries[j].RuleIndex })
+		var listed []string
+		for _, e := range entries {
+			id := fmt.Sprintf("rules[%d]", e.RuleIndex)
+			if e.RuleName != "" {
+				id = fmt.Sprintf("%s %q", id, e.RuleName)
+			}
+			listed = append(listed, fmt.Sprintf("%s (priority %d, listener %s)", id, e.Priority, strings.Join(e.listeners, ", ")))
+		}
+		return strings.Join(listed, ", ")
+	}
+
+	parts := []string{"Dropped Rule: a VPC Lattice service quota was exceeded, so some rule changes were not applied and will be retried"}
+	if len(notCreated) > 0 {
+		parts = append(parts, "Not created: "+list(notCreated))
+	}
+	if len(notUpdated) > 0 {
+		parts = append(parts, "Not updated, still using their previous backends: "+list(notUpdated))
+	}
+	if ruleErr.Applied > 0 {
+		parts = append(parts, "All other rules were applied")
+	}
+	return strings.Join(parts, ". ")
+}
+
+// removePartiallyInvalid removes the PartiallyInvalid condition from the given parent, or from every parent
+// this controller owns if parentRef is nil, and reports whether anything was removed.
+func removePartiallyInvalid(route core.Route, parentRef *gwv1.ParentReference) bool {
+	removed := false
+	parents := route.Status().Parents()
+	for i := range parents {
+		if parents[i].ControllerName != config.LatticeGatewayControllerName ||
+			(parentRef != nil && parents[i].ParentRef.Name != parentRef.Name) {
+			continue
+		}
+		if meta.RemoveStatusCondition(&parents[i].Conditions, string(gwv1.RouteConditionPartiallyInvalid)) {
+			removed = true
+		}
+	}
+	return removed
 }
 
 func (r *routeReconciler) updateRouteStatusWithServiceInfo(ctx context.Context, route core.Route, svcStatus *latticemodel.ServiceStatus) error {
@@ -665,7 +824,9 @@ var (
 //	https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.RouteConditionType
 //
 // There are 3 condition types: Accepted, PartiallyInvalid, ResolvedRefs.
-// We dont support PartiallyInvalid for now and reject entire route if there is at least one invalid field.
+// Validation rejects the entire route if there is at least one invalid field. The only PartiallyInvalid use is
+// handleRuleQuotaExceeded, which is set at deploy time; it is carried over below so it survives retries, and it
+// is removed once a deploy fully succeeds or the route is rejected.
 // Accepted type is related to parentRefs, and ResolvedRefs to backendRefs. These 2 are validated independently.
 func (r *routeReconciler) validateRoute(ctx context.Context, route core.Route) error {
 	parentRefsAccepted, err := r.validateRouteParentRefs(ctx, route)
@@ -679,9 +840,20 @@ func (r *routeReconciler) validateRoute(ctx context.Context, route core.Route) e
 	}
 
 	// we need to update each parentRef with backendRef status
+	previousPartiallyInvalid := make(map[gwv1.ObjectName]metav1.Condition)
+	for _, prev := range route.Status().Parents() {
+		if cnd := meta.FindStatusCondition(prev.Conditions, string(gwv1.RouteConditionPartiallyInvalid)); cnd != nil {
+			previousPartiallyInvalid[prev.ParentRef.Name] = *cnd
+		}
+	}
+
 	parentRefsAcceptedResolvedRefs := make([]gwv1.RouteParentStatus, len(parentRefsAccepted))
 	for i, rps := range parentRefsAccepted {
 		meta.SetStatusCondition(&rps.Conditions, resolvedRefsCnd)
+		// the spec forbids PartiallyInvalid on a route that is not accepted
+		if cnd, ok := previousPartiallyInvalid[rps.ParentRef.Name]; ok && meta.IsStatusConditionTrue(rps.Conditions, string(gwv1.RouteConditionAccepted)) {
+			meta.SetStatusCondition(&rps.Conditions, cnd)
+		}
 		parentRefsAcceptedResolvedRefs[i] = rps
 	}
 
