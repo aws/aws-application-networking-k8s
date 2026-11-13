@@ -171,6 +171,8 @@ func main() {
 		"LogLevel", logLevel,
 		"DisableTaggingServiceAPI", config.DisableTaggingServiceAPI,
 		"ReconcileDefaultResyncInterval", config.ReconcileDefaultResyncInterval,
+		"MakeBeforeBreakTargets", config.MakeBeforeBreakTargets,
+		"MakeBeforeBreakTargetsTimeout", config.MakeBeforeBreakTargetsTimeout,
 	)
 
 	cloud, err := aws.NewCloud(log.Named("cloud"), aws.CloudConfig{

@@ -99,6 +99,10 @@ spec:
             value: {{ .Values.routeMaxConcurrentReconciles | quote }}
           - name: RECONCILE_DEFAULT_RESYNC_SECONDS
             value: {{ .Values.reconcileDefaultResyncSeconds | quote }}
+          - name: ENABLE_MAKE_BEFORE_BREAK_TARGETS
+            value: {{ .Values.enableMakeBeforeBreakTargets | quote }}
+          - name: MAKE_BEFORE_BREAK_TARGETS_TIMEOUT
+            value: {{ .Values.makeBeforeBreakTargetsTimeout | quote }}
 
       terminationGracePeriodSeconds: 10
       volumes:

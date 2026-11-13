@@ -98,7 +98,7 @@ func NewLatticeServiceStackDeploy(
 		k8sClient:             k8sClient,
 		latticeServiceManager: lattice.NewServiceManager(log, cloud),
 		targetGroupManager:    tgMgr,
-		targetsManager:        lattice.NewTargetsManager(log, cloud),
+		targetsManager:        lattice.NewTargetsManagerWithClient(log, cloud, k8sClient),
 		listenerManager:       lattice.NewListenerManager(log, cloud),
 		ruleManager:           lattice.NewRuleManager(log, cloud),
 		dnsEndpointManager:    externaldns.NewDnsEndpointManager(log, k8sClient),
@@ -272,7 +272,7 @@ func (d *latticeTargetGroupStackDeployer) Deploy(ctx context.Context, stack core
 
 	synthesizers := []ResourceSynthesizer{
 		lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sclient, d.targetGroupManager, d.svcExportTgBuilder, d.svcBuilder, stack),
-		lattice.NewTargetsSynthesizer(d.log, d.k8sclient, lattice.NewTargetsManager(d.log, d.cloud), stack),
+		lattice.NewTargetsSynthesizer(d.log, d.k8sclient, lattice.NewTargetsManagerWithClient(d.log, d.cloud, d.k8sclient), stack),
 	}
 	return deploy(ctx, stack, synthesizers)
 }

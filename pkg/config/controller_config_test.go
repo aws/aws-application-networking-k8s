@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
@@ -86,4 +87,34 @@ func Test_bad_reconcile_value(t *testing.T) {
 	os.Setenv(ROUTE_MAX_CONCURRENT_RECONCILES, maxReconciles)
 	err := configInit(aws.Config{}, ec2MetadataUnavailable())
 	assert.NotNil(t, err)
+}
+
+func Test_make_before_break_targets_env(t *testing.T) {
+	t.Setenv(REGION, "us-west-2")
+	t.Setenv(CLUSTER_VPC_ID, "vpc-123456")
+	t.Setenv(AWS_ACCOUNT_ID, "12345678")
+	t.Setenv(CLUSTER_NAME, "cluster-name")
+	t.Setenv(ROUTE_MAX_CONCURRENT_RECONCILES, "1")
+	t.Setenv(RECONCILE_DEFAULT_RESYNC_SECONDS, "")
+	defer func() {
+		MakeBeforeBreakTargets = false
+		MakeBeforeBreakTargetsTimeout = defaultMakeBeforeBreakTargetsTimeout
+	}()
+
+	t.Setenv(ENABLE_MAKE_BEFORE_BREAK_TARGETS, "")
+	t.Setenv(MAKE_BEFORE_BREAK_TARGETS_TIMEOUT, "")
+	assert.NoError(t, configInit(aws.Config{}, ec2MetadataUnavailable()))
+	assert.False(t, MakeBeforeBreakTargets)
+	assert.Equal(t, 5*time.Minute, MakeBeforeBreakTargetsTimeout)
+
+	t.Setenv(ENABLE_MAKE_BEFORE_BREAK_TARGETS, "True")
+	t.Setenv(MAKE_BEFORE_BREAK_TARGETS_TIMEOUT, "90s")
+	assert.NoError(t, configInit(aws.Config{}, ec2MetadataUnavailable()))
+	assert.True(t, MakeBeforeBreakTargets)
+	assert.Equal(t, 90*time.Second, MakeBeforeBreakTargetsTimeout)
+
+	for _, bad := range []string{"5", "-1m", "0s", "soon"} {
+		t.Setenv(MAKE_BEFORE_BREAK_TARGETS_TIMEOUT, bad)
+		assert.Error(t, configInit(aws.Config{}, ec2MetadataUnavailable()), bad)
+	}
 }

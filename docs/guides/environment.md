@@ -132,3 +132,35 @@ When set to a positive value (minimum 60), all controllers will periodically re-
 When set to 0 (default), reconciliation only occurs in response to Kubernetes object changes, preserving the current behavior. A random jitter of 0-20% is added to each requeue to prevent thundering herd at controller startup.
 
 See the [Drift Detection guide](drift-detection.md) for detailed information on how this works, configuration examples, and important considerations around DNS and RAM sharing.
+
+---
+
+#### `ENABLE_MAKE_BEFORE_BREAK_TARGETS`
+
+**Type:** *string*
+
+**Default:** ""
+
+When set as "true", a target that leaves a target group stays registered while its replacements are not yet healthy. This covers a Service selector change that replaces every endpoint at once, such as a blue/green promotion (for example with Argo Rollouts): without it, all old targets are deregistered in one call while the new ones are still in the `INITIAL` health check state, so the target group has no healthy target until the new ones pass their health checks.
+
+A departing target is kept only while all of these hold:
+
+- at least one desired target is not yet `HEALTHY` (`UNAVAILABLE` and `UNUSED` count as ready, since no health check runs),
+- its pod still exists in the namespace of the desired targets, is `Ready`, and is not being deleted,
+- it has been kept for less than `MAKE_BEFORE_BREAK_TARGETS_TIMEOUT`.
+
+Pods removed by a scale-down or rolling update are terminating, so they are deregistered immediately, as before (see [pod readiness gates](pod-readiness-gates.md) for rolling updates). While a target is kept, the controller requeues the reconcile every 10 seconds. The old pods must outlive the new targets' health check warm-up (health check interval x healthy threshold) for this to prevent a gap; for Argo Rollouts, set `scaleDownDelaySeconds` longer than that.
+
+While a target is kept, the controller logs the replacement targets that are not ready yet (for example `10.0.1.3:8080 (INITIAL)`), so a replacement that never becomes healthy is easy to find.
+
+The Helm chart sets this value to "false" by default.
+
+---
+
+#### `MAKE_BEFORE_BREAK_TARGETS_TIMEOUT`
+
+**Type:** *duration* (for example `5m`, `90s`)
+
+**Default:** `5m`
+
+Longest time a departing target is kept registered when `ENABLE_MAKE_BEFORE_BREAK_TARGETS` is "true". After this, it is deregistered even if its replacements are not healthy. The timer is kept in memory, so after a controller restart or a leader change, a target that is still kept starts its timer again and can be kept for up to one more full timeout.

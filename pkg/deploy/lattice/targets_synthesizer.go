@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
@@ -105,6 +106,13 @@ func (t *targetsSynthesizer) PostSynthesize(ctx context.Context) error {
 			return fmt.Errorf("failed post-synthesize targets %s, condition sync failure: %w", identifier, err)
 		}
 		requeueNeeded = requeueNeeded || pending
+
+		// With make-before-break, a departing target stays registered until its
+		// replacements are healthy; reconcile again to re-evaluate it.
+		if config.MakeBeforeBreakTargets && hasHeldTargets(targets, latticeTargets) {
+			t.log.Debugf(ctx, "Target group %s still holds departing targets, requeueing", identifier)
+			requeueNeeded = true
+		}
 	}
 
 	if requeueNeeded {
