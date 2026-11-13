@@ -31,6 +31,7 @@ type TargetGroupManager interface {
 	IsTargetGroupMatch(ctx context.Context, modelTg *model.TargetGroup, latticeTg *types.TargetGroupSummary,
 		latticeTags *model.TargetGroupTagFields) (bool, error)
 	ResolveRuleTgIds(ctx context.Context, modelRuleAction *model.RuleAction, stack core.Stack) error
+	Get(ctx context.Context, tgIdentifier string) (*types.TargetGroupSummary, error)
 }
 
 type defaultTargetGroupManager struct {
@@ -268,6 +269,38 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 
 	s.log.Infof(ctx, "Success DeleteTargetGroup %s", modelTg.Status.Id)
 	return nil
+}
+
+// Get reads one target group from VPC Lattice, including its current ServiceArns, and
+// returns it as a summary. Returns nil, nil if the target group does not exist.
+func (s *defaultTargetGroupManager) Get(ctx context.Context, tgIdentifier string) (*types.TargetGroupSummary, error) {
+	resp, err := s.awsCloud.Lattice().GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
+		TargetGroupIdentifier: aws.String(tgIdentifier),
+	})
+	if err != nil {
+		if services.IsLatticeAPINotFoundErr(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	summary := &types.TargetGroupSummary{
+		Arn:           resp.Arn,
+		Id:            resp.Id,
+		Name:          resp.Name,
+		Status:        resp.Status,
+		Type:          resp.Type,
+		ServiceArns:   resp.ServiceArns,
+		CreatedAt:     resp.CreatedAt,
+		LastUpdatedAt: resp.LastUpdatedAt,
+	}
+	if cfg := resp.Config; cfg != nil {
+		summary.Port = cfg.Port
+		summary.Protocol = cfg.Protocol
+		summary.IpAddressType = cfg.IpAddressType
+		summary.VpcIdentifier = cfg.VpcIdentifier
+		summary.LambdaEventStructureVersion = cfg.LambdaEventStructureVersion
+	}
+	return summary, nil
 }
 
 type tgListOutput struct {

@@ -1804,3 +1804,53 @@ func Test_ResolveRuleTgIds_KeepsResolvedExternalTargetGroupId(t *testing.T) {
 	assert.Equal(t, "tg-0df85aff983932f06", stackRule.Spec.Action.TargetGroups[0].LatticeTgId)
 	assert.Empty(t, stackRule.Spec.Action.TargetGroups[0].StackTargetGroupId)
 }
+
+func Test_GetTG(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mocks.NewMockTagging(c), TestCloudConfig)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
+
+	mockLattice.EXPECT().GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{TargetGroupIdentifier: aws.String("arn-1")}).
+		Return(&vpclattice.GetTargetGroupOutput{
+			Arn:         aws.String("arn-1"),
+			Id:          aws.String("tg-1"),
+			Name:        aws.String("tg-name"),
+			Type:        types.TargetGroupTypeIp,
+			Status:      types.TargetGroupStatusActive,
+			ServiceArns: []string{"svc-arn"},
+			Config: &types.TargetGroupConfig{
+				Port:          aws.Int32(80),
+				Protocol:      types.TargetGroupProtocolHttp,
+				IpAddressType: types.IpAddressTypeIpv4,
+				VpcIdentifier: aws.String("vpc-1"),
+			},
+		}, nil)
+	got, err := tgManager.Get(ctx, "arn-1")
+	assert.Nil(t, err)
+	assert.Equal(t, &types.TargetGroupSummary{
+		Arn:           aws.String("arn-1"),
+		Id:            aws.String("tg-1"),
+		Name:          aws.String("tg-name"),
+		Type:          types.TargetGroupTypeIp,
+		Status:        types.TargetGroupStatusActive,
+		ServiceArns:   []string{"svc-arn"},
+		Port:          aws.Int32(80),
+		Protocol:      types.TargetGroupProtocolHttp,
+		IpAddressType: types.IpAddressTypeIpv4,
+		VpcIdentifier: aws.String("vpc-1"),
+	}, got)
+
+	// a target group that no longer exists is not an error
+	mockLattice.EXPECT().GetTargetGroup(ctx, gomock.Any()).
+		Return(nil, &types.ResourceNotFoundException{Message: aws.String("gone")})
+	got, err = tgManager.Get(ctx, "arn-2")
+	assert.Nil(t, err)
+	assert.Nil(t, got)
+
+	mockLattice.EXPECT().GetTargetGroup(ctx, gomock.Any()).Return(nil, errors.New("throttled"))
+	_, err = tgManager.Get(ctx, "arn-3")
+	assert.ErrorContains(t, err, "throttled")
+}

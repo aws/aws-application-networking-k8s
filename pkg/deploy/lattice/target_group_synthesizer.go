@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
@@ -137,37 +138,84 @@ type DeleteUnusedResult struct {
 	Err error
 }
 
-// This method assumes all synthesis. Returns list of deletion results, might include partial
-// failures if cannot produce list for deletion will return error.
+type noopLocker struct{}
+
+func (noopLocker) Lock()   {}
+func (noopLocker) Unlock() {}
+
+// SynthesizeUnusedDelete is SynthesizeUnusedDeleteWithLock for callers that have no
+// concurrent deploys to exclude.
+func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) ([]DeleteUnusedResult, error) {
+	return t.SynthesizeUnusedDeleteWithLock(ctx, noopLocker{})
+}
+
+// SynthesizeUnusedDeleteWithLock finds and deletes target groups that are no longer
+// used. Returns the deletion attempts, which might include partial failures. If it
+// cannot produce the list of candidates it returns an error.
+//
+// deleteLock must exclude every deploy that finds, creates or attaches target groups.
+// It is not held while scanning: listing target groups and reading their tags is slow
+// on large accounts (one ListTagsForResource call per target group when the tagging
+// API is disabled), and holding it would block every deploy for the whole scan.
+// Instead it is held around each candidate while the candidate is re-read from VPC
+// Lattice, checked again against the current Kubernetes state, and deleted. A deploy
+// that ran after the scan has either finished, and the re-check sees its result, or
+// waits for that one delete.
 //
 // TODO: we should do parallel deletion calls, preferably with bounded WorkGroup
-func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) ([]DeleteUnusedResult, error) {
+func (t *TargetGroupSynthesizer) SynthesizeUnusedDeleteWithLock(ctx context.Context, deleteLock sync.Locker) ([]DeleteUnusedResult, error) {
 	tgsToDelete, err := t.calculateTargetGroupsToDelete(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	results := make([]DeleteUnusedResult, len(tgsToDelete))
-
-	for i, tg := range tgsToDelete {
-		modelStatus := model.TargetGroupStatus{
-			Name: aws.ToString(tg.tgSummary.Name),
-			Arn:  aws.ToString(tg.tgSummary.Arn),
-			Id:   aws.ToString(tg.tgSummary.Id),
-		}
-		modelTg := model.TargetGroup{
-			Status:    &modelStatus,
-			IsDeleted: true,
-		}
-
-		err := t.targetGroupManager.Delete(ctx, &modelTg)
-		results[i] = DeleteUnusedResult{
-			Arn: modelTg.Status.Arn,
-			Err: err,
+	var results []DeleteUnusedResult
+	for _, tg := range tgsToDelete {
+		if res, attempted := t.deleteIfStillUnused(ctx, tg, deleteLock); attempted {
+			results = append(results, res)
 		}
 	}
 
 	return results, nil
+}
+
+// deleteIfStillUnused re-reads candidate and deletes it if it is still unused, all
+// under deleteLock. It reports whether a deletion was attempted; a failed re-read
+// counts as a failed attempt.
+func (t *TargetGroupSynthesizer) deleteIfStillUnused(
+	ctx context.Context, candidate tgListOutput, deleteLock sync.Locker) (DeleteUnusedResult, bool) {
+
+	deleteLock.Lock()
+	defer deleteLock.Unlock()
+
+	arn := aws.ToString(candidate.tgSummary.Arn)
+	current, err := t.targetGroupManager.Get(ctx, arn)
+	if err != nil {
+		return DeleteUnusedResult{Arn: arn, Err: fmt.Errorf("failed to re-read target group %s before delete: %w", arn, err)}, true
+	}
+	if current == nil {
+		t.log.Debugf(ctx, "TargetGroup %s was already deleted", arn)
+		return DeleteUnusedResult{}, false
+	}
+
+	// Identifying tags are only written when the target group is created, so the tags
+	// read during the scan still describe it.
+	refreshed := tgListOutput{tgSummary: *current, tags: candidate.tags}
+	if !t.isUnused(ctx, refreshed) {
+		t.log.Infof(ctx, "Keeping TargetGroup %s (%s) - in use after re-check", arn, aws.ToString(current.Name))
+		return DeleteUnusedResult{}, false
+	}
+
+	modelTg := model.TargetGroup{
+		Status: &model.TargetGroupStatus{
+			Name: aws.ToString(current.Name),
+			Arn:  aws.ToString(current.Arn),
+			Id:   aws.ToString(current.Id),
+		},
+		IsDeleted: true,
+	}
+	err = t.targetGroupManager.Delete(ctx, &modelTg)
+	return DeleteUnusedResult{Arn: modelTg.Status.Arn, Err: err}, true
 }
 
 func (t *TargetGroupSynthesizer) calculateTargetGroupsToDelete(ctx context.Context) ([]tgListOutput, error) {
@@ -182,36 +230,39 @@ func (t *TargetGroupSynthesizer) calculateTargetGroupsToDelete(ctx context.Conte
 	// some changes to existing service exports or routes will simply create new target groups,
 	// for example on protocol changes
 	for _, latticeTg := range latticeTgs {
-		if !t.hasTags(latticeTg) || !t.vpcMatchesConfig(latticeTg) {
-			continue
-		}
-
-		// TGs from earlier releases will require 1-time manual cleanup
-		// this method of validation only covers TGs created by this build
-		// of the controller forward
-		tagFields := model.TGTagFieldsFromTags(latticeTg.tags)
-		if !t.hasExpectedTags(latticeTg, tagFields) {
-			continue
-		}
-
-		// most importantly, is the tg in use?
-		if len(latticeTg.tgSummary.ServiceArns) > 0 {
-			t.log.Debugf(ctx, "TargetGroup %s (%s) is referenced by lattice service",
-				*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
-			continue
-		}
-
-		if tagFields.K8SSourceType == model.SourceTypeSvcExport {
-			if t.shouldDeleteSvcExportTg(ctx, latticeTg, tagFields) {
-				tgsToDelete = append(tgsToDelete, latticeTg)
-			}
-		} else {
-			if t.shouldDeleteRouteTg(ctx, latticeTg, tagFields) {
-				tgsToDelete = append(tgsToDelete, latticeTg)
-			}
+		if t.isUnused(ctx, latticeTg) {
+			tgsToDelete = append(tgsToDelete, latticeTg)
 		}
 	}
 	return tgsToDelete, nil
+}
+
+// isUnused reports whether latticeTg is managed by this controller and no longer used,
+// either by a VPC Lattice service or by the Kubernetes object it was created for.
+func (t *TargetGroupSynthesizer) isUnused(ctx context.Context, latticeTg tgListOutput) bool {
+	if !t.hasTags(latticeTg) || !t.vpcMatchesConfig(latticeTg) {
+		return false
+	}
+
+	// TGs from earlier releases will require 1-time manual cleanup
+	// this method of validation only covers TGs created by this build
+	// of the controller forward
+	tagFields := model.TGTagFieldsFromTags(latticeTg.tags)
+	if !t.hasExpectedTags(latticeTg, tagFields) {
+		return false
+	}
+
+	// most importantly, is the tg in use?
+	if len(latticeTg.tgSummary.ServiceArns) > 0 {
+		t.log.Debugf(ctx, "TargetGroup %s (%s) is referenced by lattice service",
+			*latticeTg.tgSummary.Arn, *latticeTg.tgSummary.Name)
+		return false
+	}
+
+	if tagFields.K8SSourceType == model.SourceTypeSvcExport {
+		return t.shouldDeleteSvcExportTg(ctx, latticeTg, tagFields)
+	}
+	return t.shouldDeleteRouteTg(ctx, latticeTg, tagFields)
 }
 
 func (t *TargetGroupSynthesizer) shouldDeleteSvcExportTg(

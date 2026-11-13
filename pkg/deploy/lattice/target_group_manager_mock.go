@@ -57,6 +57,21 @@ func (mr *MockTargetGroupManagerMockRecorder) Delete(ctx, modelTg any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockTargetGroupManager)(nil).Delete), ctx, modelTg)
 }
 
+// Get mocks base method.
+func (m *MockTargetGroupManager) Get(ctx context.Context, tgIdentifier string) (*types.TargetGroupSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", ctx, tgIdentifier)
+	ret0, _ := ret[0].(*types.TargetGroupSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockTargetGroupManagerMockRecorder) Get(ctx, tgIdentifier any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTargetGroupManager)(nil).Get), ctx, tgIdentifier)
+}
+
 // IsTargetGroupMatch mocks base method.
 func (m *MockTargetGroupManager) IsTargetGroupMatch(ctx context.Context, modelTg *lattice.TargetGroup, latticeTg *types.TargetGroupSummary, latticeTags *lattice.TargetGroupTagFields) (bool, error) {
 	m.ctrl.T.Helper()
