@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
@@ -60,8 +60,10 @@ type latticeServiceStackDeployer struct {
 	svcBuilder            gateway.LatticeServiceBuilder
 }
 
-var tgGcOnce sync.Once
-var tgGc *TgGc
+// Deploys hold the read lock and a TG GC cycle holds the write lock, so the GC never sees a
+// target group that a deploy has created but not yet attached to a rule. The lock only
+// works within one process, which is why the GC runs on the elected leader only.
+var tgGcLock sync.RWMutex
 
 func NewLatticeServiceStackDeploy(
 	log gwlog.Logger,
@@ -73,23 +75,6 @@ func NewLatticeServiceStackDeploy(
 	tgMgr := lattice.NewTargetGroupManager(log, cloud, k8sClient)
 	tgSvcExpBuilder := gateway.NewSvcExportTargetGroupBuilder(log, k8sClient)
 	svcBuilder := gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder, nil, nil)
-
-	tgGcOnce.Do(func() {
-		// TODO: need to refactor TG synthesizer. Remove stack from constructor
-		// arguments and use it as Synth argument. That will help with Synth
-		// reuse for GC purposes
-		tgGcSynth := lattice.NewTargetGroupSynthesizer(log, cloud, k8sClient, tgMgr, tgSvcExpBuilder, svcBuilder, nil)
-		tgGcFn := NewTgGcFn(tgGcSynth)
-		tgGc = &TgGc{
-			lock:    sync.RWMutex{},
-			log:     log.Named("tg-gc"),
-			ctx:     context.TODO(),
-			isDone:  atomic.Bool{},
-			ivl:     TG_GC_IVL,
-			cycleFn: tgGcFn,
-		}
-		tgGc.start()
-	})
 
 	return &latticeServiceStackDeployer{
 		log:                   log,
@@ -129,13 +114,28 @@ func NewTgGcFn(tgSynth *lattice.TargetGroupSynthesizer) TgGcCycleFn {
 	}
 }
 
+// TgGc periodically deletes target groups that are no longer used. It is a manager runnable
+// that needs leader election, so standby replicas never delete target groups.
 type TgGc struct {
-	lock    sync.RWMutex
 	log     gwlog.Logger
-	ctx     context.Context
-	isDone  atomic.Bool
 	ivl     time.Duration
 	cycleFn TgGcCycleFn
+}
+
+var _ manager.LeaderElectionRunnable = &TgGc{}
+
+func NewTgGc(log gwlog.Logger, cloud pkg_aws.Cloud, k8sClient client.Client) *TgGc {
+	brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(log, k8sClient)
+	tgSynth := lattice.NewTargetGroupSynthesizer(log, cloud, k8sClient,
+		lattice.NewTargetGroupManager(log, cloud, k8sClient),
+		gateway.NewSvcExportTargetGroupBuilder(log, k8sClient),
+		gateway.NewLatticeServiceBuilder(log, k8sClient, brTgBuilder, nil, nil),
+		nil)
+	return &TgGc{
+		log:     log,
+		ivl:     TG_GC_IVL,
+		cycleFn: NewTgGcFn(tgSynth),
+	}
 }
 
 type TgGcResult struct {
@@ -147,31 +147,36 @@ type TgGcResult struct {
 	duration time.Duration
 }
 
-func (gc *TgGc) start() {
-	ticker := time.NewTicker(gc.ivl)
-	go func() {
-		for {
-			select {
-			case <-gc.ctx.Done():
-				gc.log.Info(context.TODO(), "stop GC, ctx is done")
-				gc.isDone.Store(true)
-				return
-			case <-ticker.C:
-				gc.cycle()
-			}
-		}
-	}()
+func (gc *TgGc) NeedLeaderElection() bool {
+	return true
 }
 
-func (gc *TgGc) cycle() {
+func (gc *TgGc) Start(ctx context.Context) error {
+	ticker := time.NewTicker(gc.ivl)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			gc.log.Info(context.TODO(), "stop GC, ctx is done")
+			return nil
+		case <-ticker.C:
+			if ctx.Err() != nil {
+				return nil
+			}
+			gc.cycle(ctx)
+		}
+	}
+}
+
+func (gc *TgGc) cycle(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {
 			gc.log.Errorf(context.TODO(), "gc cycle panic: %s", r)
 		}
-		gc.lock.Unlock()
+		tgGcLock.Unlock()
 	}()
-	gc.lock.Lock()
-	res, err := gc.cycleFn(gc.ctx)
+	tgGcLock.Lock()
+	res, err := gc.cycleFn(ctx)
 	if err != nil {
 		gc.log.Debugf(context.TODO(), "gc cycle error: %s", err)
 	}
@@ -190,9 +195,9 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	ruleSynthesizer := lattice.NewRuleSynthesizer(d.log, d.ruleManager, d.targetGroupManager, stack)
 
 	defer func() {
-		tgGc.lock.RUnlock()
+		tgGcLock.RUnlock()
 	}()
-	tgGc.lock.RLock()
+	tgGcLock.RLock()
 
 	//Handle targetGroups creation request
 	if err := targetGroupSynthesizer.SynthesizeCreate(ctx); err != nil {
@@ -261,9 +266,9 @@ func NewTargetGroupStackDeploy(
 
 func (d *latticeTargetGroupStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	defer func() {
-		tgGc.lock.RUnlock()
+		tgGcLock.RUnlock()
 	}()
-	tgGc.lock.RLock()
+	tgGcLock.RLock()
 
 	synthesizers := []ResourceSynthesizer{
 		lattice.NewTargetGroupSynthesizer(d.log, d.cloud, d.k8sclient, d.targetGroupManager, d.svcExportTgBuilder, d.svcBuilder, stack),

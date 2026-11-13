@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
 func TestTgGc(t *testing.T) {
@@ -58,17 +62,65 @@ func TestTgGc(t *testing.T) {
 				}()
 				return tt.gcFn(ctx)
 			}
-			ivl := time.Millisecond * 10
 			tgGc := &TgGc{
 				log:     gwlog.FallbackLogger,
-				ctx:     ctx,
-				ivl:     ivl,
+				ivl:     time.Millisecond * 10,
 				cycleFn: f,
 			}
-			tgGc.start()
-			time.Sleep(ivl * (time.Duration(nCycles) + 2)) // sleep enough cycles to terminate
+			done := make(chan error)
+			go func() { done <- tgGc.Start(ctx) }()
+			select {
+			case err := <-done:
+				assert.NoError(t, err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("gc must terminate once ctx is done")
+			}
 			assert.Equal(t, nCycles, n, fmt.Sprintf("should run only %d cycles", nCycles))
-			assert.True(t, tgGc.isDone.Load(), "gc must terminate")
 		})
+	}
+}
+
+func TestTgGcNeedsLeaderElection(t *testing.T) {
+	var r manager.Runnable = &TgGc{}
+	ler, ok := r.(manager.LeaderElectionRunnable)
+	assert.True(t, ok)
+	assert.True(t, ler.NeedLeaderElection(), "standby replicas must not run the TG GC")
+}
+
+func TestTgGcCycleExcludesDeploys(t *testing.T) {
+	var inCycle atomic.Bool
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseCycle := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(releaseCycle)
+	tgGc := &TgGc{
+		log: gwlog.FallbackLogger,
+		cycleFn: func(context.Context) (TgGcResult, error) {
+			inCycle.Store(true)
+			<-release
+			inCycle.Store(false)
+			return TgGcResult{}, nil
+		},
+	}
+	go tgGc.cycle(context.Background())
+	assert.Eventually(t, inCycle.Load, time.Second, time.Millisecond)
+
+	acquired := make(chan struct{})
+	go func() {
+		tgGcLock.RLock()
+		defer tgGcLock.RUnlock()
+		assert.False(t, inCycle.Load(), "a deploy must not run during a GC cycle")
+		close(acquired)
+	}()
+	select {
+	case <-acquired:
+		t.Fatal("deploy acquired the lock while a GC cycle was running")
+	case <-time.After(50 * time.Millisecond):
+	}
+	releaseCycle()
+	select {
+	case <-acquired:
+	case <-time.After(time.Second):
+		t.Fatal("deploy must proceed once the GC cycle finishes")
 	}
 }

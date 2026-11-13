@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
+	"github.com/aws/aws-application-networking-k8s/pkg/deploy"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/external-dns/endpoint"
@@ -264,6 +265,11 @@ func main() {
 	err = controllers.RegisterServiceExportController(ctrlLog.Named("service-export"), cloud, finalizerManager, mgr)
 	if err != nil {
 		setupLog.Fatalf("serviceexport controller setup failed: %s", err)
+	}
+
+	err = mgr.Add(deploy.NewTgGc(ctrlLog.Named("tg-gc"), cloud, mgr.GetClient()))
+	if err != nil {
+		setupLog.Fatalf("target group GC setup failed: %s", err)
 	}
 
 	err = controllers.RegisterAccessLogPolicyController(ctrlLog.Named("access-log-policy"), cloud, finalizerManager, mgr)
