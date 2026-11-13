@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -28,7 +29,8 @@ type (
 )
 
 const (
-	finalizer = "vpcassociationpolicies.application-networking.k8s.aws/resources"
+	finalizer               = "vpcassociationpolicies.application-networking.k8s.aws/resources"
+	conflictRequeueInterval = time.Minute
 )
 
 type vpcAssociationPolicyReconciler struct {
@@ -128,6 +130,15 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 
 	snva, err := c.manager.UpsertVpcAssociation(ctx, snName, sgIds, additionalTags)
 	if err != nil {
+		if services.IsConflictError(err) {
+			c.log.Infow(ctx, "vpc association conflict, setting Accepted=False",
+				"name", k8sPolicy.Name, "message", err.Error())
+			if updateErr := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, policy.ReasonConflicted, err.Error()); updateErr != nil {
+				return updateErr
+			}
+			// The conflict can clear without any k8s event (e.g. the other association finishes deleting).
+			return lattice_runtime.NewRequeueNeededAfter("VPC_ASSOCIATION_CONFLICT", conflictRequeueInterval)
+		}
 		return err
 	}
 	err = c.updateLatticeAnnotation(ctx, k8sPolicy, snva)

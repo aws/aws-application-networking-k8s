@@ -2,6 +2,7 @@ package lattice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"slices"
@@ -101,6 +102,12 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 		}
 		resp, err := m.cloud.Lattice().CreateServiceNetworkVpcAssociation(ctx, &req)
 		if err != nil {
+			var ce *types.ConflictException
+			if errors.As(err, &ce) {
+				return "", services.NewConflictError("ServiceNetworkVpcAssociation", snName, fmt.Sprintf(
+					"%s A VPC can be associated with only one Service Network; to connect it to more, "+
+						"use VPC endpoints of type Service Network.", aws.ToString(ce.Message)))
+			}
 			return "", err
 		}
 		switch status := string(resp.Status); status {
