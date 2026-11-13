@@ -37,9 +37,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -101,6 +103,7 @@ func RegisterGatewayController(
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&gwv1.Gateway{}, pkg_builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 	builder.Watches(&gwv1.GatewayClass{}, gwClassEventHandler)
+	builder.Watches(&anv1alpha1.IAMAuthPolicy{}, handler.EnqueueRequestsFromMapFunc(r.deletingGatewaysForIAMAuthPolicy))
 
 	//Watch VpcAssociationPolicy CRD if it is installed
 	ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.VpcAssociationPolicyKind)
@@ -147,7 +150,11 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 		return client.IgnoreNotFound(err)
 	}
 
-	if !k8s.IsControlledByLatticeGatewayController(ctx, r.client, gw) {
+	controlled, err := k8s.IsControlledByLatticeGatewayController(ctx, r.client, gw)
+	if err != nil {
+		return err
+	}
+	if !controlled {
 		r.log.Infow(ctx, "Gateway is not controlled by AWS Gateway API Controller", "name", req.Name)
 		return nil
 	}
@@ -157,6 +164,24 @@ func (r *gatewayReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	} else {
 		return r.reconcileUpsert(ctx, gw)
 	}
+}
+
+// deletingGatewaysForIAMAuthPolicy requeues a terminating Gateway when a policy
+// that blocks its deletion changes or goes away, instead of waiting for backoff.
+func (r *gatewayReconciler) deletingGatewaysForIAMAuthPolicy(ctx context.Context, obj client.Object) []reconcile.Request {
+	p, ok := obj.(*anv1alpha1.IAMAuthPolicy)
+	if !ok {
+		return nil
+	}
+	var reqs []reconcile.Request
+	for _, name := range iamAuthPolicyGatewayNames(p) {
+		key := types.NamespacedName{Namespace: p.Namespace, Name: name}
+		gw := &gwv1.Gateway{}
+		if err := r.client.Get(ctx, key, gw); err == nil && !gw.DeletionTimestamp.IsZero() {
+			reqs = append(reqs, reconcile.Request{NamespacedName: key})
+		}
+	}
+	return reqs
 }
 
 func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway) error {
@@ -182,6 +207,17 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 				return fmt.Errorf("cannot delete gateway %s/%s - found referencing route %s/%s",
 					gw.Namespace, gw.Name, route.Namespace(), route.Name())
 			}
+		}
+	}
+
+	policies := &anv1alpha1.IAMAuthPolicyList{}
+	if err := r.client.List(ctx, policies, client.InNamespace(gw.Namespace)); err != nil {
+		return err
+	}
+	for i := range policies.Items {
+		if p := &policies.Items[i]; iamAuthPolicyNeedsGateway(p, gw.Name) {
+			return fmt.Errorf("cannot delete gateway %s/%s - IAMAuthPolicy %s/%s targets it or has not removed its auth yet; delete the policy first",
+				gw.Namespace, gw.Name, p.Namespace, p.Name)
 		}
 	}
 

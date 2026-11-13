@@ -17,7 +17,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
@@ -2605,4 +2607,67 @@ func Test_LatticeServiceModelBuild_IdleTimeoutInvalidOnDeleteDoesNotBlockTeardow
 	assert.NotNil(t, svc)
 	assert.True(t, svc.IsDeleted)
 	assert.Nil(t, svc.Spec.IdleTimeoutSeconds)
+}
+
+// An explicit standalone=false annotation skips the parent lookup in the
+// standalone check, so the service network loop is the first to read parents.
+func Test_LatticeServiceModelBuild_ParentReadErrorFailsInsteadOfDroppingServiceNetwork(t *testing.T) {
+	gwc := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "gwClass"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gateway1", Namespace: "default"},
+		Spec:       gwv1.GatewaySpec{GatewayClassName: "gwClass"},
+	}
+	newRoute := func() core.Route {
+		route := core.NewHTTPRoute(gwv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "default",
+				Annotations: map[string]string{k8s.StandaloneAnnotation: "false"}},
+			Spec: gwv1.HTTPRouteSpec{CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{{Name: "gateway1"}},
+			}},
+		})
+		route.Status().SetParents([]gwv1.RouteParentStatus{{
+			ParentRef:  gwv1.ParentReference{Name: "gateway1"},
+			Conditions: []metav1.Condition{{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue}},
+		}})
+		return route
+	}
+	isGateway := func(obj client.Object) bool { _, ok := obj.(*gwv1.Gateway); return ok }
+	isGatewayClass := func(obj client.Object) bool { _, ok := obj.(*gwv1.GatewayClass); return ok }
+
+	tests := []struct {
+		name    string
+		failGet func(obj client.Object) bool
+	}{
+		{name: "gateway read error", failGet: isGateway},
+		{name: "gatewayclass read error", failGet: isGatewayClass},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.TODO()
+			readErr := fmt.Errorf("cache read failed")
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(gwc, gw).
+				WithInterceptorFuncs(interceptor.Funcs{Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+					if tt.failGet(obj) {
+						return readErr
+					}
+					return cl.Get(ctx, key, obj, opts...)
+				}}).Build()
+
+			route := newRoute()
+			task := &latticeServiceModelBuildTask{
+				log:    gwlog.FallbackLogger,
+				route:  route,
+				stack:  core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject()))),
+				client: k8sClient,
+			}
+			_, err := task.buildLatticeService(ctx)
+			assert.ErrorIs(t, err, readErr)
+		})
+	}
 }
