@@ -112,7 +112,7 @@ func TestConformance(t *testing.T) {
 		TimeoutConfig:        scaledTimeouts(),
 		SkipTests:            loadSkipList(t),
 		CleanupBaseResources: true,
-		SupportedFeatures:   sets.New(features.SupportGateway, features.SupportHTTPRoute),
+		SupportedFeatures:   sets.New(features.SupportGateway, features.SupportHTTPRoute, features.SupportReferenceGrant),
 		ManifestFS:          []fs.FS{&conformance.Manifests},
 		ConformanceProfiles:  sets.New(suite.GatewayHTTPConformanceProfileName),
 		Implementation: suite.ParseImplementation(

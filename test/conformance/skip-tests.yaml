@@ -27,22 +27,13 @@
   category: architectural-limitation
   reason: "Lattice uses ACM for TLS, not K8s Secrets"
 
-# ReferenceGrant not implemented
-- name: HTTPRouteInvalidCrossNamespaceBackendRef
+- name: GatewaySecretReferenceGrantAllInNamespace
   category: architectural-limitation
-  reason: "ReferenceGrant not implemented"
+  reason: "Lattice uses ACM for TLS, not K8s Secrets"
 
-- name: HTTPRouteInvalidReferenceGrant
+- name: GatewaySecretReferenceGrantSpecific
   category: architectural-limitation
-  reason: "ReferenceGrant not implemented"
-
-- name: HTTPRoutePartiallyInvalidViaInvalidReferenceGrant
-  category: architectural-limitation
-  reason: "ReferenceGrant not implemented"
-
-- name: HTTPRouteReferenceGrant
-  category: architectural-limitation
-  reason: "ReferenceGrant not implemented"
+  reason: "Lattice uses ACM for TLS, not K8s Secrets"
 
 # Lattice feature limitations
 - name: HTTPRouteHeaderMatching
