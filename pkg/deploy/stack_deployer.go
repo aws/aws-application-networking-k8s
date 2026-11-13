@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/externaldns"
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
@@ -194,6 +195,15 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	}()
 	tgGc.lock.RLock()
 
+	// Synthesize the service first so a route whose service is owned by another route stops
+	// before creating target groups that no rule will use (the GC deletes them and every
+	// reconcile recreates them). Any other service error is returned after the targets are
+	// updated, as before, so a failing service step doesn't freeze target registration.
+	svcErr := serviceSynthesizer.Synthesize(ctx)
+	if services.IsConflictError(svcErr) {
+		return fmt.Errorf("error during service synthesis %w", svcErr)
+	}
+
 	//Handle targetGroups creation request
 	if err := targetGroupSynthesizer.SynthesizeCreate(ctx); err != nil {
 		return fmt.Errorf("error during tg synthesis %w", err)
@@ -204,9 +214,8 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 		return fmt.Errorf("error during target synthesis %w", err)
 	}
 
-	// Handle latticeService "reconciliation" request
-	if err := serviceSynthesizer.Synthesize(ctx); err != nil {
-		return fmt.Errorf("error during service synthesis %w", err)
+	if svcErr != nil {
+		return fmt.Errorf("error during service synthesis %w", svcErr)
 	}
 
 	//Handle latticeService listeners "reconciliation" request

@@ -2,6 +2,18 @@
 
 Override default generated VPC Lattice service names for Routes to avoid conflicts or implement naming conventions.
 
+## Default Service Names
+
+Without the annotation, the service name is the route name cut to 20 characters, a hyphen, and the
+namespace cut to 18 characters, with leading and trailing hyphens dropped. Different routes can get
+the same name, for example `orders-api-service-v1` and `orders-api-service-v2` in one
+namespace. Only the route that created the service owns it. The other route's status shows
+`Accepted: False` with reason `Conflicted`, and it serves no traffic.
+
+To fix a conflict, delete the route that has the `Conflicted` status and recreate it with a service
+name override, as described below. Don't delete the route that owns the service: that deletes the
+VPC Lattice service that its traffic goes through.
+
 ## Usage
 
 Add the annotation to HTTPRoute or GRPCRoute:
