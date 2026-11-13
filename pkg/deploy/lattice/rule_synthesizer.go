@@ -109,6 +109,9 @@ type RuleQuotaExceededError struct {
 	// Applied counts the other rules, one per rule and listener like Dropped, that were created or updated.
 	Applied int
 	Err     error
+	// TargetsPending is set by the deployer when pod readiness gates are still waiting on target health, so the
+	// route must be rechecked soon even though the quota retry backs off.
+	TargetsPending bool
 }
 
 func (e *RuleQuotaExceededError) Error() string {

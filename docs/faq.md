@@ -175,8 +175,45 @@ This bypasses the need for IMDS access for VPC discovery.
 
 **Why does my Route have a `PartiallyInvalid` condition with reason `ServiceQuotaExceeded`?**
 
-VPC Lattice refused to create or update one or more rules because a quota was reached, such as rules per listener or target groups per service. The controller still applies every rule change it can and deletes rules that are no longer in the Route. It then sets `PartiallyInvalid=True`, with a message that lists the rules it could not create or update plus the VPC Lattice error, and emits a `ServiceQuotaExceeded` warning event. It retries every minute. `Accepted` stays `True`.
+VPC Lattice refused to create or update one or more rules because a quota was reached, such as rules per listener or target groups per service. The controller still applies every rule change it can and deletes rules that are no longer in the Route. It then sets `PartiallyInvalid=True`, with a message that lists the rules it could not create or update plus the VPC Lattice error, and emits a `ServiceQuotaExceeded` warning event. It retries after 1 minute, then backs off as the Route stays over quota, up to every 15 minutes, but keeps retrying every minute while pod readiness gates are waiting. Editing the Route retries immediately. `Accepted` stays `True`.
 
 A rule that could not be updated keeps its previous backends. Requests that would have matched a rule that could not be created go to the next rule that matches them, which can be a broader rule, or to the listener's default action.
 
 To fix it, use fewer rules or backends, or request a higher quota in Service Quotas. The condition is removed after the next successful reconcile.
+
+**Why does Argo CD show my Route as `Healthy` when it has `PartiallyInvalid=True`?**
+
+Argo CD's built-in HTTPRoute and GRPCRoute health checks mark a Route `Degraded` only when `Accepted` or `ResolvedRefs` is `False`. They don't read `PartiallyInvalid`. To have Argo CD report a Route with dropped rules as `Degraded`, add a health check for the condition in the `argocd-cm` ConfigMap. This example covers HTTPRoute; add the same key with `GRPCRoute` in place of `HTTPRoute` for GRPCRoutes:
+
+```yaml
+data:
+  resource.customizations.health.gateway.networking.k8s.io_HTTPRoute: |
+    hs = {status = "Progressing", message = "Waiting for HTTPRoute status"}
+    if obj.status == nil or obj.status.parents == nil then
+      return hs
+    end
+    local current = false
+    for _, parent in ipairs(obj.status.parents) do
+      local stale = false
+      for _, c in ipairs(parent.conditions or {}) do
+        if c.observedGeneration ~= nil and obj.metadata.generation ~= nil and c.observedGeneration ~= obj.metadata.generation then
+          stale = true
+        end
+      end
+      if not stale and parent.conditions ~= nil and #parent.conditions > 0 then
+        current = true
+        for _, c in ipairs(parent.conditions) do
+          local failed = (c.type == "Accepted" or c.type == "ResolvedRefs") and c.status == "False"
+          if failed or (c.type == "PartiallyInvalid" and c.status == "True") then
+            return {status = "Degraded", message = c.message or c.type}
+          end
+        end
+      end
+    end
+    if current then
+      return {status = "Healthy", message = "HTTPRoute is healthy"}
+    end
+    return hs
+```
+
+A custom check replaces the built-in one for that kind, so this keeps the built-in checks for `Accepted`, `ResolvedRefs` and stale `observedGeneration`.
