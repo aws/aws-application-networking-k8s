@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -1682,6 +1683,7 @@ func Test_RuleModelBuild(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			k8sSchema.AddKnownTypes(anv1alpha1.SchemeGroupVersion, &anv1alpha1.ServiceImport{})
 			clientgoscheme.AddToScheme(k8sSchema)
+			gwv1.Install(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			svc := corev1.Service{
@@ -1692,6 +1694,7 @@ func Test_RuleModelBuild(t *testing.T) {
 				Status: corev1.ServiceStatus{},
 			}
 			assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
+			grantCrossNamespaceRefs(t, k8sClient, tt.route)
 			stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(tt.route.K8sObject())))
 
 			task := &latticeServiceModelBuildTask{
@@ -1715,6 +1718,40 @@ func Test_RuleModelBuild(t *testing.T) {
 
 			validateEqual(t, tt.expectedSpec, resRules)
 		})
+	}
+}
+
+// grantCrossNamespaceRefs permits every cross-namespace backendRef on route, for tests
+// that exercise backend resolution rather than ReferenceGrant blocking.
+func grantCrossNamespaceRefs(t *testing.T, c client.Client, route core.Route) {
+	t.Helper()
+	setReferenceGrantServed(t, true)
+	seen := map[string]bool{}
+	for _, rule := range route.Spec().Rules() {
+		for _, ref := range rule.BackendRefs() {
+			if ref.Namespace() == nil || string(*ref.Namespace()) == route.Namespace() {
+				continue
+			}
+			ns := string(*ref.Namespace())
+			if seen[ns] {
+				continue
+			}
+			seen[ns] = true
+			assert.NoError(t, c.Create(context.TODO(), &gwv1.ReferenceGrant{
+				ObjectMeta: apimachineryv1.ObjectMeta{Name: "allow-" + route.Namespace(), Namespace: ns},
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{{
+						Group:     gwv1.GroupName,
+						Kind:      gwv1.Kind(route.GroupKind().Kind),
+						Namespace: gwv1.Namespace(route.Namespace()),
+					}},
+					To: []gwv1.ReferenceGrantTo{
+						{Group: "", Kind: "Service"},
+						{Group: anv1alpha1.GroupName, Kind: "ServiceImport"},
+					},
+				},
+			}))
+		}
 	}
 }
 

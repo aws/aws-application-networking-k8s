@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,8 @@ import (
 )
 
 func Test_ReadinessGateInjection(t *testing.T) {
+	gateway.SetReferenceGrantServed(true)
+	t.Cleanup(func() { gateway.SetReferenceGrantServed(false) })
 	var serviceKind gwv1.Kind = "Service"
 	var gwNamespace = gwv1.Namespace("gw-namespace")
 	var svcNamespace = gwv1.Namespace("test")
@@ -31,6 +34,7 @@ func Test_ReadinessGateInjection(t *testing.T) {
 		grpcRoutes             []gwv1.GRPCRoute
 		gateways               []gwv1.Gateway
 		svcExport              *anv1alpha1.ServiceExport
+		referenceGrants        []gwv1.ReferenceGrant
 		expectedConditionTypes []corev1.PodConditionType
 	}{
 		{
@@ -256,9 +260,82 @@ func Test_ReadinessGateInjection(t *testing.T) {
 					},
 				},
 			},
+			referenceGrants: []gwv1.ReferenceGrant{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "allow-route-namespace", Namespace: string(svcNamespace)},
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{{Group: gwv1.GroupName, Kind: "HTTPRoute", Namespace: "route-namespace"}},
+						To:   []gwv1.ReferenceGrantTo{{Group: "", Kind: "Service"}},
+					},
+				},
+			},
 			expectedConditionTypes: []corev1.PodConditionType{
 				corev1.PodConditionType(PodReadinessGateConditionType),
 			},
+		},
+		{
+			name: "service, route, gateway different namespaces, no ReferenceGrant, no gate",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pod-1",
+					Namespace: "test",
+					Labels: map[string]string{
+						"env": "test",
+					},
+				},
+			},
+			services: []corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc-1",
+						Namespace: string(svcNamespace),
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"env": "test",
+						},
+					},
+				},
+			},
+			httpRoutes: []gwv1.HTTPRoute{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "http-route-1",
+						Namespace: "route-namespace",
+					},
+					Spec: gwv1.HTTPRouteSpec{
+						CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "gw-1",
+								Namespace: &gwNamespace,
+							},
+						}},
+						Rules: []gwv1.HTTPRouteRule{
+							{
+								BackendRefs: []gwv1.HTTPBackendRef{{BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
+										Name:      "svc-1",
+										Namespace: &svcNamespace,
+										Kind:      &serviceKind,
+									},
+								}}},
+							},
+						},
+					},
+				},
+			},
+			gateways: []gwv1.Gateway{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gw-1",
+						Namespace: string(gwNamespace),
+					},
+					Spec: gwv1.GatewaySpec{
+						GatewayClassName: "amazon-vpc-lattice",
+					},
+				},
+			},
+			expectedConditionTypes: []corev1.PodConditionType{},
 		},
 		{
 			name: "service, route, gateway different namespaces, do not reference each other",
@@ -1104,6 +1181,9 @@ func Test_ReadinessGateInjection(t *testing.T) {
 			}
 			for _, gw := range tt.gateways {
 				assert.NoError(t, k8sClient.Create(ctx, gw.DeepCopy()))
+			}
+			for _, g := range tt.referenceGrants {
+				assert.NoError(t, k8sClient.Create(ctx, g.DeepCopy()))
 			}
 			if tt.svcExport != nil {
 				assert.NoError(t, k8sClient.Create(ctx, tt.svcExport.DeepCopy()))

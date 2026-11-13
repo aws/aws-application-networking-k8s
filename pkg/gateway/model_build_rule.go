@@ -278,6 +278,20 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 
 		t.log.Debugf(ctx, "Processing %s backendRef %s-%s", string(*backendRef.Kind()), backendRef.Name(), namespace)
 
+		if t.route.DeletionTimestamp().IsZero() {
+			allowed, err := IsBackendRefAllowedByReferenceGrant(ctx, t.client, t.route, backendRef)
+			if err != nil {
+				return nil, err
+			}
+			if !allowed {
+				t.log.Infof(ctx, "backendRef %s/%s on route %s/%s is not permitted by any ReferenceGrant, marking as invalid",
+					namespace, backendRef.Name(), t.route.Namespace(), t.route.Name())
+				ruleTG.StackTargetGroupId = model.InvalidBackendRefTgId
+				tgList = append(tgList, &ruleTG)
+				continue
+			}
+		}
+
 		if string(*backendRef.Kind()) == "ServiceImport" {
 			// if there's a matching top-level service import, we can get additional fields
 			svcImportName := apitypes.NamespacedName{

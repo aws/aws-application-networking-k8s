@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"sync/atomic"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -9,6 +10,17 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
+
+// referenceGrantServed records whether the v1 ReferenceGrant CRD was served when the
+// controller started. When it was not, no grant can exist, so every cross-namespace
+// reference is blocked.
+var referenceGrantServed atomic.Bool
+
+// SetReferenceGrantServed records whether the v1 ReferenceGrant CRD is served. Call it once
+// at startup, before any reconcile.
+func SetReferenceGrantServed(served bool) {
+	referenceGrantServed.Store(served)
+}
 
 // IsBackendRefAllowedByReferenceGrant reports whether route may reference backendRef per
 // the Gateway API ReferenceGrant contract. Same-namespace references are always allowed.
@@ -25,24 +37,37 @@ func IsBackendRefAllowedByReferenceGrant(
 	if backendRef.Namespace() != nil {
 		refNamespace = string(*backendRef.Namespace())
 	}
-	if refNamespace == route.Namespace() {
+	group, kind := backendRefGroupKind(backendRef)
+	return IsReferenceAllowedByReferenceGrant(ctx, c, route, group, kind, refNamespace, string(backendRef.Name()))
+}
+
+// IsReferenceAllowedByReferenceGrant reports whether route may reference the object
+// identified by toGroup, toKind, toNamespace and toName.
+func IsReferenceAllowedByReferenceGrant(
+	ctx context.Context,
+	c client.Client,
+	route core.Route,
+	toGroup, toKind, toNamespace, toName string,
+) (bool, error) {
+	if toNamespace == route.Namespace() {
 		return true, nil
+	}
+	if !referenceGrantServed.Load() {
+		return false, nil
 	}
 
 	grants := &gwv1.ReferenceGrantList{}
-	if err := c.List(ctx, grants, client.InNamespace(refNamespace)); err != nil {
+	if err := c.List(ctx, grants, client.InNamespace(toNamespace)); err != nil {
 		return false, err
 	}
 
 	routeGK := route.GroupKind()
-	backendGroup, backendKind := backendRefGroupKind(backendRef)
-
 	for i := range grants.Items {
 		spec := grants.Items[i].Spec
 		if !grantFromMatches(spec.From, routeGK.Group, routeGK.Kind, route.Namespace()) {
 			continue
 		}
-		if grantToMatches(spec.To, backendGroup, backendKind, string(backendRef.Name())) {
+		if grantToMatches(spec.To, toGroup, toKind, toName) {
 			return true, nil
 		}
 	}

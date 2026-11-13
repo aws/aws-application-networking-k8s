@@ -96,7 +96,14 @@ func serviceTo(name string) gwv1.ReferenceGrantTo {
 	return to
 }
 
+func setReferenceGrantServed(t *testing.T, served bool) {
+	t.Helper()
+	SetReferenceGrantServed(served)
+	t.Cleanup(func() { SetReferenceGrantServed(false) })
+}
+
 func TestIsBackendRefAllowedByReferenceGrant(t *testing.T) {
+	setReferenceGrantServed(t, true)
 	tests := []struct {
 		name    string
 		routeNs string
@@ -298,7 +305,25 @@ func TestIsBackendRefAllowedByReferenceGrant_SameNamespaceSkipsList(t *testing.T
 	assert.True(t, got)
 }
 
+func TestIsBackendRefAllowedByReferenceGrant_CRDNotServedBlocks(t *testing.T) {
+	c := testclient.NewClientBuilder().
+		WithScheme(rgScheme(t)).
+		WithInterceptorFuncs(interceptor.Funcs{
+			List: func(context.Context, client.WithWatch, client.ObjectList, ...client.ListOption) error {
+				t.Fatal("List should not be called when the ReferenceGrant CRD is not served")
+				return nil
+			},
+		}).Build()
+	route := httpRouteWithBackend("foo", serviceBackend("svc", "bar"))
+	backendRef := route.Spec().Rules()[0].BackendRefs()[0]
+
+	got, err := IsBackendRefAllowedByReferenceGrant(context.Background(), c, route, backendRef)
+	assert.NoError(t, err)
+	assert.False(t, got)
+}
+
 func TestIsBackendRefAllowedByReferenceGrant_ListErrorPropagates(t *testing.T) {
+	setReferenceGrantServed(t, true)
 	c := testclient.NewClientBuilder().
 		WithScheme(rgScheme(t)).
 		WithInterceptorFuncs(interceptor.Funcs{

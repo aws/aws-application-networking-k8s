@@ -4,6 +4,7 @@ import (
 	"context"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	k8sutils "github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -74,6 +75,15 @@ func (m *PodReadinessGateInjector) requiresReadinessGate(ctx context.Context, po
 	routes := m.listAllRoutes(ctx)
 	for _, route := range routes {
 		if svc := m.isPodUsedByRoute(route, svcMatches); svc != nil {
+			allowed, err := gateway.IsReferenceAllowedByReferenceGrant(ctx, m.k8sClient, route, corev1.GroupName, "Service", svc.Namespace, svc.Name)
+			if err != nil {
+				m.log.Debugf(ctx, "Unable to evaluate ReferenceGrant for route %s/%s and service %s/%s: %s",
+					route.Namespace(), route.Name(), svc.Namespace, svc.Name, err)
+				continue
+			}
+			if !allowed {
+				continue
+			}
 			if m.routeHasLatticeGateway(ctx, route) {
 				m.log.Debugf(ctx, "Pod %s/%s is used by service %s/%s and route %s/%s", pod.Namespace, getPodName(pod),
 					svc.Namespace, svc.Name, route.Namespace(), route.Name())
