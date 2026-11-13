@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
@@ -458,22 +460,60 @@ func (s *defaultTargetGroupManager) fillDefaultHealthCheckConfig(hc *types.Healt
 	}
 }
 
+// generatedTgName matches the names model.GenerateTgName gives target groups:
+// k8s-<namespace>-<service>-<10 random lowercase letters>.
+var generatedTgName = regexp.MustCompile(`^k8s-[a-z0-9-]+-[a-z0-9-]+-[a-z]{10}$`)
+
+// findSvcExportTG returns the id of the first target group, in ListTargetGroups
+// order, that was created for the imported service's ServiceExport and matches
+// the import's cluster and VPC when they are set.
+//
+// Tags are read only for target groups whose summary can match. The VPC is
+// checked on the summary. A target group with a generated name can match only
+// when the name starts with the imported service's prefix: the controller names
+// each target group from the same service name and namespace it writes to its
+// tags, and never changes those tags. Target groups named any other way are
+// always read, so target groups created outside the controller are still found.
 func (s *defaultTargetGroupManager) findSvcExportTG(ctx context.Context, svcImportTg model.SvcImportTargetGroup) (string, error) {
-	tgs, err := s.List(ctx)
+	notFound := errors.New("target group for service import could not be found")
+	tgs, err := s.awsCloud.Lattice().ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{})
 	if err != nil {
 		return "", err
 	}
+	namePrefix := model.TgNamePrefix(model.TargetGroupSpec{
+		TargetGroupTagFields: model.TargetGroupTagFields{
+			K8SServiceName:      svcImportTg.K8SServiceName,
+			K8SServiceNamespace: svcImportTg.K8SServiceNamespace,
+		},
+	}) + "-"
+	var candidates []types.TargetGroupSummary
 	for _, tg := range tgs {
-		tgTags := model.TGTagFieldsFromTags(tg.tags)
+		vpcMatch := (svcImportTg.VpcId == "") || (svcImportTg.VpcId == aws.ToString(tg.VpcIdentifier))
+		name := aws.ToString(tg.Name)
+		if vpcMatch && (strings.HasPrefix(name, namePrefix) || !generatedTgName.MatchString(name)) {
+			candidates = append(candidates, tg)
+		}
+	}
+	if len(candidates) == 0 {
+		return "", notFound
+	}
+	arns := utils.SliceMap(candidates, func(tg types.TargetGroupSummary) string {
+		return aws.ToString(tg.Arn)
+	})
+	tagsByArn, err := s.awsCloud.Tagging().GetTagsForArns(ctx, arns)
+	if err != nil {
+		return "", err
+	}
+	for _, tg := range candidates {
+		tgTags := model.TGTagFieldsFromTags(tagsByArn[aws.ToString(tg.Arn)])
 		svcMatch := tgTags.IsSourceTypeServiceExport() && (tgTags.K8SServiceName == svcImportTg.K8SServiceName) &&
 			(tgTags.K8SServiceNamespace == svcImportTg.K8SServiceNamespace)
 		clusterMatch := (svcImportTg.K8SClusterName == "") || (tgTags.K8SClusterName == svcImportTg.K8SClusterName)
-		vpcMatch := (svcImportTg.VpcId == "") || (svcImportTg.VpcId == aws.ToString(tg.tgSummary.VpcIdentifier))
-		if svcMatch && clusterMatch && vpcMatch {
-			return *tg.tgSummary.Id, nil
+		if svcMatch && clusterMatch {
+			return aws.ToString(tg.Id), nil
 		}
 	}
-	return "", errors.New("target group for service import could not be found")
+	return "", notFound
 }
 
 // ResolveRuleTgIds populates all target group ids in the rule's actions
