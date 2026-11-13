@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../images/controller.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -1948,8 +1948,9 @@ is not running.</p>
 grants <code>get</code>/<code>list</code>/<code>watch</code> on <code>referencegrants</code>. This rule ships with the controller
 image that introduces the feature. When upgrading, apply the updated RBAC (Helm chart or
 manifests) together with the new image — do not point the new image at an older
-<code>ClusterRole</code>. If the CRD is installed but the controller lacks permission to watch it,
-the watch fails to start and the controller will not come up healthy.</p>
+<code>ClusterRole</code>. If the CRD is installed but the controller cannot list ReferenceGrants, it
+logs an error naming the missing permission, skips the watch and emits no warnings. Routes
+keep working, but you will not see the references a future release will block.</p>
 
 
 
@@ -2045,7 +2046,7 @@ the watch fails to start and the controller will not come up healthy.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy", "content.code.select", "navigation.path"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
         <script src="https://main.d17pcam02ektiz.amplifyapp.com/material-components-web.min.js"></script>
       
