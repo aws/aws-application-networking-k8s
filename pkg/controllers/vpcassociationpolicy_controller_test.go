@@ -259,7 +259,7 @@ func Test_VpcAssociationPolicy_NoMismatch_SetsProgrammedTrueAndAnnotation(t *tes
 	assert.Empty(t, e.drainEvents())
 }
 
-func Test_VpcAssociationPolicy_PrivateDnsMismatch_SetsProgrammedFalse_EmitsWarningOnce(t *testing.T) {
+func Test_VpcAssociationPolicy_PrivateDnsMismatch_SetsProgrammedFalse_EmitsWarningOnce_Requeues(t *testing.T) {
 	e := newVapTestEnv(t, newVapTestPolicy(func(spec *anv1alpha1.VpcAssociationPolicySpec) {
 		spec.PrivateDnsEnabled = aws.Bool(true)
 	}), newVapTestGateway())
@@ -273,7 +273,8 @@ func Test_VpcAssociationPolicy_PrivateDnsMismatch_SetsProgrammedFalse_EmitsWarni
 	for i := 0; i < 2; i++ {
 		result, err := e.reconcile(t)
 		assert.NoError(t, err, "a mismatch is reported through status, not as a reconcile error")
-		assert.Equal(t, time.Duration(0), result.RequeueAfter)
+		assert.Equal(t, foreignDnsMismatchRecheckInterval, result.RequeueAfter,
+			"an out-of-band fix raises no Kubernetes event, so the mismatch is rechecked periodically")
 	}
 
 	vap := e.getPolicy(t)

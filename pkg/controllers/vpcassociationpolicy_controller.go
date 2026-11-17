@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	vpclatticetypes "github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/aws/smithy-go"
@@ -40,6 +41,10 @@ const (
 
 	foreignDnsMismatchSteps = "The controller only changes private DNS settings of associations it created on a RAM-shared service network. " +
 		"Update the association with the desired settings out of band, or align the policy with it."
+
+	// foreignDnsMismatchRecheckInterval is how often a reported mismatch is compared again: fixing the
+	// association out of band changes nothing in Kubernetes, so no watch would trigger a reconcile.
+	foreignDnsMismatchRecheckInterval = time.Minute
 )
 
 type vpcAssociationPolicyReconciler struct {
@@ -169,8 +174,12 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 	if res.DnsMismatch != nil {
 		msg := fmt.Sprintf("VPC association %s has private DNS settings that differ from this policy: %s. %s",
 			res.Arn, res.DnsMismatch, foreignDnsMismatchSteps)
-		return c.setProgrammed(ctx, k8sPolicy, metav1.ConditionFalse, anv1alpha1.VpcAssociationPolicyReasonPrivateDnsMismatch, msg,
-			k8s.VpcAssociationPolicyEventReasonPrivateDnsMismatch)
+		if err := c.setProgrammed(ctx, k8sPolicy, metav1.ConditionFalse, anv1alpha1.VpcAssociationPolicyReasonPrivateDnsMismatch, msg,
+			k8s.VpcAssociationPolicyEventReasonPrivateDnsMismatch); err != nil {
+			return err
+		}
+		return lattice_runtime.NewRequeueNeededAfter("private DNS settings differ on a VPC association the controller does not manage, rechecking",
+			foreignDnsMismatchRecheckInterval)
 	}
 	msg := fmt.Sprintf("VPC association %s is active and matches the policy", res.Arn)
 	if res.RamShared {

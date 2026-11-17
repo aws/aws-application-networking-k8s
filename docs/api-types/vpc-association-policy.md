@@ -80,8 +80,10 @@ for the semantics of each preference.
 !!! warning "Changes apply to the existing association"
     If the association already exists with different settings, the controller updates it in place, including when the
     settings were changed outside the controller: a policy with `privateDnsEnabled: false` turns off private DNS that
-    was enabled by other means. Private hosted zones are added to or removed from the cluster VPC accordingly, which
-    changes how those names resolve.
+    was enabled by other means, which changes how those names resolve from the cluster VPC.
+
+    Private DNS takes effect only for resources associated with the service network afterwards. For existing resource
+    associations, [recreate the VPC association](#recreating-the-vpc-association) or the resource association.
 
     When `privateDnsEnabled` is unset nothing is sent or compared. When `privateDnsPreference` is unset the preference
     of an existing association is not compared, so removing `dnsOptions` does not reset it: set the preference you want
@@ -89,7 +91,8 @@ for the semantics of each preference.
 
 On a RAM-shared service network the controller only updates associations it created. Any other association is left
 unchanged: the `Programmed` condition is set to `False` with reason `PrivateDnsMismatch` and a `Warning` event is emitted
-with the same message. Update the association out of band, or align the policy with it.
+with the same message. Update the association out of band, or align the policy with it; the controller rechecks every
+minute.
 
 ### Recreating the VPC association
 
@@ -97,6 +100,9 @@ Removing all security groups cannot be applied in place by the VPC Lattice `Upda
 you have a VpcAssociationPolicy attached to a gateway that already has security groups applied, updating the
 VpcAssociationPolicy with empty security group ids or deleting the VpcAssociationPolicy will NOT remove the security
 groups from the gateway.
+
+Enabling private DNS does not create private hosted zones for resource associations that already exist in the service
+network.
 
 To apply such a change, delete the VPC association and re-create it by following these steps:
 
