@@ -94,15 +94,6 @@ jobs:
         run: |
           SKIP_BUILD_CHART=true scripts/release-controller.sh
 
-      - name: Install helm chart
-        run: |
-          helm install gateway-api-controller ./helm \
-             --namespace aws-application-networking-system \
-             --set=serviceAccount.create=false \
-             --set=image.repository="${IMAGE_REPOSITORY}" \
-             --set=image.tag="${RELEASE_VERSION}" \
-             --set=log.level=debug
-
       - name: Install Gateway API v1.5 CRDs
         run: |
           set -euo pipefail
@@ -118,6 +109,18 @@ jobs:
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_accesslogpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_iamauthpolicies.yaml
           kubectl apply -f config/crds/bases/application-networking.k8s.aws_servicenetworks.yaml
+
+      # CRDs are owned by kubectl on the shared cluster; Helm 4 server-side apply would conflict.
+      - name: Install helm chart
+        run: |
+          helm install gateway-api-controller ./helm \
+             --namespace aws-application-networking-system \
+             --skip-crds \
+             --set=serviceAccount.create=false \
+             --set=image.repository="${IMAGE_REPOSITORY}" \
+             --set=image.tag="${RELEASE_VERSION}" \
+             --set=log.level=debug
+
       - name: Create Lattice GatewayClass
         run: |
           kubectl apply -f files/controller-installation/gatewayclass.yaml
