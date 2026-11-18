@@ -54,6 +54,11 @@ The grant's `from.kind` must match the kind of the referencing route (HTTPRoute,
 GRPCRoute, or TLSRoute). Creating, changing or deleting a grant takes effect without any
 change to the route.
 
+A `ServiceImport` with the `target-group-arn` annotation can't point at a controller-managed
+target group, one with the `application-networking.k8s.aws/ManagedBy` tag. Otherwise it
+could reach another namespace's `Service` without a grant. See
+[ServiceImport Mode 3](service-import.md#mode-3-direct-external-target-group-reference).
+
 The controller reads grants from the `gateway.networking.k8s.io/v1` `ReferenceGrant` CRD.
 If that CRD is not installed when the controller starts, no grant can permit a reference,
 so every cross-namespace `backendRef` is blocked. After installing the CRD, restart the
@@ -86,6 +91,30 @@ kubectl get httproutes,grpcroutes,tlsroutes -A -o json | jq -r '
 
 For each reference, create a `ReferenceGrant` in the target namespace or repoint the
 `backendRef`.
+
+Also check each `ServiceImport` with the `target-group-arn` annotation. A route whose
+`ServiceImport` names a target group with the `application-networking.k8s.aws/ManagedBy` tag
+stops receiving traffic after the upgrade. Replace those as described in
+[ServiceImport Mode 3](service-import.md#mode-3-direct-external-target-group-reference). This
+script lists them:
+
+```bash
+kubectl get serviceimports.application-networking.k8s.aws -A -o json | jq -r '
+  .items[] | (.metadata.annotations["application-networking.k8s.aws/target-group-arn"] // "") as $arn
+  | select($arn != "") | "\(.metadata.namespace)/\(.metadata.name) \($arn)"' |
+while read -r import arn; do
+  region=$(echo "$arn" | cut -d: -f4)
+  if ! managed=$(AWS_PAGER="" aws vpc-lattice list-tags-for-resource --region "$region" \
+      --resource-arn "$arn" --query 'tags."application-networking.k8s.aws/ManagedBy"' \
+      --output text </dev/null); then
+    echo "$import: could not read the tags of $arn" >&2
+    continue
+  fi
+  if [ "$managed" != None ]; then
+    echo "$import uses controller-managed target group $arn"
+  fi
+done
+```
 
 Enforcement needs the `ReferenceGrant` CRD from Gateway API v1.5 or later, which serves
 `gateway.networking.k8s.io/v1`. Grants created as `v1beta1` are the same objects and keep

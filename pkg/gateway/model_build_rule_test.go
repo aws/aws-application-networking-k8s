@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
 	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
@@ -2088,6 +2089,14 @@ func Test_ServiceImportAnnotationMapping(t *testing.T) {
 	}
 }
 
+// expectExternalTgTags mocks the tag read that follows a successful GetTargetGroup for a
+// target-group-arn ServiceImport.
+func expectExternalTgTags(m *services.MockLattice, arn string, tags map[string]string) {
+	m.EXPECT().ListTagsForResource(gomock.Any(), &vpclattice.ListTagsForResourceInput{
+		ResourceArn: aws.String(arn),
+	}).Return(&vpclattice.ListTagsForResourceOutput{Tags: tags}, nil)
+}
+
 func Test_RuleModelBuild_ExternalTargetGroup(t *testing.T) {
 	const (
 		validArn = "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0df85aff983932f06"
@@ -2142,6 +2151,7 @@ func Test_RuleModelBuild_ExternalTargetGroup(t *testing.T) {
 		wantErr         bool
 		wantErrIs       func(error) bool
 		wantLatticeTgId string
+		wantInvalid     bool
 	}{
 		{
 			name:        "HTTPRoute with valid external target group resolves to its id",
@@ -2152,6 +2162,7 @@ func Test_RuleModelBuild_ExternalTargetGroup(t *testing.T) {
 				}).Return(&vpclattice.GetTargetGroupOutput{
 					Id: aws.String(bareId), Arn: aws.String(validArn),
 				}, nil)
+				expectExternalTgTags(m, validArn, nil)
 			},
 			wantLatticeTgId: bareId,
 		},
@@ -2163,8 +2174,34 @@ func Test_RuleModelBuild_ExternalTargetGroup(t *testing.T) {
 				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Return(&vpclattice.GetTargetGroupOutput{
 					Id: aws.String(bareId), Arn: aws.String(validArn),
 				}, nil)
+				expectExternalTgTags(m, validArn, nil)
 			},
 			wantLatticeTgId: bareId,
+		},
+		{
+			name:        "target group managed by a controller is marked invalid",
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Return(&vpclattice.GetTargetGroupOutput{
+					Id: aws.String(bareId), Arn: aws.String(validArn),
+				}, nil)
+				expectExternalTgTags(m, validArn, map[string]string{
+					pkg_aws.TagManagedBy: "111122223333/other-cluster/vpc-0123",
+				})
+			},
+			wantLatticeTgId: "",
+			wantInvalid:     true,
+		},
+		{
+			name:        "tag read failure fails the build instead of allowing the target group",
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Return(&vpclattice.GetTargetGroupOutput{
+					Id: aws.String(bareId), Arn: aws.String(validArn),
+				}, nil)
+				m.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).Return(nil, errors.New("throttled"))
+			},
+			wantErr: true,
 		},
 		{
 			name: "target-group-arn with export-name is a conflict",
@@ -2345,7 +2382,11 @@ func Test_RuleModelBuild_ExternalTargetGroup(t *testing.T) {
 
 			assert.Equal(t, tt.wantLatticeTgId, rtg.LatticeTgId)
 			assert.Nil(t, rtg.SvcImportTG)
-			assert.Empty(t, rtg.StackTargetGroupId)
+			if tt.wantInvalid {
+				assert.Equal(t, model.InvalidBackendRefTgId, rtg.StackTargetGroupId)
+			} else {
+				assert.Empty(t, rtg.StackTargetGroupId)
+			}
 		})
 	}
 }

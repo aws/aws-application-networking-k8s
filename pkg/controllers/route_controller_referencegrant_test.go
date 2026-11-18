@@ -7,7 +7,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	latticetypes "github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,9 +28,12 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	latticemodel "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -405,4 +412,99 @@ func TestValidateBackendRefsIpFamilies_ReferenceGrant(t *testing.T) {
 
 	r = newWarnReconciler(t, rgReconcilerTestClient(t, dualStack, crossNsGrant("bar", "foo")), record.NewFakeRecorder(10))
 	assert.Error(t, r.validateBackendRefsIpFamilies(context.Background(), route))
+}
+
+func TestValidateBackedRefs_ManagedExternalTargetGroup(t *testing.T) {
+	const arn = "arn:aws:vpc-lattice:us-west-2:123456789012:targetgroup/tg-0df85aff983932f06"
+	const ownManagedBy = "999988887777/this-cluster/vpc-1"
+	tests := []struct {
+		name       string
+		tags       map[string]string
+		tagErr     error
+		wantErr    bool
+		wantReason gwv1.RouteConditionReason
+		wantMsg    string
+	}{
+		{
+			name: "target group of this cluster's route points to a backendRef",
+			tags: map[string]string{
+				pkg_aws.TagManagedBy:                                 ownManagedBy,
+				latticemodel.K8SSourceTypeKey:                        string(latticemodel.SourceTypeHTTPRoute),
+				"application-networking.k8s.aws/K8SServiceNamespace": "secret-ns",
+			},
+			wantReason: gwv1.RouteReasonRefNotPermitted,
+			wantMsg:    "Reference that Service with a backendRef",
+		},
+		{
+			name: "target group of another cluster's route points to exporting it",
+			tags: map[string]string{
+				pkg_aws.TagManagedBy:                                 "111122223333/other/vpc-0",
+				latticemodel.K8SSourceTypeKey:                        string(latticemodel.SourceTypeHTTPRoute),
+				"application-networking.k8s.aws/K8SServiceNamespace": "secret-ns",
+			},
+			wantReason: gwv1.RouteReasonRefNotPermitted,
+			wantMsg:    "Export that Service with a ServiceExport in its cluster",
+		},
+		{
+			name: "target group of a ServiceExport points to export discovery",
+			tags: map[string]string{
+				pkg_aws.TagManagedBy:                                 "111122223333/other/vpc-0",
+				latticemodel.K8SSourceTypeKey:                        string(latticemodel.SourceTypeSvcExport),
+				"application-networking.k8s.aws/K8SServiceNamespace": "secret-ns",
+			},
+			wantReason: gwv1.RouteReasonRefNotPermitted,
+			wantMsg:    "named after the exported Service",
+		},
+		{name: "unmanaged target group resolves", wantReason: gwv1.RouteReasonResolvedRefs},
+		{
+			// Returning the error keeps the previous status; the model build fails on the same
+			// error and keeps the previous traffic, so the two stay consistent.
+			name:    "tag read failure is returned",
+			tagErr:  errors.New("throttled"),
+			wantErr: true,
+		},
+		{
+			// The model build reports these as ExternalTargetGroupNotFound, so status must
+			// still be written instead of failing the whole validation.
+			name:       "missing target group is left to the model build",
+			tagErr:     &latticetypes.ResourceNotFoundException{Message: aws.String("nope")},
+			wantReason: gwv1.RouteReasonResolvedRefs,
+		},
+		{
+			name:       "unreadable target group is left to the model build",
+			tagErr:     &latticetypes.AccessDeniedException{Message: aws.String("denied")},
+			wantReason: gwv1.RouteReasonResolvedRefs,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := gomock.NewController(t)
+			mockLattice := services.NewMockLattice(c)
+			mockLattice.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
+				Return(&vpclattice.ListTagsForResourceOutput{Tags: tt.tags}, tt.tagErr)
+			mockCloud := pkg_aws.NewMockCloud(c)
+			mockCloud.EXPECT().Lattice().Return(mockLattice).AnyTimes()
+			mockCloud.EXPECT().DefaultTags().Return(services.Tags{pkg_aws.TagManagedBy: ownManagedBy}).AnyTimes()
+
+			svcImport := &anv1alpha1.ServiceImport{ObjectMeta: metav1.ObjectMeta{
+				Name: "imp", Namespace: "foo",
+				Annotations: map[string]string{k8s.TargetGroupArnAnnotation: arn},
+			}}
+			r := newWarnReconciler(t, rgReconcilerTestClient(t, svcImport), record.NewFakeRecorder(10))
+			r.cloud = mockCloud
+
+			cnd, err := r.validateBackedRefs(context.Background(),
+				routeWithBackendRefs("foo", backendRef("imp", "", "ServiceImport")))
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, string(tt.wantReason), cnd.Reason)
+			assert.Contains(t, cnd.Message, tt.wantMsg)
+			assert.NotContains(t, cnd.Message, "111122223333")
+			assert.NotContains(t, cnd.Message, "secret-ns")
+			assert.NotContains(t, cnd.Message, "999988887777")
+		})
+	}
 }

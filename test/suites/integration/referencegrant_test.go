@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/test/pkg/test"
@@ -300,5 +301,80 @@ var _ = Describe("ReferenceGrant Test", Serial, Ordered, func() {
 			expectRefNotPermitted(g, route)
 			g.Expect(tlsPassthroughListeners(g, coreRoute)).To(Equal(0))
 		}).WithTimeout(3 * time.Minute).Should(Succeed())
+	})
+
+	It("stops routing a target-group-arn ServiceImport once its target group is controller-managed", func() {
+		// The route first forwards to an untagged target group, the documented Mode 3 case.
+		// Tagging it as controller-managed, as every target group the controller creates for
+		// a Service is, must rewrite the existing rule, not only report status.
+		tg, err := testFramework.LatticeClient.CreateTargetGroup(ctx, &vpclattice.CreateTargetGroupInput{
+			Name: aws.String("rg-" + test.RandomName()),
+			Type: types.TargetGroupTypeIp,
+			Config: &types.TargetGroupConfig{
+				Protocol:      types.TargetGroupProtocolHttp,
+				Port:          aws.Int32(80),
+				VpcIdentifier: aws.String(testFramework.Cloud.Config().VpcId),
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() {
+			Eventually(func(g Gomega) {
+				_, err := testFramework.LatticeClient.DeleteTargetGroup(ctx, &vpclattice.DeleteTargetGroupInput{
+					TargetGroupIdentifier: tg.Arn,
+				})
+				g.Expect(err == nil || services.IsNotFoundError(err)).To(BeTrue())
+			}).WithTimeout(3 * time.Minute).Should(Succeed())
+		})
+
+		svcImport := &anv1alpha1.ServiceImport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "referencegrant-managed-tg",
+				Namespace:   k8snamespace,
+				Annotations: map[string]string{"application-networking.k8s.aws/target-group-arn": aws.ToString(tg.Arn)},
+			},
+			Spec: anv1alpha1.ServiceImportSpec{
+				Type:  anv1alpha1.ClusterSetIP,
+				Ports: []anv1alpha1.ServicePort{{Port: 80, Protocol: corev1.ProtocolTCP}},
+			},
+		}
+		// NewHttpRoute only reads the name, namespace and port of the Service it is given.
+		ref := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: svcImport.Name, Namespace: k8snamespace},
+			Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 80}}},
+		}
+		route := testFramework.NewHttpRoute(testGateway, ref, "ServiceImport")
+		route.Name = "referencegrant-managed-tg-route"
+		testFramework.ExpectCreated(ctx, svcImport, route)
+		DeferCleanup(func() {
+			testFramework.ExpectDeletedThenNotFound(ctx, route, svcImport)
+		})
+		coreRoute := core.NewHTTPRoute(*route)
+
+		Eventually(func(g Gomega) {
+			g.Expect(resolvedRefs(g, route).Status).To(Equal(metav1.ConditionTrue))
+			expectRulesForwardTo(g, coreRoute, tg.Id, tg.Arn)
+		}).WithTimeout(3 * time.Minute).Should(Succeed())
+
+		_, err = testFramework.LatticeClient.TagResource(ctx, &vpclattice.TagResourceInput{
+			ResourceArn: tg.Arn,
+			Tags:        map[string]string{"application-networking.k8s.aws/ManagedBy": "000000000000/other-cluster/vpc-0"},
+		})
+		Expect(err).ToNot(HaveOccurred())
+
+		// Nothing watches target group tags, so change the route to make the controller
+		// reconcile it. The controller caches tags for 60s and this tag change bypassed it,
+		// so a reconcile any sooner could still see the untagged target group.
+		time.Sleep(65 * time.Second)
+		Eventually(func(g Gomega) {
+			latest := &gwv1.HTTPRoute{}
+			g.Expect(testFramework.Get(ctx, client.ObjectKeyFromObject(route), latest)).To(Succeed())
+			latest.Spec.Rules[0].BackendRefs[0].Weight = lo.ToPtr(int32(2))
+			g.Expect(testFramework.Update(ctx, latest)).To(Succeed())
+		}).Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			expectRefNotPermitted(g, route)
+			expectRulesReturn500(g, coreRoute)
+		}).WithTimeout(4 * time.Minute).Should(Succeed())
 	})
 })
