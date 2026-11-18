@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"sync/atomic"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -9,6 +10,15 @@ import (
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 )
+
+// referenceGrantServed is false if the ReferenceGrant CRD was missing at startup, blocking all cross-namespace refs.
+var referenceGrantServed atomic.Bool
+
+// SetReferenceGrantServed records whether the v1 ReferenceGrant CRD is served. Call it once
+// at startup, before any reconcile.
+func SetReferenceGrantServed(served bool) {
+	referenceGrantServed.Store(served)
+}
 
 // IsBackendRefAllowedByReferenceGrant reports whether route may reference backendRef per
 // the Gateway API ReferenceGrant contract. Same-namespace references are always allowed.
@@ -27,6 +37,9 @@ func IsBackendRefAllowedByReferenceGrant(
 	}
 	if refNamespace == route.Namespace() {
 		return true, nil
+	}
+	if !referenceGrantServed.Load() {
+		return false, nil
 	}
 
 	grants := &gwv1.ReferenceGrantList{}

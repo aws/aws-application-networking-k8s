@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -209,9 +210,13 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 		return fmt.Errorf("error during service synthesis %w", err)
 	}
 
-	//Handle latticeService listeners "reconciliation" request
+	// A stale-listener cleanup error is returned only after the later steps run.
+	var staleListenerErr error
 	if err := listenerSynthesizer.Synthesize(ctx); err != nil {
-		return fmt.Errorf("error during listener synthesis %w", err)
+		if !errors.Is(err, lattice.ErrStaleListenerCleanup) {
+			return fmt.Errorf("error during listener synthesis %w", err)
+		}
+		staleListenerErr = fmt.Errorf("error during listener synthesis %w", err)
 	}
 
 	//Handle latticeService listener's rules "reconciliation" request
@@ -226,10 +231,10 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 
 	//Handle targetGroup deletion request
 	if err := targetGroupSynthesizer.SynthesizeDelete(ctx); err != nil {
-		return fmt.Errorf("error during tg delete synthesis %w", err)
+		return errors.Join(staleListenerErr, fmt.Errorf("error during tg delete synthesis %w", err))
 	}
 
-	return nil
+	return staleListenerErr
 }
 
 type latticeTargetGroupStackDeployer struct {
