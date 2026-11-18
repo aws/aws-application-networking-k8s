@@ -65,6 +65,10 @@ When set as "debug", the Amazon VPC Lattice Gateway API Controller will emit deb
 When set as a non-empty value, creates a service network with that name.
 The created service network will be also associated with cluster VPC.
 
+The association created at start-up has private DNS disabled. To resolve the custom domain names of resource
+configurations from the cluster VPC, attach a [VpcAssociationPolicy](../api-types/vpc-association-policy.md#private-dns-for-custom-domain-names)
+with `privateDnsEnabled: true` to the Gateway; an existing association is updated in place.
+
 ---
 
 #### `ENABLE_SERVICE_NETWORK_OVERRIDE`

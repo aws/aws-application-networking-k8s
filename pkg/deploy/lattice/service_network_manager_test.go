@@ -537,10 +537,10 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Update
 	}, nil)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, nil)
+	resp, err := snMgr.UpsertVpcAssociation(ctx, name, VpcAssociationRequest{SecurityGroupIds: securityGroupIds})
 
 	assert.Equal(t, err, nil)
-	assert.Equal(t, resp, snvaArn)
+	assert.Equal(t, resp.Arn, snvaArn)
 }
 
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_SecurityGroupsDoNotNeedToBeUpdated(t *testing.T) {
@@ -598,15 +598,15 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Securi
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, nil)
+	resp, err := snMgr.UpsertVpcAssociation(ctx, name, VpcAssociationRequest{SecurityGroupIds: securityGroupIds})
 
 	assert.Equal(t, err, nil)
-	assert.Equal(t, resp, snvaArn)
+	assert.Equal(t, resp.Arn, snvaArn)
 }
 func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgress_WillNotInvokeLatticeUpdateSNVA(t *testing.T) {
 	securityGroupIds := []string{"sg-123456789", "sg-987654321"}
 	snId := "12345678912345678912"
-	snArn := "12345678912345678912"
+	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
 	snvaArn := "12345678912345678912"
 	name := "test"
 	item := types.ServiceNetworkSummary{
@@ -642,7 +642,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaCreateInProgr
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	_, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, nil)
+	_, err := snMgr.UpsertVpcAssociation(ctx, name, VpcAssociationRequest{SecurityGroupIds: securityGroupIds})
 
 	var requeueNeededAfter *lattice_runtime.RequeueNeededAfter
 	assert.True(t, errors.As(err, &requeueNeededAfter))
@@ -703,7 +703,7 @@ func Test_defaultServiceNetworkManager_CreateOrUpdate_SnExists_SnvaExists_Cannot
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Return(&vpclattice.UpdateServiceNetworkVpcAssociationOutput{}, updateSNVAError)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	_, err := snMgr.UpsertVpcAssociation(ctx, name, []string{}, nil)
+	_, err := snMgr.UpsertVpcAssociation(ctx, name, VpcAssociationRequest{SecurityGroupIds: []string{}})
 
 	assert.Equal(t, err, updateSNVAError)
 }
@@ -768,16 +768,16 @@ func Test_UpsertVpcAssociation_WithAdditionalTags_ExistingAssociation(t *testing
 	mockLattice.EXPECT().UpdateServiceNetworkVpcAssociation(ctx, gomock.Any()).Times(0)
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, additionalTags)
+	resp, err := snMgr.UpsertVpcAssociation(ctx, name, VpcAssociationRequest{SecurityGroupIds: securityGroupIds, AdditionalTags: additionalTags})
 
 	assert.Equal(t, err, nil)
-	assert.Equal(t, resp, snvaArn)
+	assert.Equal(t, resp.Arn, snvaArn)
 }
 
 func Test_UpsertVpcAssociation_WithAdditionalTags_NoExistingAssociation(t *testing.T) {
 	securityGroupIds := []string{"sg-123456789", "sg-987654321"}
 	snId := "12345678912345678912"
-	snArn := "12345678912345678912"
+	snArn := "arn:aws:vpc-lattice:region:account-id:servicenetwork/sn-12345678912345678"
 	name := "test"
 	item := types.ServiceNetworkSummary{
 		Arn:  &snArn,
@@ -818,10 +818,10 @@ func Test_UpsertVpcAssociation_WithAdditionalTags_NoExistingAssociation(t *testi
 		})
 
 	snMgr := NewDefaultServiceNetworkManager(gwlog.FallbackLogger, cloud)
-	resp, err := snMgr.UpsertVpcAssociation(ctx, name, securityGroupIds, additionalTags)
+	resp, err := snMgr.UpsertVpcAssociation(ctx, name, VpcAssociationRequest{SecurityGroupIds: securityGroupIds, AdditionalTags: additionalTags})
 
 	assert.Equal(t, err, nil)
-	assert.Equal(t, resp, snArn)
+	assert.Equal(t, resp.Arn, snArn)
 }
 
 func Test_Upsert_NotFound_Creates(t *testing.T) {
