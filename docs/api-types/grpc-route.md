@@ -129,4 +129,4 @@ spec:
 
 This `GRPCRoute` documentation provides a detailed introduction, feature set, and a basic example of how to configure
 and use the resource within AWS Gateway API Controller project. For in-depth details and specifications, you can refer to the
-official [Gateway API documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.GRPCRoute).
+official [Gateway API documentation](https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#grpcroute).
