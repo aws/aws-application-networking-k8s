@@ -27,22 +27,13 @@
   category: architectural-limitation
   reason: "Lattice uses ACM for TLS, not K8s Secrets"
 
-# ReferenceGrant not implemented
-- name: HTTPRouteInvalidCrossNamespaceBackendRef
+- name: GatewaySecretReferenceGrantAllInNamespace
   category: architectural-limitation
-  reason: "ReferenceGrant not implemented"
+  reason: "Lattice uses ACM for TLS, not K8s Secrets"
 
-- name: HTTPRouteInvalidReferenceGrant
+- name: GatewaySecretReferenceGrantSpecific
   category: architectural-limitation
-  reason: "ReferenceGrant not implemented"
-
-- name: HTTPRoutePartiallyInvalidViaInvalidReferenceGrant
-  category: architectural-limitation
-  reason: "ReferenceGrant not implemented"
-
-- name: HTTPRouteReferenceGrant
-  category: architectural-limitation
-  reason: "ReferenceGrant not implemented"
+  reason: "Lattice uses ACM for TLS, not K8s Secrets"
 
 # Lattice feature limitations
 - name: HTTPRouteHeaderMatching
@@ -93,3 +84,15 @@
 - name: HTTPRouteInvalidBackendRefUnknownKind
   category: controller-bug
   reason: "Returns 404 instead of 500 for unknown kind backend refs, fix #899 only covers nonexistent backends"
+
+- name: HTTPRouteInvalidCrossNamespaceBackendRef
+  category: controller-bug
+  reason: "Passes in isolation; full suite reads the previous test's Gateway address"
+
+- name: HTTPRoutePartiallyInvalidViaInvalidReferenceGrant
+  category: controller-bug
+  reason: "Passes in isolation; full suite reads the previous test's Gateway address"
+
+- name: HTTPRouteReferenceGrant
+  category: controller-bug
+  reason: "Passes in isolation; full suite reads the previous test's Gateway address"
