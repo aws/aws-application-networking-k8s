@@ -1639,6 +1639,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#recommended-security-group-inbound-rules" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1661,10 +1672,32 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#removing-security-groups" class="md-nav__link">
+  <a href="#private-dns-for-custom-domain-names" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Removing Security Groups
+        Private DNS for custom domain names
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recreating-the-vpc-association" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recreating the VPC association
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-the-crd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading the CRD
       
     </span>
   </a>
@@ -1677,6 +1710,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#example-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1684,6 +1728,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Example Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-private-dns-for-a-ram-shared-service-network" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: private DNS for a RAM-shared service network
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1917,6 +1978,52 @@
 <h2 id="introduction">Introduction<a class="headerlink" href="#introduction" title="Permanent link">&para;</a></h2>
 <p>VpcAssociationPolicy is a Custom Resource Definition (CRD) that can be attached to a Gateway to define the configuration
 of the ServiceNetworkVpcAssociation between the Gateway's associated VPC Lattice Service Network and the cluster VPC.</p>
+<p>The policy controls whether the association exists (<code>associateWithVpc</code>), the security groups it carries
+(<code>securityGroupIds</code>) and whether VPC Lattice provisions private DNS in the cluster VPC for the custom domain names of
+resource configurations associated with the service network (<code>privateDnsEnabled</code>, <code>dnsOptions</code>).</p>
+<h3 id="fields">Fields<a class="headerlink" href="#fields" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Applied by VPC Lattice</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>targetRef</code></td>
+<td>-</td>
+<td>Must reference a <code>Gateway</code> in the same namespace as the policy.</td>
+</tr>
+<tr>
+<td><code>associateWithVpc</code></td>
+<td>Any time</td>
+<td>Considered <code>true</code> when unset. <code>false</code> deletes the association created by the controller.</td>
+</tr>
+<tr>
+<td><code>securityGroupIds</code></td>
+<td>On creation and in place</td>
+<td>Cannot be removed down to an empty list, see <a href="#recreating-the-vpc-association">Recreating the VPC association</a>.</td>
+</tr>
+<tr>
+<td><code>privateDnsEnabled</code></td>
+<td><strong>On creation only</strong></td>
+<td>Unset means the association is created with private DNS disabled (the VPC Lattice default) and the setting is not compared afterwards.</td>
+</tr>
+<tr>
+<td><code>dnsOptions.privateDnsPreference</code></td>
+<td><strong>On creation only</strong></td>
+<td>Requires <code>privateDnsEnabled: true</code>. Defaults to <code>VERIFIED_DOMAINS_ONLY</code> on the VPC Lattice side.</td>
+</tr>
+<tr>
+<td><code>dnsOptions.privateDnsSpecifiedDomains</code></td>
+<td><strong>On creation only</strong></td>
+<td>1 to 10 names, wildcards allowed. Required for <code>VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS</code> and <code>SPECIFIED_DOMAINS_ONLY</code>, rejected for the other preferences.</td>
+</tr>
+</tbody>
+</table>
+<p>The full schema is documented in the <a href="../../api-reference/#application-networking.k8s.aws/v1alpha1.VpcAssociationPolicySpec">API reference</a>.</p>
 <h3 id="recommended-security-group-inbound-rules">Recommended Security Group Inbound Rules<a class="headerlink" href="#recommended-security-group-inbound-rules" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -1942,37 +2049,204 @@ of the ServiceNetworkVpcAssociation between the Gateway's associated VPC Lattice
 <li>Policies must be attached to <em>Gateway</em> resource.</li>
 <li>The attached resource must exist in the same namespace as the policy resource.</li>
 </ul>
-<p>The security group will not take effect if:</p>
+<p>The security group and private DNS settings will not take effect if:</p>
 <ul>
 <li>The <code>targetRef</code> gateway does not exist.</li>
 <li>The <code>associateWithVpc</code> field is set to false.</li>
 </ul>
-<h3 id="removing-security-groups"><img alt="⚠" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/26a0.svg" title=":warning:" /> Removing Security Groups<a class="headerlink" href="#removing-security-groups" title="Permanent link">&para;</a></h3>
-<p>The VPC Lattice <code>UpdateServiceNetworkVpcAssociation</code> API cannot be used to remove all security groups.
-If you have a VpcAssociationPolicy attached to a gateway that already has security groups applied, updating the VpcAssociationPolicy with empty security group ids or deleting the VpcAssociationPolicy will NOT remove the security groups from the gateway.</p>
-<p>To remove security groups, instead, you should delete VPC Association and re-create a new VPC Association without security group ids by following steps:
-1. Update the VpcAssociationPolicy by setting <code>associateWithVpc</code> to false and empty security group ids.
-2. Update the VpcAssociationPolicy by setting <code>associateWithVpc</code> to true and empty security group ids.
-<code>Note: Setting</code>associateWithVpc` to false will disable traffic from the current cluster workloads to the gateway.</p>
+<p>Additionally:</p>
+<ul>
+<li>On a RAM-shared service network the controller creates a missing association with the policy's settings, but it
+  never updates security groups or tags of an existing association, and never updates private DNS settings of or
+  deletes an association it did not create.</li>
+<li>The association created at controller start-up for <code>DEFAULT_SERVICE_NETWORK</code> is created without private DNS.</li>
+</ul>
+<h3 id="private-dns-for-custom-domain-names">Private DNS for custom domain names<a class="headerlink" href="#private-dns-for-custom-domain-names" title="Permanent link">&para;</a></h3>
+<p>When a service network carries <a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html">resource configurations</a>
+of type domain name or IP address with a custom domain name, VPC Lattice provisions the Route 53 private hosted zone for
+that name in a consumer VPC only when the VPC association has private DNS enabled. Without it the custom name does not
+resolve from the cluster, while the VPC Lattice generated names still work. Resource configurations of type ARN (for
+example RDS databases) get their hosted zones regardless of this setting.</p>
+<div class="admonition note">
+<p class="admonition-title">Both sides must enable private DNS</p>
+<p>The service network owner must also enable private DNS on the service network <em>resource</em> association. Enabling it on
+the VPC association alone does not create a hosted zone.</p>
+<p>The hosted zone is created by the VPC Lattice service-linked role. The controller needs no Route 53 permissions.</p>
+</div>
+<p>Set <code>privateDnsEnabled: true</code> and, optionally, <code>dnsOptions</code> to choose which domain names get a private hosted zone:</p>
+<table>
+<thead>
+<tr>
+<th><code>privateDnsPreference</code></th>
+<th>Private hosted zones are provisioned for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VERIFIED_DOMAINS_ONLY</code> (default, recommended by AWS)</td>
+<td>custom domain names verified by the resource owner</td>
+</tr>
+<tr>
+<td><code>ALL_DOMAINS</code></td>
+<td>all custom domain names on the service network</td>
+</tr>
+<tr>
+<td><code>VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS</code></td>
+<td>verified custom domain names plus the names listed in <code>privateDnsSpecifiedDomains</code></td>
+</tr>
+<tr>
+<td><code>SPECIFIED_DOMAINS_ONLY</code></td>
+<td>only the names listed in <code>privateDnsSpecifiedDomains</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>privateDnsSpecifiedDomains</code> accepts fully qualified names such as <code>db.example.com</code> or wildcards such as
+<code>*.example.com</code>. The API server rejects a policy that sets <code>dnsOptions</code> without <code>privateDnsEnabled: true</code>, that lists
+domains with a preference other than the two <code>*_SPECIFIED_DOMAINS*</code> values, or that uses one of those preferences
+without domains. See the
+<a href="https://docs.aws.amazon.com/vpc-lattice/latest/ug/resource-configuration.html#custom-domain-name-resource-consumers">VPC Lattice documentation</a>
+for the semantics of each preference.</p>
+<div class="admonition warning">
+<p class="admonition-title">Changes apply to the existing association</p>
+<p>If the association already exists with different settings, the controller updates it in place, including when the
+settings were changed outside the controller: a policy with <code>privateDnsEnabled: false</code> turns off private DNS that
+was enabled by other means, which changes how those names resolve from the cluster VPC.</p>
+<p>Private DNS takes effect only for resources associated with the service network afterwards. For existing resource
+associations, <a href="#recreating-the-vpc-association">recreate the VPC association</a> or the resource association.</p>
+<p>When <code>privateDnsEnabled</code> is unset nothing is sent or compared. When <code>privateDnsPreference</code> is unset the preference
+of an existing association is not compared, so removing <code>dnsOptions</code> does not reset it: set the preference you want
+explicitly.</p>
+</div>
+<p>On a RAM-shared service network the controller only updates associations it created. Any other association is left
+unchanged: the <code>Programmed</code> condition is set to <code>False</code> with reason <code>PrivateDnsMismatch</code> and a <code>Warning</code> event is emitted
+with the same message. Update the association out of band, or align the policy with it; the controller rechecks every
+minute.</p>
+<h3 id="recreating-the-vpc-association">Recreating the VPC association<a class="headerlink" href="#recreating-the-vpc-association" title="Permanent link">&para;</a></h3>
+<p>Removing all security groups cannot be applied in place by the VPC Lattice <code>UpdateServiceNetworkVpcAssociation</code> API: if
+you have a VpcAssociationPolicy attached to a gateway that already has security groups applied, updating the
+VpcAssociationPolicy with empty security group ids or deleting the VpcAssociationPolicy will NOT remove the security
+groups from the gateway.</p>
+<p>Enabling private DNS does not create private hosted zones for resource associations that already exist in the service
+network.</p>
+<p>To apply such a change, delete the VPC association and re-create it by following these steps:</p>
+<ol>
+<li>Update the VpcAssociationPolicy by setting <code>associateWithVpc</code> to <code>false</code>, together with the desired security group
+   ids.</li>
+<li>Wait until the association is gone: <code>kubectl describe vap &lt;name&gt;</code> shows the <code>Programmed</code> condition <code>True</code> with the
+   message <code>No VPC association is managed</code>, and <code>aws vpc-lattice list-service-network-vpc-associations --vpc-identifier &lt;vpc-id&gt;</code>
+   no longer lists the association.</li>
+<li>Update the VpcAssociationPolicy by setting <code>associateWithVpc</code> back to <code>true</code>.</li>
+</ol>
+<p>Note: Setting <code>associateWithVpc</code> to false will disable traffic from the current cluster workloads to the gateway until the
+association is recreated.</p>
+<p>On a RAM-shared service network the controller only deletes associations it created.</p>
+<h3 id="upgrading-the-crd">Upgrading the CRD<a class="headerlink" href="#upgrading-the-crd" title="Permanent link">&para;</a></h3>
+<p><code>privateDnsEnabled</code> and <code>dnsOptions</code> require the VpcAssociationPolicy CRD shipped with the release that introduced
+them. Helm does not upgrade the CRDs in the chart's <code>crds/</code> directory, so after <code>helm upgrade</code> apply it explicitly from
+the release tag:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/aws/aws-application-networking-k8s/&lt;release-tag&gt;/config/crds/bases/application-networking.k8s.aws_vpcassociationpolicies.yaml
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>kubectl<span class="w"> </span>explain<span class="w"> </span>vpcassociationpolicy.spec.privateDnsEnabled
+</code></pre></div>
+<p>The controller logs a warning at start-up when the installed CRD does not define <code>spec.privateDnsEnabled</code>.
+With a stale CRD, <code>kubectl apply</code> rejects the policy with <code>unknown field "spec.privateDnsEnabled"</code>. Clients that skip
+field validation (Helm-rendered resources, GitOps tools, raw API clients) get the fields pruned instead: <code>kubectl get vap
+&lt;name&gt; -o yaml</code> shows no <code>privateDnsEnabled</code> and the association keeps private DNS disabled. Installations that apply the release <code>deploy.yaml</code> get the CRD with it.</p>
+<h2 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
+<p><code>kubectl get vap</code> shows the <code>PrivateDNS</code> value from the spec and the status of the <code>Programmed</code> condition;
+<code>kubectl describe vap &lt;name&gt;</code> shows the reason, the message and the events. The policy reports two conditions:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Status / Reason</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Accepted</code></td>
+<td><code>True</code> / <code>Accepted</code></td>
+<td>The <code>targetRef</code> is valid and this policy wins conflict resolution. Other reasons follow the Gateway API policy attachment conventions (<code>Invalid</code>, <code>TargetNotFound</code>, <code>Conflicted</code>).</td>
+</tr>
+<tr>
+<td><code>Programmed</code></td>
+<td><code>True</code> / <code>Programmed</code></td>
+<td>The association is active and matches the policy (on a RAM-shared service network only the private DNS settings are compared), or <code>associateWithVpc</code> is <code>false</code> and no association is managed.</td>
+</tr>
+<tr>
+<td><code>Programmed</code></td>
+<td><code>Unknown</code> / <code>Pending</code></td>
+<td>VPC Lattice is still creating, updating or deleting the association, the service network does not exist yet, or a transient VPC Lattice error (throttling, internal error, conflict) is being retried.</td>
+</tr>
+<tr>
+<td><code>Programmed</code></td>
+<td><code>Unknown</code> / <code>NotAccepted</code></td>
+<td>The policy is not accepted; see the <code>Accepted</code> condition. Nothing is created or deleted for it.</td>
+</tr>
+<tr>
+<td><code>Programmed</code></td>
+<td><code>False</code> / <code>PrivateDnsMismatch</code></td>
+<td>An association the controller did not create on a RAM-shared service network has private DNS settings that differ from the policy. The message lists the difference.</td>
+</tr>
+<tr>
+<td><code>Programmed</code></td>
+<td><code>False</code> / <code>ReconcileFailed</code></td>
+<td>The last create, update or delete failed: a VPC Lattice error (for example <code>ValidationException</code>), or an existing association that is not owned by the controller. The message carries the cause.</td>
+</tr>
+</tbody>
+</table>
+<p>Example after changing <code>dnsOptions</code> on a policy whose association was created outside the controller on a RAM-shared
+service network:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">status</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">conditions</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="s">"True"</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">reason</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Accepted</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Programmed</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="s">"False"</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">reason</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">PrivateDnsMismatch</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">'VPC</span><span class="nv"> </span><span class="s">association</span><span class="nv"> </span><span class="s">arn:aws:vpc-lattice:...:servicenetworkvpcassociation/snva-0123</span><span class="nv"> </span><span class="s">has</span><span class="nv"> </span><span class="s">private</span><span class="nv"> </span><span class="s">DNS</span><span class="nv"> </span><span class="s">settings</span><span class="nv"> </span><span class="s">that</span><span class="nv"> </span><span class="s">differ</span><span class="nv"> </span><span class="s">from</span><span class="nv"> </span><span class="s">this</span><span class="nv"> </span><span class="s">policy:</span><span class="nv"> </span><span class="s">dnsOptions.privateDnsPreference</span><span class="nv"> </span><span class="s">(policy:</span><span class="nv"> </span><span class="s">ALL_DOMAINS,</span><span class="nv"> </span><span class="s">association:</span><span class="nv"> </span><span class="s">VERIFIED_DOMAINS_ONLY).</span><span class="nv"> </span><span class="s">The</span><span class="nv"> </span><span class="s">controller</span><span class="nv"> </span><span class="s">only</span><span class="nv"> </span><span class="s">changes</span><span class="nv"> </span><span class="s">private</span><span class="nv"> </span><span class="s">DNS</span><span class="nv"> </span><span class="s">settings</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">associations</span><span class="nv"> </span><span class="s">it</span><span class="nv"> </span><span class="s">created</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">RAM-shared</span><span class="nv"> </span><span class="s">service</span><span class="nv"> </span><span class="s">network.</span><span class="nv"> </span><span class="s">...'</span>
+</code></pre></div>
 <h2 id="example-configuration">Example Configuration<a class="headerlink" href="#example-configuration" title="Permanent link">&para;</a></h2>
 <p>This configuration attaches a policy to the Gateway, <code>default/my-hotel</code>. The ServiceNetworkVpcAssociation between the
 Gateway's corresponding VPC Lattice Service Network and the cluster VPC is updated based on the policy contents.</p>
 <p>If the expected ServiceNetworkVpcAssociation does not exist, it is created since <code>associateWithVpc</code> is set to <code>true</code>.
 This allows traffic from clients in the cluster VPC to VPC Lattice Services in the associated Service Network.
 Additionally, two security groups (<code>sg-1234567890</code> and <code>sg-0987654321</code>) are attached to the ServiceNetworkVpcAssociation.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>apiVersion: application-networking.k8s.aws/v1alpha1
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>kind: VpcAssociationPolicy
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>metadata:
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    name: test-vpc-association-policy
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>spec:
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    targetRef:
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        group: "gateway.networking.k8s.io"
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        kind: Gateway
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        name: my-hotel
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    securityGroupIds:
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        - sg-1234567890
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        - sg-0987654321
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    associateWithVpc: true
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>apiVersion: application-networking.k8s.aws/v1alpha1
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>kind: VpcAssociationPolicy
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>metadata:
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    name: test-vpc-association-policy
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>spec:
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    targetRef:
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        group: "gateway.networking.k8s.io"
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        kind: Gateway
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        name: my-hotel
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    securityGroupIds:
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>        - sg-1234567890
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        - sg-0987654321
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    associateWithVpc: true
+</code></pre></div>
+<h3 id="example-private-dns-for-a-ram-shared-service-network">Example: private DNS for a RAM-shared service network<a class="headerlink" href="#example-private-dns-for-a-ram-shared-service-network" title="Permanent link">&para;</a></h3>
+<p>This policy makes the controller create the association to the (RAM-shared) service network behind <code>my-hotel</code> with
+private DNS enabled, so that the verified custom domain names of the resource configurations on that network, plus
+<code>*.internal.example.com</code> and <code>db.example.com</code>, resolve from the cluster VPC.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>apiVersion: application-networking.k8s.aws/v1alpha1
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kind: VpcAssociationPolicy
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>metadata:
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    name: shared-network-private-dns
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>spec:
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    targetRef:
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        group: "gateway.networking.k8s.io"
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        kind: Gateway
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>        name: my-hotel
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    associateWithVpc: true
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    privateDnsEnabled: true
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    dnsOptions:
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        privateDnsPreference: VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        privateDnsSpecifiedDomains:
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>            - "*.internal.example.com"
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>            - db.example.com
 </code></pre></div>
 
 

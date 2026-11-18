@@ -1877,6 +1877,10 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">VPC_ID</span><span class="o">=</span>&lt;your_vpc_id&gt;
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>create-service-network-vpc-association<span class="w"> </span>--service-network-identifier<span class="w"> </span><span class="nv">$SERVICE_NETWORK_ID</span><span class="w"> </span>--vpc-identifier<span class="w"> </span><span class="nv">$VPC_ID</span>
 </code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If the shared service network carries resource configurations with custom domain names, create the association with <code>--private-dns-enabled</code> (and optionally <code>--dns-options</code>) so those names resolve in the consumer VPC. In a cluster running the controller in <strong><span style="color:red">Account B</span></strong>, set <code>privateDnsEnabled: true</code> on the <a href="../../api-types/vpc-association-policy/#private-dns-for-custom-domain-names">VpcAssociationPolicy</a> instead. The controller only updates private DNS on associations it created, so an association created with the CLI must be updated with the CLI.</p>
+</div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>VPC Lattice is a regional service, therefore the VPC <strong>must</strong> be in the same AWS Region of the service network you created in <strong><span style="color:green">Account A</span></strong>. </p>

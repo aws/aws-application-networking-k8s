@@ -2023,6 +2023,9 @@ This variable is required except for EKS cluster. This needs to be specified if 
 <p><strong>Default:</strong> ""</p>
 <p>When set as a non-empty value, creates a service network with that name.
 The created service network will be also associated with cluster VPC.</p>
+<p>The association created at start-up has private DNS disabled. To resolve the custom domain names of resource
+configurations from the cluster VPC, attach a <a href="../../api-types/vpc-association-policy/#private-dns-for-custom-domain-names">VpcAssociationPolicy</a>
+with <code>privateDnsEnabled: true</code> to the Gateway; an existing association is updated in place.</p>
 <hr />
 <h4 id="enable_service_network_override"><code>ENABLE_SERVICE_NETWORK_OVERRIDE</code><a class="headerlink" href="#enable_service_network_override" title="Permanent link">&para;</a></h4>
 <p><strong>Type:</strong> <em>string</em></p>
