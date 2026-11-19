@@ -97,7 +97,7 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 		return VpcAssociationResult{}, err
 	}
 	if snva == nil {
-		return m.createVpcAssociation(ctx, sn.SvcNetwork.Id, req, !isLocal)
+		return m.createVpcAssociation(ctx, snName, sn.SvcNetwork.Id, req, !isLocal)
 	}
 
 	var mismatch *VpcAssociationDnsMismatch
@@ -127,7 +127,7 @@ func (m *defaultServiceNetworkManager) UpsertVpcAssociation(ctx context.Context,
 	return VpcAssociationResult{Arn: *snva.Arn, RamShared: !isLocal, DnsMismatch: mismatch}, nil
 }
 
-func (m *defaultServiceNetworkManager) createVpcAssociation(ctx context.Context, snId *string, req VpcAssociationRequest, ramShared bool) (VpcAssociationResult, error) {
+func (m *defaultServiceNetworkManager) createVpcAssociation(ctx context.Context, snName string, snId *string, req VpcAssociationRequest, ramShared bool) (VpcAssociationResult, error) {
 	resp, err := m.cloud.Lattice().CreateServiceNetworkVpcAssociation(ctx, &vpclattice.CreateServiceNetworkVpcAssociationInput{
 		ServiceNetworkIdentifier: snId,
 		VpcIdentifier:            &config.VpcID,
@@ -137,6 +137,12 @@ func (m *defaultServiceNetworkManager) createVpcAssociation(ctx context.Context,
 		DnsOptions:               req.Dns.latticeDnsOptions(),
 	})
 	if err != nil {
+		var ce *types.ConflictException
+		if errors.As(err, &ce) {
+			return VpcAssociationResult{}, services.NewConflictError("ServiceNetworkVpcAssociation", snName, fmt.Sprintf(
+				"%s A VPC can be associated with only one Service Network; to connect it to more, "+
+					"use VPC endpoints of type Service Network.", aws.ToString(ce.Message)))
+		}
 		return VpcAssociationResult{}, err
 	}
 	res := VpcAssociationResult{Arn: *resp.Arn, RamShared: ramShared}
