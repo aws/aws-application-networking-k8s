@@ -166,7 +166,7 @@ func (m *PodReadinessGateInjector) isPodUsedByRoute(ctx context.Context, route c
 			if isGroupEqual && isKindEqual && isNameEqual && isNamespaceEqual {
 				allowed, err := gateway.IsBackendRefAllowedByReferenceGrant(ctx, m.k8sClient, route, backendRef)
 				if err != nil {
-					m.log.Debugf(ctx, "Unable to evaluate ReferenceGrant for route %s/%s and service %s/%s: %s",
+					m.log.Warnf(ctx, "Unable to evaluate ReferenceGrant for route %s/%s and service %s/%s, not adding a readiness gate for it: %s",
 						route.Namespace(), route.Name(), svc.Namespace, svc.Name, err)
 					continue
 				}

@@ -87,6 +87,12 @@ kubectl get httproutes,grpcroutes,tlsroutes -A -o json | jq -r '
 For each reference, create a `ReferenceGrant` in the target namespace or repoint the
 `backendRef`.
 
+Enforcement needs the `ReferenceGrant` CRD from Gateway API v1.5 or later, which serves
+`gateway.networking.k8s.io/v1`. Grants created as `v1beta1` are the same objects and keep
+working. If the `ReferenceGrant` CRD is older than the rest of the Gateway API CRDs, every
+cross-namespace `backendRef` is blocked and the controller logs
+`CRD is not served, so cross-namespace backendRefs are blocked`.
+
 The controller's `ClusterRole` grants `get`/`list`/`watch` on `referencegrants` from
 v2.2.0. Apply the RBAC from this release (Helm chart or manifests) together with the new
 image. If the CRD is installed but the controller cannot list ReferenceGrants, it exits at

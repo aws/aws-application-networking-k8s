@@ -74,7 +74,8 @@ var _ = Describe("ReferenceGrant Test", Serial, Ordered, func() {
 				&vpclattice.ListRulesInput{ServiceIdentifier: svc.Id, ListenerIdentifier: l.Id})
 			g.Expect(err).ToNot(HaveOccurred())
 			for _, r := range rules {
-				if r.IsDefault != nil && !*r.IsDefault {
+				// GetRule omits isDefault on non-default rules.
+				if !aws.ToBool(r.IsDefault) {
 					actions = append(actions, r.Action)
 				}
 			}
