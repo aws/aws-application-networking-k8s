@@ -45,7 +45,7 @@ func (t *TracedLogger) Errorw(ctx context.Context, msg string, keysAndValues ...
 	if tr := GetTraceID(ctx); tr != "" {
 		keysAndValues = append(keysAndValues, traceID, tr)
 	}
-	t.InnerLogger.Errorw(msg, keysAndValues)
+	t.InnerLogger.Errorw(msg, keysAndValues...)
 }
 
 func (t *TracedLogger) Errorf(ctx context.Context, template string, args ...interface{}) {
