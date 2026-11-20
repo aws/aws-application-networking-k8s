@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../images/controller.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -1442,10 +1442,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#current-behavior" class="md-nav__link">
+  <a href="#blocked-references" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Current behavior
+        Blocked references
       
     </span>
   </a>
@@ -1890,8 +1890,8 @@
 <p><code>ReferenceGrant</code> is the Gateway API resource that allows a reference to cross a namespace
 boundary. Per the Gateway API specification, a route may only forward traffic to a backend
 (<code>Service</code> or <a href="../service-import/"><code>ServiceImport</code></a>) in another namespace when a
-<code>ReferenceGrant</code> in the backend's namespace permits it. See
-<a href="#current-behavior">Current behavior</a> for how this controller handles it today.</p>
+<code>ReferenceGrant</code> in the backend's namespace permits it. This controller blocks
+cross-namespace references that no <code>ReferenceGrant</code> permits.</p>
 <p>A <code>ReferenceGrant</code> lives in the <strong>target</strong> namespace (the backend's namespace) and names,
 in its <code>from</code> section, the namespace and kind allowed to reference into it.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
@@ -1915,42 +1915,56 @@ in its <code>from</code> section, the namespace and kind allowed to reference in
 name <code>group: application-networking.k8s.aws</code>, even if the route's <code>backendRef</code> leaves the
 group out. A grant with <code>group: ""</code> matches only <code>Service</code>.</p>
 <p>Same-namespace references never require a <code>ReferenceGrant</code>.</p>
-<h2 id="current-behavior">Current behavior<a class="headerlink" href="#current-behavior" title="Permanent link">&para;</a></h2>
-<p>Per the Gateway API specification, a route may only forward traffic to a backend in another
-namespace when a <code>ReferenceGrant</code> permits it. This controller does not yet block
-unpermitted cross-namespace references; it <strong>warns</strong> about them. The reference is still
-accepted and traffic still flows. For each unpermitted cross-namespace <code>backendRef</code> the
-controller:</p>
+<h2 id="blocked-references">Blocked references<a class="headerlink" href="#blocked-references" title="Permanent link">&para;</a></h2>
+<p>When no <code>ReferenceGrant</code> permits a cross-namespace <code>backendRef</code>, the controller:</p>
 <ul>
-<li>records a Warning Event on the route (<code>CrossNamespaceRefNotPermitted</code>), visible in
-  <code>kubectl describe &lt;httproute|grpcroute|tlsroute&gt; &lt;name&gt;</code>. The Event is best-effort: it
-  is emitted when the set of unpermitted references first appears or changes (and again
-  after a controller restart), and it ages out of <code>kubectl describe</code> after the API
-  server's event TTL, so a missing Event does not by itself mean the reference is
-  permitted; and</li>
-<li>logs a warning line identifying the route and the unpermitted target.</li>
+<li>sets the route's <code>ResolvedRefs</code> condition to <code>False</code> with reason <code>RefNotPermitted</code>. The
+  route stays <code>Accepted</code>, and the condition does not reveal whether the target exists;</li>
+<li>sends no traffic to that backend. A rule whose backends are all blocked returns HTTP</li>
+<li>If some of a rule's backends are permitted, all of the rule's traffic goes to
+  those, because VPC Lattice cannot return 500 for a weighted share of requests. A
+  TLSRoute whose backends are all blocked has no VPC Lattice listener, so connections to it
+  fail; and</li>
+<li>records a Warning Event on the route (<code>CrossNamespaceRefNotPermitted</code>) and logs a
+  warning line naming the target.</li>
 </ul>
 <p>The grant's <code>from.kind</code> must match the kind of the referencing route (HTTPRoute,
-GRPCRoute, or TLSRoute).</p>
-<p>A future release will block these references. To prepare, review the controller logs and
-route Events for <code>CrossNamespaceRefNotPermitted</code> and, for each flagged reference, either
-create a <code>ReferenceGrant</code> in the target namespace or repoint the <code>backendRef</code>. To list
-recent Events across all namespaces:</p>
+GRPCRoute, or TLSRoute). Creating, changing or deleting a grant takes effect without any
+change to the route.</p>
+<p>The controller reads grants from the <code>gateway.networking.k8s.io/v1</code> <code>ReferenceGrant</code> CRD.
+If that CRD is not installed when the controller starts, no grant can permit a reference,
+so every cross-namespace <code>backendRef</code> is blocked. After installing the CRD, restart the
+controller.</p>
+<h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
+<p>v2.2.0 warns about these references without blocking them. If you are upgrading from
+v2.2.0, find the routes that will be blocked:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>events<span class="w"> </span>-A<span class="w"> </span>--field-selector<span class="w"> </span><span class="nv">reason</span><span class="o">=</span>CrossNamespaceRefNotPermitted
 </code></pre></div>
-<p>The warning signal requires the <code>gateway.networking.k8s.io/v1</code> <code>ReferenceGrant</code> CRD to be
-installed when the controller starts. If it is not, the controller logs that it is
-skipping the watch and emits no warnings, so the absence of warnings does not by itself
-mean the cluster is ready for the blocking release — it can also mean the warning signal
-is not running.</p>
-<h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
-<p>The warning signal reads <code>ReferenceGrant</code> resources, so the controller's <code>ClusterRole</code>
-grants <code>get</code>/<code>list</code>/<code>watch</code> on <code>referencegrants</code>. This rule ships with the controller
-image that introduces the feature. When upgrading, apply the updated RBAC (Helm chart or
-manifests) together with the new image — do not point the new image at an older
-<code>ClusterRole</code>. If the CRD is installed but the controller cannot list ReferenceGrants, it
-logs an error naming the missing permission, skips the watch and emits no warnings. Routes
-keep working, but you will not see the references a future release will block.</p>
+<p>Events expire after the API server's event TTL, so also check the controller logs for
+<code>cross-namespace backendRefs not permitted by any ReferenceGrant</code>. v2.2.0 emits no
+warnings when the <code>ReferenceGrant</code> CRD is not installed or the controller cannot list
+ReferenceGrants; it logs a message containing <code>watch and cross-namespace warnings</code> instead.</p>
+<p>If you are upgrading from a release before v2.2.0, or want a check that does not depend
+on Events, list every cross-namespace <code>backendRef</code> and confirm a <code>ReferenceGrant</code> permits
+each one. Remove <code>tlsroutes</code> if the TLSRoute CRD is not installed.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>httproutes,grpcroutes,tlsroutes<span class="w"> </span>-A<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="s1">  .items[] | . as $r | .spec.rules[]?.backendRefs[]?</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="s1">  | select(.namespace != null and .namespace != $r.metadata.namespace)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="s1">  | "\($r.kind) \($r.metadata.namespace)/\($r.metadata.name) -&gt; \(.namespace)/\(.name) (\(.kind // "Service"))"'</span>
+</code></pre></div>
+<p>For each reference, create a <code>ReferenceGrant</code> in the target namespace or repoint the
+<code>backendRef</code>.</p>
+<p>Enforcement needs the <code>ReferenceGrant</code> CRD from Gateway API v1.5 or later, which serves
+<code>gateway.networking.k8s.io/v1</code>. Grants created as <code>v1beta1</code> are the same objects and keep
+working. If the <code>ReferenceGrant</code> CRD is older than the rest of the Gateway API CRDs, every
+cross-namespace <code>backendRef</code> is blocked and the controller logs
+<code>CRD is not served, so cross-namespace backendRefs are blocked</code>.</p>
+<p>The controller's <code>ClusterRole</code> grants <code>get</code>/<code>list</code>/<code>watch</code> on <code>referencegrants</code> from
+v2.2.0. Apply the RBAC from this release (Helm chart or manifests) together with the new
+image. If the CRD is installed but the controller cannot list ReferenceGrants, it exits at
+startup with an error naming the missing permission. Traffic already programmed in VPC
+Lattice is not affected, and during a rolling update the previous pods keep running until
+the RBAC is applied.</p>
 
 
 
