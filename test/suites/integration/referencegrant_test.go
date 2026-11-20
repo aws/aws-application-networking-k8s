@@ -179,9 +179,13 @@ var _ = Describe("ReferenceGrant Test", Serial, Ordered, func() {
 			Protocol:        string(types.TargetGroupProtocolHttp),
 			ProtocolVersion: string(types.TargetGroupProtocolVersionHttp1),
 		}
-		tg, err := testFramework.FindTargetGroupFromSpec(ctx, tgSpec)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(tg).To(BeNil(), "no target group may be created for a blocked backend")
+		// FindTargetGroupFromSpec reads the tags of every target group in the account, which can fail
+		// on target groups unrelated to this test, so retry until a read succeeds.
+		Eventually(func(g Gomega) {
+			tg, err := testFramework.FindTargetGroupFromSpec(ctx, tgSpec)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(tg).To(BeNil(), "no target group may be created for a blocked backend")
+		}).Should(Succeed())
 
 		// Creating and deleting the grant takes effect through the ReferenceGrant watch
 		// alone, with no change to the route.
