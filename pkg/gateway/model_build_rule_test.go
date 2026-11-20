@@ -2193,6 +2193,18 @@ func Test_RuleModelBuild_ExternalTargetGroup(t *testing.T) {
 			wantInvalid:     true,
 		},
 		{
+			name:        "unreadable tags mark the target group invalid",
+			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
+			mockLattice: func(m *services.MockLattice) {
+				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Return(&vpclattice.GetTargetGroupOutput{
+					Id: aws.String(bareId), Arn: aws.String(validArn),
+				}, nil)
+				m.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).Return(nil, &types.AccessDeniedException{})
+			},
+			wantLatticeTgId: "",
+			wantInvalid:     true,
+		},
+		{
 			name:        "tag read failure fails the build instead of allowing the target group",
 			annotations: map[string]string{k8s.TargetGroupArnAnnotation: validArn},
 			mockLattice: func(m *services.MockLattice) {

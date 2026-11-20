@@ -471,9 +471,11 @@ func TestValidateBackedRefs_ManagedExternalTargetGroup(t *testing.T) {
 			wantReason: gwv1.RouteReasonResolvedRefs,
 		},
 		{
-			name:       "unreadable target group is left to the model build",
+			// Fails closed like the model build, which marks the backend invalid.
+			name:       "unreadable tags are not permitted",
 			tagErr:     &latticetypes.AccessDeniedException{Message: aws.String("denied")},
-			wantReason: gwv1.RouteReasonResolvedRefs,
+			wantReason: gwv1.RouteReasonRefNotPermitted,
+			wantMsg:    "vpc-lattice:ListTagsForResource",
 		},
 	}
 	for _, tt := range tests {

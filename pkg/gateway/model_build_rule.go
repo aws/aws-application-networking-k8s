@@ -338,20 +338,14 @@ func (t *latticeServiceModelBuildTask) getTargetGroupsForRuleAction(ctx context.
 						}
 						return nil, rerr
 					}
-					// Read the tags of the target group GetTargetGroup resolved, which is the one
-					// the rule will use.
-					resolvedArn := aws.ToString(out.Arn)
-					if resolvedArn == "" {
-						resolvedArn = tgArn
-					}
-					managed, terr := IsControllerManagedTargetGroup(ctx, t.lattice, resolvedArn)
+					managedTg, terr := GetManagedTargetGroup(ctx, t.lattice, tgArn)
 					if terr != nil {
 						return nil, terr
 					}
-					if managed {
+					if managedTg != nil {
 						// Marked invalid rather than failing the build, so an existing rule that
 						// forwards to it is rewritten to stop sending traffic.
-						t.log.Infof(ctx, "ServiceImport %s/%s names controller-managed target group %s, marking as invalid",
+						t.log.Infof(ctx, "ServiceImport %s/%s names target group %s, which is controller-managed or has unreadable tags, marking as invalid",
 							svcImportName.Namespace, svcImportName.Name, tgArn)
 						ruleTG.StackTargetGroupId = model.InvalidBackendRefTgId
 					} else {

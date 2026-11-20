@@ -2,11 +2,13 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -120,20 +122,20 @@ type ManagedTargetGroup struct {
 	ManagedBy string
 	// SourceType is the kind of object it was created for, such as ServiceExport or HTTPRoute.
 	SourceType model.K8SSourceType
-}
-
-// IsControllerManagedTargetGroup reports whether arn has a ManagedBy tag. Reaching such a target
-// group by ARN would bypass the ReferenceGrant of the Service's namespace.
-func IsControllerManagedTargetGroup(ctx context.Context, lattice services.Lattice, arn string) (bool, error) {
-	tg, err := GetManagedTargetGroup(ctx, lattice, arn)
-	return tg != nil, err
+	// Unreadable means the controller may not read the tags, so it can't rule out ManagedBy.
+	Unreadable bool
 }
 
 // GetManagedTargetGroup returns the ManagedBy and source type tags, or nil without ManagedBy.
-// Target groups managed by any cluster's controller count, not only this cluster's.
+// Reaching such a target group by ARN would bypass the ReferenceGrant of the Service's namespace.
+// Target groups managed by any cluster's controller count, and so do unreadable tags (fail closed).
 func GetManagedTargetGroup(ctx context.Context, lattice services.Lattice, arn string) (*ManagedTargetGroup, error) {
 	out, err := lattice.ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{ResourceArn: aws.String(arn)})
 	if err != nil {
+		var ade *types.AccessDeniedException
+		if errors.As(err, &ade) {
+			return &ManagedTargetGroup{Unreadable: true}, nil
+		}
 		return nil, fmt.Errorf("failed to read tags of target group %s: %w", arn, err)
 	}
 	managedBy, managed := out.Tags[pkg_aws.TagManagedBy]

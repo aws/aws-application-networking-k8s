@@ -58,7 +58,6 @@ import (
 	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	k8sutils "github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
-	latticetypes "github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 )
 
 var routeTypeToFinalizer = map[core.RouteType]string{
@@ -857,7 +856,7 @@ func (r *routeReconciler) validateBackedRefs(ctx context.Context, route core.Rou
 			}
 			if managedTg != nil {
 				ownCluster := managedTg.ManagedBy == r.cloud.DefaultTags()[aws.TagManagedBy]
-				msg := managedTargetGroupMessage(namespace, string(ref.Name()), managedTg.SourceType, ownCluster)
+				msg := managedTargetGroupMessage(namespace, string(ref.Name()), managedTg, ownCluster)
 				return r.newCondition(route, gwv1.RouteConditionResolvedRefs, gwv1.RouteReasonRefNotPermitted, msg), nil
 			}
 		}
@@ -880,10 +879,9 @@ func (r *routeReconciler) referencesManagedTargetGroup(ctx context.Context, obj 
 		return nil, nil
 	}
 	tg, err := gateway.GetManagedTargetGroup(ctx, r.cloud.Lattice(), arn)
-	var ade *latticetypes.AccessDeniedException
-	if services.IsNotFoundError(err) || services.IsLatticeAPINotFoundErr(err) || stderrors.As(err, &ade) {
-		// The model build reports a target group it can't find or read as
-		// ExternalTargetGroupNotFound; failing here would stop the rest of the status update.
+	if services.IsNotFoundError(err) || services.IsLatticeAPINotFoundErr(err) {
+		// The model build reports it as ExternalTargetGroupNotFound; failing here would stop the
+		// rest of the status update.
 		return nil, nil
 	}
 	return tg, err
@@ -891,13 +889,16 @@ func (r *routeReconciler) referencesManagedTargetGroup(ctx context.Context, obj 
 
 // managedTargetGroupMessage suggests a replacement and names only the route's own ServiceImport,
 // so status reveals nothing about other namespaces.
-func managedTargetGroupMessage(namespace, name string, source latticemodel.K8SSourceType, ownCluster bool) string {
+func managedTargetGroupMessage(namespace, name string, tg *gateway.ManagedTargetGroup, ownCluster bool) string {
 	prefix := fmt.Sprintf("ServiceImport %s/%s sets %s to a target group", namespace, name, k8s.TargetGroupArnAnnotation)
 	importExport := "use a ServiceImport without " + k8s.TargetGroupArnAnnotation +
 		", named after the exported Service or with " + k8s.ExportNameAnnotation +
 		", in the export's namespace. If that is not this route's namespace, also add a ReferenceGrant there that allows this route"
 	switch {
-	case source == latticemodel.SourceTypeSvcExport:
+	case tg.Unreadable:
+		return prefix + " whose tags the controller can't read, so it can't confirm the target group isn't " +
+			"controller-managed. Allow the controller vpc-lattice:ListTagsForResource on it"
+	case tg.SourceType == latticemodel.SourceTypeSvcExport:
 		return prefix + " created for an exported Service. Instead, " + importExport
 	case ownCluster:
 		return prefix + " this controller created for a Kubernetes Service. Reference that Service with a backendRef " +
