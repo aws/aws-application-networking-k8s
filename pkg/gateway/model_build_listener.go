@@ -115,6 +115,12 @@ func (t *latticeServiceModelBuildTask) buildListeners(ctx context.Context, stack
 		if err != nil {
 			return err
 		}
+		if defaultAction == nil {
+			// TLS passthrough can only forward, so drop the listener rather than reach a blocked backend.
+			t.log.Infof(ctx, "TLSRoute %s/%s has no valid backendRef, not creating listener %s",
+				t.route.Namespace(), t.route.Name(), listenerConfig.Name)
+			continue
+		}
 
 		spec := model.ListenerSpec{
 			StackServiceId:    stackSvcId,
@@ -156,12 +162,24 @@ func (t *latticeServiceModelBuildTask) getListenerDefaultAction(ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
+	if !hasValidTargetGroup(ruleTgList) {
+		return nil, nil
+	}
 
 	return &model.DefaultAction{
 		Forward: &model.RuleAction{
 			TargetGroups: ruleTgList,
 		},
 	}, nil
+}
+
+func hasValidTargetGroup(tgs []*model.RuleTargetGroup) bool {
+	for _, tg := range tgs {
+		if tg.StackTargetGroupId != model.InvalidBackendRefTgId {
+			return true
+		}
+	}
+	return false
 }
 
 // matchedListeners returns the Gateway listeners that a parentRef matches,

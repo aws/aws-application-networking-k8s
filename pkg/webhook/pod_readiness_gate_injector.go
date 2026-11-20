@@ -4,6 +4,7 @@ import (
 	"context"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	k8sutils "github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -73,7 +74,7 @@ func (m *PodReadinessGateInjector) requiresReadinessGate(ctx context.Context, po
 	// for each route, check if it has a backendRef to one of the services
 	routes := m.listAllRoutes(ctx)
 	for _, route := range routes {
-		if svc := m.isPodUsedByRoute(route, svcMatches); svc != nil {
+		if svc := m.isPodUsedByRoute(ctx, route, svcMatches); svc != nil {
 			if m.routeHasLatticeGateway(ctx, route) {
 				m.log.Debugf(ctx, "Pod %s/%s is used by service %s/%s and route %s/%s", pod.Namespace, getPodName(pod),
 					svc.Namespace, svc.Name, route.Namespace(), route.Name())
@@ -147,7 +148,8 @@ func (m *PodReadinessGateInjector) servicesForPod(pod *corev1.Pod, svcList *core
 	return svcMatches
 }
 
-func (m *PodReadinessGateInjector) isPodUsedByRoute(route core.Route, svcMap map[string]*corev1.Service) *corev1.Service {
+// isPodUsedByRoute skips references no ReferenceGrant permits, since the controller never routes to them.
+func (m *PodReadinessGateInjector) isPodUsedByRoute(ctx context.Context, route core.Route, svcMap map[string]*corev1.Service) *corev1.Service {
 	for _, rule := range route.Spec().Rules() {
 		for _, backendRef := range rule.BackendRefs() {
 			// from spec: "When [Group] unspecified or empty string, core API group is inferred."
@@ -162,7 +164,18 @@ func (m *PodReadinessGateInjector) isPodUsedByRoute(route core.Route, svcMap map
 			isNamespaceEqual := svc != nil && namespace == svc.GetNamespace()
 
 			if isGroupEqual && isKindEqual && isNameEqual && isNamespaceEqual {
-				m.log.Debugf(context.TODO(), "Found route %s/%s that matches service %s/%s",
+				allowed, err := gateway.IsBackendRefAllowedByReferenceGrant(ctx, m.k8sClient, route, backendRef)
+				if err != nil {
+					m.log.Warnf(ctx, "Unable to evaluate ReferenceGrant for route %s/%s and service %s/%s, not adding a readiness gate for it: %s",
+						route.Namespace(), route.Name(), svc.Namespace, svc.Name, err)
+					continue
+				}
+				if !allowed {
+					m.log.Debugf(ctx, "Route %s/%s references service %s/%s without a ReferenceGrant, ignoring it",
+						route.Namespace(), route.Name(), svc.Namespace, svc.Name)
+					continue
+				}
+				m.log.Debugf(ctx, "Found route %s/%s that matches service %s/%s",
 					route.Namespace(), route.Name(), svc.Namespace, svc.Name)
 
 				return svc

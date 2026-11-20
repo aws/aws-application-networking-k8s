@@ -67,17 +67,16 @@ var routeTypeToFinalizer = map[core.RouteType]string{
 }
 
 type routeReconciler struct {
-	routeType               core.RouteType
-	log                     gwlog.Logger
-	client                  client.Client
-	scheme                  *runtime.Scheme
-	finalizerManager        k8s.FinalizerManager
-	eventRecorder           record.EventRecorder
-	modelBuilder            gateway.LatticeServiceBuilder
-	stackDeployer           deploy.StackDeployer
-	stackMarshaller         deploy.StackMarshaller
-	cloud                   aws.Cloud
-	referenceGrantSupported bool
+	routeType        core.RouteType
+	log              gwlog.Logger
+	client           client.Client
+	scheme           *runtime.Scheme
+	finalizerManager k8s.FinalizerManager
+	eventRecorder    record.EventRecorder
+	modelBuilder     gateway.LatticeServiceBuilder
+	stackDeployer    deploy.StackDeployer
+	stackMarshaller  deploy.StackMarshaller
+	cloud            aws.Cloud
 	// lastCrossNamespaceWarning records, per route (kind/namespace/name), the last
 	// cross-namespace warning message emitted, so the Warning event is only re-emitted
 	// when the set of unpermitted references changes. This avoids exhausting the route's
@@ -115,12 +114,14 @@ func RegisterAllRouteControllers(
 	if err != nil {
 		return err
 	}
-	if !referenceGrantServed {
-		log.Infof(context.TODO(), "ReferenceGrant %s CRD is not served, skipping watch and cross-namespace warnings", gwv1.GroupVersion.String())
-	} else if err := checkReferenceGrantAccess(context.TODO(), mgr.GetAPIReader()); err != nil {
-		log.Errorf(context.TODO(), "skipping ReferenceGrant watch and cross-namespace warnings: %s", err)
-		referenceGrantServed = false
+	if referenceGrantServed {
+		if err := checkReferenceGrantAccess(context.TODO(), mgr.GetAPIReader()); err != nil {
+			return err
+		}
+	} else {
+		log.Infof(context.TODO(), "ReferenceGrant %s CRD is not served, so cross-namespace backendRefs are blocked", gwv1.GroupVersion.String())
 	}
+	gateway.SetReferenceGrantServed(referenceGrantServed)
 
 	for _, routeInfo := range routeInfos {
 		brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(log, mgrClient)
@@ -154,7 +155,6 @@ func RegisterAllRouteControllers(
 
 		if referenceGrantServed {
 			builder.Watches(&gwv1.ReferenceGrant{}, rgEventHandler.MapToRoute(routeInfo.routeType))
-			reconciler.referenceGrantSupported = true
 		}
 
 		if ok, err := k8s.IsGVKSupported(mgr, anv1alpha1.GroupVersion.String(), anv1alpha1.TargetGroupPolicyKind); ok {
@@ -184,10 +184,8 @@ func RegisterAllRouteControllers(
 	return nil
 }
 
-// checkReferenceGrantAccess reports a missing permission to list ReferenceGrants. Without it
-// the ReferenceGrant watch never syncs, so the route controllers never start and the
-// controller crashloops. Only list is checked; the shipped ClusterRole grants list and watch
-// together. Other errors are left to the watch, which retries them.
+// checkReferenceGrantAccess fails startup when ReferenceGrants can't be listed: blocking every
+// cross-namespace backendRef would break valid grants, and allowing them would skip the check.
 func checkReferenceGrantAccess(ctx context.Context, reader client.Reader) error {
 	err := reader.List(ctx, &gwv1.ReferenceGrantList{}, client.Limit(1))
 	if apierrors.IsForbidden(err) {
@@ -394,7 +392,7 @@ func (r *routeReconciler) reconcileUpsert(ctx context.Context, req ctrl.Request,
 		r.log.Infof(ctx, "route: %s: %s", route.Name(), err)
 	}
 
-	r.warnOnUnpermittedCrossNamespaceRefs(ctx, route)
+	r.reportUnpermittedCrossNamespaceRefs(ctx, route)
 
 	backendRefIPFamiliesErr := r.validateBackendRefsIpFamilies(ctx, route)
 
@@ -542,6 +540,10 @@ func (r *routeReconciler) validateBackendRefsIpFamilies(ctx context.Context, rou
 				continue
 			}
 
+			if allowed, err := gateway.IsBackendRefAllowedByReferenceGrant(ctx, r.client, route, backendRef); err != nil || !allowed {
+				continue
+			}
+
 			svc, err := gateway.GetServiceForBackendRef(ctx, r.client, route, backendRef)
 			if err != nil {
 				// Ignore error since Service might not be created yet
@@ -557,11 +559,8 @@ func (r *routeReconciler) validateBackendRefsIpFamilies(ctx context.Context, rou
 	return nil
 }
 
-// warnOnUnpermittedCrossNamespaceRefs emits a warning signal for cross-namespace
-// backendRefs with no matching ReferenceGrant without changing route status or blocking
-// the reference, which is still accepted and routed during the warn phase.
-func (r *routeReconciler) warnOnUnpermittedCrossNamespaceRefs(ctx context.Context, route core.Route) {
-	if !r.referenceGrantSupported || r.lastCrossNamespaceWarning == nil {
+func (r *routeReconciler) reportUnpermittedCrossNamespaceRefs(ctx context.Context, route core.Route) {
+	if r.lastCrossNamespaceWarning == nil {
 		return
 	}
 
@@ -630,7 +629,7 @@ func (r *routeReconciler) warnOnUnpermittedCrossNamespaceRefs(ctx context.Contex
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeWarning,
 		k8s.RouteEventReasonCrossNamespaceRefNotPermitted,
 		fmt.Sprintf("backendRefs %s are in a different namespace than route %s/%s and no "+
-			"ReferenceGrant permits them; this will be blocked in a future release",
+			"ReferenceGrant permits them; they are not routed",
 			summarizeTargets(targets), route.Namespace(), route.Name()))
 }
 
@@ -819,6 +818,16 @@ func (r *routeReconciler) validateBackedRefs(ctx context.Context, route core.Rou
 			if ref.Namespace() != nil {
 				namespace = string(*ref.Namespace())
 			}
+
+			allowed, err := gateway.IsBackendRefAllowedByReferenceGrant(ctx, r.client, route, ref)
+			if err != nil {
+				return empty, err
+			}
+			if !allowed {
+				msg := fmt.Sprintf("backendRef %s/%s (%s) is not permitted by any ReferenceGrant", namespace, ref.Name(), kind)
+				return r.newCondition(route, gwv1.RouteConditionResolvedRefs, gwv1.RouteReasonRefNotPermitted, msg), nil
+			}
+
 			objKey := types.NamespacedName{
 				Namespace: namespace,
 				Name:      string(ref.Name()),
@@ -833,7 +842,7 @@ func (r *routeReconciler) validateBackedRefs(ctx context.Context, route core.Rou
 			default:
 				return empty, fmt.Errorf("invalid backed end ref kind, must be validated before, kind=%s", kind)
 			}
-			err := r.client.Get(ctx, objKey, obj)
+			err = r.client.Get(ctx, objKey, obj)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					msg := fmt.Sprintf("backendRef name: %s", ref.Name())

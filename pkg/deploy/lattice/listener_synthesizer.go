@@ -33,6 +33,9 @@ func NewListenerSynthesizer(
 	}
 }
 
+// ErrStaleListenerCleanup is returned after the stack's listeners are up to date, so the deploy can continue.
+var ErrStaleListenerCleanup = errors.New("stale listener cleanup failed")
+
 func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 	var stackListeners []*model.Listener
 
@@ -71,22 +74,26 @@ func (l *listenerSynthesizer) Synthesize(ctx context.Context) error {
 		return listenerErr
 	}
 
-	// All deletions happen here, we fetch all listeners for NON-deleted
-	// services, since service deletion will delete its listeners
+	// Stale listeners are deleted here; errors are returned so they can't keep forwarding to a disallowed backend.
 	latticeListenersAsModel, err := l.getLatticeListenersAsModels(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrStaleListenerCleanup, err)
 	}
 
+	var deleteErr error
 	for _, latticeListenerAsModel := range latticeListenersAsModel {
 		if l.shouldDelete(latticeListenerAsModel, stackListeners) {
 			err = l.listenerMgr.Delete(ctx, latticeListenerAsModel)
 			if err != nil {
-				l.log.Infof(ctx, "Failed ListenerManager.Delete %s due to %s", latticeListenerAsModel.Status.Id, err)
+				deleteErr = errors.Join(deleteErr, fmt.Errorf("failed ListenerManager.Delete %s: %w",
+					latticeListenerAsModel.Status.Id, err))
 			}
 		}
 	}
 
+	if deleteErr != nil {
+		return fmt.Errorf("%w: %w", ErrStaleListenerCleanup, deleteErr)
+	}
 	return nil
 }
 
@@ -120,8 +127,7 @@ func (l *listenerSynthesizer) getLatticeListenersAsModels(ctx context.Context) (
 
 		listenerSummaries, err := l.listenerMgr.List(ctx, modelSvc.Status.Id)
 		if err != nil {
-			l.log.Infof(ctx, "Ignoring error when listing listeners %s", err)
-			continue
+			return nil, fmt.Errorf("failed to list listeners for service %s: %w", modelSvc.Status.Id, err)
 		}
 		for _, latticeListener := range listenerSummaries {
 

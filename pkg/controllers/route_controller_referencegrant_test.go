@@ -24,6 +24,7 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/k8s"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -93,18 +94,25 @@ func drainEvents(ch chan string) []string {
 	}
 }
 
-func newWarnReconciler(c client.Client, recorder record.EventRecorder) *routeReconciler {
+func newWarnReconciler(t *testing.T, c client.Client, recorder record.EventRecorder) *routeReconciler {
+	t.Helper()
+	setReferenceGrantServed(t, true)
 	return &routeReconciler{
 		routeType:                 core.HttpRouteType,
 		log:                       gwlog.FallbackLogger,
 		client:                    c,
 		eventRecorder:             recorder,
 		lastCrossNamespaceWarning: &sync.Map{},
-		referenceGrantSupported:   true,
 	}
 }
 
-func TestWarnOnUnpermittedCrossNamespaceRefs(t *testing.T) {
+func setReferenceGrantServed(t *testing.T, served bool) {
+	t.Helper()
+	gateway.SetReferenceGrantServed(served)
+	t.Cleanup(func() { gateway.SetReferenceGrantServed(false) })
+}
+
+func TestReportUnpermittedCrossNamespaceRefs(t *testing.T) {
 	tests := []struct {
 		name              string
 		routeNs           string
@@ -159,10 +167,10 @@ func TestWarnOnUnpermittedCrossNamespaceRefs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			recorder := record.NewFakeRecorder(10)
-			r := newWarnReconciler(rgReconcilerTestClient(t, tt.grants...), recorder)
+			r := newWarnReconciler(t, rgReconcilerTestClient(t, tt.grants...), recorder)
 
 			route := routeWithBackendRefs(tt.routeNs, tt.refs...)
-			r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
+			r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
 
 			events := drainEvents(recorder.Events)
 			assert.Len(t, events, tt.wantEvents)
@@ -177,20 +185,9 @@ func TestWarnOnUnpermittedCrossNamespaceRefs(t *testing.T) {
 	}
 }
 
-func TestWarnOnUnpermittedCrossNamespaceRefs_NotSupported(t *testing.T) {
-	recorder := record.NewFakeRecorder(10)
-	r := newWarnReconciler(rgReconcilerTestClient(t), recorder)
-	r.referenceGrantSupported = false
-
-	route := routeWithBackendRefs("foo", backendRef("svc", "bar", ""))
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
-
-	assert.Empty(t, drainEvents(recorder.Events))
-}
-
 func TestReconcileClearsWarningWhenRouteGone(t *testing.T) {
 	c := rgReconcilerTestClient(t)
-	r := newWarnReconciler(c, record.NewFakeRecorder(10))
+	r := newWarnReconciler(t, c, record.NewFakeRecorder(10))
 
 	// Seed a dedup entry for a route that no longer exists.
 	r.lastCrossNamespaceWarning.Store("HTTPRoute/foo/gone", "bar/svc (Service)")
@@ -203,32 +200,32 @@ func TestReconcileClearsWarningWhenRouteGone(t *testing.T) {
 	assert.False(t, stillThere)
 }
 
-func TestWarnOnUnpermittedCrossNamespaceRefs_EventDedupedAcrossReconciles(t *testing.T) {
+func TestReportUnpermittedCrossNamespaceRefs_EventDedupedAcrossReconciles(t *testing.T) {
 	c := rgReconcilerTestClient(t)
 	recorder := record.NewFakeRecorder(10)
-	r := newWarnReconciler(c, recorder)
+	r := newWarnReconciler(t, c, recorder)
 	route := routeWithBackendRefs("foo", backendRef("svc", "bar", ""))
 
 	// Three reconciles with an unchanged unpermitted-ref set emit exactly one event.
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
 	assert.Len(t, drainEvents(recorder.Events), 1)
 
 	// A grant permits the reference: targets become empty, which clears the dedup entry
 	// and emits no event.
 	g := crossNsGrant("bar", "foo")
 	assert.NoError(t, c.Create(context.Background(), g))
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
 	assert.Empty(t, drainEvents(recorder.Events))
 
 	// Removing the grant makes the reference unpermitted again and re-emits a fresh event.
 	assert.NoError(t, c.Delete(context.Background(), g))
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
 	assert.Len(t, drainEvents(recorder.Events), 1)
 }
 
-func TestWarnOnUnpermittedCrossNamespaceRefs_PersistentEvalErrorEmitsOnce(t *testing.T) {
+func TestReportUnpermittedCrossNamespaceRefs_PersistentEvalErrorEmitsOnce(t *testing.T) {
 	// Fail only the List for the "bad" namespace; the ref into "bar" is still confirmed.
 	c := testclient.NewClientBuilder().
 		WithScheme(rgReconcilerScheme(t)).
@@ -245,26 +242,26 @@ func TestWarnOnUnpermittedCrossNamespaceRefs_PersistentEvalErrorEmitsOnce(t *tes
 			},
 		}).Build()
 	recorder := record.NewFakeRecorder(10)
-	r := newWarnReconciler(c, recorder)
+	r := newWarnReconciler(t, c, recorder)
 	route := routeWithBackendRefs("foo",
 		backendRef("svc", "bar", ""),
 		backendRef("other", "bad", ""),
 	)
 
 	// With no prior entry the first errored pass emits once and records the confirmed set.
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
 	assert.Len(t, drainEvents(recorder.Events), 1)
 	stored, ok := r.lastCrossNamespaceWarning.Load("HTTPRoute/foo/route")
 	assert.True(t, ok)
 	assert.Equal(t, "bar/svc (Service)", stored)
 
 	// Further errored passes with the same set must not re-emit.
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
 	assert.Empty(t, drainEvents(recorder.Events))
 }
 
-func TestWarnOnUnpermittedCrossNamespaceRefs_EvalErrorDoesNotRewriteDedup(t *testing.T) {
+func TestReportUnpermittedCrossNamespaceRefs_EvalErrorDoesNotRewriteDedup(t *testing.T) {
 	failBad := false
 	c := testclient.NewClientBuilder().
 		WithScheme(rgReconcilerScheme(t)).
@@ -281,27 +278,27 @@ func TestWarnOnUnpermittedCrossNamespaceRefs_EvalErrorDoesNotRewriteDedup(t *tes
 			},
 		}).Build()
 	recorder := record.NewFakeRecorder(10)
-	r := newWarnReconciler(c, recorder)
+	r := newWarnReconciler(t, c, recorder)
 	route := routeWithBackendRefs("foo",
 		backendRef("svc", "bar", ""),
 		backendRef("other", "bad", ""),
 	)
 
 	// Clean pass records both targets and emits one event.
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
 	assert.Len(t, drainEvents(recorder.Events), 1)
 	prev, _ := r.lastCrossNamespaceWarning.Load("HTTPRoute/foo/route")
 
 	// A pass where "bad" cannot be evaluated must not re-emit or rewrite the stored set.
 	failBad = true
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
 	assert.Empty(t, drainEvents(recorder.Events))
 	now, _ := r.lastCrossNamespaceWarning.Load("HTTPRoute/foo/route")
 	assert.Equal(t, prev, now)
 
 	// A clean pass with the unchanged set still emits nothing.
 	failBad = false
-	r.warnOnUnpermittedCrossNamespaceRefs(context.Background(), route)
+	r.reportUnpermittedCrossNamespaceRefs(context.Background(), route)
 	assert.Empty(t, drainEvents(recorder.Events))
 }
 
@@ -337,4 +334,75 @@ func TestCheckReferenceGrantAccess(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateBackedRefs_ReferenceGrant(t *testing.T) {
+	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "bar"}}
+	tests := []struct {
+		name       string
+		objs       []client.Object
+		wantReason gwv1.RouteConditionReason
+	}{
+		{
+			name:       "no grant, target exists",
+			objs:       []client.Object{svc},
+			wantReason: gwv1.RouteReasonRefNotPermitted,
+		},
+		{
+			// Same result as when the target exists, so status does not reveal whether
+			// it exists.
+			name:       "no grant, target missing",
+			wantReason: gwv1.RouteReasonRefNotPermitted,
+		},
+		{
+			name:       "grant, target exists",
+			objs:       []client.Object{svc, crossNsGrant("bar", "foo")},
+			wantReason: gwv1.RouteReasonResolvedRefs,
+		},
+		{
+			name:       "grant, target missing",
+			objs:       []client.Object{crossNsGrant("bar", "foo")},
+			wantReason: gwv1.RouteReasonBackendNotFound,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := newWarnReconciler(t, rgReconcilerTestClient(t, tt.objs...), record.NewFakeRecorder(10))
+			route := routeWithBackendRefs("foo", backendRef("svc", "bar", "Service"))
+
+			cnd, err := r.validateBackedRefs(context.Background(), route)
+			assert.NoError(t, err)
+			assert.Equal(t, string(tt.wantReason), cnd.Reason)
+		})
+	}
+}
+
+func TestValidateBackedRefs_GrantListErrorReturnsError(t *testing.T) {
+	c := testclient.NewClientBuilder().
+		WithScheme(rgReconcilerScheme(t)).
+		WithInterceptorFuncs(interceptor.Funcs{
+			List: func(ctx context.Context, cl client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+				return errors.New("boom")
+			},
+		}).Build()
+	r := newWarnReconciler(t, c, record.NewFakeRecorder(10))
+	route := routeWithBackendRefs("foo", backendRef("svc", "bar", "Service"))
+
+	_, err := r.validateBackedRefs(context.Background(), route)
+	assert.Error(t, err)
+}
+
+func TestValidateBackendRefsIpFamilies_ReferenceGrant(t *testing.T) {
+	dualStack := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "bar"},
+		Spec:       corev1.ServiceSpec{IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}},
+	}
+	route := routeWithBackendRefs("foo", backendRef("svc", "bar", "Service"))
+
+	// Rejecting the route here would tell its owner the blocked target exists.
+	r := newWarnReconciler(t, rgReconcilerTestClient(t, dualStack), record.NewFakeRecorder(10))
+	assert.NoError(t, r.validateBackendRefsIpFamilies(context.Background(), route))
+
+	r = newWarnReconciler(t, rgReconcilerTestClient(t, dualStack, crossNsGrant("bar", "foo")), record.NewFakeRecorder(10))
+	assert.Error(t, r.validateBackendRefsIpFamilies(context.Background(), route))
 }
