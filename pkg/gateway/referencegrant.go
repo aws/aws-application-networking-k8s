@@ -2,13 +2,21 @@ package gateway
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync/atomic"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
+	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	anv1alpha1 "github.com/aws/aws-application-networking-k8s/pkg/apis/applicationnetworking/v1alpha1"
+	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/aws/services"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 )
 
 // referenceGrantServed is false if the ReferenceGrant CRD was missing at startup, blocking all cross-namespace refs.
@@ -105,4 +113,37 @@ func grantToMatches(tos []gwv1.ReferenceGrantTo, group, kind, name string) bool 
 		}
 	}
 	return false
+}
+
+// ManagedTargetGroup describes a target group created by a Gateway API controller.
+type ManagedTargetGroup struct {
+	// ManagedBy is the value of the ManagedBy tag: the account, cluster and VPC of the
+	// controller that created it.
+	ManagedBy string
+	// SourceType is the kind of object it was created for, such as ServiceExport or HTTPRoute.
+	SourceType model.K8SSourceType
+	// Unreadable means the controller may not read the tags, so it can't rule out ManagedBy.
+	Unreadable bool
+}
+
+// GetManagedTargetGroup returns the ManagedBy and source type tags, or nil without ManagedBy.
+// Reaching such a target group by ARN would bypass the ReferenceGrant of the Service's namespace.
+// Target groups managed by any cluster's controller count, and so do unreadable tags (fail closed).
+func GetManagedTargetGroup(ctx context.Context, lattice services.Lattice, arn string) (*ManagedTargetGroup, error) {
+	out, err := lattice.ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{ResourceArn: aws.String(arn)})
+	if err != nil {
+		var ade *types.AccessDeniedException
+		if errors.As(err, &ade) {
+			return &ManagedTargetGroup{Unreadable: true}, nil
+		}
+		return nil, fmt.Errorf("failed to read tags of target group %s: %w", arn, err)
+	}
+	managedBy, managed := out.Tags[pkg_aws.TagManagedBy]
+	if !managed {
+		return nil, nil
+	}
+	return &ManagedTargetGroup{
+		ManagedBy:  managedBy,
+		SourceType: model.GetParentRefType(out.Tags[model.K8SSourceTypeKey]),
+	}, nil
 }

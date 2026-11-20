@@ -848,10 +848,65 @@ func (r *routeReconciler) validateBackedRefs(ctx context.Context, route core.Rou
 					msg := fmt.Sprintf("backendRef name: %s", ref.Name())
 					return r.newCondition(route, gwv1.RouteConditionResolvedRefs, gwv1.RouteReasonBackendNotFound, msg), nil
 				}
+				continue
+			}
+			managedTg, err := r.referencesManagedTargetGroup(ctx, obj)
+			if err != nil {
+				return empty, err
+			}
+			if managedTg != nil {
+				ownCluster := managedTg.ManagedBy == r.cloud.DefaultTags()[aws.TagManagedBy]
+				msg := managedTargetGroupMessage(namespace, string(ref.Name()), managedTg, ownCluster)
+				return r.newCondition(route, gwv1.RouteConditionResolvedRefs, gwv1.RouteReasonRefNotPermitted, msg), nil
 			}
 		}
 	}
 	return r.newCondition(route, gwv1.RouteConditionResolvedRefs, gwv1.RouteReasonResolvedRefs, ""), nil
+}
+
+// referencesManagedTargetGroup returns the managed target group obj's target-group-arn names, if any.
+// Lookup errors are returned so status, like the model build, keeps its previous state.
+func (r *routeReconciler) referencesManagedTargetGroup(ctx context.Context, obj client.Object) (*gateway.ManagedTargetGroup, error) {
+	if r.cloud == nil {
+		return nil, nil
+	}
+	arn := strings.TrimSpace(obj.GetAnnotations()[k8s.TargetGroupArnAnnotation])
+	if _, ok := obj.(*anv1alpha1.ServiceImport); !ok || arn == "" {
+		return nil, nil
+	}
+	if _, err := k8s.TargetGroupIdFromArn(arn); err != nil {
+		// Reported by the model build as InvalidExternalTargetGroup.
+		return nil, nil
+	}
+	tg, err := gateway.GetManagedTargetGroup(ctx, r.cloud.Lattice(), arn)
+	if services.IsNotFoundError(err) || services.IsLatticeAPINotFoundErr(err) {
+		// The model build reports it as ExternalTargetGroupNotFound; failing here would stop the
+		// rest of the status update.
+		return nil, nil
+	}
+	return tg, err
+}
+
+// managedTargetGroupMessage suggests a replacement and names only the route's own ServiceImport,
+// so status reveals nothing about other namespaces.
+func managedTargetGroupMessage(namespace, name string, tg *gateway.ManagedTargetGroup, ownCluster bool) string {
+	prefix := fmt.Sprintf("ServiceImport %s/%s sets %s to a target group", namespace, name, k8s.TargetGroupArnAnnotation)
+	importExport := "use a ServiceImport without " + k8s.TargetGroupArnAnnotation +
+		", named after the exported Service or with " + k8s.ExportNameAnnotation +
+		", in the export's namespace. If that is not this route's namespace, also add a ReferenceGrant there that allows this route"
+	switch {
+	case tg.Unreadable:
+		return prefix + " whose tags the controller can't read, so it can't confirm the target group isn't " +
+			"controller-managed. Allow the controller vpc-lattice:ListTagsForResource on it"
+	case tg.SourceType == latticemodel.SourceTypeSvcExport:
+		return prefix + " created for an exported Service. Instead, " + importExport
+	case ownCluster:
+		return prefix + " this controller created for a Kubernetes Service. Reference that Service with a backendRef " +
+			"instead, with a ReferenceGrant if it is in another namespace"
+	default:
+		return prefix + " another cluster's controller created for a Kubernetes Service. Export that Service with a " +
+			"ServiceExport in its cluster, then " + importExport
+	}
 }
 
 func (r *routeReconciler) newCondition(route core.Route, t gwv1.RouteConditionType, reason gwv1.RouteConditionReason, msg string) metav1.Condition {
