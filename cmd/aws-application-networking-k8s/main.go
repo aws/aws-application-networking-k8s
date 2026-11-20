@@ -39,6 +39,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	"github.com/aws/aws-application-networking-k8s/pkg/controllers"
@@ -201,6 +202,8 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
+		// Nothing reads managedFields, and they are a large share of every cached object.
+		Cache: cache.Options{DefaultTransform: cache.TransformStripManagedFields()},
 		Metrics: metricsserver.Options{
 			BindAddress: metricsAddr,
 		},
