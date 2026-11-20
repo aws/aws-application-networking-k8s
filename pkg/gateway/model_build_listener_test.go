@@ -1668,3 +1668,69 @@ func Test_ListenerModelBuild_TLSPassthrough_ExternalTargetGroup(t *testing.T) {
 		})
 	}
 }
+
+// Rules, and the quota-exceeded status message built from them, follow listener order, so listeners must come out
+// in Gateway spec order on every build.
+func Test_BuildListeners_GatewaySpecOrder(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	gwv1.Install(k8sSchema)
+	gwv1alpha2.Install(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+	gwClass := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "gwClass"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gateway1", Namespace: "default"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "gwClass",
+			Listeners: []gwv1.Listener{
+				{Name: "https", Protocol: "HTTPS", Port: 443},
+				{Name: "http", Protocol: "HTTP", Port: 80},
+				{Name: "http-alt", Protocol: "HTTP", Port: 8080},
+			},
+		},
+	}
+	assert.NoError(t, k8sClient.Create(ctx, gwClass))
+	assert.NoError(t, k8sClient.Create(ctx, gw))
+
+	parentRef := gwv1.ParentReference{Name: "gateway1"}
+	route := core.NewHTTPRoute(gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "default"},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{parentRef}},
+		},
+	})
+	route.Status().SetParents([]gwv1.RouteParentStatus{{
+		ParentRef:  parentRef,
+		Conditions: []metav1.Condition{{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue}},
+	}})
+
+	for range 20 {
+		stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(route.K8sObject())))
+		task := &latticeServiceModelBuildTask{
+			log:         gwlog.FallbackLogger,
+			route:       route,
+			client:      k8sClient,
+			stack:       stack,
+			brTgBuilder: NewMockBackendRefTargetGroupModelBuilder(c),
+		}
+		assert.NoError(t, task.buildListeners(ctx, "svc-id"))
+
+		var listeners []*model.Listener
+		assert.NoError(t, stack.ListResources(&listeners))
+		var ports []int64
+		for _, l := range listeners {
+			ports = append(ports, l.Spec.Port)
+		}
+		if !assert.Equal(t, []int64{443, 80, 8080}, ports) {
+			break
+		}
+	}
+}

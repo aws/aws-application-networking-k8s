@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -14,6 +15,7 @@ import (
 	"github.com/aws/aws-application-networking-k8s/pkg/deploy/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/gateway"
 	"github.com/aws/aws-application-networking-k8s/pkg/model/core"
+	lattice_runtime "github.com/aws/aws-application-networking-k8s/pkg/runtime"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
 )
 
@@ -215,21 +217,45 @@ func (d *latticeServiceStackDeployer) Deploy(ctx context.Context, stack core.Sta
 	}
 
 	//Handle latticeService listener's rules "reconciliation" request
+	var ruleQuotaErr error
 	if err := ruleSynthesizer.Synthesize(ctx); err != nil {
-		return fmt.Errorf("error during rule synthesis %w", err)
+		if _, ok := lattice.AsRuleQuotaExceeded(err); !ok {
+			return fmt.Errorf("error during rule synthesis %w", err)
+		}
+		ruleQuotaErr = fmt.Errorf("error during rule synthesis %w", err)
 	}
 
-	// Handle pod status update for targets.
-	if err := targetsSynthesizer.PostSynthesize(ctx); err != nil {
-		return fmt.Errorf("error during target post synthesis %w", err)
-	}
+	return d.runAfterRules(ctx, ruleQuotaErr,
+		afterRulesStep{name: "target post synthesis", run: targetsSynthesizer.PostSynthesize, readinessGates: true},
+		afterRulesStep{name: "tg delete synthesis", run: targetGroupSynthesizer.SynthesizeDelete},
+	)
+}
 
-	//Handle targetGroup deletion request
-	if err := targetGroupSynthesizer.SynthesizeDelete(ctx); err != nil {
-		return fmt.Errorf("error during tg delete synthesis %w", err)
-	}
+type afterRulesStep struct {
+	name string
+	run  func(context.Context) error
+	// readinessGates marks the step that updates pod readiness gates; its retry error means targets are pending
+	readinessGates bool
+}
 
-	return nil
+// runAfterRules runs the deploy steps that follow rule synthesis. A rule quota failure leaves every other rule
+// applied, so these steps still run (e.g. pod readiness gates). Their errors, such as targets still pending, must
+// not hide the quota error: it is what the route controller reports. Pending targets are recorded on it instead,
+// so the controller keeps rechecking readiness gates on a short interval.
+func (d *latticeServiceStackDeployer) runAfterRules(ctx context.Context, ruleQuotaErr error, steps ...afterRulesStep) error {
+	for _, step := range steps {
+		if err := step.run(ctx); err != nil {
+			if ruleQuotaErr == nil {
+				return fmt.Errorf("error during %s %w", step.name, err)
+			}
+			d.log.Infof(ctx, "%s after rule quota error: %s", step.name, err)
+			var retry *lattice_runtime.RequeueNeededAfter
+			if ruleErr, ok := lattice.AsRuleQuotaExceeded(ruleQuotaErr); ok && step.readinessGates && errors.As(err, &retry) {
+				ruleErr.TargetsPending = true
+			}
+		}
+	}
+	return ruleQuotaErr
 }
 
 type latticeTargetGroupStackDeployer struct {
