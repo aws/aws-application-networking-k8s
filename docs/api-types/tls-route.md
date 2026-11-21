@@ -107,6 +107,6 @@ spec:
 For the detailed tls passthrough traffic connectivity setup, please refer the user guide [here](../guides/tls-passthrough.md).
 
 For the detailed Gateway API `TLSRoute` resource specifications, you can refer to the
-Kubernetes official [documentation](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io/v1.TLSRoute).
+Kubernetes official [documentation](https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#tlsroute).
 
 For the VPC Lattice tls passthrough Listener configuration details, you can refer to the VPC Lattice [documentation](https://docs.aws.amazon.com/vpc-lattice/latest/ug/tls-listeners.html).
