@@ -1490,6 +1490,7 @@ func Test_ListenerModelBuild_TLSPassthrough_ExternalTargetGroup(t *testing.T) {
 				}).Return(&vpclattice.GetTargetGroupOutput{
 					Id: aws.String(bareId), Arn: aws.String(validArn),
 				}, nil)
+				expectExternalTgTags(m, validArn, nil)
 			},
 			expectedTGs: []*model.RuleTargetGroup{
 				{LatticeTgId: bareId, Weight: 90},
@@ -1504,6 +1505,7 @@ func Test_ListenerModelBuild_TLSPassthrough_ExternalTargetGroup(t *testing.T) {
 				m.EXPECT().GetTargetGroup(gomock.Any(), gomock.Any()).Return(&vpclattice.GetTargetGroupOutput{
 					Id: aws.String(bareId), Arn: aws.String(validArn),
 				}, nil)
+				expectExternalTgTags(m, validArn, nil)
 			},
 			expectedTGs: []*model.RuleTargetGroup{
 				{LatticeTgId: bareId, Weight: 90},

@@ -14,7 +14,7 @@ The controller resolves a ServiceImport to a VPC Lattice target group in one of 
 |---|---|---|
 | Mode 1 — Default name | _(none)_ | The controller finds a target group created by a `ServiceExport`, matched by the exported service name and namespace carried in the target group's tags. The exported service name defaults to the ServiceImport's own name, so a matching `ServiceExport` must exist for that name. |
 | Mode 2 — Tag discovery | Any of `export-name`, `aws-vpc`, `aws-eks-cluster-name` | Same `ServiceExport` tag matching as Mode 1. The difference is that `export-name` overrides which exported service name the controller looks up. It no longer has to equal the ServiceImport's own name (Mode 1's default) and can target a `ServiceExport` published under a different name. `aws-vpc` / `aws-eks-cluster-name` further narrow the match to a specific VPC or cluster (typically a `ServiceExport` in another cluster). |
-| Mode 3 — Direct external target group | `target-group-arn` | The controller resolves directly to the supplied target group ARN, regardless of who owns it. No `ServiceExport` is required. |
+| Mode 3 — Direct external target group | `target-group-arn` | The controller resolves directly to the supplied target group ARN. No `ServiceExport` is required. The target group must not have the `application-networking.k8s.aws/ManagedBy` tag. |
 
 ### Limitations
 * ServiceImport shares the limitations of [ServiceExport](service-export.md).
@@ -129,10 +129,18 @@ When the `application-networking.k8s.aws/target-group-arn` annotation is present
 
 Mode 3 exists mainly to migrate traffic from a non EKS workload to an EKS backend with weighted routing. For the full migration guide see [Migrate to EKS with weighted routing](../guides/migrate-to-eks.md).
 
+Mode 3 is for target groups created outside Kubernetes. If the target group has the `application-networking.k8s.aws/ManagedBy` tag, which every target group created by this controller has, the route's `ResolvedRefs` condition is set to `False` with reason `RefNotPermitted` and no traffic is sent to it. Otherwise a route could reach another namespace's `Service` without the [ReferenceGrant](reference-grant.md) that referencing the `Service` directly needs. The controller doesn't watch target group tags and caches them for a minute, so a tag added later takes effect on the first reconcile of the route at least a minute after the change. To apply it sooner, wait a minute and then change the route, or restart the controller.
+
+Use one of these instead, depending on what the target group was created for:
+
+* **A `ServiceExport`:** a `ServiceImport` without `target-group-arn` (Mode 1 or 2) in the same namespace as the `ServiceExport`. If the route is in a different namespace, it references that `ServiceImport` with a `ReferenceGrant`. For example, to use an export from namespace `payments` in another cluster from a route in `shop`, create the `ServiceImport` in a `payments` namespace in this cluster and a `ReferenceGrant` there that allows routes from `shop`.
+* **A route's backend `Service` in this cluster:** a `backendRef` to that `Service`, with a `ReferenceGrant` if it is in another namespace.
+* **A route's backend `Service` in another cluster:** export the `Service` with a `ServiceExport` in its cluster, then use a `ServiceImport` as in the first item.
+
 ### Annotation
 
 * `application-networking.k8s.aws/target-group-arn`<br>
-  Full ARN of the VPC Lattice target group, e.g. `arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0abc123def4567890`. <br> Region and account are not validated against the controller's running region/account by ARN parsing. However, the controller's Lattice client is pinned to its configured region, so a cross region ARN will not resolve today and surfaces as `ExternalTargetGroupNotFound`. A cross account target group only resolves if it is reachable by the controller (e.g. RAM shared) and the controller's IAM principal can read it.
+  Full ARN of the VPC Lattice target group, e.g. `arn:aws:vpc-lattice:us-east-2:123456789012:targetgroup/tg-0abc123def4567890`. <br> The target group must be in the controller's region and in the same account as the VPC Lattice service, because a listener rule can only use target groups in the service's account. A target group in another region or account surfaces as `ExternalTargetGroupNotFound`.
 
 ### Example Configuration
 
