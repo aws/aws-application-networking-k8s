@@ -1931,6 +1931,10 @@ group out. A grant with <code>group: ""</code> matches only <code>Service</code>
 <p>The grant's <code>from.kind</code> must match the kind of the referencing route (HTTPRoute,
 GRPCRoute, or TLSRoute). Creating, changing or deleting a grant takes effect without any
 change to the route.</p>
+<p>A <code>ServiceImport</code> with the <code>target-group-arn</code> annotation can't point at a controller-managed
+target group, one with the <code>application-networking.k8s.aws/ManagedBy</code> tag. Otherwise it
+could reach another namespace's <code>Service</code> without a grant. See
+<a href="../service-import/#mode-3-direct-external-target-group-reference">ServiceImport Mode 3</a>.</p>
 <p>The controller reads grants from the <code>gateway.networking.k8s.io/v1</code> <code>ReferenceGrant</code> CRD.
 If that CRD is not installed when the controller starts, no grant can permit a reference,
 so every cross-namespace <code>backendRef</code> is blocked. After installing the CRD, restart the
@@ -1954,6 +1958,27 @@ each one. Remove <code>tlsroutes</code> if the TLSRoute CRD is not installed.</p
 </code></pre></div>
 <p>For each reference, create a <code>ReferenceGrant</code> in the target namespace or repoint the
 <code>backendRef</code>.</p>
+<p>Also check each <code>ServiceImport</code> with the <code>target-group-arn</code> annotation. A route whose
+<code>ServiceImport</code> names a target group with the <code>application-networking.k8s.aws/ManagedBy</code> tag
+stops receiving traffic after the upgrade. Replace those as described in
+<a href="../service-import/#mode-3-direct-external-target-group-reference">ServiceImport Mode 3</a>. This
+script lists them:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>serviceimports.application-networking.k8s.aws<span class="w"> </span>-A<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="s1">  .items[] | (.metadata.annotations["application-networking.k8s.aws/target-group-arn"] // "") as $arn</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="s1">  | select($arn != "") | "\(.metadata.namespace)/\(.metadata.name) \($arn)"'</span><span class="w"> </span><span class="p">|</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">while</span><span class="w"> </span><span class="nb">read</span><span class="w"> </span>-r<span class="w"> </span>import<span class="w"> </span>arn<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nv">region</span><span class="o">=</span><span class="k">$(</span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$arn</span><span class="s2">"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>cut<span class="w"> </span>-d:<span class="w"> </span>-f4<span class="k">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span>!<span class="w"> </span><span class="nv">managed</span><span class="o">=</span><span class="k">$(</span><span class="nv">AWS_PAGER</span><span class="o">=</span><span class="s2">""</span><span class="w"> </span>aws<span class="w"> </span>vpc-lattice<span class="w"> </span>list-tags-for-resource<span class="w"> </span>--region<span class="w"> </span><span class="s2">"</span><span class="nv">$region</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span>--resource-arn<span class="w"> </span><span class="s2">"</span><span class="nv">$arn</span><span class="s2">"</span><span class="w"> </span>--query<span class="w"> </span><span class="s1">'tags."application-networking.k8s.aws/ManagedBy"'</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span>--output<span class="w"> </span>text<span class="w"> </span>&lt;/dev/null<span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$import</span><span class="s2">: could not read the tags of </span><span class="nv">$arn</span><span class="s2">"</span><span class="w"> </span>&gt;<span class="p">&amp;</span><span class="m">2</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="k">continue</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="k">fi</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$managed</span><span class="s2">"</span><span class="w"> </span>!<span class="o">=</span><span class="w"> </span>None<span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"</span><span class="nv">$import</span><span class="s2"> uses controller-managed target group </span><span class="nv">$arn</span><span class="s2">"</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="k">fi</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="k">done</span>
+</code></pre></div>
 <p>Enforcement needs the <code>ReferenceGrant</code> CRD from Gateway API v1.5 or later, which serves
 <code>gateway.networking.k8s.io/v1</code>. Grants created as <code>v1beta1</code> are the same objects and keep
 working. If the <code>ReferenceGrant</code> CRD is older than the rest of the Gateway API CRDs, every
