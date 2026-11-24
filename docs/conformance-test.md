@@ -26,7 +26,7 @@
 | | [GatewayHTTPListenerIsolation](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-http-listener-isolation.go) | N/A | Not supported |
 | | [GatewayInfrastructure](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/gateway-infrastructure.go) | N/A | Not supported |
 | | | | |
-| HTTPRoute | [HTTPRouteSimpleSameNamespace](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-simple-same-namespace.go) | ok | Flaky when run after other tests due to Lattice resource cleanup timing |
+| HTTPRoute | [HTTPRouteSimpleSameNamespace](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-simple-same-namespace.go) | ok | |
 | | [HTTPRouteCrossNamespace](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-cross-namespace.go) | ok | |
 | | [HTTPRouteExactPathMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-exact-path-matching.go) | ok | 6/6 subtests pass |
 | | [HTTPRouteInvalidCrossNamespaceParentRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-parent-ref.go) | ok | |
@@ -38,7 +38,7 @@
 | | [HTTPRouteObservedGenerationBump](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-observed-generation-bump.go) | ok | |
 | | [HTTPRouteInvalidNonExistentBackendRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-backendref-nonexistent.go) | ok | |
 | | [HTTPRouteInvalidBackendRefUnknownKind](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-backendref-unknown-kind.go) | ok | |
-| | [HTTPRouteWeight](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-weight.go) | fail | DNS resolution issues during test |
+| | [HTTPRouteWeight](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-weight.go) | ok | |
 | | [HTTPRouteServiceTypes](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-service-types.go) | fail | Headless services not supported |
 | | [HTTPRouteHTTPSListener](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-https-listener.go) | fail | Listener hostname not supported |
 | | [HTTPRouteRedirectHostAndStatus](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-redirect-host-and-status.go) | N/A | Not supported by Lattice |
@@ -53,11 +53,11 @@
 | | [HTTPRouteListenerHostnameMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-listener-hostname-matching.go) | N/A | Listener hostname not supported |
 | | [HTTPRouteQueryParamMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-query-param-matching.go) | N/A | Not supported by Lattice |
 | | [HTTPRouteMethodMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-method-matching.go) | N/A | Not supported by Lattice |
-| | [HTTPRouteReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-reference-grant.go) | flaky | Flaky in the full suite: the Gateway keeps the previous test's address until that route's VPC Lattice delete succeeds |
+| | [HTTPRouteReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-reference-grant.go) | ok | |
 | | [HTTPRouteDisallowedKind](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-disallowed-kind.go) | N/A | Only HTTPRoute is supported |
-| | [HTTPRouteInvalidCrossNamespaceBackendRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-backend-ref.go) | flaky | Flaky in the full suite: the Gateway keeps the previous test's address until that route's VPC Lattice delete succeeds |
+| | [HTTPRouteInvalidCrossNamespaceBackendRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-backend-ref.go) | ok | |
 | | [HTTPRouteInvalidReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-reference-grant.go) | ok | |
-| | [HTTPRoutePartiallyInvalidViaInvalidReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-partially-invalid-via-invalid-reference-grant.go) | flaky | Flaky in the full suite: the Gateway keeps the previous test's address until that route's VPC Lattice delete succeeds |
+| | [HTTPRoutePartiallyInvalidViaInvalidReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-partially-invalid-via-invalid-reference-grant.go) | ok | |
 | | [HTTPRouteInvalidParentRefNotMatchingListenerPort](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-parentref-not-matching-listener-port.go) | N/A | Not supported |
 
 ## Running Gateway API Conformance

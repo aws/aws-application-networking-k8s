@@ -64,27 +64,7 @@
   category: lattice-feature-limitation
   reason: "Service types test incompatible with Lattice"
 
-- name: HTTPRouteWeight
-  category: lattice-feature-limitation
-  reason: "Weight distribution test incompatible with Lattice"
-
 # Controller bugs (fixable)
 - name: GatewayWithAttachedRoutes
   category: controller-bug
   reason: "Unresolved refs subtest fails due to ACM TLS"
-
-- name: HTTPRouteSimpleSameNamespace
-  category: controller-bug
-  reason: "Flaky in partial runs, passes in full suite"
-
-- name: HTTPRouteInvalidCrossNamespaceBackendRef
-  category: controller-bug
-  reason: "Flaky; Gateway keeps the previous test's address until its VPC Lattice delete succeeds"
-
-- name: HTTPRoutePartiallyInvalidViaInvalidReferenceGrant
-  category: controller-bug
-  reason: "Flaky; Gateway keeps the previous test's address until its VPC Lattice delete succeeds"
-
-- name: HTTPRouteReferenceGrant
-  category: controller-bug
-  reason: "Flaky; Gateway keeps the previous test's address until its VPC Lattice delete succeeds"
