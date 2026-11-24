@@ -241,7 +241,7 @@ func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request,
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 		k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 
-	// Drop the route from Gateway status now; the Lattice delete below often needs retries.
+	// Drop the route from Gateway status now; the VPC Lattice delete below often needs retries.
 	if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
 		r.log.Warnf(ctx, "failed to update gateway listener status: %v", err)
 	}

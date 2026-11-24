@@ -72,6 +72,8 @@ func scaledTimeouts() conformanceconfig.TimeoutConfig {
 		LatestObservedGenerationSet:        m * d.LatestObservedGenerationSet,
 		DefaultTestTimeout:                 m * d.DefaultTestTimeout,
 		RequiredConsecutiveSuccesses:        d.RequiredConsecutiveSuccesses,
+		// Gives the controller time to drop the previous test's route from Gateway status.
+		TestIsolation: 2 * time.Second,
 	}
 }
 
