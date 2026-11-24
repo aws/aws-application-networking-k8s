@@ -87,12 +87,12 @@
 
 - name: HTTPRouteInvalidCrossNamespaceBackendRef
   category: controller-bug
-  reason: "Passes in isolation; full suite reads the previous test's Gateway address"
+  reason: "Passes in isolation; Gateway keeps the previous test's address until its Lattice delete succeeds"
 
 - name: HTTPRoutePartiallyInvalidViaInvalidReferenceGrant
   category: controller-bug
-  reason: "Passes in isolation; full suite reads the previous test's Gateway address"
+  reason: "Passes in isolation; Gateway keeps the previous test's address until its Lattice delete succeeds"
 
 - name: HTTPRouteReferenceGrant
   category: controller-bug
-  reason: "Passes in isolation; full suite reads the previous test's Gateway address"
+  reason: "Passes in isolation; Gateway keeps the previous test's address until its Lattice delete succeeds"

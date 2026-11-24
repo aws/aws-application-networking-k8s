@@ -4,8 +4,8 @@
 
 ## Test Environment
 
-- **Controller**: Amazon VPC Lattice Gateway API Controller v2.0.1
-- **Conformance Test Suite**: Gateway API v1.4.0
+- **Controller**: Amazon VPC Lattice Gateway API Controller v2.3.0
+- **Conformance Test Suite**: Gateway API v1.5.1
 - **GatewayClass**: `amazon-vpc-lattice`
 
 ## Summary of Test Result
@@ -36,7 +36,7 @@
 | | [HTTPRouteMatchingAcrossRoutes](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-matching-across-routes.go) | fail | Custom domain name conflict not allowed |
 | | [HTTPRoutePathMatchOrder](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-path-match-order.go) | fail | Test data exceeds Lattice limit on # of rules |
 | | [HTTPRouteObservedGenerationBump](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-observed-generation-bump.go) | fail | Passes in isolation, fails due to test ordering interference |
-| | [HTTPRouteInvalidNonExistentBackendRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-backendref-nonexistent.go) | partial | 1/2 subtests pass. Returns 404 instead of expected 500 for invalid backend. Fix: [#899](https://github.com/aws/aws-application-networking-k8s/pull/899) |
+| | [HTTPRouteInvalidNonExistentBackendRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-backendref-nonexistent.go) | ok | |
 | | [HTTPRouteInvalidBackendRefUnknownKind](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-backendref-unknown-kind.go) | partial | Status condition set correctly, returns 404 instead of expected 500 for invalid backend. Fix: [#899](https://github.com/aws/aws-application-networking-k8s/pull/899) |
 | | [HTTPRouteWeight](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-weight.go) | fail | DNS resolution issues during test |
 | | [HTTPRouteServiceTypes](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-service-types.go) | fail | Headless services not supported |
@@ -53,11 +53,11 @@
 | | [HTTPRouteListenerHostnameMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-listener-hostname-matching.go) | N/A | Listener hostname not supported |
 | | [HTTPRouteQueryParamMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-query-param-matching.go) | N/A | Not supported by Lattice |
 | | [HTTPRouteMethodMatching](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-method-matching.go) | N/A | Not supported by Lattice |
-| | [HTTPRouteReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-reference-grant.go) | fail | Passes in isolation; in the full suite the Gateway address still points at the previous test's service |
+| | [HTTPRouteReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-reference-grant.go) | fail | Passes in isolation. In the full suite the Gateway keeps the previous test's address until that route's Lattice delete succeeds |
 | | [HTTPRouteDisallowedKind](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-disallowed-kind.go) | N/A | Only HTTPRoute is supported |
-| | [HTTPRouteInvalidCrossNamespaceBackendRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-backend-ref.go) | fail | Passes in isolation; in the full suite the Gateway address still points at the previous test's service |
+| | [HTTPRouteInvalidCrossNamespaceBackendRef](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-cross-namespace-backend-ref.go) | fail | Passes in isolation. In the full suite the Gateway keeps the previous test's address until that route's Lattice delete succeeds |
 | | [HTTPRouteInvalidReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-reference-grant.go) | ok | |
-| | [HTTPRoutePartiallyInvalidViaInvalidReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-partially-invalid-via-invalid-reference-grant.go) | fail | Passes in isolation; in the full suite the Gateway address still points at the previous test's service |
+| | [HTTPRoutePartiallyInvalidViaInvalidReferenceGrant](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-partially-invalid-via-invalid-reference-grant.go) | fail | Passes in isolation. In the full suite the Gateway keeps the previous test's address until that route's Lattice delete succeeds |
 | | [HTTPRouteInvalidParentRefNotMatchingListenerPort](https://github.com/kubernetes-sigs/gateway-api/blob/main/conformance/tests/httproute-invalid-parentref-not-matching-listener-port.go) | N/A | Not supported |
 
 ## Running Gateway API Conformance
