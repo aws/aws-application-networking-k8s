@@ -241,6 +241,11 @@ func (r *routeReconciler) reconcileDelete(ctx context.Context, req ctrl.Request,
 	r.eventRecorder.Event(route.K8sObject(), corev1.EventTypeNormal,
 		k8s.RouteEventReasonReconcile, "Deleting Reconcile")
 
+	// Drop the route from Gateway status now; the Lattice delete below often needs retries.
+	if err := updateRouteListenerStatus(ctx, r.client, route); err != nil {
+		r.log.Warnf(ctx, "failed to update gateway listener status: %v", err)
+	}
+
 	if _, err := r.buildAndDeployModel(ctx, route); err != nil {
 		if k8s.IsInvalidServiceNameOverrideError(err) {
 			r.log.Infof(ctx, "Route %s deletion proceeding, no VPC Lattice resources created due to error: %v", route.Name(), err)

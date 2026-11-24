@@ -1077,3 +1077,165 @@ func TestRouteReconciler_UpsertRoute_ExternalTgClientReachesGetTargetGroup(t *te
 	assert.Equal(t, metav1.ConditionFalse, resolvedRefsCond.Status)
 	assert.Equal(t, "ExternalTargetGroupNotFound", resolvedRefsCond.Reason)
 }
+
+type failingStackDeployer struct{}
+
+func (d *failingStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
+	return fmt.Errorf("ConflictException: service has one or more associated service networks")
+}
+
+func TestRouteReconciler_DeleteRoute_ClearsGatewayStatusBeforeLatticeDelete(t *testing.T) {
+	config.VpcID = "my-vpc"
+	config.ClusterName = "my-cluster"
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	gwv1alpha2.Install(k8sScheme)
+	discoveryv1.AddToScheme(k8sScheme)
+	anv1alpha1.Install(k8sScheme)
+	addOptionalCRDs(k8sScheme)
+
+	hostname := gwv1.HostnameAddressType
+	gwClass := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "amazon-vpc-lattice"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-gateway", Namespace: "ns1"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+			Listeners:        []gwv1.Listener{{Name: "http", Protocol: "HTTP", Port: 80}},
+		},
+		Status: gwv1.GatewayStatus{
+			Addresses: []gwv1.GatewayStatusAddress{{Type: &hostname, Value: "my-route.lattice.aws"}},
+			Listeners: []gwv1.ListenerStatus{{Name: "http", AttachedRoutes: 1}},
+		},
+	}
+	now := metav1.Now()
+	route := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "my-route",
+			Namespace:         "ns1",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{"httproute.k8s.aws/resources"},
+			Annotations:       map[string]string{LatticeAssignedDomainName: "my-route.lattice.aws"},
+		},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{{Name: "my-gateway"}},
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(gwClass, gw, route).
+		WithStatusSubresource(&gwv1.HTTPRoute{}, &gwv1.Gateway{}).
+		Build()
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
+	rc := routeReconciler{
+		routeType:        core.HttpRouteType,
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		scheme:           k8sScheme,
+		finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient),
+		eventRecorder:    mockEventRecorder,
+		modelBuilder:     gateway.NewLatticeServiceBuilder(gwlog.FallbackLogger, k8sClient, brTgBuilder, nil, mocks.NewMockLattice(c)),
+		stackDeployer:    &failingStackDeployer{},
+		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
+	}
+
+	_, err := rc.Reconcile(ctx, reconcile.Request{NamespacedName: k8s.NamespacedName(route)})
+	assert.Error(t, err)
+
+	updatedGw := &gwv1.Gateway{}
+	assert.NoError(t, k8sClient.Get(ctx, k8s.NamespacedName(gw), updatedGw))
+	assert.Empty(t, updatedGw.Status.Addresses, "deleting route's address must be removed before the Lattice delete")
+	assert.Len(t, updatedGw.Status.Listeners, 1)
+	assert.Equal(t, int32(0), updatedGw.Status.Listeners[0].AttachedRoutes)
+
+	updatedRoute := &gwv1.HTTPRoute{}
+	assert.NoError(t, k8sClient.Get(ctx, k8s.NamespacedName(route), updatedRoute))
+	assert.Contains(t, updatedRoute.Finalizers, "httproute.k8s.aws/resources", "finalizer must stay until the Lattice delete succeeds")
+}
+
+func TestRouteReconciler_DeleteRoute_GatewayStatusErrorDoesNotBlockLatticeDelete(t *testing.T) {
+	config.VpcID = "my-vpc"
+	config.ClusterName = "my-cluster"
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+
+	k8sScheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sScheme)
+	gwv1.Install(k8sScheme)
+	gwv1alpha2.Install(k8sScheme)
+	discoveryv1.AddToScheme(k8sScheme)
+	anv1alpha1.Install(k8sScheme)
+	addOptionalCRDs(k8sScheme)
+
+	gwClass := &gwv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "amazon-vpc-lattice"},
+		Spec:       gwv1.GatewayClassSpec{ControllerName: config.LatticeGatewayControllerName},
+	}
+	// GRPCRoute on an HTTP listener makes UpdateGWListenerStatus return "no valid listeners".
+	gw := &gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-gateway", Namespace: "ns1"},
+		Spec: gwv1.GatewaySpec{
+			GatewayClassName: "amazon-vpc-lattice",
+			Listeners: []gwv1.Listener{{Name: "http", Protocol: "HTTP", Port: 80,
+				AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}, {Kind: "GRPCRoute"}}}}},
+		},
+	}
+	now := metav1.Now()
+	route := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "my-route",
+			Namespace:         "ns1",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{"httproute.k8s.aws/resources"},
+		},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{{Name: "my-gateway"}},
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().
+		WithScheme(k8sScheme).
+		WithObjects(gwClass, gw, route).
+		WithStatusSubresource(&gwv1.HTTPRoute{}, &gwv1.Gateway{}).
+		Build()
+
+	mockEventRecorder := mock_client.NewMockEventRecorder(c)
+	mockEventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	deployer := &noopStackDeployer{}
+	brTgBuilder := gateway.NewBackendRefTargetGroupBuilder(gwlog.FallbackLogger, k8sClient)
+	rc := routeReconciler{
+		routeType:        core.HttpRouteType,
+		log:              gwlog.FallbackLogger,
+		client:           k8sClient,
+		scheme:           k8sScheme,
+		finalizerManager: k8s.NewDefaultFinalizerManager(k8sClient),
+		eventRecorder:    mockEventRecorder,
+		modelBuilder:     gateway.NewLatticeServiceBuilder(gwlog.FallbackLogger, k8sClient, brTgBuilder, nil, mocks.NewMockLattice(c)),
+		stackDeployer:    deployer,
+		stackMarshaller:  deploy.NewDefaultStackMarshaller(),
+	}
+
+	_, err := rc.Reconcile(ctx, reconcile.Request{NamespacedName: k8s.NamespacedName(route)})
+	assert.Error(t, err)
+	assert.True(t, deployer.deployed, "Lattice delete must run even when the Gateway status update fails")
+}
