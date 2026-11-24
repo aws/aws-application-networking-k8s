@@ -73,26 +73,18 @@
   category: controller-bug
   reason: "Unresolved refs subtest fails due to ACM TLS"
 
-- name: HTTPRouteObservedGenerationBump
-  category: controller-bug
-  reason: "Passes in isolation, test ordering interference"
-
 - name: HTTPRouteSimpleSameNamespace
   category: controller-bug
   reason: "Flaky in partial runs, passes in full suite"
 
-- name: HTTPRouteInvalidBackendRefUnknownKind
-  category: controller-bug
-  reason: "Returns 404 instead of 500 for unknown kind backend refs, fix #899 only covers nonexistent backends"
-
 - name: HTTPRouteInvalidCrossNamespaceBackendRef
   category: controller-bug
-  reason: "Passes in isolation; Gateway keeps the previous test's address until its Lattice delete succeeds"
+  reason: "Flaky; Gateway keeps the previous test's address until its VPC Lattice delete succeeds"
 
 - name: HTTPRoutePartiallyInvalidViaInvalidReferenceGrant
   category: controller-bug
-  reason: "Passes in isolation; Gateway keeps the previous test's address until its Lattice delete succeeds"
+  reason: "Flaky; Gateway keeps the previous test's address until its VPC Lattice delete succeeds"
 
 - name: HTTPRouteReferenceGrant
   category: controller-bug
-  reason: "Passes in isolation; Gateway keeps the previous test's address until its Lattice delete succeeds"
+  reason: "Flaky; Gateway keeps the previous test's address until its VPC Lattice delete succeeds"
