@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
@@ -304,6 +306,15 @@ func (s *defaultTargetGroupManager) List(ctx context.Context) ([]tgListOutput, e
 	return tgList, err
 }
 
+// findTargetGroup returns the target group that matches the model, or nil when
+// none exists. Upsert creates a target group on a nil result, so a miss must be
+// real.
+//
+// With the Resource Groups Tagging API (DISABLE_TAGGING_SERVICE_API=false) the
+// first lookup reads an eventually consistent index that can omit a target
+// group for a while after it is created. On a miss, the target groups in the
+// model's VPC are read through the VPC Lattice API before reporting that none
+// exists.
 func (s *defaultTargetGroupManager) findTargetGroup(
 	ctx context.Context,
 	modelTargetGroup *model.TargetGroup,
@@ -313,10 +324,89 @@ func (s *defaultTargetGroupManager) findTargetGroup(
 	if err != nil {
 		return nil, err
 	}
-	if len(arns) == 0 {
+	latticeTg, err := s.firstMatchingTargetGroup(ctx, modelTargetGroup, arns)
+	if err != nil || latticeTg != nil {
+		return latticeTg, err
+	}
+
+	// With the Tagging API disabled, the lookup above already read VPC Lattice.
+	if s.awsCloud.Config().TaggingServiceAPIDisabled {
 		return nil, nil
 	}
 
+	latticeArns, err := s.findTargetGroupArnsInLattice(ctx, modelTargetGroup, arns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to confirm that target group %s does not exist: %w",
+			model.TgNamePrefix(modelTargetGroup.Spec), err)
+	}
+	latticeTg, err = s.firstMatchingTargetGroup(ctx, modelTargetGroup, latticeArns)
+	if latticeTg != nil {
+		s.log.Infof(ctx, "Found target group %s through VPC Lattice after the Resource Groups Tagging API missed it",
+			aws.ToString(latticeTg.Arn))
+	}
+	return latticeTg, err
+}
+
+// findTargetGroupArnsInLattice lists the target groups in the model's VPC
+// through VPC Lattice and returns the ARNs whose name prefix, immutable fields
+// and identifying tags match the model. ARNs in skip were already checked and
+// are ignored. Tags are read only for target groups that pass the other checks.
+//
+// The name prefix check relies on target groups being named by
+// model.GenerateTgName. A target group named otherwise predates the current
+// naming and has long been in the tag index, so the first lookup finds it.
+func (s *defaultTargetGroupManager) findTargetGroupArnsInLattice(
+	ctx context.Context,
+	modelTg *model.TargetGroup,
+	skip []string,
+) ([]string, error) {
+	lattice := s.awsCloud.Lattice()
+	tgs, err := lattice.ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{
+		VpcIdentifier: aws.String(modelTg.Spec.VpcId),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	namePrefix := model.TgNamePrefix(modelTg.Spec) + "-"
+	var arns []string
+	for i := range tgs {
+		tg := &tgs[i]
+		arn := aws.ToString(tg.Arn)
+		if slices.Contains(skip, arn) || !strings.HasPrefix(aws.ToString(tg.Name), namePrefix) {
+			continue
+		}
+		match, err := s.IsTargetGroupMatch(ctx, modelTg, tg, nil)
+		if err != nil {
+			return nil, err
+		}
+		if !match {
+			continue
+		}
+		tagsResp, err := lattice.ListTagsForResource(ctx, &vpclattice.ListTagsForResourceInput{
+			ResourceArn: tg.Arn,
+		})
+		if err != nil {
+			if services.IsNotFoundError(err) {
+				continue
+			}
+			return nil, err
+		}
+		if model.TagFieldsMatch(modelTg.Spec, model.TGTagFieldsFromTags(tagsResp.Tags)) {
+			arns = append(arns, arn)
+		}
+	}
+	return arns, nil
+}
+
+// firstMatchingTargetGroup gets each candidate ARN and returns the first usable
+// target group whose immutable fields match the model. Callers have already
+// matched the identifying tags.
+func (s *defaultTargetGroupManager) firstMatchingTargetGroup(
+	ctx context.Context,
+	modelTargetGroup *model.TargetGroup,
+	arns []string,
+) (*vpclattice.GetTargetGroupOutput, error) {
 	for _, arn := range arns {
 		latticeTg, err := s.awsCloud.Lattice().GetTargetGroup(ctx, &vpclattice.GetTargetGroupInput{
 			TargetGroupIdentifier: &arn,

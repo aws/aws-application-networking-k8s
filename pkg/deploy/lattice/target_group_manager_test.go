@@ -107,6 +107,7 @@ func Test_CreateTargetGroup_TGNotExist_Active(t *testing.T) {
 		expectedTags["Project"] = "TGManager"
 
 		mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+		mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(nil, nil) // tag index miss is confirmed in VPC Lattice
 		mockLattice.EXPECT().CreateTargetGroup(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, input *vpclattice.CreateTargetGroupInput, arg3 ...interface{}) (*vpclattice.CreateTargetGroupOutput, error) {
 				assert.Equal(t, aws.Int32(tgSpec.Port), input.Config.Port)
@@ -174,6 +175,8 @@ func Test_CreateTargetGroup_TGFailed_Active(t *testing.T) {
 
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return([]string{arn}, nil)
 	mockLattice.EXPECT().GetTargetGroup(ctx, gomock.Any()).Return(&tgOutput, nil)
+	// the only indexed target group failed to create, so the miss is confirmed in VPC Lattice
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(nil, nil)
 
 	mockLattice.EXPECT().CreateTargetGroup(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
@@ -429,6 +432,7 @@ func Test_CreateTargetGroup_NewTG_RetryStatus(t *testing.T) {
 			}
 
 			mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+			mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(nil, nil) // tag index miss is confirmed in VPC Lattice
 			mockLattice.EXPECT().CreateTargetGroup(ctx, gomock.Any()).Return(tgCreateOutput, nil)
 
 			tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
@@ -467,6 +471,7 @@ func Test_Lattice_API_Errors(t *testing.T) {
 
 	// create error
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(nil, nil) // tag index miss is confirmed in VPC Lattice
 	mockLattice.EXPECT().CreateTargetGroup(ctx, gomock.Any()).Return(nil, errors.New("test"))
 
 	tgManager = NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
@@ -629,6 +634,7 @@ func Test_DeleteTG_NothingToDelete(t *testing.T) {
 	}
 
 	mockTagging.EXPECT().FindResourcesByTags(ctx, gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, gomock.Any()).Return(nil, nil) // tag index miss is confirmed in VPC Lattice
 
 	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
 	err := tgManager.Delete(ctx, &tgDeleteInput)
