@@ -73,7 +73,7 @@ For those already familiar with the reference implementation of [Kubernetes Gate
 
 The Amazon VPC Lattice Gateway API Controller is currently focused only on East-West (Mesh) traffic through VPC Lattice.
 
-Many users will expect North-South (Ingress) ALB/NLB-type features. This is available (still using the v1 Ingress spec) from the [AWS Load Balancer Controller](https://github.com/kubernetes-sigs/aws-load-balancer-controller)
+Many users will expect North-South (Ingress) ALB/NLB-type features. These are available from the [AWS Load Balancer Controller](https://github.com/kubernetes-sigs/aws-load-balancer-controller), using either the Kubernetes Ingress API or the [Gateway API](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/gateway/gateway/).
 
 ## Relationship between VPC Lattice and Kubernetes
 
