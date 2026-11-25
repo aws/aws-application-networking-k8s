@@ -1804,3 +1804,35 @@ func Test_ResolveRuleTgIds_KeepsResolvedExternalTargetGroupId(t *testing.T) {
 	assert.Equal(t, "tg-0df85aff983932f06", stackRule.Spec.Action.TargetGroups[0].LatticeTgId)
 	assert.Empty(t, stackRule.Spec.Action.TargetGroups[0].StackTargetGroupId)
 }
+
+// Deleting a target group drops its make-before-break holds.
+func Test_DeleteTG_DropsMakeBeforeBreakHolds(t *testing.T) {
+	sId := "10.0.0.1"
+	sPort := int32(80)
+	listTargetsOutput := []types.TargetSummary{{Id: &sId, Port: &sPort, Status: types.TargetStatusHealthy}}
+	successful := []types.Target{{Id: &sId, Port: &sPort}}
+
+	key := holdKey{tgId: "id", ip: sId, port: 80}
+	defaultTargetHolds.start(key, defaultTargetHolds.now())
+
+	tgDeleteInput := model.TargetGroup{
+		Spec:   model.TargetGroupSpec{Type: "IP"},
+		Status: &model.TargetGroupStatus{Name: "name", Arn: "arn", Id: "id"},
+	}
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockLattice.EXPECT().ListTargetsAsList(ctx, gomock.Any()).Return(listTargetsOutput, nil)
+	mockLattice.EXPECT().DeregisterTargets(ctx, gomock.Any()).Return(&vpclattice.DeregisterTargetsOutput{Successful: successful}, nil)
+	mockLattice.EXPECT().DeleteTargetGroup(ctx, gomock.Any()).Return(&vpclattice.DeleteTargetGroupOutput{}, nil)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+	assert.NoError(t, NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil).Delete(ctx, &tgDeleteInput))
+
+	defaultTargetHolds.mu.Lock()
+	_, held := defaultTargetHolds.since[key]
+	defaultTargetHolds.mu.Unlock()
+	assert.False(t, held)
+}

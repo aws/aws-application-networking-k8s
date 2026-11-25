@@ -253,6 +253,9 @@ func (s *defaultTargetGroupManager) Delete(ctx context.Context, modelTg *model.T
 		}
 	}
 
+	// Every target is deregistered above, so any make-before-break hold of this target group is moot.
+	defaultTargetHolds.forget(modelTg.Status.Id)
+
 	deleteTGInput := vpclattice.DeleteTargetGroupInput{
 		TargetGroupIdentifier: &modelTg.Status.Id,
 	}

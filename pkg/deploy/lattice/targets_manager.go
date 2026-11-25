@@ -7,8 +7,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	pkg_aws "github.com/aws/aws-application-networking-k8s/pkg/aws"
+	"github.com/aws/aws-application-networking-k8s/pkg/config"
 	model "github.com/aws/aws-application-networking-k8s/pkg/model/lattice"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils"
 	"github.com/aws/aws-application-networking-k8s/pkg/utils/gwlog"
@@ -31,6 +33,10 @@ type TargetsManager interface {
 type defaultTargetsManager struct {
 	log   gwlog.Logger
 	cloud pkg_aws.Cloud
+	// client reads pods for ENABLE_MAKE_BEFORE_BREAK_TARGETS. Without it no
+	// target is held and Update behaves as with the flag off.
+	client client.Client
+	holds  *targetHolds
 }
 
 func NewTargetsManager(
@@ -40,7 +46,20 @@ func NewTargetsManager(
 	return &defaultTargetsManager{
 		log:   log,
 		cloud: cloud,
+		holds: defaultTargetHolds,
 	}
+}
+
+// NewTargetsManagerWithClient returns a TargetsManager that can read pods,
+// which ENABLE_MAKE_BEFORE_BREAK_TARGETS needs.
+func NewTargetsManagerWithClient(
+	log gwlog.Logger,
+	cloud pkg_aws.Cloud,
+	k8sClient client.Client,
+) *defaultTargetsManager {
+	m := NewTargetsManager(log, cloud)
+	m.client = k8sClient
+	return m
 }
 
 func (s *defaultTargetsManager) List(ctx context.Context, modelTg *model.TargetGroup) ([]types.TargetSummary, error) {
@@ -68,12 +87,16 @@ func (s *defaultTargetsManager) Update(ctx context.Context, modelTargets *model.
 	}
 	s.log.Debugf(ctx, "Found %d existing targets in VPC Lattice for target group %s", len(latticeTargets), modelTg.Status.Id)
 
-	staleTargets := s.findStaleTargets(modelTargets, latticeTargets)
+	staleTargets := findStaleTargets(modelTargets, latticeTargets)
 	if len(staleTargets) > 0 {
 		s.log.Infof(ctx, "Found %d stale targets to deregister from target group %s", len(staleTargets), modelTg.Status.Id)
 		for _, target := range staleTargets {
 			s.log.Debugf(ctx, "Stale target: %s:%d", target.TargetIP, target.Port)
 		}
+	}
+
+	if config.MakeBeforeBreakTargets && s.client != nil {
+		return s.updateMakeBeforeBreak(ctx, modelTargets, modelTg, latticeTargets, staleTargets)
 	}
 
 	err1 := s.deregisterTargets(ctx, modelTg, staleTargets)
@@ -117,7 +140,8 @@ func (s *defaultTargetsManager) findNewTargets(
 	return newTargets
 }
 
-func (s *defaultTargetsManager) findStaleTargets(
+// findStaleTargets returns the registered, non-draining targets that are not in modelTargets.
+func findStaleTargets(
 	modelTargets *model.Targets,
 	listTargetsOutput []types.TargetSummary) []model.Target {
 

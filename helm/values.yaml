@@ -104,6 +104,8 @@ webhookEnabled: true
 disableTaggingServiceApi: false
 routeMaxConcurrentReconciles:
 reconcileDefaultResyncSeconds:
+enableMakeBeforeBreakTargets: false
+makeBeforeBreakTargetsTimeout:
 
 # TLS cert/key for the webhook. If specified, values must be base64 encoded
 webhookTLS:

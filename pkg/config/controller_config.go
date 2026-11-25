@@ -34,6 +34,12 @@ const (
 	WEBHOOK_ENABLED                  = "WEBHOOK_ENABLED"
 	ROUTE_MAX_CONCURRENT_RECONCILES  = "ROUTE_MAX_CONCURRENT_RECONCILES"
 	RECONCILE_DEFAULT_RESYNC_SECONDS = "RECONCILE_DEFAULT_RESYNC_SECONDS"
+	// ENABLE_MAKE_BEFORE_BREAK_TARGETS keeps targets that left the model registered
+	// until their replacements are healthy (or the timeout passes).
+	ENABLE_MAKE_BEFORE_BREAK_TARGETS  = "ENABLE_MAKE_BEFORE_BREAK_TARGETS"
+	MAKE_BEFORE_BREAK_TARGETS_TIMEOUT = "MAKE_BEFORE_BREAK_TARGETS_TIMEOUT"
+
+	defaultMakeBeforeBreakTargetsTimeout = 5 * time.Minute
 )
 
 var VpcID = ""
@@ -48,6 +54,8 @@ var DisableTaggingServiceAPI = false
 var ServiceNetworkOverrideMode = false
 var RouteMaxConcurrentReconciles = 1
 var ReconcileDefaultResyncInterval time.Duration // 0 = disabled (current behavior)
+var MakeBeforeBreakTargets = false
+var MakeBeforeBreakTargetsTimeout = defaultMakeBeforeBreakTargetsTimeout
 
 func ConfigInit() error {
 	cfg, err := awsconfig.LoadDefaultConfig(context.TODO())
@@ -129,6 +137,17 @@ func configInit(cfg aws.Config, metadata EC2Metadata) error {
 			return fmt.Errorf("RECONCILE_DEFAULT_RESYNC_SECONDS must be 0 (disabled) or at least 60 seconds, got %d", reconcileDefaultResyncIntervalInt)
 		}
 		ReconcileDefaultResyncInterval = time.Duration(reconcileDefaultResyncIntervalInt) * time.Second
+	}
+
+	if strings.ToLower(os.Getenv(ENABLE_MAKE_BEFORE_BREAK_TARGETS)) == "true" {
+		MakeBeforeBreakTargets = true
+	}
+	if v := os.Getenv(MAKE_BEFORE_BREAK_TARGETS_TIMEOUT); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			return fmt.Errorf("invalid value for %s: %q, want a positive duration such as 5m", MAKE_BEFORE_BREAK_TARGETS_TIMEOUT, v)
+		}
+		MakeBeforeBreakTargetsTimeout = d
 	}
 
 	return nil
