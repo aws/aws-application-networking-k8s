@@ -3,6 +3,7 @@ package lattice
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice"
 	"github.com/aws/aws-sdk-go-v2/service/vpclattice/types"
+	"github.com/aws/smithy-go"
 )
 
 type IAMAuthPolicyManager struct {
@@ -167,6 +169,13 @@ func (m *IAMAuthPolicyManager) putPolicy(ctx context.Context, id, policy string)
 		ResourceIdentifier: &id,
 	}
 	_, err := m.cloud.Lattice().PutAuthPolicy(ctx, req)
+	// ValidationException means VPC Lattice rejected the policy document, for example
+	// invalid syntax or a principal that does not exist. Retrying the same document
+	// cannot succeed, so return it as an InvalidError.
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) && apiErr.ErrorCode() == "ValidationException" {
+		return services.NewInvalidError(fmt.Sprintf("VPC Lattice rejected the auth policy: %s: %s", apiErr.ErrorCode(), apiErr.ErrorMessage()))
+	}
 	return err
 }
 

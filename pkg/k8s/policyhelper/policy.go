@@ -329,17 +329,21 @@ func (h *PolicyHandler[P]) targetRefMatch(obj k8sclient.Object, tr *gwv1alpha2.N
 
 // Validate Policy and update Accepted status condition.
 func (h *PolicyHandler[P]) ValidateAndUpdateCondition(ctx context.Context, policy P) (ConditionReason, error) {
-	validationErr := h.ValidateTargetRef(ctx, policy)
-	reason := errToReason(validationErr)
-	msg := ""
-	if validationErr != nil {
-		msg = validationErr.Error()
-	}
+	reason, msg := h.Validate(ctx, policy)
 	err := h.UpdateAcceptedCondition(ctx, policy, reason, msg)
 	if err != nil {
 		return ReasonUnknown, err
 	}
 	return reason, nil
+}
+
+// Validate Policy and return the Accepted condition reason and message, without updating status.
+func (h *PolicyHandler[P]) Validate(ctx context.Context, policy P) (ConditionReason, string) {
+	validationErr := h.ValidateTargetRef(ctx, policy)
+	if validationErr != nil {
+		return errToReason(validationErr), validationErr.Error()
+	}
+	return ReasonAccepted, ""
 }
 
 func (h *PolicyHandler[P]) ValidateTargetRef(ctx context.Context, policy P) error {
