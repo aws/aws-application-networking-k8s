@@ -367,6 +367,35 @@ func Test_VpcAssociationPolicy_ValidationError_SetsReconcileFailed_Deterministic
 	}
 }
 
+func Test_VpcAssociationPolicy_ConflictError_SetsAcceptedFalseAndRequeues(t *testing.T) {
+	e := newVapTestEnv(t, newVapTestPolicy(nil), newVapTestGateway())
+	for i := 0; i < 2; i++ {
+		e.manager.EXPECT().UpsertVpcAssociation(gomock.Any(), vapTestGateway, gomock.Any()).
+			Return(deploy.VpcAssociationResult{}, services.NewConflictError("ServiceNetworkVpcAssociation", vapTestGateway,
+				"VPC has already been associated to a service network."))
+	}
+
+	for i := 0; i < 2; i++ {
+		result, err := e.reconcile(t)
+		assert.NoError(t, err)
+		assert.Equal(t, conflictRecheckInterval, result.RequeueAfter)
+	}
+
+	accepted := meta.FindStatusCondition(e.getPolicy(t).Status.Conditions, string(gwv1.PolicyConditionAccepted))
+	if assert.NotNil(t, accepted) {
+		assert.Equal(t, metav1.ConditionFalse, accepted.Status)
+		assert.Equal(t, string(gwv1.PolicyReasonConflicted), accepted.Reason)
+		assert.Contains(t, accepted.Message, "VPC has already been associated")
+	}
+	programmed := e.programmed(t)
+	if assert.NotNil(t, programmed) {
+		assert.Equal(t, metav1.ConditionFalse, programmed.Status)
+		assert.Equal(t, string(anv1alpha1.VpcAssociationPolicyReasonReconcileFailed), programmed.Reason)
+		assert.Contains(t, programmed.Message, "VPC has already been associated")
+	}
+	assert.Len(t, e.drainEvents(), 1, "repeated conflicts emit one event")
+}
+
 func Test_VpcAssociationPolicy_ServiceNetworkNotFound_SetsProgrammedPending(t *testing.T) {
 	e := newVapTestEnv(t, newVapTestPolicy(nil), newVapTestGateway())
 	e.manager.EXPECT().UpsertVpcAssociation(gomock.Any(), vapTestGateway, gomock.Any()).

@@ -35,6 +35,8 @@ When attaching a VpcAssociationPolicy to a resource, the following restrictions 
 * Policies must be attached to *Gateway* resource.
 * The attached resource must exist in the same namespace as the policy resource.
 
+* A VPC can be associated with only one service network. If the cluster VPC is already associated with a different service network, the policy reports `Accepted=False` with reason `Conflicted` until that association is removed. To connect the VPC to more service networks, create VPC endpoints of type service network, for example with the EC2 ACK controller.
+
 The security group and private DNS settings will not take effect if:
 
 * The `targetRef` gateway does not exist.
@@ -141,12 +143,12 @@ field validation (Helm-rendered resources, GitOps tools, raw API clients) get th
 
 | Type | Status / Reason | Meaning |
 |---|---|---|
-| `Accepted` | `True` / `Accepted` | The `targetRef` is valid and this policy wins conflict resolution. Other reasons follow the Gateway API policy attachment conventions (`Invalid`, `TargetNotFound`, `Conflicted`). |
+| `Accepted` | `True` / `Accepted` | The `targetRef` is valid and this policy wins conflict resolution. Other reasons follow the Gateway API policy attachment conventions (`Invalid`, `TargetNotFound`, `Conflicted`). `Conflicted` is also set when VPC Lattice rejects the association because the VPC is already associated with another service network or the existing association is not owned by the controller; the message carries the cause and the controller checks again every minute. |
 | `Programmed` | `True` / `Programmed` | The association is active and matches the policy (on a RAM-shared service network only the private DNS settings are compared), or `associateWithVpc` is `false` and no association is managed. |
-| `Programmed` | `Unknown` / `Pending` | VPC Lattice is still creating, updating or deleting the association, the service network does not exist yet, or a transient VPC Lattice error (throttling, internal error, conflict) is being retried. |
+| `Programmed` | `Unknown` / `Pending` | VPC Lattice is still creating, updating or deleting the association, the service network does not exist yet, or a transient VPC Lattice error (throttling, internal error, a concurrent state change) is being retried. |
 | `Programmed` | `Unknown` / `NotAccepted` | The policy is not accepted; see the `Accepted` condition. Nothing is created or deleted for it. |
 | `Programmed` | `False` / `PrivateDnsMismatch` | An association the controller did not create on a RAM-shared service network has private DNS settings that differ from the policy. The message lists the difference. |
-| `Programmed` | `False` / `ReconcileFailed` | The last create, update or delete failed: a VPC Lattice error (for example `ValidationException`), or an existing association that is not owned by the controller. The message carries the cause. |
+| `Programmed` | `False` / `ReconcileFailed` | The last create, update or delete failed: a VPC Lattice error (for example `ValidationException`), the VPC is already associated with another service network, or an existing association is not owned by the controller. The message carries the cause. |
 
 Example after changing `dnsOptions` on a policy whose association was created outside the controller on a RAM-shared
 service network:

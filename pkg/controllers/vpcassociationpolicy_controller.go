@@ -45,6 +45,8 @@ const (
 	// foreignDnsMismatchRecheckInterval is how often a reported mismatch is compared again: fixing the
 	// association out of band changes nothing in Kubernetes, so no watch would trigger a reconcile.
 	foreignDnsMismatchRecheckInterval = time.Minute
+
+	conflictRecheckInterval = time.Minute
 )
 
 type vpcAssociationPolicyReconciler struct {
@@ -164,6 +166,9 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 		Dns:              dnsConfigFromSpec(k8sPolicy.Spec),
 	}
 	res, err := c.manager.UpsertVpcAssociation(ctx, snName, req)
+	if services.IsConflictError(err) {
+		return c.handleConflict(ctx, k8sPolicy, err)
+	}
 	if err != nil {
 		return c.setProgrammedFromError(ctx, k8sPolicy, err, "Waiting for the VPC association to become active")
 	}
@@ -186,6 +191,15 @@ func (c *vpcAssociationPolicyReconciler) upsert(ctx context.Context, k8sPolicy *
 		msg = fmt.Sprintf("VPC association %s is active; security groups and tags of associations on RAM-shared service networks are not managed by the controller", res.Arn)
 	}
 	return c.setProgrammed(ctx, k8sPolicy, metav1.ConditionTrue, anv1alpha1.VpcAssociationPolicyReasonProgrammed, msg, "")
+}
+
+func (c *vpcAssociationPolicyReconciler) handleConflict(ctx context.Context, k8sPolicy *anv1alpha1.VpcAssociationPolicy, conflictErr error) error {
+	if err := c.ph.UpdateAcceptedCondition(ctx, k8sPolicy, policy.ReasonConflicted, conflictErr.Error()); err != nil {
+		return err
+	}
+	_ = c.setProgrammedFromError(ctx, k8sPolicy, conflictErr, "")
+	// the conflict can clear without any Kubernetes event, for example when the other association finishes deleting
+	return lattice_runtime.NewRequeueNeededAfter("VPC_ASSOCIATION_CONFLICT", conflictRecheckInterval)
 }
 
 // disassociate handles spec.associateWithVpc=false.
