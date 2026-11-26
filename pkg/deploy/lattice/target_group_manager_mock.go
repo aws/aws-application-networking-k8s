@@ -87,6 +87,21 @@ func (mr *MockTargetGroupManagerMockRecorder) List(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockTargetGroupManager)(nil).List), ctx)
 }
 
+// ListInVpc mocks base method.
+func (m *MockTargetGroupManager) ListInVpc(ctx context.Context, vpcId string) ([]tgListOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListInVpc", ctx, vpcId)
+	ret0, _ := ret[0].([]tgListOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListInVpc indicates an expected call of ListInVpc.
+func (mr *MockTargetGroupManagerMockRecorder) ListInVpc(ctx, vpcId any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListInVpc", reflect.TypeOf((*MockTargetGroupManager)(nil).ListInVpc), ctx, vpcId)
+}
+
 // ResolveRuleTgIds mocks base method.
 func (m *MockTargetGroupManager) ResolveRuleTgIds(ctx context.Context, modelRuleAction *lattice.RuleAction, stack core.Stack) error {
 	m.ctrl.T.Helper()

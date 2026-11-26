@@ -877,6 +877,46 @@ func Test_ListTG_NoTG(t *testing.T) {
 	assert.Equal(t, tgList, expectTgList)
 }
 
+func Test_ListTGInVpc(t *testing.T) {
+	tg := types.TargetGroupSummary{
+		Arn:           aws.String("arn:tg-1"),
+		Id:            aws.String("tg-1"),
+		Name:          aws.String("tg-1"),
+		VpcIdentifier: aws.String("vpc-a"),
+		Type:          types.TargetGroupTypeIp,
+	}
+	tags := mocks.Tags{"k": "v"}
+
+	c := gomock.NewController(t)
+	defer c.Finish()
+	ctx := context.TODO()
+	mockLattice := mocks.NewMockLattice(c)
+	mockTagging := mocks.NewMockTagging(c)
+	cloud := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+	tgManager := NewTargetGroupManager(gwlog.FallbackLogger, cloud, nil)
+
+	// ListInVpc asks VPC Lattice for the VPC's TGs only
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{
+		VpcIdentifier: aws.String("vpc-a"),
+	}).Return([]types.TargetGroupSummary{tg}, nil)
+	mockTagging.EXPECT().GetTagsForArns(ctx, []string{"arn:tg-1"}).
+		Return(map[string]mocks.Tags{"arn:tg-1": tags}, nil)
+
+	tgList, err := tgManager.ListInVpc(ctx, "vpc-a")
+	assert.Nil(t, err)
+	assert.Equal(t, []tgListOutput{{tgSummary: tg, tags: tags}}, tgList)
+
+	// List is still account-wide
+	mockLattice.EXPECT().ListTargetGroupsAsList(ctx, &vpclattice.ListTargetGroupsInput{}).
+		Return([]types.TargetGroupSummary{tg}, nil)
+	mockTagging.EXPECT().GetTagsForArns(ctx, []string{"arn:tg-1"}).
+		Return(map[string]mocks.Tags{"arn:tg-1": tags}, nil)
+
+	tgList, err = tgManager.List(ctx)
+	assert.Nil(t, err)
+	assert.Equal(t, []tgListOutput{{tgSummary: tg, tags: tags}}, tgList)
+}
+
 func Test_defaultTargetGroupManager_getDefaultHealthCheckConfig(t *testing.T) {
 	var (
 		defaultMatcher                    types.Matcher = &types.MatcherMemberHttpCode{Value: "200"}

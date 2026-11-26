@@ -171,9 +171,11 @@ func (t *TargetGroupSynthesizer) SynthesizeUnusedDelete(ctx context.Context) ([]
 }
 
 func (t *TargetGroupSynthesizer) calculateTargetGroupsToDelete(ctx context.Context) ([]tgListOutput, error) {
-	latticeTgs, err := t.targetGroupManager.List(ctx)
+	// Only TGs in this controller's VPC can be deleted (see vpcMatchesConfig), so list just
+	// those. Listing the whole account would also fetch tags for every TG in other VPCs.
+	latticeTgs, err := t.targetGroupManager.ListInVpc(ctx, config.VpcID)
 	if err != nil {
-		return latticeTgs, fmt.Errorf("failed TargetGroupManager.List due to %s", err)
+		return latticeTgs, fmt.Errorf("failed TargetGroupManager.ListInVpc due to %s", err)
 	}
 
 	var tgsToDelete []tgListOutput
