@@ -155,10 +155,10 @@ conformance-helm-namespace := "aws-application-networking-system"
 .PHONY: conformance-test
 conformance-test: ## Run conformance tests. Set INSTALL_CONTROLLER=true to install/uninstall controller via Helm.
 ifndef GATEWAY_API_VERSION
-	$(error GATEWAY_API_VERSION is required (e.g., GATEWAY_API_VERSION=v1.4.0))
+	$(error GATEWAY_API_VERSION is required (e.g., GATEWAY_API_VERSION=v1.5.1))
 endif
 ifndef CONTROLLER_VERSION
-	$(error CONTROLLER_VERSION is required (e.g., CONTROLLER_VERSION=v2.1.0))
+	$(error CONTROLLER_VERSION is required (e.g., CONTROLLER_VERSION=v2.3.0))
 endif
 	@rm -rf gateway-api
 	@echo "Cloning gateway-api at $(GATEWAY_API_VERSION)..."

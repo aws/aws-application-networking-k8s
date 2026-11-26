@@ -15,10 +15,10 @@ Runs the upstream [Gateway API conformance suite](https://gateway-api.sigs.k8s.i
 
 ```bash
 # Controller already running
-GATEWAY_API_VERSION=v1.4.0 CONTROLLER_VERSION=v2.0.1 make conformance-test
+GATEWAY_API_VERSION=v1.5.1 CONTROLLER_VERSION=v2.3.0 make conformance-test
 
 # Install controller via Helm
-GATEWAY_API_VERSION=v1.4.0 CONTROLLER_VERSION=v2.0.1 INSTALL_CONTROLLER=true make conformance-test
+GATEWAY_API_VERSION=v1.5.1 CONTROLLER_VERSION=v2.3.0 INSTALL_CONTROLLER=true make conformance-test
 
 # Manual cleanup
 make conformance-clean
@@ -46,7 +46,7 @@ go run cmd/aws-application-networking-k8s/main.go
 In another terminal:
 
 ```bash
-GATEWAY_API_VERSION=v1.5.1 CONTROLLER_VERSION=v2.0.1 make conformance-test
+GATEWAY_API_VERSION=v1.5.1 CONTROLLER_VERSION=v2.3.0 make conformance-test
 ```
 
 ## Files
