@@ -173,6 +173,13 @@ type TLSRouteRule struct {
 	r gwv1.TLSRouteRule
 }
 
+func (r *TLSRouteRule) Name() string {
+	if r.r.Name == nil {
+		return ""
+	}
+	return string(*r.r.Name)
+}
+
 func (r *TLSRouteRule) BackendRefs() []BackendRef {
 	var backendRefs []BackendRef
 	for _, backendRef := range r.r.BackendRefs {
