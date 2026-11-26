@@ -238,27 +238,34 @@ func (r *resourceMapper) backendRefToRoutes(ctx context.Context, obj client.Obje
 	if obj == nil {
 		return nil
 	}
+	key := backendRefIndexKey(kind, obj.GetNamespace(), obj.GetName())
+	byBackendRef := client.MatchingFields{routeBackendRefIndex: key}
 	var routes []core.Route
+	var err error
 	switch routeType {
 	case core.HttpRouteType:
 		routeList := &gwv1.HTTPRouteList{}
-		r.client.List(ctx, routeList)
+		err = r.client.List(ctx, routeList, byBackendRef)
 		for _, k8sRoute := range routeList.Items {
 			routes = append(routes, core.NewHTTPRoute(k8sRoute))
 		}
 	case core.GrpcRouteType:
 		routeList := &gwv1.GRPCRouteList{}
-		r.client.List(ctx, routeList)
+		err = r.client.List(ctx, routeList, byBackendRef)
 		for _, k8sRoute := range routeList.Items {
 			routes = append(routes, core.NewGRPCRoute(k8sRoute))
 		}
 	case core.TlsRouteType:
 		routeList := &gwv1.TLSRouteList{}
-		r.client.List(ctx, routeList)
+		err = r.client.List(ctx, routeList, byBackendRef)
 		for _, k8sRoute := range routeList.Items {
 			routes = append(routes, core.NewTLSRoute(k8sRoute))
 		}
 	default:
+		return nil
+	}
+	if err != nil {
+		r.log.Errorw(ctx, "failed to list routes by backendRef", "routeType", routeType, "backendRef", key, "reason", err.Error())
 		return nil
 	}
 

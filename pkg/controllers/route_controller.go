@@ -96,6 +96,9 @@ func RegisterAllRouteControllers(
 	mgr ctrl.Manager,
 ) error {
 	mgrClient := mgr.GetClient()
+	if err := eventhandlers.IndexRouteBackendRefs(context.Background(), mgr.GetFieldIndexer()); err != nil {
+		return err
+	}
 	gwEventHandler := eventhandlers.NewEnqueueRequestGatewayEvent(log, mgrClient)
 	svcEventHandler := eventhandlers.NewServiceEventHandler(log, mgrClient)
 
