@@ -293,7 +293,9 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 					Code:   http.StatusNotFound,
 					Reason: metav1.StatusReasonNotFound,
 				},
-			})
+			}).Times(2) // scan, then re-check under the lock
+		// GC re-reads the candidate under the lock and checks it again before deleting
+		mockTGManager.EXPECT().Get(ctx, "tg-svc-export-arn").Return(&deleteTgs[0].tgSummary, nil)
 		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
 
 		synthesizer := NewTargetGroupSynthesizer(
@@ -315,7 +317,9 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 				svcExport.SetDeletionTimestamp(&now)
 				return nil
 			},
-		)
+		).Times(2) // scan, then re-check under the lock
+		// GC re-reads the candidate under the lock and checks it again before deleting
+		mockTGManager.EXPECT().Get(ctx, "tg-svc-export-arn").Return(&deleteTgs[0].tgSummary, nil)
 		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
 
 		synthesizer := NewTargetGroupSynthesizer(
@@ -349,9 +353,11 @@ func Test_DeleteServiceExport_DeleteCases(t *testing.T) {
 				svcExport.SetNamespace("ns")
 				return nil
 			},
-		)
+		).Times(2) // scan, then re-check under the lock
 
-		mockSvcExportTgBuilder.EXPECT().BuildTargetGroup(ctx, gomock.Any()).Return(&modelTg, nil)
+		mockSvcExportTgBuilder.EXPECT().BuildTargetGroup(ctx, gomock.Any()).Return(&modelTg, nil).Times(2)
+		// GC re-reads the candidate under the lock and checks it again before deleting
+		mockTGManager.EXPECT().Get(ctx, "tg-svc-export-arn").Return(&deleteTgs[0].tgSummary, nil)
 
 		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
 		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
@@ -396,7 +402,9 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 					Code:   http.StatusNotFound,
 					Reason: metav1.StatusReasonNotFound,
 				},
-			})
+			}).Times(2) // scan, then re-check under the lock
+		// GC re-reads the candidate under the lock and checks it again before deleting
+		mockTGManager.EXPECT().Get(ctx, "tg-svc-arn").Return(&deleteTgs[0].tgSummary, nil)
 		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
 
 		synthesizer := NewTargetGroupSynthesizer(
@@ -418,7 +426,9 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 				route.SetDeletionTimestamp(&now)
 				return nil
 			},
-		)
+		).Times(2) // scan, then re-check under the lock
+		// GC re-reads the candidate under the lock and checks it again before deleting
+		mockTGManager.EXPECT().Get(ctx, "tg-svc-arn").Return(&deleteTgs[0].tgSummary, nil)
 		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
 
 		synthesizer := NewTargetGroupSynthesizer(
@@ -454,7 +464,7 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 		svcModelTg.ResourceMeta = core.NewResourceMeta(stack, "AWS:VPCServiceNetwork::TargetGroup", "tg-id")
 		stack.AddResource(&svcModelTg)
 
-		mockSvcBuilder.EXPECT().Build(ctx, gomock.Any()).Return(stack, nil)
+		mockSvcBuilder.EXPECT().Build(ctx, gomock.Any()).Return(stack, nil).Times(2)
 
 		mockClient.EXPECT().Get(ctx, gomock.Any(), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, name apitypes.NamespacedName, svcOrSvcExport client.Object, _ ...interface{}) error {
@@ -462,13 +472,15 @@ func Test_DeleteRoute_DeleteCases(t *testing.T) {
 				svcOrSvcExport.SetNamespace("ns")
 				return nil
 			},
-		)
+		).Times(2) // scan, then re-check under the lock
 
 		mockTGManager.EXPECT().List(ctx).Return(deleteTgs, nil)
 		// important bit below, return false for match
 		// this is actually what decides if the tgs are a match or not
 		mockTGManager.EXPECT().IsTargetGroupMatch(ctx, gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(false, nil)
+			Return(false, nil).Times(2)
+		// GC re-reads the candidate under the lock and checks it again before deleting
+		mockTGManager.EXPECT().Get(ctx, "tg-svc-arn").Return(&deleteTgs[0].tgSummary, nil)
 		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
 
 		synthesizer := NewTargetGroupSynthesizer(
@@ -596,15 +608,17 @@ func Test_SynthesizeUnusedDelete_ExternalTgRouteRebuild(t *testing.T) {
 				route.SetNamespace("route-ns")
 				return nil
 			},
-		)
+		).Times(2) // scan, then re-check under the lock
 		emptyStack := core.NewDefaultStack(core.StackID{Name: "route", Namespace: "route-ns"})
 		nonMatchingTg := model.TargetGroup{
 			ResourceMeta: core.NewResourceMeta(emptyStack, "AWS:VPCServiceNetwork::TargetGroup", "tg-other"),
 		}
 		emptyStack.AddResource(&nonMatchingTg)
-		mockSvcBuilder.EXPECT().Build(ctx, gomock.Any()).Return(emptyStack, nil)
+		mockSvcBuilder.EXPECT().Build(ctx, gomock.Any()).Return(emptyStack, nil).Times(2)
 		mockTGManager.EXPECT().IsTargetGroupMatch(ctx, gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(false, nil)
+			Return(false, nil).Times(2)
+		// GC re-reads the candidate under the lock and checks it again before deleting
+		mockTGManager.EXPECT().Get(ctx, "tg-orphan-arn").Return(&orphanTg.tgSummary, nil)
 		mockTGManager.EXPECT().Delete(ctx, gomock.Any()).Return(nil)
 
 		synthesizer := NewTargetGroupSynthesizer(

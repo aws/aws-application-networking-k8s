@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,11 +32,11 @@ func TestTgGc(t *testing.T) {
 	tests := []test{
 		{
 			name: "empty cycle",
-			gcFn: func(context.Context) (TgGcResult, error) { return TgGcResult{}, nil },
+			gcFn: func(context.Context, sync.Locker) (TgGcResult, error) { return TgGcResult{}, nil },
 		},
 		{
 			name: "cycle with results",
-			gcFn: func(context.Context) (TgGcResult, error) {
+			gcFn: func(context.Context, sync.Locker) (TgGcResult, error) {
 				return TgGcResult{
 					att:      10,
 					succ:     10,
@@ -44,11 +46,11 @@ func TestTgGc(t *testing.T) {
 		},
 		{
 			name: "cycle panic",
-			gcFn: func(context.Context) (TgGcResult, error) { panic("") },
+			gcFn: func(context.Context, sync.Locker) (TgGcResult, error) { panic("") },
 		},
 		{
 			name: "cycle error",
-			gcFn: func(context.Context) (TgGcResult, error) { return TgGcResult{}, errors.New("") },
+			gcFn: func(context.Context, sync.Locker) (TgGcResult, error) { return TgGcResult{}, errors.New("") },
 		},
 	}
 
@@ -57,15 +59,14 @@ func TestTgGc(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
-			n := 0
-			f := func(ctx context.Context) (TgGcResult, error) {
+			var n atomic.Int32 // written by the GC goroutine, read by the test
+			f := func(ctx context.Context, l sync.Locker) (TgGcResult, error) {
 				defer func() {
-					n += 1
-					if n >= nCycles {
+					if int(n.Add(1)) >= nCycles {
 						cancel()
 					}
 				}()
-				return tt.gcFn(ctx)
+				return tt.gcFn(ctx, l)
 			}
 			ivl := time.Millisecond * 10
 			tgGc := &TgGc{
@@ -75,9 +76,8 @@ func TestTgGc(t *testing.T) {
 				cycleFn: f,
 			}
 			tgGc.start()
-			time.Sleep(ivl * (time.Duration(nCycles) + 2)) // sleep enough cycles to terminate
-			assert.Equal(t, nCycles, n, fmt.Sprintf("should run only %d cycles", nCycles))
-			assert.True(t, tgGc.isDone.Load(), "gc must terminate")
+			assert.Eventually(t, tgGc.isDone.Load, 5*time.Second, ivl, "gc must terminate")
+			assert.Equal(t, nCycles, int(n.Load()), fmt.Sprintf("should run only %d cycles", nCycles))
 		})
 	}
 }
@@ -183,4 +183,83 @@ func TestDeploy_ListenerErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Route and ServiceExport deploys must not wait for the GC scan, which lists target
+// groups and reads their tags and can take minutes on a large account.
+func TestTgGcScanDoesNotBlockDeploys(t *testing.T) {
+	c := gomock.NewController(t)
+	defer c.Finish()
+
+	scanStarted := make(chan struct{})
+	finishScan := make(chan struct{})
+	mockTGManager := lattice.NewMockTargetGroupManager(c)
+	mockTGManager.EXPECT().List(gomock.Any()).Do(func(context.Context) {
+		close(scanStarted)
+		<-finishScan
+	}).Return(nil, nil)
+
+	prevGc := tgGc
+	defer func() { tgGc = prevGc }()
+	tgGc = &TgGc{
+		log: gwlog.FallbackLogger,
+		ctx: context.Background(),
+		cycleFn: NewTgGcFn(lattice.NewTargetGroupSynthesizer(
+			gwlog.FallbackLogger, nil, nil, mockTGManager, nil, nil, nil)),
+	}
+	cycleDone := make(chan struct{})
+	go func() {
+		defer close(cycleDone)
+		tgGc.cycle()
+	}()
+	select {
+	case <-scanStarted:
+	case <-cycleDone:
+		t.Fatal("GC cycle ended without scanning")
+	}
+
+	deployers := map[string]StackDeployer{
+		"route":          &latticeServiceStackDeployer{log: gwlog.FallbackLogger},
+		"service export": NewTargetGroupStackDeploy(gwlog.FallbackLogger, nil, nil),
+	}
+	deployed := map[string]chan error{}
+	for name, d := range deployers {
+		done := make(chan error, 1)
+		deployed[name] = done
+		go func() { done <- d.Deploy(context.Background(), core.NewDefaultStack(core.StackID{})) }()
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	var blocked []chan error
+	for name, done := range deployed {
+		select {
+		case err := <-done:
+			assert.NoError(t, err, name)
+		case <-time.After(time.Until(deadline)):
+			t.Errorf("%s deploy is blocked by the GC scan", name)
+			blocked = append(blocked, done)
+		}
+	}
+
+	close(finishScan)
+	<-cycleDone
+	for _, done := range blocked {
+		<-done // a blocked deploy finishes once the scan does
+	}
+}
+
+// The cycle must hand cycleFn the lock deploys take, so that deletes exclude deploys,
+// and must not hold it itself.
+func TestTgGcCycleLendsDeployLock(t *testing.T) {
+	gc := &TgGc{log: gwlog.FallbackLogger, ctx: context.Background()}
+	called := false
+	gc.cycleFn = func(_ context.Context, l sync.Locker) (TgGcResult, error) {
+		called = true
+		assert.Same(t, &gc.lock, l, "cycleFn should get the deploy lock")
+		assert.True(t, gc.lock.TryRLock(), "deploys must be able to run while the cycle scans")
+		gc.lock.RUnlock()
+		return TgGcResult{}, nil
+	}
+	gc.cycle()
+	assert.True(t, called)
+	assert.True(t, gc.lock.TryLock(), "lock must be free after the cycle")
 }

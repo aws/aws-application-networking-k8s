@@ -107,12 +107,15 @@ func NewLatticeServiceStackDeploy(
 	}
 }
 
-type TgGcCycleFn = func(context.Context) (TgGcResult, error)
+// TgGcCycleFn runs one GC cycle. deleteLock excludes deploys: the cycle must hold it
+// while it decides on and deletes each target group, and should not hold it while
+// scanning.
+type TgGcCycleFn = func(ctx context.Context, deleteLock sync.Locker) (TgGcResult, error)
 
 func NewTgGcFn(tgSynth *lattice.TargetGroupSynthesizer) TgGcCycleFn {
-	return func(ctx context.Context) (TgGcResult, error) {
+	return func(ctx context.Context, deleteLock sync.Locker) (TgGcResult, error) {
 		t0 := time.Now()
-		results, err := tgSynth.SynthesizeUnusedDelete(ctx)
+		results, err := tgSynth.SynthesizeUnusedDeleteWithLock(ctx, deleteLock)
 		if err != nil {
 			return TgGcResult{}, err
 		}
@@ -164,15 +167,20 @@ func (gc *TgGc) start() {
 	}()
 }
 
+// cycle runs one GC cycle. Deploys hold gc.lock as readers for their whole run. The
+// cycle does not hold it while scanning; cycleFn takes it as a writer around each
+// delete (see TargetGroupSynthesizer.SynthesizeUnusedDeleteWithLock).
+//
+// sync.RWMutex blocks new readers while a writer waits. A deploy that starts while GC
+// waits to delete a target group therefore waits for the deploys already running and
+// for that one delete. This happens once per deleted target group, never for the scan.
 func (gc *TgGc) cycle() {
 	defer func() {
 		if r := recover(); r != nil {
 			gc.log.Errorf(context.TODO(), "gc cycle panic: %s", r)
 		}
-		gc.lock.Unlock()
 	}()
-	gc.lock.Lock()
-	res, err := gc.cycleFn(gc.ctx)
+	res, err := gc.cycleFn(gc.ctx, &gc.lock)
 	if err != nil {
 		gc.log.Debugf(context.TODO(), "gc cycle error: %s", err)
 	}
