@@ -288,6 +288,56 @@ func Test_Create(t *testing.T) {
 		assert.Equal(t, "arn", ruleStatus.Arn)
 	})
 
+	t.Run("test create - quota exceeded is a quota error", func(t *testing.T) {
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{}, nil)
+		mockLattice.EXPECT().CreateRule(ctx, gomock.Any()).Return(
+			nil, &types.ServiceQuotaExceededException{Message: aws.String("quota")})
+
+		rm := NewRuleManager(gwlog.FallbackLogger, cloud)
+		_, err := rm.Upsert(ctx, rInvalidBR, l, svc)
+		var quotaErr *ruleQuotaError
+		if assert.ErrorAs(t, err, &quotaErr) {
+			assert.False(t, quotaErr.notUpdated)
+		}
+		assert.True(t, mocks.IsServiceQuotaExceededError(err))
+	})
+
+	t.Run("test update - quota exceeded returns the live rule", func(t *testing.T) {
+		mockTagging := mocks.NewMockTagging(c)
+		cloudWithTagging := pkg_aws.NewDefaultCloudWithTagging(mockLattice, mockTagging, TestCloudConfig)
+
+		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
+			[]*vpclattice.GetRuleOutput{
+				{
+					Id:  aws.String("existing-id"),
+					Arn: aws.String("existing-arn"),
+					Match: &types.RuleMatchMemberHttpMatch{
+						Value: types.HttpMatch{
+							Method: aws.String("POST"),
+						},
+					},
+					Action: &types.RuleActionMemberFixedResponse{
+						Value: types.FixedResponseAction{}, // <-- this will trigger update
+					},
+					Name:     aws.String("existing-name"),
+					Priority: aws.Int32(3),
+				},
+			}, nil)
+		mockTagging.EXPECT().UpdateTags(ctx, "existing-arn", gomock.Any(), nil).Return(nil)
+		mockLattice.EXPECT().UpdateRule(ctx, gomock.Any()).Return(
+			nil, &types.ServiceQuotaExceededException{Message: aws.String("quota")})
+
+		rm := NewRuleManager(gwlog.FallbackLogger, cloudWithTagging)
+		ruleStatus, err := rm.Upsert(ctx, r, l, svc)
+		var quotaErr *ruleQuotaError
+		if assert.ErrorAs(t, err, &quotaErr) {
+			assert.True(t, quotaErr.notUpdated)
+		}
+		assert.Equal(t, "existing-id", ruleStatus.Id)
+		assert.Equal(t, int64(3), ruleStatus.Priority)
+	})
+
 	t.Run("test create - one valid backendRef, two invalid", func(t *testing.T) {
 		mockLattice.EXPECT().GetRulesAsList(ctx, gomock.Any()).Return(
 			[]*vpclattice.GetRuleOutput{}, nil)
