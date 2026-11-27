@@ -20,6 +20,10 @@ ServiceExport resources can be targeted by [`TargetGroupPolicy`](target-group-po
 
 ### Annotations
 
+* `application-networking.k8s.aws/federation`  
+  (Required) Must be set to `"amazon-vpc-lattice"`. The controller ignores any ServiceExport that does not carry this
+  annotation with exactly this value, so no target group is created for it.
+
 * `application-networking.k8s.aws/service-name`  
   (Optional) When specified, the controller will look up the named K8s Service instead of using the ServiceExport's own
   name. See [ServiceImport](service-import.md) for the corresponding `export-name` annotation.
@@ -59,6 +63,7 @@ kind: ServiceExport
 metadata:
   name: service-1
   annotations:
+    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
     application-networking.k8s.aws/port: "9200"
 spec: {}
 ```
@@ -71,6 +76,8 @@ apiVersion: application-networking.k8s.aws/v1alpha1
 kind: ServiceExport
 metadata:
   name: service-1
+  annotations:
+    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
 spec:
   exportedPorts:
   - port: 80
@@ -93,6 +100,8 @@ apiVersion: application-networking.k8s.aws/v1alpha1
 kind: ServiceExport
 metadata:
   name: inventory-service
+  annotations:
+    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
 spec:
   exportedPorts:
   - port: 8080
@@ -135,6 +144,8 @@ apiVersion: application-networking.k8s.aws/v1alpha1
 kind: ServiceExport
 metadata:
   name: secure-service
+  annotations:
+    application-networking.k8s.aws/federation: "amazon-vpc-lattice"
 spec:
   exportedPorts:
   - port: 443
